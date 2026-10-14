@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { defaultCourseTrialCareRules, defaultTrialCareRules, TRIAL_CARE_LABELS, renderTrialCareBody, type TrialCareRule } from "@/lib/trial-care";
 import { saveTrialCareSettings, stopCustomerTrialCare } from "@/server/actions/trial-care";
 

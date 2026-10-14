@@ -14,7 +14,6 @@ import {
   setReferralTemplateFavoriteAction,
 } from "@/server/actions/referral-share-template-personalization";
 import { updateReferralShareTemplate } from "@/server/actions/referral-share-template";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -62,7 +61,6 @@ export function ReferralShareSettingsForm({
   const [recent, setRecent] = useState(initialRecent);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   const error = useMemo(() => getReferralShareTemplateError(template), [template]);
   const previewUrl = `${previewOrigin}/s/${storeSlug}/line-entry?ref=preview`;
@@ -127,7 +125,6 @@ export function ReferralShareSettingsForm({
         return;
       }
       toast.success(favorite ? "已加入我的收藏" : "已取消收藏");
-      router.refresh();
     });
   }
 
@@ -155,7 +152,6 @@ export function ReferralShareSettingsForm({
         setTemplate(defaultTemplate);
         setActiveTemplateId(null);
       }
-      router.refresh();
     });
   }
 

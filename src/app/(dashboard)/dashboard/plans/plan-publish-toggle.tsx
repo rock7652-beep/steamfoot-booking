@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { updatePlan } from "@/server/actions/plan";
 

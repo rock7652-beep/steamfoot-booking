@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { activateStaff, deactivateStaff } from "@/server/actions/staff";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 
 interface StaffStatusToggleProps {
   staffId: string;

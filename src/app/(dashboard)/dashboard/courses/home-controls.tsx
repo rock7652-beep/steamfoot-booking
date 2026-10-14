@@ -1,6 +1,7 @@
 "use client";
+import { backgroundRefreshAllowed } from "@/lib/background-refresh";
 import { useEffect, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 export function HomeRetry() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
@@ -18,7 +19,7 @@ export function HomeClockRefresh({ nextAt }: { nextAt: number }) {
     useEffect(() => {
         let last = Date.now();
         const refresh = () => {
-            if (document.visibilityState !== "visible") return;
+            if (!backgroundRefreshAllowed()) return;
             last = Date.now();
             router.refresh();
         };

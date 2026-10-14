@@ -1,4 +1,5 @@
 // Synthetic UI only: actual course settings components, no account or database.
+import { Toaster, toast } from "sonner";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { CourseSettingsWorkspace } from "../../src/app/(dashboard)/dashboard/courses/settings-workspace";
@@ -11,7 +12,9 @@ function Fixture() {
   const [music, setMusic] = useState(false);
   const [allowed, setAllowed] = useState(true);
   return <main className="mx-auto max-w-[1440px] space-y-4 p-4">
-    <p>合成課程設定驗收；沒有登入、資料庫或通知。</p>
+    <p>合成課程設定驗收；沒有登入或資料庫；成功通知使用合成資料。</p>
+    <Toaster position="top-right" richColors closeButton />
+    <button type="button" className="min-h-11 rounded border px-3" onClick={() => toast.success("已新增課程", { duration: 10000 })}>測試成功通知</button>
     <div className="flex flex-wrap gap-3">
       <label>功能狀態<select aria-label="功能狀態" className="min-h-11 border px-3" value={state} onChange={e => setState(e.target.value as FeaturePresentationState)}>
         <option>HIDDEN</option><option>LOCKED</option><option>ENABLED</option>

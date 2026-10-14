@@ -32,7 +32,7 @@ import type { SaveState } from "@/hooks/use-responsive-action";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import {
   updateCourseRosterBatch,
   loadCourseSessionDetail,

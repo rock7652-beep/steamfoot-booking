@@ -6,7 +6,8 @@ import { normalizeCustomerSearch } from "@/lib/customer-search-index";
 import { NavigationNotice } from "@/components/navigation-notice";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams, usePathname } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 
 /**

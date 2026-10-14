@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
 import { type LiffCustomerProfile } from "@/server/actions/liff-customer-profile";

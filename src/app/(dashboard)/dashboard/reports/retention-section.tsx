@@ -1,7 +1,8 @@
 "use client";
+import { backgroundRefreshAllowed } from "@/lib/background-refresh";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { RetentionMetric } from "@/server/queries/retention-metrics";
 import type { retentionPresentation } from "@/lib/retention-presentation";
@@ -17,7 +18,7 @@ export function RetentionSection({ presentation, returned, pending, rate, custom
     let day = toLocalDateStr();
     let lastRefresh = Date.now();
     const refresh = () => {
-      if (document.visibilityState !== "visible") return;
+      if (!backgroundRefreshAllowed()) return;
       const nextDay = toLocalDateStr();
       if (nextDay !== day || Date.now() - lastRefresh >= 60_000) {
         day = nextDay; lastRefresh = Date.now(); router.refresh();

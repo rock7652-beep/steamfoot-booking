@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 /**
  * 讀取 URL `?saved=...` 參數並以 success toast 顯示。
@@ -14,21 +14,21 @@ import { useRouter, useSearchParams } from "next/navigation";
  */
 export function FormSuccessToast() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const saved = searchParams.get("saved");
 
   useEffect(() => {
-    if (saved) {
+    if (saved && new URLSearchParams(window.location.search).get("saved") === saved) {
       toast.success(saved);
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       params.delete("saved");
       const remaining = params.toString();
       const newUrl = remaining
         ? `${window.location.pathname}?${remaining}`
         : window.location.pathname;
-      router.replace(newUrl, { scroll: false });
+      // Feedback cleanup changes URL state only, never reloads the displayed page.
+      window.history.replaceState(null, "", newUrl + window.location.hash);
     }
-  }, [saved, searchParams, router]);
+  }, [saved, searchParams]);
 
   return null;
 }

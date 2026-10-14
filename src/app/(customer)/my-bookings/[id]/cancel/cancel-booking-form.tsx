@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import type { ActionResult } from "@/types";
 
 type CancelAction = (
@@ -22,7 +22,6 @@ export function CancelBookingForm({
   useEffect(() => {
     if (result?.success) {
       router.replace(destination);
-      router.refresh();
     }
   }, [destination, result, router]);
 

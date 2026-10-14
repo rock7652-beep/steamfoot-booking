@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import styles from "@/components/admin/commerce-layout.module.css";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 
 type RecordKind = "" | "income" | "retail" | "other" | "expense" | "withdraw" | "adjustment";
 

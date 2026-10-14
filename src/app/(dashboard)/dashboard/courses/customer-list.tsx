@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { CustomersTable, isInactiveRow, type CustomerRow } from "../customers/_components/customers-table";
 import { BulkAssignBar } from "../customers/_components/bulk-assign-bar";

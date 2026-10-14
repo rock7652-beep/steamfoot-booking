@@ -1,5 +1,5 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { StaffAccountEditor, type StaffAccountPolicy } from "./staff-account-editor";
 import type { StaffWorkspacePerson } from "./staff-workspace";
 

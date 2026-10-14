@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { digitalButlerAnswerSummary } from "@/lib/digital-butler-answer-summary";
 import { digitalButlerLeadFilterHref } from "@/lib/digital-butler-lead-filters";

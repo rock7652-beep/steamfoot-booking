@@ -5,7 +5,8 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { useId, useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedBookingWindow, bookingWindowRevision } from "@/lib/course-booking-window-save";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { addTaiwanDuration, formatDateZh } from "@/lib/date-utils";
 

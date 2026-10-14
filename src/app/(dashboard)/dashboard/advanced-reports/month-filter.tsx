@@ -2,7 +2,8 @@
 
 import { NavigationNotice } from "@/components/navigation-notice";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 interface MonthFilterProps {

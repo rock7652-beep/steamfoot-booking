@@ -1,29 +1,11 @@
 "use client";
 
-/**
- * InlineCashbookForm — 「記一筆收支」現金管理頁內 inline form（PR-G5.1b）
- *
- * 目的：讓店長在現金管理頁原地完成記一筆收支，不再跳 /dashboard/cashbook/new。
- *
- * 設計沿用 TodayOpenForm 的 client wrapper 模式：
- *   - server component 父層（DailyActionsArea / ClosedActionsArea）用 closure
- *     綁好 createCashbookEntry，當 `action` prop 傳進來。
- *   - 用 useActionState 接 result：成功 → client 端 window.location.assign(returnPath)
- *     走 hard navigation（等效 F5），讓 page server components 重跑、新紀錄即時出現，
- *     繞開 same-URL inline RSC payload 卡死路徑（與 TodayOpenForm 同因）。
- *   - 失敗 → 不跳頁、不 crash，原地顯示錯誤訊息。
- *
- * 權限：本入口只受 cashbook.create 控制（由 caller 判斷後才 render），與
- *   提領 / 補入（cashDrawer.entry）兩套權限分開。
- *
- * 類型限定 INCOME / EXPENSE：提領仍走既有 WithdrawalForm（cashDrawer.entry），
- *   不讓店長用 CashbookEntry.WITHDRAW 做提領。後端 createCashbookEntry 業務邏輯不變，
- *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookEntryFields 沿用。
- */
+/** Writes return a receipt; the mounted workspace refreshes without a document reload. */
 
-import { useActionState, useEffect } from "react";
+
 
 import { FormSection } from "@/components/desktop";
+import { useInPlaceAction } from "@/components/operations/use-in-place-action";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -37,7 +19,7 @@ interface Props {
   /** Current store for the customer search index. */
   storeId: string;
   instantSearch: boolean;
-  /** 成功後 hard navigate 的目標 URL（== caller 的 returnPath）。 */
+  /** 完成後同步的目標 URL（== caller 的 returnPath）。 */
   returnPath: string;
   /** 今天（"YYYY-MM-DD"，UTC+8），日期欄位預設值。 */
   today: string;
@@ -62,25 +44,19 @@ export function InlineCashbookForm({
   canAssignStaff,
   staffOptions,
 }: Props) {
-  const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
+  const { state, formAction, onSubmit, pending, formVersion } = useInPlaceAction(action, returnPath, "已新增收支");
 
-  useEffect(() => {
-    if (state?.success) {
-      window.location.assign(returnPath);
-    }
-  }, [state, returnPath]);
-
-  const isSuccess = state?.success === true;
   const errorMsg = state && !state.success ? state.error : null;
 
   return (
-    <form action={formAction} className="space-y-4 p-4 sm:p-6">
+    <form key={formVersion} action={formAction} onSubmit={onSubmit} aria-busy={pending} className="space-y-4 p-4 sm:p-6">
       {errorMsg && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {errorMsg}
         </div>
       )}
 
+      <fieldset disabled={pending} className="contents">
       <CashbookEntryFields storeId={storeId} today={today} editableDate instantSearch={instantSearch} closedDates={closedDates} />
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
@@ -102,12 +78,13 @@ export function InlineCashbookForm({
 
       <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-earth-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
         <SubmitButton
-          label="確認新增"
-          pendingLabel={isSuccess ? "已新增，更新中…" : "新增中..."}
-          disabled={isSuccess}
+          label={pending ? "新增中…" : "確認新增"}
+          pendingLabel="新增中..."
+          disabled={pending}
           className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700 sm:ml-auto sm:flex sm:w-auto sm:min-w-40"
         />
       </div>
+      </fieldset>
     </form>
   );
 }

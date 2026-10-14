@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/full-site-navigation-stability-20261014": false,
       "fix/course-people-unified-20261011": false,
       "feat/teacher-own-income-20261011": false,
       "feat/store-notification-center-20261011": false,

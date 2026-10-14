@@ -1,7 +1,5 @@
+import { WorkspaceLoading } from "@/components/workspace-loading";
+
 export default function Loading() {
-  return (
-    <div className="p-6 text-earth-600" role="status">
-      課表讀取中…
-    </div>
-  );
+  return <WorkspaceLoading label="正在載入課程內容…" />;
 }

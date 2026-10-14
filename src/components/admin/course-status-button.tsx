@@ -1,7 +1,7 @@
 "use client";
 import {useState,useRef,useId} from "react";
 import {RightSheet} from "@/components/admin/right-sheet";
-import {useRouter} from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import {applyCourseBatchStatus,courseStatusImpact} from "@/server/actions/course-batch";
 export function useCourseStatusRows<T extends {id:string}>(items:T[],key:"isActive"|"active"="isActive"){
  const [busyIds,setBusyIds]=useState<string[]>([]);

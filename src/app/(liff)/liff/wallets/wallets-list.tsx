@@ -25,7 +25,7 @@
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import {
   fetchLiffWallets,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { triggerReconciliation } from "@/server/actions/reconciliation";
 import { toast } from "sonner";
 

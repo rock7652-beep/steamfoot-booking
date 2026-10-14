@@ -1,3 +1,4 @@
+import { QueryForm } from "@/components/query-form";
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -112,7 +113,7 @@ export default async function CustomerMergePage({
         </ul>
       </div>
 
-      <form method="GET" action="/dashboard/customers/merge" className="rounded-lg border border-earth-200 bg-white p-4">
+      <QueryForm method="GET" action="/dashboard/customers/merge" className="rounded-lg border border-earth-200 bg-white p-4">
         {sourceId ? <input type="hidden" name="source" value={sourceId} /> : null}
         {targetId ? <input type="hidden" name="target" value={targetId} /> : null}
         <label className="block text-xs font-medium text-earth-700">搜尋另一筆顧客資料</label>
@@ -137,10 +138,10 @@ export default async function CustomerMergePage({
             })}
           </div>
         ) : null}
-      </form>
+      </QueryForm>
 
       {/* Step 1: 輸入兩個 ID 載入預覽 */}
-      <form
+      <QueryForm
         method="GET"
         action="/dashboard/customers/merge"
         className="rounded-lg border border-earth-200 bg-white p-4"
@@ -182,7 +183,7 @@ export default async function CustomerMergePage({
             比對資料
           </button>
         </div>
-      </form>
+      </QueryForm>
 
       {/* Step 2: 預覽 + 確認 */}
       {previewError ? (

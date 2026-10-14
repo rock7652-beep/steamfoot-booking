@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { renameStoreAction, type RenameStoreFormState } from "@/server/actions/store-rename";
 
 const initialState: RenameStoreFormState = { success: null, error: null };

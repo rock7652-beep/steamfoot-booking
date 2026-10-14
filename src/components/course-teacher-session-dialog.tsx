@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { loadCourseTeacherSession, changeCourseTeacherSession } from "@/server/actions/course-teacher-session";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { ModalPanel } from "@/components/admin/modal-panel";

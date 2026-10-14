@@ -13,7 +13,7 @@ import { SettingsPanelContext } from "@/components/admin/settings-panel-context"
 import { useCustomerPanelGuard } from "@/components/admin/use-customer-panel-guard";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { SpaCustomerList } from "./spa-customer-list";
 import {
   SpaCustomerOverview,

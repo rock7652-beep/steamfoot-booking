@@ -83,6 +83,17 @@ try {
   if (await page.getByLabel("未儲存草稿").inputValue() !== "尺寸切換草稿") throw new Error("Draft lost after resize");
   await page.getByLabel("功能狀態").selectOption("LOCKED");
   if (await page.getByLabel("未儲存草稿").count()) throw new Error("Revoked editor remains mounted");
+  for (const [width, height] of [[1366, 900], [1024, 768], [768, 1024]]) {
+    await page.setViewportSize({ width, height });
+    await page.getByRole("button", { name: "測試成功通知" }).click();
+    const notification = page.locator('[data-sonner-toast][data-type="success"]').last();
+    await notification.waitFor({ state: "visible" });
+    const box = await notification.boundingBox();
+    if (!box || box.x < 0 || box.x + box.width > width || box.y > 100) throw new Error("Success notice is outside the top-right viewport");
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error("Toast causes overflow");
+    await page.screenshot({ path: path.join(output, `success-${width}.png`), fullPage: true });
+    await notification.getByRole("button").click();
+  }
   if (failures.length) throw new Error(failures.join("\n"));
   writeFileSync(path.join(output, "results.json"), JSON.stringify({ synthetic: true, businessAcceptance: false, safari: false, cases: results, draftResize: true, revokedEditorUnmounted: true }, null, 2));
   console.log(`Synthetic Chromium: ${results.length} cases passed; results and screenshots at ${output}`);

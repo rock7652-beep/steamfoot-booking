@@ -3,7 +3,8 @@
 import styles from "@/components/admin/management-layout.module.css";
 import { NavigationNotice } from "@/components/navigation-notice";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 
 const PRESETS = [

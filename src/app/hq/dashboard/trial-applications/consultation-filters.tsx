@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RosterToolbar } from "@/components/admin/roster-primitives";
 import { CONSULTATION_LEAD_STATUSES } from "@/lib/consultation-lead";
 import { applicationStatuses } from "@/lib/trial-application";

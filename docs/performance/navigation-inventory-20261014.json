@@ -1,0 +1,3494 @@
+{
+  "date": "2026-10-14",
+  "verification": "Static source inventory; not authenticated business acceptance.",
+  "summary": {
+    "pages": 192,
+    "loadingBoundaries": 61,
+    "navigationCalls": 438,
+    "stableRouterConsumers": 116,
+    "nativeRouterBoundary": [
+      "src/components/use-stable-router.ts"
+    ],
+    "nativeGetFormsOutsideWrapper": 0
+  },
+  "routers": [
+    {
+      "file": "src/app/(auth)/register/register-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 20,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(customer)/book/new/month-calendar.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(customer)/book/shop/[planId]/checkout/purchase-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/[id]/cancel/cancel-booking-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(customer)/profile/profile-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/_components/trial-booking-drawer.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/advanced-reports/month-filter.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bonus-rules/preset-playbook-cards.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-load-error.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-month-workspace.tsx",
+      "line": 2,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/cashbook-editor.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/cashbook-entry-delete-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/course-self-booking-settings.tsx",
+      "line": 7,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/customer-list.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/daily-attendance-list.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/home-controls.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "line": 34,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/month-picker.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+      "line": 12,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/purchase-review.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 35,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-editor.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-panel.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "line": 11,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 30,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form.tsx",
+      "line": 7,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/migrate-paper-plan-dialog.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/talent-pipeline-section.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/void-session-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/add-spa-staff-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customer-standalone-detail.tsx",
+      "line": 2,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx",
+      "line": 9,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/page-size-selector.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customer-drawer-button.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customer-list.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx",
+      "line": 16,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/merge/merge-confirm-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/new/new-customer-form.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/digital-butler/leads/lead-list.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/duty-week-view.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/_components/care-booking-button.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/_components/care-row-actions.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/health/health-customer-search.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/audit-auto-refresh.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/operation-audit-filters.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/payments/confirm-button.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/payments/void-button.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/_components/plan-form-drawer.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/_components/spa-packages-manager.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/plan-active-toggle.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/plan-publish-toggle.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reconciliation/run-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reports/retention-section.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/spa-revenue-actions.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/calculator-form.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/hours/bookable-until-form.tsx",
+      "line": 8,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/admin-plan-override.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/admin-trial-start.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/pricing-plan-switcher.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settlements/_components/settlements-view.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "line": 14,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/edit-person.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/new-person.tsx",
+      "line": 7,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "line": 8,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/rent/rent-form.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/reset-password-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/staff-account-route.tsx",
+      "line": 2,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/staff-status-toggle.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/trial-follow-up/_components/follow-up-table.tsx",
+      "line": 17,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 42,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/health/health-view.tsx",
+      "line": 25,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/member-booking-form.tsx",
+      "line": 39,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "line": 21,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/profile/profile-view.tsx",
+      "line": 26,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 26,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(liff)/liff/wallets/wallets-list.tsx",
+      "line": 28,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/(service-workspace)/staff-schedule/staff-schedule-date-picker.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/activate-trial-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/rename-store-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/spa-provision-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/subscription-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/trial/trial-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/app/hq/dashboard/trial-applications/consultation-filters.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/admin/course-batch-selection.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/admin/course-setup-guide.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/admin/course-status-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/course-booking-notification-dialog.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/course-teacher-session-dialog.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/customer-labels.tsx",
+      "line": 8,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/device-preview/device-preview.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/frontend-preview/selector.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/income-month-filter.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/instant-filter-form.tsx",
+      "line": 3,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/operations/use-in-place-action.ts",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/query-form.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/report-date-range.tsx",
+      "line": 6,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/settings/settings-panel.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/store-archive-button.tsx",
+      "line": 4,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/store-switcher.tsx",
+      "line": 5,
+      "module": "@/components/use-stable-router"
+    },
+    {
+      "file": "src/components/use-stable-router.ts",
+      "line": 4,
+      "module": "next/navigation"
+    }
+  ],
+  "nativeGetForms": [
+    {
+      "file": "src/components/query-form.tsx",
+      "line": 10
+    }
+  ],
+  "navigation": [
+    {
+      "file": "src/app/(auth)/layout.tsx",
+      "line": 15,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(auth)/register/register-form.tsx",
+      "line": 67,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 360,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 456,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 477,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 489,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 549,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 1386,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(customer)/book/course-portal-client.tsx",
+      "line": 1571,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/new/month-calendar.tsx",
+      "line": 42,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/new/month-calendar.tsx",
+      "line": 47,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/new/month-calendar.tsx",
+      "line": 52,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/page.tsx",
+      "line": 61,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/book/page.tsx",
+      "line": 108,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/book/share-contact-actions.tsx",
+      "line": 62,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(customer)/book/shop/[planId]/checkout/page.tsx",
+      "line": 26,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/book/shop/[planId]/checkout/page.tsx",
+      "line": 69,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/book/shop/[planId]/checkout/purchase-button.tsx",
+      "line": 54,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/book/shop/page.tsx",
+      "line": 9,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/health/new/page.tsx",
+      "line": 14,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/health/new/page.tsx",
+      "line": 18,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/health/page.tsx",
+      "line": 24,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/health/page.tsx",
+      "line": 46,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 105,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 108,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 179,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 182,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 195,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 233,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/layout.tsx",
+      "line": 257,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/member-stores/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/member-stores/page.tsx",
+      "line": 13,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/[id]/cancel/cancel-booking-form.tsx",
+      "line": 24,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/[id]/cancel/page.tsx",
+      "line": 37,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/[id]/cancel/page.tsx",
+      "line": 48,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/[id]/cancel/page.tsx",
+      "line": 65,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/page.tsx",
+      "line": 40,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-bookings/page.tsx",
+      "line": 55,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-growth/page.tsx",
+      "line": 20,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-growth/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/my-points/page.tsx",
+      "line": 42,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(customer)/profile/login-methods-card.tsx",
+      "line": 46,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(customer)/profile/login-methods-card.tsx",
+      "line": 59,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(customer)/profile/profile-form.tsx",
+      "line": 75,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(customer)/profile/profile-form.tsx",
+      "line": 77,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/_components/trial-booking-drawer.tsx",
+      "line": 58,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/advanced-reports/month-filter.tsx",
+      "line": 35,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/advanced-reports/page.tsx",
+      "line": 8,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/advanced-reports/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/analytics/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bonus-rules/page.tsx",
+      "line": 14,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bonus-rules/preset-playbook-cards.tsx",
+      "line": 108,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 67,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 80,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 95,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 100,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 105,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 110,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 115,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+      "line": 120,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-load-error.tsx",
+      "line": 19,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-month-workspace.tsx",
+      "line": 49,
+      "operation": "window.history.pushState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-month-workspace.tsx",
+      "line": 69,
+      "operation": "window.history.pushState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/booking-month-workspace.tsx",
+      "line": 73,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 54,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 58,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 165,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 172,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 176,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 178,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+      "line": 207,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/page.tsx",
+      "line": 50,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/page.tsx",
+      "line": 84,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/source/page.tsx",
+      "line": 22,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "line": 187,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "line": 221,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "line": 550,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/brand-overview/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cash-drawer/page.tsx",
+      "line": 51,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cash-drawer/page.tsx",
+      "line": 63,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/[id]/edit/page.tsx",
+      "line": 35,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/[id]/edit/page.tsx",
+      "line": 39,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/[id]/edit/page.tsx",
+      "line": 84,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/[id]/edit/page.tsx",
+      "line": 89,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx",
+      "line": 28,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/cashbook-editor.tsx",
+      "line": 99,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/cashbook-entry-delete-button.tsx",
+      "line": 30,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/new/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/new/page.tsx",
+      "line": 33,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/new/page.tsx",
+      "line": 66,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/new/page.tsx",
+      "line": 69,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/cashbook/page.tsx",
+      "line": 90,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/coach-revenue/page.tsx",
+      "line": 26,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx",
+      "line": 24,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx",
+      "line": 44,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/course-self-booking-settings.tsx",
+      "line": 76,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/customer-list.tsx",
+      "line": 50,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/customer-list.tsx",
+      "line": 82,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/daily-attendance-list.tsx",
+      "line": 50,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/daily-attendance-list.tsx",
+      "line": 51,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/daily-attendance-list.tsx",
+      "line": 52,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/daily-attendance-list.tsx",
+      "line": 62,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/home-controls.tsx",
+      "line": 8,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/home-controls.tsx",
+      "line": 24,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "line": 236,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "line": 485,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "line": 492,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "line": 499,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/month-picker.tsx",
+      "line": 16,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+      "line": 48,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "line": 43,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "line": 64,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "line": 67,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "line": 81,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "line": 313,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/purchase-review.tsx",
+      "line": 57,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+      "line": 36,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 475,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 1357,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 1578,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 1605,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 1634,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "line": 1639,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-editor.tsx",
+      "line": 37,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-panel.tsx",
+      "line": 39,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-panel.tsx",
+      "line": 94,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "line": 145,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "line": 171,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "line": 238,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/shared-hub.tsx",
+      "line": 33,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/showcase/page.tsx",
+      "line": 12,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/staff-workspace.tsx",
+      "line": 663,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/use-customer-panel-url.ts",
+      "line": 15,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 293,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 352,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 446,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 524,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 525,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 614,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 642,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 736,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1051,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1278,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1300,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1303,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1322,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 1432,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 2017,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 2030,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 2052,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 2120,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "line": 2263,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/customer-detail-section.tsx",
+      "line": 23,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/customer-detail-section.tsx",
+      "line": 38,
+      "operation": "window.history.pushState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form.tsx",
+      "line": 98,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form.tsx",
+      "line": 101,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/edit/page.tsx",
+      "line": 25,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/edit/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx",
+      "line": 27,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "line": 96,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "line": 174,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "line": 184,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "line": 206,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/migrate-paper-plan-dialog.tsx",
+      "line": 184,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+      "line": 126,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
+      "line": 46,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
+      "line": 83,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
+      "line": 87,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/talent-pipeline-section.tsx",
+      "line": 53,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/[id]/void-session-button.tsx",
+      "line": 43,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/add-spa-staff-button.tsx",
+      "line": 13,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customer-standalone-detail.tsx",
+      "line": 7,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customer-standalone-detail.tsx",
+      "line": 9,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "line": 222,
+      "operation": "window.history.pushState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "line": 252,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "line": 290,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "line": 387,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx",
+      "line": 114,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx",
+      "line": 157,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/page-size-selector.tsx",
+      "line": 28,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customer-drawer-button.tsx",
+      "line": 85,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customer-list.tsx",
+      "line": 41,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx",
+      "line": 88,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/central-binding/page.tsx",
+      "line": 41,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/central-binding/page.tsx",
+      "line": 47,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/merge/merge-confirm-form.tsx",
+      "line": 46,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/merge/merge-confirm-form.tsx",
+      "line": 47,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/merge/page.tsx",
+      "line": 44,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/new/new-customer-form.tsx",
+      "line": 28,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/new/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/new/page.tsx",
+      "line": 33,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/customers/page.tsx",
+      "line": 81,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/data-export/page.tsx",
+      "line": 14,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/digital-butler/leads/lead-list.tsx",
+      "line": 114,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/digital-butler/leads/lead-list.tsx",
+      "line": 122,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/digital-butler/leads/lead-list.tsx",
+      "line": 222,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 141,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 158,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 178,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 191,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/duty-day-editor.tsx",
+      "line": 224,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/[date]/page.tsx",
+      "line": 21,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/duty-week-view.tsx",
+      "line": 101,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/duty-week-view.tsx",
+      "line": 229,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/duty/page.tsx",
+      "line": 163,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/_components/care-booking-button.tsx",
+      "line": 37,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/_components/care-booking-button.tsx",
+      "line": 38,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/_components/care-row-actions.tsx",
+      "line": 47,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/growth/page.tsx",
+      "line": 112,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/guide/page.tsx",
+      "line": 12,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/health/health-customer-search.tsx",
+      "line": 39,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/health/page.tsx",
+      "line": 49,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/health/page.tsx",
+      "line": 61,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/inventory/page.tsx",
+      "line": 11,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/audit-auto-refresh.tsx",
+      "line": 42,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/audit-auto-refresh.tsx",
+      "line": 43,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/audit-auto-refresh.tsx",
+      "line": 75,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/audit-auto-refresh.tsx",
+      "line": 76,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/operation-audit-filters.tsx",
+      "line": 60,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/operation-audit-filters.tsx",
+      "line": 80,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/operation-audit-filters.tsx",
+      "line": 129,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/operation-audits/page.tsx",
+      "line": 68,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/ops/page.tsx",
+      "line": 34,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/payments/confirm-button.tsx",
+      "line": 44,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/payments/page.tsx",
+      "line": 90,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/payments/void-button.tsx",
+      "line": 40,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/[id]/edit/page.tsx",
+      "line": 25,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/[id]/edit/page.tsx",
+      "line": 30,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/[id]/edit/page.tsx",
+      "line": 59,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/_components/plan-form-drawer.tsx",
+      "line": 123,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/_components/spa-packages-manager.tsx",
+      "line": 227,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/new/page.tsx",
+      "line": 18,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/new/page.tsx",
+      "line": 22,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/new/page.tsx",
+      "line": 43,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/new/page.tsx",
+      "line": 46,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/page.tsx",
+      "line": 34,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/plan-active-toggle.tsx",
+      "line": 42,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/plans/plan-publish-toggle.tsx",
+      "line": 50,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/ranking/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reconciliation/page.tsx",
+      "line": 31,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reconciliation/run-button.tsx",
+      "line": 16,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/page.tsx",
+      "line": 47,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/tools/page.tsx",
+      "line": 22,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/tools/page.tsx",
+      "line": 25,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "line": 53,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "line": 90,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/zhubei-line-health/page.tsx",
+      "line": 13,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/zhubei-line-health/page.tsx",
+      "line": 18,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reminders/zhubei-line-health/page.tsx",
+      "line": 27,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reports/page.tsx",
+      "line": 62,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reports/page.tsx",
+      "line": 93,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/reports/retention-section.tsx",
+      "line": 24,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx",
+      "line": 18,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx",
+      "line": 36,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx",
+      "line": 49,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/_components/spa-revenue-actions.tsx",
+      "line": 146,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/revenue/page.tsx",
+      "line": 96,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/calculator-form.tsx",
+      "line": 116,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/calculator-form.tsx",
+      "line": 135,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/calculator-form.tsx",
+      "line": 154,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client.tsx",
+      "line": 61,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/service-fee-calculator/page.tsx",
+      "line": 45,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
+      "line": 100,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
+      "line": 125,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
+      "line": 142,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/duty/page.tsx",
+      "line": 97,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/hours/bookable-until-form.tsx",
+      "line": 90,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/page.tsx",
+      "line": 90,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/payment/page.tsx",
+      "line": 14,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/perf/page.tsx",
+      "line": 27,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/admin-plan-override.tsx",
+      "line": 47,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/admin-trial-start.tsx",
+      "line": 43,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/page.tsx",
+      "line": 38,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plan/pricing-plan-switcher.tsx",
+      "line": 31,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/plans/page.tsx",
+      "line": 186,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/referral-share/page.tsx",
+      "line": 19,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/referral-share/page.tsx",
+      "line": 23,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/referral-share/page.tsx",
+      "line": 57,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settings/trial/page.tsx",
+      "line": 14,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settlements/_components/settlements-view.tsx",
+      "line": 91,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settlements/_components/settlements-view.tsx",
+      "line": 126,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settlements/_components/settlements-view.tsx",
+      "line": 135,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/settlements/page.tsx",
+      "line": 48,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
+      "line": 23,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
+      "line": 25,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
+      "line": 26,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "line": 411,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "line": 412,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "line": 446,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "line": 665,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/edit-person.tsx",
+      "line": 11,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/new-person.tsx",
+      "line": 70,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "line": 36,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "line": 38,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "line": 43,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "line": 52,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
+      "line": 96,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
+      "line": 101,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
+      "line": 119,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
+      "line": 124,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/[id]/rent/rent-form.tsx",
+      "line": 24,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/page.tsx",
+      "line": 151,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/page.tsx",
+      "line": 153,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/reset-password-button.tsx",
+      "line": 54,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/staff-account-route.tsx",
+      "line": 9,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/staff/staff-status-toggle.tsx",
+      "line": 31,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/store-revenue/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/talent/page.tsx",
+      "line": 9,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/training/page.tsx",
+      "line": 11,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 186,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 202,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 224,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 264,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 284,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 300,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "line": 320,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/transactions/page.tsx",
+      "line": 80,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/trial-follow-up/_components/follow-up-table.tsx",
+      "line": 91,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/trial-follow-up/page.tsx",
+      "line": 59,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/upgrade-requests/page.tsx",
+      "line": 69,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/work-orders/page.tsx",
+      "line": 11,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/_components/boundary-blocks.tsx",
+      "line": 70,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 166,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 170,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 244,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 257,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "line": 303,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/error.tsx",
+      "line": 52,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/health/health-view.tsx",
+      "line": 109,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/health/health-view.tsx",
+      "line": 702,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-shell.tsx",
+      "line": 200,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-shell.tsx",
+      "line": 221,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-shell.tsx",
+      "line": 395,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-shell.tsx",
+      "line": 504,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-shell.tsx",
+      "line": 600,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/liff-store-share-card.tsx",
+      "line": 30,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/_components/blocked-block.tsx",
+      "line": 40,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/_components/boundary-blocks.tsx",
+      "line": 66,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/member-booking-form.tsx",
+      "line": 172,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/member-booking-form.tsx",
+      "line": 395,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/member-booking-form.tsx",
+      "line": 399,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/member-booking/member-booking-form.tsx",
+      "line": 511,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "line": 98,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "line": 173,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "line": 413,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/profile/profile-view.tsx",
+      "line": 99,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/profile/profile-view.tsx",
+      "line": 276,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx",
+      "line": 35,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx",
+      "line": 73,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx",
+      "line": 123,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/spa-work/staff-work-screen.tsx",
+      "line": 105,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/spa-work/staff-work-screen.tsx",
+      "line": 138,
+      "operation": "location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 132,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 285,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 289,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 567,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "line": 613,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/wallets/shop/[planId]/page.tsx",
+      "line": 36,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(liff)/liff/wallets/wallets-list.tsx",
+      "line": 99,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/(liff)/liff/wallets/wallets-list.tsx",
+      "line": 567,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/(service-workspace)/staff-schedule/page.tsx",
+      "line": 54,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(service-workspace)/staff-schedule/page.tsx",
+      "line": 95,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/(service-workspace)/staff-schedule/staff-schedule-date-picker.tsx",
+      "line": 23,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/activate-trial-button.tsx",
+      "line": 20,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/features/page.tsx",
+      "line": 31,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/page.tsx",
+      "line": 28,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/rename-store-form.tsx",
+      "line": 20,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/[storeId]/spa-provision-button.tsx",
+      "line": 25,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/page.tsx",
+      "line": 10,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 81,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 91,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 174,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 240,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "line": 734,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/page.tsx",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/page.tsx",
+      "line": 40,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/subscription-form.tsx",
+      "line": 105,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/trial/page.tsx",
+      "line": 23,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/trial/page.tsx",
+      "line": 31,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/[storeId]/trial/trial-form.tsx",
+      "line": 70,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/stores/subscriptions/page.tsx",
+      "line": 78,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/hq/dashboard/trial-applications/consultation-filters.tsx",
+      "line": 86,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/trial-applications/consultation-filters.tsx",
+      "line": 87,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/app/hq/dashboard/trial-applications/page.tsx",
+      "line": 16,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/oauth-buttons.tsx",
+      "line": 15,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/preview-review/review-entry.tsx",
+      "line": 14,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/app/preview-review/review-entry.tsx",
+      "line": 25,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
+      "line": 21,
+      "operation": "window.location.replace",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/app/pricing/trial/guide/[topic]/page.tsx",
+      "line": 16,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/spa-preview/manager/page.tsx",
+      "line": 5,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/spa-preview/page.tsx",
+      "line": 5,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/app/spa-preview/staff/page.tsx",
+      "line": 5,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/admin/course-batch-selection.tsx",
+      "line": 13,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/admin/course-batch-selection.tsx",
+      "line": 26,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/admin/course-batch-selection.tsx",
+      "line": 27,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/admin/course-setup-guide.tsx",
+      "line": 60,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/admin/course-status-button.tsx",
+      "line": 20,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/course-booking-notification-dialog.tsx",
+      "line": 65,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/course-teacher-session-dialog.tsx",
+      "line": 40,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/customer-labels.tsx",
+      "line": 263,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/dashboard-layout.tsx",
+      "line": 65,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/dashboard-layout.tsx",
+      "line": 68,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/dashboard-layout.tsx",
+      "line": 69,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/dashboard-layout.tsx",
+      "line": 75,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/dashboard-layout.tsx",
+      "line": 115,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/components/device-preview/device-preview.tsx",
+      "line": 51,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/form-error-toast.tsx",
+      "line": 34,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/components/form-success-toast.tsx",
+      "line": 29,
+      "operation": "window.history.replaceState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/components/frontend-preview/selector.tsx",
+      "line": 31,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/income-month-filter.tsx",
+      "line": 17,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/instant-filter-form.tsx",
+      "line": 25,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/member-connection-entry.tsx",
+      "line": 18,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/components/operations/store-view-transition.tsx",
+      "line": 93,
+      "operation": "window.location.reload",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/components/operations/use-in-place-action.ts",
+      "line": 29,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/operations/use-in-place-action.ts",
+      "line": 30,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/query-form.tsx",
+      "line": 23,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/report-date-range.tsx",
+      "line": 46,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/report-date-range.tsx",
+      "line": 66,
+      "operation": "router.push",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/return-to-hq-button.tsx",
+      "line": 14,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/components/settings/settings-panel.tsx",
+      "line": 53,
+      "operation": "router.replace",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/settings/settings-workspace.tsx",
+      "line": 147,
+      "operation": "window.history.pushState",
+      "category": "local-url-state"
+    },
+    {
+      "file": "src/components/share-referral.tsx",
+      "line": 77,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/components/store-archive-button.tsx",
+      "line": 21,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/store-switcher.tsx",
+      "line": 131,
+      "operation": "window.location.assign",
+      "category": "document-or-security-boundary"
+    },
+    {
+      "file": "src/components/store-switcher.tsx",
+      "line": 134,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/components/use-stable-router.ts",
+      "line": 25,
+      "operation": "router.prefetch",
+      "category": "scoped-client-navigation"
+    },
+    {
+      "file": "src/components/use-stable-router.ts",
+      "line": 26,
+      "operation": "router.refresh",
+      "category": "authoritative-server-reconciliation"
+    },
+    {
+      "file": "src/server/actions/central-member-store.ts",
+      "line": 11,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/central-member-store.ts",
+      "line": 19,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/central-member-store.ts",
+      "line": 29,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/customer-health-record.ts",
+      "line": 108,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-health.ts",
+      "line": 146,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-health.ts",
+      "line": 233,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-member-stores.ts",
+      "line": 75,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-member-stores.ts",
+      "line": 90,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-member-stores.ts",
+      "line": 91,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/liff-member-stores.ts",
+      "line": 102,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    },
+    {
+      "file": "src/server/actions/store-view-mode.ts",
+      "line": 79,
+      "operation": "redirect",
+      "category": "server-redirect-boundary"
+    }
+  ],
+  "pages": [
+    "src/app/(auth)/activate/page.tsx",
+    "src/app/(auth)/activate/verify/page.tsx",
+    "src/app/(auth)/forgot-password/page.tsx",
+    "src/app/(auth)/line-oauth/complete/page.tsx",
+    "src/app/(auth)/login/page.tsx",
+    "src/app/(auth)/oauth-confirm/activate/page.tsx",
+    "src/app/(auth)/oauth-confirm/finalize/page.tsx",
+    "src/app/(auth)/oauth-confirm/login/page.tsx",
+    "src/app/(auth)/oauth-confirm/page.tsx",
+    "src/app/(auth)/register/page.tsx",
+    "src/app/(auth)/reset-password/page.tsx",
+    "src/app/(customer)/book/income/page.tsx",
+    "src/app/(customer)/book/new/page.tsx",
+    "src/app/(customer)/book/page.tsx",
+    "src/app/(customer)/book/reminders/page.tsx",
+    "src/app/(customer)/book/shop/[planId]/checkout/page.tsx",
+    "src/app/(customer)/book/shop/page.tsx",
+    "src/app/(customer)/book/shop/thank-you/page.tsx",
+    "src/app/(customer)/health/new/page.tsx",
+    "src/app/(customer)/health/page.tsx",
+    "src/app/(customer)/member-link/page.tsx",
+    "src/app/(customer)/member-stores/page.tsx",
+    "src/app/(customer)/my-bookings/[id]/cancel/page.tsx",
+    "src/app/(customer)/my-bookings/[id]/reschedule/page.tsx",
+    "src/app/(customer)/my-bookings/page.tsx",
+    "src/app/(customer)/my-growth/page.tsx",
+    "src/app/(customer)/my-plans/page.tsx",
+    "src/app/(customer)/my-points/page.tsx",
+    "src/app/(customer)/my-referrals/page.tsx",
+    "src/app/(customer)/profile/page.tsx",
+    "src/app/(dashboard)/dashboard/advanced-reports/page.tsx",
+    "src/app/(dashboard)/dashboard/analytics/page.tsx",
+    "src/app/(dashboard)/dashboard/bonus-rules/page.tsx",
+    "src/app/(dashboard)/dashboard/bookings/[id]/page.tsx",
+    "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
+    "src/app/(dashboard)/dashboard/bookings/page.tsx",
+    "src/app/(dashboard)/dashboard/bookings/source/page.tsx",
+    "src/app/(dashboard)/dashboard/brand-overview/page.tsx",
+    "src/app/(dashboard)/dashboard/cash-drawer/page.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/[id]/edit/page.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/new/page.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/page.tsx",
+    "src/app/(dashboard)/dashboard/central-line-recipients/page.tsx",
+    "src/app/(dashboard)/dashboard/central-user-merges/page.tsx",
+    "src/app/(dashboard)/dashboard/changelog/page.tsx",
+    "src/app/(dashboard)/dashboard/coach-revenue/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/hours/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/reminders/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/showcase/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/todos/page.tsx",
+    "src/app/(dashboard)/dashboard/courses/unassigned-plans/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/edit/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/central-binding/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/merge/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/new/page.tsx",
+    "src/app/(dashboard)/dashboard/customers/page.tsx",
+    "src/app/(dashboard)/dashboard/data-export/page.tsx",
+    "src/app/(dashboard)/dashboard/device-preview/page.tsx",
+    "src/app/(dashboard)/dashboard/digital-butler/leads/page.tsx",
+    "src/app/(dashboard)/dashboard/duty/[date]/page.tsx",
+    "src/app/(dashboard)/dashboard/duty/page.tsx",
+    "src/app/(dashboard)/dashboard/frontend-preview/page.tsx",
+    "src/app/(dashboard)/dashboard/growth/candidates/page.tsx",
+    "src/app/(dashboard)/dashboard/growth/page.tsx",
+    "src/app/(dashboard)/dashboard/growth/referrals/page.tsx",
+    "src/app/(dashboard)/dashboard/growth/stagnation/page.tsx",
+    "src/app/(dashboard)/dashboard/growth/top-candidates/page.tsx",
+    "src/app/(dashboard)/dashboard/guide/page.tsx",
+    "src/app/(dashboard)/dashboard/health/page.tsx",
+    "src/app/(dashboard)/dashboard/inventory/document/page.tsx",
+    "src/app/(dashboard)/dashboard/inventory/page.tsx",
+    "src/app/(dashboard)/dashboard/member-link-reviews/page.tsx",
+    "src/app/(dashboard)/dashboard/operation-audits/page.tsx",
+    "src/app/(dashboard)/dashboard/ops/page.tsx",
+    "src/app/(dashboard)/dashboard/page.tsx",
+    "src/app/(dashboard)/dashboard/payments/page.tsx",
+    "src/app/(dashboard)/dashboard/plans/[id]/edit/page.tsx",
+    "src/app/(dashboard)/dashboard/plans/new/page.tsx",
+    "src/app/(dashboard)/dashboard/plans/page.tsx",
+    "src/app/(dashboard)/dashboard/ranking/page.tsx",
+    "src/app/(dashboard)/dashboard/reconciliation/page.tsx",
+    "src/app/(dashboard)/dashboard/reminders/page.tsx",
+    "src/app/(dashboard)/dashboard/reminders/tools/page.tsx",
+    "src/app/(dashboard)/dashboard/reminders/zhubei-line-health/page.tsx",
+    "src/app/(dashboard)/dashboard/reports/page.tsx",
+    "src/app/(dashboard)/dashboard/revenue/page.tsx",
+    "src/app/(dashboard)/dashboard/service-fee-calculator/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/customer-labels/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/digital-butler/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/duty/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/hours/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/line-official-accounts/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/messenger-audit/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/payment/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/perf/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/plan/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/plans/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/referral-share/page.tsx",
+    "src/app/(dashboard)/dashboard/settings/trial/page.tsx",
+    "src/app/(dashboard)/dashboard/settlements/page.tsx",
+    "src/app/(dashboard)/dashboard/spa-resources/page.tsx",
+    "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
+    "src/app/(dashboard)/dashboard/spa-staff/page.tsx",
+    "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
+    "src/app/(dashboard)/dashboard/staff/[id]/rent/page.tsx",
+    "src/app/(dashboard)/dashboard/staff/page.tsx",
+    "src/app/(dashboard)/dashboard/store-revenue/page.tsx",
+    "src/app/(dashboard)/dashboard/system-status/page.tsx",
+    "src/app/(dashboard)/dashboard/talent/page.tsx",
+    "src/app/(dashboard)/dashboard/teachers/page.tsx",
+    "src/app/(dashboard)/dashboard/training/page.tsx",
+    "src/app/(dashboard)/dashboard/transactions/page.tsx",
+    "src/app/(dashboard)/dashboard/trial-follow-up/page.tsx",
+    "src/app/(dashboard)/dashboard/upgrade-requests/page.tsx",
+    "src/app/(dashboard)/dashboard/work-orders/document/page.tsx",
+    "src/app/(dashboard)/dashboard/work-orders/page.tsx",
+    "src/app/(liff)/liff/bookings/page.tsx",
+    "src/app/(liff)/liff/design-preview/booking/page.tsx",
+    "src/app/(liff)/liff/design-preview/page.tsx",
+    "src/app/(liff)/liff/health/[recordId]/edit/page.tsx",
+    "src/app/(liff)/liff/health/new/page.tsx",
+    "src/app/(liff)/liff/health/page.tsx",
+    "src/app/(liff)/liff/manager-preview/page.tsx",
+    "src/app/(liff)/liff/member-booking/page.tsx",
+    "src/app/(liff)/liff/onboarding/page.tsx",
+    "src/app/(liff)/liff/page.tsx",
+    "src/app/(liff)/liff/profile/page.tsx",
+    "src/app/(liff)/liff/public-trial/page.tsx",
+    "src/app/(liff)/liff/service-flow-preview/page.tsx",
+    "src/app/(liff)/liff/spa-work/page.tsx",
+    "src/app/(liff)/liff/staff-preview/page.tsx",
+    "src/app/(liff)/liff/trial-booking/page.tsx",
+    "src/app/(liff)/liff/wallets/page.tsx",
+    "src/app/(liff)/liff/wallets/shop/[planId]/page.tsx",
+    "src/app/(liff)/liff/wallets/shop/page.tsx",
+    "src/app/(liff)/liff/wallets/shop/thank-you/page.tsx",
+    "src/app/(service-auth)/staff-login/page.tsx",
+    "src/app/(service-workspace)/staff-schedule/page.tsx",
+    "src/app/cash-drawer-panel/page.tsx",
+    "src/app/course-portal-acceptance/page.tsx",
+    "src/app/experience/zhubei/page.tsx",
+    "src/app/frontend-preview/page.tsx",
+    "src/app/hq/dashboard/stores/[storeId]/features/page.tsx",
+    "src/app/hq/dashboard/stores/[storeId]/page.tsx",
+    "src/app/hq/dashboard/stores/new/page.tsx",
+    "src/app/hq/dashboard/stores/organization/page.tsx",
+    "src/app/hq/dashboard/stores/page.tsx",
+    "src/app/hq/dashboard/stores/subscriptions/[storeId]/page.tsx",
+    "src/app/hq/dashboard/stores/subscriptions/[storeId]/trial/page.tsx",
+    "src/app/hq/dashboard/stores/subscriptions/page.tsx",
+    "src/app/hq/dashboard/trial-applications/page.tsx",
+    "src/app/hq/forgot-password/page.tsx",
+    "src/app/hq/login/page.tsx",
+    "src/app/hq/reset-password/page.tsx",
+    "src/app/hq-usage-preview/page.tsx",
+    "src/app/member-connect/page.tsx",
+    "src/app/page.tsx",
+    "src/app/preview-review/page.tsx",
+    "src/app/pricing/addon-review/page.tsx",
+    "src/app/pricing/business/page.tsx",
+    "src/app/pricing/cases/page.tsx",
+    "src/app/pricing/experience/[storeSlug]/book/page.tsx",
+    "src/app/pricing/experience/zhubei/book/page.tsx",
+    "src/app/pricing/experience/zhubei/page.tsx",
+    "src/app/pricing/features/fitness/page.tsx",
+    "src/app/pricing/features/music/page.tsx",
+    "src/app/pricing/features/page.tsx",
+    "src/app/pricing/features/services/page.tsx",
+    "src/app/pricing/features/slots/page.tsx",
+    "src/app/pricing/guides/[slug]/page.tsx",
+    "src/app/pricing/guides/page.tsx",
+    "src/app/pricing/header-review/page.tsx",
+    "src/app/pricing/management-review/page.tsx",
+    "src/app/pricing/page.tsx",
+    "src/app/pricing/panel-review/page.tsx",
+    "src/app/pricing/preview-review/page.tsx",
+    "src/app/pricing/schedule-review/page.tsx",
+    "src/app/pricing/trial/guide/[topic]/page.tsx",
+    "src/app/pricing/trial/page.tsx",
+    "src/app/pricing/trial/review/page.tsx",
+    "src/app/privacy/page.tsx",
+    "src/app/single-pricing-preview/page.tsx",
+    "src/app/spa-preview/manager/page.tsx",
+    "src/app/spa-preview/page.tsx",
+    "src/app/spa-preview/staff/page.tsx",
+    "src/app/store-select/page.tsx",
+    "src/app/trial-booking/manage/page.tsx"
+  ],
+  "loadingBoundaries": [
+    "src/app/(auth)/loading.tsx",
+    "src/app/(customer)/book/loading.tsx",
+    "src/app/(customer)/book/new/loading.tsx",
+    "src/app/(customer)/loading.tsx",
+    "src/app/(customer)/my-bookings/loading.tsx",
+    "src/app/(customer)/my-plans/loading.tsx",
+    "src/app/(customer)/profile/loading.tsx",
+    "src/app/(dashboard)/dashboard/advanced-reports/loading.tsx",
+    "src/app/(dashboard)/dashboard/analytics/loading.tsx",
+    "src/app/(dashboard)/dashboard/bonus-rules/loading.tsx",
+    "src/app/(dashboard)/dashboard/bookings/[id]/loading.tsx",
+    "src/app/(dashboard)/dashboard/bookings/loading.tsx",
+    "src/app/(dashboard)/dashboard/bookings/new/loading.tsx",
+    "src/app/(dashboard)/dashboard/brand-overview/loading.tsx",
+    "src/app/(dashboard)/dashboard/cash-drawer/loading.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/[id]/edit/loading.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/loading.tsx",
+    "src/app/(dashboard)/dashboard/cashbook/new/loading.tsx",
+    "src/app/(dashboard)/dashboard/changelog/loading.tsx",
+    "src/app/(dashboard)/dashboard/coach-revenue/loading.tsx",
+    "src/app/(dashboard)/dashboard/courses/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/edit/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/health/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/[id]/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/merge/loading.tsx",
+    "src/app/(dashboard)/dashboard/customers/new/loading.tsx",
+    "src/app/(dashboard)/dashboard/duty/[date]/loading.tsx",
+    "src/app/(dashboard)/dashboard/duty/loading.tsx",
+    "src/app/(dashboard)/dashboard/growth/candidates/loading.tsx",
+    "src/app/(dashboard)/dashboard/growth/loading.tsx",
+    "src/app/(dashboard)/dashboard/growth/referrals/loading.tsx",
+    "src/app/(dashboard)/dashboard/growth/stagnation/loading.tsx",
+    "src/app/(dashboard)/dashboard/growth/top-candidates/loading.tsx",
+    "src/app/(dashboard)/dashboard/loading.tsx",
+    "src/app/(dashboard)/dashboard/ops/loading.tsx",
+    "src/app/(dashboard)/dashboard/payments/loading.tsx",
+    "src/app/(dashboard)/dashboard/plans/[id]/edit/loading.tsx",
+    "src/app/(dashboard)/dashboard/plans/loading.tsx",
+    "src/app/(dashboard)/dashboard/plans/new/loading.tsx",
+    "src/app/(dashboard)/dashboard/ranking/loading.tsx",
+    "src/app/(dashboard)/dashboard/reconciliation/loading.tsx",
+    "src/app/(dashboard)/dashboard/reminders/loading.tsx",
+    "src/app/(dashboard)/dashboard/reports/loading.tsx",
+    "src/app/(dashboard)/dashboard/revenue/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/duty/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/hours/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/payment/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/perf/loading.tsx",
+    "src/app/(dashboard)/dashboard/settings/plan/loading.tsx",
+    "src/app/(dashboard)/dashboard/staff/[id]/edit/loading.tsx",
+    "src/app/(dashboard)/dashboard/staff/loading.tsx",
+    "src/app/(dashboard)/dashboard/store-revenue/loading.tsx",
+    "src/app/(dashboard)/dashboard/system-status/loading.tsx",
+    "src/app/(dashboard)/dashboard/talent/loading.tsx",
+    "src/app/(dashboard)/dashboard/training/loading.tsx",
+    "src/app/(dashboard)/dashboard/transactions/loading.tsx",
+    "src/app/(dashboard)/dashboard/upgrade-requests/loading.tsx",
+    "src/app/(liff)/liff/loading.tsx",
+    "src/app/loading.tsx"
+  ]
+}

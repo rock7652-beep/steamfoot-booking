@@ -1,6 +1,7 @@
 "use client";
 import { useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { addTaiwanDuration } from "@/lib/date-utils";
 export function CourseMonthPicker({ month }: { month: string }) {
   const router = useRouter(),

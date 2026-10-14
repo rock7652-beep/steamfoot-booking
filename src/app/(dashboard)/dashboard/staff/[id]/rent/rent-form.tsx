@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { saveSteamfootRent } from "@/server/actions/steamfoot-rent";
 import { nextRentStart, type RentTerm } from "@/lib/steamfoot-rent";
 export function RentForm({ staffId, latest, defaultAmount, currentMonth }: {

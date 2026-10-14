@@ -2,7 +2,7 @@
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   fetchTransactionDetailDTO,

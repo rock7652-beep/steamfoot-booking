@@ -1,7 +1,5 @@
-import { LoadingStatus } from "@/components/loading-status";
-
-import { BrandOverviewSkeleton } from "./skeleton";
+import { WorkspaceLoading } from "@/components/workspace-loading";
 
 export default function Loading() {
-  return <><LoadingStatus /><BrandOverviewSkeleton /></>;
+  return <WorkspaceLoading label="正在載入品牌總覽…" />;
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DashboardLink, resolveDashboardHref } from "@/components/dashboard-link";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -20,31 +21,23 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
   const [syncError, setSyncError] = useState(false);
   useEffect(() => {
     let active = true, generation = 0;
-    async function refreshProgress(event: Event) {
-      if (!storeId || (event as CustomEvent<{storeId: string}>).detail?.storeId !== storeId) return;
+    async function refreshProgress(event?: Event) {
+      if (!storeId || (event && event.type !== "focus" && (event as CustomEvent<{storeId: string}>).detail?.storeId !== storeId)) return;
       const requested = ++generation;
       setSyncError(false);
-      const result = await readCourseSetupProgress(storeId);
+      const result = await readCourseSetupProgress(storeId).catch(() => ({ success: false } as const));
       if (!active || requested !== generation) return;
       if (result.success && result.storeId === storeId) setUpdated({ source: sourceSteps, steps: result.steps, studentHref: result.studentHref });
       else setSyncError(true);
     }
+    // Window focus updates the guide only; URL changes already receive server props.
+    if (!manual) window.addEventListener("focus", refreshProgress);
     window.addEventListener(COURSE_ROOM_SAVED, refreshProgress);
     window.addEventListener(SETTINGS_SAVED, refreshProgress);
-    return () => { active = false; window.removeEventListener(COURSE_ROOM_SAVED, refreshProgress); window.removeEventListener(SETTINGS_SAVED, refreshProgress); };
-  }, [storeId, sourceSteps]);
+    return () => { active = false; window.removeEventListener("focus", refreshProgress); window.removeEventListener(COURSE_ROOM_SAVED, refreshProgress); window.removeEventListener(SETTINGS_SAVED, refreshProgress); };
+  }, [storeId, sourceSteps, manual]);
   const completed = steps.every(s => s.done), count = steps.filter(s => s.done).length;
   const pathname = usePathname(), router = useRouter(), params = useSearchParams();
-  const route = `${pathname}?${params.toString()}`, lastRoute = useRef(route);
-  useEffect(() => {
-    if (lastRoute.current !== route) { lastRoute.current = route; router.refresh(); }
-  }, [route, router]);
-  useEffect(() => {
-    if (manual) return;
-    const refresh = () => router.refresh();
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
-  }, [manual, router]);
   const preferenceKey = `${preference.mode}:${preference.login ?? ""}`;
   const [reminderOverride, setReminder] = useState<(Preference & { source: string }) | null>(null);
   const reminder = reminderOverride?.source === preferenceKey ? reminderOverride : preference;

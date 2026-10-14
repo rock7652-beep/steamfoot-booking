@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { StoreSettlementStatus } from "@prisma/client";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   confirmStoreSettlementAction,

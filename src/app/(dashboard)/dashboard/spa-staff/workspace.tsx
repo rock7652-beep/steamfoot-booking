@@ -5,7 +5,8 @@ import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-li
 import { EditSpaPerson } from "./edit-person";
 import { NewSpaPerson } from "./new-person";
 import { useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { saveSpaRosterBatch, previewSpaPreviousWeek } from "@/server/actions/spa-resources";
 import { saveSpaPersonServices } from "@/server/actions/spa-service-staff";

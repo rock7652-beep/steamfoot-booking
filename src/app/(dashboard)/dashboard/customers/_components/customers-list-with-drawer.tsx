@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { RightSheet } from "@/components/admin/right-sheet";

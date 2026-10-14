@@ -2,7 +2,7 @@
 import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
 import { useState,useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { updateSpaPerson } from "@/server/actions/spa-person";
 export function EditSpaPerson({person,onSaved}:{person:{id:string;name:string;phone?:string;editable?:boolean;memberLinked?:boolean;pendingBookings?:number};onSaved:()=>void}){

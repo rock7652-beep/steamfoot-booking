@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { editSpaPayment, voidSpaPayment } from "@/server/actions/spa-commerce";
 import {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect,useRef,useState,useTransition,useCallback,useId } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { createRentalCustomer,saveCourseRental,getCourseRental,cancelCourseRental,saveRentalPayment,listRoomRentals } from "@/server/actions/course-rental";
 import { rentalPrice,type RentalDetail } from "@/lib/course-rental";
 import { formatTWDateTime,toLocalDateStr } from "@/lib/date-utils";

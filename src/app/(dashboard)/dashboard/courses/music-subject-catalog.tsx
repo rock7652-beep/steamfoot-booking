@@ -1,4 +1,5 @@
 "use client";
+import {toast} from "sonner";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
@@ -8,7 +9,8 @@ import {courseStatusImpact} from "@/server/actions/course-batch";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {useCourseStatusRows} from "@/components/admin/course-status-button";
 import { useMemo, useRef, useState, useTransition } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { savedMusicSubject, SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -90,6 +92,7 @@ export function MusicSubjectCatalog({storeId,displayOrder,subjects:sourceSubject
        setLastSavedId(result.data.id);if(!result.data.isActive)setShowInactive(true);
        window.dispatchEvent(new CustomEvent(SETTINGS_SAVED,{detail:{storeId}}));
        setDirty(false);
+       toast.success(editing ? "教學項目已更新" : "已新增教學項目");
        setCreated(!editing&&d.get("active")==="yes");
        setEditing(undefined);
        // The authoritative receipt renders immediately; no page refresh is needed.

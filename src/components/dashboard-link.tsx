@@ -24,26 +24,14 @@
  * - 支援 href 為字串（目前專案唯一用法）；如需要 UrlObject 傳入，請用原生 `<Link>`
  */
 
+import { scopedNavigationHref } from "@/lib/navigation-target";
 import { usePathname } from "next/navigation";
 import { AppLink as Link } from "./app-link";
 import type { ComponentProps, ReactNode } from "react";
 
-function extractPrefix(pathname: string): string {
-  const storeMatch = pathname.match(/^(\/s\/[^/]+\/admin)\/dashboard/);
-  if (storeMatch) return storeMatch[1];
-  const hqMatch = pathname.match(/^(\/hq)\/dashboard/);
-  if (hqMatch) return hqMatch[1];
-  return "";
-}
-
-/** 組 href — 僅對「以 /dashboard/ 開頭或恰為 /dashboard」的字串套 prefix */
+/** Dashboard links and programmatic navigation share the same scope rule. */
 export function resolveDashboardHref(href: string, currentPathname: string): string {
-  if (!href.startsWith("/dashboard")) return href;
-  // /dashboard 或 /dashboard? 或 /dashboard/* 都處理；其餘（/dashboardxxx）不動
-  if (href !== "/dashboard" && !href.startsWith("/dashboard/") && !href.startsWith("/dashboard?")) {
-    return href;
-  }
-  return `${extractPrefix(currentPathname)}${href}`;
+  return scopedNavigationHref(href, currentPathname);
 }
 
 type Props = Omit<ComponentProps<typeof Link>, "href"> & {

@@ -2,7 +2,8 @@
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "@/components/admin/management-layout.module.css";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, LabelList } from "recharts";
 import { DashboardLink } from "@/components/dashboard-link";
 import type { CourseBusinessReport } from "@/server/queries/course-business-analytics";

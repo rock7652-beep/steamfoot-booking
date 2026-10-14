@@ -1,4 +1,7 @@
 "use client";
+import { backgroundRefreshAllowed } from "@/lib/background-refresh";
+
+import { toast } from "sonner";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -24,7 +27,8 @@ import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
@@ -266,7 +270,10 @@ export function CourseWorkspace({
   const [savedTemplateId,setSavedTemplateId] = useState<string|null>(null);
   async function saveTemplate(input:Record<string,unknown>) {
     const result = await templateSave.save(input);
-    if (result.success) { confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id); }
+    if (result.success) {
+      confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id);
+      toast.success(input.id ? "課程已更新" : "已新增課程", { position: "top-right" });
+    }
     return result;
   }
   const requestedDate = params.get("date");
@@ -299,6 +306,7 @@ export function CourseWorkspace({
     setDirty(false); setPanel(null); setError("");
     setNotice(warning ? `${room.name} · 已儲存，其他頁面更新失敗，請重新整理核對。` : `${room.name} · 已儲存`);
     setNewRoomId(room.id);
+    toast.success("已新增空間");
   }, pathname);
   const [newRoomId, setNewRoomId] = useState<string | null>(null);
   const [transitionPending, startTransition] = useTransition();
@@ -340,7 +348,7 @@ export function CourseWorkspace({
   useEffect(() => {
     if (view !== "schedule" || panel !== "day") return;
     const refresh = () => {
-      if (document.visibilityState !== "visible") return;
+      if (!backgroundRefreshAllowed()) return;
       router.refresh();
       setLastUpdated(new Date());
     };

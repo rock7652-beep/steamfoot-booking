@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useTransition, useRef, useId } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { loadCourseBookingNotification, confirmMemberCourseTrial, rescheduleMemberCourseBooking } from "@/server/actions/course-booking-notification";
 import {loadCourseTeacherChange,loadCourseTeacherLeave,changeCourseTeacherBooking} from "@/server/actions/course-teacher-changes";
 import { updateCourseBookingStatus } from "@/server/actions/course-members";

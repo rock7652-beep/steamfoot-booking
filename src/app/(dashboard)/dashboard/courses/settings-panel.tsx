@@ -1,7 +1,8 @@
 "use client";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { resolveDashboardHref } from "@/components/dashboard-link";

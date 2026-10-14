@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { toast } from "sonner";
 import { voidWalletSession } from "@/server/actions/wallet";

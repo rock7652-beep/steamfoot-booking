@@ -4,7 +4,8 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedSelfBooking } from "@/lib/course-self-booking-save";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { SettingsListRow } from "@/components/settings";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 

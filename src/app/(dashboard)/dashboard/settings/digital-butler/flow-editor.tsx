@@ -2,7 +2,7 @@
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import {
   isDigitalButlerDraftDirty,

@@ -28,7 +28,7 @@ export default function RootLayout({
       <body className="bg-white text-gray-900 antialiased min-h-screen flex flex-col">
         {isGuideUiPreview() ? <div className="flex-1">{children}</div> : <NextAuthSessionProvider>
           <div className="flex-1">{children}</div>
-          <Toaster position="top-center" richColors closeButton />
+          <Toaster position="top-right" richColors closeButton />
         </NextAuthSessionProvider>}
       </body>
     </html>

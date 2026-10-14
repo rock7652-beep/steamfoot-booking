@@ -1,6 +1,6 @@
 "use client";
 import {useState, useTransition} from "react";
-import {useRouter} from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import {payCourseFee,correctCourseFee} from "@/server/actions/course-fee-payment";
 
 export function CourseFeePaymentButton({sessionId, amount, paid=0}: {sessionId:string; amount:number;paid?:number}) {

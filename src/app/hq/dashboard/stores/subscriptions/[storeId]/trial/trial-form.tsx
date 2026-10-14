@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { createTrialSubscription } from "@/server/actions/store-subscription";
@@ -68,7 +68,6 @@ export function TrialForm({
       if (result.success) {
         toast.success(`已建立體驗（${trialDays} 天）`);
         router.push("/hq/dashboard/stores/subscriptions");
-        router.refresh();
       } else {
         toast.error(result.error);
       }

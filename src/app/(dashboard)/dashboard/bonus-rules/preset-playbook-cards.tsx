@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { createBonusRule } from "@/server/actions/bonus-rule";
 
 /**

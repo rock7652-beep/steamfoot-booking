@@ -11,3 +11,10 @@ afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.useRealT
 async function change(name:string,value:string){await act(async()=>{const input=host.querySelector(`[name="${name}"]`)!;const proto=input.tagName==="SELECT"?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,"value")!.set!.call(input,value);input.dispatchEvent(new Event(input.tagName==="SELECT"?"change":"input",{bubbles:true}));});}
 it("combines rapid search and select changes without submitting",async()=>{await change("search","王");await change("status","CONFIRMED");await act(async()=>vi.runAllTimers());expect(m.replace).toHaveBeenCalledTimes(1);expect(m.replace.mock.calls[0][0]).toContain("status=CONFIRMED");expect(decodeURIComponent(m.replace.mock.calls[0][0])).toContain("search=王");});
 it("waits for complete valid dates",async()=>{await change("from","2026-09-29");await act(async()=>vi.runAllTimers());expect(m.replace).not.toHaveBeenCalled();await change("to","2026-09-28");await act(async()=>vi.runAllTimers());expect(m.replace).not.toHaveBeenCalled();expect(host.textContent).toContain("結束日期不能早於");await change("to","2026-09-30");await act(async()=>vi.runAllTimers());expect(m.replace).toHaveBeenCalledTimes(1);});
+
+it("does not reload when resubmitting the current filters",async()=>{
+ history.replaceState(null,"","/s/music/admin/dashboard/revenue?status=CONFIRMED");
+ await change("status","CONFIRMED");
+ await act(async()=>vi.runAllTimers());
+ expect(m.replace).not.toHaveBeenCalled();
+});

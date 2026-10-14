@@ -13,6 +13,7 @@ import {
   getMonthScheduleSummary,
   getDaySlotDetails,
   syncFromHeadquarters,
+  getServiceHoursSnapshot,
 } from "@/server/actions/business-hours";
 import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours} from "@/server/actions/course-business-hours";
 import {toLocalDateStr} from "@/lib/date-utils";
@@ -160,13 +161,15 @@ export function ScheduleManager({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
   const [weeklyHours, setWeeklyHours] = useState(initialWeekly);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNeedsRead, setSyncNeedsRead] = useState(false);
   const [legacyPending, startTransition] = useTransition();
   const pathname=usePathname();
   const serviceRequest=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/service-hours`,storeId??"",savedServiceHours);
   const serviceAttempt=useRef<{mode:string;dow?:number}|null>(null);
   const [serviceRevision,setServiceRevision]=useState(initialHoursRevision);
   const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/day-hours`,storeId??"",savedCourseDayHours);
-  const isPending=legacyPending||request.pending||serviceRequest.pending,locked=isPending||request.uncertain||serviceRequest.uncertain;
+  const isPending=legacyPending||request.pending||serviceRequest.pending||syncing,locked=isPending||request.uncertain||serviceRequest.uncertain||syncNeedsRead;
   const daySaveLock=useRef(false);
   const [loadingDay, setLoadingDay] = useState(false);
   const [saveError,setSaveError]=useState<string|null>(null);
@@ -611,25 +614,33 @@ export function ScheduleManager({
 
   const selectedSlotDetail=dayDetail?.slots.find(s=>s.startTime===selectedSlot);
   // ── 渲染 ──
-  // ── 同步總部設定 ──
-  const [syncing, setSyncing] = useState(false);
-  const handleSync = useCallback(async () => {
-    if (!confirm("確定要套用總部的營業時間與時段設定？\n\n此操作會清除本店目前的設定，並從總部重新複製。")) return;
+  // A completed sync is never submitted again merely to retry its read.
+  const syncLock = useRef(false);
+  const handleSync = async () => {
+    if (syncLock.current || isPending || request.uncertain || serviceRequest.uncertain || !storeId) return;
+    if (!syncNeedsRead && !confirm("確定要套用總部的營業時間與時段設定？\n\n此操作會清除本店目前的設定，並從總部重新複製。")) return;
+    syncLock.current = true;
     setSyncing(true);
+    let committed = syncNeedsRead;
     try {
-      const result = await syncFromHeadquarters();
-      if (result.success) {
+      if (!committed) {
+        const result = await syncFromHeadquarters();
+        if (!result.success) { toast.error(result.error || "同步失敗"); return; }
+        committed = true;
+        setSyncNeedsRead(true);
         toast.success(`已套用總部設定（${result.data.businessHours} 筆營業時間、${result.data.bookingSlots} 筆時段）`);
-        window.location.reload();
-      } else {
-        toast.error(result.error || "同步失敗");
       }
+      const date = selectedDate ?? `${year}-${String(month).padStart(2, "0")}-01`;
+      const snapshot = await getServiceHoursSnapshot(storeId, date);
+      adoptServiceReceipt(savedServiceHours.parse({ ...snapshot, count: 0, skipped: [], operationId: null }));
+      setSyncNeedsRead(false);
     } catch {
-      toast.error("同步失敗");
+      toast.error(committed ? "設定已套用，但最新內容讀取失敗；請按重新讀取設定，勿重複套用。" : "同步結果尚未確認，請先核對設定後再操作。");
     } finally {
+      syncLock.current = false;
       setSyncing(false);
     }
-  }, []);
+  };
 
   return (
     <div data-schedule-grid className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:grid-rows-[min-content_1fr]">
@@ -1305,10 +1316,10 @@ export function ScheduleManager({
               </div>
               <button
                 onClick={handleSync}
-                disabled={syncing}
+                disabled={isPending || request.uncertain || serviceRequest.uncertain}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
               >
-                {syncing ? "同步中..." : "套用總部設定"}
+                {syncing ? "更新中…" : syncNeedsRead ? "重新讀取設定" : "套用總部設定"}
               </button>
             </div>
           </details>

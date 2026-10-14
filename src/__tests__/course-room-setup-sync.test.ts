@@ -43,3 +43,10 @@ it("an older background response cannot overwrite the latest result", async () =
   await act(async () => { older({ success: true, storeId: "store-a", steps }); });
   expect(host.textContent).toContain("已完成 2/6");
 });
+
+it("updates progress on window focus without clearing the current page", async () => {
+  m.read.mockResolvedValue({ success: true, storeId: "store-a", steps: courseSetupSteps({ ...counts, rooms: 1 }, true) });
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(host.textContent).toContain("已完成 2/6");
+  expect(m.refresh).not.toHaveBeenCalled();
+});

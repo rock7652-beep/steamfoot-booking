@@ -175,6 +175,15 @@ export async function getDaySlotDetails(dateStr:string){
  return (await loadServiceHoursForSettings(storeId,dateStr)).day;
 }
 
+/** Full authorized receipt for an in-place refresh after headquarters sync. */
+export async function getServiceHoursSnapshot(expectedStoreId: string, dateStr: string) {
+  const user = await requirePermission("business_hours.view");
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId || storeId !== expectedStoreId) throw new AppError("UNAUTHORIZED", "門市已變更，請重新確認設定");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || new Date(dateStr + "T00:00:00Z").toISOString().slice(0, 10) !== dateStr) throw new AppError("VALIDATION", "日期格式不正確");
+  return loadServiceHoursForSettings(storeId, dateStr);
+}
+
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */
 export async function getDayStatus(date: Date): Promise<{
   open: boolean;

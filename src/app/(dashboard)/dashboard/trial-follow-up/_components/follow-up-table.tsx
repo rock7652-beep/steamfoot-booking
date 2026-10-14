@@ -14,7 +14,8 @@ import { NavigationNotice } from "@/components/navigation-notice";
  *   - 體驗預約日 + 體驗收款日 + 距今天數三欄並列，店長一眼判斷追蹤時效
  */
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { DataTable, type Column } from "@/components/desktop";

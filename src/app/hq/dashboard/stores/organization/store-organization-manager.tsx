@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { ALLIANCE_BRANCH_PRICING_COPY, branchCapacity, branchConnectionMonthlyFee, managementMonthlyFee } from "@/lib/alliance-subscription";
 import { reorderStoreCatalogAction, updateOrganizationCapacityAction, updateStoreParentAction, type StoreOrganizationRow } from "@/server/actions/store-organization";
 

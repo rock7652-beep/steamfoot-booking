@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { customerRegisterAction, type RegisterState } from "@/server/actions/customer-auth";
 import Link from "next/link";
 

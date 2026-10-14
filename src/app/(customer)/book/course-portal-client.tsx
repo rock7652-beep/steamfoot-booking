@@ -17,7 +17,8 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useStoreSlugRequired } from "@/lib/store-context-client";
 
 interface Props {

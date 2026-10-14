@@ -1,6 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
