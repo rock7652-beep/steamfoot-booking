@@ -1,5 +1,6 @@
 "use server";
 
+import { activateUnlinkedStoreMember } from "@/server/services/precreated-first-line-login";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 
 /**
@@ -112,7 +113,7 @@ export async function submitOnboarding(
 
   if (context.config) return { status: "service_unavailable" };
 
-  // Diagnostic only: keep the existing authorization decisions unchanged.
+  // Rejection details remain private; return only the diagnostic reference.
   const recordReview = (reason: Parameters<typeof createLiffReviewDiagnostic>[0]["reason"], stage: string) => {
     const diagnostic = createLiffReviewDiagnostic({
       storeId: store.id, identityProvider: context.identityProvider,
@@ -133,6 +134,9 @@ export async function submitOnboarding(
     if (member) return { status: "ok" };
     if (await storePhoneNeedsConfirmation(store.id, phone)) {
       if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
+      const activation = await activateUnlinkedStoreMember({ storeId: store.id, lineUserId: verified.lineUserId, name, phone });
+      if (activation === "activated") return { status: "ok" };
+      if (activation === "unavailable") return { status: "service_unavailable" };
       return { status: "identity_review_required", referenceId: recordReview("store_membership_unconfirmed", "first_login_confirmation") };
     }
   } catch (error) {
