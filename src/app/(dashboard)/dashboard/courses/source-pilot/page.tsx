@@ -6,12 +6,17 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { readMusicOperationalPilot } from "@/server/services/music-operational-pilot";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { PilotCommit } from "./pilot-commit";
+import { AppError } from "@/lib/errors";
+import { ZodError } from "zod";
 type Cell={text:string};
 type FeeHistory={groups:{periods:{fee:string[];payments:{tables:Cell[][][]}[];lessons:{tables:Cell[][][]}[]}[]}[]};
 export default async function SourcePilotPage(){
   const user=await getCurrentUser();
   if(!user||!await checkPermission(user.role,user.staffId,"customer.read")||!await checkPermission(user.role,user.staffId,"booking.read")||!await checkPermission(user.role,user.staffId,"wallet.read"))notFound();
-  let data;try{data=await readMusicOperationalPilot();}catch{notFound();}
+  let data;try{data=await readMusicOperationalPilot();}catch(error){
+    console.error("[music-pilot-read]",error instanceof ZodError?error.issues.map(i=>({path:i.path,message:i.message})):error instanceof AppError?error.message:error instanceof Error?error.name:"UNKNOWN");
+    return <PageShell><PageHeader title="音教雲十人樣本核對"/><p role="alert" className="text-sm text-red-700">{error instanceof AppError?error.message:"來源資料暫未完成讀取，請稍後重新讀取。"}</p><DashboardLink href="/dashboard/courses">返回課表</DashboardLink></PageShell>;
+  }
   const money=(n:number)=>new Intl.NumberFormat("zh-TW").format(n);
   return <PageShell className="w-full min-w-0">
     <PageHeader title="音教雲十人樣本核對" subtitle="來源核對日 2026/10/14・舊付款與簽到保留原日期" actions={<DashboardLink href="/dashboard/courses">返回課表</DashboardLink>}/>

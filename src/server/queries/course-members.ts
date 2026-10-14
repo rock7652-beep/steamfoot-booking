@@ -103,10 +103,11 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { id:true,storeId:true,musicActivatedAt:true,musicValidityDays:true,musicOpeningStateRequired:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { bookingKind:true,musicOpeningMakeupEntitlementId:true,companionIndex:true,musicOpeningTermKey:true,musicOpeningLessonOrdinal:true,musicOpeningSourceLessonKey:true,id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
+      card: { select: { id:true,requestKey:true,storeId:true,musicActivatedAt:true,musicValidityDays:true,musicOpeningStateRequired:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { bookingKind:true,musicOpeningMakeupEntitlementId:true,companionIndex:true,musicOpeningTermKey:true,musicOpeningLessonOrdinal:true,musicOpeningSourceLessonKey:true,id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
   const canCreateShared = bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     && await getCourseSharedCardState(storeId) === "ENABLED";
   const groupSession = bookings[0]?.session;
@@ -173,7 +174,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const sameEnrollment = (item: { sessionId: string; session: { templateId: string } }) =>
       card?.termSessionIds.length ? card.termSessionIds.includes(item.sessionId) : item.session.templateId === b.session.templateId;
     const allLessons = (card?.bookings ?? [])
-      .filter((item) => !isMusicOpeningMakeupBooking(item) && item.customerId === b.customerId && sameEnrollment(item) && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
+      .filter((item) => !isMusicOpeningMakeupBooking(item) && item.customerId === b.customerId && sameEnrollment(item) && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || (pilotCards.has(b.cardId??"") && item.absenceKind === "STUDENT_LEAVE")))
       .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
     const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
@@ -215,7 +216,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     termPayment: currentPurchase ? paymentSummary(currentPurchase) : null,
     nextTerm: renewal ? {
       payment: paymentSummary(renewal.purchase),
-      lessons: renewal.next!.bookings.filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
+      lessons: renewal.next!.bookings.filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || (pilotCards.has(b.cardId??"") && item.absenceKind === "STUDENT_LEAVE")))
         .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime())
         .map((item) => ({ date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課" })),
     } : null,
@@ -248,6 +249,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
     openingIssue: openingIssue ?? openingOperationWarning,
     openingImported: openingMakeup || opening.kind !== "NATIVE",
+    ...(pilotCards.has(b.cardId??"")?{leaveDeductsWithMakeup:true}:{}),
     ...(openingMakeup ? { openingMakeup: true } : {}),
     openingTuition: opening.kind === "OPENING" ? {paid:opening.record.tuition.paidBeforeCutoff,receivable:opening.record.tuition.receivableAtCutoff} : null,
     termClosedBeforeCutoff: openingLesson.kind === "OPENING" ? openingLesson.closedBeforeCutoff : 0,
