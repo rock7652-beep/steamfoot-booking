@@ -8,12 +8,17 @@ import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-l
 import { connectionConflict } from "@/lib/store-member-connection";
 import type { InventoryContext } from "./inventory";
 import { sha256 } from "./line-rebind";
-import { LIFF_LOGIN_FIRST_CAPTURE_REASON, tryExecuteAuthorizedLiffLoginFirstCapture } from "./liff-login-rebind";
+import { LIFF_LOGIN_FIRST_CAPTURE_REASON, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "./liff-login-rebind";
 
 /** Phone selects a row; only a prior staff authorization may activate it. */
 export async function completeAuthorizedFirstStoreLogin(input: { storeId: string; phone: string; candidateLineUserId: string }) {
   const rows = await prisma.customer.findMany({ where: { storeId: input.storeId, phone: normalizePhone(input.phone), mergedIntoCustomerId: null }, select: { id: true }, take: 2 });
   if (rows.length !== 1) return false;
+  // Existing members must use their approved migration, not first capture.
+  // A rejected migration must never fall through to a less specific recovery.
+  const migration = await tryExecuteAuthorizedLiffLoginRebind({ ...input, customerId: rows[0].id });
+  if (migration.status === "executed") return true;
+  if (migration.status === "rejected") return false;
   const result = await tryExecuteAuthorizedLiffLoginFirstCapture({ ...input, customerId: rows[0].id });
   return result.status === "executed";
 }

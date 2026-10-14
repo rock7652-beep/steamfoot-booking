@@ -6,6 +6,12 @@ import { normalizePhone } from "@/lib/normalize";
 import { sha256 } from "@/server/services/line-rebind";
 
 export const LIFF_LOGIN_REBIND_REASON = "LIFF_LOGIN_CHANNEL_MIGRATION_V1";
+/** Binds an owner-approved recovery to one previously verified Login subject.
+ * The fingerprint contains no raw subject and is namespaced to this store. */
+export function verifiedLiffLoginRebindReason(storeId: string, candidateLineUserId: string) {
+  return `${LIFF_LOGIN_REBIND_REASON}:verified:${sha256(JSON.stringify([storeId, "line", candidateLineUserId]))}`;
+}
+
 export const LIFF_LOGIN_FIRST_CAPTURE_REASON = "LIFF_LOGIN_FIRST_CAPTURE_V1";
 export const RECENT_LIFF_AUTO_MIGRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -189,6 +195,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
     return { status: "rejected", code: "INVALID_INPUT" };
   }
 
+  const pinnedReason = verifiedLiffLoginRebindReason(input.storeId, input.candidateLineUserId);
   try {
     return await prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -198,7 +205,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         WHERE "storeId" = ${input.storeId}
           AND "customerId" = ${input.customerId}
           AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
-          AND "reason" = ${LIFF_LOGIN_REBIND_REASON}
+          AND ("reason" = ${LIFF_LOGIN_REBIND_REASON} OR "reason" = ${pinnedReason})
           AND "expiresAt" > ${now}
         ORDER BY "createdAt" DESC
         LIMIT 2
@@ -225,7 +232,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       if (
         !request ||
         request.status !== "PENDING_CAPTURE" ||
-        request.reason !== LIFF_LOGIN_REBIND_REASON ||
+        ![LIFF_LOGIN_REBIND_REASON, pinnedReason].includes(request.reason) ||
         request.expiresAt <= now ||
         request.consumedAt ||
         request.storeId !== input.storeId ||
@@ -364,7 +371,16 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       });
       if (linkUpdated.count !== 1) throw new RebindRejected("LINK_COMPARE_AND_SET_FAILED");
 
-      if (candidateAccounts.length === 1) {
+      if (request.reason === pinnedReason) {
+        // A scoped, verified recovery must not remove a global credential that
+        // may still be used by this member's other stores.
+        if (candidateAccounts.length === 0) {
+          await tx.account.create({ data: {
+            userId: ownerUserId, type: "oauth", provider: "line",
+            providerAccountId: input.candidateLineUserId,
+          } });
+        }
+      } else if (candidateAccounts.length === 1) {
         const removed = await tx.account.deleteMany({
           where: {
             id: oldAccounts[0].id,
@@ -423,7 +439,10 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
             status: "CONSUMED",
             consumedAt: now.toISOString(),
             customerMessagingIdentityPreserved: true,
-            authorizationBasis: "active_request_phone_hash_and_legacy_identity_snapshot",
+            previousLoginAccountPreserved: request.reason === pinnedReason,
+            authorizationBasis: request.reason === pinnedReason
+              ? "active_request_verified_candidate_phone_hash_and_legacy_identity_snapshot"
+              : "active_request_phone_hash_and_legacy_identity_snapshot",
           },
         },
       });
