@@ -54,7 +54,11 @@ const renewalSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-sch
 function enableRenewal() {
   for (const [key, value] of Object.entries(renewalSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }];
+const permissionsSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-school-role-permissions" };
+function enablePermissions() {
+  for (const [key, value] of Object.entries(permissionsSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -105,14 +109,14 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/guides/music-school-remote-management-role-permissions", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     expect(spies.auth).not.toHaveBeenCalled();
   });
-  it.each(["/api/cron/send-reminders", "/api/line/webhook", "/api/auth/session", "/api/auth/callback/line", "/hq/login", "/s/zhubei/", "/s/zhubei/admin/dashboard", "/_next/image?url=https://remote.invalid/a.png&w=640&q=75", "/health", "/apply", "/guides/unknown", "/guides/private/admin", "/guides/%2f..%2fapi/cron/send", "/guides/UPPERCASE", "/pricing/guides/../submit", "/pricing/brand/not-a-guide.html"])("blocks %s before auth or route dispatch", path => {
+  it.each(["/api/cron/send-reminders", "/api/line/webhook", "/api/auth/session", "/api/auth/callback/line", "/hq/login", "/s/zhubei/", "/s/zhubei/admin/dashboard", "/_next/image?url=https://remote.invalid/a.png&w=640&q=75", "/health", "/apply", "/pricing", "/guides/unknown", "/guides/private/admin", "/guides/%2f..%2fapi/cron/send", "/guides/UPPERCASE", "/pricing/guides/../submit", "/pricing/brand/not-a-guide.html"])("blocks %s before auth or route dispatch", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     expect(route(path).status).toBe(404);
     expect(spies.auth).not.toHaveBeenCalled();
@@ -384,5 +388,44 @@ describe("renewal publication exact Preview provenance", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+describe("role-permissions publication exact Preview provenance", () => {
+  it("accepts only the exact repository and branch without database credentials", () => {
+    expect(isGuideUiPreview({ ...permissionsSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-school-role-permissions"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-school-role-permissions" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations before database work with no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...permissionsSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+
+describe("role-permissions crawler isolation", () => {
+  it("supports HEAD and disallows indexing while keeping the sitemap empty", async () => {
+    enablePermissions();
+    const path = "/guides/music-school-remote-management-role-permissions";
+    const response = route(path, "HEAD");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(spies.auth).not.toHaveBeenCalled();
+    const { GET: robots } = await import("@/app/robots.txt/route");
+    const { GET: sitemap } = await import("@/app/sitemap.xml/route");
+    expect(await robots(new Request("https://preview.example.test/robots.txt")).text()).toContain("Disallow: /");
+    expect(await sitemap(new Request("https://preview.example.test/sitemap.xml")).text()).not.toContain("<loc>");
   });
 });
