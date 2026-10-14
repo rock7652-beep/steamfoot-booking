@@ -19,6 +19,8 @@ vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsCon
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── mocks (必須在 import action 之前) ──
+const mockFirstActivation = vi.fn();
+vi.mock("@/server/services/precreated-first-line-login", () => ({ activateUnlinkedStoreMember: (...args: unknown[]) => mockFirstActivation(...args) }));
 const mockMember = vi.fn();
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: (...args: unknown[]) => mockMember(...args) }));
 const mockVerify = vi.fn();
@@ -100,6 +102,16 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(completeAuthorizedFirstStoreLogin).toHaveBeenCalledWith({ storeId: STORE.id, phone: VALID_INPUT.phone, candidateLineUserId: LINE_USER_ID });
     expect(mockBindLine).not.toHaveBeenCalled();
   });
+  it("activates the uniquely matched unlinked member after verified LINE login", async () => {
+    const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
+    mockFirstActivation.mockResolvedValueOnce("activated");
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "ok" });
+    expect(mockFirstActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID, name: VALID_INPUT.name, phone: VALID_INPUT.phone });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("does not activate an existing Customer from phone input alone", async () => {
     const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());
@@ -135,6 +147,7 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockFirstActivation.mockReset().mockResolvedValue("review");
     mockIndustry.mockReset().mockResolvedValue("steamfoot");
     mockCourseOnboarding.mockReset();
     mockMember.mockReset().mockResolvedValue(null);
