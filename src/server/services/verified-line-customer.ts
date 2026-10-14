@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { resolveCentralMemberCustomerForStore } from "./central-member-resolver";
 
-import { LineIdentityReviewError } from "./line-identity-review";
+import { LineIdentityReviewError, type LineIdentityReviewReason } from "./line-identity-review";
 
 const customerSelect = {
   id: true, name: true, lineName: true, userId: true, storeId: true,
@@ -15,7 +15,7 @@ const userSelect = { id: true, name: true, email: true, role: true, status: true
  */
 export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: string, options: { explainFailure?: boolean; identityProvider?: string } = {}) {
   const identityProvider = options.identityProvider ?? "line";
-  const reject = (reason: string) => {
+  const reject = (reason: LineIdentityReviewReason) => {
     if (options.explainFailure) throw new LineIdentityReviewError(reason);
     return null;
   };

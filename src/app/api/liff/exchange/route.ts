@@ -24,6 +24,7 @@ import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
+import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagnostic";
 import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import {
@@ -68,6 +69,7 @@ type ResponseBody =
         | "IDENTITY_REVIEW_REQUIRED"
         | "INTERNAL";
       message: string;
+      referenceId?: string;
     };
 
 function json(body: ResponseBody, status: number): Response {
@@ -176,8 +178,20 @@ export async function POST(req: Request): Promise<Response> {
           return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);
         }
       }
-      console.warn("[liff/exchange] identity review required", { storeId: store.id, reason: error.reason });
-      return json({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", message: "membership verification required" }, 409);
+      const diagnostic = createLiffReviewDiagnostic({
+        storeId: store.id,
+        identityProvider: context.identityProvider,
+        channelId: verified.channelId,
+        verifiedSubject: verified.lineUserId,
+        reason: error.reason,
+      });
+      logLineBindEvent({
+        path: "liff-exchange", status: "identity_review_required",
+        storeId: store.id, storeSlug: store.slug,
+        errorCode: "IDENTITY_REVIEW_REQUIRED", extra: diagnostic,
+      });
+      // Ownership details stay server-side. A reference is not an access grant.
+      return json({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", message: "membership verification required", referenceId: diagnostic.referenceId }, 409);
     }
     logLineBindEvent({ path: "liff-exchange", status: "unexpected_error",
       storeId: store.id, storeSlug: store.slug, errorCode: "IDENTITY_LOOKUP_FAILED" });

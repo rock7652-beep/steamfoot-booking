@@ -83,6 +83,33 @@ describe("POST /api/liff/exchange", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    "account_owner_conflict", "store_membership_unconfirmed", "ambiguous_legacy_identity",
+    "customer_owner_conflict", "store_membership_conflict", "account_unavailable",
+  ] as const)("correlates %s with verified evidence without disclosing ownership or granting access", async reason => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError(reason));
+    mockCanOnboardCourse.mockResolvedValueOnce(false);
+    const response = await POST(postReq({ idToken: "private-id-token", storeSlug: "zhubei" }));
+    const body = await response.json();
+    expect(response.status).toBe(409);
+    expect(body.referenceId).toMatch(/^[a-f0-9-]{36}$/);
+    expect(body).not.toHaveProperty("reason");
+    expect(body).not.toHaveProperty("verifiedIdentityFingerprint");
+    expect(warn).toHaveBeenCalledWith("[line-bind][liff-exchange] identity_review_required", expect.objectContaining({
+      storeId: STORE.id,
+      extra: expect.objectContaining({ referenceId: body.referenceId, reason,
+        identityProvider: "line", channelId: CHANNEL,
+        verifiedIdentityFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+    }));
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(LINE_USER_ID);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("private-id-token");
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 
   it("returns a review status without minting a session on identity conflicts", async () => {
