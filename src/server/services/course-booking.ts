@@ -8,6 +8,8 @@ import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { toLocalDateStr,dayRange } from "@/lib/date-utils";
 import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
+import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
+import {cardCoversTeachingItem} from "./music-teaching-item";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
 import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
@@ -133,7 +135,7 @@ export async function reserveCourseMembers(
   });
 }
 
-export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number }) {
+export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string|null; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number;customerName?:string }) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
 }
@@ -145,6 +147,7 @@ export async function reserveCourseInTransaction(
     sessionId: string;
     cardId: string | null;
     trialPrice?: number;
+    deferredPayment?: boolean;
     customerId: string | null;
     customerName?: string;
     companionIndex?: number;
@@ -162,6 +165,13 @@ export async function reserveCourseInTransaction(
   options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean; memberReschedule?: boolean } = {},
 ) {
   const { storeId } = actor;
+  const deferred = input.deferredPayment === true;
+  if (deferred) {
+    if (actor.customerId || input.cardId || !input.customerId || input.trialPrice !== undefined)
+      return fail("待繳費排課僅限店家替已建檔學員安排");
+    const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if (!music.length) return fail("待繳費排課僅適用音樂模組");
+  }
   const previous = await tx.courseBooking.findUnique({
     where: { storeId_requestKey: { storeId, requestKey: input.requestKey } },
   });
@@ -174,7 +184,8 @@ export async function reserveCourseInTransaction(
       (previous.companionIndex ?? null) !== (input.companionIndex ?? null) ||
       (input.companionIndex && previous.customerName !== input.customerName) ||
       (previous.makeupForBookingId ?? null) !== (input.makeupForBookingId ?? null) ||
-      (input.cardId === null && previous.trialPrice !== input.trialPrice)
+      (input.cardId === null && (previous.trialPrice !== (input.trialPrice ?? null) || (deferred && previous.bookingKind !== "UNPAID"))) ||
+      (!input.customerId && !input.companionIndex && previous.customerName!==input.customerName)
     )
       fail("預約請求已使用，請重新開啟表單");
     return previous;
@@ -227,10 +238,12 @@ export async function reserveCourseInTransaction(
     else assertCourseSelfBookingEnabled(rule);
   }
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
-  if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
+  const unidentifiedTrial=input.cardId===null&&!input.customerId&&!input.companionIndex&&!!input.customerName?.trim()&&input.customerName.length<=80&&!actor.customerId;
+  if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length && !unidentifiedTrial))
     return fail("請選擇本店有效課程、方案與上課人");
   if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.musicSubject?.isActive===false || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
+  if (actor.customerId && session.enrollmentMode === "ASSIGNED" && !options.memberReschedule) return fail("本堂為指定學員，不開放報名");
   if (card && (
     (!input.companionIndex && !card.members.some((m) => m.customerId === input.customerId)) ||
     (actor.customerId &&
@@ -252,7 +265,7 @@ export async function reserveCourseInTransaction(
   }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
-  if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if (card?.templateIds?.length && !await cardCoversTeachingItem(tx,storeId,session.templateId,card.templateIds)) return fail("此方案不適用本堂課");
   if(card?.musicJoinSessionId) {
     const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
     if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
@@ -265,7 +278,7 @@ export async function reserveCourseInTransaction(
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }
   const bookingCost = card ? (card.unit === "SESSION" ? 1 : session.pointCost) : 0;
-  if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || actor.customerId)) return fail("體驗預約僅由有權限店長建立");
+  if (!card && !deferred && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || actor.customerId)) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
     !(input.onSite && !actor.customerId && session.endsAt > now) &&
@@ -311,7 +324,7 @@ export async function reserveCourseInTransaction(
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
   if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId)) return fail("本堂課已滿班，請由店長確認加人");
-  if (session.template.musicSubject) {
+  if (input.customerId) {
     const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
     if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
   }
@@ -321,13 +334,13 @@ export async function reserveCourseInTransaction(
     data: {
       sessionId:input.sessionId,cardId:input.cardId,customerId:input.customerId,requestKey:input.requestKey,
       notes:input.notes,makeupForBookingId:input.makeupForBookingId,trialPrice:input.trialPrice,
-      bookingKind: card ? "CARD" : "TRIAL",
+      bookingKind: card ? "CARD" : deferred ? "UNPAID" : "TRIAL",
       storeId,
       pointCost: bookingCost,
       operatorUserId: actor.userId,
       operatorCustomerId: actor.customerId ?? null,
       operatorName: actor.name,
-      customerName: input.companionIndex ? input.customerName! : customers[0].name,
+      customerName: input.companionIndex || unidentifiedTrial ? input.customerName! : customers[0].name,
       companionIndex: input.companionIndex,
       reserverCustomerId: input.reserverCustomerId,
       reserverName: input.reserverName,
@@ -389,7 +402,7 @@ export async function settleCourseBooking(
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
-      if (!booking.cardId) await auditTrialAttendance(tx, actor, booking.id, booking.status, "CHECKED_IN");
+      if (booking.bookingKind === "TRIAL") await auditTrialAttendance(tx, actor, booking.id, booking.status, "CHECKED_IN");
       return tx.courseBooking.update({
         where: { id: booking.id },
         data: { checkedInAt: new Date() },
@@ -401,7 +414,7 @@ export async function settleCourseBooking(
       SELECT "featureKey" FROM "StoreFeatureEntitlement"
       WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`
     ).some(item => item.featureKey === "business.music") &&
-    (await tx.courseTemplate.findFirst({where:{id:booking.session.templateId,storeId:actor.storeId},select:{classType:true}}))?.classType === "GROUP";
+    (await tx.courseTemplate.findFirst({where:{storeId:actor.storeId,...(musicTeachingSubjectId(booking.session.templateId)&&booking.card?.templateIds.length?{id:{in:booking.card.templateIds},musicSubjectId:musicTeachingSubjectId(booking.session.templateId)}:{id:booking.session.templateId})},select:{classType:true}}))?.classType === "GROUP";
   const shouldDebit =
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {

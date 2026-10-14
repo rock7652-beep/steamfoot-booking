@@ -6,7 +6,9 @@ import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 
 const { createSchedule, refresh } = vi.hoisted(() => ({ createSchedule: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/dashboard/courses", useSearchParams: () => new URLSearchParams("action=schedule") }));
+vi.mock("@/server/actions/music-schedule-rooms",()=>({getMusicScheduleRooms:vi.fn().mockResolvedValue({success:true,roomIds:["room"]})}));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
+vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:vi.fn().mockResolvedValue({success:true,issues:[]})}));
 vi.mock("@/server/actions/course", () => ({ createCourseSchedule: createSchedule }));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map() }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
@@ -15,6 +17,8 @@ vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () 
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
+
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const props = {
@@ -64,12 +68,11 @@ it("keeps weekly selection after separate input/change events and confirms submi
     const form = host.querySelector<HTMLFormElement>("#course-schedule-form")!;
     await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(createSchedule).toHaveBeenCalledWith(expect.objectContaining({ repeatUntil: undefined, additionalDates: ["2026-10-08", "2026-10-15"] }));
-    const confirmation = host.querySelector('[aria-label="排課成功日期"]')!;
-    expect(confirmation.textContent).toContain("已成功建立 3 堂課程");
-    ["2026-10-01", "2026-10-08", "2026-10-15"].forEach(date => expect(confirmation.textContent).toContain(date));
-    expect(host.querySelector("#course-panel-title")?.textContent).toBe("排課成功");
+    expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(host.querySelector("#course-schedule-form")).toBeNull();
+    expect(host.textContent).toContain("已儲存 3 堂課程");
     expect(host.textContent).not.toContain("每 60 秒自動更新");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
 
@@ -95,12 +98,26 @@ it("keeps selected dates after a failed batch and confirms all dates after a suc
     expect(new FormData(form).getAll("additionalDates")).toEqual(["2026-10-03", "2026-10-06"]);
     await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(createSchedule).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-10-01", repeatUntil: undefined, additionalDates: ["2026-10-03", "2026-10-06"] }));
-    const confirmation = host.querySelector('[aria-label="排課成功日期"]')!;
-    expect(confirmation.textContent).toContain("已成功建立 3 堂課程");
-    ["2026-10-01", "2026-10-03", "2026-10-06"].forEach(date => expect(confirmation.textContent).toContain(date));
     expect(host.querySelector("#course-schedule-form")).toBeNull();
-    await act(async () => [...confirmation.querySelectorAll("button")].find(button => button.textContent === "再排課")!.click());
-    expect(host.querySelector<HTMLSelectElement>('select[name="repeatMode"]')?.value).toBe("once");
     expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(host.textContent).toContain("已儲存 3 堂課程");
   } finally { await act(async () => root.unmount()); host.remove(); }
+});
+
+
+it("shows the inline enrollment section before saving and confirms without an extra enrollment step", async () => {
+  refresh.mockClear();
+  const session = { id:"saved",templateId:"yoga",nameSnapshot:"瑜珈",startsAt:"2026-10-01T10:00:00Z",endsAt:"2026-10-01T11:00:00Z",coachId:"coach",roomId:"room",capacity:10,pointCost:2,bookings:[] };
+  createSchedule.mockResolvedValue({success:true,data:{count:1,sessionId:"saved",sessions:[session]}});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try {
+    await act(async()=>root.render(createElement(CourseWorkspace,props)));
+    expect(host.querySelector('[aria-label="排課學員"]')).not.toBeNull();
+    await act(async()=>host.querySelector<HTMLFormElement>("#course-schedule-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+    const enrollment=Array.from(host.querySelectorAll("button")).find(button=>button.textContent==="＋ 加入學員");
+    expect(enrollment).toBeUndefined();
+    expect(host.querySelector("#course-schedule-form")).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("瑜珈");
+  } finally {await act(async()=>root.unmount());host.remove();}
 });

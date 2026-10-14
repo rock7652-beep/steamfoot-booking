@@ -15,7 +15,8 @@ it("mobile calendar shows counts, closures, and retains the accessible date acti
 it("resource tables scroll horizontally and retain view and edit actions", () => {
   expect(source).toContain('overflow-x-auto rounded-xl border border-earth-200 bg-white');
   expect(source).toContain('min-w-[740px]');
-  expect(source).toContain('查看{template ? "課程" : "教室"}');
+  expect(source).toContain('triggerText="⋯"');
+  expect(source).not.toContain('查看{template ? "課程" : "教室"}');
   expect(source).toContain('setEditing(');
   expect(source).toContain('人數上限');
 });

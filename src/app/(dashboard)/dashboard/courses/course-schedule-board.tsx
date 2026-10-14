@@ -1,4 +1,5 @@
 "use client";
+import {musicScheduleColors} from "@/lib/music-schedule-colors";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -18,7 +19,7 @@ import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib
 import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/course-slot-matches";
 import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { scheduleRosterBookings } from "@/lib/course-schedule-counts";
-import { scheduleOnDate, scheduleTotals } from "@/lib/music-schedule-audit";
+import { scheduleOnDate, scheduleTotals, showMoveShadow } from "@/lib/music-schedule-audit";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -43,8 +44,10 @@ type Session = {
   pointCost: number;
   teacherAttendance?: string;
   requestKey?: string;
+  scheduleType?: "FIXED" | "SINGLE" | "TRIAL" | "LEGACY";
   isFixed?: boolean;
   isBiweekly?: boolean;
+  rescheduleShadowHidden?:boolean;
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -222,7 +225,7 @@ function adaptiveCopy(
   const coach =
     coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定老師" : courseDisplayText("未指定教練", businessProfile));
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
-  const privateClass = template?.classType === "PRIVATE";
+  const privateClass = template?.classType === "PRIVATE" || businessProfile==="MUSIC"&&session.previewKind!=="RENTAL"&&session.bookings.filter(row=>row.status!=="CANCELLED").length===1;
   const groupClass = template?.classType === "GROUP";
   const customer = firstCustomer(session) || session.previewStudentNames?.join("、") || "";
 
@@ -273,14 +276,21 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
-  const presentation = courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
+  const singleMove=moved&&session.rescheduleKind==="SINGLE"&&!session.previewFaded;
+  const cardTone=musicScheduleColors({...session,isFixed:fixed,isTrial:trialClass}).fill;
+  const presentation = businessProfile === "MUSIC"
+    ? rental ? {label:"空間租借",dot:"bg-pink-500"}
+      : trialClass ? {label:"體驗",dot:"bg-orange-500"}
+      : fixed&&!singleMove ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:session.isBiweekly?"bg-violet-600":"bg-blue-600"}
+      : {label:"單次課程",dot:"bg-emerald-600"}
+    : courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, rental);
   const changed = session.previewKind === "CHANGED";
-  const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
+  const scheduleLabel = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "單次";
   const destination = session.previewDestinationStartsAt
     ? `調至 ${hhmm(session.previewDestinationStartsAt)} · 教室 ${rooms.find(room=>room.id===session.previewDestinationRoomId)?.name??"待核對"}` : null;
-  const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
-  const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
+  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "單次";
+  const secondaryType = copy.groupClass ? "團體" : ["體驗", "代課", "調課"].includes(primaryType) ? scheduleLabel : "";
   const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
@@ -300,13 +310,13 @@ function SessionCard({
     ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
   const resourceLabel = rental || resourceView === "coach" ? (/教室/.test(copy.room) ? copy.room : `教室 ${copy.room}`) : copy.coach;
-  const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? ` · 原老師 ${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : ""].filter(Boolean).join(" · ") : teacherState;
+  const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? ` · 原老師 ${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", session.previewFaded?"已調":""].filter(Boolean).join(" · ") : teacherState;
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 border-earth-300 bg-white ${session.previewFaded ? "border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 ${businessProfile==="MUSIC"?cardTone:"border-earth-300 bg-white"} ${session.previewFaded ? "border-dashed opacity-60 [filter:saturate(.35)]" : ""}`}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
@@ -365,7 +375,7 @@ function SessionCard({
         )}
         {progressText && <span className={`text-xs font-semibold ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
         {fixed && businessProfile === "MUSIC" && (
-          <span className={"text-xs font-medium text-earth-600"}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${session.isBiweekly ? "bg-violet-50 text-violet-800" : "text-blue-700"}`}>
             {session.isBiweekly ? "隔週固定" : "每週固定"}
           </span>
         )}
@@ -570,11 +580,12 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30})} className={`group relative min-h-11 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課（預設 60 分鐘）` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:60})} className={`group relative min-h-11 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
+                    return original&&showMoveShadow(session,occupiedSessions??sessions) && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
+                      <div aria-hidden="true" className="absolute inset-0 -z-10 rounded-lg bg-white" />
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
@@ -881,7 +892,7 @@ export function CourseScheduleBoard({
                         : session.coachId === resource.id),
                   );
                    const movedShadows = sessions.filter((session) => {
-                     if (!session.rescheduledFromStartsAt) return false;
+                     if (!session.rescheduledFromStartsAt||!showMoveShadow(session,occupiedSessions??sessions)) return false;
                      if (toLocalDateStr(new Date(session.rescheduledFromStartsAt)) !== selectedDate) return false;
                      if (hhmm(session.rescheduledFromStartsAt).slice(0,2) !== time.slice(0,2)) return false;
                      return resourceView === "room"
@@ -943,8 +954,8 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly||!canCreate}
-                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
-                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 排課${releasedHint ? `；${releasedHint}` : ""}`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 排課${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
@@ -953,7 +964,7 @@ export function CourseScheduleBoard({
                                        : matches.length === 1
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
-                                   : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
+                                   : onOpenEmpty({time:startTime,durationMinutes:60,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
                                  className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}
@@ -965,8 +976,9 @@ export function CourseScheduleBoard({
                       )}
                       {timelineDense && movedShadows.map((session) => {
                         const original = originalPlace(session);
-                        return original && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(21, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
-                          <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
+                        return original&&showMoveShadow(session,occupiedSessions??sessions) && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(21, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
+                          <div aria-hidden="true" className="absolute inset-0 -z-10 rounded-lg bg-white" />
+                      <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
                         </div>;
                       })}
 

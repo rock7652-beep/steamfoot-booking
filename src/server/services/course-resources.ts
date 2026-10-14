@@ -1,4 +1,6 @@
 import "server-only";
+import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
+import {readMusicTeachingItem,musicTeachingQualifications} from "./music-teaching-item";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError, handleActionError } from "@/lib/errors";
 import { formatTWDateTime } from "@/lib/date-utils";
@@ -29,19 +31,21 @@ export async function assertNoCourseResourceUse(tx: Pick<Prisma.TransactionClien
     sessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),capacity:s.capacity})));
 }
 /** Called under the same Store row lock by all scheduling/resource writers. */
-export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$queryRaw"|"courseRoom"|"courseTemplate">, storeId: string,
-  input: {templateId:string;roomId:string;coachId:string;capacity:number}, previous?: {templateId:string;coachId:string}) {
+export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$queryRaw"|"courseRoom"|"courseTemplate"|"musicSubject">, storeId: string,
+  input: {templateId:string;roomId:string;coachId:string;capacity:number;requireMusicSubject?:boolean}, previous?: {templateId:string;coachId:string}) {
   const [room, template, staff] = await Promise.all([
     tx.courseRoom.findFirst({where:{id:input.roomId,storeId,isActive:true}}),
-    tx.courseTemplate.findFirst({where:{id:input.templateId,storeId},include:{musicSubject:{select:{isActive:true}}}}),
+    musicTeachingSubjectId(input.templateId)?readMusicTeachingItem(tx,storeId,input.templateId):tx.courseTemplate.findFirst({where:{id:input.templateId,storeId},include:{musicSubject:{select:{isActive:true}}}}),
     tx.$queryRaw<Array<{courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[]}>>`
       SELECT "courseCoachEnabled","courseQualificationsConfirmed","courseQualifiedTemplateIds" FROM "Staff"
       WHERE id=${input.coachId} AND "storeId"=${storeId} AND status::text='ACTIVE'`
   ]);
   if (!room || !template || !staff[0]?.courseCoachEnabled) throw new AppError("VALIDATION","請選擇本店啟用教室及具授課人員身分的人員");
+  if (input.requireMusicSubject && (!template.musicSubjectId || !template.musicSubject?.isActive)) throw new AppError("VALIDATION","請選擇已連結啟用教學項目的音樂課程");
   if ((!previous || previous.templateId !== input.templateId) && (!template.isActive || template.visibility === 'OFF' || template.musicSubject?.isActive===false)) throw new AppError("VALIDATION","下架課程不可新增使用");
   if (!template.musicSubject && room.capacity !== null && input.capacity > room.capacity) throw new AppError("CONFLICT",`排課上限 ${input.capacity} 人超過教室容量 ${room.capacity} 人`);
+  const qualificationIds=template.musicSubjectId?await musicTeachingQualifications(tx,storeId,{id:input.templateId,musicSubjectId:template.musicSubjectId}):[input.templateId];
   const unchanged = previous?.coachId === input.coachId && previous.templateId === input.templateId;
   const coach = staff[0];
-  if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(input.templateId))) throw new AppError("VALIDATION","授課人員尚未具備本課程授課資格，請先由店長一次設定可教課程");
+  if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !qualificationIds.some(id=>coach.courseQualifiedTemplateIds.includes(id)))) throw new AppError("VALIDATION","授課人員尚未具備本課程授課資格，請先由店長一次設定可教課程");
 }

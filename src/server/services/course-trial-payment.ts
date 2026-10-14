@@ -19,7 +19,7 @@ export async function collectCourseTrialInTransaction(tx:Prisma.TransactionClien
   }
   const booking=await tx.courseBooking.findFirst({where:{id:input.bookingId,storeId,bookingKind:"TRIAL",cardId:null},include:{session:true,trialPayments:{where:{status:"SUCCESS"}}}});
   if(!booking||booking.status==="CANCELLED"||booking.session.cancelledAt) throw new AppError("VALIDATION","找不到可收款的本店體驗預約");
-  if(input.amount !== booking.trialPrice && (!pricing?.trialAllowPriceEdit || input.amount < pricing.trialMinPrice || input.amount > pricing.trialMaxPrice)) throw new AppError("VALIDATION","收款金額不符合體驗價格設定，請重新核對");
+  if(input.amount !== booking.trialPrice && (!pricing?.trialAllowPriceEdit || (input.amount!==0&&input.amount < pricing.trialMinPrice) || input.amount > pricing.trialMaxPrice)) throw new AppError("VALIDATION","收款金額不符合體驗價格設定，請重新核對");
   const current=booking.trialPayments[0];
   if(input.originalPaymentId){
     if(!current||current.id!==input.originalPaymentId||!input.reason?.trim()) throw new AppError("CONFLICT","原收款已變更，請重新開啟明細");

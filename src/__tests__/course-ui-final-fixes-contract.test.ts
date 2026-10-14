@@ -48,7 +48,8 @@ describe("course UI final fixes", () => {
 
     expect(roster).toContain("＋ 直接建立新顧客");
     expect(workspace).not.toContain("預覽日期與衝突");
-    expect(workspace).toContain("如有撞期，整批不會建立。");
+    expect(workspace).toContain("await inspectCourseSchedule(input)");
+    expect(workspace).toContain("，整批尚未儲存");
   });
 
   it("disables member booking until a learner and eligible plan are selected", () => {

@@ -30,7 +30,10 @@ export const courseTemplateInput = z.object({
   waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  enrollmentMode:z.enum(["ASSIGNED","OPEN"]).optional(),
   isTrial:z.boolean().default(false),
+  scheduleType:z.enum(["FIXED","SINGLE","TRIAL","LEGACY"]).default("LEGACY"),
+  scheduleFrequency:z.enum(["NONE","WEEKLY","BIWEEKLY"]).default("NONE"),
   templateId: id,
   roomId: id,
   coachId: id,
@@ -39,6 +42,7 @@ export const courseScheduleInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   capacity: z.number().int().min(1).max(500),
   repeatUntil: date.optional(),
+  fixedUntil: date.optional(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),

@@ -223,6 +223,22 @@ describe("composed consultation and shared-card release modes", () => {
 
  it("isolates the teacher self-session branch before migrations",()=>{const result=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012"});expect(result.status).toBe(0);expect(result.output).toContain("migrations_skipped=true");const rejected=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012",DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","another-project")});expect(rejected.status).not.toBe(0);});
 
+
+describe("course schedule flow preview",()=>{
+  const scheduleEnv={...valid,VERCEL_GIT_COMMIT_REF:"fix/course-schedule-flow-20261012",CONSULTATION_PREVIEW_INTAKE_ENABLED:"false"};
+  it("uses the isolated module preview without migrations",()=>{
+    expect(assertReviewedReleaseEnvironment(scheduleEnv)).toBe("module-roster-preview");
+  });
+  it("rejects live connections, public intake and mismatched provenance",()=>{
+    for(const change of [
+      {DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","live-project")},
+      {DIRECT_URL:direct.replace("ttworfzgwejdeolegkxl","live-project")},
+      {CONSULTATION_PREVIEW_INTAKE_ENABLED:"true"},
+      {VERCEL_ENV:"production"},{VERCEL_GIT_REPO_OWNER:"other"},
+    ])expect(()=>assertReviewedReleaseEnvironment({...scheduleEnv,...change})).toThrow();
+  });
+});
+
  describe("mistaken plan cancellation isolated preview", () => {
   const preview = { ...valid, VERCEL_GIT_COMMIT_REF: "fix/cancel-mistaken-plan-20261012" };
   it("accepts only isolated preview data", () => {

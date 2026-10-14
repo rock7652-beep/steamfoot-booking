@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { courseScheduleCreatedDates, courseScheduleFormFields, courseWeeklyDates } from "@/lib/course-schedule-form";
+import { shiftCourseOccurrenceDates } from "@/lib/course-occurrence-shift";
 
 const defaults = { templateId: "yoga", requestKey: "cbd7b9ea-0638-4046-a1b4-11360f2cc955" };
 function fields(mode: string) {
@@ -58,4 +59,16 @@ it("rejects invalid week counts and batches exceeding 53 courses", () => {
   for (const weeks of [0, -1, 1.5, 54, NaN]) expect(() => courseWeeklyDates("2026-10-03", weeks)).toThrow();
   expect(courseWeeklyDates("2026-10-03", 53)).toHaveLength(53);
   expect(() => courseWeeklyDates("2026-10-03", 27, [2])).toThrow("53 堂");
+});
+
+describe("fixed course occurrence adjustments", () => {
+  it("postpones an occurrence and later dates while keeping every lesson", () => {
+    const original = ["2026-10-13", "2026-10-20", "2026-10-27", "2026-11-03"];
+    expect(shiftCourseOccurrenceDates(original, 2, "2026-11-03")).toEqual([
+      "2026-10-13", "2026-10-20", "2026-11-03", "2026-11-10",
+    ]);
+  });
+  it("rejects an adjusted date that would put lessons out of order", () => {
+    expect(() => shiftCourseOccurrenceDates(["2026-10-13", "2026-10-20"], 1, "2026-10-12")).toThrow("日期需晚於上一堂");
+  });
 });

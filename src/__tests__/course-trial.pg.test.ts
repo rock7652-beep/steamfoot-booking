@@ -1,3 +1,4 @@
+import {installAuditOutboxTestSchema} from "./helpers/audit-outbox-test-schema";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn()}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:vi.fn()}));
@@ -8,7 +9,8 @@ import { execFileSync } from "node:child_process";
 import { PrismaClient } from "../../generated/course-client";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 import { collectCourseTrialInTransaction, voidCourseTrialInTransaction } from "@/server/services/course-trial-payment";
-import {settleCourseBooking,correctCourseAttendance} from "@/server/services/course-booking";
+import {reserveCourseInTransaction,settleCourseBooking,correctCourseAttendance} from "@/server/services/course-booking";
+import {attachCourseTrialCustomer} from "@/server/services/course-trial-customer";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
 // Explicit loopback-only disposable database; never falls back to DATABASE_URL.
@@ -22,9 +24,11 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
 
 (databaseUrl ? describe : describe.skip)("course trial separate payment and attendance — real PostgreSQL", () => {
   let created = false;
+  const stores:string[]=[];
   beforeAll(async () => {
     await testDb().$executeRawUnsafe(`CREATE SCHEMA "${schemaName}"`);
     created = true;
+    await installAuditOutboxTestSchema(databaseUrl!,testDb());
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], { encoding: "utf8" });
     // Prisma emits DDL statements without function bodies; each statement runs in this test schema.
     for (const statement of ddl.split(";").map(s => s.trim()).filter(Boolean)) {
@@ -53,16 +57,22 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
       "paymentMethod" "CashbookPaymentMethod", category text, amount integer,
       note text CHECK (note NOT LIKE '%force-rollback%'), "createdByUserId" text, "updatedAt" timestamp)`);
     await testDb().$executeRawUnsafe(`CREATE TABLE "AuditLog" (
-      id text PRIMARY KEY, "actorUserId" text, "targetType" text, "targetId" text,
+      id text PRIMARY KEY, "storeId" text, module text, summary text, "actorUserId" text, "targetType" text, "targetId" text,
       action text, "beforeJson" jsonb, "afterJson" jsonb, "createdAt" timestamp)`);
+    await testDb().$executeRawUnsafe('CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text NOT NULL, name text NOT NULL, phone text NOT NULL, "assignedStaffId" text, "mergedIntoCustomerId" text, "updatedAt" timestamp NOT NULL)');
+    await testDb().$executeRawUnsafe('CREATE UNIQUE INDEX customer_phone ON "Customer" ("storeId",phone)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "CashDrawerSession" (id text PRIMARY KEY,"storeId" text,"businessDate" date,status text,"updatedAt" timestamp)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" integer,"isOpen" boolean)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "SpecialBusinessDay" ("storeId" text,date date,type text)');
   }, 30000);
   afterAll(async () => {
+    if(created)for(const storeId of stores)await testDb().$executeRaw`DELETE FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${storeId}`;
     if (created) await testDb().$executeRawUnsafe(`DROP SCHEMA "${schemaName}" CASCADE`);
     await db?.$disconnect();
   });
 
   async function fixture(){
-    const storeId=randomUUID();await testDb().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    const storeId=randomUUID();stores.push(storeId);await testDb().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
     const room=await testDb().courseRoom.create({data:{storeId,name:storeId}});
     const template=await testDb().courseTemplate.create({data:{storeId,name:storeId,durationMinutes:30,pointCost:3,capacity:2}});
     const session=await testDb().courseSession.create({data:{storeId,templateId:template.id,roomId:room.id,coachId:"coach",nameSnapshot:"體驗專用",startsAt:new Date("2026-01-01"),endsAt:new Date("2026-01-01T01:00Z"),pointCost:3,capacity:2,requestKey:storeId,requestIndex:0,createdById:"manager"}});
@@ -100,7 +110,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId}})).toBe(2);
     expect(await testDb().courseTrialPayment.findUnique({where:{id:first.id}})).toMatchObject({status:"VOIDED",voidReason:input.reason});
     expect(await testDb().courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({status:"RESERVED",checkedInAt:null});
-    await expect(collect(f,randomUUID(),input)).rejects.toThrow("原收款已變更");
+    await expect(collect(f,randomUUID(),input)).rejects.toThrow("原收���已變更");
   });
   it("cashbook failure rolls receipt back and allows safe retry",async()=>{
     const f=await fixture();await testDb().courseBooking.update({where:{id:f.booking.id},data:{customerName:"force-rollback"}});const key=randomUUID();
@@ -121,6 +131,57 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     expect(await testDb().courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({status:"RESERVED",checkedInAt:null});
     expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId,status:"VOIDED"}})).toBe(1);
     expect(await testDb().coursePointEntry.count({where:{storeId:f.storeId}})).toBe(0);
+  });
+
+  async function anonymousPair(){
+    const f=await fixture();
+    await testDb().courseBooking.update({where:{id:f.booking.id},data:{customerId:null,customerName:"體驗者 1"}});
+    const second=await testDb().courseBooking.create({data:{storeId:f.storeId,sessionId:f.booking.sessionId,bookingKind:"TRIAL",trialPrice:499,pointCost:0,customerId:null,cardId:null,operatorUserId:"manager",operatorName:"manager",customerName:"體驗者 2",requestKey:randomUUID()}});
+    return {f,second};
+  }
+  function attach(f:Fixture,phone="0912345678",name="補資料客"){
+    return testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return attachCourseTrialCustomer(tx,{storeId:f.storeId,userId:"manager",canCreate:true,maxCustomers:null},{bookingId:f.booking.id,name,phone});});
+  }
+  it("two anonymous attendees keep separate paid and zero receipts without attendance",async()=>{
+    const {f,second}=await anonymousPair();const key=randomUUID();
+    const paid=await collect(f,key);const free=await collect({...f,booking:second},randomUUID(),{amount:0,paymentMethod:"OTHER"});
+    expect(paid.amount).toBe(499);expect(free).toMatchObject({amount:0,status:"SUCCESS"});
+    expect(await balance(f)).toEqual([{net:499}]);
+    expect(await testDb().courseBooking.count({where:{sessionId:f.booking.sessionId,status:"RESERVED"}})).toBe(2);
+    expect(await testDb().coursePointEntry.count({where:{storeId:f.storeId}})).toBe(0);
+  });
+  it("checkout before customer details preserves the booking and receipt on repeated supplementation",async()=>{
+    const {f}=await anonymousPair();const receipt=await collect(f,randomUUID());
+    const first=await attach(f);const again=await attach(f);expect(first.customer.id).toBe(again.customer.id);
+    expect(await testDb().courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({customerId:first.customer.id,status:"RESERVED",checkedInAt:null});
+    expect(await testDb().courseTrialPayment.findUnique({where:{id:receipt.id}})).toMatchObject({bookingId:f.booking.id,amount:499,status:"SUCCESS"});
+    expect(await balance(f)).toEqual([{net:499}]);
+  });
+  it("existing phone reuses the customer name; overlapping supplementation rolls back without changing receipts",async()=>{
+    const {f,second}=await anonymousPair();const customerId=randomUUID();
+    await testDb().$executeRaw`INSERT INTO "Customer" (id,"storeId",name,phone,"updatedAt") VALUES (${customerId},${f.storeId},'既有姓名','0912345678',NOW())`;
+    const first=await attach(f,"0912345678","不要覆寫");expect(first).toMatchObject({existing:true,customer:{id:customerId,name:"既有姓名"}});
+    const receipt=await collect({...f,booking:second},randomUUID(),{amount:0,paymentMethod:"OTHER"});
+    await expect(attach({...f,booking:second})).rejects.toThrow("同時段已有課");
+    expect(await testDb().courseBooking.findUnique({where:{id:second.id}})).toMatchObject({customerId:null,status:"RESERVED"});
+    expect(await testDb().courseTrialPayment.findUnique({where:{id:receipt.id}})).toMatchObject({status:"SUCCESS",amount:0});
+  });
+  it("cancelling one attendee keeps the companion and receipts; explicit void reverses only that receipt",async()=>{
+    const {f,second}=await anonymousPair();const receipt=await collect(f,randomUUID());await collect({...f,booking:second},randomUUID(),{amount:0,paymentMethod:"OTHER"});
+    await testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return settleCourseBooking(tx,{storeId:f.storeId,userId:"manager",name:"店長"},f.booking.id,"CANCELLED");});
+    expect(await testDb().courseBooking.findUnique({where:{id:second.id}})).toMatchObject({status:"RESERVED"});expect(await balance(f)).toEqual([{net:499}]);
+    await testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return voidCourseTrialInTransaction(tx,{storeId:f.storeId,userId:"manager"},receipt.id,"明確作廢");});
+    expect(await balance(f)).toEqual([{net:0}]);expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId,status:"SUCCESS"}})).toBe(1);
+  });
+
+  it("anonymous creation is idempotent and concurrent additions enforce total capacity",async()=>{
+    const f=await fixture();await testDb().courseBooking.delete({where:{id:f.booking.id}});
+    await testDb().courseSession.update({where:{id:f.booking.sessionId},data:{startsAt:new Date("2099-01-01T08:00Z"),endsAt:new Date("2099-01-01T09:00Z")}});
+    const actor={storeId:f.storeId,userId:"manager",name:"店長"};const input={sessionId:f.booking.sessionId,customerId:null,customerName:"體驗者 1",cardId:null,trialPrice:0,requestKey:randomUUID()};
+    const create=(data= input)=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return reserveCourseInTransaction(tx,actor,data,null);});
+    const first=await create();expect((await create()).id).toBe(first.id);
+    const raced=await Promise.allSettled([2,3,4].map(n=>create({...input,customerName:`體驗者 ${n}`,requestKey:randomUUID()})));
+    expect(raced.filter(r=>r.status==="fulfilled")).toHaveLength(1);expect(await testDb().courseBooking.count({where:{sessionId:f.booking.sessionId,status:"RESERVED"}})).toBe(2);
   });
 
 });

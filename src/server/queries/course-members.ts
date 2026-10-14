@@ -92,6 +92,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  const teachingIds=bookings.filter(b=>b.session.templateId.startsWith("teaching:")).flatMap(b=>b.card?.templateIds??[]);
+  const tuitionRules=teachingIds.length?await coursePrisma.courseTemplate.findMany({where:{storeId,id:{in:teachingIds}},select:{id:true,classType:true,musicTermLessons:true}}):[];
   const canCreateShared = bookings.some(b => !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     && await getCourseSharedCardState(storeId) === "ENABLED";
   const groupSession = bookings[0]?.session;
@@ -134,7 +136,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         .map((purchase) => ({ purchase, next: renewalCards.find((candidate) => candidate.id === purchase.cardId) }))
         .filter(({ purchase, next }) =>
           !!next && next.createdAt > card.createdAt && next.remaining >= purchase.points &&
-          next.templateIds.includes(b.session.templateId))
+          (next.templateIds.includes(b.session.templateId)||card.templateIds.some(id=>next.templateIds.includes(id))))
         .sort((left, right) => left.next!.createdAt.getTime() - right.next!.createdAt.getTime())[0] ?? null
       : null;
     const paymentSummary = (purchase: (typeof confirmedPurchases)[number]) => ({
@@ -150,8 +152,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
     const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
     const purchasedLessons = card?.entries[0]?.points ?? card?.plan.points ?? 0;
-    const privateMusicTermLessons = b.session.template.classType === "PRIVATE" && card?.unit === "SESSION"
-      ? b.session.template.musicTermLessons : null;
+    const personalRule=b.session.templateId.startsWith("teaching:")?tuitionRules.find(rule=>card?.templateIds.includes(rule.id))??b.session.template:b.session.template;
+    const privateMusicTermLessons = personalRule.classType === "PRIVATE" && card?.unit === "SESSION"
+      ? personalRule.musicTermLessons : null;
     const legacyTermSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
       ? purchasedLessons / card.plan.musicTerms
       : privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0
@@ -160,8 +163,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const snapshotPeriod=card?.musicTermSizes?.length ? musicPeriodAt(card.musicTermSizes,musicSnapshotBonus(card.musicTermSizes,card.musicBonusLessons,purchasedLessons),currentPosition) : null;
     const hasSnapshot=!!card?.musicTermSizes?.length;
     const termSize=snapshotPeriod?.count??legacyTermSize;
-    const groupMusic = b.session.template.classType === "GROUP" && card?.unit === "SESSION";
-    const validGroupEnrollment = groupMusic && (hasSnapshot || (!!card?.plan.musicTerms && card.templateIds.includes(b.session.templateId) && purchasedLessons % card.plan.musicTerms === 0));
+    const groupMusic = personalRule.classType === "GROUP" && card?.unit === "SESSION";
+    const validGroupEnrollment = groupMusic && (hasSnapshot || (!!card?.plan.musicTerms && (card.templateIds.includes(b.session.templateId)||b.session.templateId.startsWith("teaching:")) && purchasedLessons % card.plan.musicTerms === 0));
     const missingGroupEnrollment = groupMusic && !validGroupEnrollment;
     const termNumber = snapshotPeriod?.number ?? (!missingGroupEnrollment && termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null);
     const periodStart=snapshotPeriod?.start??(termNumber ? (termNumber-1)*termSize : 0);
@@ -200,7 +203,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       const source=card?.bookings.find(source=>source.id===item.makeupForBookingId);
       return source ? [{originalDate:source.session.startsAt.toISOString(),date:item.session.startsAt.toISOString(),status:item.status==="ATTENDED"?"已補課":item.status==="NO_SHOW"?"補課曠課":item.absenceKind==="STUDENT_LEAVE"?"補課請假":"已安排補課"}] : [];
     }),
-    planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
+    planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : b.bookingKind === "UNPAID" ? "待繳費（尚未使用方案）" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
     canAddCompanion: canCreateShared && !b.companionIndex && !!b.customerId && !!card?.plan.allowShared && !card.termSessionIds.length,
     bookingSource: b.companionIndex ? `同行 · 預約人 ${b.reserverName ?? b.operatorName}` : b.operatorCustomerId

@@ -1,0 +1,19 @@
+// Synthetic UI fixture. No authentication, real customer data, or database writes.
+import {MusicBoardFixture} from "./music-board-fixture";
+import {useCallback,useState} from "react";
+import {createRoot} from "react-dom/client";
+import {RightSheet} from "../../src/components/admin/right-sheet";
+import {MusicScheduleWizard} from "../../src/app/(dashboard)/dashboard/courses/music-schedule-wizard";
+import {RentalPanel} from "../../src/app/(dashboard)/dashboard/courses/rental-panel";
+import "../../src/app/globals.css";
+const rooms=[{id:"room",name:"鋼琴教室 A（長名稱驗收）",isActive:true,rentalEnabled:true,rentalHourlyRate:600},{id:"other-room",name:"吉他教室 B",isActive:true,rentalEnabled:true,rentalHourlyRate:400}];
+const templates=[{id:"piano",name:"鋼琴個別課：非常長的課程名稱與教學內容供窄視窗驗收",musicSubjectId:"subject",musicSubject:{id:"subject",name:"吉他教學",isActive:true},durationMinutes:60,capacity:1,defaultRoomId:"room"},{id:"guitar",name:"吉他團體班",musicSubjectId:"subject",musicSubject:{id:"subject",name:"吉他教學",isActive:true},durationMinutes:60,capacity:8,defaultRoomId:"room"},{id:"trial",name:"鋼琴體驗課",musicTrialMode:"PAID",musicSubjectId:"subject",musicSubject:{id:"subject",name:"吉他教學",isActive:true},durationMinutes:60,capacity:2,defaultRoomId:"room"}];
+const subjects=[{id:"piano",name:"鋼琴",isActive:true},{id:"guitar",name:"吉他",isActive:true},{id:"violin",name:"小提琴",isActive:true},{id:"drums",name:"爵士鼓",isActive:true}];
+function Fixture(){
+ const [kind,setKind]=useState<"fixed"|"single"|"trial"|"rental">("single");
+ const [position,setPosition]=useState({date:"2099-10-01",time:"18:00",roomId:"room",coachId:undefined as string|undefined,durationMinutes:60});
+ const updatePosition=useCallback((next:{date:string;time:string;roomId?:string;coachId?:string;durationMinutes:number})=>setPosition(old=>old.date===next.date&&old.time===next.time&&old.roomId===next.roomId&&old.coachId===next.coachId&&old.durationMinutes===next.durationMinutes?old:{...next,roomId:next.roomId??"",coachId:next.coachId}),[]);
+ const typeControl=<label className="block rounded-lg border-l-4 border-pink-500 bg-pink-50 p-3">排課類型<select aria-label="安排類型" value={kind} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3" onChange={event=>setKind(event.target.value as typeof kind)}><option value="fixed">固定課</option><option value="single">單次課</option><option value="trial">體驗課</option><option value="rental">空間租借</option></select></label>;
+ return <main><RightSheet presentation="centered" fixedHeight width={920} maxHeight={900} open onClose={()=>{}} labelledById="qa-title"><header className="flex shrink-0 items-center justify-between border-b bg-primary-50 px-4 py-3"><h2 id="qa-title">新增排課 · 音樂模組</h2><span>虛構資料驗收</span></header><div className="flex min-h-0 flex-1 flex-col p-3"><div className={`${kind==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}><MusicScheduleWizard subjects={subjects} active={kind!=="rental"} templates={templates} rooms={rooms} coaches={[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"林老師"}]} seed={position} initialDate={position.date} requestKey="00000000-0000-4000-8000-000000000017" isTrial={kind==="trial"} initialScheduleKind={kind==="fixed"?"FIXED":"SINGLE"} onArrangementChange={setKind} onPositionChange={updatePosition} canCreateCustomer onCreated={()=>{}} onCancel={()=>{}}/></div><div className={`${kind==="rental"?"flex":"hidden"} min-h-0 flex-1 flex-col`}><RentalPanel active={kind==="rental"} typeControl={typeControl} allowWeekly rooms={rooms} seed={position} permissions={{customerRead:true,customerCreate:true,collect:true,correct:true,edit:true}} onPositionChange={updatePosition} onCancel={()=>{}}/></div></div></RightSheet></main>;
+}
+createRoot(document.getElementById("root")!).render(window.location.pathname==="/board"?<MusicBoardFixture/>:<Fixture/>);

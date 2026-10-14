@@ -7,6 +7,8 @@ export const musicSubjectRuleSchema=z.object({
   musicValidityDaysPerTerm:z.number().int().min(1).max(3650),
   musicTeacherShare:z.number().finite().min(0).max(1).multipleOf(0.01).default(0.6),
   musicScheduleMode:z.enum(["FIXED","APPOINTMENT"]),
+  teacherIds:z.array(z.string().min(1).max(180)).max(200).optional(),
+  confirmKeepScheduled:z.boolean().optional(),
 });
 export type MusicSubjectRule=z.infer<typeof musicSubjectRuleSchema>;
 export const musicClassLabel={PRIVATE:"個別課",SELF_ORGANIZED:"自組班",GROUP:"團體班"} as const;

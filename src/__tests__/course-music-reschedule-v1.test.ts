@@ -27,9 +27,9 @@ it("keeps temporary moves visible without turning the original slot into an occu
 
 it("uses a compact cut-paste workflow for one lesson, several weeks, or future lessons", () => {
   expect(workspace).toContain("調課");
-  expect(workspace).toContain(">這堂</button>");
+  expect(workspace).toContain(">只改本次</button>");
   expect(workspace).toContain(">連續幾週</button>");
-  expect(workspace).toContain(">換固定時段</button>");
+  expect(workspace).toContain(">本次起套用</button>");
   expect(workspace).toContain("選白格貼上");
   expect(workspace).toContain("moveCourseSessions");
   expect(board).toContain('選擇貼上位置');

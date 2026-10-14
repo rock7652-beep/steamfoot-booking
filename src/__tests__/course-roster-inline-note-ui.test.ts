@@ -115,7 +115,7 @@ it.each(["before", "during"] as const)("ignores a stale roster refresh started %
 it.each([false, true])("%s attendance rollback cannot restore an old note over a successful inline save", async music => {
   const status = deferred<{ success: boolean; error: string }>(); m.status.mockReturnValue(status.promise);
   await render(music); await open(); await type("點名前後保留");
-  const attendance = row().querySelector<HTMLButtonElement>(`button[aria-label="甲同學：${music ? "點名" : "待點名"}"]`)!;
+  const attendance = row().querySelector<HTMLButtonElement>(`button[aria-label="甲同學：待點名"]`)!;
   await act(async () => attendance.click()); await clickText("儲存");
   await act(async () => status.resolve({ success: false, error: "點名失敗" }));
   expect(row().textContent).toContain("點名前後保留"); expect(row().textContent).not.toContain("原始備註");
