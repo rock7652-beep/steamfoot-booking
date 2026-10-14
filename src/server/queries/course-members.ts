@@ -6,6 +6,7 @@ import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
+import { isMusicPilotCard } from "@/server/services/music-pilot-policy";
 
 export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
   const cards = await coursePrisma.coursePointCard.findMany({
@@ -35,7 +36,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     },
     select: { id: true, name: true, phone: true },
   });
-  return cards.map((c) => {
+  return (await Promise.all(cards.map(async (c) => {
     const opening = readMusicOpeningCard(c, storeId, customerId);
     const openingIssue = musicOpeningOperationIssue(opening, c);
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
@@ -57,6 +58,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       expired,
       openingIssue,
       openingImported: opening.kind !== "NATIVE",
+      ...(opening.kind === "OPENING" && !openingIssue && await isMusicPilotCard(coursePrisma,storeId,c) ? {openingReservable:true} : {}),
       expiresAt: originalExpiry?.toISOString() ?? null,
       ...(opening.kind === "OPENING" && opening.record.expiryVerification?.kind === "NO_EXPIRY" && !openingIssue ? { expiryKind: "NO_EXPIRY" as const } : {}),
       members: c.members.map((m) => ({
@@ -71,7 +73,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
         createdAt: e.createdAt.toISOString(),
       })),
     };
-  }).sort((a, b) => Number(a.expired || a.closed) - Number(b.expired || b.closed) || (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
+  }))).sort((a, b) => Number(a.expired || a.closed) - Number(b.expired || b.closed) || (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
 }
 
 export async function getCourseRoster(storeId: string, sessionId: string) {
@@ -145,7 +147,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const openingLesson = readMusicOpeningLesson(opening, { ...b, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey });
     let openingIssue = openingLesson.kind === "BLOCKED" ? openingLesson.issue : null;
     const openingOperationWarning = musicOpeningOperationIssue(opening, card ?? {});
-    const sourceLessons = opening.kind === "OPENING" ? (card?.bookings ?? []).map(item => ({ item, lesson: readMusicOpeningLesson(opening, item) })) : [];
+    const sourceLessons = opening.kind === "OPENING" ? (card?.bookings ?? []).filter(item=>item.status!=="CANCELLED"||["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind??"")).map(item => ({ item, lesson: readMusicOpeningLesson(opening, item) })) : [];
     if (sourceLessons.some(item => item.lesson.kind === "BLOCKED")) openingIssue = "此期有來源堂次尚未核對，暫不推算期別";
     const sourceIds = sourceLessons.map(({item}) => item.musicOpeningSourceLessonKey);
     const ordinalIds = sourceLessons.map(({item}) => JSON.stringify([item.musicOpeningTermKey,item.musicOpeningLessonOrdinal]));

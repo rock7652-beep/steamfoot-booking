@@ -608,7 +608,7 @@ export function CourseRoster({
           item.members.some((member) => member.id === memberId) &&
           !item.expired &&
           !item.closed &&
-          !item.openingImported &&
+          (!item.openingImported || item.openingReservable === true) &&
           item.expiresAt !== null &&
           item.available >=
             (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
@@ -659,7 +659,7 @@ export function CourseRoster({
             return;
           }
           const chosenCard=cards.find(card=>card.id===cardId);
-          if (!chosenCard || chosenCard.openingImported || !chosenCard.expiresAt) {setMessage("請先核對可用方案與來源堂次");return;}
+          if (!chosenCard || (chosenCard.openingImported && !chosenCard.openingReservable) || !chosenCard.expiresAt) {setMessage("請先核對可用方案與來源堂次");return;}
           const chosenExpiry=chosenCard.expiresAt;
           const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.unit==="SESSION"?1:item.pointCost),0);
           if(enrollmentScope==="FUTURE" && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>item.startsAt>chosenExpiry))){setMessage("請確認後續日期與方案額度、有效期限");return;}
