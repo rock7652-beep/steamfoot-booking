@@ -8,6 +8,7 @@ export function OpeningImportForm() {
   // the File in this component only so the confirmation sends the same bytes.
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [state, action, pending] = useActionState(async (previous: MusicSourceImportState, form: FormData) => {
+    if (form.get("intent") !== "commit") setConfirmed(false);
     if (selectedFile) form.set("manifest", selectedFile);
     return submitMusicSourceImport(previous, form);
   }, initial);

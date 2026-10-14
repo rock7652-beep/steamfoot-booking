@@ -9,9 +9,10 @@ afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = ""; vi.unstubAll
 describe("source file survives native form resets", () => {
   it("confirmation sends the same File after React resets the file input", async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    actions.submit.mockResolvedValueOnce({ status: "PREVIEW", fileVersion: 1, message: "預覽完成", contentHash: "a", planHash: "b",
+    const preview = { status: "PREVIEW", fileVersion: 1, message: "預覽完成", contentHash: "a", planHash: "b",
       preview: { sourceDate: "2026-10-14", counts: { students: 1, tuition: 0, attendance: 0, schedule: 0 }, create: 1, existing: 0, review: 0, rows: [], limitations: [] },
-    }).mockResolvedValueOnce({ status: "HOLD", message: "營業時段不寫入" });
+    };
+    actions.submit.mockResolvedValueOnce(preview).mockResolvedValueOnce({ status: "HOLD", message: "營業時段不寫入" }).mockResolvedValue(preview);
     const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
     await act(async () => { root.render(createElement(OpeningImportForm)); });
     const input = host.querySelector<HTMLInputElement>('input[type="file"]')!;
@@ -30,6 +31,9 @@ describe("source file survives native form resets", () => {
     const second = actions.submit.mock.calls[1][1].get("manifest") as File;
     expect(second.name).toBe(file.name); expect(second.size).toBe(first.size); expect(second.size).toBe(file.size);
     expect(actions.submit.mock.calls[1][1].get("intent")).toBe("commit");
+    await act(async () => { host.querySelector<HTMLButtonElement>('button[value="preview"]')!.click(); });
+    expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(false);
+    expect(host.querySelector<HTMLButtonElement>('button[value="commit"]')!.disabled).toBe(true);
     await act(async () => root.unmount());
   });
 });

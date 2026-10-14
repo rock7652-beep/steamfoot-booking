@@ -19,6 +19,8 @@
 
 SQL 位於 `docs/sql/music-source-import-preview.sql`，只手動套既有隔離 Preview，不進 production migration runner。表啟用 RLS、撤銷公開與 client 存取；沒有 client policy 是 server-only 模型的預期狀態。
 
-本機：81 項相关測試、TypeScript、修改檔案 ESLint 通過。其中 6 項 PGlite PostgreSQL adapter 測試涵蓋原子寫入、重送、回滾、過期預覽、範圍／營業時間及 client 存取拒絕；不等同原生 PostgreSQL 多連線併發或實際 UI 業務驗收。
+本機：82 項相關測試、TypeScript、修改檔案 ESLint 通過。其中 6 項 PGlite PostgreSQL adapter 測試涵蓋原子寫入、重送、回滾、過期預覽、範圍／營業時間及 client 存取拒絕。另有 React 表單回歸測試：預覽重設原生 file input 後，同一 File 仍可提交；重新預覽必須重新確認。不等同原生 PostgreSQL 多連線併發或完整課程業務驗收。
 
-UI 受影響：匯入頁及音樂課表入口。桌機 1366、1440、iPad 1024×768、768×1024、窄容器待部署後驗收。歷史轉為營運權益、舊學生清除與重匯尚待驗證新流程後執行。不得把封存或靜態畫面驗收稱為課程、部分付款、退款等完整移轉驗收。
+UI 受影響：匯入頁及音樂課表入口。已登入隔離 Preview 驗證 10 位真實樣本（14 學費、3 簽到／請假、51 排課），搜尋、原文展開、確認及營業時間拒絕正常。桌機 1366／1440、模擬 iPad 1024×768／768×1024 的預覽沒有整頁水平溢出，調整尺寸保留展開狀態；真實 iPad／Safari與大量批次未驗。
+
+實際樣本提交因現有營業時段守門而 HOLD，未完成持久匯入；舊學生清除及重匯尚未執行。歷史轉為營運權益仍待來源欄位核實。不得把預覽或封存稱為點名、部分付款、退款等完整移轉驗收。GitHub Workers check 有既有失敗，不能宣稱所有 CI 綠燈；Vercel Preview 的 build 與本次相關檢查通過。
