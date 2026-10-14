@@ -31,6 +31,7 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { MUSIC_OPENING_BRANCH, MUSIC_OPENING_STORE } from "../../../../../scripts/music-opening-preview-scope.mjs";
 
 export default async function CoursesPage({
   searchParams,
@@ -307,6 +308,9 @@ export default async function CoursesPage({
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
+  const canSourceImport = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === MUSIC_OPENING_BRANCH
+    && storeId === MUSIC_OPENING_STORE && ["OWNER", "MANAGER", "ADMIN"].includes(user.role)
+    && (await Promise.all((["wallet.create", "booking.update", "customer.read", "customer.create"] as const).map(permission => checkPermission(user.role, user.staffId, permission)))).every(Boolean);
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell
@@ -341,6 +345,7 @@ export default async function CoursesPage({
         />
       )}
       {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">期初補課權益</DashboardLink>}
+      {businessProfile === "MUSIC" && canSourceImport && <DashboardLink href="/dashboard/courses/opening-import" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-base">音教雲資料匯入</DashboardLink>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}
