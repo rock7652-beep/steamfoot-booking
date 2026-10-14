@@ -12,11 +12,13 @@ export function SettingsPanel({
   sourceHref,
   width = ADMIN_SETTINGS_PANEL.width,
   children,
+  navigateLocal, closeTarget, onSaved,
 }: {
   title: string;
   sourceHref: string;
   width?: number;
   children: ReactNode;
+  navigateLocal?: (href:string)=>void; closeTarget?:string; onSaved?:()=>void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -26,6 +28,8 @@ export function SettingsPanel({
   const [destination, setDestination] = useState<string | null>(null);
   const [navigating, startNavigation] = useTransition();
   const root = useRef<HTMLDivElement>(null);
+  const currentHref=useRef("");
+  useEffect(()=>{currentHref.current=window.location.href;},[searchString]);
 
   const dirty = Object.values(states).some(state => state.dirty);
   const pending = Object.values(states).some(state => state.pending);
@@ -41,17 +45,19 @@ export function SettingsPanel({
   }, []);
 
   const closeHref = useMemo(() => {
+    if(closeTarget)return closeTarget;
     const params = new URLSearchParams(searchString);
     params.delete("panel");
     params.delete("panelQuery");
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
-  }, [pathname, searchString]);
+  }, [pathname, searchString, closeTarget]);
 
   const go = useCallback((href: string) => {
     setDestination(null);
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
+    if(navigateLocal)navigateLocal(href);
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router,navigateLocal]);
 
   const request = useCallback((href: string) => {
     if (dirty || pending) setDestination(href);
@@ -92,15 +98,24 @@ export function SettingsPanel({
       if (destination) setDestination(null);
       else request(closeHref);
     };
+    const pop=(event:PopStateEvent)=>{
+      if(!navigateLocal||(!dirty&&!pending))return;
+      const target=window.location.href;
+      event.stopImmediatePropagation();
+      window.history.pushState(null,"",currentHref.current);
+      setDestination(target);
+    };
+    window.addEventListener("popstate",pop,true);
     window.addEventListener("beforeunload", unload);
     document.addEventListener("keydown", escape);
     return () => {
+      window.removeEventListener("popstate",pop,true);
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("keydown", escape);
     };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [dirty, pending, request, closeHref, destination,navigateLocal]);
 
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved }), [report, navigate, navigateLocal, request, onSaved]);
 
   return (
     <div ref={root} data-settings-panel>
@@ -150,7 +165,7 @@ export function SettingsPanel({
             if (rawHref?.startsWith("#")) return;
             event.preventDefault();
             event.stopPropagation();
-            navigate(link.href);
+            if(navigateLocal)request(link.href);else navigate(link.href);
           }}
           onSubmitCapture={event => {
             const form = event.target;
@@ -161,7 +176,7 @@ export function SettingsPanel({
             new FormData(form).forEach((value, key) => {
               if (typeof value === "string") params.set(key, value);
             });
-            navigate(sourceHref + "?" + params);
+            if(navigateLocal)request(sourceHref+"?"+params);else navigate(sourceHref + "?" + params);
           }}
         >
           {navigating ? (

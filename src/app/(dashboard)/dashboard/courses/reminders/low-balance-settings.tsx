@@ -1,4 +1,6 @@
 "use client";
+import {saveSettingsReceipt} from "@/components/settings/save-settings-receipt";
+import {useSettingsPanelNavigation} from "@/components/admin/settings-panel-context";
 import { NotificationSwitch } from "@/components/admin/notification-switch";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
@@ -52,7 +54,8 @@ function expirySummary(draft: Draft) {
   return draft.expiryDays ? `${draft.expiryDays.replace(/,\s*/g, "、")} 天前` : "已開啟";
 }
 
-export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan[]; music?: boolean }) {
+export function CourseLowBalanceSettings({ plans, storeId,music = false }: {storeId?:string; plans: Plan[]; music?: boolean }) {
+  const panelNavigation=useSettingsPanelNavigation();
   const initial = () => Object.fromEntries(plans.map(plan => [plan.id, normalizedDraft(plan)]));
   const [saved, setSaved] = useState<Record<string, Draft>>(initial);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(initial);
@@ -126,16 +129,17 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
       setMessage(`「${plan.name}」請確認剩餘門檻為 0–1000000 的整數，到期天數為 1–365（最多 6 次）。`);
       return false;
     }
-    const result = await saveCoursePlanReminderSetting(parsed.data);
+    const result = panelNavigation&&storeId?await saveSettingsReceipt<typeof parsed.data>("PLAN_REMINDER",storeId,parsed.data):await saveCoursePlanReminderSetting(parsed.data);
     if (!result.success) {
       setMessage(`「${plan.name}」：${result.error}`);
       return false;
     }
+    const receipt=result.data;
     const value: Draft = {
-      enabled: parsed.data.enabled,
-      threshold: parsed.data.threshold?.toString() ?? "",
-      expiryEnabled: parsed.data.expiry.enabled,
-      expiryDays: parsed.data.expiry.days.join(", "),
+      enabled: receipt.enabled,
+      threshold: receipt.threshold?.toString() ?? "",
+      expiryEnabled: receipt.expiry.enabled,
+      expiryDays: receipt.expiry.days.join(", "),
     };
     setSaved(previous => ({ ...previous, [plan.id]: value }));
     setDrafts(previous => ({ ...previous, [plan.id]: value }));

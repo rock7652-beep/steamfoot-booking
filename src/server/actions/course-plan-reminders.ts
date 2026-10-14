@@ -20,7 +20,7 @@ export async function getCoursePlanReminderSettings() {
   const rules = new Map(overrides.map(row => [row.id, row.body]));
   return plans.map(plan => ({ ...plan, expiry: parseCourseExpiryPlan(rules.get(courseExpiryPlanId(storeId, plan.id))) }));
 }
-export async function saveCoursePlanReminderSetting(input: unknown) {
+export async function saveCoursePlanReminderSetting(input: unknown,receiptOnly=false) {
   try {
     await requireWritablePermission("business_hours.manage");
     const { storeId } = await courseManager("business_hours.manage");
@@ -33,7 +33,7 @@ export async function saveCoursePlanReminderSetting(input: unknown) {
       const id = courseExpiryPlanId(storeId, data.planId), body = JSON.stringify(data.expiry);
       await tx.messageTemplate.upsert({ where: {id}, create: {id,storeId,name:"課程方案個別到期提醒設定",channel:"LINE",body}, update:{body} });
     });
-    revalidatePath("/dashboard/courses/reminders"); revalidatePath("/dashboard/courses");
-    return {success:true as const};
+    if(!receiptOnly){revalidatePath("/dashboard/courses/reminders"); revalidatePath("/dashboard/courses");}
+    return {success:true as const,data};
   } catch (error) { return handleActionError(error); }
 }

@@ -30,8 +30,8 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
     <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-10 shrink-0 rounded-lg border border-earth-300 bg-white px-3 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
   </div></div>;
 }
-type Props = {storeId:string;onSaved:(row:CourseSettingsSectionInput)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
-export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved }: Props) {
+type Props = {onCancel?:()=>void;storeId:string;onSaved:(row:CourseSettingsSectionInput)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
+export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,onCancel }: Props) {
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
   const [saved, setSaved] = useState(draft);
@@ -64,10 +64,10 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved 
       </label>)}
     </fieldset>
     {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
+    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage("");onCancel?.(); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
     <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
-      <button type="button" disabled={pending || mutation.uncertain || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
+      <button type="button" disabled={pending || mutation.uncertain} onClick={() => dirty?setConfirmDiscard(true):onCancel?.()} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : mutation.uncertain ? "重試確認儲存結果" : "儲存"}</button>
     </div>
   </form>;

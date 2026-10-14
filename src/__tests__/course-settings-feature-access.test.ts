@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/course-settings-panel",()=>({readCourseSettingsPanel:vi.fn()}));
 import { createElement as h, type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";

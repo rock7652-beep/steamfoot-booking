@@ -16,6 +16,11 @@ await build({
   define: { "process.env.NODE_ENV": '"development"' },
   alias: { "@": path.join(root, "src") },
   plugins: [{ name: "isolated-course-settings", setup(builder) {
+    builder.onResolve({filter:/^@\/server\/actions\/course-settings-panel$/},()=>({path:"settings-reader",namespace:"settings-reader"}));
+    builder.onLoad({filter:/.*/,namespace:"settings-reader"},()=>({contents:`import {createElement as h,useState} from 'react';
+import {useSettingsPanelGuard,useSettingsPanelSaved} from '@/components/admin/settings-panel-context';
+function Form(){const [value,setValue]=useState('草稿');const [saved,setSaved]=useState('草稿');const complete=useSettingsPanelSaved();useSettingsPanelGuard(value!==saved,false);return h('div',null,h('label',{className:'block p-6'},'未儲存草稿',h('input',{'aria-label':'未儲存草稿',value,onChange:e=>setValue(e.target.value),className:'min-h-11 max-w-full border px-3'})),h('button',{onClick:()=>{setSaved(value);complete?.();}},'合成儲存'));}
+export const readCourseSettingsPanel=async(storeId,panel,query)=>{window.__reads=(window.__reads??0)+1;return {storeId,panel,query,content:h(Form)}};`,loader:"js",resolveDir:root}));
     builder.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: "navigation", namespace: "qa" }));
     builder.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "qa" }));
     builder.onResolve({ filter: /(?:^|\/)app-link$/ }, () => ({ path: "app-link", namespace: "qa" }));
@@ -28,7 +33,9 @@ await build({
     builder.onLoad({ filter: /.*/, namespace: "qa" }, args => {
       if (args.path === "navigation") return { contents: `import {useSyncExternalStore} from 'react';
         const subscribe=cb=>{window.addEventListener('qa-route',cb);return()=>window.removeEventListener('qa-route',cb)};
-        const navigate=href=>{history.replaceState(null,'',href);window.dispatchEvent(new Event('qa-route'))};
+        const oldPush=history.pushState.bind(history);history.pushState=(...args)=>{oldPush(...args);window.dispatchEvent(new Event('qa-route'));};
+        const oldReplace=history.replaceState.bind(history);history.replaceState=(...args)=>{oldReplace(...args);window.dispatchEvent(new Event('qa-route'));};
+        const navigate=href=>{window.__routerCalls=(window.__routerCalls??0)+1;history.replaceState(null,'',href);};
         export const usePathname=()=>useSyncExternalStore(subscribe,()=>location.pathname);
         export const useSearchParams=()=>new URLSearchParams(useSyncExternalStore(subscribe,()=>location.search));
         export const useRouter=()=>({push:navigate,replace:navigate,refresh:()=>{}});
@@ -40,12 +47,14 @@ await build({
   } }],
 });
 const css = await postcss([tailwind({ base: root })]).process(readFileSync("src/app/globals.css", "utf8"), { from: path.join(root, "src/app/globals.css") });
-writeFileSync(path.join(output, "fixture.css"), css.css);
+const moduleCss=readFileSync(path.join(output,"fixture.css"),"utf8");
+writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+moduleCss);
 let browser;
 try {
   browser = await chromium.launch({ executablePath: "/usr/bin/chromium", headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   const page = await browser.newPage();
-  const failures = [];
+  const failures = [],timings=[];
+  page.on("console",msg=>{if(msg.text().includes("[SETTINGS_PANEL_PERF]"))timings.push(msg.text());});
   page.on("pageerror", error => failures.push(error.message));
   await page.route("**/*", route => {
     if (route.request().url().startsWith("http://synthetic.invalid/")) return route.fulfill({ contentType: "text/html", body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>' });
@@ -77,10 +86,19 @@ try {
       }
     }
   }
-  await page.evaluate(() => { history.replaceState(null, "", "?view=settings&section=notifications&panel=referral");window.dispatchEvent(new Event("qa-route")); });
+  await page.setViewportSize({width:1366,height:900});
+  await page.getByRole('link',{name:'開啟推薦分享'}).click();
   await page.getByLabel("未儲存草稿").fill("尺寸切換草稿");
   await page.setViewportSize({ width: 560, height: 768 });
   if (await page.getByLabel("未儲存草稿").inputValue() !== "尺寸切換草稿") throw new Error("Draft lost after resize");
+  await page.getByRole('button',{name:'關閉視窗',exact:true}).click();
+  await page.getByText('尚有未儲存的修改，要捨棄嗎？').waitFor();
+  await page.getByRole('button',{name:'繼續編輯',exact:true}).click();
+  await page.getByRole('button',{name:'合成儲存',exact:true}).click();
+  if(await page.getByRole('button',{name:'關閉視窗',exact:true}).count())throw new Error('Saved panel did not close');
+  await page.setViewportSize({width:1366,height:900});
+  await page.getByRole('link',{name:'開啟推薦分享'}).click();
+  await page.getByLabel('未儲存草稿').waitFor();
   await page.getByLabel("功能狀態").selectOption("LOCKED");
   if (await page.getByLabel("未儲存草稿").count()) throw new Error("Revoked editor remains mounted");
   for (const [width, height] of [[1366, 900], [1024, 768], [768, 1024]]) {
@@ -94,7 +112,8 @@ try {
     await page.screenshot({ path: path.join(output, `success-${width}.png`), fullPage: true });
     await notification.getByRole("button").click();
   }
+  if(await page.evaluate(()=>window.__routerCalls??0))throw new Error('Settings operation navigated');
   if (failures.length) throw new Error(failures.join("\n"));
-  writeFileSync(path.join(output, "results.json"), JSON.stringify({ synthetic: true, businessAcceptance: false, safari: false, cases: results, draftResize: true, revokedEditorUnmounted: true }, null, 2));
+  writeFileSync(path.join(output, "results.json"), JSON.stringify({ synthetic: true, businessAcceptance: false, safari: false, timings, reads:await page.evaluate(()=>window.__reads??0), routerCalls:await page.evaluate(()=>window.__routerCalls??0), cases: results, draftResize: true, revokedEditorUnmounted: true }, null, 2));
   console.log(`Synthetic Chromium: ${results.length} cases passed; results and screenshots at ${output}`);
 } finally { await browser?.close(); }

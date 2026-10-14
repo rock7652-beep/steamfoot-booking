@@ -72,7 +72,7 @@ export default async function ReferralShareSettingsPage() {
       />
 
       <ReferralShareSettingsForm
-        key={storeId}
+        key={storeId} storeId={storeId}
         previewOrigin={store.industryModule === "COURSE" ? deriveBaseUrl() : undefined}
         defaultTemplate={store.industryModule === "COURSE" ? COURSE_REFERRAL_SHARE_TEMPLATE : undefined}
         storeName={store.name}

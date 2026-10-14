@@ -1,0 +1,15 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),referral:vi.fn(),draft:vi.fn(),reminder:vi.fn(),tag:vi.fn()}));
+vi.mock('@/lib/permissions',()=>({requireWritablePermission:m.permission}));
+vi.mock('@/lib/store',()=>({resolveWriteStoreId:m.store}));
+vi.mock('@/server/actions/referral-share-template',()=>({updateReferralShareTemplate:m.referral}));
+vi.mock('@/app/(dashboard)/dashboard/settings/digital-butler/actions',()=>({saveDigitalButlerFlowAction:m.draft}));
+vi.mock('@/server/actions/course-plan-reminders',()=>({saveCoursePlanReminderSetting:m.reminder}));
+vi.mock('next/cache',()=>({revalidateTag:m.tag}));
+import {POST} from '@/app/(dashboard)/dashboard/settings-save/panel/route';
+const request=(origin='https://test.invalid',storeId='a')=>new Request('https://test.invalid/hq/dashboard/settings-save/panel',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({kind:'REFERRAL',storeId,input:{referralShareTemplate:'{url}'}})});
+beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue({id:'owner'});m.store.mockResolvedValue('a');m.referral.mockResolvedValue({success:true,data:{referralShareTemplate:'normalized {url}'}})});
+it('returns canonical receipt without an RSC page and expires shared settings cache',async()=>{const result=await POST(request());expect(result.headers.get('cache-control')).toContain('no-store');expect(await result.json()).toEqual({success:true,storeId:'a',data:{referralShareTemplate:'normalized {url}'}});expect(m.referral).toHaveBeenCalledWith({referralShareTemplate:'{url}'},true);expect(m.tag).toHaveBeenCalledOnce()});
+it('rejects cross-origin and switched store requests before write',async()=>{expect((await POST(request('https://other.invalid'))).status).toBe(403);expect((await POST(request('https://test.invalid','b'))).status).toBe(400);expect(m.referral).not.toHaveBeenCalled()});
+it('denied permission cannot reach the writer',async()=>{m.permission.mockRejectedValue(new Error('FORBIDDEN'));expect((await POST(request())).status).toBe(503);expect(m.referral).not.toHaveBeenCalled()});

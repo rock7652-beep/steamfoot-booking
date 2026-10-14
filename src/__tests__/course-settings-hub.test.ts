@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/course-settings-panel",()=>({readCourseSettingsPanel:vi.fn()}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));

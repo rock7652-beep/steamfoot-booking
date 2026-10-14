@@ -69,7 +69,7 @@ export async function saveDigitalButlerFlowAction(input: {
   flowId: string;
   name: string;
   definition: unknown;
-}): Promise<ActionResult> {
+},receiptOnly=false): Promise<{success:true;data:{name:string;definition:unknown}}|{success:false;error:string}> {
   try {
     const storeId = await writableStoreId();
     await new DigitalButlerService().updateDraft(
@@ -78,8 +78,8 @@ export async function saveDigitalButlerFlowAction(input: {
       input.name,
       input.definition as never,
     );
-    revalidatePath("/dashboard/settings/digital-butler");
-    return { success: true };
+    if(!receiptOnly)revalidatePath("/dashboard/settings/digital-butler");
+    return { success: true, data:{name:input.name.trim(),definition:input.definition} };
   } catch (error) {
     return { success: false, error: message(error) };
   }

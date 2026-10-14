@@ -1,4 +1,6 @@
 "use client";
+import {saveSettingsReceipt} from "@/components/settings/save-settings-receipt";
+import {useSettingsPanelSaved} from "@/components/admin/settings-panel-context";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import {
@@ -14,14 +16,14 @@ import {
   setReferralTemplateFavoriteAction,
 } from "@/server/actions/referral-share-template-personalization";
 import { updateReferralShareTemplate } from "@/server/actions/referral-share-template";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useEffect,useRef,useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   ReferralTemplateCenter,
   type ReferralTemplateRecentView,
 } from "./referral-template-center";
 
-interface Props {
+interface Props { storeId?:string;
   storeName: string;
   storeSlug: string;
   initialTemplate: string | null;
@@ -48,9 +50,13 @@ export function ReferralShareSettingsForm({
   initialTemplate,
   initialFavoriteTemplateIds,
   initialRecent,
-  defaultTemplate = DEFAULT_REFERRAL_SHARE_TEMPLATE,
+  storeId,defaultTemplate = DEFAULT_REFERRAL_SHARE_TEMPLATE,
   previewOrigin = "https://www.steamfoot.com",
 }: Props) {
+  const panelSaved=useSettingsPanelSaved();
+  const saving=useRef(false);
+  const alive=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const [template, setTemplate] = useState(
     initialTemplate ?? defaultTemplate,
   );
@@ -69,9 +75,8 @@ export function ReferralShareSettingsForm({
     storeName,
     url: previewUrl,
   });
-  const dirty = usesDefault
-    ? template !== defaultTemplate || initialTemplate !== null
-    : template !== initialTemplate;
+  const [savedTemplate,setSavedTemplate]=useState(initialTemplate);
+  const dirty = usesDefault ? template!==defaultTemplate||savedTemplate!==null : template!==savedTemplate;
   useSettingsPanelGuard(dirty, pending);
 
   function addRecent(templateId: string, action: ReferralTemplateRecentView["action"]) {
@@ -129,29 +134,37 @@ export function ReferralShareSettingsForm({
   }
 
   function save(value: string | null) {
+    if(saving.current||pending)return;
+    saving.current=true;
     startTransition(async () => {
-      const result = await updateReferralShareTemplate({
+      try{
+      const payload={referralShareTemplate:value};
+      const result = panelSaved&&storeId ? await saveSettingsReceipt<{referralShareTemplate:string|null}>("REFERRAL",storeId,payload):await updateReferralShareTemplate({
         referralShareTemplate: value,
       });
+      if(!alive.current)return;
       if (!result.success) {
         toast.error(result.error ?? "儲存失敗");
         return;
       }
 
       if (value != null && activeTemplateId) {
-        const tracked = await recordReferralTemplateUsageAction({
-          templateId: activeTemplateId,
-          action: "SAVE",
-        });
-        if (tracked.success) addRecent(activeTemplateId, "SAVE");
+        const templateId=activeTemplateId;
+        void recordReferralTemplateUsageAction({templateId,action:"SAVE"}).then(tracked=>{
+          if(tracked.success&&alive.current)addRecent(templateId,"SAVE");
+        }).catch(()=>{});
       }
 
+      const canonical=result.data.referralShareTemplate;
+      setSavedTemplate(canonical);setTemplate(canonical??defaultTemplate);
+      panelSaved?.();
       toast.success(value == null ? "已恢復系統預設文案" : "推薦分享文案已更新");
-      setUsesDefault(value == null);
-      if (value == null) {
+      setUsesDefault(canonical == null);
+      if (canonical == null) {
         setTemplate(defaultTemplate);
         setActiveTemplateId(null);
       }
+      }catch{toast.error("連線失敗，輸入已保留。");}finally{saving.current=false;}
     });
   }
 

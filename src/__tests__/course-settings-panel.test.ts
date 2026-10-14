@@ -69,3 +69,13 @@ it("keeps the same outer window geometry across loading and different settings p
  expect(host.querySelector('[role="dialog"]')).toBe(dialog);
  expect(dialog.getAttribute('style')).toBe(geometry);
 });
+
+it('uses local navigation for clean close and guards dirty browser Back',async()=>{
+ const navigate=vi.fn();const close='/s/a/admin/dashboard/courses?view=settings&section=notifications&month=2026-09';
+ await act(async()=>root.render(el(CourseSettingsPanel,{panel:'reminders',navigate,closeHref:close,children:el(Form)})));
+ await click('關閉視窗');expect(navigate).toHaveBeenCalledWith(close);expect(m.replace).not.toHaveBeenCalled();navigate.mockClear();
+ await click('修改');const before=window.location.href;
+ await act(async()=>{window.history.replaceState(null,'',close);window.dispatchEvent(new PopStateEvent('popstate'))});
+ expect(window.location.href).toBe(before);expect(host.textContent).toContain('尚有未儲存');expect(navigate).not.toHaveBeenCalled();
+ await click('不儲存並切換');expect(navigate).toHaveBeenCalledOnce();expect(m.replace).not.toHaveBeenCalled();
+});

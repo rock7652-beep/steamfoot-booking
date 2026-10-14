@@ -1,7 +1,9 @@
 "use client";
+import {saveSettingsReceipt} from "@/components/settings/save-settings-receipt";
+import {useSettingsPanelSaved} from "@/components/admin/settings-panel-context";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
-import { useState, useTransition } from "react";
+import { useEffect,useRef,useState, useTransition } from "react";
 import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import {
@@ -44,11 +46,11 @@ const starterDefinition = {
 };
 
 export function DigitalButlerFlowEditor({
-  flows,
+  flows,storeId,
   leadCollectionUpgrade,
   courseMode = false,
 }: {
-  flows: Flow[];
+  flows: Flow[];storeId?:string;
   courseMode?: boolean;
   leadCollectionUpgrade: { storeName: string; storeSlug: string } | null;
 }) {
@@ -68,6 +70,10 @@ export function DigitalButlerFlowEditor({
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const panelSaved=useSettingsPanelSaved();
+  const saving=useRef(false);
+  const alive=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   useSettingsPanelGuard(name !== persistedName || definition !== persistedDefinition, pending);
 
   function select(flow: Flow) {
@@ -97,7 +103,7 @@ export function DigitalButlerFlowEditor({
         return;
       }
       toast.success(success);
-      router.refresh();
+      if(panelSaved)panelSaved();else router.refresh();
     });
   }
 
@@ -112,17 +118,24 @@ export function DigitalButlerFlowEditor({
 
   function saveDraft() {
     const value = parsed();
-    if (!value || !selected) return;
+    if (!value || !selected || saving.current || pending) return;
+    saving.current=true;
     startTransition(async () => {
-      const result = await saveDigitalButlerFlowAction({ flowId: selected.id, name, definition: value });
+      try{
+      const input={flowId:selected.id,name,definition:value};
+      const result=panelSaved&&storeId?await saveSettingsReceipt<{name:string;definition:unknown}>("BUTLER_DRAFT",storeId,input):await saveDigitalButlerFlowAction(input);
       if (!result.success) {
         toast.error(result.error ?? "操作失敗");
         return;
       }
-      setPersistedName(name);
-      setPersistedDefinition(definition);
+      if(!alive.current)return;
+      const canonical=JSON.stringify(result.data.definition,null,2);
+      setName(result.data.name);setDefinition(canonical);
+      setPersistedName(result.data.name);
+      setPersistedDefinition(canonical);
       toast.success("草稿已儲存");
-      router.refresh();
+      if(panelSaved)panelSaved();else router.refresh();
+      }catch{toast.error("連線失敗，草稿已保留。");}finally{saving.current=false;}
     });
   }
 
@@ -139,7 +152,7 @@ export function DigitalButlerFlowEditor({
       }
       setJustPublished(result.publishedVersion);
       toast.success(`已發布版本 v${result.publishedVersion.version}`);
-      router.refresh();
+      if(panelSaved)panelSaved();else router.refresh();
     });
   }
 

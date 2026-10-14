@@ -72,6 +72,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
         music={music}
+        initialPanel={panel} initialPanelQuery={panelQuery}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}
         key={storeId}
         canDigitalButler={canPayment && !readOnly}
