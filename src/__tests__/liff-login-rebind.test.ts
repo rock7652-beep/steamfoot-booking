@@ -62,7 +62,7 @@ function tx() {
 
 describe("authorized LIFF Login rebind", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) =>
       callback(tx()),
@@ -252,7 +252,7 @@ describe("authorized LIFF Login rebind", () => {
 
 describe("recent new-customer LIFF auto migration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
     h.queryRaw.mockResolvedValue([{ id: "customer-1" }]);
@@ -315,7 +315,7 @@ describe("recent new-customer LIFF auto migration", () => {
 
 describe("authorized first LIFF Login capture", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
     h.queryRaw.mockResolvedValueOnce([{ id: "capture-1" }]).mockResolvedValueOnce([{ id: "customer-1" }]);
