@@ -177,6 +177,15 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
         sessions.push({session,booking});
       }
       expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:4,musicActivatedAt:null});
+      const member={...actor,userId:"test-music-member",customerId:f.customerId};
+      await expect(run(tx=>settleCourseBooking(tx,{...member,customerId:"unrelated-member"},sessions[1].booking.id,"STUDENT_LEAVE"))).rejects.toThrow("無權操作");
+      await expect(run(tx=>settleCourseBooking(tx,member,sessions[0].booking.id,"ATTENDED"))).rejects.toThrow("點名僅限有權限的人員");
+      vi.setSystemTime(new Date("2026-09-25T03:30:00Z"));
+      await run(tx=>settleCourseBooking(tx,actor,sessions[0].booking.id,"ATTENDED"));
+      // Before class, the actual member may leave a group class and forfeit once.
+      await run(tx=>settleCourseBooking(tx,member,sessions[1].booking.id,"CANCELLED"));
+      await run(tx=>settleCourseBooking(tx,member,sessions[1].booking.id,"STUDENT_LEAVE"));
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:2,musicActivatedAt:sessions[0].session.startsAt});
       vi.setSystemTime(new Date("2026-09-25T09:00:00Z"));
       await run(tx=>settleCourseBooking(tx,actor,sessions[0].booking.id,"ATTENDED"));
       await run(tx=>settleCourseBooking(tx,actor,sessions[1].booking.id,"STUDENT_LEAVE"));

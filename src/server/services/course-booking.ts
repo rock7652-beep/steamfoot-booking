@@ -365,6 +365,10 @@ export async function settleCourseBooking(
     include: { session: true, card: { include: { members: true } } },
   });
   if (!booking) return fail("找不到本店預約");
+  // A member's cancellation cannot choose a different music debit policy.
+  // Rescheduling transfers the reservation atomically and is not a leave.
+  if (actor.customerId && booking.cardId && target === "CANCELLED" && !options.memberReschedule &&
+      await isMusicCourseStore(tx, actor.storeId)) target = "STUDENT_LEAVE";
   if (["LEAVE", "NO_SHOW"].includes(booking.session.teacherAttendance) && target !== "CANCELLED") return fail("教師未授課，本堂免點名；請先恢復授課");
   if (target === "NO_SHOW" && noShowChoice === "DEDUCTED_WITH_MAKEUP") {
     const music = await isMusicCourseStore(tx, actor.storeId);
@@ -404,7 +408,9 @@ export async function settleCourseBooking(
     target, hasCard: !!booking.cardId, classType,
   });
   if (shouldDebit) {
-    if (actor.customerId) return fail("點名僅限有權限的人員");
+    // Authorized member group leave forfeits a lesson; it is not staff attendance.
+    // Membership, the self-leave switch and the cutoff were checked above.
+    if (actor.customerId && !musicGroupLeave) return fail("點名僅限有權限的人員");
     if (booking.cardId) {
     const expiry=booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
     if(booking.card?.musicValidityDays && booking.card.musicActivatedAt && booking.card.expiresAt < booking.session.startsAt)
