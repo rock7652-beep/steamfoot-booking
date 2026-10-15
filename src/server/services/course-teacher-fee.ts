@@ -2,30 +2,37 @@ import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_FEE_ISSUE, readMusicO
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { calculateTeacherFee, originalMusicUnitPrice, type TeacherFeeSeat } from "@/lib/course-teacher-fee";
+import { readMusicPilotFeeProof, verifiedMusicPilotFeeBasis, type PilotFeeRow } from "./music-pilot-teacher-fee";
 
 /** Caller authorizes salary access. One store-scoped query for the entire requested batch. */
 export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$queryRaw">, storeId: string, sessionIds: string[]) {
   const grouped = new Map<string, TeacherFeeSeat[]>();
   if (!sessionIds.length) return grouped;
-  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & {sessionId:string;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null;
+  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & PilotFeeRow & {sessionId:string;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null;
       customerId:string|null;pointCost:number;companionIndex:number|null;makeupForBookingId:string|null; musicOpeningStateRequired:boolean; musicOpeningState:unknown; cardUnit:string|null;
       musicActivatedAt:Date|null; expiresAt:Date|null; memberCustomerIds:string[];
       musicOpeningTermKey:string|null;musicOpeningLessonOrdinal:number|null;musicOpeningSourceLessonKey:string|null;startsAt:Date}>>`
     SELECT b.id,b."sessionId",b."customerName",b.status,b."bookingKind",b."absenceKind",b."cardId",b."trialPrice",
       p.count AS "purchaseCount",p."listPrice",p.points,p."musicBonusLessons",
       b."customerId",b."pointCost",b."companionIndex",b."makeupForBookingId",b."musicOpeningMakeupEntitlementId",b."musicOpeningTermKey",b."musicOpeningLessonOrdinal",b."musicOpeningSourceLessonKey",s."startsAt",
-      c."musicOpeningStateRequired",c.unit AS "cardUnit",c."musicActivatedAt",c."expiresAt",
+      c."musicOpeningStateRequired",c.unit AS "cardUnit",c."musicActivatedAt",c."expiresAt",c."requestKey" AS "cardRequestKey",s."templateId",
+      source."cardId" AS "sourceCardId",source."customerId" AS "sourceCustomerId",source.status AS "sourceStatus",source."absenceKind" AS "sourceAbsenceKind",ss."templateId" AS "sourceTemplateId",
+      m."contentHash" AS "makeupContentHash",m."customerId" AS "makeupCustomerId",m."templateId" AS "makeupTemplateId",
       CASE WHEN os.id IS NULL THEN NULL ELSE to_jsonb(os) END AS "musicOpeningState",
       ARRAY(SELECT m."customerId" FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId") AS "memberCustomerIds"
     FROM "CourseBooking" b
     JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
     LEFT JOIN "CoursePointCard" c ON c.id=b."cardId" AND c."storeId"=b."storeId"
     LEFT JOIN "CourseMusicOpeningState" os ON os."cardId"=c.id AND os."storeId"=c."storeId"
+    LEFT JOIN "CourseBooking" source ON source.id=CASE WHEN c."requestKey" LIKE 'yjy-pilot-makeup:%' THEN substring(c."requestKey" from length('yjy-pilot-makeup:')+1) ELSE NULL END AND source."storeId"=b."storeId"
+    LEFT JOIN "CourseSession" ss ON ss.id=source."sessionId" AND ss."storeId"=b."storeId"
+    LEFT JOIN "CourseMusicOpeningMakeupEntitlement" m ON m.id=b."musicOpeningMakeupEntitlementId" AND m."storeId"=b."storeId"
     LEFT JOIN LATERAL (
       SELECT count(*) AS count,min(o."listPrice") AS "listPrice",min(o.points) AS points,min(o."musicBonusLessons") AS "musicBonusLessons"
       FROM "CoursePurchase" o WHERE o."storeId"=b."storeId" AND o."cardId"=b."cardId" AND o."confirmedAt" IS NOT NULL
     ) p ON true
     WHERE b."storeId"=${storeId} AND b."sessionId"=ANY(${sessionIds}::text[]) ORDER BY b.id`;
+  const pilotProof=rows.some(r=>r.cardId?.startsWith("yjy-pilot-")||r.customerId?.startsWith("yjy-lubymusic-student-"))?await readMusicPilotFeeProof(tx,storeId):null;
   for (const row of rows) {
     const openingMakeupSource = isMusicOpeningMakeupBooking(row);
     const opening = readMusicOpeningCard(row.cardId ? {
@@ -47,12 +54,15 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
       originalUnitPrice = row.bookingKind === "TRIAL" ? row.trialPrice : Number(row.purchaseCount) === 1 && row.points !== null
         ? originalMusicUnitPrice({listPrice:row.listPrice,points:row.points,musicBonusLessons:row.musicBonusLessons??0}) : null;
     }
+    const verified=pilotProof&&opening.kind!=="BLOCKED"&&!(opening.kind==="OPENING"&&lesson.kind==="BLOCKED")?verifiedMusicPilotFeeBasis(pilotProof,row):null;
+    if(verified){originalUnitPrice=verified.price;openingIssue=null;}
     const seats = grouped.get(row.sessionId) ?? [];
     // Keep source snapshots/keys on the server; expose only the existing fee-seat shape.
     seats.push({ id:row.id, customerName:row.customerName, status:row.status, bookingKind:row.bookingKind,
       absenceKind:row.absenceKind, originalUnitPrice,
-      ...(openingMakeupSource ? { openingMakeupSource: true, openingIssue: MUSIC_OPENING_MAKEUP_FEE_ISSUE } : {}),
-      ...(!openingMakeupSource && (opening.kind !== "NATIVE" || openingIssue) ? { openingPriceSource:true, openingIssue } : {}) });
+      ...(verified&&row.bookingKind==="TRIAL"?{verifiedTrialFeeBase:verified.price}:{}),
+      ...(openingMakeupSource ? { openingMakeupSource: true, openingIssue: verified?null:MUSIC_OPENING_MAKEUP_FEE_ISSUE,verifiedOpeningMakeupFee:!!verified?.makeup } : {}),
+      ...(!openingMakeupSource && (verified||opening.kind !== "NATIVE" || openingIssue) ? { openingPriceSource:true, openingIssue } : {}) });
     grouped.set(row.sessionId,seats);
   }
   return grouped;
@@ -66,10 +76,10 @@ export type CapturedTeacherFee = {
   musicTrialMode?:string|null;musicTeacherFeeBase?:number|null;musicPricePerLesson?:number|null;
 };
 export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeSeat[]):TeacherFeeResult {
-  if (seats.some(isMusicOpeningMakeupBooking)) return {amount:null,issue:MUSIC_OPENING_MAKEUP_FEE_ISSUE,details:[]};
+  if (seats.some(s=>isMusicOpeningMakeupBooking(s)&&!s.verifiedOpeningMakeupFee)) return {amount:null,issue:MUSIC_OPENING_MAKEUP_FEE_ISSUE,details:[]};
   if (snapshot.cancelledAt || ["LEAVE","NO_SHOW"].includes(snapshot.teacherAttendance??"")) return {amount:0,issue:null,details:[]};
   if (seats.some(seat => seat.openingIssue)) return {amount:null,issue:seats.find(seat => seat.openingIssue)!.openingIssue!,details:[]};
-  if (seats.some(seat => seat.openingPriceSource) && !isTeacherFeeV2(snapshot.rule)) return {amount:null,issue:"期初方案尚未核對此計薪版本",details:[]};
+  if (seats.some(seat => seat.openingPriceSource||seat.verifiedOpeningMakeupFee) && !isTeacherFeeV2(snapshot.rule)) return {amount:null,issue:"期初方案尚未核對此計薪版本",details:[]};
   if(snapshot.revision===0)return {amount:null,issue:"舊課次費率待核對",details:[]};
   if(isTeacherFeeV2(snapshot.rule))return calculateTeacherFee({rule:snapshot.rule,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
   const due=seats.filter(s=>s.bookingKind!=="TEACHER_MAKEUP"&&(s.status==="ATTENDED"||s.status==="NO_SHOW"||s.absenceKind==="GROUP_LEAVE_FORFEITED"));

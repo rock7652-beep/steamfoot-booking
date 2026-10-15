@@ -12,6 +12,9 @@ export type TeacherFeeSeat = {
   openingMakeupSource?: boolean;
   musicOpeningMakeupEntitlementId?: string | null;
   openingIssue?: string | null;
+  // Server-derived only, after immutable pilot evidence and makeup lineage checks.
+  verifiedOpeningMakeupFee?: boolean;
+  verifiedTrialFeeBase?: number;
 };
 export type TeacherFeeDetail = { id: string; name: string; base: number | null; amount: number | null; reason: string };
 export type TeacherFeeResult = { amount: number | null; issue: string | null; details: TeacherFeeDetail[] };
@@ -31,7 +34,7 @@ export function calculateTeacherFee(input: {
   trialMode?: string | null; trialBase?: number | null; seats: TeacherFeeSeat[];
 }): TeacherFeeResult {
   const result = (amount: number | null, issue: string | null = null, details: TeacherFeeDetail[] = []): TeacherFeeResult => ({ amount, issue, details });
-  if (input.seats.some(isMusicOpeningMakeupBooking)) return result(null, MUSIC_OPENING_MAKEUP_FEE_ISSUE);
+  if (input.seats.some(s=>isMusicOpeningMakeupBooking(s)&&!s.verifiedOpeningMakeupFee)) return result(null, MUSIC_OPENING_MAKEUP_FEE_ISSUE);
   if (input.cancelled || input.teacherAttendance === "LEAVE" || input.teacherAttendance === "NO_SHOW") return result(0);
   const parsed = compensationRule.safeParse(input.rule);
   if (!parsed.success || parsed.data.mode === "HOUR") return result(null, "授課費率待核對");
@@ -44,7 +47,7 @@ export function calculateTeacherFee(input: {
   if (rule.mode === "CLASS") return !due.length ? result(0) : Number.isSafeInteger(rule.value) ? result(rule.value) : result(null, "固定授課費須為整數");
   const details = due.map(s => {
     const freeTrial = s.bookingKind === "TRIAL" && input.trialMode === "FREE";
-    const base = freeTrial ? input.trialBase ?? null : s.originalUnitPrice;
+    const base = freeTrial ? s.verifiedTrialFeeBase ?? input.trialBase ?? null : s.originalUnitPrice;
     // Integer arithmetic at the rounding boundary avoids 0.55-style binary float drift.
     const amount = base !== null && Number.isSafeInteger(base) && base >= 0
       ? Math.floor((base * Math.round(rule.value * 100) + 5000) / 10000) : null;
