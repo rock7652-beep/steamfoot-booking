@@ -137,6 +137,37 @@ describe("room capacity changes", () => {
     expect(mocks.catalogUpdate).not.toHaveBeenCalled();
   });
 });
+describe("fixed-slot and temporary moves", () => {
+  const source = {
+    id:"source",storeId:"store-a",requestKey:"series",templateId:"yoga",roomId:"room-a",coachId:"coach-a",capacity:1,
+    startsAt:new Date("2070-10-01T02:00:00Z"),endsAt:new Date("2070-10-01T03:00:00Z"),bookings:[],
+    rescheduledFromStartsAt:new Date("2070-09-30T02:00:00Z"),rescheduledFromEndsAt:new Date("2070-09-30T03:00:00Z"),
+    rescheduledFromRoomId:"original-room",rescheduledFromCoachId:"original-coach",
+  };
+  it("changes the permanent series without writing FUTURE into the temporary-move constraint", async () => {
+    const next={...source,id:"next",startsAt:new Date("2070-10-08T02:00:00Z"),endsAt:new Date("2070-10-08T03:00:00Z")};
+    mocks.conflict.mockResolvedValueOnce(source);
+    mocks.existing.mockResolvedValueOnce([source,next]);
+    mocks.update.mockImplementation(async ({data}) => {
+      if(data.rescheduleKind && !["SINGLE","WEEKS"].includes(data.rescheduleKind)) throw new Error("CourseSession_reschedule_kind_check");
+      return {};
+    });
+    expect(await moveCourseSessions({id:source.id,scope:"FUTURE",date:"2070-10-01",time:"11:00",roomId:"room-a",coachId:"coach-a"})).toMatchObject({success:true,data:{count:2}});
+    expect(mocks.update).toHaveBeenCalledTimes(2);
+    for(const [{data}] of mocks.update.mock.calls) {
+      expect(data).toMatchObject({rescheduleKind:null,rescheduledFromStartsAt:null,rescheduledFromEndsAt:null,rescheduledFromRoomId:null,rescheduledFromCoachId:null,rescheduledAt:null,rescheduledById:null});
+      expect(data).not.toHaveProperty("compensationSnapshot");
+    }
+    expect(mocks.move.mock.calls.map(([{data}])=>data.scope)).toEqual(["FUTURE","FUTURE"]);
+  });
+  it.each(["SINGLE","WEEKS"])("preserves the original slot for a temporary %s move", async scope => {
+    mocks.conflict.mockResolvedValueOnce(source);
+    mocks.existing.mockResolvedValueOnce([source]);
+    expect(await moveCourseSessions({id:source.id,scope,weeks:scope==="WEEKS"?2:undefined,date:"2070-10-01",time:"11:00",roomId:"room-a",coachId:"coach-a"})).toMatchObject({success:true});
+    expect(mocks.update.mock.calls[0][0].data).toMatchObject({rescheduleKind:scope,rescheduledFromStartsAt:source.rescheduledFromStartsAt,rescheduledFromRoomId:"original-room"});
+  });
+});
+
 describe("course editing", () => {
   const edit = {
     ...input,

@@ -1,3 +1,4 @@
+import { isMusicCourseStore } from "./course-business-profile";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
 import { assertCourseSelfBookingEnabled } from "./course-self-booking";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
@@ -113,8 +114,8 @@ export async function joinCourseWaitlist(
       fail("無權使用此共卡候補");
 
     if (companionNames.length) {
-      const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-      if (music.length || activeCard.termSessionIds.length || !activeCard.plan.allowShared) fail("此方案未開放自由選課同行候補");
+      const music = await isMusicCourseStore(tx, actor.storeId);
+      if (music || activeCard.termSessionIds.length || !activeCard.plan.allowShared) fail("此方案未開放自由選課同行候補");
       if (await getCourseSharedCardStateInTransaction(tx, actor.storeId) !== "ENABLED")
         fail("本店共卡功能尚未開通，不能新增同行候補");
     }

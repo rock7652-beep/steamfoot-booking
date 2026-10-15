@@ -29,3 +29,8 @@ it("scope revocation is immediate on the next call",async()=>{
  expect(await canMusicFinance(actor,"A","teacher.settlement.read","teacher-a")).toBe(true);
  expect(await canMusicFinance(actor,"A","teacher.settlement.read","teacher-a")).toBe(false);
 });
+it("fails closed when the business profile cannot be read", async () => {
+ m.feature.mockRejectedValue(new Error("classification unavailable"));
+ await expect(requireMusicFinance(actor,"A","teacher.settlement.pay","teacher-a")).rejects.toThrow("classification unavailable");
+ expect(m.permission).not.toHaveBeenCalled();
+});

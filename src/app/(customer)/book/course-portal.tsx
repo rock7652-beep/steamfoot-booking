@@ -97,7 +97,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const planHistory = await getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now);
   const sessionInclude = {
     room: { select: { name: true } },
-    template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
+    template: { select: { classType: true, precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
     _count: {
       select: { bookings: { where: { status: { not: "CANCELLED" } } } },
     },
@@ -149,6 +149,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             session: {
               select: {
                 nameSnapshot: true,
+                template: { select: { classType: true } },
                 startsAt: true,
                 coachId: true,
                 room: { select: { name: true } },
@@ -370,6 +371,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     sessions: sessions.map((s) => ({
       id: s.id,
       templateId: s.templateId,
+      classType: s.template.classType,
       name: s.nameSnapshot,
       startsAt: s.startsAt.toISOString(),
       coachId: s.coachId,
@@ -387,6 +389,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     bookings: bookings.map((b) => ({
       id: b.id,
       sessionId: b.sessionId,
+      classType: b.session.template.classType,
       name: b.session.nameSnapshot,
       startsAt: b.session.startsAt.toISOString(),
       coach: coachNames.get(b.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),

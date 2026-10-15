@@ -25,18 +25,4 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
 }
 export { calculateTeacherFee };
 
-import { courseTeacherFee } from "@/lib/course-fee-payment";
-import { isTeacherFeeV2, type TeacherFeeResult } from "@/lib/course-teacher-fee";
-export type CapturedTeacherFee = {
-  rule:unknown;revision?:number;teacherAttendance?:string;cancelledAt?:Date|null;
-  musicTrialMode?:string|null;musicTeacherFeeBase?:number|null;musicPricePerLesson?:number|null;
-};
-export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeSeat[]):TeacherFeeResult {
-  if (snapshot.cancelledAt || ["LEAVE","NO_SHOW"].includes(snapshot.teacherAttendance??"")) return {amount:0,issue:null,details:[]};
-  if(snapshot.revision===0)return {amount:null,issue:"舊課次費率待核對",details:[]};
-  if(isTeacherFeeV2(snapshot.rule))return calculateTeacherFee({rule:snapshot.rule,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
-  const due=seats.filter(s=>s.bookingKind!=="TEACHER_MAKEUP"&&(s.status==="ATTENDED"||s.status==="NO_SHOW"||s.absenceKind==="GROUP_LEAVE_FORFEITED"));
-  const free=due.filter(s=>s.bookingKind==="TRIAL"&&snapshot.musicTrialMode==="FREE").length;
-  const amount=courseTeacherFee(snapshot.rule,{paid:due.length-free,freeTrial:free,pending:seats.filter(s=>s.status==="RESERVED").length},{perLesson:snapshot.musicPricePerLesson??null,freeTrialBase:snapshot.musicTeacherFeeBase??null});
-  return {amount,issue:amount===null?"舊課次費率或點名待核對":null,details:[]};
-}
+export { capturedTeacherFee, type CapturedTeacherFee } from "./course-captured-teacher-fee";

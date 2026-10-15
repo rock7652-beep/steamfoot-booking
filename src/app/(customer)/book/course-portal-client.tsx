@@ -1,4 +1,5 @@
 "use client";
+import { courseLeaveDebitMessage } from "@/lib/course-leave-message";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -1172,6 +1173,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           {bookingDetails[id] && b.notes && <p>備註：{b.notes}</p>}
                           {cancelId === b.id && <section className="cp-inline-confirm" aria-label={`取消 ${b.customerName} 的預約`}>
                             <p>{p.musicStore&&b.unit!=="TRIAL"?"確認這堂請假？":"取消這堂預約，釋放保留額度。"}</p>
+                            {courseLeaveDebitMessage(p.musicStore,b) && <p>{courseLeaveDebitMessage(p.musicStore,b)}</p>}
                             <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>
                             {!canSelfCancel(b.startsAt) && <p className="cp-error">已超過自行取消期限，請聯絡店家。</p>}
                             {error && <p role="alert" className="cp-error">{error}</p>}
@@ -1440,7 +1442,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             if (result.bookingUpdates && card) setConfirmedBookings(previous => {
                               const ids = new Set(previous.map(row => row.booking.id));
                               return [...previous, ...result.bookingUpdates!.filter(b => !ids.has(b.id)).map(b => ({cardId: b.cardId, confirmedAt: b.confirmedAt, booking: {
-                                ...b, name: session.name, startsAt: session.startsAt, coach: session.coach, room: session.room,
+                                ...b, classType: session.classType, name: session.name, startsAt: session.startsAt, coach: session.coach, room: session.room,
                                 notes: "", trialPaid: null, trialPrice: null, unit: card.unit, planName: card.name, expiresAt: card.expiresAt,
                               }}))];
                             });

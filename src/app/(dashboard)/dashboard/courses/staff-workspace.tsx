@@ -148,6 +148,8 @@ export function CourseStaffWorkspace({
   const [financeTeacherDraft,setFinanceTeacherIds]=useState<string[]|null>(null);
   const [coachEnabled,setCoachEnabled]=useState(accountKind!=="manager");
   const [qualificationIds,setQualificationIds]=useState<string[]>([]);
+  const [mounted,setMounted]=useState(false);
+  useEffect(()=>setMounted(true),[]);
   const [qualificationSearch,setQualificationSearch]=useState("");
   const [qualificationScope,setQualificationScope]=useState("all");
   const [qualificationPage,setQualificationPage]=useState(0);
@@ -347,7 +349,7 @@ export function CourseStaffWorkspace({
         <header className="border-b border-earth-100 p-4"><h2 id="teacher-discard-title" className="font-medium">放棄未儲存的修改？</h2></header>
         <footer className="flex flex-wrap justify-end gap-2 p-4"><button type="button" className={button} onClick={()=>setConfirmDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={()=>{setConfirmDiscard(false);setOpen(false);}}>放棄修改</button></footer>
       </ModalPanel>
-      {open && createPortal(
+      {open && mounted && createPortal(
         <RightSheet className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} presentation="centered"
           fixedHeight
           maxHeight={680}

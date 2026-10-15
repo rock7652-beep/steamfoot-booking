@@ -1,9 +1,11 @@
 "use server";
+import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import { createHash } from "node:crypto";
+import { quoteMusicPlanSettings, assertCoursePlanBusiness } from "@/server/services/course-plan-rules";
 import { coursePlanValues,coursePlanReceipt,savedCoursePlan } from "@/lib/course-plan-save";
 import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
@@ -87,10 +89,7 @@ function scheduleCourseWaitlistPromotion(
 // The music roster updates itself optimistically and reconciles through a direct roster read.
 // Revalidating from a Server Action also forces the current dashboard route to reload.
 async function refreshUnlessMusicRoster(storeId: string) {
-  const music = await prisma.storeFeatureEntitlement.findFirst({
-    where: { storeId, featureKey: "business.music", status: "ENABLED" },
-    select: { storeId: true },
-  });
+  const music = await isMusicCourseStoreFromEntitlements(prisma, storeId);
   if (!music) refresh();
 }
 const bookingInput = z.object({
@@ -162,49 +161,29 @@ export async function saveCoursePointPlan(input: unknown) {
     const { storeId } = await courseManager("plans.edit");
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
-    const isMusic = await prisma.storeFeatureEntitlement.findFirst({
-      where: { storeId, featureKey: "business.music", status: "ENABLED" },
-      select: { storeId: true },
-    });
-    if (isMusic && data.unit !== "SESSION")
-      throw new AppError("VALIDATION", "音樂教室方案以堂數計算；每次上課使用 1 堂");
+    const saved = await courseTransaction(storeId,async tx=>{
+    const isMusic = await isMusicCourseStore(tx, storeId);
+    assertCoursePlanBusiness(isMusic, data, !!musicSetup);
     if (isMusic && !musicSetup) {
       if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種課程與購買期數");
-      const template=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateIds[0],storeId,isActive:true},select:{musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true}});
+      const template=await tx.courseTemplate.findFirst({where:{id:data.templateIds[0],storeId,isActive:true},select:{musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true}});
       if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般課程");
-      const {musicPlanQuote}=await import("@/lib/music-course-products");
-      let quote:ReturnType<typeof musicPlanQuote>;
-      try { quote=musicPlanQuote(template,data.musicTerms); } catch(error) {throw new AppError("VALIDATION",error instanceof Error ? error.message : "課程設定不完整");}
-      data.points=quote.lessons+data.musicBonusLessons;data.price=quote.price;data.validDays=quote.validDays;
-      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
-      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
+      Object.assign(data, quoteMusicPlanSettings(data, template));
       if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
-    } else if (!isMusic && (musicSetup || data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null)) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
-    if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
-    const saved = await courseTransaction(storeId,async tx=>{
+    }
+    if (data.templateIds.length && await tx.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     if(isMusic && musicSetup){
       if(data.musicTerms===null || data.termSessionIds.length)throw new AppError("VALIDATION","請設定購買期數；實際上課日期由課表安排");
       const template=await resolveMusicSubjectRule(tx,storeId,musicSetup);
-      const {musicPlanQuote}=await import("@/lib/music-course-products");
-      const quote=musicPlanQuote(template,data.musicTerms);
-      data.templateIds=[template.id];data.points=quote.lessons+data.musicBonusLessons;
-      data.price=quote.price;data.validDays=quote.validDays;
-      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
-      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
+      data.templateIds=[template.id];
+      Object.assign(data, quoteMusicPlanSettings(data, template));
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
     if(receipt && planId && !previous)throw new AppError("NOT_FOUND","找不到本店方案");
     // Hidden/locked controls may be omitted by a form. Preserve an existing choice.
     if (previous && !isMusic && allowShared === undefined) data.allowShared = previous.allowShared;
     if (data.allowShared && !previous?.allowShared) {
-      // A profile change while waiting for the Store lock must not turn the
-      // earlier music read into a bypass of the sports sharing authorization.
-      const currentMusic = await tx.$queryRaw<Array<{ featureKey: string }>>`
-        SELECT "featureKey" FROM "StoreFeatureEntitlement"
-        WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-      if (Boolean(isMusic) !== Boolean(currentMusic.length))
-        throw new AppError("CONFLICT", "店家課程類型已變更，請重新確認方案");
-      if (!currentMusic.length && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+      if (!isMusic && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
         throw new AppError("FORBIDDEN", "本店共卡功能尚未開通，不能新增共卡方案");
     }
     const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
@@ -268,7 +247,7 @@ export async function assignCoursePointCard(input: unknown) {
     if (checkout.discountValue > 0 || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
-      const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+      const music = await isMusicCourseStore(tx, storeId);
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
@@ -325,15 +304,13 @@ export async function setCourseCardMembers(input: unknown) {
         include: { members: true, plan: { select: { allowShared: true } } },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
-      const music = await tx.$queryRaw<Array<{ featureKey: string }>>`
-        SELECT "featureKey" FROM "StoreFeatureEntitlement"
-        WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      const music = await isMusicCourseStore(tx, storeId);
       const additions = data.customerIds.filter(customerId => !card.members.some(member => member.customerId === customerId));
       // Keep music's existing membership rules; sports retains historical removal rights.
-      if ((music.length || additions.length) && !card.plan.allowShared)
+      if ((music || additions.length) && !card.plan.allowShared)
         throw new AppError("VALIDATION", "此方案未開放共卡");
       if (additions.length) {
-        if (!music.length && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+        if (!music && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
           throw new AppError("FORBIDDEN", "本店共卡功能尚未開通，不能新增共卡成員");
       }
       if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
@@ -678,7 +655,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
     const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}} } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-    const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+    const musicStore = await isMusicCourseStoreFromEntitlements(prisma, storeId);
     const waitlistSetting = await coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}});
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
@@ -889,10 +866,7 @@ export async function updateCourseRosterBatch(input: unknown) {
     authMs = Date.now() - startedAt;
     // Start this independent lookup before the transaction so it does not add
     // another database round trip after attendance has already been saved.
-    const musicLookup = prisma.storeFeatureEntitlement.findFirst({
-      where: { storeId, featureKey: "business.music", status: "ENABLED" },
-      select: { storeId: true },
-    }).then(Boolean, () => false);
+    const musicLookup = isMusicCourseStoreFromEntitlements(prisma, storeId).catch(() => false);
     const transactionStartedAt = Date.now();
     await courseTransaction(storeId,async tx=>{
       const transactionWorkAt = Date.now();

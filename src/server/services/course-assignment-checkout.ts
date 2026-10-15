@@ -1,6 +1,6 @@
 import { lockCashDay } from "./cash-day";
 import "server-only";
-import {musicCheckoutQuote} from "@/lib/music-course-products";
+import { quoteMusicPurchase, validateFitnessPurchase, assertCoursePurchaseUnit } from "./course-purchase-rules";
 import {validateCourseTerm,enrollCourseTerm} from "./course-term";
 import {courseSaleSnapshot} from "./course-sale-allocation";
 import type { Prisma } from "../../../generated/course-client";
@@ -31,21 +31,12 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const customers=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Customer" WHERE id=${data.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
   const expiresAt=dayRange(plan?.musicTerms ? "2099-12-31" : data.expiresDate).end;
   if(!plan||!customers.length||expiresAt<new Date()) throw new AppError("VALIDATION","請選擇本店方案、顧客及有效期限");
-  if(!actor.music && (data.musicJoinSessionId || data.musicManualBonus || data.musicPurchaseTerms || data.musicValidityDays))throw new AppError("VALIDATION","此方案不適用音樂課程設定");
-  let musicQuote=actor.music ? musicCheckoutQuote(plan,data.musicPurchaseTerms,data.musicManualBonus??0,undefined,data.musicValidityDays) : null;
-  if(actor.music && data.musicJoinSessionId) {
-    const first=await tx.courseSession.findFirst({where:{id:data.musicJoinSessionId,storeId,cancelledAt:null},include:{template:true}});
-    if(!first || first.template.classType!=="GROUP" || !plan.templateIds.includes(first.templateId))throw new AppError("VALIDATION","請選擇本方案適用的團班課次");
-    const size=first.template.musicTermLessons;
-    if(!size)throw new AppError("VALIDATION","團班尚未設定每期堂數");
-    const end=(Math.floor(first.requestIndex/size)+1)*size;
-    const remaining=await tx.courseSession.count({where:{storeId,templateId:first.templateId,requestKey:first.requestKey,cancelledAt:null,requestIndex:{gte:first.requestIndex,lt:end}}});
-    if(remaining!==end-first.requestIndex)throw new AppError("VALIDATION","本期課次尚未排齊，請先核對課表再辦理插班");
-    musicQuote=musicCheckoutQuote(plan,data.musicPurchaseTerms,data.musicManualBonus??0,remaining,data.musicValidityDays);
-  }
+  if (!actor.music) validateFitnessPurchase(data);
+  const musicQuote = actor.music ? await quoteMusicPurchase(tx, storeId, plan, data) : null;
   if((musicQuote?.price??plan.price)!==data.expectedListPrice) throw new AppError("CONFLICT","方案售價已變更，請重新開啟核對");
   if(!actor.music && plan.storeCost!==data.expectedStoreCost) throw new AppError("CONFLICT","店家成本已變更，請重新開啟核對");
-  if(actor.music && (plan.unit!=="SESSION" || !plan.musicTerms)) throw new AppError("VALIDATION","音樂教室只能購買堂數方案");
+  assertCoursePurchaseUnit(!!actor.music, plan.unit, "音樂教室只能購買堂數方案");
+  if(actor.music && !plan.musicTerms) throw new AppError("VALIDATION","音樂教室只能購買堂數方案");
   const termSessionIds=await validateCourseTerm(tx,storeId,{...plan,termSessionIds:plan.termSessionIds??[]});
   const allocation=actor.music
     ? {storeCostSnapshot:total.paid,developerProfitSnapshot:0,developerNameSnapshot:null,revenueStaffId:null}
