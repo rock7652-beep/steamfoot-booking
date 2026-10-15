@@ -120,9 +120,13 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       for(const l of r.lines.filter(l=>l.id!==privateClone))await pay(l.id);
       await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"重複全額"}),"分次 200＋200；重送及換請求均不能超付");
       stage="請假及補課薪資更正";
+      stage="將原課出席更正為取消";
       await correctCourseAttendance(tx,actor,privateBooking,"CANCELLED","ATTENDED");
+      stage="設定原課學生請假";
       await tx.courseBooking.update({where:{id:privateBooking},data:{absenceKind:"STUDENT_LEAVE"}});
+      stage="讀回原課零元及已付差額";
       r=await report();ensure(r.lines.find(l=>l.id===privateClone)?.amount===0&&r.lines.find(l=>l.id===privateClone)?.paid===400,"請假更正必須呈現原日多付 400");checks.push("更正為請假：原課日 0 元，已登錄 400 元保留並提示多付");
+      stage="驗證請假後舊畫面付款拒絕";
       await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,expectedRemaining:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"舊畫面重送"}),"請假更正後，舊金額付款請求會被阻擋");
       const sourcePrivate=selected.find(b=>b.customerId===proof.oldMakeup.customerId)!.session;
       const makeup=await session(sourcePrivate.templateId,sourcePrivate.roomId,sourcePrivate.coachId,"實際補課日",false);
@@ -165,7 +169,8 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
     else if(e instanceof AppError)throw e;
     else{
       const code=typeof e==="object"&&e!==null&&"code" in e&&/^P\d{4}$/.test(String(e.code))?String(e.code):"未完成";
-      console.error("[music-pilot-monthly-test]",{stage,code});
+      const name=e instanceof Error?e.name:"Unknown";
+      console.error("[music-pilot-monthly-test]",{stage,code,name,...(e instanceof TypeError?{detail:e.message}:{}),...(name==="ZodError"&&typeof e==="object"&&e!==null&&"issues" in e?{issues:e.issues}:{})});
       throw new AppError("CONFLICT",`${stage}未完成（${code}）；測試交易已中止，未登錄實際發薪。`);
     }
   }
