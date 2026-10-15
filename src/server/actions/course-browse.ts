@@ -1,6 +1,7 @@
 "use server";
 import { courseCardActiveExpiryWhere } from "@/lib/course-card-expiry";
 
+import { musicCardWhere } from "@/server/services/music-plan-scope";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { courseManagerRead } from "@/server/services/course-access";
@@ -30,6 +31,7 @@ export async function searchCourseCustomers(input: unknown) {
 export async function browseCourseCards(input: unknown) {
   try {
     const data = z.object({ customerId: z.string().min(1).optional(), cardId: z.string().min(1).optional(),
+      dataScope: z.enum(["operational", "legacy"]).optional(),
       search: z.string().trim().max(200).default(""), history: z.boolean().default(false), page: z.number().int().min(0).max(50000).default(0) }).parse(input);
     const { user, storeId } = await courseManagerRead("wallet.read");
     await courseManagerRead("customer.read");
@@ -46,11 +48,11 @@ export async function browseCourseCards(input: unknown) {
       where:{
         ...(musicStore ? { unit: "SESSION" } : {}),
         ...(data.cardId ? {id:data.cardId} : data.history ? {OR:[{closedAt:{not:null}},{expiresAt:{lt:new Date()}}]} : {closedAt:null,...courseCardActiveExpiryWhere(new Date(), true)}),
-        AND:[...(visibleIds ? [{members:{some:{customerId:{in:visibleIds},storeId}}}] : []),
+        AND:[musicCardWhere(storeId,data.dataScope),...(visibleIds ? [{members:{some:{customerId:{in:visibleIds},storeId}}}] : []),
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],
       }, skip:data.cardId ? 0 : data.page*20, take:data.cardId ? 1 : 21, entries:!!data.cardId,
     });
-    const totals = data.customerId && !data.cardId ? await getCourseBalanceSummary(storeId, data.customerId, musicStore) : undefined;
+    const totals = data.customerId && !data.cardId ? await getCourseBalanceSummary(storeId, data.customerId, musicStore, data.dataScope) : undefined;
     return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20,totals};
   } catch(error) { return failure(error); }
 }

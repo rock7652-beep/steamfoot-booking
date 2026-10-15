@@ -1,5 +1,7 @@
+import { musicPlanWhere } from "@/server/services/music-plan-scope";
+import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
-import { musicDataSeparationEnabled, musicCustomerWhere } from "@/server/services/music-data-scope";
+import { musicDataScope, musicSessionWhere, musicDataSeparationEnabled, musicCustomerWhere } from "@/server/services/music-data-scope";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -74,7 +76,7 @@ export async function CourseMemberPage({
         : [],
       canReadCards
         ? coursePrisma.coursePointPlan.findMany({
-            where: { storeId },
+            where: { storeId, ...musicPlanWhere(storeId,query.dataScope) },
             orderBy: { name: "asc" },
           })
         : [],
@@ -105,13 +107,13 @@ export async function CourseMemberPage({
     validPackageSessions:0,
   }));
   const assignmentStaff = await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}});
-  const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
+  const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,...musicSessionWhere(storeId,query.dataScope),cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]});
   const subjects=music?await coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}):[];
   const displayOrders=await readCourseOrders(storeId);
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
   subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
-  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
+  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,query.dataScope),status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId);
   const labelSnapshot = canReadPeople ? await customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS;
@@ -119,9 +121,9 @@ export async function CourseMemberPage({
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" ? <PageHeader title={music ? "學費方案" : "方案管理"} /> : music && <PageHeader title="學員管理" />}
-      {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      {view === "customers" && <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>}
-      <CourseMemberWorkspace previewStoreId={storeId} key={`${storeId}:${query.dataScope??"operational"}`} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
+      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+      <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} previewStoreId={storeId} key={`${storeId}:${query.dataScope??"operational"}`} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}

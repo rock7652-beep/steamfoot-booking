@@ -9,21 +9,22 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({ customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+  dataScope?: "operational" | "legacy";
   sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;
 }) {
   const detailReader = usePanelReader("course-card", browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
-  const key=JSON.stringify([customerId,state,revision,retry]);
+  const key=JSON.stringify([dataScope,customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
-    const timer=setTimeout(()=>{browseCourseCards({customerId,...state}).then(r=>{
+    const timer=setTimeout(()=>{browseCourseCards({customerId,dataScope,...state}).then(r=>{
       if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore,totals:r.totals} : {key,customerId,rows:[],hasMore:false,error:r.error});
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},200);
     return ()=>{active=false;clearTimeout(timer);};
-  },[customerId,state,key]);
+  },[customerId,dataScope,state,key]);
   const ready=result?.key===key;
   const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">
@@ -46,7 +47,7 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
             <td className="text-right tabular-nums">{canReadBookings&&c.held>0 ? <CourseCardReservations cardId={c.id} held={c.held} unit={c.unit} revision={revision}/> : `${c.held} ${unit}`}</td>
             <td className="text-right font-semibold tabular-nums">{inactive ? "—" : `${c.available} ${unit}`}</td>
             <td>{c.expiryKind === "NO_EXPIRY" ? "無期限" : !c.expiresAt || (c.openingImported && !c.musicActivatedAt) ? "期初效期待核對" : c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : toLocalDateStr(new Date(c.expiresAt))}</td>
-            <td><button type="button" aria-label={`查看 ${c.name} 明細`} onPointerEnter={()=>detailReader.prefetch({cardId:c.id})} onFocus={()=>detailReader.prefetch({cardId:c.id})} onTouchStart={()=>detailReader.prefetch({cardId:c.id})} onClick={()=>onSelect(c)} className="min-h-11 min-w-11 text-primary-700 underline">明細</button></td>
+            <td><button type="button" aria-label={`查看 ${c.name} 明細`} onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className="min-h-11 min-w-11 text-primary-700 underline">明細</button></td>
           </tr>;
         })}
 
