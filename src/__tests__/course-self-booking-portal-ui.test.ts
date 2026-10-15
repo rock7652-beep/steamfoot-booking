@@ -194,3 +194,30 @@ describe("notification deep-link booking switch", () => {
     expect(m.reschedule).toHaveBeenCalledExactlyOnceWith({ bookingId: "booking", sessionId: "new-session" });
   });
 });
+
+describe("member leave debit confirmation",()=>{
+ it.each([
+  [true,"GROUP","SESSION","請假", "團體課請假仍會扣 1 堂，不提供補課。"],
+  [true,"PRIVATE","SESSION","請假", "本次請假不扣堂，可於方案期限內安排補課。"],
+  [true,"SELF_ORGANIZED","SESSION","請假", "本次請假不扣堂，可於方案期限內安排補課。"],
+  [false,"GROUP","POINT","取消", "取消這堂預約，釋放保留額度。"],
+ ] as const)("shows the actual rule before submitting (%s/%s)",async(music,classType,unit,action,text)=>{
+  const data=props();data.musicStore=music;
+  data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",classType,status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:1,unit,planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
+  await render({...data,initialView:"bookings"} as unknown as typeof data);
+  await click("查看明細 ⌄");await click(action);
+  expect(host.querySelector('.cp-inline-confirm')?.textContent).toContain(text);
+  expect(m.cancel).not.toHaveBeenCalled();
+  await click(music?"確認請假":"確認取消");
+  expect(m.cancel).toHaveBeenCalledExactlyOnceWith({bookingId:"booking",status:music?"STUDENT_LEAVE":"CANCELLED",member:true});
+ });
+});
+
+it("shows the fresh debit notice before confirming a cancellation deep link",async()=>{
+ m.load.mockResolvedValue({...notificationData(),leaveMessage:"團體課請假仍會扣 1 堂，不提供補課。"});
+ await act(async()=>root.render(el(CourseBookingNotificationDialog,{bookingId:"booking",action:"cancel",close:vi.fn()})));
+ expect(dialog().textContent).toContain("團體課請假仍會扣 1 堂，不提供補課。");
+ expect(m.cancel).not.toHaveBeenCalled();
+ await click("確認取消",dialog());
+ expect(m.cancel).toHaveBeenCalledExactlyOnceWith({bookingId:"booking",status:"CANCELLED",member:true});
+});

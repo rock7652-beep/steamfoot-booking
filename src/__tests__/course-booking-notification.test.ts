@@ -2,7 +2,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({member:vi.fn(),transaction:vi.fn(),booking:vi.fn(),prior:vi.fn(),target:vi.fn(),raw:vi.fn(),exec:vi.fn(),reserve:vi.fn(),settle:vi.fn(),limits:vi.fn(),payments:vi.fn(),rules:vi.fn(),sessions:vi.fn(),config:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseMember:m.member,courseTransaction:m.transaction}));
 vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:m.reserve,settleCourseBooking:m.settle}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBooking:{findFirst:m.booking},courseBookingRule:{findUnique:m.rules},courseSession:{findMany:m.sessions}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$queryRaw:m.raw,courseBooking:{findFirst:m.booking},courseBookingRule:{findUnique:m.rules},courseSession:{findMany:m.sessions}}}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:m.config}}}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:m.limits}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
@@ -72,4 +72,13 @@ it("loads available rescheduling sessions for legacy enabled stores", async()=>{
  m.config.mockResolvedValue({bookableUntilDate:new Date("2099-12-31"),bookingWindowDays:14});
  expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled:true});
  expect(m.sessions).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"s",templateId:"t"})}));
+});
+
+it.each([[true,"GROUP","團體課請假仍會扣 1 堂，不提供補課。"],[true,"PRIVATE","本次請假不扣堂，可於方案期限內安排補課。"],[false,"GROUP",null]] as const)("loads an authorized cancellation's debit notice (%s/%s)",async(music,classType,message)=>{
+ const b=original();m.booking.mockResolvedValue({...b,bookingKind:"CARD",cardId:"card",card:{unit:"SESSION",members:[{customerId:"member"}]},pointCost:1,session:{...b.session,template:{classType}}});
+ m.raw.mockResolvedValue(music?[{featureKey:"business.music"}]:[]);m.sessions.mockResolvedValue([]);m.config.mockResolvedValue(null);
+ const result=await loadCourseBookingNotification("old");
+ expect(result).toMatchObject({success:true,leaveMessage:message});
+ expect(m.settle).not.toHaveBeenCalled();
+ expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{id:"old",storeId:"s"}}));
 });

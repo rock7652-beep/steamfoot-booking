@@ -1,4 +1,6 @@
 "use server";
+import { courseLeaveDebitMessage } from "@/lib/course-leave-message";
+import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { z } from "zod";
 import { courseSelfBookingEnabled, courseSelfLeaveEnabled, courseSelfRescheduleEnabled } from "@/lib/course-self-booking";
@@ -16,7 +18,7 @@ import type { Prisma } from "../../../generated/course-client";
 
 const id = z.string().min(1).max(100);
 async function ownedBooking(tx: Prisma.TransactionClient, storeId: string, customerId: string, bookingId: string) {
-  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:true,card:{include:{members:true}}}});
+  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:{include:{template:{select:{classType:true}}}},card:{include:{members:true}}}});
   if (!booking || !(booking.customerId === customerId || booking.reserverCustomerId === customerId || booking.card?.members.some(m=>m.customerId===customerId))) throw new AppError("FORBIDDEN", "無權操作此預約");
   return booking;
 }
@@ -24,9 +26,10 @@ export async function loadCourseBookingNotification(bookingId: string) {
   try {
     const {storeId,customer}=await courseMember();
     const booking=await ownedBooking(coursePrisma,storeId,customer.id,id.parse(bookingId));
-    const [rule,config]=await Promise.all([
+    const [rule,config,music]=await Promise.all([
       coursePrisma.courseBookingRule.findUnique({where:{storeId}}),
       prisma.shopConfig.findUnique({where:{storeId},select:{bookableUntilDate:true,bookingOpensAt:true,bookingWindowDays:true}}),
+      booking.cardId ? isMusicCourseStore(coursePrisma,storeId) : false,
     ]);
     const now=new Date(),window=resolveCustomerBookingWindow(config,now);
     const selfBookingEnabled = courseSelfBookingEnabled(rule);
@@ -35,7 +38,7 @@ export async function loadCourseBookingNotification(bookingId: string) {
       where:{storeId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},template:{isActive:true,visibility:"PUBLIC"},startsAt:{gt:new Date(Math.max(now.getTime()+(rule?.bookingLeadMinutes??0)*60000,window.opensAt?.getTime()??0)),lte:window.closesAt}},
       include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100,
     }) : [];
-    return {success:true as const,selfBookingEnabled,selfLeaveEnabled,selfRescheduleEnabled,booking:{id:booking.id,name:booking.session.nameSnapshot,customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),room:s.room.name}))};
+    return {success:true as const,selfBookingEnabled,selfLeaveEnabled,selfRescheduleEnabled,...(booking.cardId ? {leaveMessage:courseLeaveDebitMessage(music,{classType:booking.session.template.classType,unit:booking.card?.unit??"TRIAL",cost:booking.pointCost})} : {}),booking:{id:booking.id,name:booking.session.nameSnapshot,customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),room:s.room.name}))};
   } catch(e) {const result=handleActionError(e);return {success:false as const,error:result.success?"讀取失敗":result.error};}
 }
 export async function confirmMemberCourseTrial(bookingId: string) {

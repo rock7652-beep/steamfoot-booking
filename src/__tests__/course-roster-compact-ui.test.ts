@@ -4,12 +4,12 @@ vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollmen
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
+const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),teacher:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
 
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,markCourseTeacherAttendance:m.teacher,cancelCourseSession:vi.fn()}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
@@ -538,4 +538,38 @@ it.each(["HIDDEN","LOCKED"] as const)("does not offer new companions from stale 
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="既有同行 更多操作"]')!.click());
   expect(document.querySelector('[role="menu"]')?.textContent).toContain("變更使用方式");
  } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+it.each([false,true])("publishes teacher absence and refunded rows together; read failure=%s",async readFails=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const row={id:"member-leave",customerId:"student",customerName:"團班學員",customerPhone:"",status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED",bookingKind:"CARD",pointCost:1,unit:"SESSION",cardId:"card",cardRemaining:1,available:1,planName:"四堂",termCount:4,termIndex:1,termLeaveCount:1,termNoShowCount:0,termLessons:[],termPrivateLeaves:[],trialPayments:[],notes:""};
+ const session={startsAt:"2099-01-01T02:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:"",teacherAttendanceReason:""};
+ m.load.mockResolvedValue({success:true,data:{session,roster:[row],cards:[],trial:null}});
+ m.teacher.mockReset().mockResolvedValue({success:true});
+ let finishRead!:(value:unknown)=>void;
+ m.quick.mockReturnValue(new Promise(resolve=>{finishRead=resolve;}));
+ const parent=vi.fn(),host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"teacher-atomic",capacity:5,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",onTeacherAttendanceOptimistic:parent})));
+  const select=host.querySelector<HTMLSelectElement>('select[aria-label="教師出勤狀態"]')!;
+  await act(async()=>{select.value="LEAVE";select.dispatchEvent(new Event("change",{bubbles:true}));});
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==="儲存")!.click());
+  expect(m.teacher).toHaveBeenCalledOnce();
+  expect(host.textContent).toContain("請假・扣堂");
+  expect(host.textContent).not.toContain("老師出勤紀錄已更新");
+  expect(host.textContent).not.toContain("已扣額度已返還");
+  expect(parent).not.toHaveBeenCalled();
+  await act(async()=>finishRead(readFails?{success:false,error:"讀取失敗"}:{success:true,data:{roster:[{...row,absenceKind:"TEACHER_ABSENT",cardRemaining:2,available:2}],teacherAttendance:"LEAVE",teacherAttendanceReason:"",teacherNote:""}}));
+  if(readFails){
+   expect(host.textContent).toContain("出勤已儲存，名單尚未核對完成");
+   expect(host.textContent).not.toContain("已扣額度已返還");
+   expect(select.disabled).toBe(true);
+   expect(parent).not.toHaveBeenCalled();
+  }else{
+   expect(host.textContent).toContain("本堂免扣");
+   expect(host.textContent).not.toContain("請假・扣堂");
+   expect(host.textContent).toContain("老師出勤紀錄已更新");
+   expect(parent).toHaveBeenCalledExactlyOnceWith("LEAVE");
+  }
+ }finally{await act(async()=>root.unmount());host.remove();}
 });
