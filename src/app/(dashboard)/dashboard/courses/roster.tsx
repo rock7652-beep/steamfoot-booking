@@ -406,9 +406,13 @@ export function CourseRoster({
         if (!bookingId) {
           setSelected([]);
           setRequestKey(crypto.randomUUID());
-          await load();
-          router.refresh();
-          if (view !== "roster") onDone?.();
+          if (view !== "roster" && onDone) {
+            onDone();
+            router.refresh();
+          } else {
+            await load();
+            router.refresh();
+          }
         }
       } catch {
         if (currentSession.current === sessionId) {
@@ -604,12 +608,14 @@ export function CourseRoster({
             member.phone.replace(/\D/g, "").includes(normalizedMemberPhoneQuery)),
       )
     : [];
+  const matchesItem = (item: CourseCardView) => !session?.compatibleTemplateIds || !item.templateIds.length || item.templateIds.some(id=>session.compatibleTemplateIds?.includes(id));
+  const noCardReason = (memberId:string) => cards.some(item=>item.members.some(m=>m.id===memberId)&&matchesItem(item)) ? "對應方案已用完或不在有效期" : "無對應方案";
   const eligibleCardsFor = (memberId: string) =>
     cards
       .filter(
         (item) =>
           item.members.some((member) => member.id === memberId) &&
-          (!session?.compatibleTemplateIds || !item.templateIds.length || item.templateIds.some(id => session.compatibleTemplateIds?.includes(id))) &&
+          matchesItem(item) &&
           !item.expired &&
           !item.closed &&
           (!item.openingImported || item.openingReservable === true) &&
@@ -733,7 +739,7 @@ export function CourseRoster({
                         <span className="text-xs text-earth-500">{member.phone || "未填電話"}</span>
                       </span>
                       <span className="text-xs text-earth-500">
-                        {alreadyJoined ? "已加入本堂" : available ? `${available} 個可用方案` : "沒有可用方案"}
+                        {alreadyJoined ? "已加入本堂" : available ? `${available} 個可用方案` : noCardReason(member.id)}
                       </span>
                     </button>
                   );
@@ -826,7 +832,7 @@ export function CourseRoster({
             </label>
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">
-                {cards.some(item=>item.openingImported && item.members.some(member=>member.id===customerId)) ? "期初方案須先連結來源堂次，暫不能在此新增預約。" : "沒有可用方案，請先指派方案。"}
+                {cards.some(item=>item.openingImported && item.members.some(member=>member.id===customerId)) ? "期初方案須先連結來源堂次，暫不能在此新增預約。" : `${noCardReason(customerId)}，請先核對學員方案。`}
               </p>
             )}
             <label className="block text-sm font-medium">

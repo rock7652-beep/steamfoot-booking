@@ -54,3 +54,9 @@ export async function nativeDeductedLeaveIds(tx:Prisma.TransactionClient,storeId
   const coupons=await tx.coursePointCard.findMany({where:{storeId,requestKey:{startsWith:NATIVE_MAKEUP_PREFIX}},select:{requestKey:true}});
   return coupons.map(c=>c.requestKey.slice(NATIVE_MAKEUP_PREFIX.length));
 }
+
+export async function syncNativeMakeupExpiry(tx:Prisma.TransactionClient,storeId:string,cardId:string,expiresAt:Date,musicActivatedAt:Date|null) {
+  if(!musicDataSeparationEnabled(storeId))return;
+  const leaves=await tx.courseBooking.findMany({where:{storeId,cardId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"},select:{id:true}});
+  if(leaves.length)await tx.coursePointCard.updateMany({where:{storeId,requestKey:{in:leaves.map(b=>NATIVE_MAKEUP_PREFIX+b.id)}},data:{expiresAt,musicActivatedAt}});
+}

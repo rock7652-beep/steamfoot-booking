@@ -1,4 +1,6 @@
-import { isNativeMusicLeaveCard, nativeLeaveWasDebited } from "@/server/services/music-native-leave";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
+import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
+import { nativeDeductedLeaveIds } from "@/server/services/music-native-leave";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
@@ -110,8 +112,14 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
-  const nativeLeaveCards = new Set((await Promise.all(bookings.map(async b => b.card && await isNativeMusicLeaveCard(coursePrisma,storeId,b.card) ? b.card.id : null))).filter((id):id is string=>id!==null));
-  const nativeDebitedBookings = new Set((await Promise.all(bookings.filter(b=>b.absenceKind==="STUDENT_LEAVE").map(async b=>await nativeLeaveWasDebited(coursePrisma,storeId,b.id)?b.id:null))).filter((id):id is string=>id!==null));
+  const nativeCandidates=musicDataSeparationEnabled(storeId)?[...new Set(bookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
+  const [nativePurchases,nativeLeaveIds,compatibleItemTemplates]=await Promise.all([
+    nativeCandidates.length?coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}}):[],
+    nativeDeductedLeaveIds(coursePrisma,storeId),
+    bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
+  ]);
+  const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
+  const nativeDebitedBookings=new Set(nativeLeaveIds);
   const sourceTuition=pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : [];
   const canCreateShared = bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     && await getCourseSharedCardState(storeId) === "ENABLED";
@@ -145,7 +153,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
-    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
+    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   });
   return bookings.map(({ card, checkedInAt, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey, ...b }) => {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });
@@ -177,9 +185,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       method: purchase.paymentMethod,
     });
     const sameEnrollment = (item: { sessionId: string; session: { templateId: string } }) =>
-      card?.termSessionIds.length ? card.termSessionIds.includes(item.sessionId) : item.session.templateId === b.session.templateId;
+      card?.termSessionIds.length ? card.termSessionIds.includes(item.sessionId) : compatibleItemTemplates.includes(item.session.templateId);
     const allLessons = (card?.bookings ?? [])
-      .filter((item) => !isMusicOpeningMakeupBooking(item) && item.customerId === b.customerId && sameEnrollment(item) && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || (pilotCards.has(b.cardId??"") && item.absenceKind === "STUDENT_LEAVE")))
+      .filter((item) => !isMusicOpeningMakeupBooking(item) && item.customerId === b.customerId && sameEnrollment(item) && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || ((pilotCards.has(b.cardId??"") || ("id" in item && nativeDebitedBookings.has(item.id as string))) && item.absenceKind === "STUDENT_LEAVE")))
       .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
     const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
@@ -221,7 +229,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     termPayment: currentPurchase ? paymentSummary(currentPurchase) : null,
     nextTerm: renewal ? {
       payment: paymentSummary(renewal.purchase),
-      lessons: renewal.next!.bookings.filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || (pilotCards.has(b.cardId??"") && item.absenceKind === "STUDENT_LEAVE")))
+      lessons: renewal.next!.bookings.filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED" || ((pilotCards.has(b.cardId??"") || ("id" in item && nativeDebitedBookings.has(item.id as string))) && item.absenceKind === "STUDENT_LEAVE")))
         .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime())
         .map((item) => ({ date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課" })),
     } : null,

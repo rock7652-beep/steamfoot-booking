@@ -15,7 +15,7 @@ export async function testNativeMusicLifecycle(tx:Prisma.TransactionClient,actor
   ensure(musicDataSeparationEnabled(actor.storeId),"僅限指定隔離測試站");
   const students=await readMusicPilotTuition(tx,actor.storeId);
   ensure(students.length===10&&new Set(students.map(s=>s.customerId)).size===10,"十位來源學員不齊");
-  const template=await tx.courseTemplate.findFirst({where:{storeId:actor.storeId,isActive:true,musicSubjectId:{not:null},classType:"PRIVATE",musicTrialMode:null},orderBy:{id:"asc"}});
+  const template=await tx.courseTemplate.findFirst({where:{storeId:actor.storeId,isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true},musicSubjectId:{not:null},classType:"PRIVATE",musicTrialMode:null},orderBy:{id:"asc"}});
   const source=await tx.courseSession.findFirst({where:{storeId:actor.storeId,id:{startsWith:"yjy-pilot-session:"}},orderBy:{id:"asc"}});
   ensure(template&&source,"找不到測試項目及教室老師");
   const alternate=await tx.courseTemplate.create({data:{storeId:actor.storeId,musicSubjectId:template.musicSubjectId,name:"[自動復原] 同項目另一學費版本 "+crypto.randomUUID(),classType:template.classType,durationMinutes:60,capacity:1,pointCost:1}});

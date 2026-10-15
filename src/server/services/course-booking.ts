@@ -1,4 +1,4 @@
-import { nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
+import { syncNativeMakeupExpiry, nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
 import { courseCardMatchesItem } from "./music-item-compatibility";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue, musicOpeningDateIssue, type OpeningCard, type OpeningBooking } from "@/lib/music-opening-runtime";
@@ -588,6 +588,7 @@ export async function correctCourseAttendance(
     }else activation={musicActivatedAt:firstDate,expiresAt:firstDate ? musicCourseExpiry(firstDate,b.card.musicValidityDays) : dayRange("2099-12-31").end};
   }
   if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
+  if(activation)await syncNativeMakeupExpiry(tx,actor.storeId,b.cardId,activation.expiresAt,activation.musicActivatedAt);
   // The durable entry constraint permits cancellation releases, but deliberately
   // does not permit CORRECT:*:CANCELLED. Preserve the transition in its audit.
   const correctionKey=crypto.randomUUID();
@@ -645,7 +646,9 @@ export async function refundTeacherAbsentSession(tx: Prisma.TransactionClient, a
     const leaveIds = await nativeDeductedLeaveIds(tx,actor.storeId);
     const first = await tx.courseBooking.findFirst({ where: { storeId: actor.storeId, cardId, OR: [{ status: { in: ["ATTENDED", "NO_SHOW"] } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }, {id:{in:leaveIds},status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}] }, orderBy: { session: { startsAt: "asc" } }, select: { session: { select: { startsAt: true } } } });
     const date = first?.session.startsAt ?? null;
-    await tx.coursePointCard.update({ where: { id: cardId }, data: { musicActivatedAt: date, expiresAt: date ? musicCourseExpiry(date, days) : dayRange("2099-12-31").end } });
+    const expiresAt=date ? musicCourseExpiry(date,days) : dayRange("2099-12-31").end;
+    await tx.coursePointCard.update({ where: { id: cardId }, data: { musicActivatedAt: date, expiresAt } });
+    await syncNativeMakeupExpiry(tx,actor.storeId,cardId,expiresAt,date);
   }
   return bookings.length;
 }
