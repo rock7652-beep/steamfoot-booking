@@ -10,7 +10,7 @@ import { loadMusicStudentWorkspace } from "@/server/actions/music-student-worksp
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Result = Awaited<ReturnType<typeof loadMusicStudentWorkspace>>;
-export function MusicStudentOverview({ customerId, tab }: { customerId: string; tab: string }) {
+export function MusicStudentOverview({ customerId, tab, legacy = false }: { customerId: string; tab: string; legacy?: boolean }) {
   const params = useSearchParams();
   const reader = usePanelReader("music-student-workspace", loadMusicStudentWorkspace);
   const [result, setResult] = useState<{ id: string; value: Result } | null>(null);
@@ -29,7 +29,7 @@ export function MusicStudentOverview({ customerId, tab }: { customerId: string; 
   return <section className="mb-4 space-y-3 text-sm" aria-label="學員概況">
     <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-primary-50 p-3">
       {balance && <><span>一般剩餘 <strong>{balance.remaining}</strong> 堂</span><span>已排 <strong>{balance.held}</strong> 堂</span><span>可再預約 <strong>{balance.available}</strong> 堂</span></>}
-      {opening && <span>音教雲待補 <strong>{opening.opening.outstanding}</strong> 堂</span>}
+      {opening && <span>{legacy ? "舊驗收待補" : "音教雲待補"} <strong>{opening.opening.outstanding}</strong> 堂</span>}
       {!!balance?.makeupRemaining && <span>另發補課 <strong>{balance.makeupRemaining}</strong> 堂</span>}
     </div>
     {balance && <p className="text-earth-600">一般剩餘包含已排課程；可再預約是扣除已排後的堂數。補課另列。</p>}

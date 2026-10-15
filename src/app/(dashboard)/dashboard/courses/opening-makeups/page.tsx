@@ -24,5 +24,5 @@ export default async function OpeningMakeupsPage({ searchParams }: { searchParam
   const legacy=musicDataScope(storeId,query.dataScope)==="legacy";
   const data = await getOpeningMakeupWorkspace(storeId, query.customerId,visible?.map(c=>c.id),query.dataScope);
   const [canCreate, canUpdate] = await Promise.all([checkPermission(user.role, user.staffId, "booking.create"), checkPermission(user.role, user.staffId, "booking.update")]);
-  return <PageShell className="w-full min-w-0"><PageHeader title="期初補課" subtitle="預約只保留權益，確認實際出席才核銷" actions={<DashboardLink href="/dashboard/courses">返回課表</DashboardLink>} /><MusicDataScopeFilter enabled={classified}/><OpeningMakeupList classified={classified} legacy={legacy} data={data} canCreate={canCreate} canUpdate={canUpdate} /></PageShell>;
+  return <PageShell className="w-full min-w-0"><PageHeader title={legacy ? "舊驗收期初補課" : "期初補課"} subtitle="預約只保留權益，確認實際出席才核銷" actions={<DashboardLink href={legacy ? "/dashboard/courses?dataScope=legacy" : "/dashboard/courses"}>返回課表</DashboardLink>} /><MusicDataScopeFilter enabled={classified}/><OpeningMakeupList classified={classified} legacy={legacy} data={data} canCreate={canCreate} canUpdate={canUpdate} /></PageShell>;
 }

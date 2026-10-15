@@ -16,6 +16,7 @@ export function OpeningMakeupList({ data, canCreate, canUpdate, compact = false,
   const [search, setSearch] = useState("");
   const [hideTests, setHideTests] = useState(true);
   const [status, setStatus] = useState("all");
+  const sourceLabel = legacy ? "舊驗收補課" : "音教雲補課";
   const today = toLocalDateStr();
   const visible = data.rows.filter(row => classified || !hideTests || !isCourseTestData(row.customerName));
   const rows = visible.filter(row => row.customerName.includes(search.trim()) && (status === "all" || makeupStatus(row.state, row.expiry, today).label === status));
@@ -25,9 +26,9 @@ export function OpeningMakeupList({ data, canCreate, canUpdate, compact = false,
   return <div className="min-w-0 space-y-3">
     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="補課摘要"><span>{legacy?"舊驗收待補":"音教雲待補"} <strong>{outstanding}</strong> 堂</span><span>已安排 {reserved} 堂</span>{!compact && <span>另有蒸管家請假 {data.native.outstanding} 堂（含測試資料）</span>}</div>
     <p className="text-sm text-earth-600">補課不併入一般餘堂，沿用原期限；實際完成上課後才扣除。</p>
-    <RosterToolbar label="音教雲補課篩選"><label className="flex min-w-0 flex-1 items-center gap-2 text-sm">搜尋學員<input className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 px-3 text-base" value={search} onChange={e => setSearch(e.target.value)} /></label><select aria-label="音教雲補課狀態" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" value={status} onChange={e=>setStatus(e.target.value)}>{["all","待安排","已安排","已完成","已逾期"].map(value=><option key={value} value={value}>{value === "all" ? "全部狀態" : value}</option>)}</select>{!classified&&<CourseTestDataFilter names={data.rows.map(row=>row.customerName)} checked={hideTests} onChange={setHideTests}/>}</RosterToolbar>
+    <RosterToolbar label={`${sourceLabel}篩選`}><label className="flex min-w-0 flex-1 items-center gap-2 text-sm">搜尋學員<input className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 px-3 text-base" value={search} onChange={e => setSearch(e.target.value)} /></label><select aria-label={`${sourceLabel}狀態`} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" value={status} onChange={e=>setStatus(e.target.value)}>{["all","待安排","已安排","已完成","已逾期"].map(value=><option key={value} value={value}>{value === "all" ? "全部狀態" : value}</option>)}</select>{!classified&&<CourseTestDataFilter names={data.rows.map(row=>row.customerName)} checked={hideTests} onChange={setHideTests}/>}</RosterToolbar>
     <p className="text-sm text-earth-600">顯示 {rows.length} 筆{hideTests && data.rows.length > visible.length ? ` · 已隱藏 ${data.rows.length-visible.length} 筆驗收／測試資料` : ""}</p>
-    <RosterTable label="音教雲補課清單" columns={["學員／課程", "原課日期", "補課期限", "補課日期", "狀態", "操作"]}>{data.rows.map(row => <RightRow legacy={legacy} key={row.id} hidden={!rowIds.has(row.id)} row={row} canCreate={canCreate} canUpdate={canUpdate} />)}{!rows.length && <tr><td colSpan={6}>沒有符合條件的補課紀錄，可調整搜尋或篩選。</td></tr>}</RosterTable>
+    <RosterTable label={`${sourceLabel}清單`} columns={["學員／課程", "原課日期", "補課期限", "補課日期", "狀態", "操作"]}>{data.rows.map(row => <RightRow legacy={legacy} key={row.id} hidden={!rowIds.has(row.id)} row={row} canCreate={canCreate} canUpdate={canUpdate} />)}{!rows.length && <tr><td colSpan={6}>沒有符合條件的補課紀錄，可調整搜尋或篩選。</td></tr>}</RosterTable>
   </div>;
 }
 function RightRow({ row, canCreate, canUpdate, hidden, legacy }: { legacy: boolean; hidden: boolean; row: OpeningMakeupWorkspace["rows"][number]; canCreate: boolean; canUpdate: boolean }) {
