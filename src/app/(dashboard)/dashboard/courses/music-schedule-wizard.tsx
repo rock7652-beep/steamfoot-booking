@@ -31,6 +31,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [coachId,setCoachId]=useState("");
   const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
   const [repeat,setRepeat]=useState(false);
+  const [repeatCount,setRepeatCount]=useState(4);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
   function resetSlot(){setSlots(null);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
@@ -51,13 +52,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   function create(){
     if(!template || !pair || !time || pending)return;
     if(!Number.isInteger(capacity)||capacity<1||capacity>500){setError("人數上限請填 1–500 人");return;}
+    if(repeat&&(!Number.isInteger(repeatCount)||repeatCount<2||repeatCount>52)){setError("連續排課請填 2–52 堂");return;}
     setError("");
     startTransition(async()=>{
       try{
         const result=await createCourseSchedule({
           templateId,sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,roomId:pair.roomId,coachId:pair.coachId,date,time,
           durationMinutes:duration,capacity,
-          repeatUntil:repeat?addTaiwanDuration(date,((template.musicTermLessons ?? 4)-1)*7,"DAY"):undefined,
+          repeatUntil:repeat?addTaiwanDuration(date,(repeatCount-1)*7,"DAY"):undefined,
           requestKey,
         });
         if(!result.success){setError(result.error ?? "排課失敗，請重新選擇空位");return;}
@@ -69,15 +71,9 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   return <div className="space-y-4 text-sm">
     <div className="grid gap-3 sm:grid-cols-2">
     <label className="block">教學項目<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-    <label className="block">班型方案<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{templates.filter(t=>(t.musicSubjectId??t.id)===subjectId).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-    <label className="block">人數上限<input className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" type="number" min="1" max="500" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>
+    <div className="flex min-h-11 items-center text-earth-700">{duration} 分鐘 · 上限 {capacity} 人</div>
     </div>
-    <label className="block">② 上課時長
-      <select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={duration} onChange={e=>{setDuration(Number(e.target.value) as 30|60|90|120);resetSlot();}}>
-        {[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}
-      </select>
-    </label>
-    <label className="block">③ 看哪一天的空位
+    <label className="block">上課日期
       <input aria-label="找空位日期" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" type="date" value={date} onChange={e=>{setDate(e.target.value);resetSlot();}}/>
     </label>
     <div aria-label="可排時段" className="space-y-2">
@@ -89,26 +85,26 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
           const matching=slots!.filter(s=>s.time===slotTime);
           const teacherCount=new Set(matching.flatMap(s=>s.coachIds)).size;
           return <button key={slotTime} type="button" className={`min-h-11 rounded-xl border px-2 ${slotTime===time?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`} onClick={()=>{setTime(slotTime);setCoachId("");setPair(null);}}>
-            {slotTime}<span className="block text-[11px]">{teacherCount} 位老師 · {matching.length} 間教室</span>
+            {slotTime}<span className="block text-sm">{teacherCount} 位老師 · {matching.length} 間教室</span>
           </button>;
         })}
       </div>
       {!!unavailable.length && <details className="rounded-xl border border-earth-200 px-3 py-2 text-earth-700"><summary className="cursor-pointer">查看其他時段為何不能排（{unavailable.length} 個）</summary><div className="mt-2 grid max-h-36 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3">{unavailable.map(slot=><span key={slot.time} className="rounded bg-earth-50 px-2 py-1 text-xs">{slot.time} · {slot.reason}</span>)}</div></details>}
     </div>
     {time && <div aria-label="合格老師與可用教室" className="space-y-2">
-      <strong>④ {date} {time} · 選老師／教室</strong>
+      <strong>{date} {time} · 選老師／教室</strong>
       <div className="grid grid-cols-2 gap-1.5">
         {teacherIds.map(id=><button key={id} type="button" className={`min-h-11 rounded-xl border px-3 text-left ${coachId===id?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setCoachId(id);setPair(null);}}>
           {coaches.find(c=>c.id===id)?.displayName} · {pairs.filter(option=>option.coachId===id).length} 間教室
         </button>)}
       </div>
       {coachId&&<div aria-label="老師可用教室" className="grid max-h-44 grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
-        {availableRooms.map(option=><button key={option.roomId} type="button" disabled={option.fixedOrigin&&template?.musicScheduleMode==="FIXED"} title={option.fixedOrigin?"原固定課保留此時段，僅可排單次臨時課":undefined} className={`min-h-11 rounded-xl border px-3 text-left disabled:opacity-50 ${pair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>教室 {rooms.find(r=>r.id===option.roomId)?.name}{option.fixedOrigin&&<span className="block text-[11px]">原固定課保留 · 限單次臨時課</span>}</button>)}
+        {availableRooms.map(option=><button key={option.roomId} type="button" disabled={option.fixedOrigin&&template?.musicScheduleMode==="FIXED"} title={option.fixedOrigin?"原固定課保留此時段，僅可排單次臨時課":undefined} className={`min-h-11 rounded-xl border px-3 text-left disabled:opacity-50 ${pair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>教室 {rooms.find(r=>r.id===option.roomId)?.name}{option.fixedOrigin&&<span className="block text-sm">原固定課保留 · 限單次臨時課</span>}</button>)}
       </div>}
     </div>}
     {pair && <div className="space-y-3 border-t border-earth-100 pt-3">
-      <label className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pairs.find(option=>option.roomId===pair.roomId&&option.coachId===pair.coachId)?.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排 {template?.musicTermLessons ?? 4} 堂</label>
-      {repeat && <p className="text-xs text-earth-600">將從首次上課日建立同時段的 {template?.musicTermLessons ?? 4} 堂；每堂都會再次檢查空位。</p>}
+      <label className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pairs.find(option=>option.roomId===pair.roomId&&option.coachId===pair.coachId)?.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排課</label>
+      {repeat && <label className="flex items-center gap-2">連續堂數<input aria-label="連續排課堂數" className="min-h-11 w-24 rounded-lg border px-3" type="number" min={2} max={52} value={repeatCount} onChange={e=>setRepeatCount(Number(e.target.value))}/></label>}
       <button type="button" disabled={pending} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"建立課程，接著選學員"}</button>
     </div>}
     {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-700">{error}</p>}

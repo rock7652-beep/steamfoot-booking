@@ -10,7 +10,7 @@ import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveMusicSubject } from "@/server/actions/music-subject";
-export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
+export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string;classType?:string|null;durationMinutes?:number;capacity?:number};
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCreate,canEdit}:{displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean}){
@@ -58,6 +58,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
        }
        const result = await saveMusicSubject({
          id: editing?.id,
+         classType:d.get("classType"),durationMinutes:Number(d.get("durationMinutes")),capacity:Number(d.get("capacity")),
          expectedUpdatedAt: editing?.updatedAt,
          name: d.get("name"),
          category: d.get("category"),
@@ -79,6 +80,10 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  <fieldset disabled={pending} className="contents"><label className="sm:col-span-2">課程名稱<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
  <label>分類<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
+ <label>授課型態<select className={field} name="classType" defaultValue={editing?.classType??"PRIVATE"}><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組班</option><option value="GROUP">團體班</option></select></label>
+ <label>上課時長<select className={field} name="durationMinutes" defaultValue={editing?.durationMinutes??60}>{[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}</select></label>
+ <label>人數上限<input className={field} name="capacity" type="number" required min={1} max={500} defaultValue={editing?.capacity??1}/></label>
+ <p className="self-center text-sm text-earth-600">套用於新排課；已排課堂保留原設定。</p>
  <details className="sm:col-span-2"><summary className="cursor-pointer py-2">課程介紹（選填）</summary><textarea aria-label="課程介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
  {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}<button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white sm:col-span-2" disabled={pending}>{pending?"儲存中…":"儲存"}</button></fieldset>
  </form>}

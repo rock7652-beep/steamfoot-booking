@@ -1,3 +1,4 @@
+import { testNativeMusicLifecycle } from "./music-native-lifecycle-test";
 import "server-only";
 import { createHash } from "node:crypto";
 import type { Prisma } from "../../../generated/course-client";
@@ -49,6 +50,10 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       ensure(proof,"十人費率來源未驗證");
       ensure(!(await tx.courseSession.count({where:{storeId:actor.storeId,startsAt:{gte:dayRange("2000-01-01").start,lte:dayRange("2000-01-31").end}}})),"測試月份已有課堂，不能混用");
       const key=crypto.randomUUID(), checks:string[]=[];
+      stage="十位學員新購課及請假補課測試";
+      await tx.$executeRawUnsafe("SAVEPOINT native_lifecycle");
+      checks.push(...await testNativeMusicLifecycle(tx,actor));
+      await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT native_lifecycle");
       stage="讀取來源課堂";
       const customerIds=[...proof.enrollments.map(e=>e.customerId),proof.trial.customerId];
       const source=await tx.courseBooking.findMany({where:{storeId:actor.storeId,customerId:{in:customerIds},sessionId:{startsWith:"yjy-pilot-session:"}},include:{session:true},orderBy:{session:{startsAt:"asc"}}});

@@ -3,7 +3,7 @@ import { RosterTable } from "@/components/admin/roster-primitives";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseCardReservations } from "./card-reservations";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
@@ -17,12 +17,15 @@ export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSe
   const detailReader = usePanelReader("course-card", browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
+  const previousSearch = useRef(state.search);
   const key=JSON.stringify([dataScope,customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
+    const delay=previousSearch.current===state.search?0:200;
+    previousSearch.current=state.search;
     const timer=setTimeout(()=>{browseCourseCards({customerId,dataScope,...state}).then(r=>{
       if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore,totals:r.totals} : {key,customerId,rows:[],hasMore:false,error:r.error});
-    }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},200);
+    }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},delay);
     return ()=>{active=false;clearTimeout(timer);};
   },[customerId,dataScope,state,key]);
   const ready=result?.key===key;

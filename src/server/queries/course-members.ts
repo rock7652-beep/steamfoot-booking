@@ -1,3 +1,4 @@
+import { isNativeMusicLeaveCard, nativeLeaveWasDebited } from "@/server/services/music-native-leave";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
@@ -109,6 +110,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
+  const nativeLeaveCards = new Set((await Promise.all(bookings.map(async b => b.card && await isNativeMusicLeaveCard(coursePrisma,storeId,b.card) ? b.card.id : null))).filter((id):id is string=>id!==null));
+  const nativeDebitedBookings = new Set((await Promise.all(bookings.filter(b=>b.absenceKind==="STUDENT_LEAVE").map(async b=>await nativeLeaveWasDebited(coursePrisma,storeId,b.id)?b.id:null))).filter((id):id is string=>id!==null));
   const sourceTuition=pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : [];
   const canCreateShared = bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     && await getCourseSharedCardState(storeId) === "ENABLED";
@@ -252,7 +255,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     serviceNote: [musicSourceDisplayNote(customers.find((c) => c.id === b.customerId)?.serviceNote), customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
     openingIssue: openingIssue ?? openingOperationWarning,
     openingImported: openingMakeup || opening.kind !== "NATIVE",
-    ...(pilotCards.has(b.cardId??"")?{leaveDeductsWithMakeup:true}:{}),
+    ...((pilotCards.has(b.cardId??"") || (b.status === "RESERVED" ? nativeLeaveCards.has(b.cardId??"") : nativeDebitedBookings.has(b.id)))?{leaveDeductsWithMakeup:true}:{}),
     ...(pilotCards.has(b.cardId??"")?{sourceTuition:sourceTuition.find(t=>t.customerId===b.customerId)}:{}),
     ...(openingMakeup ? { openingMakeup: true } : {}),
     openingTuition: opening.kind === "OPENING" ? {paid:opening.record.tuition.paidBeforeCutoff,receivable:opening.record.tuition.receivableAtCutoff} : null,

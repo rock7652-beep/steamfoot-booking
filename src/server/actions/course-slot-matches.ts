@@ -1,4 +1,5 @@
 "use server";
+import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { MUSIC_OPENING_CARD_SELECT } from "@/lib/music-opening-runtime";
 
@@ -64,6 +65,8 @@ export async function getMusicSlotMatches(input: unknown) {
       prisma.$queryRaw<{date:Date;slotTime:string;staffId:string}[]>`SELECT date,"slotTime","staffId" FROM "DutyAssignment" WHERE "storeId"=${storeId} AND date>=${firstDate}::date AND date<=${lastDate}::date`,
       coursePrisma.courseSession.findMany({ where: { storeId, cancelledAt: null, releasedAt: null, startsAt: { lt: dayRange(lastDate).end }, endsAt: { gt: dayRange(firstDate).start } }, select: { id: true, startsAt: true, endsAt: true, roomId: true, coachId: true } }),
     ]);
+    const compatibleTemplateIds = await musicItemTemplateIds(coursePrisma, storeId, data.templateId);
+    const qualifiedForItem = (ids: string[]) => ids.some(id => compatibleTemplateIds.includes(id));
     const ignored = new Set(moved.map(s => s.id));
     const storeCache = new Map<string, ReturnType<typeof resolvedCourseHours>>();
     const periodsFor = (date: string) => {
@@ -122,7 +125,7 @@ export async function getMusicSlotMatches(input: unknown) {
           if (!template.musicSubject && room.capacity !== null && room.capacity < (source?.capacity ?? template.capacity)) continue;
           const coachIds = staff.filter(coach => {
             const unchanged = source?.coachId === coach.id && source.templateId === data.templateId;
-            if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(data.templateId))) return false;
+            if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !qualifiedForItem(coach.courseQualifiedTemplateIds))) return false;
             return validPair(time, room.id, coach.id);
           }).map(coach => coach.id);
           if (coachIds.length) slots.push({ time, roomId: room.id, coachIds, fixedOriginCoachIds:coachIds.filter(coachId=>keepsFixed(room.id,coachId,time)) });
@@ -133,7 +136,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
-    const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||qualifiedForItem(coach.courseQualifiedTemplateIds));
     const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){

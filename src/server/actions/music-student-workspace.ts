@@ -31,7 +31,7 @@ export async function loadMusicStudentWorkspace(input: unknown) {
       canReadCards ? getCourseCards(storeId, customerId, { where: { closedAt: null, unit: "SESSION" }, skip: 0, take: 1001, entries: false }) : null,
       canReadBookings ? coursePrisma.courseBooking.findFirst({ where: { storeId, customerId, status: "RESERVED", session: { cancelledAt: null, endsAt: { gt: new Date() } } }, orderBy: { session: { startsAt: "asc" } }, select: { sessionId: true, session: { select: { startsAt: true, nameSnapshot: true } } } }) : null,
       canReadBookings ? getOpeningMakeupWorkspace(storeId, customerId) : null,
-      canReadCards ? coursePrisma.coursePointCard.findMany({ where: { storeId, members: { some: { customerId } }, requestKey: { startsWith: "yjy-pilot-makeup:" } }, select: { id: true } }) : [],
+      canReadCards ? coursePrisma.coursePointCard.findMany({ where: { storeId, members: { some: { customerId } }, OR: [{ requestKey: { startsWith: "yjy-pilot-makeup:" } }, { requestKey: { startsWith: "music-leave-makeup:" } }] }, select: { id: true } }) : [],
       canReadTransactions && customerId.startsWith("yjy-lubymusic-student-")
         ? coursePrisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM "MusicSourceImportBatch" WHERE id=${PILOT_EVIDENCE_ID} AND "storeId"=${storeId}` : [],
     ]);

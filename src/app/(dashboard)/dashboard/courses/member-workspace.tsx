@@ -217,7 +217,7 @@ export function CourseMemberWorkspace({
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        setTimeout(() => router.refresh(), 0);
+        if(panel!=="assign") setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       }

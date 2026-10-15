@@ -1,3 +1,4 @@
+import { musicDataSeparationEnabled } from "./music-data-scope";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_FEE_ISSUE, readMusicOpeningCard, readMusicOpeningLesson } from "@/lib/music-opening-runtime";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
@@ -8,6 +9,7 @@ import { readMusicPilotFeeProof, verifiedMusicPilotFeeBasis, type PilotFeeRow } 
 export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$queryRaw">, storeId: string, sessionIds: string[]) {
   const grouped = new Map<string, TeacherFeeSeat[]>();
   if (!sessionIds.length) return grouped;
+  const nativeMakeups = musicDataSeparationEnabled(storeId);
   const rows = await tx.$queryRaw<Array<TeacherFeeSeat & PilotFeeRow & {sessionId:string;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null;
       customerId:string|null;pointCost:number;companionIndex:number|null;makeupForBookingId:string|null; musicOpeningStateRequired:boolean; musicOpeningState:unknown; cardUnit:string|null;
       musicActivatedAt:Date|null; expiresAt:Date|null; memberCustomerIds:string[];
@@ -24,12 +26,12 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
     LEFT JOIN "CoursePointCard" c ON c.id=b."cardId" AND c."storeId"=b."storeId"
     LEFT JOIN "CourseMusicOpeningState" os ON os."cardId"=c.id AND os."storeId"=c."storeId"
-    LEFT JOIN "CourseBooking" source ON source.id=CASE WHEN c."requestKey" LIKE 'yjy-pilot-makeup:%' THEN substring(c."requestKey" from length('yjy-pilot-makeup:')+1) ELSE NULL END AND source."storeId"=b."storeId"
+    LEFT JOIN "CourseBooking" source ON source.id=CASE WHEN c."requestKey" LIKE 'yjy-pilot-makeup:%' THEN substring(c."requestKey" from length('yjy-pilot-makeup:')+1) WHEN ${nativeMakeups} AND c."requestKey" LIKE 'music-leave-makeup:%' THEN substring(c."requestKey" from length('music-leave-makeup:')+1) ELSE NULL END AND source."storeId"=b."storeId"
     LEFT JOIN "CourseSession" ss ON ss.id=source."sessionId" AND ss."storeId"=b."storeId"
     LEFT JOIN "CourseMusicOpeningMakeupEntitlement" m ON m.id=b."musicOpeningMakeupEntitlementId" AND m."storeId"=b."storeId"
     LEFT JOIN LATERAL (
       SELECT count(*) AS count,min(o."listPrice") AS "listPrice",min(o.points) AS points,min(o."musicBonusLessons") AS "musicBonusLessons"
-      FROM "CoursePurchase" o WHERE o."storeId"=b."storeId" AND o."cardId"=b."cardId" AND o."confirmedAt" IS NOT NULL
+      FROM "CoursePurchase" o WHERE o."storeId"=b."storeId" AND o."cardId"=CASE WHEN ${nativeMakeups} AND c."requestKey" LIKE 'music-leave-makeup:%' AND source.status='CANCELLED' AND source."absenceKind"='STUDENT_LEAVE' AND source."customerId"=b."customerId" THEN source."cardId" ELSE b."cardId" END AND o."confirmedAt" IS NOT NULL
     ) p ON true
     WHERE b."storeId"=${storeId} AND b."sessionId"=ANY(${sessionIds}::text[]) ORDER BY b.id`;
   const pilotProof=rows.some(r=>r.cardId?.startsWith("yjy-pilot-")||r.customerId?.startsWith("yjy-lubymusic-student-"))?await readMusicPilotFeeProof(tx,storeId):null;

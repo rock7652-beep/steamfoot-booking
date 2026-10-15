@@ -1,3 +1,5 @@
+import { nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
+import { courseCardMatchesItem } from "./music-item-compatibility";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue, musicOpeningDateIssue, type OpeningCard, type OpeningBooking } from "@/lib/music-opening-runtime";
 import { assertCourseSelfBookingEnabled } from "./course-self-booking";
@@ -265,6 +267,7 @@ export async function reserveCourseInTransaction(
   if ("musicOpeningTermKey" in input || "musicOpeningLessonOrdinal" in input || "musicOpeningSourceLessonKey" in input)
     return fail("一般預約入口不接受來源期初堂次");
   await isMusicPilotMakeupCard(tx,storeId,card,session.startsAt);
+  await isNativeMusicMakeup(tx,storeId,card,session.startsAt);
   if (input.companionIndex) {
     const music = await tx.$queryRaw<Array<{featureKey: string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
     if (music.length || !card || card.termSessionIds.length || (!existingWaitlistEntry && !card.plan.allowShared) || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
@@ -280,7 +283,7 @@ export async function reserveCourseInTransaction(
   }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
-  if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if (card?.templateIds?.length && !await courseCardMatchesItem(tx, actor.storeId, card.templateIds, session.templateId)) return fail("此方案不適用本堂課");
   if(card?.musicJoinSessionId) {
     const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
     if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
@@ -421,16 +424,18 @@ export async function settleCourseBooking(
       });
     }
   }
+  const nativeLeave = target === "STUDENT_LEAVE" && await isNativeMusicLeaveCard(tx,actor.storeId,booking.card);
+  const nativeMakeupLeave = target === "STUDENT_LEAVE" && await isNativeMusicMakeup(tx,actor.storeId,booking.card);
   const pilotLeave = target === "STUDENT_LEAVE" && await isMusicPilotCard(tx,actor.storeId,booking.card);
   const pilotMakeupLeave = target === "STUDENT_LEAVE" && await isMusicPilotMakeupCard(tx,actor.storeId,booking.card);
-  const musicGroupLeave = target === "STUDENT_LEAVE" && !pilotLeave && !pilotMakeupLeave && booking.cardId &&
+  const musicGroupLeave = target === "STUDENT_LEAVE" && !pilotLeave && !pilotMakeupLeave && !nativeLeave && !nativeMakeupLeave && booking.cardId &&
     (await tx.$queryRaw<Array<{featureKey:string}>>`
       SELECT "featureKey" FROM "StoreFeatureEntitlement"
       WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`
     ).some(item => item.featureKey === "business.music") &&
     (await tx.courseTemplate.findFirst({where:{id:booking.session.templateId,storeId:actor.storeId},select:{classType:true}}))?.classType === "GROUP";
   const shouldDebit =
-    target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave || pilotLeave;
+    target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave || pilotLeave || nativeLeave;
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.cardId) {
@@ -462,6 +467,7 @@ export async function settleCourseBooking(
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
   if(pilotLeave)await issueMusicPilotLeaveMakeup(tx,actor,booking);
+  if(nativeLeave)await issueNativeMusicMakeup(tx,actor,booking);
   if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
   if (!booking.cardId && booking.bookingKind === "TRIAL" && target === "ATTENDED") {
     await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${`course-trial-care-completed:${actor.storeId}:${booking.id}`},${actor.userId},${actor.storeId},'COURSE','完成體驗課程，供啟用後關懷判斷','CourseBooking',${booking.id},'COURSE_TRIAL_CARE_COMPLETED',NOW()) ON CONFLICT (id) DO NOTHING`;
@@ -526,6 +532,7 @@ export async function correctCourseAttendance(
   target: "RESERVED" | "ATTENDED" | "NO_SHOW" | "CANCELLED", expectedStatus: string,
 ) {
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: { include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT } } } } });
+  const nativeLeave = b?.absenceKind === "STUDENT_LEAVE" && await nativeLeaveWasDebited(tx,actor.storeId,b.id);
   const pilotLeave = b?.absenceKind === "STUDENT_LEAVE" && await isMusicPilotCard(tx,actor.storeId,b.card);
   const restoringLeave = b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && target === "RESERVED" && expectedStatus === "CANCELLED";
   const cancellingLeave = target === "CANCELLED" && b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(b.absenceKind ?? "");
@@ -536,6 +543,7 @@ export async function correctCourseAttendance(
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   if(pilotLeave)await closeUnusedMusicPilotMakeup(tx,actor.storeId,b.id);
+  if(nativeLeave)await closeNativeMusicMakeup(tx,actor.storeId,b.id);
   if (target === "CANCELLED" && b.status === "NO_SHOW") {
     const coupon=await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${b.id}`}},select:{id:true,remaining:true,closedAt:true}});
     if(coupon && !coupon.closedAt) {
@@ -558,7 +566,7 @@ export async function correctCourseAttendance(
   if (b.absenceKind === "TEACHER_ABSENT") await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','恢復授課：學員回到待點名，未重扣','CourseBooking',${b.id},'COURSE_TEACHER_ABSENCE_RESTORE',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,pointsUsed:0})}::jsonb,NOW())`;
   if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
-  const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED"||pilotLeave;
+  const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED"||pilotLeave||nativeLeave;
   const willDebit=target==="ATTENDED"||target==="NO_SHOW";
   const remaining = b.card.remaining + (wasDebited ? b.pointCost : 0);
   if ((willDebit || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
@@ -570,7 +578,8 @@ export async function correctCourseAttendance(
     activation={musicActivatedAt:b.session.startsAt,expiresAt};
   }
   if(opening.kind === "NATIVE" && b.card.musicValidityDays && wasDebited && !willDebit){
-    const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},OR:[{status:{in:["ATTENDED","NO_SHOW"]}},{absenceKind:"GROUP_LEAVE_FORFEITED"}]},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
+    const leaveIds = await nativeDeductedLeaveIds(tx,actor.storeId);
+    const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},OR:[{status:{in:["ATTENDED","NO_SHOW"]}},{absenceKind:"GROUP_LEAVE_FORFEITED"},{id:{in:leaveIds},status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}]},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
     const firstDate=first?.session.startsAt??null;
     if(!firstDate&&await isMusicPilotCard(tx,actor.storeId,b.card)){
       const reserved=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
@@ -614,9 +623,11 @@ export async function refundTeacherAbsentSession(tx: Prisma.TransactionClient, a
   }
   const activationCards = new Map<string, number>();
   for (const booking of bookings) {
+    const nativeLeave=booking.absenceKind==="STUDENT_LEAVE"&&await nativeLeaveWasDebited(tx,actor.storeId,booking.id);
     const pilotLeave=booking.absenceKind==="STUDENT_LEAVE"&&await isMusicPilotCard(tx,actor.storeId,booking.card);
     if(pilotLeave)await closeUnusedMusicPilotMakeup(tx,actor.storeId,booking.id);
-    const debited = booking.status === "ATTENDED" || booking.status === "NO_SHOW" || booking.absenceKind === "GROUP_LEAVE_FORFEITED" || pilotLeave;
+    if(nativeLeave)await closeNativeMusicMakeup(tx,actor.storeId,booking.id);
+    const debited = booking.status === "ATTENDED" || booking.status === "NO_SHOW" || booking.absenceKind === "GROUP_LEAVE_FORFEITED" || pilotLeave || nativeLeave;
     const refund = debited && booking.cardId ? booking.pointCost : 0;
     if (booking.cardId && booking.pointCost > 0 && (debited || booking.status === "RESERVED")) {
       if (refund) await tx.coursePointCard.update({ where: { id: booking.cardId }, data: { remaining: { increment: refund } } });
@@ -631,7 +642,8 @@ export async function refundTeacherAbsentSession(tx: Prisma.TransactionClient, a
   }
   // Recompute after all shared-card bookings have been removed from the deducted sequence.
   for (const [cardId, days] of activationCards) {
-    const first = await tx.courseBooking.findFirst({ where: { storeId: actor.storeId, cardId, OR: [{ status: { in: ["ATTENDED", "NO_SHOW"] } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, orderBy: { session: { startsAt: "asc" } }, select: { session: { select: { startsAt: true } } } });
+    const leaveIds = await nativeDeductedLeaveIds(tx,actor.storeId);
+    const first = await tx.courseBooking.findFirst({ where: { storeId: actor.storeId, cardId, OR: [{ status: { in: ["ATTENDED", "NO_SHOW"] } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }, {id:{in:leaveIds},status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}] }, orderBy: { session: { startsAt: "asc" } }, select: { session: { select: { startsAt: true } } } });
     const date = first?.session.startsAt ?? null;
     await tx.coursePointCard.update({ where: { id: cardId }, data: { musicActivatedAt: date, expiresAt: date ? musicCourseExpiry(date, days) : dayRange("2099-12-31").end } });
   }

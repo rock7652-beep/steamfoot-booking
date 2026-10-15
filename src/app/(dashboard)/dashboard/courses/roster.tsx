@@ -176,7 +176,7 @@ export function CourseRoster({
     teacherAttendance:string;
     teacherAttendanceReason:string;
     teacherMakeupForSessionId:string|null;
-    waitlistStopMinutes:number;
+    compatibleTemplateIds?: string[]; waitlistStopMinutes:number;
     waitlistEnabled?:boolean;
   } | null>(null);
   const [trial, setTrial] = useState<
@@ -609,6 +609,7 @@ export function CourseRoster({
       .filter(
         (item) =>
           item.members.some((member) => member.id === memberId) &&
+          (!session?.compatibleTemplateIds || !item.templateIds.length || item.templateIds.some(id => session.compatibleTemplateIds?.includes(id))) &&
           !item.expired &&
           !item.closed &&
           (!item.openingImported || item.openingReservable === true) &&
