@@ -7,16 +7,7 @@ import { CustomerLabels } from "@/components/customer-labels";
 export const rosterRowClassName = "items-center gap-2 bg-white px-3 py-1 text-sm hover:bg-earth-50";
 export const rosterStatusButtonClassName = "relative z-20 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:opacity-50";
 
-/** Shared fixed-column lists scroll locally in narrow panels without shrinking text. */
-export function RosterTable({ label, columns, children }: { label: string; columns: string[]; children: ReactNode }) {
-  return <div role="region" aria-label={label} tabIndex={0} className="max-w-full overflow-x-auto rounded-lg border border-earth-200 focus-visible:outline-2 focus-visible:outline-primary-600">
-    <table className="w-full min-w-[640px] table-fixed text-left text-sm [&_td]:break-words [&_td]:px-3 [&_td]:py-2 [&_td]:align-top">
-      <caption className="sr-only">{label}</caption>
-      <thead className="bg-earth-50 text-earth-600"><tr>{columns.map(column=><th key={column} scope="col" className="px-3 py-2 font-medium">{column}</th>)}</tr></thead>
-      <tbody className="divide-y divide-earth-100 bg-white">{children}</tbody>
-    </table>
-  </div>;
-}
+export { RosterTable } from "./roster-table";
 
 export function RosterToolbar({ children, label }: { children: ReactNode; label: string }) {
   return <div className="flex shrink-0 flex-wrap items-center gap-2" aria-label={label}>{children}</div>;

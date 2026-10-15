@@ -1,4 +1,5 @@
 "use client";
+import { RosterTable } from "@/components/admin/roster-table";
 import {CourseFeePaymentButton} from "../revenue/_components/course-fee-payment-button";
 import { Children, type ReactNode, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -21,7 +22,7 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{e
  {actions&&<div className="ml-auto flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">{actions}</div>}
  </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
- <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-4 py-3 text-xs text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?"教練授課費":"應領合計"}</span><span className="sr-only">明細</span></div>
+ <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-4 py-3 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?"教練授課費":"應領合計"}</span><span className="sr-only">明細</span></div>
  {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
  {!!entries.length&&!visible.length&&<p role="status" className="p-4 text-sm">找不到符合的人員。</p>}
  </div></section>;
@@ -49,10 +50,15 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="PROFIT"&&(l.issue||l.amount===null))?"待核對":money(person.profit)}</span>}
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="FEE"&&(l.issue||l.amount===null))?"待核對":money(person.fee)}</span>}
  <strong className="text-right tabular-nums">{person.issues>0||person.lines.some(l=>l.amount===null)?"待核對":money(person.profit+person.fee)}</strong>
- <span className="text-xs text-earth-500 md:hidden">{person.issues>0?`${person.issues} 筆待核對`:`${person.lines.length} 筆明細`}</span>
- <span className="text-right text-xs text-primary-700"><span className="group-open/person:hidden">明細 ＋</span><span className="hidden group-open/person:inline">收合 －</span></span>
+ <span className="text-sm text-earth-500 md:hidden">{person.issues>0?`${person.issues} 筆待核對`:`${person.lines.length} 筆明細`}</span>
+ <span className="text-right text-sm text-primary-700"><span className="group-open/person:hidden">明細 ＋</span><span className="hidden group-open/person:inline">收合 －</span></span>
  </summary>
- <div className="divide-y divide-earth-100 border-t border-earth-100 bg-earth-50 px-4 md:px-6">{person.lines.map(line=><article key={line.kind+line.id} className="space-y-1 py-3 text-sm"><div className="flex items-start justify-between gap-4"><p className="min-w-0 font-medium">{line.label}</p><strong className="shrink-0 tabular-nums">{line.amount===null?"待核對":money(line.amount)}</strong></div><p className="text-xs text-earth-500">{line.kind==="PROFIT"?"店長利潤":"授課費"} · {formatTWDateTime(new Date(line.date))}</p>{line.endsAt&&<p className="text-xs text-earth-500">下課：{formatTWDateTime(new Date(line.endsAt))}</p>}<p>已付 {money(line.paid)} · 未付 {line.amount===null?"待核對":money(Math.max(0,line.amount-line.paid))}{line.amount!==null&&line.paid>line.amount?` · 溢付 ${money(line.paid-line.amount)}`:""}</p>{!!line.feeDetails?.length&&<details><summary>計算明細</summary>{line.feeDetails.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</article>)}</div>
+ <RosterTable label={`${person.name} 月結明細`} columns={["日期／課程", "類別／狀態", "應付", "已付", "未付／溢付", "明細／操作"]}>{person.lines.map(line=><tr key={line.kind+line.id}>
+ <td><p>{formatTWDateTime(new Date(line.date))}</p><p className="font-medium">{line.label}</p></td>
+ <td>{line.kind==="PROFIT"?"店長利潤":music?"教師鐘點費":"授課費"}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}</td>
+ <td className="text-right tabular-nums">{line.amount===null?"待核對":money(line.amount)}</td><td className="text-right tabular-nums">{money(line.paid)}</td><td className="text-right tabular-nums">{line.amount===null?"待核對":line.paid>line.amount?`溢付 ${money(line.paid-line.amount)}`:money(line.amount-line.paid)}</td>
+ <td>{(line.endsAt || !!line.feeDetails?.length) && <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">計算明細</summary>{line.endsAt&&<p>下課：{formatTWDateTime(new Date(line.endsAt))}</p>}{line.feeDetails?.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</td>
+ </tr>)}</RosterTable>
  </details>)}
  </CourseMonthlyPeople>
  </>;
