@@ -11,7 +11,8 @@ function validDraft(value: unknown): value is Draft {
   return (draft.base === null || typeof draft.base === "string") && typeof draft.text === "string" && draft.text.length <= 2000;
 }
 export type NoteSaveResult = { success: boolean; error?: string; currentValue?: string | null };
-export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, optimistic = false, save, onSaved }: {
+export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, optimistic = false, formatDisplay, save, onSaved }: {
+  formatDisplay?: (value: string | null) => string | null;
   quiet?: boolean; optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
   value: string | null; canEdit: boolean; maxLength: number; tone?: "green" | "gold";
   save: (text: string | null, expected: string | null) => Promise<NoteSaveResult>;
@@ -96,6 +97,6 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
           <button type="button" disabled={saving || !!conflict} onClick={() => { void submit(); }} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>
         </div>
       </div>
-    </div> : current?.trim() ? <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{current}</p> : null}
+    </div> : current?.trim() ? <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{formatDisplay ? formatDisplay(current) : current}</p> : null}
   </div>;
 }
