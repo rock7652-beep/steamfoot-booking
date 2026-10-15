@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
+import {renderToString} from "react-dom/server";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn(),income:vi.fn()}));
 vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:async()=>({inheritStoreHours:true,weekly:[],exceptions:[]}),saveCourseStaffAvailabilityException:vi.fn(),saveCourseStaffWeeklyAvailability:vi.fn()}));
@@ -22,6 +23,15 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=
 }));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
+it("server-renders the direct create entry without document and opens its form after mounting",async()=>{
+ const props={initialCreate:true,previewStoreId:"s",staff:[],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]};
+ const browserDocument=globalThis.document;
+ vi.stubGlobal("document",undefined);
+ try {expect(renderToString(createElement(CourseStaffWorkspace,props))).not.toContain('id="course-staff-form"');}
+ finally {vi.stubGlobal("document",browserDocument);}
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,props)));
+ expect(document.getElementById("course-staff-form")).not.toBeNull();
+});
 it("switching back to Owner immediately checks every permission and preserves the lower-role draft",async()=>{
  const manager={...staff,id:"manager",name:"驗收帳號",kind:"manager" as const,role:"STAFF",coachEnabled:false,email:"qa@example.invalid",permissions:["customer.read"]};
  const codes=[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"},{code:"teacher.compensation.read",label:"查看教師拆帳"}];
