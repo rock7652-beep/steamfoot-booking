@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { courseBookingBrowse } from "@/lib/course-booking-browse";
-import { studentMakeupsHref, studentReturnHref } from "@/lib/music-student-navigation";
+import { studentMakeupsHref, studentReturnHref, studentCourseHref } from "@/lib/music-student-navigation";
 
 describe("student booking browse", () => {
   const now = new Date("2026-10-15T04:00:00Z");
@@ -18,6 +18,13 @@ describe("student booking browse", () => {
   });
 });
 describe("student makeup return context", () => {
+  it("returns from a specific class to the original student's bookings without carrying actions", () => {
+    const url=new URL(studentCourseHref("student-1","2026-10-15","session:1","search=abc&page=2&action=delete"),"https://example.test");
+    expect(url.searchParams.get("session")).toBe("session:1");
+    expect(url.searchParams.get("action")).toBe("booking");
+    const back=new URL(studentReturnHref(url.searchParams.get("returnStudentId")!,url.searchParams.get("returnStudentQuery")!,"bookings"),"https://example.test");
+    expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"abc",page:"2",customerId:"student-1",studentTab:"bookings"});
+  });
   it("round trips search, filters and page while retaining the selected student", () => {
     const href=studentMakeupsHref("student-1","search=hello%20world&status=active&page=3&sort=name&label=VIP");
     const query=new URL(href,"https://example.test").searchParams;
