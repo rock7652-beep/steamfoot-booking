@@ -232,6 +232,10 @@ export const LEGACY_MUSIC_SESSION_IDS = [
   "qa0928-private-3"
 ];
 export const LEGACY_MUSIC_CUSTOMER_IDS = [
+  // Whole-customer test identities confirmed by the owner on 2026-10-15.
+  "cmv6b3zhv0001jr06n8v3c3u1",
+  "cmv7by2660002le06947zjwtg",
+  "cmuwgu8vm0001jv042fbhw8ni",
   "qa-opening-makeup-lifecycle-20261008-student",
   "qa-member-workorder-20261012:store-lubymusic",
   "qa-member-workorder-20261012:shared-cohort",

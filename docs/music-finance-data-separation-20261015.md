@@ -12,3 +12,7 @@ Customer list counts, pagination, search and CSV export use the same customer co
 Source-history tuition/payments remain in the established imported-source records. They are not converted into new native receipts, so an empty operational native-receipt ledger is not a claim that source students never paid. This change does not rewrite customer balances, receipts, cashbook entries or inventory/work-order ledgers. Those separate modules are not reclassified by this course-ledger filter.
 
 Guard: existing exact Preview branch/repository, both isolated DB URLs and store ID. Other stores and production retain existing behavior. No schema/data writes.
+
+## Owner confirmation follow-up
+
+The owner confirmed all three remaining customer identities as test data. Added their exact IDs to the shared customer cohort: legacy 74 → 77, operational 13 → 10 source students. This also applies to customer CSV and trial/makeup linkage using the same cohort. Existing purchase IDs and receipt amounts are unchanged; no database records are deleted or rewritten.
