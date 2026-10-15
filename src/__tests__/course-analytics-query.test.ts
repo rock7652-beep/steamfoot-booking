@@ -12,7 +12,7 @@ it("scopes sessions, nested bookings, earliest attendance and staff to the cours
  await getCourseAnalytics("store",{startDate:"2026-09-17",endDate:"2026-09-17"},true);
  expect(m.scope).toHaveBeenCalledWith("store");
  expect(m.sessions).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store",cancelledAt:null}),select:expect.objectContaining({bookings:expect.objectContaining({where:{storeId:"store"}})})}));
- expect(m.firsts.mock.calls[0].slice(1)).toEqual(["store"]);
+ expect(m.firsts.mock.calls[0][1]).toBe("store");
  expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"store"}}));
  for(const call of m.revenue.mock.calls){expect(call[0]).toBe("store");expect(call[1].storeFilter).toEqual({storeId:"store"});}
 });

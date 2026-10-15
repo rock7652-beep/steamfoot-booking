@@ -1,3 +1,5 @@
+import { musicDataSeparationEnabled, musicSessionWhere } from "@/server/services/music-data-scope";
+import { musicBookingCustomerWhere, musicAttendanceScopeSql } from "@/server/services/music-analysis-scope";
 import "server-only";
 import { summarizeCourseFinancialAnalysis } from "@/lib/course-financial-analysis";
 import { coursePrisma } from "@/lib/course-db";
@@ -8,7 +10,7 @@ import { dayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { courseAnalysisPriorYear, shiftCourseCalendarDate, previousCourseAnalysisRange, summarizeCourseAttendance, type CourseAnalysisRange } from "@/lib/course-analytics";
 import { getCourseRevenueReport } from "./course-revenue-report";
 
-export async function getCourseAnalytics(storeId: string, range: CourseAnalysisRange, readRevenue: boolean, readCash = false) {
+export async function getCourseAnalytics(storeId: string, range: CourseAnalysisRange, readRevenue: boolean, readCash = false, dataScope?:string) {
   await requireCourseStore(storeId);
   const previous = previousCourseAnalysisRange(range);
   const yearRange = courseAnalysisPriorYear(range);
@@ -16,11 +18,11 @@ export async function getCourseAnalytics(storeId: string, range: CourseAnalysisR
   const queryStart=[previous.startDate,yearRange.startDate,`${trendMonths[0]}-01`].sort()[0];
   const attendance = await coursePrisma.$transaction(async tx => {
     const [sessions, firsts] = await Promise.all([
-      tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: dayRange(queryStart).start, lte: dayRange(range.endDate).end } }, select: {
+      tx.courseSession.findMany({ where: { storeId, ...musicSessionWhere(storeId,dataScope), cancelledAt: null, startsAt: { gte: dayRange(queryStart).start, lte: dayRange(range.endDate).end } }, select: {
         id:true,coachId:true,startsAt:true,endsAt:true,
-        bookings:{where:{storeId},select:{customerId:true,customerName:true,status:true,checkedInAt:true,pointCost:true,card:{select:{unit:true}}}},
+        bookings:{where:{storeId,...musicBookingCustomerWhere(storeId,dataScope)},select:{customerId:true,customerName:true,status:true,checkedInAt:true,pointCost:true,card:{select:{unit:true}}}},
       } }),
-      tx.$queryRaw<Array<{ customerId: string; firstAt: Date }>>`SELECT b."customerId", MIN(s."startsAt") AS "firstAt" FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=${storeId} AND b.status='ATTENDED' AND s."cancelledAt" IS NULL GROUP BY b."customerId"`,
+      tx.$queryRaw<Array<{ customerId: string; firstAt: Date }>>`SELECT b."customerId", MIN(s."startsAt") AS "firstAt" FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=${storeId} AND b.status='ATTENDED' AND s."cancelledAt" IS NULL ${musicAttendanceScopeSql(storeId,dataScope)} GROUP BY b."customerId"`,
     ]);
     const first = new Map(firsts.map(row=>[row.customerId,row.firstAt]));
     const current = summarizeCourseAttendance(sessions,first,range), prior = summarizeCourseAttendance(sessions,first,previous);
@@ -37,9 +39,9 @@ export async function getCourseAnalytics(storeId: string, range: CourseAnalysisR
     })};
   }, { isolationLevel:"RepeatableRead",timeout:15000 });
   const staff = await prisma.staff.findMany({where:{storeId},select:{id:true,displayName:true}});
-  const revenue = readRevenue ? await getCourseRevenueReport(storeId,{...range,storeFilter:{storeId}}) : null;
-  const priorRevenue = readRevenue ? await getCourseRevenueReport(storeId,{...previous,storeFilter:{storeId}}) : null;
-  const canReadCash = readCash && await canReadInventoryFinance(storeId);
+  const revenue = readRevenue ? await getCourseRevenueReport(storeId,{...range,storeFilter:{storeId},dataScope}) : null;
+  const priorRevenue = readRevenue ? await getCourseRevenueReport(storeId,{...previous,storeFilter:{storeId},dataScope}) : null;
+  const canReadCash = !musicDataSeparationEnabled(storeId) && readCash && await canReadInventoryFinance(storeId);
   const cashRows = canReadCash ? await prisma.cashbookEntry.findMany({where:{storeId,entryDate:{gte:new Date(`${previous.startDate}T00:00:00Z`),lte:new Date(`${range.endDate}T00:00:00Z`)},NOT:[{id:{startsWith:"course-trial:"}},{id:{startsWith:"course-trial-void:"}},{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]},select:{entryDate:true,staffId:true,type:true,amount:true,category:true}}) : null;
   const cashFor=(period:CourseAnalysisRange)=>cashRows?.filter(r=>{const date=r.entryDate.toISOString().slice(0,10);return date>=period.startDate&&date<=period.endDate;}).map(r=>({...r,amount:Number(r.amount)}))??null;
   const financial=summarizeCourseFinancialAnalysis(revenue?.data??null,cashFor(range));

@@ -1,3 +1,4 @@
+import { musicCustomerWhere, musicSessionWhere } from "@/server/services/music-data-scope";
 import "server-only";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -7,9 +8,9 @@ import { bookingDateToday, formatTWTime, parseTaipeiDateTime, toLocalDateStr } f
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
 /** All reads are bounded to the viewed store and its authorized customer scope. */
-export async function getCustomerCareActivity(storeId: string, module: IndustryModuleId, staffScope: string | null, year: number, now = new Date()) {
+export async function getCustomerCareActivity(storeId: string, module: IndustryModuleId, staffScope: string | null, year: number, now = new Date(), dataScope?:string) {
   const customers = await prisma.customer.findMany({
-    where: { storeId, ...(staffScope ? { assignedStaffId: staffScope } : {}), mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
+    where: { storeId, ...musicCustomerWhere(storeId,dataScope), ...(staffScope ? { assignedStaffId: staffScope } : {}), mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
     select: { id: true, name: true, phone: true, assignedStaff: { select: { displayName: true, storeId: true } } },
   });
   const ids = customers.map(c => c.id);
@@ -31,7 +32,7 @@ export async function getCustomerCareActivity(storeId: string, module: IndustryM
   const nextBookings = new Map<string, string>();
   if (module === "course") {
     const bookings = await coursePrisma.courseBooking.findMany({
-      where: { storeId, customerId: { in: ids }, status: "RESERVED", session: { storeId, cancelledAt: null, startsAt: { gt: now } } },
+      where: { storeId, customerId: { in: ids }, status: "RESERVED", session: { storeId, ...musicSessionWhere(storeId,dataScope), cancelledAt: null, startsAt: { gt: now } } },
       select: { customerId: true, session: { select: { startsAt: true } } }, orderBy: { session: { startsAt: "asc" } },
     });
     for (const b of bookings) if (b.customerId && !nextBookings.has(b.customerId)) nextBookings.set(b.customerId, formatTWTime(b.session.startsAt));
