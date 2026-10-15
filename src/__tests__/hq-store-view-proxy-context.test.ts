@@ -1,3 +1,4 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest, type NextResponse } from "next/server";
 

@@ -1,3 +1,4 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 const m = vi.hoisted(() => ({ authenticated: vi.fn() }));

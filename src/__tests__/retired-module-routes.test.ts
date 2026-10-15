@@ -11,8 +11,13 @@ describe("SPA retirement routes", () => {
   ])("blocks old SPA entry %s", path => {
     expect(isRetiredModuleRoute(path, new URLSearchParams())).toBe(true);
   });
-  it.each(["module=spa", "theme=spa"])("blocks SPA previews %s", query => {
-    expect(isRetiredModuleRoute("/pricing/header-review", new URLSearchParams(query))).toBe(true);
+  it.each(["/pricing/header-review", "/pricing/schedule-review", "/pricing/panel-review/"])("blocks SPA preview parameters only on %s", path => {
+    for (const query of ["module=SPA", "theme=spa", "module=course&module=spa"]) {
+      expect(isRetiredModuleRoute(path, new URLSearchParams(query))).toBe(true);
+    }
+  });
+  it.each(["/dashboard/operation-audits", "/hq/dashboard/operation-audits", "/api/admin/messenger/audit", "/pricing/features/slots"])("preserves historical filters and unrelated queries on %s", path => {
+    expect(isRetiredModuleRoute(path, new URLSearchParams("module=SPA&theme=spa"))).toBe(false);
   });
   it.each([
     "/pricing/features/slots", "/pricing/features/music", "/pricing/features/fitness",

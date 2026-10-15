@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ admin: vi.fn(), query: vi.fn(), upsert: vi.fn(), remove: vi.fn(), revalidate: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireAdminSession: mocks.admin }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/revalidation", () => ({ revalidateStoreFeatureEntitlements: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, store: { findUnique: vi.fn().mockResolvedValue({ id: "sports-1", industryModule: "COURSE" }) } } }));
 import { saveStoreFeatureEntitlement } from "@/server/actions/store-feature-entitlement";
 const form = (override = "ENABLED", values: Record<string, string> = {}) => { const f = new FormData(); for (const [key, value] of Object.entries({ storeId: "sports-1", featureKey: "shared_card", override, ...values })) f.set(key, value); return f; };
 beforeEach(() => {

@@ -11,6 +11,7 @@ import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { revalidateStoreFeatureEntitlements } from "@/lib/revalidation";
 import { requireAdminSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import type { ActionResult } from "@/types";
 
 export type StoreFeatureEntitlementFormState = {
@@ -62,6 +63,7 @@ export async function saveStoreFeatureEntitlement(
 ): Promise<ActionResult<void>> {
   try {
     const admin = await requireAdminSession();
+    await requirePermission("staff.manage");
     const storeId = readString(formData, "storeId");
     const featureKey = readString(formData, "featureKey");
     const override = readString(formData, "override");
@@ -72,6 +74,13 @@ export async function saveStoreFeatureEntitlement(
 
     if (!storeId) return { success: false, error: "缺少店舖資訊" };
     if (!FEATURE_KEY_SET.has(featureKey)) return { success: false, error: "無效的功能代碼" };
+
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, industryModule: true },
+    });
+    if (!store) return { success: false, error: "店舖不存在" };
+    if (store.industryModule === "SPA") return { success: false, error: "SPA 模組已停用，歷史設定僅供封存" };
 
     if (featureKey === FEATURES.SHARED_CARD) {
       if (override !== "INHERIT" && !ENTITLEMENT_STATUSES.has(override as StoreFeatureEntitlementStatus)) return { success: false, error: "無效的覆寫狀態" };
@@ -106,12 +115,6 @@ export async function saveStoreFeatureEntitlement(
       revalidatePath("/book");
       return { success: true, data: undefined };
     }
-
-    const store = await prisma.store.findUnique({
-      where: { id: storeId },
-      select: { id: true },
-    });
-    if (!store) return { success: false, error: "店舖不存在" };
 
     if (override === "INHERIT") {
       await prisma.storeFeatureEntitlement.deleteMany({
@@ -181,9 +184,14 @@ export async function setDigitalButlerActivationAction(
 ): Promise<StoreFeatureEntitlementFormState> {
   try {
     await requireAdminSession();
+    await requirePermission("staff.manage");
     const storeId = readString(formData, "storeId");
     const enabled = readString(formData, "enabled") === "true";
     if (!storeId) return { success: null, error: "缺少店舖資訊" };
+
+    const store = await prisma.store.findUnique({ where: { id: storeId }, select: { industryModule: true } });
+    if (!store) return { success: null, error: "店舖不存在" };
+    if (store.industryModule === "SPA") return { success: null, error: "SPA 模組已停用，歷史設定僅供封存" };
 
     if (enabled) {
       const entitlement = await prisma.storeFeatureEntitlement.findUnique({
