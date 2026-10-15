@@ -45,7 +45,7 @@ export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;stor
       <div className="grid items-start gap-3 @min-[54rem]:grid-cols-2">
         {(access.todos.attendance||access.todos.payments||access.todos.followUp)&&<Section title="待處理事項" load={async()=>{
           const result=await getCourseHomeTodos(storeId,access.todos,new Date(),0,8);
-          return <CourseTodoList result={result} music/>;
+          return <><CourseTodoList result={result} music/>{musicDataSeparationEnabled(storeId)&&<Link className={action} href="/dashboard/courses/todos?dataScope=legacy">查看舊驗收待辦</Link>}</>;
         }}/>}
         {access.bookings&&access.customers&&access.planStatus&&<Section title="請假與補課" load={async()=>{
           const customers=(await prisma.customer.findMany({where:{...musicCustomerWhere(storeId),storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})).filter(c=>musicDataSeparationEnabled(storeId)||!testName(c.name));
