@@ -1,7 +1,7 @@
 /** Public editorial content only. Keep authenticated operation manuals separate. */
 export type GuideCategory = "booking" | "customers" | "operations";
-export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[] };
-type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; featureLinkLabel?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
+export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[]; link?: { label: string; href: string } };
+type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; publishedDate?: string; primaryKeyword?: string; featureLinkLabel?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
   | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string } }
@@ -986,6 +986,116 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
     "termsLinkLabel": "查看方案與價格",
     "label": "填寫店家需求",
     "url": "https://www.steamfoot.com/apply"
+  }
+},
+{
+  "id": "sports-studio-business-metrics",
+  "category": "operations",
+  "title": "運動教室每天都很忙，生意真的有變好嗎？",
+  "seoTitle": "運動教室每天都很忙，生意有變好嗎？營運分析重點｜蒸管家",
+  "summary": "運動教室課表很滿，月底卻還是不踏實？從加開時段、安排熟客、觀察新客回訪與預付方案收款等日常決定出發，了解老闆該看哪些營運數字，讓忙碌有更清楚的方向。",
+  "publishedDate": "2026-10-15",
+  "primaryKeyword": "運動教室營運分析",
+  "status": "published",
+  "feature": "analysis",
+  "featureName": "營運分析功能說明",
+  "featureLinkLabel": "查看蒸管家營運分析功能說明",
+  "showSummary": false,
+  "format": "article",
+  "introduction": [
+    "晚上最後一堂課結束，教室終於安靜下來。你打開明天的課表，幾個熱門時段都排滿了，手機裡還有學員問能不能改時間、朋友想來體驗、教練等你確認下週安排。一天忙完，看起來生意應該不錯。",
+    "但到了月底，心裡還是不太踏實。這個月到底多了多少學員？大家有沒有持續回來？今天收到的一大筆方案款，接下來又要安排多少課？想加開時段、再請一個人，或多花一點招生費，每個決定都還是有點靠感覺。",
+    "運動教室經營最難的地方之一，就是每天都有事要處理，卻不容易看清楚哪些忙碌真的值得繼續投入。你可以先從眼前要做的決定出發，挑幾個數字來確認，慢慢把「感覺很忙」變成能說清楚的經營狀況。"
+  ],
+  "sections": [
+    {
+      "heading": "想加開時段 先看真正來上課的人",
+      "paragraphs": [
+        "看到預約變多，很容易開始想：是不是該多開一班，或再找一位教練？在答應之前，可以先看這些預約最後有多少人真的來上課。",
+        "如果預約增加，實際到課卻差不多，先找出中間發生什麼事。是同一位學員改了幾次時間？臨時取消集中在某個時段？還是課已經上完，紀錄卻沒有補齊？先釐清這些狀況，才知道要調整預約流程，還是確實需要增加上課容量。",
+        "這裡的預約人次，是每位學員在每場課的一次預約；兩人一起約同一堂團課，算兩人次。到課人次則看最後完成了幾次上課。把這兩個數字放在一起，能幫你判斷要先處理預約與到課的落差，還是進一步評估加課。"
+      ]
+    },
+    {
+      "heading": "熟客來得更勤 和新學員變多 需要不同安排",
+      "paragraphs": [
+        "熟客說「這個時段越來越難約了」，老闆可能不好意思讓他失望，當下就答應再加一堂。但多出來的需求，是原本幾位學員來得更勤，還是有更多不同的人想上課？先分清楚，安排會更踏實。",
+        "同一位學員一週來三次，是一個人、三個到課人次。團課有六位學員上完，則是一堂課、六個到課人次。如果到課人次增加，人數差不多，可能是既有學員來得更勤，可以再看需求集中在哪些課程與時段。",
+        "這時加開熟客需要的時段，可能值得評估；如果不同學員的人數也持續增加，就要把新客銜接、課表容量，以及現有同事是否接得住，一起納入考慮。不要只因某一天特別熱鬧，就把之後每週的工作量都加上去。"
+      ]
+    },
+    {
+      "heading": "新面孔變多 接著要看他們有沒有再來",
+      "paragraphs": [
+        "一場活動帶來幾位新學員，當然是值得留意的進展。接下來要決定是否再辦一次、是否加碼招生費，就可以多看一步：這批人後來有沒有完成第二次上課？",
+        "可以先挑同一週首次到課的新客，給每個人相同的觀察時間。例如看第一次上課後三十天內是否再來，尚未滿三十天的先留著觀察。三十天只是示例，實際要配合教室的上課週期。",
+        "如果不少人只來一次，先看後續是否有合適的課程和時段可接，再了解沒有繼續的原因。若學員想上的班一直約不到，接下來可能要先處理課表銜接。這些資訊，比直接把招生預算加上去，更能幫你找到該處理的地方。",
+        "判斷新客是否留下來，要追同一批人；這週有幾位熟客回來，回答的是另一件事。也別急著把一次波動歸咎於教練或活動；數字能提示要查哪裡，原因還是要回到實際情況確認。"
+      ]
+    },
+    {
+      "heading": "這週收款很多 也要想後面的課怎麼安排",
+      "paragraphs": [
+        "學員一次買了十堂課，收款當天會讓人鬆一口氣。不過，接下來還有這十堂課要服務。若這週多收的錢主要來自預付方案，就要一起看未來課程、教練與場地能不能安排得過來。",
+        "本篇用「期間實收淨額」觀察收款：從經核對的紀錄加總當期實際收款，扣掉當期已退回的款項，並保留退款明細。看到金額增加，可以先查多出來的是哪些款項，再決定是否適合增加支出。",
+        "「方案購買額」是購買紀錄的統計金額，要確認工具的計算方式與退款規則；「實收」要看款項實際收進多少；「利潤」則還要考慮相關成本，不能把購買額或實收直接當成賺到的錢。本文的實收觀察不代替正式會計收入認列或財務報表。"
+      ]
+    },
+    {
+      "heading": "一個看起來更忙的星期 可以怎麼判斷",
+      "paragraphs": [
+        "以下是虛構示意，非真實店家、蒸管家客戶資料或使用成果。假設一間教室比較兩個各七天、營業天數相同的週期，發現："
+      ],
+      "bullets": [
+        "預約從四十人次變成六十人次，實際到課卻從三十二人次變成三十人次。",
+        "真正來過的學員從二十四人變成二十二人，其中首次到課的新客從八人變成六人。",
+        "當週實收淨額從NT$36,000變成NT$72,000。"
+      ],
+      "trailingParagraphs": [
+        "如果只看預約和收款，老闆可能會想趕快加課、再擴大招生。把實際到課放進來看，就會先想確認：為什麼預約變多，到課卻沒跟上？多收的錢來自哪些款項？把這兩件事查清楚，再談加課或增加支出，比較有依據。",
+        "這個示例依上課日期整理當週曾成立的預約，取消、改期與未到另查，不能把預約與到課的差額全當成未到。數字只是幫你縮小問題，還不能據此斷定整間教室變好或變差。"
+      ]
+    },
+    {
+      "heading": "同事說的數字不一樣 先別急著問誰算錯",
+      "paragraphs": [
+        "櫃台說每天都在接預約，教練覺得班上沒多幾個人，老闆看收款又覺得應該不差。各自都很忙，開會卻像在證明自己沒有做錯，久了誰都不想再整理。",
+        "這時可以先確認三件小事，讓大家說的是同一段時間、同一種數字："
+      ],
+      "bullets": [
+        "看的日期是否一樣：本週新建立、下個月才要上的預約，不能直接拿來和本週到課比較。",
+        "紀錄是否補齊：已完成的課、取消與改期、已處理的退款，都要先確認狀態。",
+        "比較的期間是否相近：本月才過一半，先看相同長度、相近營業天數的區段，並註記假期、停課或課表異動。"
+      ],
+      "trailingParagraphs": [
+        "每週先挑一件最需要處理的事就好。例如：「晚間班的預約與到課差距變大，由店長確認取消和改期原因，下週同一時間再看。」有一個明確問題、有人確認，再回頭看結果，比每次把所有數字重新報告一遍更容易持續。"
+      ]
+    },
+    {
+      "heading": "當老闆不用再四處問 才有時間想下一步",
+      "paragraphs": [
+        "如果每次想知道生意怎麼樣，都要請櫃台翻預約、等教練補到課、自己再核對收款，光是湊齊資訊就很累。好的管理工具，應該讓這些問題更容易被回答，讓你把時間留給課表安排、學員服務和接下來的經營決定。",
+        "蒸管家的營運分析可集中查看來客、成交、回流與方案購買收入。客流、成交與回流可比較上月及去年同月，另有六個月經營趨勢，幫助老闆整理接下來值得確認的問題。"
+      ],
+      "link": {
+        "label": "查看蒸管家營運分析功能說明",
+        "href": "https://www.steamfoot.com/pricing/features#analysis"
+      },
+      "trailingParagraphs": [
+        "這些數據依實際完成服務與交易等紀錄計算，趨勢不能直接解釋原因，也不代表未來營收保證。本文的數字定義、兩週對照和新客觀察方式是營運示範，是否能在現有功能直接查看，仍要確認實際欄位與統計規則。"
+      ]
+    },
+    {
+      "heading": "先從最近完整的一個月開始",
+      "paragraphs": [
+        "先從平常已留下的預約、到課與收款紀錄，找出一件值得調整的事，不必一次追所有數字。",
+        "第一步可以選最近一個完整月份，核對實際到課的人數與人次、哪些既有學員有回來，以及當月的實際收款與退款。若想進一步看新客有沒有留下來，再沿用前面的同批觀察方式。先找出一個最想釐清的地方，再決定要調整什麼。"
+      ]
+    }
+  ],
+  "callToAction": {
+    "text": "想了解蒸管家是否適合你的教室，可以從申請頁了解試用並提交申請。現行說明為：帳號可正常使用並正式開通當天起算三十天，申請不扣款，也不會立即起算。",
+    "label": "了解蒸管家並申請試用"
   }
 }
 ];
