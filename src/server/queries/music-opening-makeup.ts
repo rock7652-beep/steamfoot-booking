@@ -6,10 +6,10 @@ import { musicOpeningMakeupRecordSchema, classifyMusicOpeningMakeupRecord, type 
 import { summarizeNativeMakeupSources } from "@/lib/music-opening-native-summary";
 
 /** Source IDs never leave this server-only projection. No card balance is added. */
-export async function getOpeningMakeupWorkspace(storeId: string, customerId?: string) {
+export async function getOpeningMakeupWorkspace(storeId: string, customerId?: string, visibleCustomerIds?: string[]) {
   return coursePrisma.$transaction(async tx => {
     const rights = await tx.courseMusicOpeningMakeupEntitlement.findMany({
-      where: { storeId, ...(customerId ? { customerId } : {}) }, orderBy: [{ customerId: "asc" }, { createdAt: "asc" }], take: 201,
+      where: { storeId, ...(visibleCustomerIds ? { customerId: { in: visibleCustomerIds } } : {}), ...(customerId ? { AND: [{ customerId }] } : {}) }, orderBy: [{ customerId: "asc" }, { createdAt: "asc" }], take: 201,
       include: { bookings: { orderBy: { createdAt: "asc" }, select: { id: true, storeId: true, customerId: true, bookingKind: true, cardId: true, pointCost: true, makeupForBookingId: true, musicOpeningMakeupEntitlementId: true, status: true, checkedInAt: true, sessionId: true, session: { select: { storeId: true, templateId: true, startsAt: true, nameSnapshot: true } } } } },
     });
     if (rights.length > 200) throw new AppError("VALIDATION", "資料較多，請先選擇學員再讀取期初補課");
@@ -35,6 +35,7 @@ export async function getOpeningMakeupWorkspace(storeId: string, customerId?: st
       const receipt = afterJson.receipt, snapshot = musicOpeningMakeupRecordSchema.parse(receipt.snapshot);
       if (receipt.sourceKey !== musicOpeningMakeupSourceKey(snapshot) || receipt.sourceSlotKey !== musicOpeningMakeupSourceSlotKey(snapshot) || receipt.contentHash !== musicOpeningMakeupContentHash(snapshot) || receipt.kind !== classifyMusicOpeningMakeupRecord(snapshot) || snapshot.scope.targetStoreId !== storeId) throw new AppError("VALIDATION", "補課來源核對紀錄不完整，數量暫不顯示");
       if (customerId && snapshot.mapping.customerId !== customerId) continue;
+      if (visibleCustomerIds && !visibleCustomerIds.includes(snapshot.mapping.customerId)) continue;
       if (!["OPENING", "POST_CUTOFF"].includes(receipt.kind)) continue;
       if (receipt.kind === "OPENING") {
         const right = rights.find(row => row.sourceKey === receipt.sourceKey && row.sourceSlotKey === receipt.sourceSlotKey && row.contentHash === receipt.contentHash);

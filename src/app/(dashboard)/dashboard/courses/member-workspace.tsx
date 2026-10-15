@@ -1,4 +1,5 @@
 "use client";
+import { MusicStudentOverview } from "./music-student-overview";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseSharedCardIndicator } from "./course-shared-card-indicator";
 import { useCardDetail } from "./use-card-detail";
@@ -136,7 +137,7 @@ export function CourseMemberWorkspace({
   >(initialPerson ? "person" : canCreate&&view==="plans"&&params.get("action")==="create"?"plan":null);
   const [selectedPerson, setPerson] = useState<Person | null>(initialPerson);
   const person = people.find(p => p.id === selectedPerson?.id) ?? selectedPerson;
-  const [personTab, setPersonTab] = useState<"info" | "plans" | "records">("info");
+  const [personTab, setPersonTab] = useState<"info" | "plans" | "records" | "payments" | "bookings" | "makeups">(() => music && ["plans", "payments", "bookings", "makeups"].includes(params.get("studentTab") ?? "") ? params.get("studentTab") as "plans" | "payments" | "bookings" | "makeups" : "info");
   const [editingPerson, setEditingPerson] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
@@ -185,7 +186,7 @@ export function CourseMemberWorkspace({
   const [formPending,setFormPending]=useState(false);
   function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
+  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, music ? personTab : undefined);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
@@ -401,7 +402,7 @@ export function CourseMemberWorkspace({
             <div className="flex shrink-0 items-center gap-2">
               {person && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} />}
               {panel==="plan"&&planReadOnly&&canEdit&&<ExclusiveMenu quiet triggerText="⋯" label="方案操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setPlanReadOnly(false)}>編輯</button></ExclusiveMenu>}
-              {panel === "person" && person && personTab === "info" && !editingPerson && canEdit && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
+              {panel === "person" && person && personTab === "info" && !editingPerson && canEdit && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>setEditingPerson(true)}>{music ? "編輯學員資料" : "編輯顧客資料"}</button>}
               {panel === "person" && person && editingPerson && <button type="button" className="min-h-11 px-3 text-sm text-primary-700" onClick={()=>{if(canLeave()){setEditingPerson(false);setDirty(false);}}}>返回基本資料</button>}
             <button
               type="button"
@@ -414,10 +415,11 @@ export function CourseMemberWorkspace({
             </div>
           </header>
           {(customerPanel || panel === "person") && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
+            {(music ? [["info","基本資料"], ...(canReadCards ? [["plans","學費與堂數"]] : []), ...(canReadTransactions ? [["payments","付款紀錄"]] : []), ...(canReadBookings ? [["bookings","課表與出勤"],["makeups","請假與補課"]] : [])] : [ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            {music && panel === "person" && person && !editingPerson && <MusicStudentOverview key={`${person.id}:${cardRevision}`} customerId={person.id} tab={personTab} />}
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -452,7 +454,7 @@ export function CourseMemberWorkspace({
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel === "person" && person && personTab === "plans" && <section className="mb-4 space-y-3">
-              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
+              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購買／續報學費方案" : "購買方案"}</button>}
               {canReadCards && personTab === "plans" && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
                 <CourseCardBrowser sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
@@ -486,8 +488,8 @@ export function CourseMemberWorkspace({
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
-            {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
-            {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
+            {panel === "person" && (personTab === "payments" || personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
+            {panel === "person" && (personTab === "bookings" || personTab === "records" && recordTab === "bookings") && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} />}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 

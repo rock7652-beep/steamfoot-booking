@@ -801,21 +801,22 @@ export default function DashboardShell({
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
-      { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
+      { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
+      { ...entry("/dashboard/revenue"), label: musicEnabled ? "收款與營收" : "營運", requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
+    if (course && musicEnabled && permissions.includes("customer.read")) daily.splice(3, 0, { ...entry("/dashboard/bookings"), href: "/dashboard/courses/makeups", label: "請假與補課" });
     const management: NavItem[] = [
       hqItem("/dashboard/operation-audits"),
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), label: musicEnabled ? "學費方案" : "方案管理", href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: musicEnabled ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: musicEnabled ? "教室管理" : "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
     if (spa) management.push(
@@ -831,7 +832,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings, permissions]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

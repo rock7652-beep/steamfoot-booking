@@ -60,10 +60,10 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
-      quickAssignLabel="購買方案"
+      quickAssignLabel={music ? "繳費／續報" : "購買方案"}
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
-      lastVisitLabel="最近來店"
+      lastVisitLabel={music ? "最近上課" : "最近來店"}
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
         ? <button type="button" aria-label={`查看 ${row.name} 的有效方案`} onClick={()=>onView(row.id)} className="min-h-11 whitespace-nowrap text-sm text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />

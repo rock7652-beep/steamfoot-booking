@@ -66,7 +66,7 @@ it("filters legacy permissions so renaming a manager can be saved from the compa
 
 it("music qualification editors with read-only pay access can change qualifications without changing fees",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"},{id:"s",name:"鋼琴"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:false,permissionGroups:[]})));
- await click("授課設定");
+ await click("授課／鐘點費");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
  expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
  await click("編輯課程");

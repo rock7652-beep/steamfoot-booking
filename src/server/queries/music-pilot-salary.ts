@@ -40,7 +40,7 @@ export async function readMusicPilotSalary(){
       const leave=c[0].text.includes("學生請假"),trial=c[0].text.includes("體驗")&&p.fee[2]==="吉他單人體驗課$800";
       return {student:original.students.find(s=>s.id===h.studentId)!.name,date:c[0].text,teacher:teacher||"來源簽到未列老師",rate,base:trial?800:null,amount:leave?0:trial&&rate!==null?800*rate/100:null};
     }))));
-    return {rows,historical,oldMakeupPrice:proof.oldMakeup.originalUnitPrice,oldMakeupPercent:proof.teachers.find(t=>t.staffId==="music-luby-staff-li")!.percent};
+    return {rows,historical,teachers:staff.map(s=>({id:s.id,name:s.displayName})),oldMakeupPrice:proof.oldMakeup.originalUnitPrice,oldMakeupPercent:proof.teachers.find(t=>t.staffId==="music-luby-staff-li")!.percent};
   },{isolationLevel:"RepeatableRead",timeout:20000});
 }
 export type MusicPilotSalaryReport=Awaited<ReturnType<typeof readMusicPilotSalary>>;

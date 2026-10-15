@@ -1,5 +1,6 @@
 "use client";
 import { createPortal } from "react-dom";
+import { DashboardLink } from "@/components/dashboard-link";
 import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
@@ -60,6 +61,8 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  salaryHref = null,
+  salaryLabel = "月結／發薪紀錄",
   previewStoreId,
   counterpartChoices=[],
   displayOrder,
@@ -78,6 +81,8 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  salaryHref?: string | null;
+  salaryLabel?: string;
   previewStoreId?: string;
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
@@ -286,7 +291,7 @@ export function CourseStaffWorkspace({
                 {...order.rowProps(p.id)}
                 className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
               >
-                <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && p.canEdit !== false && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{music?<span className="font-medium">{p.name}</span>:<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage || p?.canEdit === false);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && p.canEdit !== false && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{music?<button type="button" className="min-h-11 font-medium text-primary-800 hover:underline" onClick={()=>{edit(p);setReadOnly(true);}}>{p.name}</button>:<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage || p?.canEdit === false);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 {music ? <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 break-words text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td> : <>
                   <td className="whitespace-nowrap px-3 py-2">{p.phone ? <a className="inline-flex min-h-11 items-center text-primary-800 hover:underline" href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</td>
                   <td className="px-3 py-2"><span title={p.kind === "manager" ? p.email : p.contactEmail ?? ""} className="block max-w-64 break-words">{(p.kind === "manager" ? p.email : p.contactEmail) || "—"}</span></td>
@@ -295,8 +300,8 @@ export function CourseStaffWorkspace({
                 <td className="px-3 py-2"><span className={p.notificationsEnabled!==false&&p.coachLoginReady?"text-primary-800":"text-earth-500"}>{p.notificationsEnabled===false?"已關閉":p.coachLoginReady?(music?"可通知":"已開啟"):"待連結 LINE"}</span></td>
                 <td className={`whitespace-nowrap px-3 py-2 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {!music ? <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage?"編輯":"查看"}</button>{canManage&&p.canEdit !== false&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {canManage&&p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}</ExclusiveMenu></div> : <>                  {canManage&&p.canEdit !== false&&<CourseStatusButton kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
-                  <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
-                  {canManage && p.coachEnabled && <button className="ml-1 min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
+                  <button className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" disabled={busyIds.includes(p.id)} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
+                  {p.coachEnabled && <button className="ml-1 min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>{feeAccess && (financeScope === null || financeScope.includes(p.id)) ? "授課／鐘點費" : "授課設定"}</button>}{p.coachEnabled && salaryHref && (financeScope === null || financeScope.includes(p.id)) && <DashboardLink className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-800" href={`${salaryHref}?teacherId=${encodeURIComponent(p.id)}`}>{salaryLabel}</DashboardLink>}
 </>}
                 </td>
               </tr>
@@ -329,8 +334,8 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work",music?"工作與授課安排":"工作帳號"],...(!music && !readOnly ? [["availability","可授課時間"],["assignments","已排課程"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <nav aria-label="教師資料分區" className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work",music?"工作與授課安排":"工作帳號"],...(!music && !readOnly ? [["availability","可授課時間"],["assignments","已排課程"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">{music && person?.coachEnabled && salaryHref && (financeScope === null || financeScope.includes(person.id)) && <DashboardLink className="mb-3 inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary-800" onClick={event => { if (pending || (dirty && !window.confirm("尚有未儲存的變更，確定離開？"))) event.preventDefault(); }} href={`${salaryHref}?teacherId=${encodeURIComponent(person.id)}`}>{person.name} · {salaryLabel}</DashboardLink>}
             {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":"教練"}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
             {error && (

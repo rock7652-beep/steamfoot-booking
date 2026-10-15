@@ -270,7 +270,7 @@ export default async function CoursesPage({
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="課程管理"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
@@ -344,7 +344,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
-      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">期初補課權益</DashboardLink>}
+      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">音教雲補課紀錄</DashboardLink>}
       {businessProfile === "MUSIC" && canSourceImport && <DashboardLink href="/dashboard/courses/opening-import" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-base">音教雲資料匯入</DashboardLink>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}

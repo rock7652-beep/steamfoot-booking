@@ -27,20 +27,22 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{e
  </div></section>;
 }
 
-export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false}:{lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode}){
- const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">("ALL");
- const filtered=lines.filter(line=>category==="ALL"||line.kind===category);
+export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,music=false,initialTeacherId=""}:{lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
+ const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">(initialTeacherId ? "FEE" : "ALL");
+ const [teacherId,setTeacherId]=useState(initialTeacherId);
+ const filtered=lines.filter(line=>(category==="ALL"||line.kind===category) && (!teacherId || line.staffId===teacherId));
  const people=summarizeSettlement(filtered);
  const issues=filtered.some(line=>line.issue||line.amount===null);
  const total=people.reduce((sum,person)=>sum+person.profit+person.fee,0);
  return <>
+ {music && <div className="flex flex-wrap items-center gap-2 text-sm"><label>教師<select aria-label="薪資教師" className="min-h-11 rounded-lg border px-3" value={teacherId} onChange={e=>setTeacherId(e.target.value)}><option value="">全部人員</option>{[...new Map(lines.filter(l=>l.staffId).map(l=>[l.staffId!,l.name])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}{teacherId && !lines.some(l=>l.staffId===teacherId) && <option value={teacherId}>所選教師（本月無紀錄）</option>}</select></label>{teacherId && <button type="button" className={button} onClick={()=>setTeacherId("")}>查看全店月結</button>}</div>}
  <div className="flex flex-wrap items-center gap-2" role="group" aria-label="收入類別">
- {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:"教練授課費"}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
+ {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:music ? "教師鐘點費" : "教練授課費"}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
  </div>
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
- {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?"授課費合計":"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{confirm}
+ {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?"授課費合計":"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{!teacherId && confirm}
  </div>
- <CourseMonthlyPeople category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={actions}>
+ <CourseMonthlyPeople category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId ? undefined : actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
  {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
  <strong className="truncate" title={person.name}>{person.name}</strong>

@@ -3,6 +3,7 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
+vi.mock("@/server/actions/music-student-workspace",()=>({loadMusicStudentWorkspace:vi.fn().mockResolvedValue({success:true,data:{balance:null,next:null,tuition:null,opening:null,canReadBookings:false}})}));
 vi.mock("@/server/actions/course-display-order",()=>({saveCourseDisplayOrder:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
 vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));

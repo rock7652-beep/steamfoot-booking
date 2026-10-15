@@ -22,6 +22,10 @@ import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
+import { DashboardLink } from "@/components/dashboard-link";
+import { readMusicPilotFeeProof } from "@/server/services/music-pilot-teacher-fee";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const user = await getCurrentUser();
   if (
@@ -54,6 +58,12 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   ]);
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
+  const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");
+  const salaryHref = canReadSalary && user.role === "OWNER" && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
+    ? "/dashboard/service-fee-calculator"
+    : canReadSalary && user.role === "ADMIN" && financeScope === null && await readMusicPilotFeeProof(coursePrisma, storeId)
+      ? "/dashboard/courses/source-pilot/salary" : null;
+  const salaryLabel = user.role === "ADMIN" ? "樣本鐘點／薪資測試" : "月結／發薪紀錄";
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
@@ -61,10 +71,10 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
+      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} subtitle={musicEntitlement ? teachers ? "查看老師、授課安排與鐘點費；後台帳號權限請至人員管理。" : "管理後台登入與權限；授課與鐘點費請至教師管理。" : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : "教師與授課"}</DashboardLink>{teachers && salaryHref && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={salaryHref}>{salaryLabel}</DashboardLink>}</div>} />
 
       <CourseStaffWorkspace previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
-        financeScope={financeScope}
+        financeScope={financeScope} salaryHref={salaryHref} salaryLabel={salaryLabel}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}
         accountKind={teachers?"coach":"manager"}
