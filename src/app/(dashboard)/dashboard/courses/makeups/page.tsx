@@ -1,4 +1,4 @@
-import { musicCustomerWhere, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
+import { musicCustomerWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { notFound } from "next/navigation";
@@ -35,7 +35,7 @@ export default async function MusicMakeupsPage({ searchParams }: { searchParams:
   ]);
   return <PageShell className="w-full min-w-0"><PageHeader title={query.customerId ? `${customers[0].name} · 請假與補課` : "請假與補課"} subtitle="從原課查看扣堂與期限，安排後直接進入補課點名" actions={<div className="flex flex-wrap gap-2">{query.customerId && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={studentReturnHref(query.customerId, query.returnQuery)}>返回學員</DashboardLink>}<DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href="/dashboard/courses">返回課表</DashboardLink></div>} />
     <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
-    <section className="space-y-3"><h2 className="font-semibold">音教雲帶入的補課</h2><OpeningMakeupList data={opening} canCreate={canCreate && !readOnly} canUpdate={canUpdate && !readOnly} compact classified={musicDataSeparationEnabled(storeId)} /></section>
+    <section className="space-y-3"><h2 className="font-semibold">{musicDataScope(storeId,query.dataScope)==="legacy"?"舊驗收模擬的期初補課":"音教雲帶入的補課"}</h2><OpeningMakeupList legacy={musicDataScope(storeId,query.dataScope)==="legacy"} data={opening} canCreate={canCreate && !readOnly} canUpdate={canUpdate && !readOnly} compact classified={musicDataSeparationEnabled(storeId)} /></section>
     {native ? <NativeMakeupList classified={musicDataSeparationEnabled(storeId)} data={native} canCreate={canCreate && !readOnly} /> : <p className="text-sm text-earth-600">查看蒸管家補課方案需學費方案檢視權限。</p>}
   </PageShell>;
 }

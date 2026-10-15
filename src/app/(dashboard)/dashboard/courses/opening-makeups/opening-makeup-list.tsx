@@ -11,7 +11,7 @@ import { CourseTestDataFilter, isCourseTestData } from "@/components/admin/cours
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { RosterToolbar, RosterTable } from "@/components/admin/roster-primitives";
 import { makeupStatus } from "@/lib/music-display";
-export function OpeningMakeupList({ data, canCreate, canUpdate, compact = false, classified=false }: { data: OpeningMakeupWorkspace; canCreate: boolean; canUpdate: boolean; compact?: boolean; classified?:boolean }) {
+export function OpeningMakeupList({ data, canCreate, canUpdate, compact = false, classified=false, legacy=false }: { data: OpeningMakeupWorkspace; canCreate: boolean; canUpdate: boolean; compact?: boolean; classified?:boolean;legacy?:boolean }) {
   const [search, setSearch] = useState("");
   const [hideTests, setHideTests] = useState(true);
   const [status, setStatus] = useState("all");
@@ -22,7 +22,7 @@ export function OpeningMakeupList({ data, canCreate, canUpdate, compact = false,
   const reserved = visible.filter(row => row.state === "RESERVED").length;
   const rowIds = new Set(rows.map(row=>row.id));
   return <div className="min-w-0 space-y-3">
-    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="補課摘要"><span>音教雲待補 <strong>{outstanding}</strong> 堂</span><span>已安排 {reserved} 堂</span>{!compact && <span>另有蒸管家請假 {data.native.outstanding} 堂（含測試資料）</span>}</div>
+    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="補課摘要"><span>{legacy?"舊驗收待補":"音教雲待補"} <strong>{outstanding}</strong> 堂</span><span>已安排 {reserved} 堂</span>{!compact && <span>另有蒸管家請假 {data.native.outstanding} 堂（含測試資料）</span>}</div>
     <p className="text-sm text-earth-600">補課不併入一般餘堂，沿用原期限；實際完成上課後才扣除。</p>
     <RosterToolbar label="音教雲補課篩選"><label className="flex min-w-0 flex-1 items-center gap-2 text-sm">搜尋學員<input className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 px-3 text-base" value={search} onChange={e => setSearch(e.target.value)} /></label><select aria-label="音教雲補課狀態" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" value={status} onChange={e=>setStatus(e.target.value)}>{["all","待安排","已安排","已完成","已逾期"].map(value=><option key={value} value={value}>{value === "all" ? "全部狀態" : value}</option>)}</select>{!classified&&<CourseTestDataFilter names={data.rows.map(row=>row.customerName)} checked={hideTests} onChange={setHideTests}/>}</RosterToolbar>
     <p className="text-sm text-earth-600">顯示 {rows.length} 筆{hideTests && data.rows.length > visible.length ? ` · 已隱藏 ${data.rows.length-visible.length} 筆驗收／測試資料` : ""}</p>

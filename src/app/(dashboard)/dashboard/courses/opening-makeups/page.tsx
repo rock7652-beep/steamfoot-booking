@@ -1,3 +1,5 @@
+import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
+import { musicCustomerWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -9,7 +11,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { getOpeningMakeupWorkspace } from "@/server/queries/music-opening-makeup";
 import { OpeningMakeupList } from "./opening-makeup-list";
 
-export default async function OpeningMakeupsPage({ searchParams }: { searchParams: Promise<{ customerId?: string }> }) {
+export default async function OpeningMakeupsPage({ searchParams }: { searchParams: Promise<{ customerId?: string;dataScope?:string }> }) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.read"))) notFound();
   const storeId = await getActiveStoreForRead(user);
@@ -17,7 +19,10 @@ export default async function OpeningMakeupsPage({ searchParams }: { searchParam
   await requireCourseStore(storeId);
   if (!await prisma.storeFeatureEntitlement.findFirst({ where: { storeId, featureKey: "business.music", status: "ENABLED" }, select: { storeId: true } })) notFound();
   const query = await searchParams;
-  const data = await getOpeningMakeupWorkspace(storeId, query.customerId);
+  const classified=musicDataSeparationEnabled(storeId);
+  const visible=classified ? await prisma.customer.findMany({where:{storeId,...musicCustomerWhere(storeId,query.dataScope)},select:{id:true}}) : undefined;
+  const legacy=musicDataScope(storeId,query.dataScope)==="legacy";
+  const data = await getOpeningMakeupWorkspace(storeId, query.customerId,visible?.map(c=>c.id),query.dataScope);
   const [canCreate, canUpdate] = await Promise.all([checkPermission(user.role, user.staffId, "booking.create"), checkPermission(user.role, user.staffId, "booking.update")]);
-  return <PageShell className="w-full min-w-0"><PageHeader title="期初補課" subtitle="預約只保留權益，確認實際出席才核銷" actions={<DashboardLink href="/dashboard/courses">返回課表</DashboardLink>} /><OpeningMakeupList data={data} canCreate={canCreate} canUpdate={canUpdate} /></PageShell>;
+  return <PageShell className="w-full min-w-0"><PageHeader title="期初補課" subtitle="預約只保留權益，確認實際出席才核銷" actions={<DashboardLink href="/dashboard/courses">返回課表</DashboardLink>} /><MusicDataScopeFilter enabled={classified}/><OpeningMakeupList classified={classified} legacy={legacy} data={data} canCreate={canCreate} canUpdate={canUpdate} /></PageShell>;
 }
