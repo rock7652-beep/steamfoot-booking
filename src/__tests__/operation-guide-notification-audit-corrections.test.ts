@@ -39,7 +39,7 @@ describe("merged notification and HQ audit guide corrections", () => {
       expect(contents(id)).toContain("真實預約");
     }
     expect(guide("F01").details.join(" ")).toContain("不能以預覽代替送達驗收");
-    expect(guide("F03").details.join(" ")).toContain("SPA 預約目前未接此觸發");
+    expect(guide("F03").details.join(" ")).toContain("共用預覽不代表各模組都會發送");
     expect(guide("F04").important).toContain("不代表本人已在 LINE 看見或點過連結");
     expect(findOperationGuides("查看訊息預覽 通知類型", steam).map(item => item.id)).toEqual(expect.arrayContaining(["F01", "F03"]));
     expect(findOperationGuides("店長通知 7種", course).map(item => item.id)).toContain("C123");
@@ -60,7 +60,7 @@ describe("merged notification and HQ audit guide corrections", () => {
   });
 
   it("keeps current HQ-only guidance permission-gated with no new feature flag", () => {
-    for (const moduleId of ["steamfoot", "spa", "course"] as const) {
+    for (const moduleId of ["steamfoot", "course"] as const) {
       const hq: GuideAccess = { module: moduleId, permissions: ["audit.read"], features: {} };
       expect(availableGuides(hq).map(item => item.id)).toEqual(expect.arrayContaining(["I11", "I12"]));
       expect(availableGuides({ ...hq, permissions: [] }).some(item => item.id === "I11" || item.id === "I12")).toBe(false);

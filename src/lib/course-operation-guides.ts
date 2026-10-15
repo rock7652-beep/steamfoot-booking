@@ -191,7 +191,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["在後台確認目前店家，搜尋既有學員並核對中央會員、本店帳號／LINE 連結。", "查持有方案的狀態、適用課程、效期與授權；不要因登入後看不到就新增重複顧客或方案。", "遇帳號尚未連結或身分衝突，保留提示並依本人確認流程核對，不以姓名電話或其他店連結猜測覆蓋。"],
     important: "不要為了排錯解除其他人的 LINE、重建同名顧客，或把其他店的會員資料直接搬入。",
     success: "會員重新進入本店入口後，可看到屬於本店且已授權的課程、預約與方案。",
-    details: ["共卡授權只開放使用該卡預約，不會開放其他成員健康資料。", "教練若只開放工作身分，會員操作可能被停用；店家需在工作入口與會員連結設定核對。", "本店會員與 LINE 有待確認申請時，由具顧客修改權限者核對本人及手機確認碼，再選「已核對本人，確認綁定」；成功立即顯示已連結，原有唯一會員可沿用，不另建重複學員。通知資格與登入身分仍分開。", "已有中央會員或 LINE 帳號不代表已連結本店顧客；首次確認只建立經核對的本店連結，不會合併其他店的方案、預約或通知資格。身分衝突需人工核對，不能用同名同電話直接覆蓋。"],
+    details: ["共卡授權只開放使用該卡預約，不會開放其他成員健康資料。", "教練若只開放工作身分，會員操作可能被停用；店家需在工作入口與會員連結設定核對。", "本店會員與 LINE 有待確認申請時，由具顧客修改權限者核對本人及手機確認碼，再選「已核對本人，確認綁定」；成功立即顯示已連結，原有唯一會員可沿用，不另建重複學員。這是本店連結申請流程，不是蒸足一般聊天室手機通知綁定；共享官方 LINE 不能只憑手機猜門市。通知資格與登入身分仍分開。", "已有中央會員或 LINE 帳號不代表已連結本店顧客；首次確認只建立經核對的本店連結，不會合併其他店的方案、預約或通知資格。尚無帳號或 LINE 關聯的新學員，首次登入僅在姓名及手機都符合唯一名單且無其他關聯時可沿用；已有身分或通知綁定者不套用。身分衝突需人工核對，保留查核編號，不用同名同電話直接覆蓋。"],
     permission: "customer.read", feature: null, sources: ["src/app/(customer)/book/course-portal.tsx", "src/server/services/course-access.ts", "src/server/services/course-line-onboarding.ts", "src/components/admin/store-member-connection-panel.tsx", "src/server/services/store-member-connection.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {

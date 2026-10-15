@@ -9,8 +9,8 @@ const guide = (id: string) => operationGuides.find(g => g.id === id)!;
 
 describe("2026-10-14 backend operation guide audit", () => {
   it("adds one guide while preserving backend-only scope and actual access", () => {
-    expect(operationGuides).toHaveLength(205);
-    expect(guide("I22").modules).toEqual(["steamfoot", "spa", "course"]);
+    expect(operationGuides).toHaveLength(187);
+    expect(guide("I22").modules).toEqual(["steamfoot", "course"]);
     expect(guide("I22").permission).toBe("plans.edit");
     expect(guide("I22").verification).toBe("source-reviewed");
     expect(guide("I22").important).toContain("每月報告額度沒有一起取消");
@@ -28,7 +28,7 @@ describe("2026-10-14 backend operation guide audit", () => {
   });
 
   it("updates staff-side identity checks without inventing frontend tutorials", () => {
-    for (const id of ["C07", "C08", "C117", "W06"]) {
+    for (const id of ["C08", "C117", "W06"]) {
       const text = [...guide(id).steps, ...(guide(id).details ?? [])].join(" ");
       expect(text).toContain("確認碼");
       expect(text).toContain("確認綁定");

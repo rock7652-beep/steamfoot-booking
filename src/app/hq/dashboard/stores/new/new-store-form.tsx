@@ -8,7 +8,7 @@ import type {
   StoreDeliverySummary,
 } from "@/types/store-onboarding";
 
-export default function NewStoreForm() {
+export default function NewStoreForm({ previewOnly = false }: { previewOnly?: boolean } = {}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<StoreDeliverySummary | null>(null);
@@ -21,7 +21,7 @@ export default function NewStoreForm() {
   >("GROWTH");
   const [isDemo, setIsDemo] = useState(false);
   const [industryModule, setIndustryModule] = useState<
-    "STEAMFOOT" | "SPA" | "COURSE" | ""
+    "STEAMFOOT" | "COURSE" | ""
   >("");
   const [businessProfile, setBusinessProfile] = useState<"FITNESS" | "MUSIC" | null>(null);
   const [domain, setDomain] = useState("");
@@ -34,6 +34,7 @@ export default function NewStoreForm() {
   const [ownerPassword, setOwnerPassword] = useState("");
 
   function handleSubmit() {
+    if (previewOnly) return;
     setError(null);
     if (!industryModule) {
       setError("請先選擇主要業務");
@@ -199,7 +200,7 @@ export default function NewStoreForm() {
             查看店舖詳情
           </Link>
           <Link
-            href="/hq/dashboard/stores"
+            href={previewOnly ? "/spa-retirement-preview" : "/hq/dashboard/stores"}
             className="rounded-lg border border-earth-200 px-4 py-2 text-sm text-earth-600 hover:bg-earth-50"
           >
             返回列表
@@ -238,19 +239,9 @@ export default function NewStoreForm() {
             <div className="grid gap-3 sm:grid-cols-2">
               <ModuleOption
                 checked={industryModule === "STEAMFOOT"}
-                title="蒸足門市"
+                title="時段模組（蒸足）"
                 description="空間容量、固定時段、方案與補課流程"
                 onSelect={() => { setIndustryModule("STEAMFOOT"); setBusinessProfile(null); }}
-              />
-              <ModuleOption
-                checked={industryModule === "SPA"}
-                title="SPA／美容美體"
-                description="芳療師可用時間、療程、技能與抽成流程"
-                onSelect={() => {
-                  setIndustryModule("SPA");
-                  setBusinessProfile(null);
-                  setDutySchedulingEnabled(false);
-                }}
               />
               <ModuleOption checked={industryModule === "COURSE" && businessProfile === "FITNESS"} title="運動教室"
                 description="教練／教室排課、共卡與出席；底層使用 COURSE 引擎"
@@ -312,13 +303,12 @@ export default function NewStoreForm() {
               這是 Demo 店（僅供展示或測試）
             </label>
             {industryModule === "COURSE" ? <p className="text-sm text-earth-500">{businessProfile === "MUSIC" ? "音樂教室先沿用課程引擎；後續會加入固定課、補課、代課與高密度教室課表。" : "課程值班與排課聯動可由店長在課程設定中調整，預設關閉。"}</p> : <label
-              className={`flex items-center gap-2 text-sm ${industryModule === "SPA" ? "text-earth-400" : "text-earth-700"}`}
+              className="flex items-center gap-2 text-sm text-earth-700"
             >
               <input
                 type="checkbox"
                 checked={dutySchedulingEnabled}
                 onChange={(e) => setDutySchedulingEnabled(e.target.checked)}
-                disabled={industryModule === "SPA"}
                 className="rounded"
               />
               啟用蒸足值班排程功能
@@ -358,19 +348,19 @@ export default function NewStoreForm() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={pending}
+          disabled={pending || previewOnly}
           className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
-          {pending ? "建立中..." : "建立店舖"}
+          {previewOnly ? "預覽中不會建立店舖" : pending ? "建立中..." : "建立店舖"}
         </button>
       </div>
 
       <div className="mt-4 text-center">
         <Link
-          href="/hq/dashboard/stores"
+          href={previewOnly ? "/spa-retirement-preview" : "/hq/dashboard/stores"}
           className="text-sm text-earth-500 hover:text-earth-700"
         >
-          ← 返回店舖列表
+          {previewOnly ? "← 返回預覽" : "← 返回店舖列表"}
         </Link>
       </div>
     </div>

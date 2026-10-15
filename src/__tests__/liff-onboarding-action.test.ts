@@ -19,6 +19,8 @@ vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsCon
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── mocks (必須在 import action 之前) ──
+const mockFirstActivation = vi.fn();
+vi.mock("@/server/services/precreated-first-line-login", () => ({ activateUnlinkedStoreMember: (...args: unknown[]) => mockFirstActivation(...args) }));
 const mockMember = vi.fn();
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: (...args: unknown[]) => mockMember(...args) }));
 const mockVerify = vi.fn();
@@ -66,6 +68,7 @@ vi.mock("@/server/services/liff-login-rebind", () => ({
 }));
 
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
+import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { LiffIdTokenError } from "@/lib/liff/verify-id-token";
 
 const CHANNEL = "channel-123";
@@ -99,14 +102,42 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(completeAuthorizedFirstStoreLogin).toHaveBeenCalledWith({ storeId: STORE.id, phone: VALID_INPUT.phone, candidateLineUserId: LINE_USER_ID });
     expect(mockBindLine).not.toHaveBeenCalled();
   });
+  it("activates the uniquely matched unlinked member after verified LINE login", async () => {
+    const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
+    mockFirstActivation.mockResolvedValueOnce("activated");
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "ok" });
+    expect(mockFirstActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID, name: VALID_INPUT.name, phone: VALID_INPUT.phone });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("does not activate an existing Customer from phone input alone", async () => {
     const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValue(STORE);
     vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
-    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required"});
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/)});
     expect(mockBindLine).not.toHaveBeenCalled();
   });
+  it.each(["account_owner_conflict", "store_membership_unconfirmed", "ambiguous_legacy_identity", "customer_owner_conflict", "store_membership_conflict", "account_unavailable"] as const)("retains private onboarding rejection evidence for %s without granting access", async reason => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockMember.mockRejectedValueOnce(new LineIdentityReviewError(reason));
+    const result = await submitOnboarding(VALID_INPUT);
+    expect(result).toEqual({ status: "ambiguous", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/) });
+    expect(result).not.toHaveProperty("reason");
+    expect(mockBindLine).not.toHaveBeenCalled();
+    expect(mockIdentitySync).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith("[line-bind][liff-exchange] identity_review_required", expect.objectContaining({
+      extra: expect.objectContaining({ reason, entryPoint: "onboarding", stage: "verified_identity_lookup",
+        referenceId: "referenceId" in result ? result.referenceId : undefined }),
+    }));
+    const evidence = JSON.stringify(warn.mock.calls);
+    for (const privateValue of [VALID_INPUT.idToken, VALID_INPUT.phone, VALID_INPUT.name, LINE_USER_ID]) expect(evidence).not.toContain(privateValue);
+  });
+
   it("does not report successful login when the store link fails to persist", async () => {
     mockVerify.mockResolvedValue(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValue(STORE);
@@ -116,6 +147,7 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockFirstActivation.mockReset().mockResolvedValue("review");
     mockIndustry.mockReset().mockResolvedValue("steamfoot");
     mockCourseOnboarding.mockReset();
     mockMember.mockReset().mockResolvedValue(null);
@@ -134,6 +166,7 @@ describe("submitOnboarding action (PR-C2)", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("routes verified course onboarding through the atomic service without legacy mutations", async () => {

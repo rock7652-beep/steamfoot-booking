@@ -1,4 +1,3 @@
-import { captureStoreMemberConnection, connectionReplyText } from "@/server/services/store-member-connection";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
 // ============================================================
@@ -16,6 +15,7 @@ import {
   verifySteamButlerLineSignature,
   replyMessage,
   replySteamButlerMessage,
+  probeStoreLineRecipient,
 } from "@/lib/line";
 import {
   getLineWebhookDiagnosticsForStore,
@@ -44,6 +44,31 @@ import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat
 import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 
 export const dynamic = "force-dynamic";
+
+function isStoreLineIdentityConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") {
+    return false;
+  }
+  const target = "meta" in error
+    ? (error.meta as { target?: string[] | string } | undefined)?.target
+    : undefined;
+  const fields = Array.isArray(target) ? target : typeof target === "string" ? [target] : [];
+  return fields.includes("storeId") && fields.includes("lineUserId");
+}
+
+async function updateStoreLineRecipient(
+  update: () => Promise<{ count: number }>,
+): Promise<{ count: number; identityConflict: boolean }> {
+  try {
+    const result = await update();
+    return { count: result.count, identityConflict: false };
+  } catch (error) {
+    if (isStoreLineIdentityConflict(error)) {
+      return { count: 0, identityConflict: true };
+    }
+    throw error;
+  }
+}
 
 // ── POST: 處理 LINE events ──
 
@@ -302,11 +327,11 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
         text: [
           "歡迎加入蒸足官方帳號！",
           "",
-          "請輸入您的手機號碼，首次由門市核對本人後確認連結。",
+          "如需開啟預約提醒與方案通知，請直接輸入您的手機號碼完成通知設定。",
           "",
           "例如：0912345678",
           "",
-          "已連結本店的顧客不需再次填寫。",
+          "系統會依照店舖與手機號碼對應到店長建立的顧客資料。",
         ].join("\n"),
       },
     ]);
@@ -674,17 +699,142 @@ async function handlePhoneBindingRequest(
   eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
   verifiedDestination?: string,
 ) {
-  const store = await prisma.store.findUnique({ where: { id: storeId }, select: { lineDestination: true } });
-  if (!store?.lineDestination || (verifiedDestination && store.lineDestination !== verifiedDestination)) return;
-  const result = await captureStoreMemberConnection({ storeId, destination: verifiedDestination ?? store.lineDestination, lineUserId, phone, timestamp: eventIdentity?.timestamp ?? 0 });
-  // Preserve the existing explicitly staff-authorized rebind capture lane.
-  // The capture service itself verifies an outstanding request; never rebind here.
-  if (result === "review" && eventIdentity) {
-    const candidates = await prisma.customer.findMany({ where: { storeId, phone, mergedIntoCustomerId: null }, select: { id: true }, take: 2 });
-    const eventKey = lineWebhookEventKey(eventIdentity);
-    if (candidates.length === 1 && eventKey) await captureLineRebindCandidate({ storeId, customerId: candidates[0].id, normalizedPhone: phone, lineUserId, webhookEventKey: eventKey, eventTimestamp: eventIdentity.timestamp ? new Date(eventIdentity.timestamp) : undefined });
+  if (verifiedDestination) {
+    const store = await prisma.store.findUnique({ where: { id: storeId }, select: { lineDestination: true } });
+    if (store?.lineDestination !== verifiedDestination) return;
   }
-  if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: await connectionReplyText(result, storeId, lineUserId) }]);
+  let lineIdentityOwnedByOtherCustomer = false;
+  let reviewCustomerId: string | null = null;
+  // This is a store-notification binding, not account registration.  The old
+  // implementation reused the login binder and therefore created a User and
+  // Account[line] for an unregistered Customer.  A later real registration
+  // then collided with that synthetic account and surfaced "phone used".
+  // Keep this path deliberately store-recipient-only: it may update Customer's
+  // Messaging API identity, but must never create or replace login identity.
+  const candidates = await prisma.customer.findMany({
+    where: { storeId, phone, mergedIntoCustomerId: null },
+    select: { id: true, userId: true, lineUserId: true },
+    take: 2,
+  });
+
+  let result:
+    | { status: "customer_not_found" }
+    | { status: "ambiguous_multiple_candidates" }
+    | { status: "already_bound_to_other_line"; customerId: string }
+    | {
+        status: "bound_existing" | "already_synced";
+        customerId: string;
+        userId: string;
+        lineAccountSync: "noop_already_synced";
+      };
+
+  if (candidates.length === 0) {
+    result = { status: "customer_not_found" };
+  } else if (candidates.length > 1) {
+    result = { status: "ambiguous_multiple_candidates" };
+  } else {
+    const customer = candidates[0];
+    let mayReplaceRecipient = !customer.lineUserId || customer.lineUserId === lineUserId;
+
+    if (customer.lineUserId && customer.lineUserId !== lineUserId) {
+      const compatibility = await probeStoreLineRecipient(storeId, customer.lineUserId);
+      mayReplaceRecipient = compatibility.status === "INCOMPATIBLE";
+    }
+
+    if (!mayReplaceRecipient) {
+      result = {
+        status: "already_bound_to_other_line",
+        customerId: customer.id,
+      };
+    } else {
+      const bound = await updateStoreLineRecipient(() => prisma.customer.updateMany({
+        where: {
+          id: customer.id,
+          storeId,
+          phone,
+          mergedIntoCustomerId: null,
+          ...(customer.lineUserId
+            ? { lineUserId: customer.lineUserId }
+            : { lineUserId: null }),
+        },
+        data: {
+          lineUserId,
+          lineLinkStatus: "LINKED",
+          lineLinkedAt: new Date(),
+        },
+      }));
+
+      if (bound.identityConflict) {
+        lineIdentityOwnedByOtherCustomer = true;
+        reviewCustomerId = customer.id;
+      }
+
+      result = bound.count === 1
+        ? {
+            status: customer.lineUserId === lineUserId ? "already_synced" : "bound_existing",
+            customerId: customer.id,
+            userId: customer.userId ?? "",
+            lineAccountSync: "noop_already_synced",
+          }
+        : {
+            status: "already_bound_to_other_line",
+            customerId: customer.id,
+          };
+    }
+  }
+
+  logLineBindEvent({
+    path: "webhook-bind-code",
+    status: result.status,
+    storeId,
+    lineUserId,
+    customerId: "customerId" in result ? result.customerId : null,
+    userId: "userId" in result ? result.userId : null,
+    accountSyncStatus: "lineAccountSync" in result ? result.lineAccountSync : undefined,
+  });
+
+  // A candidate is captured only after the existing binding helper has safely
+  // rejected an overwrite and only when a staff-authorized request exists.
+  const captureCustomerId = lineIdentityOwnedByOtherCustomer
+    ? reviewCustomerId
+    : result.status === "already_bound_to_other_line"
+      ? result.customerId
+      : null;
+  if (captureCustomerId && eventIdentity) {
+    const eventKey = lineWebhookEventKey(eventIdentity);
+    if (eventKey) {
+      try {
+        const captured = await captureLineRebindCandidate({
+          storeId,
+          customerId: captureCustomerId,
+          normalizedPhone: phone,
+          lineUserId,
+          webhookEventKey: eventKey,
+          eventTimestamp: eventIdentity.timestamp ? new Date(eventIdentity.timestamp) : undefined,
+        });
+        // No raw LINE id, phone, candidate data, or encryption error is logged.
+        console.info("[LINE Webhook] Rebind candidate capture", { storeId, customerId: captureCustomerId, status: captured.status });
+      } catch {
+        console.error("[LINE Webhook] Rebind candidate capture failed", { storeId, customerId: captureCustomerId });
+      }
+    }
+  }
+
+  if (!replyToken) return;
+
+  const text = lineIdentityOwnedByOtherCustomer
+    ? "此 LINE 已綁定其他顧客資料，請由店長確認解除或合併。"
+    : result.status === "bound_existing" || result.status === "already_synced"
+      ? "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。"
+      : result.status === "customer_not_found"
+        ? "查無顧客資料，請確認手機號碼是否與店長登記的一致，或聯繫店長協助確認。"
+        : result.status === "ambiguous_multiple_candidates"
+          ? "系統找到多筆相同手機的顧客資料，需由店長人工確認後才能綁定。"
+          : result.status === "already_bound_to_other_line"
+            ? "此顧客資料已綁定其他 LINE，如需變更請聯繫店長協助。"
+            : "目前無法完成綁定，請稍後再試或聯繫店長協助。";
+
+  await replyMessage(storeId, replyToken, [{ type: "text", text }]);
 }
 
 // ============================================================

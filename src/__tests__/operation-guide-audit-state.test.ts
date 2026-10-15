@@ -16,7 +16,7 @@ describe("incremental guide audit accounting", () => {
     expect(frontendPending.size).toBe(state.frontendInteractionPendingGuideIds.length);
     expect(state.backendInteractionPendingCount).toBe(pending.size);
     expect(state.totalInteractionPendingCount).toBe(pending.size + frontendPending.size);
-    expect(state.totalInteractionPendingCount).toBe(36);
+    expect(state.totalInteractionPendingCount).toBe(49);
     expect(state.maintenanceScope).toBe("backend-only");
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
     expect(state.frontendGuideRetirement.status).toBe("retired-not-verified");
@@ -32,8 +32,8 @@ describe("incremental guide audit accounting", () => {
   });
 
   it("records the current main and attributes prior acceptance without clearing new revisions", () => {
-    expect(state.lastInventoriedMainCommit).toBe("5b6b030add78bb9d92663f01cf42b6a1231b857a");
-    expect(state.previousSuccessfulAuditCommit).toBe("0e01578a5c6cd11a9c7522e9839bdc471d59d2ef");
+    expect(state.lastInventoriedMainCommit).toBe("b01e2a208b6cb45feb738664390770c3518f6e70");
+    expect(state.previousSuccessfulAuditCommit).toBe("5b6b030add78bb9d92663f01cf42b6a1231b857a");
     expect(state.priorUserAcceptance.status).toBe("user-confirmed-passed");
     expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
     expect(state.backendCatalogFrontendRetirement.articleCount).toBe(8);

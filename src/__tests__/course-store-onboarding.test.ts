@@ -84,21 +84,22 @@ it("does not enter any creation path without HQ authorization", async () => {
   await expect(createStoreAction(input)).rejects.toThrow("FORBIDDEN");
   expect(m.storeFind).not.toHaveBeenCalled(); expect(m.transaction).not.toHaveBeenCalled();
 });
-it.each(["STEAMFOOT", "SPA"] as const)("preserves the existing %s onboarding and provisioning path", async (industryModule) => {
-  const result = await createStoreAction({ ...input, industryModule });
-  expect(result).toMatchObject({ success: true, data: { store: { industryModule, plan: "ALLIANCE" } } });
+it("preserves the existing Steamfoot onboarding path", async () => {
+  const result = await createStoreAction({ ...input, industryModule: "STEAMFOOT" });
+  expect(result).toMatchObject({ success: true, data: { store: { industryModule: "STEAMFOOT", plan: "ALLIANCE" } } });
   expect(m.transaction).not.toHaveBeenCalled();
   expect(m.trial).not.toHaveBeenCalled();
   expect(m.legacyPermissions).toHaveBeenCalledWith("owner-staff", "OWNER");
   expect(m.permissions).not.toHaveBeenCalled();
-  if (industryModule === "STEAMFOOT") {
-    expect(m.slots.mock.calls[0][0].data).toHaveLength(56);
-    expect(m.hours.mock.calls[0][0].data).toHaveLength(7);
-  } else {
-    expect(m.slots).not.toHaveBeenCalled();
-    expect(m.hours).not.toHaveBeenCalled();
-    expect(m.storeCreate.mock.calls[0][0].data.moduleInstallation.create.status).toBe("PROVISIONING");
-  }
+  expect(m.slots.mock.calls[0][0].data).toHaveLength(56);
+  expect(m.hours.mock.calls[0][0].data).toHaveLength(7);
+});
+it("rejects retired SPA before any database access", async () => {
+  expect(await createStoreAction({ ...input, industryModule: "SPA" })).toEqual({ success: false, error: "僅支援時段（蒸足）、運動教室與音樂教室模組" });
+  expect(m.storeFind).not.toHaveBeenCalled();
+  expect(m.storeCreate).not.toHaveBeenCalled();
+  expect(m.transaction).not.toHaveBeenCalled();
+  expect(m.userCreate).not.toHaveBeenCalled();
 });
 
 it("creates true Manager and Staff accounts without promoting them to Owner", async () => {

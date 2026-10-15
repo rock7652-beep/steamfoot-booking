@@ -11,7 +11,7 @@ export const dailyOperationGuides20260930: OperationGuide[] = [
     steps: ["選已設定好的來源日期，核對營業／公休狀態、服務時段與名額。", "展開套用其他日期，選「套用到指定日期」並跨月勾選目標日；決定既有設定要略過或覆蓋，以及是否包含來源日的單一時段調整。", "查看儲存前範圍與衝突處理說明，確認後儲存；逐日核對結果，誤套用時從完成提示點「復原」。"],
     important: "覆蓋會取代目標日整日設定與單一時段調整；既有預約不會自動取消。課程門市不使用此流程，需保留排課衝突檢查。",
     success: "來源日與實際完成的目標日顯示相同設定；略過日期會列出原因，每週固定規則與預約、收款、扣堂均未改變。",
-    details: ["不可選過去日期或來源日，單次最多 62 個目標日。保留原設定時，有整日特殊設定或單一時段調整的日期會略過。", "整批由同一交易寫入；失敗不會只成功一半。復原只適用剛完成的同一批操作，若相關日期已被別人修改會拒絕覆蓋新版。", "蒸足與 SPA 服務時段可使用；課程模組應在課程營業設定與課表中處理。"],
+    details: ["不可選過去日期或來源日，單次最多 62 個目標日。保留原設定時，有整日特殊設定或單一時段調整的日期會略過。", "整批由同一交易寫入；失敗不會只成功一半。復原只適用剛完成的同一批操作，若相關日期已被別人修改會拒絕覆蓋新版。", "蒸足服務時段可使用；課程模組應在課程營業設定與課表中處理。"],
     modules: ["steamfoot", "spa"], permission: "business_hours.manage", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx", "src/server/actions/business-hours.ts"],
   },

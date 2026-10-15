@@ -39,7 +39,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(205);
+    expect(operationGuides).toHaveLength(187);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
@@ -104,7 +104,7 @@ describe("guide catalogue", () => {
     expect(availableGuides(access).some(g => g.id === "D04")).toBe(false);
     expect(availableGuides(access).some(g => g.id === "J04")).toBe(false);
     expect(availableGuides({...access, module: "spa"}).some(g => g.id === "A01")).toBe(false);
-    expect(availableGuides({...access, module: "spa"}).some(g => g.id === "J04")).toBe(true);
+    expect(availableGuides({...access, module: "spa"}).some(g => g.id === "J04")).toBe(false);
   });
   it("recommends relevant settings across categories without bypassing access", () => {
     const results = relatedOperationGuides("/s/staging/admin/dashboard/settings", access);
@@ -116,7 +116,7 @@ describe("guide catalogue", () => {
   it("requires both booking and payment permissions for SPA checkout instructions", () => {
     const spa: GuideAccess = {module: "spa", permissions: ["booking.update"], features: {}};
     expect(availableGuides(spa).some(g => g.id === "J11")).toBe(false);
-    expect(availableGuides({...spa, permissions: [...spa.permissions, "transaction.create"]}).some(g => g.id === "J11")).toBe(true);
+    expect(availableGuides({...spa, permissions: [...spa.permissions, "transaction.create"]}).some(g => g.id === "J11")).toBe(false);
     expect(findOperationGuides("第一階段", {...access, permissions: ["business_hours.manage"]}).some(g => g.id === "F08")).toBe(true);
   });
   it("uses the current page rather than showing booking questions everywhere", () => {

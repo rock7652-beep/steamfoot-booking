@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
+
+it("retains only a safe server review reference for store assistance", async () => {
+  const referenceId = "a1234567-1234-1234-1234-123456789abc";
+  expect(await refreshLiffSession({ idToken: "isolated-token", storeSlug: "isolated" }, async () => ({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", referenceId })))
+    .toEqual({ status: "identity_review_required", referenceId });
+  expect(await refreshLiffSession({ idToken: "isolated-token", storeSlug: "isolated" }, async () => ({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", referenceId: "raw private value" })))
+    .toEqual({ status: "identity_review_required" });
+});
 const input = { idToken: "current-token", storeSlug: "shop" };
 afterEach(() => vi.unstubAllGlobals());
 describe("shared LIFF session refresh", () => {

@@ -1,5 +1,6 @@
 "use server";
 
+import { activateUnlinkedStoreMember } from "@/server/services/precreated-first-line-login";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 
 /**
@@ -21,6 +22,7 @@ import { resolveStoreBySlug } from "@/lib/store-resolver";
  */
 
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
+import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagnostic";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { z } from "zod";
 import { verifyLiffIdToken, LiffIdTokenError } from "@/lib/liff/verify-id-token";
@@ -55,9 +57,9 @@ export type OnboardingActionResult =
   | { status: "not_found" }
   | { status: "bound_other" }                   // already_bound_to_other_line
   | { status: "phone_taken_by_login_account" }  // phone_taken_by_other_user
-  | { status: "ambiguous" }                     // ambiguous_multiple_candidates
+  | { status: "ambiguous"; referenceId?: string }                     // ambiguous_multiple_candidates
   | { status: "expired" }                       // ID token expired
-  | { status: "identity_review_required" }
+  | { status: "identity_review_required"; referenceId?: string }
   | { status: "service_unavailable" };          // network / config / store not found / unexpected
 
 export async function submitOnboarding(
@@ -111,16 +113,34 @@ export async function submitOnboarding(
 
   if (context.config) return { status: "service_unavailable" };
 
+  // Rejection details remain private; return only the diagnostic reference.
+  const recordReview = (reason: Parameters<typeof createLiffReviewDiagnostic>[0]["reason"], stage: string) => {
+    const diagnostic = createLiffReviewDiagnostic({
+      storeId: store.id, identityProvider: context.identityProvider,
+      channelId: verified.channelId, verifiedSubject: verified.lineUserId, reason,
+    });
+    logLineBindEvent({
+      path: "liff-exchange", status: "identity_review_required",
+      storeId: store.id, storeSlug: store.slug,
+      errorCode: "IDENTITY_REVIEW_REQUIRED",
+      extra: { ...diagnostic, entryPoint: "onboarding", stage },
+    });
+    return diagnostic.referenceId;
+  };
+
   // Recheck verified ownership even if this page was opened directly or left open.
   try {
     const member = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
     if (member) return { status: "ok" };
     if (await storePhoneNeedsConfirmation(store.id, phone)) {
       if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
-      return { status: "identity_review_required" };
+      const activation = await activateUnlinkedStoreMember({ storeId: store.id, lineUserId: verified.lineUserId, name, phone });
+      if (activation === "activated") return { status: "ok" };
+      if (activation === "unavailable") return { status: "service_unavailable" };
+      return { status: "identity_review_required", referenceId: recordReview("store_membership_unconfirmed", "first_login_confirmation") };
     }
   } catch (error) {
-    if (error instanceof LineIdentityReviewError) return { status: "ambiguous" };
+    if (error instanceof LineIdentityReviewError) return { status: "ambiguous", referenceId: recordReview(error.reason, "verified_identity_lookup") };
     console.error("[liff/onboarding] identity lookup unavailable");
     return { status: "service_unavailable" };
   }

@@ -1,3 +1,4 @@
+// SPA identifiers remain only for reading archived records; runtime access is retired.
 export type IndustryModuleId = "steamfoot" | "spa" | "course";
 export type PersistedIndustryModule = "STEAMFOOT" | "SPA" | "COURSE";
 
@@ -64,7 +65,7 @@ export type MemberHomeTerminology = IndustryModule["customer"];
 
 export const STEAMFOOT_INDUSTRY_MODULE: IndustryModule = {
   id: "steamfoot",
-  displayName: "蒸足門市模組",
+  displayName: "時段模組（蒸足）",
   storeTypeLabel: "蒸足門市",
   roles: {
     owner: "店長",
@@ -224,13 +225,13 @@ export const COURSE_INDUSTRY_MODULE: IndustryModule = {
   theme: { accent: "#355b46", accentSoft: "#e8efe8", surface: "#faf8f5" },
 };
 
-const INDUSTRY_MODULES: Record<IndustryModuleId, IndustryModule> = {
+const INDUSTRY_MODULES: Record<Exclude<IndustryModuleId, "spa">, IndustryModule> = {
   steamfoot: STEAMFOOT_INDUSTRY_MODULE,
-  spa: SPA_INDUSTRY_MODULE,
   course: COURSE_INDUSTRY_MODULE,
 };
 
 export function getIndustryModule(id: IndustryModuleId): IndustryModule {
+  if (id === "spa") throw new Error("SPA 模組已移除");
   return INDUSTRY_MODULES[id];
 }
 
@@ -242,7 +243,8 @@ export function resolveIndustryModuleId(value: string | null | undefined): Indus
 export function toPersistedIndustryModule(
   value: IndustryModuleId,
 ): PersistedIndustryModule {
-  return value === "course" ? "COURSE" : value === "spa" ? "SPA" : "STEAMFOOT";
+  if (value === "spa") throw new Error("SPA 模組已移除");
+  return value === "course" ? "COURSE" : "STEAMFOOT";
 }
 
 export function getIndustryService(

@@ -10,7 +10,7 @@ export const dailyOperationGuides20261010: OperationGuide[] = [
     keywords: "單次 多人 原價 人合計 預計收款 金額快照 799 實收 部分到店 折抵原因 舊流程 逐人結帳 A16",
     steps: ["核對原預約人數、單次類型及預計收款總額。", "開啟收款，核對「原價（N 人合計）」與實收；部分到店時依實際金額及既有折抵原因處理。", "確認實際收到款項後只送出一次，再查原交易與預約；結果不明先查紀錄。"],
     important: "不會自動回寫舊交易或重算已有快照；不要把已有總額再乘人數，也不要把舊整組金額套到新版逐人首次體驗。",
-    details: ["例如沒有快照且採預設單價，2 人合計為 1598 元；已有優惠總額 1200 元則仍為 1200 元。", "本題只適用舊 SINGLE 整筆收款；新版 FIRST_TRIAL 多人預約每位收款、本人方案與未到狀態見 A15、A16。SPA 同行及課程預約也不能套用本題整筆乘人數。", "歷史快照疑似錯存單價時，先核對是否優惠與原交易，不自動更正已收款資料。"],
+    details: ["例如沒有快照且採預設單價，2 人合計為 1598 元；已有優惠總額 1200 元則仍為 1200 元。", "本題只適用舊 SINGLE 整筆收款；新版 FIRST_TRIAL 多人預約每位收款、本人方案與未到狀態見 A15、A16。課程預約也不能套用本題整筆乘人數。", "歷史快照疑似錯存單價時，先核對是否優惠與原交易，不自動更正已收款資料。"],
     success: "明細與收款視窗總額一致，原交易只有一次收款，歷史已收款未被改寫。",
     modules: ["steamfoot"], permission: "transaction.create", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/lib/single-booking-price.ts", "src/app/(dashboard)/dashboard/bookings/compute-amount.ts", "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx", "src/server/actions/single-booking.ts"],
