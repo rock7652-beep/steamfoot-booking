@@ -119,7 +119,6 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       const p1=await pay(privateClone,200),p2=await pay(privateClone,200);
       for(const l of r.lines.filter(l=>l.id!==privateClone))await pay(l.id);
       await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"重複全額"}),"分次 200＋200；重送及換請求均不能超付");
-      stage="請假及補課薪資更正";
       stage="將原課出席更正為取消";
       await correctCourseAttendance(tx,actor,privateBooking,"CANCELLED","ATTENDED");
       stage="設定原課學生請假";
@@ -130,12 +129,12 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,expectedRemaining:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"舊畫面重送"}),"請假更正後，舊金額付款請求會被阻擋");
       const sourcePrivate=selected.find(b=>b.customerId===proof.oldMakeup.customerId)!.session;
       const makeup=await session(sourcePrivate.templateId,sourcePrivate.roomId,sourcePrivate.coachId,"實際補課日",false);
-      const mb=await tx.courseBooking.create({data:{storeId:actor.storeId,sessionId:makeup,cardId:cards.get(proof.oldMakeup.customerId),customerId:proof.oldMakeup.customerId,customerName:"黃子齊",makeupForBookingId:privateBooking,operatorUserId:actor.userId,operatorName:actor.name,pointCost:1,requestKey:crypto.randomUUID()}});
+      const mb=await tx.courseBooking.create({data:{storeId:actor.storeId,sessionId:makeup,cardId:cards.get(proof.oldMakeup.customerId),customerId:proof.oldMakeup.customerId,customerName:selected.find(b=>b.customerId===proof.oldMakeup.customerId)!.customerName,makeupForBookingId:privateBooking,operatorUserId:actor.userId,operatorName:actor.name,pointCost:1,requestKey:crypto.randomUUID()}});
       await correctCourseAttendance(tx,actor,mb.id,"ATTENDED","RESERVED");
       const voidOnce=async(id:string)=>{const input={paymentId:id,reason:"測試更正點名・沖回誤登；未轉帳"};await voidCourseFeePayment(tx,actor,input);await voidCourseFeePayment(tx,actor,input);};
       await voidOnce(p1);await voidOnce(p2);await pay(makeup);await confirm();
       r=await report();ensure(r.lines.reduce((n,l)=>n+l.paid,0)===3750&&r.lines.find(l=>l.id===privateClone)?.paid===0&&r.lines.find(l=>l.id===makeup)?.paid===400,"補課重複計薪");checks.push("請假原付款沖回兩筆；補課日只付 400 元，原日不再計薪");
-      const groupCustomer="yjy-lubymusic-student-6abcd0c725424800b676c6d7",groupBooking=bookings.get(groupCustomer)!;
+      const groupCustomer=selected.find(b=>b.session.coachId===proof.teachers.find(t=>t.percent===60)!.staffId)!.customerId!,groupBooking=bookings.get(groupCustomer)!;
       const group=await tx.courseBooking.findUniqueOrThrow({where:{id:groupBooking}});
       const previous=await report();
       stage="團班點名及付款更正";
@@ -170,7 +169,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
     else{
       const code=typeof e==="object"&&e!==null&&"code" in e&&/^P\d{4}$/.test(String(e.code))?String(e.code):"未完成";
       const name=e instanceof Error?e.name:"Unknown";
-      console.error("[music-pilot-monthly-test]",{stage,code,name,...(e instanceof TypeError?{detail:e.message}:{}),...(name==="ZodError"&&typeof e==="object"&&e!==null&&"issues" in e?{issues:e.issues}:{})});
+      console.error("[music-pilot-monthly-test]",{stage,code,name});
       throw new AppError("CONFLICT",`${stage}未完成（${code}）；測試交易已中止，未登錄實際發薪。`);
     }
   }
