@@ -41,6 +41,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
   assertMusicOpeningPreviewEnvironment(process.env);
   ensure(process.env.VERCEL==="1"&&actor.storeId==="store-lubymusic","僅限指定測試站");
   let rolled:RollbackResult;
+  let stage="讀取測試前資料";
   try{
     await coursePrisma.$transaction(async tx=>{
       await lockCourseStore(tx,actor.storeId);
@@ -48,6 +49,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       ensure(proof,"十人費率來源未驗證");
       ensure(!(await tx.courseSession.count({where:{storeId:actor.storeId,startsAt:{gte:dayRange("2000-01-01").start,lte:dayRange("2000-01-31").end}}})),"測試月份已有課堂，不能混用");
       const key=crypto.randomUUID(), checks:string[]=[];
+      stage="讀取來源課堂";
       const customerIds=[...proof.enrollments.map(e=>e.customerId),proof.trial.customerId];
       const source=await tx.courseBooking.findMany({where:{storeId:actor.storeId,customerId:{in:customerIds},sessionId:{startsWith:"yjy-pilot-session:"}},include:{session:true},orderBy:{session:{startsAt:"asc"}}});
       const selected=[...new Map(source.map(b=>[b.customerId,b] as const).reverse()).values()];
@@ -55,6 +57,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       const sessions=new Map<string,string>(),cards=new Map<string,string>(),bookings=new Map<string,string>();
       let index=0;
       async function session(templateId:string,roomId:string,coachId:string,name:string,isTrial:boolean){
+        stage="建立模擬課堂及鐘點快照";
         const startsAt=dayRange(`2000-01-${String(++index).padStart(2,"0")}`).start;
         const s=await tx.courseSession.create({data:{storeId:actor.storeId,templateId,roomId,coachId,nameSnapshot:`[薪資測試・自動復原] ${name}`,isTrial,startsAt,endsAt:new Date(startsAt.getTime()+3600000),pointCost:1,capacity:10,requestKey:key,requestIndex:index,createdById:actor.userId}});
         const percent=proof!.teachers.find(t=>t.staffId===coachId)?.percent;
@@ -71,11 +74,13 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
           const basis=proof.enrollments.find(e=>e.customerId===b.customerId&&e.cardId===b.cardId);
           ensure(basis,"原價方案未核對");
           const originalCard=await tx.coursePointCard.findUniqueOrThrow({where:{id:b.cardId}});
-          const c=await tx.coursePointCard.create({data:{storeId:actor.storeId,planId:originalCard.planId,nameSnapshot:"[薪資測試・自動復原]",unit:"LESSON",templateIds:[original.templateId],remaining:8,expiresAt:dayRange("2000-02-28").end,requestKey:crypto.randomUUID()}});
+          stage="建立模擬方案及原價基數";
+          const c=await tx.coursePointCard.create({data:{storeId:actor.storeId,planId:originalCard.planId,nameSnapshot:"[薪資測試・自動復原]",unit:"SESSION",templateIds:[original.templateId],remaining:8,expiresAt:dayRange("2000-02-28").end,requestKey:crypto.randomUUID()}});
           cardId=c.id;cards.set(b.customerId!,c.id);
           await tx.courseCardMember.create({data:{storeId:actor.storeId,cardId,customerId:b.customerId!}});
-          await tx.coursePurchase.create({data:{storeId:actor.storeId,customerId:b.customerId!,planId:c.planId,name:c.nameSnapshot,unit:"LESSON",points:8,price:0,listPrice:basis.originalUnitPrice*8,validDays:70,templateIds:c.templateIds,status:"CONFIRMED",transferLastFive:"",requestKey:crypto.randomUUID(),cardId,confirmedAt:dayRange("2000-01-01").start,confirmedBy:actor.userId,storeCostSnapshot:0,developerProfitSnapshot:0,note:"測試原價基數；零收款；交易結束自動復原"}});
+          await tx.coursePurchase.create({data:{storeId:actor.storeId,customerId:b.customerId!,planId:c.planId,name:c.nameSnapshot,unit:"SESSION",points:8,price:0,listPrice:basis.originalUnitPrice*8,discountKind:"PERCENT",discountValue:100,paymentMethod:"DISCOUNT",validDays:70,templateIds:c.templateIds,status:"CONFIRMED",transferLastFive:"",requestKey:crypto.randomUUID(),cardId,confirmedAt:dayRange("2000-01-01").start,confirmedBy:actor.userId,storeCostSnapshot:0,developerProfitSnapshot:0,note:"測試原價基數；零收款；交易結束自動復原"}});
         }
+        stage="建立模擬預約及出席更正";
         const clone=await tx.courseBooking.create({data:{storeId:actor.storeId,sessionId,cardId,customerId:b.customerId,customerName:b.customerName,bookingKind:b.bookingKind,trialPrice:b.trialPrice,operatorUserId:actor.userId,operatorName:actor.name,pointCost:cardId?1:0,requestKey:crypto.randomUUID()}});
         bookings.set(b.customerId!,clone.id);
         await correctCourseAttendance(tx,actor,clone.id,"ATTENDED","RESERVED");
@@ -98,23 +103,27 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       const reject=async(work:()=>Promise<unknown>,label:string)=>{try{await work();}catch(e){if(e instanceof AppError){checks.push(label);return;}throw e;}throw new AppError("CONFLICT",`薪資測試未通過：${label}`);};
       const pay=async(id:string,amount?:number)=>{
         const line=(await report()).lines.find(l=>l.id===id)!;
-        ensure(line?.amount!==null&&!line.issue,"付款明細有待核對項");
+        ensure(line&&line.amount!==null&&!line.issue,"付款明細有待核對項");
         const input={sessionId:id,expectedAmount:line.amount!,expectedRemaining:line.amount!-line.paid,amount:amount??line.amount!-line.paid,method:"OTHER",requestKey:crypto.randomUUID(),note:"模擬發薪；未轉帳；結束自動復原"};
         await recordCourseFeePayment(tx,actor,input);await recordCourseFeePayment(tx,actor,input);
         const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseFeePayment" WHERE "storeId"=${actor.storeId} AND "requestKey"=${input.requestKey}`;
         ensure(rows.length===1,"相同付款請求重複登錄");return rows[0].id;
       };
+      stage="確認初始月結";
       let r=await confirm();ensure(r.lines.reduce((n,l)=>n+l.amount!,0)===3750&&r.lines.every(l=>!l.issue),"十人・八堂模擬薪資應為 3750");
       await confirm();ensure((await report()).revisions.length===1,"重複確認新增月結版本");checks.push("十位學員、五位老師月結 3,750 元；重複確認只留一版");
       const privateBooking=bookings.get(proof.oldMakeup.customerId)!;
       const privateSession=selected.find(b=>b.customerId===proof.oldMakeup.customerId)!.sessionId;
       const privateClone=sessions.get(privateSession)!;
+      stage="分次發薪及重送付款";
       const p1=await pay(privateClone,200),p2=await pay(privateClone,200);
       for(const l of r.lines.filter(l=>l.id!==privateClone))await pay(l.id);
       await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"重複全額"}),"分次 200＋200；重送及換請求均不能超付");
+      stage="請假及補課薪資更正";
       await correctCourseAttendance(tx,actor,privateBooking,"CANCELLED","ATTENDED");
       await tx.courseBooking.update({where:{id:privateBooking},data:{absenceKind:"STUDENT_LEAVE"}});
       r=await report();ensure(r.lines.find(l=>l.id===privateClone)?.amount===0&&r.lines.find(l=>l.id===privateClone)?.paid===400,"請假更正必須呈現原日多付 400");checks.push("更正為請假：原課日 0 元，已登錄 400 元保留並提示多付");
+      await reject(()=>recordCourseFeePayment(tx,actor,{sessionId:privateClone,expectedAmount:400,expectedRemaining:400,amount:400,method:"OTHER",requestKey:crypto.randomUUID(),note:"舊畫面重送"}),"請假更正後，舊金額付款請求會被阻擋");
       const sourcePrivate=selected.find(b=>b.customerId===proof.oldMakeup.customerId)!.session;
       const makeup=await session(sourcePrivate.templateId,sourcePrivate.roomId,sourcePrivate.coachId,"實際補課日",false);
       const mb=await tx.courseBooking.create({data:{storeId:actor.storeId,sessionId:makeup,cardId:cards.get(proof.oldMakeup.customerId),customerId:proof.oldMakeup.customerId,customerName:"黃子齊",makeupForBookingId:privateBooking,operatorUserId:actor.userId,operatorName:actor.name,pointCost:1,requestKey:crypto.randomUUID()}});
@@ -125,6 +134,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       const groupCustomer="yjy-lubymusic-student-6abcd0c725424800b676c6d7",groupBooking=bookings.get(groupCustomer)!;
       const group=await tx.courseBooking.findUniqueOrThrow({where:{id:groupBooking}});
       const previous=await report();
+      stage="團班點名及付款更正";
       await correctCourseAttendance(tx,actor,groupBooking,"RESERVED","ATTENDED");
       await correctCourseAttendance(tx,actor,groupBooking,"RESERVED","RESERVED");
       r=await report();ensure(r.lines.find(l=>l.id===group.sessionId)?.amount===null,"待點名應阻擋月結");
@@ -140,6 +150,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       await correctCourseAttendance(tx,actor,groupBooking,"NO_SHOW","RESERVED");
       r=await report();ensure(r.lines.find(l=>l.id===group.sessionId)?.amount===1080,"曠課仍須扣堂計薪");checks.push("曠課恢復 1,080 元，僅補登差額 270 元");
       await pay(group.sessionId);await correctCourseAttendance(tx,actor,groupBooking,"ATTENDED","NO_SHOW");await correctCourseAttendance(tx,actor,groupBooking,"ATTENDED","ATTENDED");await confirm();
+      ensure((await tx.coursePointCard.findUniqueOrThrow({where:{id:cards.get(groupCustomer)!}})).remaining===7,"重複更正多扣堂數");
       r=await report();ensure(summarizeSettlement(r.lines).every(p=>p.remaining===0&&p.issues===0),"最終應付與已付不一致");
       const ledger=await tx.$queryRaw<Array<{expense:bigint;reversal:bigint;paymentCount:bigint;voidCount:bigint}>>`SELECT
         (SELECT COALESCE(sum(e.amount),0)::bigint FROM "CashbookEntry" e JOIN "CourseFeePayment" p ON e.id='course-fee:'||p.id WHERE p."storeId"=${actor.storeId} AND p."sessionId"=ANY(${r.lines.map(l=>l.id)}::text[])) AS expense,
@@ -149,7 +160,15 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
       throw new RollbackResult({month:MONTH,checks,people:summarizeSettlement(r.lines).map(p=>({name:p.name,fee:p.fee,paid:p.paid,remaining:p.remaining})),lines:r.lines,revisions:r.revisions.length,paymentCount:Number(ledger[0].paymentCount),voidCount:Number(ledger[0].voidCount),expense:Number(ledger[0].expense),reversal:Number(ledger[0].reversal),restored:false},before);
     },{timeout:60000,maxWait:10000});
     throw new AppError("CONFLICT","測試交易未復原，停止顯示成功");
-  }catch(e){if(!(e instanceof RollbackResult))throw e;rolled=e;}
+  }catch(e){
+    if(e instanceof RollbackResult)rolled=e;
+    else if(e instanceof AppError)throw e;
+    else{
+      const code=typeof e==="object"&&e!==null&&"code" in e&&/^P\d{4}$/.test(String(e.code))?String(e.code):"未完成";
+      console.error("[music-pilot-monthly-test]",{stage,code});
+      throw new AppError("CONFLICT",`${stage}未完成（${code}）；測試交易已中止，未登錄實際發薪。`);
+    }
+  }
   const after=await coursePrisma.$transaction(async tx=>{await lockCourseStore(tx,actor.storeId);return baseline(tx,actor.storeId);},{timeout:15000});
   ensure(after===rolled.before,"資料復原核對不同，請重新核對原資料");
   return {...rolled.report,restored:true,checks:[...rolled.report.checks,"已讀回確認：原堂數、排課、補課、月結及發薪帳冊全部復原"]};
