@@ -1,5 +1,6 @@
 "use client";
 
+import { studentReturnHref } from "@/lib/music-student-navigation";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -33,7 +34,7 @@ function NativeRow({ row, canCreate, hidden }: { hidden: boolean; row: MusicLeav
   const [open, setOpen] = useState(false), [sessionId, setSessionId] = useState(""), [requestKey, setRequestKey] = useState(""), [error, setError] = useState("");
   const [pending, start] = useTransition();
   return <><tr hidden={hidden}>
-    <td><DashboardLink className="inline-flex min-h-11 items-center font-semibold text-primary-800 underline" href={`/dashboard/courses?view=customers&customerId=${encodeURIComponent(row.customerId)}&studentTab=makeups`}>{row.customerName}</DashboardLink><p>{row.name}</p></td>
+    <td><DashboardLink className="inline-flex min-h-11 items-center font-semibold text-primary-800 underline" href={studentReturnHref(row.customerId, legacy ? "dataScope=legacy" : "")}>{row.customerName}</DashboardLink><p>{row.name}</p></td>
     <td>{formatTWDateTime(new Date(row.date))}</td>
     <td>{row.expiry ? toLocalDateStr(new Date(row.expiry)) : "查看原方案"}</td>
     <td>{row.booking ? <DashboardLink className="inline-flex min-h-11 items-center text-primary-800 underline" href={`/dashboard/courses?date=${toLocalDateStr(new Date(row.booking.date))}&action=booking&session=${encodeURIComponent(row.booking.id)}${legacy?"&dataScope=legacy":""}`}>{formatTWDateTime(new Date(row.booking.date))}／點名</DashboardLink> : "尚未安排"}</td>
