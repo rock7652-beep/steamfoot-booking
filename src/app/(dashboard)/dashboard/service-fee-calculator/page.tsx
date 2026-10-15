@@ -28,6 +28,7 @@ interface PageProps {
     month?: string;
     view?: string;
     teacherId?: string;
+    salaryData?: string;
   }>;
 }
 
@@ -55,7 +56,7 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
     return <ServiceFeeCalculatorLockedState />;
   }
 
-  if(calculatorStoreId && await getStoreIndustryModule(calculatorStoreId)==="course") return <CourseMonthly storeId={calculatorStoreId} month={month} teacherId={params.teacherId} readOnly={!!storeViewContext?.isViewMode}/>;
+  if(calculatorStoreId && await getStoreIndustryModule(calculatorStoreId)==="course") return <CourseMonthly storeId={calculatorStoreId} month={month} teacherId={params.teacherId} salaryData={params.salaryData} readOnly={!!storeViewContext?.isViewMode}/>;
 
   if (calculatorStoreId && params.view !== "legacy" && await getStoreIndustryModule(calculatorStoreId) === "steamfoot") return <SteamfootMonthly storeId={calculatorStoreId} month={month} readOnly={!!storeViewContext?.isViewMode}/>;
 

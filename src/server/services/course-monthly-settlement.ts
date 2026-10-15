@@ -1,4 +1,5 @@
 import "server-only";
+import { separateMusicPayroll } from "./music-payroll-cohorts";
 import { createHash } from "node:crypto";
 import type { Prisma } from "../../../generated/course-client";
 import { monthRange } from "@/lib/date-utils";
@@ -48,7 +49,8 @@ export async function readCourseMonthlySettlement(tx:Prisma.TransactionClient,st
     lines.push({kind:"FEE",id:session.id,staffId:session.staffId,name:names.get(session.staffId)??"歷史教練",label:session.name,date:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),feeDetails:calculated.details.map(({name,base,amount,reason})=>({name,base,amount,reason})),amount:fee,paid:history.filter(p=>!p.voidedAt).reduce((n,p)=>n+p.amount,0),issue,payments:history.map(p=>paymentView({...p,purchaseId:""}))});
   }
   // Payments remain live. Confirmation freezes obligations, not payment status.
-  const obligations=lines.map(({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue})=>({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue}));
+  const separated=separateMusicPayroll(storeId,lines);
+  const obligations=separated.lines.map(({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue})=>({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue}));
   const fingerprint=createHash("sha256").update(JSON.stringify(obligations)).digest("hex");
-  return {settings,lines,fingerprint,revisions};
+  return {settings,...separated,fingerprint,revisions};
 }
