@@ -10,7 +10,7 @@ import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveMusicSubject } from "@/server/actions/music-subject";
-export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string;classType?:string|null;durationMinutes?:number;capacity?:number};
+export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string;classType?:string|null;durationMinutes?:number;capacity?:number;musicTeacherShare?:number;musicScheduleMode?:string|null};
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCreate,canEdit}:{displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean}){
@@ -58,7 +58,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
        }
        const result = await saveMusicSubject({
          id: editing?.id,
-         classType:d.get("classType"),durationMinutes:Number(d.get("durationMinutes")),capacity:Number(d.get("capacity")),
+         musicTeacherShare:Number(d.get("musicTeacherShare")),musicScheduleMode:d.get("musicScheduleMode"),classType:d.get("classType"),durationMinutes:Number(d.get("durationMinutes")),capacity:Number(d.get("capacity")),
          expectedUpdatedAt: editing?.updatedAt,
          name: d.get("name"),
          category: d.get("category"),
@@ -84,6 +84,8 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  <label>上課時長<select className={field} name="durationMinutes" defaultValue={editing?.durationMinutes??60}>{[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}</select></label>
  <label>人數上限<input className={field} name="capacity" type="number" required min={1} max={500} defaultValue={editing?.capacity??1}/></label>
  <p className="self-center text-sm text-earth-600">套用於新排課；已排課堂保留原設定。</p>
+ <label>排課方式<select className={field} name="musicScheduleMode" defaultValue={editing?.musicScheduleMode??"FIXED"}><option value="FIXED">固定時段</option><option value="APPOINTMENT">約課</option></select></label>
+ <label>預設老師拆帳比<input className={field} name="musicTeacherShare" type="number" required min={0} max={1} step={0.01} defaultValue={editing?.musicTeacherShare??0.6}/></label>
  <details className="sm:col-span-2"><summary className="cursor-pointer py-2">課程介紹（選填）</summary><textarea aria-label="課程介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
  {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}<button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white sm:col-span-2" disabled={pending}>{pending?"儲存中…":"儲存"}</button></fieldset>
  </form>}

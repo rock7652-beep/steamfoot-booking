@@ -12,6 +12,7 @@ export async function resolveMusicSubjectRule(tx:Prisma.TransactionClient,storeI
   if(!subject)throw new AppError("VALIDATION","請選擇本店上架中的課程項目");
   const item = musicDataSeparationEnabled(storeId) ? await tx.courseTemplate.findFirst({where:{storeId,musicSubjectId:subjectId,isActive:true},orderBy:[{createdAt:"asc"},{id:"asc"}]}) : null;
   if(item && item.classType!==settings.classType)throw new AppError("VALIDATION","授課型態由教學項目決定；不同型態請另建項目");
+  if(item){settings.musicTeacherShare=Number(item.musicTeacherShare??0.6);settings.musicScheduleMode=item.musicScheduleMode==="APPOINTMENT"?"APPOINTMENT":"FIXED";}
   const existing=await tx.courseTemplate.findFirst({where:{storeId,musicSubjectId:subjectId,isActive:true,visibility:"PUBLIC",musicTrialMode:null,...settings},orderBy:{createdAt:"asc"}});
   if(existing)return existing;
   const name=`${subject.name} · ${musicClassLabel[settings.classType]} ${settings.musicTermLessons}堂`;
