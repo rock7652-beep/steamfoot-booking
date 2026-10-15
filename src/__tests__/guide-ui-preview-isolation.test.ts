@@ -1,9 +1,10 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
+import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview, isSpaRetirementUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
 
 vi.hoisted(async () => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
@@ -35,6 +36,12 @@ const waitlistSafe = {
   DATABASE_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
   DIRECT_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
 };
+const spaRetirementSafe = {
+  ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "codex/fix-spa-history-access-20261015",
+};
+function enableSpaRetirement() {
+  for (const [key, value] of Object.entries(spaRetirementSafe)) vi.stubEnv(key, value);
+}
 function enableWaitlist() {
   for (const [key, value] of Object.entries(waitlistSafe)) vi.stubEnv(key, value);
 }
@@ -54,7 +61,11 @@ const renewalSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-sch
 function enableRenewal() {
   for (const [key, value] of Object.entries(renewalSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }];
+const permissionsSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-school-role-permissions" };
+function enablePermissions() {
+  for (const [key, value] of Object.entries(permissionsSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -105,14 +116,14 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/guides/music-school-remote-management-role-permissions", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     expect(spies.auth).not.toHaveBeenCalled();
   });
-  it.each(["/api/cron/send-reminders", "/api/line/webhook", "/api/auth/session", "/api/auth/callback/line", "/hq/login", "/s/zhubei/", "/s/zhubei/admin/dashboard", "/_next/image?url=https://remote.invalid/a.png&w=640&q=75", "/health", "/apply", "/guides/unknown", "/guides/private/admin", "/guides/%2f..%2fapi/cron/send", "/guides/UPPERCASE", "/pricing/guides/../submit", "/pricing/brand/not-a-guide.html"])("blocks %s before auth or route dispatch", path => {
+  it.each(["/api/cron/send-reminders", "/api/line/webhook", "/api/auth/session", "/api/auth/callback/line", "/hq/login", "/s/zhubei/", "/s/zhubei/admin/dashboard", "/_next/image?url=https://remote.invalid/a.png&w=640&q=75", "/health", "/apply", "/pricing", "/guides/unknown", "/guides/private/admin", "/guides/%2f..%2fapi/cron/send", "/guides/UPPERCASE", "/pricing/guides/../submit", "/pricing/brand/not-a-guide.html"])("blocks %s before auth or route dispatch", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     expect(route(path).status).toBe(404);
     expect(spies.auth).not.toHaveBeenCalled();
@@ -143,7 +154,7 @@ describe.each(previewModes)("$name outer request boundary before auth", ({ name,
   });
 });
 
-describe.each(previewModes)("$name database and outbound isolation", ({ enable: enableMode }) => {
+describe.each([...previewModes, { name: "SPA retirement", enable: enableSpaRetirement }])("$name database and outbound isolation", ({ enable: enableMode }) => {
   beforeEach(enableMode);
   it("never constructs or reuses any real cached client", async () => {
     vi.resetModules();
@@ -384,5 +395,103 @@ describe("renewal publication exact Preview provenance", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+describe("role-permissions publication exact Preview provenance", () => {
+  it("accepts only the exact repository and branch without database credentials", () => {
+    expect(isGuideUiPreview({ ...permissionsSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-school-role-permissions"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
+    expect(() => isGuideUiPreview({ ...permissionsSafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-school-role-permissions" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations before database work with no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...permissionsSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+
+describe("role-permissions crawler isolation", () => {
+  it("supports HEAD and disallows indexing while keeping the sitemap empty", async () => {
+    enablePermissions();
+    const path = "/guides/music-school-remote-management-role-permissions";
+    const response = route(path, "HEAD");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(spies.auth).not.toHaveBeenCalled();
+    const { GET: robots } = await import("@/app/robots.txt/route");
+    const { GET: sitemap } = await import("@/app/sitemap.xml/route");
+    expect(await robots(new Request("https://preview.example.test/robots.txt")).text()).toContain("Disallow: /");
+    expect(await sitemap(new Request("https://preview.example.test/sitemap.xml")).text()).not.toContain("<loc>");
+  });
+});
+
+
+describe("SPA retirement read-only preview", () => {
+  beforeEach(enableSpaRetirement);
+  it("requires exact Preview provenance without using database credentials", () => {
+    expect(isGuideUiPreview({ ...spaRetirementSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    expect(isSpaRetirementUiPreview({ ...spaRetirementSafe, VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" })).toBe(false);
+    for (const key of ["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"]) {
+      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: undefined })).toThrow(/isolation rejected/);
+      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: "wrong" })).toThrow(/isolation rejected/);
+    }
+    for (const key of ["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH", "GUIDE_UI_PREVIEW"]) {
+      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: "1" })).toThrow(/isolation rejected/);
+    }
+  });
+  it.each(["/", "/pricing", "/pricing/features", "/pricing/features/slots", "/pricing/features/music", "/pricing/features/fitness", "/apply", "/spa-retirement-preview", "/pricing/business-assets/brand-reminder-example.jpeg"])("permits review GET %s without auth", path => {
+    const response = route(path);
+    expect(response.status).toBeLessThan(400);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it.each(["/hq/dashboard", "/s/zhubei/admin/dashboard", "/api/auth/session", "/api/cron/reminders", "/api/line/webhook", "/pricing/submit", "/_next/image?url=test", "/spa-retirement-preview/extra"])("blocks non-review GET %s", path => {
+    expect(route(path).status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it.each(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"])("blocks %s before auth, API or server action", method => {
+    for (const path of ["/spa-retirement-preview", "/apply", "/pricing/submit", "/api/line/webhook"]) {
+      expect(route(path, method).status).toBe(405);
+    }
+    expect(spies.auth).not.toHaveBeenCalled();
+    expect(spies.prisma).not.toHaveBeenCalled();
+    expect(spies.send).not.toHaveBeenCalled();
+  });
+  it.each(["/spa-preview", "/s/demo/admin/dashboard/spa-schedule", "/pricing/features/services"])("keeps retired entry %s unavailable", path => {
+    expect(route(path).status).toBe(410);
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it("skips migrations before any database work even with missing connections", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], {
+      env: { ...process.env, ...spaRetirementSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" },
+      encoding: "utf8", timeout: 15000,
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+  it.each(["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"])("serves rewritten destination %s without an alias loop", path => {
+    const response = route(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it("hides the synthetic review page in normal deployments", () => {
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");
+    expect(route("/spa-retirement-preview").status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
   });
 });

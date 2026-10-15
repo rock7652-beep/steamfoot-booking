@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
 
 describe("SPA preview direct entries", () => {
-  it("lets SPA direct entries bypass the default Steamfoot route fallback", () => {
+  it("rejects retired direct entries before authentication or fallback routing", () => {
     const proxy = readFileSync("src/proxy.ts", "utf8");
-
-    expect(proxy).toContain('pathname === "/spa-preview"');
-    expect(proxy).toContain('pathname.startsWith("/spa-preview/")');
+    expect(proxy.indexOf("if (isRetiredModuleRoute")).toBeLessThan(proxy.lastIndexOf("authenticatedProxy(...args)"));
+    expect(proxy).toContain("status: 410");
+    for (const path of ["/spa-preview", "/spa-preview/manager", "/spa-preview/staff"]) {
+      expect(isRetiredModuleRoute(path, new URLSearchParams())).toBe(true);
+    }
   });
 
   it.each([

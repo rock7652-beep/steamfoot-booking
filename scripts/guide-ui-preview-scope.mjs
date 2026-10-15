@@ -99,6 +99,21 @@ function isRenewalUiPreview(env) {
   return true;
 }
 
+// Exact approved role-permissions article review: no database or outbound delivery.
+/** @param {Record<string, string | undefined>} env */
+function isRolePermissionsUiPreview(env) {
+  const branch = "content/music-school-role-permissions";
+  const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
+  if (!branches.includes(branch)) return false;
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== branch ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW)) {
+    throw new Error("Role permissions UI preview isolation rejected: exact Vercel Preview branch and repository required");
+  }
+  return true;
+}
+
 // Exact HQ KPI-only review: no database, auth, writes or real customer records.
 export const HQ_USAGE_UI_PREVIEW_BRANCH = "fix/hq-automatic-reminder-total";
 export const SINGLE_PRICING_UI_PREVIEW_BRANCH = "fix/single-group-pricing-20261009";
@@ -142,9 +157,36 @@ export function isMarketingStickyUiPreview(env = process.env) {
   return true;
 }
 
+// User-authorized SPA retirement review. Reuse disabled clients and never read
+// inherited database credentials; only this exact repository/Preview branch qualifies.
+export const SPA_RETIREMENT_UI_PREVIEW_BRANCH = "codex/fix-spa-history-access-20261015";
+export function isSpaRetirementUiPreview(env = process.env) {
+  const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
+  if (!branches.includes(SPA_RETIREMENT_UI_PREVIEW_BRANCH)) return false;
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== SPA_RETIREMENT_UI_PREVIEW_BRANCH ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW)) {
+    throw new Error("SPA retirement preview isolation rejected: exact read-only Vercel Preview required");
+  }
+  return true;
+}
+
+export function isSpaRetirementPreviewPath(path) {
+  const pages = [
+    "/", "/spa-retirement-preview", "/pricing", "/pricing/business",
+    "/pricing/features", "/pricing/features/slots", "/pricing/features/music",
+    "/pricing/features/fitness", "/apply", "/pricing/apply.html",
+    "/privacy", "/terms", "/pricing/terms.html", "/refunds", "/pricing/refunds.html",
+    "/robots.txt", "/sitemap.xml", "/favicon.ico",
+  ];
+  return pages.includes(path) || path.startsWith("/_next/static/") ||
+    /^\/pricing\/(?:brand|images|business-assets)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path);
+}
+
 export function isGuideUiPreview(env = process.env) {
-  if (isMarketingStickyUiPreview(env)) return true;
-  if (isRenewalUiPreview(env) || isTeacherFeeUiPreview(env) || isPilatesUiPreview(env) || isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
+  if (isSpaRetirementUiPreview(env) || isMarketingStickyUiPreview(env)) return true;
+  if (isRolePermissionsUiPreview(env) || isRenewalUiPreview(env) || isTeacherFeeUiPreview(env) || isPilatesUiPreview(env) || isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
   const requested = branches.includes(GUIDE_UI_PREVIEW_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW);
   if (!requested) return false;

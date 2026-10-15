@@ -21,6 +21,7 @@ import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { FeatureEntitlementList } from "./feature-entitlement-list";
 import { DigitalButlerActivationForm } from "./digital-butler-activation-form";
+import { RetiredStoreSettingsNotice } from "@/components/retired-store-settings-notice";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -61,6 +62,10 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   });
 
   if (!store) notFound();
+
+  if (store.industryModule === "SPA") {
+    return <RetiredStoreSettingsNotice storeId={store.id} />;
+  }
 
   const supportsSharedCard = store.industryModule === "COURSE" && !store.featureEntitlements.some(e => e.featureKey === "business.music" && e.status === "ENABLED");
   const sharedCardSnapshot = supportsSharedCard ? await readCourseSharedCardSnapshot(prisma, store.id) : null;

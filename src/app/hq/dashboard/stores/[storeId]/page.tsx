@@ -16,7 +16,6 @@ import {
 } from "@/lib/store-operating-status";
 import { ActivateTrialButton } from "./activate-trial-button";
 import { RenameStoreForm } from "./rename-store-form";
-import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -40,7 +39,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
-  const coursePlan = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+  const retired = summary.store.industryModule === "SPA";
+  const coursePlan = summary.store.industryModule === "COURSE" && !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
     ? await getStoreForPlanByStoreId(storeId) : null;
   const retention = coursePlan ? getTrialRetention(coursePlan) : null;
   const trialStarted = Boolean(coursePlan?.planEffectiveAt && coursePlan?.planExpiresAt);
@@ -101,17 +101,13 @@ export default async function StoreDetailPage({ params }: PageProps) {
             label="已選模組"
             value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
-          {summary.store.industryModule === "SPA" && !summary.canActivate && (
-            <>
-              <p className="mt-2 text-xs leading-relaxed text-amber-700">
-                SPA 專屬資料與排程尚在佈建，因此此店不會啟用，也不會使用蒸足預約資料。
-              </p>
-              <SpaProvisionButton storeId={storeId} />
-            </>
+          {summary.store.industryModule === "SPA" && (
+            <p role="status" className="mt-2 text-sm text-amber-700">SPA 模組已移除，既有資料保留封存。</p>
           )}
         </Section>
 
         {/* URLs — 前台 */}
+        {!retired && <>
         <Section title="前台網址">
           <InfoRow label="顧客登入" value={summary.urls.storefront} link />
           <InfoRow label="預約頁" value={summary.urls.booking} link />
@@ -124,6 +120,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <InfoRow label="店舖後台" value={summary.urls.adminDashboard} link />
           <InfoRow label="HQ 管理" value={summary.urls.hqStoreDetail} link />
         </Section>
+        </>}
 
         {/* Accounts */}
         <Section title="帳號">
@@ -140,7 +137,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Section>
 
         {/* Operating status */}
-        <Section title="營運狀態">
+        {!retired && <Section title="營運狀態">
           <div className="flex flex-wrap items-center gap-2">
             {(Object.keys(STORE_OPERATING_STATUS_LABELS) as StoreOperatingStatus[]).map((status) => (
               <OperatingStatusButton
@@ -154,7 +151,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <p className="mt-2 text-xs leading-relaxed text-earth-500">
             營運狀態由 HQ 管理。TRIAL / ACTIVE 可接受前台與新預約；PAUSED / INACTIVE 會阻擋前台顧客頁與所有新預約，但保留資料與後台檢視。
           </p>
-        </Section>
+        </Section>}
 
         {/* Checklist */}
         <Section title="建置與驗收進度">
@@ -173,7 +170,12 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Section>
 
         {/* Status bar */}
-        {summary.store.isDemo ? (
+        {retired ? (
+          <p role="status" className="text-sm text-earth-600">
+            SPA 模組已停用，歷史資料保留。
+            <Link href="/hq/dashboard/operation-audits?module=SPA" className="ml-2 inline-flex min-h-11 items-center text-primary-700 underline">查看歷史操作紀錄</Link>
+          </p>
+        ) : summary.store.isDemo ? (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
             <p className="text-sm font-medium text-blue-700">
               ℹ️ Demo 店不可啟用為正式店

@@ -9,3 +9,6 @@ export const HQ_USAGE_UI_PREVIEW_BRANCH: string;
 export function isHqUsageUiPreview(env?: Record<string, string | undefined>): boolean;
 export const SINGLE_PRICING_UI_PREVIEW_BRANCH: string;
 export function isSinglePricingUiPreview(env?: Record<string, string | undefined>): boolean;
+export const SPA_RETIREMENT_UI_PREVIEW_BRANCH: string;
+export function isSpaRetirementUiPreview(env?: Record<string, string | undefined>): boolean;
+export function isSpaRetirementPreviewPath(path: string): boolean;

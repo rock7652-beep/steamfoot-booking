@@ -2,7 +2,6 @@
 
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import type { Prisma } from "@prisma/client";
-import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
 import { ALL_PERMISSIONS, createDefaultPermissions, requirePermission } from "@/lib/permissions";
@@ -307,6 +306,10 @@ export async function activateStoreAction(
     return { success: false, error: "店舖不存在" };
   }
 
+  if (store.industryModule === "SPA") {
+    return { success: false, error: "SPA 模組已移除" };
+  }
+
   // ★ Demo 店禁止啟用（規格強制）
   if (store.isDemo) {
     return { success: false, error: "Demo 店無法啟用為正式店，請建立新的正式店" };
@@ -517,11 +520,12 @@ export async function updateStoreOperatingStatusAction(
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { id: true },
+    select: { id: true, industryModule: true },
   });
   if (!store) {
     return { success: false, error: "店舖不存在" };
   }
+  if (store.industryModule === "SPA") return { success: false, error: "SPA 模組已停用，無法修改營運狀態" };
 
   await prisma.store.update({
     where: { id: storeId },
@@ -689,10 +693,8 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   } else {
     items.push({
       key: "booking-slots",
-      label: "SPA 專屬排程已建立",
-      status: (await spaPrisma.spaTreatment.count({ where: { storeId, isActive: true } })) > 0
-        && (await spaPrisma.spaSkill.count({ where: { storeId, isActive: true } })) > 0
-        && store.moduleInstallation?.status === "ACTIVE" ? "pass" : "fail",
+      label: "SPA 模組已移除，資料保留封存",
+      status: "fail",
     });
   }
 
@@ -717,8 +719,8 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!input.slug?.trim()) errors.push("slug 不可為空");
   if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
-  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA" && input.industryModule !== "COURSE") {
-    errors.push("產業模組不正確");
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "COURSE") {
+    errors.push("僅支援時段（蒸足）、運動教室與音樂教室模組");
   }
 
   if (input.industryModule !== "COURSE" && input.businessProfile) {
