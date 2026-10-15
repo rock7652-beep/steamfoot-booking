@@ -42,6 +42,7 @@ export async function GET(req:NextRequest) {
     if(report.netRevenue!==null)rows.push(["收款淨額",report.netRevenue]);
     if(report.profit!==null)rows.push([report.missingProfit>0?"方案利潤已確認金額（待核對未計入）":"方案利潤",report.missingProfit>0&&report.knownProfit===0?"待核對":report.profit],["利潤待核對筆數",report.missingProfit]);
     if(report.fee!==null)rows.push([report.missingFees>0?"授課費已確認金額（待核對未計入）":"應計授課費",report.missingFees>0&&report.sessions===report.missingFees?"待核對":report.fee],["費率待核對堂數",report.missingFees]);
+    rows.push(["授課堂數口徑","已結束且有出席的課次；授課時數依同一範圍計算"],["費率待核對口徑","已結束但費率無法確認的課次，不限有出席課次；未計入授課費金額，筆數不代表應付堂數"]);
     const csv=rows.map(row=>row.map(value=>`"${String(typeof value==="string"&&/^[=+@\-\t\r]/.test(value)?"'"+value:value).replaceAll('"','""')}"`).join(",")).join("\r\n");
     return new NextResponse("\uFEFF"+csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-business-${range.startDate}-${range.endDate}.csv"`,"Cache-Control":"no-store"}});
   }
