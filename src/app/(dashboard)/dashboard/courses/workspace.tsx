@@ -304,7 +304,7 @@ export function CourseWorkspace({
   }
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
-  >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
+  >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : businessProfile === "MUSIC" && params.get("returnStudentId") && sessions.some(session => session.id === params.get("session")) ? null : params.get("action") === "booking" || params.get("session") ? "day" : null);
   useEffect(() => {
     if (view !== "schedule" || panel !== "day") return;
     const refresh = () => {
