@@ -1,3 +1,5 @@
+import { musicSessionWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
+import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { DashboardLink } from "@/components/dashboard-link";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -99,7 +101,7 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
-  const rentals = await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
+  const rentals = musicDataScope(storeId,query.dataScope)==="legacy" ? [] : await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
   const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
   const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
   const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
@@ -166,6 +168,7 @@ export default async function CoursesPage({
       }),
       coursePrisma.courseSession.findMany({
         where: {
+          ...musicSessionWhere(storeId,query.dataScope),
           storeId,
           cancelledAt: null,
           OR: [
@@ -322,6 +325,7 @@ export default async function CoursesPage({
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1"
       }
     >
+      {view === "schedule" && <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/> }
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
         <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
           {showLubyReplica && (

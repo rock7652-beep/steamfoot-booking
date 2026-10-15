@@ -1,3 +1,4 @@
+import { musicSessionWhere } from "@/server/services/music-data-scope";
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError } from "@/lib/errors";
@@ -6,7 +7,7 @@ import { musicOpeningMakeupRecordSchema, classifyMusicOpeningMakeupRecord, type 
 import { summarizeNativeMakeupSources } from "@/lib/music-opening-native-summary";
 
 /** Source IDs never leave this server-only projection. No card balance is added. */
-export async function getOpeningMakeupWorkspace(storeId: string, customerId?: string, visibleCustomerIds?: string[]) {
+export async function getOpeningMakeupWorkspace(storeId: string, customerId?: string, visibleCustomerIds?: string[],dataScope?:string) {
   return coursePrisma.$transaction(async tx => {
     const rights = await tx.courseMusicOpeningMakeupEntitlement.findMany({
       where: { storeId, ...(visibleCustomerIds ? { customerId: { in: visibleCustomerIds } } : {}), ...(customerId ? { AND: [{ customerId }] } : {}) }, orderBy: [{ customerId: "asc" }, { createdAt: "asc" }], take: 201,
@@ -79,7 +80,7 @@ export async function getOpeningMakeupWorkspace(storeId: string, customerId?: st
     const customerIds = [...new Set(rights.map(row => row.customerId))];
     const customers = customerIds.length ? await tx.$queryRaw<Array<{ id: string; name: string }>>`SELECT id,name FROM "Customer" WHERE "storeId"=${storeId} AND id=ANY(${customerIds}::text[])` : [];
     const names = new Map(customers.map(customer => [customer.id, customer.name]));
-    const sessions = rights.length ? await tx.courseSession.findMany({ where: { storeId, templateId: { in: [...new Set(rights.map(row => row.templateId))] }, cancelledAt: null, releasedAt: null, startsAt: { gt: new Date() }, teacherAttendance: { notIn: ["LEAVE", "NO_SHOW"] }, teacherMakeupForSessionId: null, isTrial: false }, orderBy: { startsAt: "asc" }, take: 200, select: { id: true, templateId: true, nameSnapshot: true, startsAt: true } }) : [];
+    const sessions = rights.length ? await tx.courseSession.findMany({ where: { ...musicSessionWhere(storeId,dataScope), storeId, templateId: { in: [...new Set(rights.map(row => row.templateId))] }, cancelledAt: null, releasedAt: null, startsAt: { gt: new Date() }, teacherAttendance: { notIn: ["LEAVE", "NO_SHOW"] }, teacherMakeupForSessionId: null, isTrial: false }, orderBy: { startsAt: "asc" }, take: 200, select: { id: true, templateId: true, nameSnapshot: true, startsAt: true } }) : [];
     return {
       opening, native, verifiedCustomerCount: new Set([...groups.values()].map(group => group.customerId)).size, totalOutstanding: opening.outstanding + native.outstanding,
       rows: rights.map((row, i) => {

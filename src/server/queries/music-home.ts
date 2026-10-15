@@ -1,3 +1,4 @@
+import { musicSessionWhere } from "@/server/services/music-data-scope";
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -7,7 +8,7 @@ import { dayRange } from "@/lib/date-utils";
 export async function getMusicHomeSchedule(storeId: string, date: string, now = new Date()) {
   const range = dayRange(date);
   const sessions = await coursePrisma.courseSession.findMany({
-    where: { storeId, startsAt: { gte: range.start, lte: range.end }, cancelledAt: null, releasedAt: null },
+    where: { ...musicSessionWhere(storeId), storeId, startsAt: { gte: range.start, lte: range.end }, cancelledAt: null, releasedAt: null },
     select: { id: true, nameSnapshot: true, coachId: true, startsAt: true, endsAt: true, teacherAttendance: true, room: { select: { name: true } },
       bookings: { where: { storeId, status: { not: "CANCELLED" } }, select: { status: true } } },
     orderBy: [{ startsAt: "asc" }, { id: "asc" }], take: 201,

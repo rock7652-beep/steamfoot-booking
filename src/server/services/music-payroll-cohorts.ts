@@ -1,6 +1,6 @@
 import "server-only";
 import type { SettlementLine } from "@/lib/course-monthly-settlement";
-import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
+import { musicDataSeparationEnabled, LEGACY_MUSIC_SESSION_IDS } from "./music-data-scope";
 
 /** Exact session IDs audited on 2026-10-15; never infer payroll provenance from a name or prefix. */
 export const LEGACY_PAYROLL_SESSION_IDS = new Set([
@@ -16,10 +16,7 @@ export const LEGACY_PAYROLL_SESSION_IDS = new Set([
   "music-accept-v1-weekly-3-2", "music-accept-v1-biweekly-3-1",
 ]);
 export function separateMusicPayroll(storeId: string, lines: SettlementLine[], env: Record<string, string | undefined> = process.env) {
-  let separationEnabled = false;
-  if (storeId === "store-lubymusic" && env.VERCEL === "1") {
-    try { assertMusicOpeningPreviewEnvironment(env); separationEnabled = true; } catch { /* Outside this isolated Preview, preserve existing payroll. */ }
-  }
-  const isLegacy = (line: SettlementLine) => separationEnabled && line.kind === "FEE" && LEGACY_PAYROLL_SESSION_IDS.has(line.id);
+  const separationEnabled = musicDataSeparationEnabled(storeId,env);
+  const isLegacy = (line: SettlementLine) => separationEnabled && line.kind === "FEE" && LEGACY_MUSIC_SESSION_IDS.includes(line.id);
   return { separationEnabled, lines: lines.filter(line => !isLegacy(line)), legacyTestLines: lines.filter(isLegacy) };
 }

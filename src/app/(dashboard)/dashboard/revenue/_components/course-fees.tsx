@@ -1,3 +1,5 @@
+import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
+import { musicDataScope, LEGACY_MUSIC_SESSION_IDS } from "@/server/services/music-data-scope";
 import { RosterTable } from "@/components/admin/roster-table";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import {coursePrisma} from "@/lib/course-db";
@@ -7,10 +9,12 @@ import {capturedTeacherFee,readTeacherFeeSeats,type CapturedTeacherFee} from "@/
 import {formatTWDateTime} from "@/lib/date-utils";
 import {CourseFeePaymentButton,CourseFeeCorrectionButton} from "./course-fee-payment-button";
 
-export async function CourseFees({storeId,range,readOnly}: {storeId:string;range:{gte:Date;lte:Date};readOnly:boolean}) {
+export async function CourseFees({storeId,range,readOnly,dataScope}: {storeId:string;range:{gte:Date;lte:Date};readOnly:boolean;dataScope?:string}) {
   const user=await getCurrentUser();
   if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"cashbook.read"))return null;
   if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return null;
+  const cohort=musicDataScope(storeId,dataScope);
+  if(cohort==="legacy")readOnly=true;
   const scope=await readMusicFinanceScope(user,storeId);
   const ready=await coursePrisma.$queryRaw<Array<{ready:boolean}>>`SELECT to_regclass('public."CourseFeePayment"') IS NOT NULL AS ready`;
   if(!ready[0]?.ready)return <section><h2>授課費</h2><p>授課費登錄尚未開放。</p></section>;
@@ -21,7 +25,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
     FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId"
     LEFT JOIN "Staff" f ON f.id=c."staffId" AND f."storeId"=s."storeId"
     LEFT JOIN LATERAL (SELECT (array_agg(id ORDER BY "createdAt" DESC,id DESC))[1] AS id,sum(amount)::int AS amount,max("createdAt") AS "paidAt",(array_agg(method ORDER BY "createdAt" DESC,id DESC))[1] AS method,(array_agg(note ORDER BY "createdAt" DESC,id DESC))[1] AS note FROM "CourseFeePayment" WHERE "sessionId"=s.id AND "storeId"=s."storeId" AND "voidedAt" IS NULL) p ON true
-    WHERE s."storeId"=${storeId} AND s."startsAt">=${range.gte} AND s."startsAt"<=${range.lte} AND (${scope===null} OR c."staffId"=ANY(${scope??[]}::text[]))
+    WHERE s."storeId"=${storeId} AND (${cohort===null} OR (s.id=ANY(${LEGACY_MUSIC_SESSION_IDS}::text[]))=${cohort==="legacy"}) AND s."startsAt">=${range.gte} AND s."startsAt"<=${range.lte} AND (${scope===null} OR c."staffId"=ANY(${scope??[]}::text[]))
     ORDER BY s."startsAt" DESC,s.id LIMIT 101`;
   const now=new Date();
   const feeSeats=await readTeacherFeeSeats(coursePrisma,storeId,rows.slice(0,100).map(s=>s.id));
@@ -30,6 +34,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
   const pendingAmount=summarized.reduce((sum,{row,fee,ended})=>sum+(!row.cancelledAt&&ended&&fee!==null&&fee>(row.amount??0)&&Number.isSafeInteger(fee)?fee-(row.amount??0):0),0);
   return <details className="rounded-xl border border-earth-200 bg-white p-3">
     <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="w-full text-sm font-medium text-primary-800 sm:w-auto sm:text-right">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
+    <MusicDataScopeFilter enabled={cohort!==null} label="鐘點費資料分類"/>
     <p className="my-2 text-sm text-earth-600">依上方日期查看課次。固定費每堂計一次；音樂課比例按實際應計學員座位核算，未完成點名須先核對。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
     <RosterTable label="教師鐘點費清單" columns={["日期／課程", "授課人員", "應付", "已付", "付款狀態", "明細／操作"]}>

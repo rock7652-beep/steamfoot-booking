@@ -35,3 +35,17 @@ describe("course home access",()=>{
 });
 
 it("hides the course-home drawer while preserving attendance and sales without cost visibility",async()=>{m.finance.mockResolvedValue(false);const a=await courseHomeAccess({id:"manager",role:"OWNER",staffId:"staff",storeId:"a"} as Parameters<typeof courseHomeAccess>[0],"a");expect(a.cash).toBe(false);expect(a.bookings).toBe(true);expect(a.revenue).toBe(true);});
+
+it("filters legacy attendance before counting/paging and preserves the classification on drill-down",async()=>{
+ const env={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/music-opening-state-20261007",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",DIRECT_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",WORKERS_CI_BRANCH:"",CF_PAGES_BRANCH:""};
+ for(const [key,value]of Object.entries(env))vi.stubEnv(key,value);
+ try{
+  m.raw.mockResolvedValue([{total:40,items:[{id:"music-accept-v1-weekly-1-0",kind:"attendance",label:"課堂",date:"2026-09-28T07:00:00Z"}]}]);
+  const result=await getCourseHomeTodos("store-lubymusic",{payments:true,attendance:true,followUp:false,staffScope:null},new Date("2026-10-15"),30,30,"legacy");
+  const query=m.raw.mock.calls.at(-1)![0];
+  expect(query.sql).toContain('s.id = ANY(');expect(query.sql).toContain('"customerId" = ANY(');
+  expect(query.sql.indexOf('s.id = ANY(')).toBeLessThan(query.sql.indexOf('page AS'));
+  expect(query.values.some((value:unknown)=>Array.isArray(value)&&value.includes("music-accept-v1-weekly-1-0"))).toBe(true);
+  expect(result.total).toBe(40);expect(result.items[0].href).toContain("&dataScope=legacy");
+ }finally{vi.unstubAllEnvs();}
+});

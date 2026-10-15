@@ -1,3 +1,4 @@
+import { musicDataScope, LEGACY_MUSIC_SESSION_IDS, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import "server-only";
@@ -100,16 +101,19 @@ export async function getCourseHomeCash(storeId: string) {
 }
 
 export type CourseTodoAccess = { payments: boolean; attendance: boolean; followUp: boolean; staffScope: string | null };
-export async function getCourseHomeTodos(storeId: string, access: CourseTodoAccess, now = new Date(), offset = 0, limit = 5) {
+export async function getCourseHomeTodos(storeId: string, access: CourseTodoAccess, now = new Date(), offset = 0, limit = 5, dataScope?:string) {
+  const scope=musicDataScope(storeId,dataScope);
+  const sessionScope=scope?Prisma.sql`AND (s.id = ANY(${LEGACY_MUSIC_SESSION_IDS}::text[])) = ${scope==="legacy"}`:Prisma.empty;
+  const customerScope=scope?Prisma.sql`AND COALESCE(("customerId" = ANY(${LEGACY_MUSIC_CUSTOMER_IDS}::text[])),false) = ${scope==="legacy"}`:Prisma.empty;
   const parts: Prisma.Sql[] = [];
-  if (access.payments) parts.push(Prisma.sql`SELECT id, 'payment' kind, name label, "createdAt" date FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status='PENDING'`);
-  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."teacherAttendance" NOT IN ('LEAVE','NO_SHOW') AND s."endsAt"<=${now} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
-  if (access.followUp) parts.push(Prisma.sql`SELECT id, 'followUp' kind, COALESCE("customerDisplayName",'顧客跟進') label, "createdAt" date FROM "DigitalButlerLead" WHERE "storeId"=${storeId} AND status IN ('NEW','CONTACTING','QUOTED') ${access.staffScope ? Prisma.sql`AND "assignedStaffId"=${access.staffScope}` : Prisma.empty}`);
+  if (access.payments) parts.push(Prisma.sql`SELECT id, 'payment' kind, name label, "createdAt" date FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status='PENDING' ${customerScope}`);
+  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL ${sessionScope} AND s."teacherAttendance" NOT IN ('LEAVE','NO_SHOW') AND s."endsAt"<=${now} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
+  if (access.followUp && scope!=="legacy") parts.push(Prisma.sql`SELECT id, 'followUp' kind, COALESCE("customerDisplayName",'顧客跟進') label, "createdAt" date FROM "DigitalButlerLead" WHERE "storeId"=${storeId} AND status IN ('NEW','CONTACTING','QUOTED') ${access.staffScope ? Prisma.sql`AND "assignedStaffId"=${access.staffScope}` : Prisma.empty}`);
   if (!parts.length) return { total: 0, items: [] };
   const union = Prisma.join(parts, " UNION ALL ");
   // Single statement snapshot: totals and limited items agree even during concurrent updates.
   const [result] = await prisma.$queryRaw<Array<{ total: number; items: Array<{id:string;kind:string;label:string;date:string}> }>>(Prisma.sql`
     WITH tasks AS (${union}), page AS (SELECT * FROM tasks ORDER BY date,id LIMIT ${limit} OFFSET ${offset})
     SELECT (SELECT count(*)::int FROM tasks) total, COALESCE((SELECT json_agg(page ORDER BY date,id) FROM page),'[]'::json) items`);
-  return { total: result.total, items: result.items.map(item => ({ ...item, href: item.kind === "payment" ? `/dashboard/revenue?dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}&status=PENDING` : item.kind === "attendance" ? `/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&action=booking&session=${encodeURIComponent(item.id)}` : `/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}` })) };
+  return { total: result.total, items: result.items.map(item => ({ ...item, href: item.kind === "payment" ? `/dashboard/revenue?dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}&status=PENDING` : item.kind === "attendance" ? `/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&action=booking&session=${encodeURIComponent(item.id)}${scope==="legacy"?"&dataScope=legacy":""}` : `/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}` })) };
 }

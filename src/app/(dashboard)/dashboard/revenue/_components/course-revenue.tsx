@@ -16,7 +16,7 @@ import { CourseTransactionActions } from "./course-transaction-actions";
 import type { Prisma } from "../../../../../../generated/course-client";
 const money = (amount: number) => `NT$ ${amount.toLocaleString()}`;
 export async function CourseRevenue({ storeId, params, readOnly, canRefund, canConfirm, canEdit, canVoid, canDataExport = false, basePath = "/dashboard/revenue" }: {
-  storeId: string; params: { summary?: string; dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
+  storeId: string; params: { dataScope?:string; summary?: string; dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
   canEdit: boolean; canVoid: boolean; readOnly: boolean; canRefund: boolean; canConfirm: boolean;
   basePath?: "/dashboard/revenue" | "/dashboard/transactions";
   canDataExport?: boolean;
@@ -100,6 +100,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">
       <div className="border-b p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold">交易工作台</h2><p className="mt-0.5 text-[11px] text-earth-500">查詢購買、核帳及退款；交易處理集中在最右側。</p></div><nav aria-label="營運期間" className="flex rounded-lg bg-earth-100 p-1 text-sm"><Link className={`rounded-md px-3 py-1.5 ${isToday?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today,today)}>本日</Link><Link className={`rounded-md px-3 py-1.5 ${isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today.slice(0,7)+"-01",today)}>本月</Link><span className={`rounded-md px-3 py-1.5 ${!isToday&&!isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`}>任意區間</span></nav></div>
         <InstantFilterForm className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
+          {params.dataScope==="legacy"&&<input type="hidden" name="dataScope" value="legacy"/>}
           <label className="text-xs">開始日期<input className={dateField} type="date" name="dateFrom" defaultValue={from} /></label>
           <label className="text-xs">結束日期<input className={dateField} type="date" name="dateTo" defaultValue={to} /></label>
           <label className="text-xs">狀態<select className={selectField} style={selectStyle} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -110,7 +111,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
     </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具" subtitle="依工作目的快速前往"><div className="divide-y divide-earth-100 text-sm"><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">日常處理</p><Link className="block" href="/dashboard/transactions">交易明細與處理 →</Link><Link className="block" href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">帳務管理</p><Link className="block" href="/dashboard/cashbook">現金帳 →</Link><FeatureEntry feature={FEATURES.SERVICE_FEE_CALCULATOR} label="月結管理"><Link className="block" href="/dashboard/service-fee-calculator">月結管理 →</Link></FeatureEntry><Link className="block" href="/dashboard/reconciliation">對帳中心 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">報表</p><Link className="block" href="/dashboard/store-revenue">收入總覽與匯出 →</Link>{canDataExport && !readOnly && <Link className="block" href="/dashboard/data-export">資料匯出 →</Link>}</div></div></SideCard><SideCard title="退款"><details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看協商退款規則</summary><p className="text-sm">具退款權限的店長可登錄協商金額、方式及原因；累計不超過實付，有預約占用時先處理。確認後收回剩餘額度並停用卡片，保留原單及歷史。此操作不會自動匯款或退刷。</p></details></SideCard></aside></div>
-    <CourseFees storeId={storeId} range={range} readOnly={readOnly}/>
+    <CourseFees dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly}/>
     <CourseTrialTransactions storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
   </PageShell>;
 }

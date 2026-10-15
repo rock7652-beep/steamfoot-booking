@@ -1,3 +1,4 @@
+import { musicCustomerWhere, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { CourseTodoList } from "./todo-list";
 import { Suspense, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -47,12 +48,12 @@ export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;stor
           return <CourseTodoList result={result} music/>;
         }}/>}
         {access.bookings&&access.customers&&access.planStatus&&<Section title="請假與補課" load={async()=>{
-          const customers=(await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})).filter(c=>!testName(c.name));
+          const customers=(await prisma.customer.findMany({where:{...musicCustomerWhere(storeId),storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})).filter(c=>musicDataSeparationEnabled(storeId)||!testName(c.name));
           const [opening,native]=await Promise.all([getOpeningMakeupWorkspace(storeId,undefined,customers.map(c=>c.id)),getMusicLeaveWorkspace(storeId,customers)]);
           const pending=opening.rows.filter(r=>r.state==="AVAILABLE"&&(!r.expiry||r.expiry>=date));
           const expired=opening.rows.filter(r=>r.state==="AVAILABLE"&&r.expiry&&r.expiry<date);
           const nativePending=native.rows.filter(r=>r.state==="待安排"),issues=native.rows.filter(r=>r.state==="需處理");
-          return <div className="space-y-2 text-sm"><p>音教雲待安排 <strong>{pending.length}</strong> 堂 · 已逾期 <strong>{expired.length}</strong> 堂</p><p>蒸管家待安排 <strong>{nativePending.length}</strong> 筆 · 需處理 <strong>{issues.length}</strong> 筆</p>{native.truncated&&<p className="text-amber-900">蒸管家僅統計最近 1,000 筆請假，請進明細依學員核對。</p>}<p className="text-earth-600">隱藏名稱含驗收／測試的資料；兩種來源分開列示。</p><Link className={action} href="/dashboard/courses/makeups">安排補課／查看原課</Link></div>;
+          return <div className="space-y-2 text-sm"><p>音教雲待安排 <strong>{pending.length}</strong> 堂 · 已逾期 <strong>{expired.length}</strong> 堂</p><p>蒸管家待安排 <strong>{nativePending.length}</strong> 筆 · 需處理 <strong>{issues.length}</strong> 筆</p>{native.truncated&&<p className="text-amber-900">蒸管家僅統計最近 1,000 筆請假，請進明細依學員核對。</p>}<p className="text-earth-600">{musicDataSeparationEnabled(storeId)?"已排除核對過的舊驗收資料；明細頁可切換查看。":"隱藏名稱含驗收／測試的資料；兩種來源分開列示。"}</p><Link className={action} href="/dashboard/courses/makeups">安排補課／查看原課</Link></div>;
         }}/>}
       </div>
       {access.customers&&access.planStatus&&careEnabled&&<Section title="學員續報與期限提醒" load={async()=>{
@@ -64,7 +65,7 @@ export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;stor
       <div className="grid items-start gap-3 @min-[54rem]:grid-cols-2">
         {access.revenue&&<Section title="今日收款" load={async()=>{const r=await getCourseReceiptTotals(storeId,date,date);return <div className="space-y-2 text-sm"><p>入帳 NT$ {r.gross.toLocaleString()} · 退款／沖銷 NT$ {(r.refunds+r.voids).toLocaleString()}</p><p>淨收款 <strong>NT$ {r.net.toLocaleString()}</strong></p><Link className={action} href={`/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`}>查看今日收款</Link><p className="text-earth-600">待核帳不等於欠費；歷史匯入付款不重複計入今天。</p></div>;}}/>}
         {access.revenue&&access.customers&&<Section title="音教雲來源欠費核對" load={async()=>{
-          const [tuition,customers]=await Promise.all([readMusicPilotTuition(coursePrisma,storeId),prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})]);
+          const [tuition,customers]=await Promise.all([readMusicPilotTuition(coursePrisma,storeId),prisma.customer.findMany({where:{...musicCustomerWhere(storeId),storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})]);
           const names=new Map(customers.map(c=>[c.id,c.name])),visible=tuition.filter(t=>names.has(t.customerId)),debt=visible.filter(t=>t.receivable>0);
           return <div className="space-y-2 text-sm"><p>已核對 {visible.length} 位來源樣本 · 欠費 NT$ {visible.reduce((n,t)=>n+t.receivable,0).toLocaleString()}</p><p className="text-earth-600">僅已核對樣本，不代表全店欠費已完整匯入。</p>{debt.map(row=><Link key={row.customerId} className={action} href={studentHref(row.customerId,"payments")}>{names.get(row.customerId)} · NT$ {row.receivable.toLocaleString()} →</Link>)}<Link className={action} href="/dashboard/courses?view=customers">到學員付款紀錄核對</Link></div>;
         }}/>}

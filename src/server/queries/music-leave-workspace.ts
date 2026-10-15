@@ -1,12 +1,13 @@
+import { musicSessionWhere } from "@/server/services/music-data-scope";
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "./course-members";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 /** Read projection only. Reservations still use createCourseBooking's live checks. */
-export async function getMusicLeaveWorkspace(storeId: string, customers: { id: string; name: string }[]) {
+export async function getMusicLeaveWorkspace(storeId: string, customers: { id: string; name: string }[],dataScope?:string) {
   const leaves = await coursePrisma.courseBooking.findMany({
-    where: { storeId, customerId: { in: customers.map(c => c.id) }, status: "CANCELLED", absenceKind: "STUDENT_LEAVE", bookingKind: "CARD", musicOpeningMakeupEntitlementId: null },
+    where: { storeId, session:musicSessionWhere(storeId,dataScope), customerId: { in: customers.map(c => c.id) }, status: "CANCELLED", absenceKind: "STUDENT_LEAVE", bookingKind: "CARD", musicOpeningMakeupEntitlementId: null },
     include: { card: { select: { id: true, requestKey: true } }, session: { select: { id: true, startsAt: true, templateId: true, nameSnapshot: true, template: { select: { classType: true } } } } },
     orderBy: [{ session: { startsAt: "desc" } }, { id: "asc" }], take: 1001,
   });
@@ -16,7 +17,7 @@ export async function getMusicLeaveWorkspace(storeId: string, customers: { id: s
   const [cards, children, sessions] = await Promise.all([
     cardIds.length ? getCourseCards(storeId, undefined, { where: { id: { in: cardIds } }, skip: 0, take: cardIds.length, entries: false }) : [],
     shown.length ? coursePrisma.courseBooking.findMany({ where: { storeId, customerId: { in: customers.map(c => c.id) }, OR: [{ makeupForBookingId: { in: shown.map(row => row.id) } }, { cardId: { in: coupons.map(c => c.id) } }], AND: [{ OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "STUDENT_LEAVE" }] }] }, select: { id: true, cardId: true, makeupForBookingId: true, status: true, absenceKind: true, session: { select: { id: true, startsAt: true, nameSnapshot: true } } } }) : [],
-    shown.length ? coursePrisma.courseSession.findMany({ where: { storeId, templateId: { in: [...new Set(shown.map(row => row.session.templateId))] }, cancelledAt: null, releasedAt: null, startsAt: { gt: new Date() }, isTrial: false, teacherMakeupForSessionId: null, teacherAttendance: { notIn: ["LEAVE", "NO_SHOW"] } }, orderBy: { startsAt: "asc" }, take: 501, select: { id: true, templateId: true, startsAt: true, nameSnapshot: true } }) : [],
+    shown.length ? coursePrisma.courseSession.findMany({ where: { ...musicSessionWhere(storeId,dataScope), storeId, templateId: { in: [...new Set(shown.map(row => row.session.templateId))] }, cancelledAt: null, releasedAt: null, startsAt: { gt: new Date() }, isTrial: false, teacherMakeupForSessionId: null, teacherAttendance: { notIn: ["LEAVE", "NO_SHOW"] } }, orderBy: { startsAt: "asc" }, take: 501, select: { id: true, templateId: true, startsAt: true, nameSnapshot: true } }) : [],
   ]);
   return { truncated: leaves.length > 1000, sessionsTruncated: sessions.length > 500, rows: shown.map(row => {
     const separate = row.card!.requestKey.startsWith("yjy-pilot-card:");
