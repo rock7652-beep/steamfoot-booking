@@ -18,6 +18,7 @@ interface ErrorStateProps {
   retry?: () => void;
   /** 返回連結（預設：/dashboard） */
   backHref?: string;
+  backLabel?: string;
 }
 
 export function ErrorState({
@@ -25,6 +26,7 @@ export function ErrorState({
   description = "暫時無法取得資料，請稍後再試。",
   retry,
   backHref = "/dashboard",
+  backLabel = "回首頁",
 }: ErrorStateProps) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
@@ -59,7 +61,7 @@ export function ErrorState({
           href={backHref}
           className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
         >
-          回首頁
+          {backLabel}
         </Link>
       </div>
     </div>

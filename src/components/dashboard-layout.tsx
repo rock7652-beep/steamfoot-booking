@@ -35,7 +35,7 @@ import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } from "@/lib/feature-gate";
-import type { StoreOperatingStatus } from "@/lib/store-operating-status";
+import { ACCESSIBLE_STORE_OPERATING_STATUSES, type StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   resolveStoreViewContext,
   type StoreViewContext,
@@ -43,6 +43,7 @@ import {
 } from "@/lib/store-organization";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { PreviewNavigationReporter } from "@/components/device-preview/preview-navigation-reporter";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default async function DashboardLayout({
   children,
@@ -77,6 +78,28 @@ export default async function DashboardLayout({
 
   if (hqPlatform && !(await checkPermission(user.role, user.staffId, "staff.manage"))) notFound();
 
+  // Resolve store access before any store-scoped layout reads. Expected access
+  // denials must be rendered on the server: production error boundaries receive
+  // a redacted message and cannot reliably identify AppError codes.
+  let activeStoreId: string | null;
+  try {
+    activeStoreId = await getActiveStoreForRead(user);
+  } catch (error) {
+    if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
+    const ownStore = user.storeId ? await prisma.store.findFirst({
+      where: { id: user.storeId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      select: { slug: true },
+    }) : null;
+    return <main className="mx-auto max-w-lg p-6">
+      <ErrorState
+        title="無法存取此店舖"
+        description="此店舖無法存取，或您沒有查看權限。請返回自己的店舖，或聯繫管理員。"
+        backHref={ownStore ? `/s/${encodeURIComponent(ownStore.slug)}/admin/dashboard` : user.role === "ADMIN" ? "/hq/dashboard" : "/login"}
+        backLabel={ownStore ? "返回自己的店舖" : user.role === "ADMIN" ? "返回總部" : "重新登入"}
+      />
+    </main>;
+  }
+
   const auditScope = await resolveOperationAuditScope(user);
   const canViewAudit = Boolean(auditScope);
   const roleLabel = ROLE_LABELS[user.role] ?? "";
@@ -85,14 +108,10 @@ export default async function DashboardLayout({
   const isOwnerLevel = isStaffRole(user.role);
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, storeOptions, activeStoreId] =
+  const [permissions, storeOptions] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getStoreOptions(user),
-      getActiveStoreForRead(user).catch(error => {
-        if (error instanceof AppError && (error.code === "FORBIDDEN" || error.code === "NOT_FOUND")) notFound();
-        throw error;
-      }),
     ]);
   if (isAdmin && activeStoreId && !storeOptions.some(store => store.id === activeStoreId)) {
     const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
