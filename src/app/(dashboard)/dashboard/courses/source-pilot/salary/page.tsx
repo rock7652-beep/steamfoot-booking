@@ -13,5 +13,6 @@ export default async function SalaryPilotPage(){
     <p className="text-sm text-gray-600">按原價拆帳，免費體驗照常計酬。學生請假原日 0 元，實際補課才計一次；曠課扣堂計酬，老師請假／曠課 0 元。團班僅包含已匯入學員，這是樣本部分鐘點。</p>
     <p className="rounded border p-3 text-sm">黃子齊原待補課：800 × {report.oldMakeupPercent}%＝{report.oldMakeupPrice*report.oldMakeupPercent/100} 元，實際補課出席後計酬。舊薪資不重新入帳。</p>
     <SalaryPreview rows={report.rows}/>
+    <details className="rounded border text-sm"><summary className="min-h-11 cursor-pointer p-3 font-medium">來源歷史課堂鐘點對照（不入當期薪資）</summary><div className="space-y-2 p-3"><p className="text-gray-600">依已確認規則推算，供核對老師費率；不代表舊薪資已實際支付，也不重複建立薪資或支出。</p>{report.historical.map((h,i)=><p key={i}>{h.student}・{h.date}・{h.teacher}：{h.amount===null?"待核對":`${h.amount} 元`}{h.rate!==null&&h.base!==null?`（${h.base} × ${h.rate}%）`:"（請假原日不支付）"}</p>)}</div></details>
   </PageShell>;
 }
