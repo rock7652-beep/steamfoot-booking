@@ -818,8 +818,7 @@ export function CourseRoster({
                 <option value="">請選擇</option>
                 {eligibleCards.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · 到期{" "}
-                    {item.expiryKind === "NO_EXPIRY" ? "無期限" : item.expiresAt ? formatTWDateTime(new Date(item.expiresAt)).slice(0, 10) : "期初效期待核對"}
+                    {item.name} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · {item.expiryKind === "NO_EXPIRY" ? "無期限" : !item.openingImported && item.musicValidityDays && !item.musicActivatedAt ? `首次上課起 ${item.musicValidityDays} 天` : item.expiresAt ? `到期 ${formatTWDateTime(new Date(item.expiresAt)).slice(0, 10)}` : "期初效期待核對"}
                   </option>
                 ))}
               </select>
