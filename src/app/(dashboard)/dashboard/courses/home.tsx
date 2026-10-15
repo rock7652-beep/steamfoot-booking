@@ -1,3 +1,5 @@
+import { CourseTodoList } from "./todo-list";
+export { CourseTodoList } from "./todo-list";
 import { prisma } from "@/lib/db";
 import { MusicHome } from "./music-home";
 import { Suspense, type ReactNode } from "react";
@@ -109,13 +111,6 @@ export async function CourseHome({ user, storeId }: {
 
     </div>
   </HomePosition></PageShell>;
-}
-export function CourseTodoList({ result, showAll = true }: {
-    showAll?: boolean;
-    result: Awaited<ReturnType<typeof getCourseHomeTodos>>;
-}) {
-    const labels: Record<string, string> = { payment: "待核帳", attendance: "課後待點名", followUp: "顧客跟進" };
-    return <><p className="text-sm text-earth-600">共 {result.total} 件</p>{result.items.length ? <ul className="divide-y divide-earth-100">{result.items.map(item => <li key={`${item.kind}:${item.id}`}><Link href={item.href} prefetch={false} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm"><span><span className="mr-2 text-primary-700">{labels[item.kind]}</span>{item.label}</span><span className="text-earth-500">{toLocalDateStr(new Date(item.date))} →</span></Link></li>)}</ul> : <p className="py-3 text-sm">目前沒有你可處理的待辦。</p>}{showAll && result.total > 0 && <Link className={linkStyle} href="/dashboard/courses/todos">查看全部待處理 →</Link>}</>;
 }
 
 export async function CoursePlanTodo({storeId, staffScope}: {

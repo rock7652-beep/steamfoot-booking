@@ -1,3 +1,4 @@
+import { CourseTodoList } from "./todo-list";
 import { Suspense, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -43,7 +44,7 @@ export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;stor
       <div className="grid items-start gap-3 @min-[54rem]:grid-cols-2">
         {(access.todos.attendance||access.todos.payments||access.todos.followUp)&&<Section title="待處理事項" load={async()=>{
           const result=await getCourseHomeTodos(storeId,access.todos,new Date(),0,8);
-          return <><p className="text-sm text-earth-600">共 {result.total} 件，包含過去尚未完成的項目。</p><ul className="divide-y divide-earth-100">{result.items.map(item=><li key={`${item.kind}:${item.id}`}><Link className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm" href={item.href}><span><span className="mr-2 text-amber-900">{{payment:"付款待核帳",attendance:"課後待點名",followUp:"學員跟進"}[item.kind] ?? "待處理"}</span>{item.label}</span><span className="text-earth-600">{toLocalDateStr(new Date(item.date))} →</span></Link></li>)}</ul>{!result.total&&<p className="py-3 text-sm">目前沒有可處理的待辦。</p>}<Link className={action} href="/dashboard/courses/todos">全部待處理</Link></>;
+          return <CourseTodoList result={result} music/>;
         }}/>}
         {access.bookings&&access.customers&&access.planStatus&&<Section title="請假與補課" load={async()=>{
           const customers=(await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,...(access.staffScope?{assignedStaffId:access.staffScope}:{})},select:{id:true,name:true}})).filter(c=>!testName(c.name));
