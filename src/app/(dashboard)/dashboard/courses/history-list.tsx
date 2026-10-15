@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
-export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,mode}: {
+import { RosterTable } from "@/components/admin/roster-primitives";
+export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,mode,columns}: {
   customerId:string;label:string;empty:string;mode?:string;
   load:(id:string,offset:number,range:{from:string;to:string;mode?:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
   render:(row:T)=>ReactNode;
+  columns?:string[];
 }) {
   const [range,setRange]=useState({from:"",to:""});
   const [page,setPage]=useState(0);
@@ -23,7 +25,7 @@ export function CourseHistoryList<T extends {id:string}>({customerId,label,load,
     <h3 className="font-semibold text-primary-800">{label}</h3>
     <div className="grid grid-cols-2 gap-3 text-sm">{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div>
     {invalid ? <p role="alert">開始日期不可晚於結束日期</p> : !ready ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
-      <ul className="divide-y divide-earth-100">{result?.rows.map(row=><li key={row.id} className="space-y-1 py-3 text-sm">{render(row)}</li>)}</ul>
+      {columns ? <RosterTable label={label} columns={columns}>{result?.rows.map(row=><tr key={row.id}>{render(row)}</tr>)}</RosterTable> : <ul className="divide-y divide-earth-100">{result?.rows.map(row=><li key={row.id} className="space-y-1 py-3 text-sm">{render(row)}</li>)}</ul>}
       {!result?.rows.length && <p className="text-sm text-earth-500">{empty}</p>}
       {(page>0 || result?.hasMore) && <nav aria-label={`${label}分頁`} className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {page+1} 頁 · 每頁 10 筆</span><button type="button" className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!page} onClick={()=>setPage(n=>n-1)}>上一頁</button><button type="button" className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!result?.hasMore} onClick={()=>setPage(n=>n+1)}>下一頁</button></nav>}
     </>}
