@@ -36,3 +36,23 @@ describe("student makeup return context", () => {
     expect(result).toBe("/dashboard/courses?view=customers&customerId=correct&studentTab=makeups");
   });
 });
+
+
+describe("student cohort navigation", () => {
+  it("keeps legacy classification on both destinations and round-trip student links", () => {
+    const query = "dataScope=legacy&search=demo&page=2&action=delete";
+    for (const [href, returnKey, tab] of [
+      [studentCourseHref("student-1", "2026-10-15", "session-1", query), "returnStudentQuery", "bookings"],
+      [studentMakeupsHref("student-1", query), "returnQuery", "makeups"],
+    ] as const) {
+      const target = new URL(href, "https://example.test");
+      expect(target.searchParams.get("dataScope")).toBe("legacy");
+      const back = new URL(studentReturnHref("student-1", target.searchParams.get(returnKey)!, tab), "https://example.test");
+      expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"demo",page:"2",dataScope:"legacy",customerId:"student-1",studentTab:tab});
+    }
+  });
+  it("does not propagate unknown classification values", () => {
+    expect(studentMakeupsHref("student-1", "dataScope=all")).not.toContain("dataScope");
+    expect(studentCourseHref("student-1", "2026-10-15", "session-1", "dataScope=all")).not.toContain("dataScope");
+  });
+});
