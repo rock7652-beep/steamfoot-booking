@@ -57,7 +57,9 @@ jobs:
             npm run lint
             exit 0
           else
-            mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
+            # Only lint changes introduced by this PR. Comparing the two tips
+            # also selects changes made independently on main.
+            mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
           fi
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No changed JavaScript or TypeScript files to lint."

@@ -1,9 +1,3 @@
-import { assertCourseBusinessBoundariesPreview } from "./course-business-boundaries-preview-scope.mjs";
-if (assertCourseBusinessBoundariesPreview(process.env)) {
-  console.info("[course-business-boundaries-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
-  process.exit(0);
-}
-
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
@@ -30,6 +24,12 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/hq-store-archive") {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
     throw new Error("Store archive Preview requires the isolated preview database.");
+}
+
+import { assertCourseBusinessBoundariesPreview } from "./course-business-boundaries-preview-scope.mjs";
+if (assertCourseBusinessBoundariesPreview(process.env)) {
+  console.info("[course-business-boundaries-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
 }
 
 import { isGuideUiPreview } from "./guide-ui-preview-scope.mjs";
