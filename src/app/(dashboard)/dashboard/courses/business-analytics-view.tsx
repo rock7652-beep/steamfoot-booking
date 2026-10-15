@@ -60,9 +60,16 @@ export function BusinessAnalyticsView({data,all,staffId,music=false}:{data:Cours
       </div>
     </div>
     {review&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="待核對明細">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{review==="profit"?"方案利潤":"授課費"}待核對（{reviewRows.length} {review==="profit"?"筆":"堂"}）</h2><button className="min-h-11 px-3 text-sm" onClick={()=>setReview(null)}>關閉明細</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{review==="profit"?"方案利潤":"授課費"}待核對（{reviewRows.length} {review==="profit"?"筆":"筆課次"}）</h2><button className="min-h-11 px-3 text-sm" onClick={()=>setReview(null)}>關閉明細</button></div>
       <p className="mb-2 text-sm text-earth-500">以下項目尚未計入金額，請依原始成交或授課紀錄核對。</p>
-      <ul className="divide-y divide-earth-100">{reviewRows.slice((reviewPage-1)*10,reviewPage*10).map(row=><li key={row.id} className="py-3 text-sm"><div className="flex flex-wrap gap-x-3 gap-y-1"><span className="text-earth-500">{row.date}</span><strong>{row.name}</strong><span>{"coachName" in row?row.coachName:row.customerName}</span></div><p className="mt-1 text-amber-700">{row.reason}</p></li>)}</ul>
+      {review==="fees"?<div className="max-w-full overflow-x-auto rounded-lg border border-earth-200" tabIndex={0} role="region" aria-label="授課費待核對表格，可橫向捲動">
+        <table className="w-full min-w-[640px] table-fixed text-left text-sm">
+          <caption className="sr-only">授課費待核對課次，尚未計入金額</caption>
+          <colgroup><col className="w-28"/><col className="w-44"/><col className="w-28"/><col/></colgroup>
+          <thead className="bg-earth-50 text-earth-600"><tr>{["日期","課程","老師","待核對原因"].map(label=><th key={label} scope="col" className="px-3 py-3 font-medium">{label}</th>)}</tr></thead>
+          <tbody className="divide-y divide-earth-100">{data.pendingFees.slice((reviewPage-1)*10,reviewPage*10).map(row=><tr key={row.id} className="align-top"><td className="whitespace-nowrap px-3 py-3 text-earth-600">{row.date}</td><td className="break-words px-3 py-3 font-medium">{row.name}</td><td className="break-words px-3 py-3">{row.coachName}</td><td className="break-words px-3 py-3 text-amber-700">{row.reason}</td></tr>)}</tbody>
+        </table>
+      </div>:<ul className="divide-y divide-earth-100">{reviewRows.slice((reviewPage-1)*10,reviewPage*10).map(row=><li key={row.id} className="py-3 text-sm"><div className="flex flex-wrap gap-x-3 gap-y-1"><span className="text-earth-500">{row.date}</span><strong>{row.name}</strong><span>{"coachName" in row?row.coachName:row.customerName}</span></div><p className="mt-1 text-amber-700">{row.reason}</p></li>)}</ul>}
       {reviewRows.length>10&&<div className="flex items-center justify-end gap-3 text-sm"><button className="min-h-11 px-3" disabled={reviewPage===1} onClick={()=>setReviewPage(reviewPage-1)}>上一頁</button><span>{reviewPage} / {Math.ceil(reviewRows.length/10)}</span><button className="min-h-11 px-3" disabled={reviewPage*10>=reviewRows.length} onClick={()=>setReviewPage(reviewPage+1)}>下一頁</button></div>}
     </section>}
     {segment&&data.segments&&<section ref={listRef} className="rounded-xl border border-primary-200 bg-white p-4" aria-label={`${visitDetail?"來客人次":names[segment]}名單`}>
