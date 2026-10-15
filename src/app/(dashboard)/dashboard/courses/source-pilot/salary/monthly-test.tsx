@@ -7,7 +7,7 @@ export function MonthlyTest(){
   const [state,action,pending]=useActionState(testMusicPilotMonthly,initial);
   return <section className="min-w-0 rounded border p-3 text-sm space-y-3" aria-labelledby="monthly-test-title">
     <h2 id="monthly-test-title" className="font-semibold">月結與發薪・自動復原測試</h2>
-    <p className="text-gray-600">使用十位學員的原價及老師費率，建立模擬課堂。2000 年 1 月僅用來隔開實際排課；舊薪資不重匯。測試結束自動復原，畫面保留本次結果，可重複執行。</p>
+    <p className="text-gray-600">十位學員先用共同測試方案驗證購課、收款、預約、請假與補課服務；再用來源原價及老師費率驗證月結發薪。模擬日期與實際課表隔開，結束自動復原。</p>
     <form action={action} className="flex flex-wrap items-center gap-3"><input type="hidden" name="confirmed" value="yes"/><button disabled={pending} className="min-h-11 rounded bg-green-700 px-4 text-white disabled:opacity-50">{pending?"正在驗證月結與發薪…":"執行月結與發薪測試"}</button><span>不轉帳，不留下測試支出</span></form>
     {state.message&&<p role="status" className={state.success?"text-green-800":"text-red-700"}>{state.message}</p>}
     {state.report&&<div className="space-y-3">

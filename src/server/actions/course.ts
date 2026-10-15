@@ -442,6 +442,7 @@ export async function createCourseSchedule(input: unknown) {
         const [template, room, coaches] = await Promise.all([
           tx.courseTemplate.findFirst({
             where: { id: data.templateId, storeId, isActive: true },
+            include: {musicSubject:{select:{name:true}}},
           }),
           tx.courseRoom.findFirst({
             where: { id: data.roomId, storeId, isActive: true },
@@ -524,7 +525,7 @@ export async function createCourseSchedule(input: unknown) {
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? template.name,
+            nameSnapshot: source?.nameSnapshot ?? template.musicSubject?.name ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,

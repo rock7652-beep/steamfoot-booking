@@ -21,6 +21,8 @@ function ensure(ok:unknown,message:string):asserts ok {if(!ok)throw new AppError
 /** The fingerprint also covers original attendance, balances, entitlements and financial history. */
 async function baseline(tx:Prisma.TransactionClient,storeId:string){
   const rows=await tx.$queryRaw<Array<{state:unknown}>>`SELECT jsonb_build_object(
+    'templates',(SELECT jsonb_agg(to_jsonb(t) ORDER BY t.id) FROM "CourseTemplate" t WHERE t."storeId"=${storeId}),
+    'plans',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM "CoursePointPlan" p WHERE p."storeId"=${storeId}),
     'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY s.id) FROM "CourseSession" s WHERE s."storeId"=${storeId}),
     'bookings',(SELECT jsonb_agg(to_jsonb(b) ORDER BY b.id) FROM "CourseBooking" b WHERE b."storeId"=${storeId}),
     'cards',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM "CoursePointCard" c WHERE c."storeId"=${storeId}),

@@ -79,8 +79,9 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     <div aria-label="可排時段" className="space-y-2">
       <strong>可排時段</strong>
       {!slots && !error && <p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
-      {slots?.length===0 && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">這天沒有合適空位，請換日期或時長。</p>}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {slots?.length===0 && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">這天沒有合適空位，請換日期或查看原因。</p>}
+      {time && <div className="flex items-center justify-between rounded-lg bg-primary-50 px-3"><span>已選 {time}</span><button type="button" className="min-h-11 px-3" onClick={()=>{setTime("");setCoachId("");setPair(null);}}>更改時段</button></div>}
+      {!time && <div className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
         {times.map(slotTime=>{
           const matching=slots!.filter(s=>s.time===slotTime);
           const teacherCount=new Set(matching.flatMap(s=>s.coachIds)).size;
@@ -88,7 +89,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
             {slotTime}<span className="block text-sm">{teacherCount} 位老師 · {matching.length} 間教室</span>
           </button>;
         })}
-      </div>
+      </div>}
       {!!unavailable.length && <details className="rounded-xl border border-earth-200 px-3 py-2 text-earth-700"><summary className="cursor-pointer">查看其他時段為何不能排（{unavailable.length} 個）</summary><div className="mt-2 grid max-h-36 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3">{unavailable.map(slot=><span key={slot.time} className="rounded bg-earth-50 px-2 py-1 text-xs">{slot.time} · {slot.reason}</span>)}</div></details>}
     </div>
     {time && <div aria-label="合格老師與可用教室" className="space-y-2">
