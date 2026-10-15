@@ -20,13 +20,13 @@ it("never applies the allowlist to another store",()=>expect(separateMusicPayrol
 it("monthly fingerprint and confirmed snapshot use operational rows; legacy-only month cannot be confirmed",async()=>{
  for(const [key,value] of Object.entries(preview))vi.stubEnv(key,value);
  vi.stubEnv("WORKERS_CI_BRANCH","");vi.stubEnv("CF_PAGES_BRANCH","");
- let ids=[legacy[0],"source-real"];
+ let ids=[legacy[0],"music-luby-s-0921-1800-a","source-real"];
  const execute=vi.fn();
  const tx={$executeRaw:execute,coursePurchase:{findMany:vi.fn().mockResolvedValue([])},$queryRaw:vi.fn(async(strings:TemplateStringsArray)=>{
   if(strings.join("").includes('FROM "CourseSession" s LEFT JOIN'))return ids.map(id=>({id,staffId:"teacher",name:id,startsAt:new Date("2026-01-01"),endsAt:new Date("2026-01-02"),cancelledAt:null,teacherAttendance:"ATTENDED",rule:{mode:"CLASS",value:400},revision:1}));
   return [];
  })} as unknown as Prisma.TransactionClient;
- const report=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");expect(report.lines.map(l=>l.id)).toEqual(["source-real"]);expect(report.legacyTestLines).toHaveLength(1);
+ const report=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");expect(report.lines.map(l=>l.id)).toEqual(["source-real"]);expect(report.legacyTestLines).toHaveLength(2);
  ids=["source-real"];expect((await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01")).fingerprint).toBe(report.fingerprint);
  await confirmCourseMonth(tx,{storeId:"store-lubymusic",userId:"owner"},{month:"2026-01",fingerprint:report.fingerprint,revision:0,reason:"測試確認"});
  const saved=execute.mock.calls[0].find((value:unknown)=>typeof value==="string"&&value.startsWith("[{"));expect(JSON.parse(saved).map((l:SettlementLine)=>l.id)).toEqual(["source-real"]);

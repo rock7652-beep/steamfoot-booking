@@ -1,8 +1,46 @@
 import "server-only";
 import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
 // Audited 2026-10-15: sessions booked exclusively by verified synthetic customers,
-// plus two empty lifecycle fixtures. Exact IDs only; unknown and source-linked rows remain operational.
+// plus two empty lifecycle fixtures and 35 historical UI load-test sessions (PR #1095).
+// These 35 use real timetable references with simulated rooms, not imported student bookings.
+// See docs/music-data-provenance-20261015.md. Exact IDs only; unproven rows remain operational.
 export const LEGACY_MUSIC_SESSION_IDS = [
+  "music-luby-s-0921-1800-a",
+  "music-luby-s-0921-1900-a",
+  "music-luby-s-0921-1900-b",
+  "music-luby-s-0921-2000-a",
+  "music-luby-s-0921-2100-a",
+  "music-luby-s-0922-1800-a",
+  "music-luby-s-0922-1900-a",
+  "music-luby-s-0922-1900-b",
+  "music-luby-s-0922-1900-c",
+  "music-luby-s-0922-2000-a",
+  "music-luby-s-0922-2000-b",
+  "music-luby-s-0923-1800-a",
+  "music-luby-s-0923-2000-a",
+  "music-luby-s-0923-2000-b",
+  "music-luby-s-0923-2100-a",
+  "music-luby-s-0924-1900-a",
+  "music-luby-s-0924-1900-b",
+  "music-luby-s-0924-1900-c",
+  "music-luby-s-0924-2000-a",
+  "music-luby-s-0924-2000-b",
+  "music-luby-s-0924-2000-c",
+  "music-luby-s-0925-1900-a",
+  "music-luby-s-0925-1900-b",
+  "music-luby-s-0925-2000-a",
+  "music-luby-s-0926-1000-a",
+  "music-luby-s-0926-1100-a",
+  "music-luby-s-0926-1200-a",
+  "music-luby-s-0926-1200-b",
+  "music-luby-s-0926-1300-a",
+  "music-luby-s-0926-1300-b",
+  "music-luby-s-0926-1500-a",
+  "music-luby-s-0926-1600-a",
+  "music-luby-s-0926-1600-b",
+  "music-luby-s-0926-1700-a",
+  "music-luby-s-0926-1700-b",
+
   "cmul2p8vv000ijs04949u4yby",
   "cmul7frm50004i804m3xqkehl",
   "cmv4xeb6d0000l906lnydrf6s",
