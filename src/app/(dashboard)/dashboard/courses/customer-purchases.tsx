@@ -15,7 +15,7 @@ export function CourseCustomerPurchases({ customerId }: { customerId: string }) 
       <td><span className={`inline-block rounded px-2 py-1 ${order.status === "PENDING" ? "bg-amber-50 text-amber-800" : "bg-earth-50"}`}>{statuses[order.status] ?? "狀態待確認"}</span></td>
       <td className="text-right tabular-nums"><p>NT$ {order.price.toLocaleString()}</p><p className="text-earth-600">{order.confirmedAt ? "原實付" : "訂單金額"}</p>{order.refunds.length > 0 && <p>退款 {order.refunds.reduce((sum, r)=>sum+r.amount,0).toLocaleString()}</p>}</td>
       <td>
-      <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">付款與退款明細</summary>
+      <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">明細</summary>
       {order.confirmedAt && <p>核帳：{formatTWDateTime(new Date(order.confirmedAt))}</p>}
       {order.paymentMethod && <p>付款：{COURSE_PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod}{order.transferLastFour ? ` · 後四碼 ${order.transferLastFour}` : ""}{order.listPrice != null ? ` · 原價 NT$ ${order.listPrice} · 折抵 NT$ ${order.listPrice-order.price}` : ""}</p>}
       {order.note && <p>交易備註：{order.note}</p>}
