@@ -17,3 +17,7 @@ These exact IDs join the existing 186 verified legacy sessions, making 221. Shar
 - 28 verified imported sessions and 2 subsequent source-linked sessions remain operational.
 
 The reviewed 253 sessions therefore partition as 221 legacy and 32 operational (30 source-linked and 2 unproven). Classification is reversible through the explicit source list; underlying bookings, balances and scheduling-resource guards are unchanged. Source data changing after this audit requires a fresh review.
+
+## Owner confirmation: remaining two trials
+
+On 2026-10-15 the owner reviewed the student, teacher, dates, cancellation, attendance and payment details of both retained trials and explicitly confirmed both as legacy acceptance data. Add exactly `cmui1vck70004lb04iuxp5r2y` and `cmv7c079s0000le06rczclz01` to the session list (221 → 223). This supersedes their pending classification above. The 253 audited sessions now partition into 223 legacy and 30 source-linked operational sessions. Do not classify the whole customer or other lessons from this confirmation; the customer list remains unchanged. No database records are modified.

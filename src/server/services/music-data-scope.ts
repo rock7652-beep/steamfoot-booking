@@ -5,6 +5,9 @@ import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-ope
 // These 35 use real timetable references with simulated rooms, not imported student bookings.
 // See docs/music-data-provenance-20261015.md. Exact IDs only; unproven rows remain operational.
 export const LEGACY_MUSIC_SESSION_IDS = [
+  // Owner confirmed both remaining trials as legacy acceptance data on 2026-10-15.
+  "cmui1vck70004lb04iuxp5r2y",
+  "cmv7c079s0000le06rczclz01",
   "music-luby-s-0921-1800-a",
   "music-luby-s-0921-1900-a",
   "music-luby-s-0921-1900-b",
