@@ -1,3 +1,5 @@
+import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
+import { musicDataSeparationEnabled, musicCustomerWhere } from "@/server/services/music-data-scope";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -65,7 +67,7 @@ export async function CourseMemberPage({
     await Promise.all([
       canReadPeople
         ? prisma.customer.findMany({
-            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds } },
+            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds }, AND:[musicCustomerWhere(storeId,query.dataScope)] },
             select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
@@ -118,7 +120,8 @@ export async function CourseMemberPage({
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" ? <PageHeader title={music ? "學費方案" : "方案管理"} /> : music && <PageHeader title="學員管理" />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      {view === "customers" && <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>}
+      <CourseMemberWorkspace previewStoreId={storeId} key={`${storeId}:${query.dataScope??"operational"}`} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}

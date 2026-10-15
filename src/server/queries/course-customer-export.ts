@@ -1,15 +1,16 @@
 import { courseCardCoversDate, courseCardHasVerifiedNoExpiry } from "@/lib/course-card-expiry";
 import { MUSIC_OPENING_CARD_SELECT } from "@/lib/music-opening-runtime";
 import "server-only";
+import { musicCustomerWhere } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 
-export async function getCourseCustomerCsv(storeId: string, access: {cards: boolean; bookings: boolean}) {
+export async function getCourseCustomerCsv(storeId: string, access: {cards: boolean; bookings: boolean}, dataScope?:string) {
   await requireCourseStore(storeId);
   const customers = await prisma.customer.findMany({
-    where: {storeId, mergedIntoCustomerId: null},
+    where: {storeId, mergedIntoCustomerId: null, ...musicCustomerWhere(storeId,dataScope)},
     select: {id:true,name:true,phone:true,email:true,lineName:true,customerStage:true,address:true,notes:true,emergencyContactName:true,emergencyContactPhone:true,createdAt:true,assignedStaff:{select:{storeId:true,displayName:true}}},
     orderBy: [{name:"asc"},{id:"asc"}],
   });

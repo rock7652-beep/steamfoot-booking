@@ -22,6 +22,8 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
+  const cohortSuffix=music&&params.get("dataScope")==="legacy"?"&dataScope=legacy":"";
+  const listBasePath=`/dashboard/courses?view=customers${cohortSuffix}`;
   const router = useRouter();
   const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({ scope: "", ids: new Set() });
   const [result, setResult] = useState("");
@@ -52,13 +54,13 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport ? <ExclusiveMenu label="更多">{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
+    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport ? <ExclusiveMenu label="更多">{canExport && <a href={`/api/export/customers${cohortSuffix?"?dataScope=legacy":""}`} download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable renderNote={music ? row => <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-2">{musicNoteDisplay(row.serviceNote) || "尚無備註"}</span></button> : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
-      basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
+      basePath={listBasePath} searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
       quickAssignLabel={music ? "繳費／續報" : "購買方案"}

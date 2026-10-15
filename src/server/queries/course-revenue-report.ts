@@ -1,4 +1,6 @@
 import "server-only";
+import { musicPurchaseWhere, musicTrialBookingWhere } from "@/server/services/music-finance-scope";
+import { musicDataScope } from "@/server/services/music-data-scope";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
@@ -16,17 +18,17 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const range = { gte: dayRange(filters.startDate).start, lte: dayRange(filters.endDate).end };
   return coursePrisma.$transaction(async (tx) => {
   const [orders, refunds, store, trialReceipts] = await Promise.all([
-    tx.coursePurchase.findMany({ where: { storeId, status: { in: ["CONFIRMED","REFUNDED"] }, confirmedAt: range } }),
-    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range }, include: { purchase: true } }),
+    tx.coursePurchase.findMany({ where: { storeId, ...musicPurchaseWhere(storeId,filters.dataScope), status: { in: ["CONFIRMED","REFUNDED"] }, confirmedAt: range } }),
+    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range, ...(musicDataScope(storeId,filters.dataScope??undefined)?{purchase:musicPurchaseWhere(storeId,filters.dataScope)}:{}) }, include: { purchase: true } }),
     prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true } }),
-    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}]},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
+    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}],...(musicDataScope(storeId,filters.dataScope??undefined)?{booking:musicTrialBookingWhere(storeId,filters.dataScope)}:{})},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
   ]);
   const purchases = [...orders,...refunds.map((r) => r.purchase)];
   const customerIds = [...new Set([...purchases.map((p) => p.customerId).filter((id): id is string => !!id),...trialReceipts.map(p=>p.booking.customerId).filter((id): id is string => !!id)])];
   const [people, staff, firstOrders] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: customerIds } }, select: { id:true,name:true,phone:true } }),
     prisma.staff.findMany({ where: { storeId }, select: { id:true,userId:true,displayName:true,user:{select:{role:true}} } }),
-    tx.coursePurchase.findMany({ where: { storeId, customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
+    tx.coursePurchase.findMany({ where: { storeId, ...musicPurchaseWhere(storeId,filters.dataScope), customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
   ]);
   type Row = TransactionDetail & { customerId: string | null; staffId: string | null; refund: boolean; unit: string; paymentSplits: PaymentSplitInput[] };
   const rows: Row[] = [];

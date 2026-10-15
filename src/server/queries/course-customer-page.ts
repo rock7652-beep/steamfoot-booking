@@ -1,3 +1,4 @@
+import { musicDataScope, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import "server-only";
@@ -18,6 +19,8 @@ export async function getCourseCustomerPage(
   storeId: string, role: string, staffId: string | null, params: URLSearchParams,
   canReadCards: boolean, now = new Date(), music = false,
 ): Promise<CourseCustomerPage> {
+  const cohort=musicDataScope(storeId,params.get("dataScope")??undefined);
+  const cohortSql=cohort?Prisma.sql`AND (c.id = ANY(${LEGACY_MUSIC_CUSTOMER_IDS}::text[])) = ${cohort==="legacy"}`:Prisma.empty;
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
   const staffScope = typeof visibility.assignedStaffId === "string" ? visibility.assignedStaffId : null;
   const labelIds = await customerLabelFilterIds(storeId, params.get("label") ?? undefined);
@@ -58,7 +61,7 @@ export async function getCourseCustomerPage(
         COALESCE(b.sessions,0) AS sessions,COALESCE(b."hasPoints",false) AS "hasPoints",COALESCE(b."hasSessions",false) AS "hasSessions",CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
       FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
       LEFT JOIN attendance a ON a."customerId"=c.id LEFT JOIN balances b ON b."customerId"=c.id
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter}
+      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter} ${cohortSql}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
         AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)

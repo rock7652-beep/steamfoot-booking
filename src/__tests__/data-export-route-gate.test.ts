@@ -114,7 +114,7 @@ describe("data_export route gates", () => {
     const { GET } = await import("@/app/api/export/customers/route");
     const response=await GET();
     expect(response.status).toBe(200);expect(await response.text()).toBe("course-csv");
-    expect(courseExport.csv).toHaveBeenCalledWith("store-1",{cards:false,bookings:true});
+    expect(courseExport.csv).toHaveBeenCalledWith("store-1",{cards:false,bookings:true},undefined);
     expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
 

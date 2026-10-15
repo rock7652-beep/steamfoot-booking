@@ -1,3 +1,6 @@
+import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
+import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
+import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
 import { InstantFilterForm } from "@/components/instant-filter-form";
@@ -21,6 +24,9 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   basePath?: "/dashboard/revenue" | "/dashboard/transactions";
   canDataExport?: boolean;
 }) {
+  const legacy=musicDataScope(storeId,params.dataScope)==="legacy";
+  const scopeQuery:Record<string,string>=legacy?{dataScope:"legacy"}:{};
+  if(legacy){readOnly=true;canRefund=false;canConfirm=false;canEdit=false;canVoid=false;}
   const today = toLocalDateStr();
   const validDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).valueOf()) && new Date(s).toISOString().slice(0, 10) === s;
   const from = validDate(params.dateFrom) ? params.dateFrom! : today.slice(0, 7) + "-01";
@@ -28,7 +34,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   if (from > to) return <PageShell compact><PageHeader compact title="營運" /><p role="alert">開始日期不能晚於結束日期。</p><Link href={basePath}>重設日期</Link></PageShell>;
   const range = { gte: dayRange(from).start, lte: dayRange(to).end };
   if (params.summary === "receipts") {
-    const [totals, report] = await Promise.all([getCourseReceiptTotals(storeId,from,to),getCourseRevenueReport(storeId,{startDate:from,endDate:to,storeFilter:{storeId}})]);
+    const [totals, report] = await Promise.all([getCourseReceiptTotals(storeId,from,to,params.dataScope),getCourseRevenueReport(storeId,{startDate:from,endDate:to,storeFilter:{storeId},dataScope:params.dataScope})]);
     const detailRows = report.data.map(({id, createdAt, customerName, planName, netAmount}) => ({id, createdAt, customerName, planName, netAmount}));
     const detailColumns: Column<(typeof detailRows)[number]>[] = [
       { key:"date",header:"入帳／沖回時間",accessor:r=>formatTWTime(new Date(r.createdAt)) },
@@ -38,20 +44,21 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       { key:"amount",header:"金額",accessor:r=>money(r.netAmount) },
     ];
     return <PageShell compact><PageHeader compact title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
+      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
       <p className="mb-3 text-sm">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 沖銷 {money(totals.voids)} · 淨收款 {money(totals.net)}</p>
       <DataTable columns={detailColumns} rows={detailRows} rowKey={r=>r.id}/>
-      <Link className="mt-3 inline-flex min-h-11 items-center text-sm text-primary-700" href={`${basePath}?dateFrom=${from}&dateTo=${to}`}>前往營運交易工作台 →</Link>
+      <Link className="mt-3 inline-flex min-h-11 items-center text-sm text-primary-700" href={`${basePath}?${new URLSearchParams({dateFrom:from,dateTo:to,...scopeQuery})}`}>前往營運交易工作台 →</Link>
     </PageShell>;
   }
   const status = ["PENDING", "CONFIRMED", "REFUNDED", "VOIDED"].includes(params.status ?? "") ? params.status : undefined;
   const staff = params.staff?.slice(0, 100) || undefined;
-  const where: Prisma.CoursePurchaseWhereInput = { storeId, createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
+  const where: Prisma.CoursePurchaseWhereInput = { storeId, ...musicPurchaseWhere(storeId,params.dataScope), createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
   const count = await coursePrisma.coursePurchase.count({ where });
   const pages = Math.max(1, Math.ceil(count / 30));
   const page = Math.min(pages, Math.max(1, Math.floor(Number(params.page) || 1)));
   const [orders, receiptTotals, staffRows] = await Promise.all([
     coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 }),
-    getCourseReceiptTotals(storeId, from, to),
+    getCourseReceiptTotals(storeId, from, to, params.dataScope),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
@@ -87,12 +94,14 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const dateField = `${field} leading-normal`;
   const selectField = `${field} appearance-none pr-9`;
   const selectStyle = {backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"};
-  const href = (p: number) => `${basePath}?${new URLSearchParams({ dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
-  const periodHref = (dateFrom: string, dateTo: string) => `${basePath}?${new URLSearchParams({dateFrom,dateTo,status:status??"",staff:staff??""})}`;
+  const href = (p: number) => `${basePath}?${new URLSearchParams({ ...scopeQuery, dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
+  const periodHref = (dateFrom: string, dateTo: string) => `${basePath}?${new URLSearchParams({...scopeQuery,dateFrom,dateTo,status:status??"",staff:staff??""})}`;
   const isToday = from === today && to === today;
   const isMonth = from === today.slice(0, 7) + "-01" && to === today;
   return <PageShell compact>
-    <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({dateFrom:from,dateTo:to,status:"PENDING"})}`}>查看期間待核帳</Link>} />
+    <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:"PENDING"})}`}>查看期間待核帳</Link>} />
+    <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+    {legacy&&<p className="text-sm text-earth-600">舊驗收交易僅供查閱，不列入營運收款。</p>}
     <RevenueTabs readOnly={readOnly} />
     <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receiptTotals.purchaseCount} 筆` }]} />
     <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">收款入帳合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · <strong>淨收款 {money(receiptTotals.net)}</strong></p>
@@ -105,13 +114,13 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
           <label className="text-xs">結束日期<input className={dateField} type="date" name="dateTo" defaultValue={to} /></label>
           <label className="text-xs">狀態<select className={selectField} style={selectStyle} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label className="text-xs">核帳人員<select className={selectField} style={selectStyle} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId && (s.user?.role === "OWNER" || s.user?.role === "ADMIN" || orders.some(order => order.confirmedBy === s.userId))).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
-          <Link href={basePath} className="flex h-11 items-center justify-center self-end rounded-lg border border-earth-200 px-3 text-sm text-earth-600">清除</Link>
+          <Link href={`${basePath}?${new URLSearchParams(scopeQuery)}`} className="flex h-11 items-center justify-center self-end rounded-lg border border-earth-200 px-3 text-sm text-earth-600">清除</Link>
         </InstantFilterForm><p className="mt-3 text-xs text-earth-600">共 {count} 筆購買紀錄；點「查看／核帳」或「查看明細」，同頁處理與查閱額度、退款紀錄。</p>
       </div>
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
     </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具" subtitle="依工作目的快速前往"><div className="divide-y divide-earth-100 text-sm"><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">日常處理</p><Link className="block" href="/dashboard/transactions">交易明細與處理 →</Link><Link className="block" href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">帳務管理</p><Link className="block" href="/dashboard/cashbook">現金帳 →</Link><FeatureEntry feature={FEATURES.SERVICE_FEE_CALCULATOR} label="月結管理"><Link className="block" href="/dashboard/service-fee-calculator">月結管理 →</Link></FeatureEntry><Link className="block" href="/dashboard/reconciliation">對帳中心 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">報表</p><Link className="block" href="/dashboard/store-revenue">收入總覽與匯出 →</Link>{canDataExport && !readOnly && <Link className="block" href="/dashboard/data-export">資料匯出 →</Link>}</div></div></SideCard><SideCard title="退款"><details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看協商退款規則</summary><p className="text-sm">具退款權限的店長可登錄協商金額、方式及原因；累計不超過實付，有預約占用時先處理。確認後收回剩餘額度並停用卡片，保留原單及歷史。此操作不會自動匯款或退刷。</p></details></SideCard></aside></div>
     <CourseFees dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly}/>
-    <CourseTrialTransactions storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
+    <CourseTrialTransactions dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
   </PageShell>;
 }
