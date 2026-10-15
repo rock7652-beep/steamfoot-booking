@@ -330,6 +330,7 @@ export function CourseMemberWorkspace({
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
+        onViewPlans={music && canReadCards ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab("plans"); setCustomerCardBrowse({search:"",history:false,page:0}); } : undefined}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (

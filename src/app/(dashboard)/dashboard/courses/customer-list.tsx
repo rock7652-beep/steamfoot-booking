@@ -13,10 +13,10 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
+export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onViewPlans, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
-  onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
+  onView: (id: string) => void; onViewPlans?: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
   canMerge?: boolean; canExport?: boolean; music?: boolean;
 }) {
@@ -66,7 +66,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel={music ? "最近上課" : "最近來店"}
       balanceColumn={{ label: music ? "可再預約" : "可用額度", render: row => canReadCards
-        ? <button type="button" aria-label={`查看 ${row.name} 的有效方案`} onClick={()=>onView(row.id)} className="min-h-11 whitespace-nowrap text-sm font-semibold tabular-nums text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
+        ? <button type="button" aria-label={music ? `查看 ${row.name} 的學費與堂數` : `查看 ${row.name} 的有效方案`} onClick={()=>(onViewPlans ?? onView)(row.id)} className="min-h-11 whitespace-nowrap text-sm font-semibold tabular-nums text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>
