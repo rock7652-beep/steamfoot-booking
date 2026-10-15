@@ -96,6 +96,7 @@ export default async function DashboardLayout({
         description="此店舖無法存取，或您沒有查看權限。請返回自己的店舖，或聯繫管理員。"
         backHref={ownStore ? `/s/${encodeURIComponent(ownStore.slug)}/admin/dashboard` : user.role === "ADMIN" ? "/hq/dashboard" : "/login"}
         backLabel={ownStore ? "返回自己的店舖" : user.role === "ADMIN" ? "返回總部" : "重新登入"}
+        backReload
       />
     </main>;
   }

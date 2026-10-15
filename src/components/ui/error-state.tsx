@@ -19,6 +19,8 @@ interface ErrorStateProps {
   /** 返回連結（預設：/dashboard） */
   backHref?: string;
   backLabel?: string;
+  /** Reload when recovery changes the store scope of a shared layout. */
+  backReload?: boolean;
 }
 
 export function ErrorState({
@@ -27,7 +29,9 @@ export function ErrorState({
   retry,
   backHref = "/dashboard",
   backLabel = "回首頁",
+  backReload = false,
 }: ErrorStateProps) {
+  const BackLink = backReload ? "a" : Link;
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
@@ -57,12 +61,12 @@ export function ErrorState({
             重試
           </button>
         )}
-        <Link
+        <BackLink
           href={backHref}
           className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
         >
           {backLabel}
-        </Link>
+        </BackLink>
       </div>
     </div>
   );
