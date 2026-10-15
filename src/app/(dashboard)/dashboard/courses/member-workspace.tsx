@@ -262,7 +262,7 @@ export function CourseMemberWorkspace({
       )}
       </div>}
       <div className="flex flex-wrap items-center gap-2">
-        {view === "customers" && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
+        {view === "customers" && !music && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
@@ -300,7 +300,7 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : "方案"}
+            ＋新增{view === "customers" ? music ? "學員" : "顧客" : "方案"}
           </button>
         )}
         {canAssign && (view === "customers" || planArea === "cards") && (
@@ -309,7 +309,7 @@ export function CourseMemberWorkspace({
             disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
-            購買方案
+            {music ? "繳費／續報" : "購買方案"}
           </button>
         )}
       </div>
@@ -390,7 +390,7 @@ export function CourseMemberWorkspace({
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
             <h2 id="course-member-sheet" className="min-w-0 break-words text-base font-semibold text-primary-900">
               {customerPanel ? person.name : panel === "person"
-                ? person ? person.name : "新增顧客"
+                ? person ? person.name : music ? "新增學員" : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? planReadOnly&&plan ? plan.name : plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
@@ -414,7 +414,7 @@ export function CourseMemberWorkspace({
             </button>
             </div>
           </header>
-          {(customerPanel || panel === "person") && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
+          {(customerPanel || panel === "person") && person && <nav aria-label={music ? "學員詳細資料分區" : "顧客詳細資料分區"} className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
             {(music ? [["info","基本資料"], ...(canReadCards ? [["plans","學費與堂數"]] : []), ...(canReadTransactions ? [["payments","付款紀錄"]] : []), ...(canReadBookings ? [["bookings","課表與出勤"],["makeups","請假與補課"]] : [])] : [ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
