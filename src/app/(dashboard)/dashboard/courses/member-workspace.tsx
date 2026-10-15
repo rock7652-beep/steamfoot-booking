@@ -158,7 +158,7 @@ export function CourseMemberWorkspace({
   const cardLoading = cardDetail.loading;
   const cardError = cardDetail.error;
   const [revenueStaffId,setRevenueStaffId]=useState("");
-  const [planId, setPlanId] = useState(plans.find((p) => p.isActive)?.id ?? "");
+  const [planId, setPlanId] = useState(music ? "" : plans.find((p) => p.isActive)?.id ?? "");
   const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
@@ -174,7 +174,8 @@ export function CourseMemberWorkspace({
     if(value === "assign" || value === "card")setPersonTab("plans");
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
-    if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
+    if (value === "assign" && music) { setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
+    if (value === "assign" && !music && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
       setPlanId(plans.find((p) => p.isActive && (!music || p.unit === "SESSION"))?.id ?? "");
     setError("");
     setNotice("");

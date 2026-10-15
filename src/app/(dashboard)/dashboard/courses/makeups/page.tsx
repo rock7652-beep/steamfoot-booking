@@ -1,3 +1,4 @@
+import { studentReturnHref } from "@/lib/music-student-navigation";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -13,7 +14,7 @@ import { getMusicLeaveWorkspace } from "@/server/queries/music-leave-workspace";
 import { OpeningMakeupList } from "../opening-makeups/opening-makeup-list";
 import { NativeMakeupList } from "./native-makeup-list";
 
-export default async function MusicMakeupsPage({ searchParams }: { searchParams: Promise<{ customerId?: string }> }) {
+export default async function MusicMakeupsPage({ searchParams }: { searchParams: Promise<{ customerId?: string; returnQuery?: string }> }) {
   const user = await getCurrentUser();
   if (!user || !await checkPermission(user.role, user.staffId, "booking.read") || !await checkPermission(user.role, user.staffId, "customer.read")) notFound();
   const storeId = await getActiveStoreForRead(user);
@@ -30,7 +31,7 @@ export default async function MusicMakeupsPage({ searchParams }: { searchParams:
     canReadCards ? getMusicLeaveWorkspace(storeId, customers) : null,
     checkPermission(user.role, user.staffId, "booking.create"), checkPermission(user.role, user.staffId, "booking.update"),
   ]);
-  return <PageShell className="w-full min-w-0"><PageHeader title={query.customerId ? `${customers[0].name} · 請假與補課` : "請假與補課"} subtitle="從原課查看扣堂與期限，安排後直接進入補課點名" actions={<div className="flex flex-wrap gap-2">{query.customerId && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={`/dashboard/courses?view=customers&customerId=${encodeURIComponent(query.customerId)}&studentTab=makeups`}>返回學員</DashboardLink>}<DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href="/dashboard/courses">返回課表</DashboardLink></div>} />
+  return <PageShell className="w-full min-w-0"><PageHeader title={query.customerId ? `${customers[0].name} · 請假與補課` : "請假與補課"} subtitle="從原課查看扣堂與期限，安排後直接進入補課點名" actions={<div className="flex flex-wrap gap-2">{query.customerId && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={studentReturnHref(query.customerId, query.returnQuery)}>返回學員</DashboardLink>}<DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href="/dashboard/courses">返回課表</DashboardLink></div>} />
     <section className="space-y-3"><h2 className="font-semibold">音教雲帶入的補課</h2><OpeningMakeupList data={opening} canCreate={canCreate && !readOnly} canUpdate={canUpdate && !readOnly} compact /></section>
     {native ? <NativeMakeupList data={native} canCreate={canCreate && !readOnly} /> : <p className="text-sm text-earth-600">查看蒸管家補課方案需學費方案檢視權限。</p>}
   </PageShell>;

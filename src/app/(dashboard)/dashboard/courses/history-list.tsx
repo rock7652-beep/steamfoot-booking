@@ -1,23 +1,23 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
-export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty}: {
-  customerId:string;label:string;empty:string;
-  load:(id:string,offset:number,range:{from:string;to:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
+export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,mode}: {
+  customerId:string;label:string;empty:string;mode?:string;
+  load:(id:string,offset:number,range:{from:string;to:string;mode?:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
   render:(row:T)=>ReactNode;
 }) {
   const [range,setRange]=useState({from:"",to:""});
   const [page,setPage]=useState(0);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;rows:T[];hasMore:boolean;error?:string}|null>(null);
-  const key=JSON.stringify([customerId,range,page,retry]);
+  const key=JSON.stringify([customerId,range,page,retry,mode]);
   const invalid=!!range.from && !!range.to && range.from>range.to;
   useEffect(()=>{
     if(invalid)return;
     let active=true;
-    load(customerId,page*10,range).then(r=>{if(active)setResult(r.success ? {key,rows:r.data,hasMore:r.hasMore}:{key,rows:[],hasMore:false,error:r.error});})
+    load(customerId,page*10,{...range,...(mode ? {mode} : {})}).then(r=>{if(active)setResult(r.success ? {key,rows:r.data,hasMore:r.hasMore}:{key,rows:[],hasMore:false,error:r.error});})
       .catch(()=>{if(active)setResult({key,rows:[],hasMore:false,error:"讀取失敗，請重試"});});
     return ()=>{active=false;};
-  },[customerId,page,range,key,invalid,load]);
+  },[customerId,page,range,key,invalid,load,mode]);
   const ready=result?.key===key;
   return <section className="space-y-3 py-3">
     <h3 className="font-semibold text-primary-800">{label}</h3>
