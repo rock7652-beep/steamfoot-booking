@@ -245,6 +245,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     assignedCoachId: customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.id ?? null : null,
     assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
     expiresAt: card?.expiresAt?.toISOString() ?? null,
+    ...(!openingMakeup && opening.kind === "NATIVE" && card?.musicValidityDays && !card.musicActivatedAt ? { activationExpiryLabel: `首次上課起 ${card.musicValidityDays} 天` } : {}),
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),

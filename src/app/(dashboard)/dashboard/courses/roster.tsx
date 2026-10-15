@@ -1225,7 +1225,7 @@ export function CourseRoster({
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
                   <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => { setOpenActionMenu(null); setExpandedLessonIds((ids) => ids.includes(booking.id) ? [] : [booking.id]); }}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
                   {expandedLessonIds.includes(booking.id) && <div id={`lesson-history-${booking.id}`} className="w-full text-xs text-earth-700 lg:order-3">
-                  {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
+                  {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {booking.activationExpiryLabel ?? toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{lesson.ordinal ?? (booking.openingImported ? "待核對" : index+1)}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {remainingTermOrdinals(booking).map(ordinal => <span key={`upcoming-${ordinal}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{ordinal}. 尚未排課</span>)}
@@ -1236,7 +1236,7 @@ export function CourseRoster({
                   </div>}
                 </> : <details name="course-roster-details" className="w-full text-xs text-earth-700">
                   <summary className="cursor-pointer whitespace-nowrap py-1 text-primary-800">查看本期上課日期</summary>
-                  {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
+                  {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {booking.activationExpiryLabel ?? toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{lesson.ordinal ?? (booking.openingImported ? "待核對" : index+1)}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {remainingTermOrdinals(booking).map(ordinal => <span key={`upcoming-${ordinal}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{ordinal}. 尚未排課</span>)}
