@@ -85,6 +85,12 @@ describe("retired store request boundary", () => {
     expect(mocks.findUnique).toHaveBeenCalledWith({ where: { id: "e182e256-98ca-4c78-970b-d4b118066c51" }, select: { industryModule: true } });
   });
 
+  it.each(["/hq/login", "/hq/dashboard/stores", "/api/auth/session"])("does not turn custom-domain metadata into a global block on %s", async path => {
+    await route(request(path, undefined, "GET", "steamfoot-zhubei.com"));
+    expect(mocks.findUnique).not.toHaveBeenCalled();
+    expect(mocks.authenticated).toHaveBeenCalledOnce();
+  });
+
   it("does not report transient database failures as module retirement or grant access", async () => {
     mocks.findUnique.mockRejectedValue(new Error("database unavailable"));
     await expect(route(request("/s/any-store/"))).rejects.toThrow("database unavailable");

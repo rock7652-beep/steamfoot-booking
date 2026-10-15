@@ -12,7 +12,9 @@ export function retiredStoreBoundary(
     (path === "/hq/login" ? req.nextUrl.searchParams.get("store") : null);
   const hq = /^\/hq\/dashboard(?:\/|$)/.test(path) && !isHqPlatformPath(path);
   const selected = hq ? req.cookies.get("active-store-id")?.value : null;
-  const id = selected && selected !== "__all__" ? selected : domainStoreId;
+  // Custom domains scope customer pages, never HQ platform pages or API/auth.
+  const domainTarget = /^\/(?:hq|api|_next)(?:\/|$)/.test(path) ? undefined : domainStoreId;
+  const id = selected && selected !== "__all__" ? selected : domainTarget;
   if (!slug && !id) return null;
 
   return (async () => {
