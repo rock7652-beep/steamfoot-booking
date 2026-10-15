@@ -7,6 +7,9 @@ const mockEntitlementDeleteMany = vi.fn();
 const mockEntitlementUpsert = vi.fn();
 const mockRevalidateStoreFeatureEntitlements = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockRequirePermission = vi.fn();
+
+vi.mock("@/lib/permissions", () => ({ requirePermission: (...args: unknown[]) => mockRequirePermission(...args) }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
@@ -43,12 +46,30 @@ function formData(values: Record<string, string>) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequireAdminSession.mockResolvedValue({ id: "admin-1", role: "ADMIN" });
-  mockStoreFindUnique.mockResolvedValue({ id: "store-1" });
+  mockStoreFindUnique.mockResolvedValue({ id: "store-1", industryModule: "STEAMFOOT" });
   mockEntitlementDeleteMany.mockResolvedValue({ count: 1 });
   mockEntitlementUpsert.mockResolvedValue({ id: "entitlement-1" });
 });
 
 describe("saveStoreFeatureEntitlement", () => {
+  it.each(["INHERIT", "ENABLED", "DISABLED", "LOCKED", "HIDDEN"])("rejects %s on archived SPA without writing", async override => {
+    mockStoreFindUnique.mockResolvedValue({ id: "spa-1", industryModule: "SPA" });
+    const { saveStoreFeatureEntitlement } = await import("@/server/actions/store-feature-entitlement");
+    const result = await saveStoreFeatureEntitlement(formData({ storeId: "spa-1", featureKey: FEATURES.DIGITAL_BUTLER, override }));
+    expect(result).toEqual({ success: false, error: "SPA 模組已停用，歷史設定僅供封存" });
+    expect(mockRequirePermission).toHaveBeenCalledWith("staff.manage");
+    expect(mockEntitlementDeleteMany).not.toHaveBeenCalled();
+    expect(mockEntitlementUpsert).not.toHaveBeenCalled();
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it.each(["true", "false"])("rejects SPA digital butler activation=%s before any service write", async enabled => {
+    mockStoreFindUnique.mockResolvedValue({ industryModule: "SPA" });
+    const { setDigitalButlerActivationAction } = await import("@/server/actions/store-feature-entitlement");
+    expect(await setDigitalButlerActivationAction({ success: null, error: null }, formData({ storeId: "spa-1", enabled })))
+      .toEqual({ success: null, error: "SPA 模組已停用，歷史設定僅供封存" });
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
   it("INHERIT deletes the single-store override", async () => {
     const { saveStoreFeatureEntitlement } = await import(
       "@/server/actions/store-feature-entitlement"

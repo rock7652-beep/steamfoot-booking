@@ -520,11 +520,12 @@ export async function updateStoreOperatingStatusAction(
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { id: true },
+    select: { id: true, industryModule: true },
   });
   if (!store) {
     return { success: false, error: "店舖不存在" };
   }
+  if (store.industryModule === "SPA") return { success: false, error: "SPA 模組已停用，無法修改營運狀態" };
 
   await prisma.store.update({
     where: { id: storeId },

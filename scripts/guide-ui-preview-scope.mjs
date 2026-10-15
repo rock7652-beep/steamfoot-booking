@@ -159,7 +159,7 @@ export function isMarketingStickyUiPreview(env = process.env) {
 
 // User-authorized SPA retirement review. Reuse disabled clients and never read
 // inherited database credentials; only this exact repository/Preview branch qualifies.
-export const SPA_RETIREMENT_UI_PREVIEW_BRANCH = "codex/remove-spa-module-20261014";
+export const SPA_RETIREMENT_UI_PREVIEW_BRANCH = "codex/fix-spa-history-access-20261015";
 export function isSpaRetirementUiPreview(env = process.env) {
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
   if (!branches.includes(SPA_RETIREMENT_UI_PREVIEW_BRANCH)) return false;
