@@ -62,7 +62,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   }, [syncRevision, open, editing, busy, refresh]);
   function close() {
     if (locked.current) return;
-    if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
+    if (editing && !isMusicPreviewPage() && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
     request.current++; reader.clear(); setOpen(false); setEditing(null);
   }
   closeRef.current = close;
@@ -150,7 +150,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
           </>}
         </>}
       </div>
-      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
+      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (isMusicPreviewPage() || window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
       </section>
     </div>, document.body)}
   </>;

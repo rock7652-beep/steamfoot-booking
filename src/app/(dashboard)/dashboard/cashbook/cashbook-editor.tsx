@@ -1,4 +1,5 @@
 "use client";
+import { isMusicPreviewPage } from "@/lib/music-finance-sync";
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -51,7 +52,7 @@ export function CashbookEditor({
   function close() {
     if (
       lock.current ||
-      (dirty && !window.confirm("離開編輯？尚未儲存的內容將不保留。"))
+      (dirty && !isMusicPreviewPage() && !window.confirm("離開編輯？尚未儲存的內容將不保留。"))
     )
       return;
     setOpen(false);
