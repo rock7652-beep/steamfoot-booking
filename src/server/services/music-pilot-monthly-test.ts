@@ -178,7 +178,7 @@ export async function runMusicPilotMonthlyTest(actor:CourseActor):Promise<Monthl
     else{
       const code=typeof e==="object"&&e!==null&&"code" in e&&/^P\d{4}$/.test(String(e.code))?String(e.code):"未完成";
       const name=e instanceof Error?e.name:"Unknown";
-      console.error("[music-pilot-monthly-test]",{stage,code,name});
+      console.error("[music-pilot-monthly-test]",{stage,code,name,detail:e instanceof Error?e.message.replace(/postgres(?:ql)?:\/\/[^\s]+/g,"[database]").slice(-1600):"unknown"});
       throw new AppError("CONFLICT",`${stage}未完成（${code}）；測試交易已中止，未登錄實際發薪。`);
     }
   }
