@@ -31,6 +31,7 @@ import { Fragment, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
@@ -146,6 +147,7 @@ export function CourseMemberWorkspace({
   const [personTab, setPersonTab] = useState<"info" | "plans" | "records" | "payments" | "bookings" | "makeups">(() => music && ["plans", "payments", "bookings", "makeups"].includes(params.get("studentTab") ?? "") ? params.get("studentTab") as "plans" | "payments" | "bookings" | "makeups" : "info");
   const [editingPerson, setEditingPerson] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [leaveAction,setLeaveAction]=useState<(()=>void)|null>(null);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
@@ -154,7 +156,16 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
+  function canLeave() {
+    if(pending || formPending)return false;
+    if(!dirty)return true;
+    if(music){setLeaveAction(()=>()=>{setPanel(null);setDirty(false);});return false;}
+    return window.confirm("尚有未儲存的變更，確定離開？");
+  }
+  function changePurchaseSelection(action:()=>void){
+    if(music&&dirty){setLeaveAction(()=>()=>{setDirty(false);action();});return;}
+    action();
+  }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -392,6 +403,13 @@ export function CourseMemberWorkspace({
       </div> : canReadCards ? <CourseCardBrowser dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
+      <ModalPanel open={!!leaveAction} onClose={()=>setLeaveAction(null)} labelledById="music-unsaved-title" pending={pending||formPending}>
+        <div className="space-y-3 p-4">
+          <h2 id="music-unsaved-title" className="font-semibold">放棄尚未儲存的修改？</h2>
+          <p className="text-sm text-earth-700">{panel==="assign"?"已修改購買期數、優惠或收款資料，尚未送出結帳。":"目前表單有尚未儲存的修改。"}</p>
+          <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={()=>setLeaveAction(null)}>繼續編輯</button><button type="button" className={button} disabled={pending||formPending} onClick={()=>{const action=leaveAction;setLeaveAction(null);action?.();}}>放棄修改</button></div>
+        </div>
+      </ModalPanel>
       {panel && (
         <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
@@ -514,7 +532,7 @@ export function CourseMemberWorkspace({
             {panel === "assign" && (
               <form
                 id="course-member-form"
-                onChange={()=>setDirty(true)}
+                onChange={e=>{if(!music||(e.target as HTMLElement).closest("[data-purchase-details]"))setDirty(true);}}
                 className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"
                 onSubmit={(e) =>
                   submit(e, (d) =>
@@ -545,13 +563,13 @@ export function CourseMemberWorkspace({
                 <h3 className="font-semibold">{music?"購課：教學項目 → 學費方案":"方案資料"}</h3>
                 {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
-                  <CourseCustomerPicker name="customerId" required onChange={customers=>{setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
+                  <CourseCustomerPicker name="customerId" required onChange={customers=>{if(!music)setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
 
                 </label>}
-                {music&&<label className="block">教學項目（大類）<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});setDirty(true);}}/></label>}
+                {music&&<label className="block">教學項目（大類）<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
                 <label className="block">
                   {music?"學費方案（小類）":"方案"}
-                  <CourseOptionSelect label={music?"學費方案":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
+                  <CourseOptionSelect label={music?"學費方案":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);})}/>
 
                 </label>
                 {music ? <p className="text-sm text-earth-600"><input type="hidden" name="expires" value="2099-12-31"/>從第一堂實際上課日起算，依方案有效天數自動到期。</p> : <label className="block" key={planId}>
@@ -577,7 +595,7 @@ export function CourseMemberWorkspace({
 
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
-                <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
+                <fieldset data-purchase-details disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
                   {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 </fieldset>
               </form>
