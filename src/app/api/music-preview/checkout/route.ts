@@ -1,3 +1,4 @@
+import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import { assignCoursePointCard } from "@/server/actions/course-members";
 import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
 import { courseManager } from "@/server/services/course-access";
@@ -7,7 +8,7 @@ import { withMusicCheckoutRequest } from "@/server/services/music-checkout-reque
 
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
- return withMusicCheckoutRequest(async timings => {
+ return withPermissionRequestSession(() => withMusicCheckoutRequest(async timings => {
   const started=performance.now();
   const reply = (value: unknown, status = 200) => {
     const totalMs=Math.round(performance.now()-started);
@@ -37,5 +38,5 @@ export async function POST(request: Request) {
     if (operation === "receipt") return reply(await recordMusicTuitionReceipt(input));
     return reply({ success: false, error: "不支援的收款操作。" }, 400);
   } catch (error) { return reply(handleActionError(error)); }
- });
+ }));
 }
