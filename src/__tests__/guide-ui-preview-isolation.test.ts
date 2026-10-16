@@ -65,7 +65,11 @@ const permissionsSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music
 function enablePermissions() {
   for (const [key, value] of Object.entries(permissionsSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
+const loyaltySafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-fitness-studio-student-loyalty" };
+function enableLoyalty() {
+  for (const [key, value] of Object.entries(loyaltySafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "student loyalty", enable: enableLoyalty }, { name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -493,5 +497,28 @@ describe("SPA retirement read-only preview", () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");
     expect(route("/spa-retirement-preview").status).toBe(404);
     expect(spies.auth).not.toHaveBeenCalled();
+  });
+});
+
+describe("student-loyalty publication exact Preview provenance", () => {
+  it("accepts only the exact repository and branch without database credentials", () => {
+    expect(isGuideUiPreview({ ...loyaltySafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...loyaltySafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-fitness-studio-student-loyalty"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...loyaltySafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
+    expect(() => isGuideUiPreview({ ...loyaltySafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-fitness-studio-student-loyalty" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations before database work with no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...loyaltySafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });

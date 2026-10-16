@@ -71,10 +71,39 @@ describe("public editorial guides", () => {
     expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${permissionsSlug}`);
   });
 
+  it("publishes the approved student loyalty body, metadata and CTA without editorial appendices", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const slug = "music-fitness-studio-student-loyalty";
+    const guide = findPublicGuide(slug)!;
+    if (guide.format !== "article") throw new Error("Expected article");
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.label!];
+    expect(createHash("sha256").update(ordered.join("\n")).digest("hex")).toBe("61326b589a008e6a5a67b4ea8b2de141809e503a075dc6529bcb2717ae3bdc16");
+    const html = renderToStaticMarkup(await GuideArticle(props(slug)));
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+    let cursor = 0;
+    for (const text of ordered) {
+      const position = article.indexOf(text, cursor);
+      expect(position, text).toBeGreaterThanOrEqual(cursor);
+      cursor = position + text.length;
+    }
+    expect(article.match(/<h1/g)).toHaveLength(1);
+    expect(article.match(/<h2/g)).toHaveLength(4);
+    expect(article.match(/href="https:\/\/www.steamfoot.com\/apply"/g)).toHaveLength(1);
+    expect(article).not.toMatch(/編輯附錄|校稿問題|證據分級|校閱草稿/);
+    const metadata = await generateMetadata(props(slug));
+    expect(metadata.title).toBe(guide.title);
+    expect(metadata.description).toBe(guide.summary);
+    expect(metadata.alternates?.canonical).toBe(`https://www.steamfoot.com/guides/${slug}`);
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${slug}`);
+    expect(route(`/guides/${slug}`).status).toBe(200);
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(slug))).robots).toEqual({ index: false, follow: false });
+  });
+
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug, "sports-studio-business-metrics"]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug, "sports-studio-business-metrics", "music-fitness-studio-student-loyalty"]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -258,7 +287,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug && guide.id !== "sports-studio-business-metrics")) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug && guide.id !== "sports-studio-business-metrics" && guide.id !== "music-fitness-studio-student-loyalty")) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -366,7 +395,7 @@ describe("public editorial guides", () => {
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     expect(index).toContain(`href="/guides/${notificationSlug}"`);
     expect(index).toContain(guide.summary);
-    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug && item.id !== "sports-studio-business-metrics")) {
+    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug && item.id !== "sports-studio-business-metrics" && item.id !== "music-fitness-studio-student-loyalty")) {
       const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
       expect(previousHtml).toContain("申請免費試用 30 天 →");
       expect(previousHtml).not.toContain("前往蒸管家，了解體驗與適用流程");
@@ -554,8 +583,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(18);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(30);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(19);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(31);
     expect(xml).not.toContain("/pricing/features/services");
     for (const modulePath of ["slots", "music", "fitness"]) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com/pricing/features/${modulePath}</loc>`);
