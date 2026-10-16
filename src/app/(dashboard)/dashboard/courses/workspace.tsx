@@ -1747,7 +1747,7 @@ export function CourseWorkspace({
                     (data) => {
                       if (editing.kind === "session")
                         go(String(data.get("date")));
-                      setPanel(editing.kind === "session" ? "day" : null);
+                      setPanel(editing.kind === "session" && !(businessProfile === "MUSIC" && scheduleLayout === "list") ? "day" : null);
                       setEditing(null);
                     },
                   )
@@ -1837,7 +1837,7 @@ export function CourseWorkspace({
                       />
                     </label>
                     <label className="col-span-full">
-                      教練
+                      {businessProfile === "MUSIC" ? "教師" : "教練"}
                       <select
                         className={field}
                         name="coachId"
@@ -1931,7 +1931,7 @@ export function CourseWorkspace({
                       />
                     )}
                     {(editing.kind==="session" || businessProfile==="MUSIC") && (<label className="col-span-full">
-                      {editing.kind === "template" ? "預設空間" : "空間"}
+                      {businessProfile === "MUSIC" ? (editing.kind === "template" ? "預設教室" : "教室") : (editing.kind === "template" ? "預設空間" : "空間")}
                       <select
                         className={field}
                         name="roomId"
@@ -2252,7 +2252,7 @@ export function CourseWorkspace({
                 disabled={pending}
                 onClick={() => {
                   if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
-                  open(editing.kind === "session" ? "day" : null);
+                  open(editing.kind === "session" && !(businessProfile === "MUSIC" && scheduleLayout === "list") ? "day" : null);
                   setEditing(null);
                 }}
               >

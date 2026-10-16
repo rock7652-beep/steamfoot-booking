@@ -326,6 +326,19 @@ export default async function CoursesPage({
       }
     >
       {view === "schedule" && <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/> }
+      {view !== "schedule" && (
+        <PageHeader
+          title={view === "catalog" ? "課程管理" : "空間管理"}
+          subtitle={businessProfile === "MUSIC" ? (
+            view === "catalog"
+              ? "管理課程名稱、人數與排課預設"
+              : "管理上課教室"
+          ) : undefined}
+        />
+      )}
+      {businessProfile === "MUSIC" && <details className="text-sm text-earth-600"><summary className="inline-flex min-h-11 cursor-pointer items-center">匯入與對照工具</summary><div className="flex flex-wrap items-center gap-2 pb-2">
+      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">音教雲補課紀錄</DashboardLink>}
+      {businessProfile === "MUSIC" && canSourceImport && <DashboardLink href="/dashboard/courses/opening-import" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-base">音教雲資料匯入</DashboardLink>}
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
         <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
           {showLubyReplica && (
@@ -338,18 +351,7 @@ export default async function CoursesPage({
           </a>
         </div></details>
       )}
-      {view !== "schedule" && (
-        <PageHeader
-          title={view === "catalog" ? "課程管理" : "空間管理"}
-          subtitle={businessProfile === "MUSIC" ? (
-            view === "catalog"
-              ? "管理課程名稱、人數與排課預設"
-              : "管理上課教室"
-          ) : undefined}
-        />
-      )}
-      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">音教雲補課紀錄</DashboardLink>}
-      {businessProfile === "MUSIC" && canSourceImport && <DashboardLink href="/dashboard/courses/opening-import" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-base">音教雲資料匯入</DashboardLink>}
+      </div></details>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}
