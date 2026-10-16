@@ -44,3 +44,25 @@ it.each([
  expect(calculateTeacherFee({rule:{mode:"CLASS",value:0},cancelled:true,seats}).amount).toBeNull();
  expect(capturedTeacherFee({rule:{mode:"CLASS",value:0},revision:0,cancelledAt:new Date()},seats).amount).toBeNull();
 });
+
+const tuitionSnapshot={revision:1,rule:{mode:"UNSET",calculationVersion:2,tuitionRuleVersion:1,tuitionRules:{a:{mode:"SHARE",value:60},b:{mode:"SHARE",value:70}}}};
+const feeA={...seat,tuitionTemplateId:"a",originalUnitPrice:800};
+const feeB={...seat,id:"b",customerName:"乙",tuitionTemplateId:"b",originalUnitPrice:640};
+it("same subject pays each tuition share independently, including mixed class",()=>{
+ expect(capturedTeacherFee(tuitionSnapshot,[feeA]).amount).toBe(480);
+ expect(capturedTeacherFee(tuitionSnapshot,[feeB]).amount).toBe(448);
+ expect(capturedTeacherFee(tuitionSnapshot,[feeA,feeB])).toMatchObject({amount:928,issue:null,details:[{id:"a",amount:480},{id:"b",amount:448}]});
+});
+it("tuition shares preserve leave, makeup attendance, pending and correction behavior",()=>{
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"},feeB]).amount).toBe(448);
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,status:"NO_SHOW"},feeB]).amount).toBe(928);
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,status:"RESERVED"},feeB]).amount).toBeNull();
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,id:"makeup"}]).amount).toBe(480);
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,bookingKind:"TEACHER_MAKEUP"}]).amount).toBe(0);
+});
+it("never guesses a missing fee version or pays a fixed class fee per student",()=>{
+ expect(capturedTeacherFee(tuitionSnapshot,[{...feeA,tuitionTemplateId:"unknown"}]).amount).toBeNull();
+ const fixed={...tuitionSnapshot,rule:{...tuitionSnapshot.rule,tuitionRules:{a:{mode:"CLASS",value:600},b:{mode:"CLASS",value:600}}}};
+ expect(capturedTeacherFee(fixed,[feeA,feeB]).amount).toBe(600);
+ expect(capturedTeacherFee({...fixed,rule:{...fixed.rule,tuitionRules:{...fixed.rule.tuitionRules,b:{mode:"SHARE",value:70}}}},[feeA,feeB]).amount).toBeNull();
+});

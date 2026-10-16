@@ -46,16 +46,28 @@ export async function readTeachingTrialPrice(tx:Pick<Prisma.TransactionClient,"c
   return rows[0]??null;
 }
 
-/** Preserve existing tuition-specific teacher overrides in each new teaching-item snapshot. */
+/** Capture each tuition version when creating a class. Existing teacher overrides retain priority. */
 export async function captureTeachingTuitionFees(tx:Pick<Prisma.TransactionClient,"$executeRaw">,storeId:string,requestKey:string,sessionIds:string[]|null=null) {
   await tx.$executeRaw`
-    UPDATE "CourseCompensationSnapshot" snap SET rule=snap.rule || jsonb_build_object('tuitionRules',overrides.rules),revision=GREATEST(snap.revision,1)
+    UPDATE "CourseCompensationSnapshot" snap
+    SET rule=snap.rule || jsonb_build_object('tuitionRules',captured.rules,'tuitionRuleVersion',1,'calculationVersion',2),revision=GREATEST(snap.revision,1)
     FROM "CourseSession" session, LATERAL (
-      SELECT jsonb_object_agg(comp."templateId",comp.rules->0 || jsonb_build_object('revision',comp.revision,'source','TUITION_OVERRIDE')) AS rules
-      FROM "CourseCompensation" comp JOIN "CourseTemplate" tuition ON tuition.id=comp."templateId" AND tuition."storeId"=comp."storeId"
-      JOIN "CourseTemplate" teaching ON teaching.id=session."templateId" AND teaching."storeId"=session."storeId"
-      WHERE comp."storeId"=session."storeId" AND comp."staffId"=session."coachId" AND tuition."musicSubjectId"=teaching."musicSubjectId"
-        AND jsonb_array_length(comp.rules)=1 AND comp.rules->0->>'mode' IN ('CLASS','SHARE') AND NOT starts_with(tuition.id,'teaching')
-    ) overrides
-    WHERE session."storeId"=${storeId} AND session."requestKey"=${requestKey} AND (${sessionIds}::text[] IS NULL OR session.id=ANY(${sessionIds}::text[])) AND snap."sessionId"=session.id AND snap."storeId"=session."storeId" AND overrides.rules IS NOT NULL`;
+      SELECT jsonb_object_agg(tuition.id, COALESCE(
+        comp.rules->0 || jsonb_build_object('revision',comp.revision,'source','TUITION_OVERRIDE'),
+        teaching_comp.rules->0 || jsonb_build_object('revision',teaching_comp.revision,'source','PLAN_OVERRIDE'),
+        settings."subjectRules"->teaching."musicSubjectId",
+        CASE WHEN settings."defaultRatio" IS NOT NULL THEN jsonb_build_object('mode','SHARE','value',round((settings."defaultRatio"*100)::numeric,2),'source','TEACHER_DEFAULT') END,
+        CASE WHEN tuition."musicTeacherShare" IS NOT NULL THEN jsonb_build_object('mode','SHARE','value',round((tuition."musicTeacherShare"*100)::numeric,2),'source','PRODUCT_DEFAULT') END,
+        '{"mode":"UNSET"}'::jsonb)) AS rules
+      FROM "CourseTemplate" teaching
+      JOIN "CourseTemplate" tuition ON tuition."storeId"=teaching."storeId" AND tuition."musicSubjectId"=teaching."musicSubjectId"
+      LEFT JOIN "CourseCompensation" comp ON comp."storeId"=session."storeId" AND comp."staffId"=session."coachId" AND comp."templateId"=tuition.id
+        AND jsonb_array_length(comp.rules)=1 AND comp.rules->0->>'mode' IN ('CLASS','SHARE')
+      LEFT JOIN "CourseCompensation" teaching_comp ON teaching_comp."storeId"=session."storeId" AND teaching_comp."staffId"=session."coachId" AND teaching_comp."templateId"=teaching.id
+        AND jsonb_array_length(teaching_comp.rules)=1 AND teaching_comp.rules->0->>'mode' IN ('CLASS','SHARE')
+      LEFT JOIN "CourseTeacherCompensationSetting" settings ON settings."storeId"=session."storeId" AND settings."staffId"=session."coachId"
+      WHERE teaching.id=session."templateId" AND teaching."storeId"=session."storeId" AND NOT starts_with(tuition.id,'teaching') AND tuition."musicTrialMode" IS NULL
+    ) captured
+    WHERE session."storeId"=${storeId} AND session."requestKey"=${requestKey} AND (${sessionIds}::text[] IS NULL OR session.id=ANY(${sessionIds}::text[]))
+      AND snap."sessionId"=session.id AND snap."storeId"=session."storeId" AND captured.rules IS NOT NULL`;
 }

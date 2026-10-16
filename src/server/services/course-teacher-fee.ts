@@ -78,6 +78,7 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
 }
 export { calculateTeacherFee };
 
+import { compensationRule } from "@/lib/course-compensation";
 import { courseTeacherFee } from "@/lib/course-fee-payment";
 import { isTeacherFeeV2, type TeacherFeeResult } from "@/lib/course-teacher-fee";
 export type CapturedTeacherFee = {
@@ -90,14 +91,27 @@ export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeS
   if (seats.some(seat => seat.openingIssue)) return {amount:null,issue:seats.find(seat => seat.openingIssue)!.openingIssue!,details:[]};
   if (seats.some(seat => seat.openingPriceSource||seat.verifiedOpeningMakeupFee) && !isTeacherFeeV2(snapshot.rule)) return {amount:null,issue:"期初方案尚未核對此計薪版本",details:[]};
   if(snapshot.revision===0)return {amount:null,issue:"舊課次費率待核對",details:[]};
-  const rule=snapshot.rule as {tuitionRules?:Record<string,unknown>;mode?:string;value?:number}|null;
+  const rule=snapshot.rule as {tuitionRules?:Record<string,unknown>;tuitionRuleVersion?:number;mode?:string;value?:number}|null;
   if(rule?.tuitionRules){
-    const relevant=seats.filter(seat=>seat.bookingKind!=="TEACHER_MAKEUP"&&(seat.status!=="CANCELLED"||seat.absenceKind==="GROUP_LEAVE_FORFEITED"));
-    const selected=relevant.map(seat=>seat.tuitionTemplateId&&rule.tuitionRules?.[seat.tuitionTemplateId]||rule);
-    const keys=new Set(selected.map(value=>{const fee=value as {mode?:string;value?:number};return `${fee.mode}:${fee.value}`;}));
-    if(keys.size>1)return {amount:null,issue:"同堂學費薪酬規則不同，請核對",details:[]};
-    const chosen=selected[0]??rule;
-    return calculateTeacherFee({rule:{...(chosen as object),calculationVersion:2},teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
+    if(seats.some(seat=>seat.status==="RESERVED"))return {amount:null,issue:"尚有學員待點名",details:[]};
+    const due=seats.filter(seat=>seat.bookingKind!=="TEACHER_MAKEUP"&&(seat.status==="ATTENDED"||seat.status==="NO_SHOW"||seat.absenceKind==="GROUP_LEAVE_FORFEITED"));
+    if(!due.length)return {amount:0,issue:null,details:[]};
+    const selected=due.map(seat=>({seat,fee:seat.tuitionTemplateId&&rule.tuitionRules?.[seat.tuitionTemplateId]|| (rule.tuitionRuleVersion===1?{mode:"UNSET"}:rule)}));
+    const parsed=selected.map(({fee})=>compensationRule.safeParse(fee));
+    if(parsed.some(fee=>!fee.success||fee.data.mode==="HOUR"))return {amount:null,issue:"學員收費方式拆帳比例待核對",details:[]};
+    const fixed=parsed.some(fee=>fee.success&&fee.data.mode==="CLASS");
+    if(fixed){
+      const keys=new Set(parsed.map(fee=>fee.success?`${fee.data.mode}:${fee.data.value}`:""));
+      if(keys.size!==1)return {amount:null,issue:"同堂固定鐘點與拆帳規則不同，請核對",details:[]};
+      return calculateTeacherFee({rule:selected[0].fee,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
+    }
+    // Round each learner using their captured tuition rule, then sum once per class.
+    const results=selected.map(({seat,fee})=>calculateTeacherFee({rule:fee,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats:[seat]}));
+    const details=results.flatMap(result=>result.details);
+    const issue=results.find(result=>result.amount===null)?.issue;
+    if(results.some(result=>result.amount===null))return {amount:null,issue:issue??"學員拆帳待核對",details};
+    const amount=results.reduce((sum,result)=>sum+result.amount!,0);
+    return Number.isSafeInteger(amount)?{amount,issue:null,details}:{amount:null,issue:"授課費超過可計算範圍",details};
   }
   if(isTeacherFeeV2(snapshot.rule))return calculateTeacherFee({rule:snapshot.rule,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
   const due=seats.filter(s=>s.bookingKind!=="TEACHER_MAKEUP"&&(s.status==="ATTENDED"||s.status==="NO_SHOW"||s.absenceKind==="GROUP_LEAVE_FORFEITED"));

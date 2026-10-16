@@ -1,4 +1,4 @@
-.header, .row { display: grid; grid-template-columns: minmax(160px,1.15fr) 116px 112px minmax(88px,.7fr) minmax(110px,1fr) minmax(110px,1fr) 44px; gap: 8px; align-items: center; min-width: 900px; padding-inline: 10px; border-left: 4px solid transparent; }
+.header, .row { display: grid; grid-template-columns: 44px minmax(120px,1.15fr) 116px 112px minmax(88px,.7fr) minmax(110px,1fr) minmax(110px,1fr) 44px; gap: 8px; align-items: center; min-width: 900px; padding-inline: 10px; border-left: 4px solid transparent; }
 .header { min-height: 40px; }
 .row { padding-block: 2px; min-height: 48px; }
 .row > * { min-width: 0; }
