@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { RosterTable } from "@/components/admin/roster-table";
 import {CourseFeePaymentButton} from "../revenue/_components/course-fee-payment-button";
 import { Children, type ReactNode, useRef, useState, useTransition } from "react";
@@ -66,7 +67,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
 
 function useSubmit(){
  const router=useRouter(),lock=useRef(false);const [pending,start]=useTransition(),[message,setMessage]=useState("");
- return {pending,message,run:(action:()=>Promise<{success:boolean;error?:string}>)=>{if(lock.current)return;lock.current=true;setMessage("");start(async()=>{try{const result=await action();if(!result.success)setMessage(result.error??"操作失敗");else{setMessage("已儲存");router.refresh();}}catch{setMessage("連線未完成，內容已保留，請重試。");}finally{lock.current=false;}});}};
+ return {pending,message,run:(action:()=>Promise<{success:boolean;error?:string}>)=>{if(lock.current)return;lock.current=true;setMessage("");start(async()=>{try{const result=await action();if(!result.success)setMessage(result.error??"操作失敗");else{setMessage("已儲存");publishMusicFinanceChange();router.refresh();}}catch{setMessage("連線未完成，內容已保留，請重試。");}finally{lock.current=false;}});}};
 }
 export function CourseMonthlySettings({settings,canEdit}:{settings:SettlementSettings;canEdit:boolean}){
  const [personalIncomeEnabled,setIncome]=useState(settings.personalIncomeEnabled);const submit=useSubmit();

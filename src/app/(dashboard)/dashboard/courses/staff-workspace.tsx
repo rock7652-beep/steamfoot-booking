@@ -1,4 +1,6 @@
 "use client";
+import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { createPortal } from "react-dom";
 import { DashboardLink } from "@/components/dashboard-link";
 import styles from "@/components/admin/management-layout.module.css";
@@ -145,6 +147,8 @@ export function CourseStaffWorkspace({
   const [feesReady,setFeesReady]=useState(false);
   const [feesError,setFeesError]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
+  const syncRevision = useMusicDataRevision();
+  const [loadedFeeRevision,setLoadedFeeRevision] = useState(0);
   const [backendRole, setBackendRole] = useState("STAFF");
   const [applyRolePreset, setApplyRolePreset] = useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -159,7 +163,7 @@ export function CourseStaffWorkspace({
     return () => window.removeEventListener("beforeunload", warn);
   }, [open, dirty]);
   useEffect(() => {
-    if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
+    if (!open || tab!=="qualifications" || dirty || pending || (feesReady && loadedFeeRevision===syncRevision) || !person || (!canManage && !feeEnabled)) return;
     let active = true;
     readTeaching.read(person.id).then(result => {
       if (!active) return;
@@ -176,9 +180,10 @@ export function CourseStaffWorkspace({
       setTeachingVersion(result.version);
       setQualificationIds(result.qualificationIds);
       setFeesReady(true);
+      setLoadedFeeRevision(syncRevision);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
-  }, [open, tab, feesReady, person, canManage, reloadFees, music, feeEnabled, templates, readTeaching]);
+  }, [open, tab, feesReady, dirty, pending, loadedFeeRevision, syncRevision, person, canManage, reloadFees, music, feeEnabled, templates, readTeaching]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const order=useCourseDisplayOrder("staff",staff,displayOrder,canManage&&!search&&filter==="all"&&role==="all"&&!hideTestData&&!busyIds.length,p=>p.active);
@@ -419,7 +424,7 @@ export function CourseStaffWorkspace({
                     if (!r.success) {setError(r.error);setConflicts(r.conflicts ?? []);}
                     else {
                       setOpen(false);
-                      router.refresh();
+                      publishMusicFinanceChange();router.refresh();
                     }
                   } catch {
                     setError("儲存失敗，請重試");

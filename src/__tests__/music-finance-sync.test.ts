@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {beforeEach,afterEach,expect,it,vi} from "vitest";
-import {MUSIC_FINANCE_SIGNAL,subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
+import {MUSIC_FINANCE_SIGNAL,isMusicSyncRoute,subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
 beforeEach(()=>{localStorage.clear();vi.stubGlobal("BroadcastChannel",undefined);});
 afterEach(()=>vi.unstubAllGlobals());
 it("deduplicates signals and removes listeners",()=>{
@@ -15,4 +15,9 @@ it("catches up when a suspended tab resumes",()=>{
  const refresh=vi.fn();const dispose=subscribeMusicFinanceChange(refresh);
  localStorage.setItem(MUSIC_FINANCE_SIGNAL,"new-token");window.dispatchEvent(new Event("focus"));document.dispatchEvent(new Event("visibilitychange"));
  expect(refresh).toHaveBeenCalledOnce();dispose();
+});
+
+it("limits automatic refresh to course, teacher and monthly pages",()=>{
+ for(const route of ["/s/lubymusic/admin/dashboard/courses", "/s/lubymusic/admin/dashboard/courses/source-pilot/salary", "/s/lubymusic/admin/dashboard/teachers", "/s/lubymusic/admin/dashboard/service-fee-calculator"])expect(isMusicSyncRoute(route)).toBe(true);
+ for(const route of [null,"/dashboard/revenue","/dashboard/teachers-other","/dashboard/service-fee-calculator-other"])expect(isMusicSyncRoute(route)).toBe(false);
 });

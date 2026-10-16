@@ -1,3 +1,5 @@
+import { canViewCourseMonthly } from "@/lib/course-monthly-access";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { RosterTable } from "@/components/admin/roster-table";
 import {canMusicFinance,readMusicFinanceScope,isMusicFinanceStore} from "@/server/services/music-finance-access";
 import { CourseMonthlyNotifications } from "./course-monthly-notifications";
@@ -19,8 +21,9 @@ import {DashboardLink as Link} from "@/components/dashboard-link";
 const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 export async function CourseMonthly({storeId,month,readOnly=false,teacherId,salaryData}:{storeId:string;month:string;readOnly?:boolean;teacherId?:string;salaryData?:string}){
  const user=await getCurrentUser();
- if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"report.read"))return <p>僅店長可查看課程月結。</p>;
+ if(!user||!canViewCourseMonthly(user.role,musicDataSeparationEnabled(storeId))||!await checkPermission(user.role,user.staffId,"report.read"))return <p>僅店長可查看課程月結。</p>;
  if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p>尚未授權查看教師月結。</p>;
+ if(user.role==="ADMIN")readOnly=true;
  const scope=await readMusicFinanceScope(user,storeId);
  const music = await isMusicFinanceStore(storeId);
  const canConfirm=scope===null && await canMusicFinance(user,storeId,"teacher.settlement.confirm");
@@ -45,6 +48,7 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  const canPay=canCashPay&&await canMusicFinance(user,storeId,"teacher.settlement.pay");
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
+ {user.role==="ADMIN"&&<p className="text-sm text-earth-600">HQ 檢視模式：可查看教師鐘點、月結及發薪紀錄。</p>}
  <PageHeader title={music ? "教師薪資與月結" : "每月收入結算"} subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
  {music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center self-start rounded-lg border px-3 text-sm">返回教師管理</Link>}
  {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}

@@ -1,3 +1,5 @@
+import { canViewCourseMonthly } from "@/lib/course-monthly-access";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
@@ -59,11 +61,11 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");
-  const salaryHref = canReadSalary && user.role === "OWNER" && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
+  const salaryHref = canReadSalary && canViewCourseMonthly(user.role,musicDataSeparationEnabled(storeId)) && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
     ? "/dashboard/service-fee-calculator"
     : canReadSalary && user.role === "ADMIN" && financeScope === null && await readMusicPilotFeeProof(coursePrisma, storeId)
       ? "/dashboard/courses/source-pilot/salary" : null;
-  const salaryLabel = user.role === "ADMIN" ? "樣本鐘點／薪資測試" : "月結／發薪紀錄";
+  const salaryLabel = salaryHref === "/dashboard/courses/source-pilot/salary" ? "樣本鐘點／薪資測試" : "月結／發薪紀錄";
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));

@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useCallback, useState, useEffect, u
 import { createClientReadCache } from "@/lib/client-read-cache";
 
 import { usePathname, useRouter } from "next/navigation";
-import { isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
+import { isMusicPreviewPage, isMusicSyncRoute, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
 const MusicRevision = createContext(0);
 export const useMusicDataRevision = () => useContext(MusicRevision);
@@ -19,7 +19,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const router = useRouter();
   const pathname = usePathname();
   useEffect(() => {
-    if (!isMusicPreviewPage() || !pathname?.includes("/dashboard/courses")) return;
+    if (!isMusicPreviewPage() || !isMusicSyncRoute(pathname)) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribe = subscribeMusicFinanceChange(() => {
       clearTimeout(timer);
@@ -34,7 +34,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
     return () => { clearTimeout(timer); unsubscribe(); };
   }, [pathname, registry, router]);
   return <Context.Provider value={registry}><MusicRevision.Provider value={revision}>
-    {revision > 0 && <p role="status" className="px-3 text-sm text-earth-600">{pending ? "同步教務資料中…" : "教務資料已同步"}</p>}
+    {revision > 0 && isMusicSyncRoute(pathname) && <p role="status" className="px-3 text-sm text-earth-600">{pending ? "同步教務資料中…" : "教務資料已同步"}</p>}
     {children}
   </MusicRevision.Provider></Context.Provider>;
 }

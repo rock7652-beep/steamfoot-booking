@@ -38,3 +38,8 @@ export function subscribeMusicFinanceChange(refresh: () => void) {
     document.removeEventListener("visibilitychange", resume);
   };
 }
+
+/** Route allowlist; environment/store authorization remains separate. */
+export function isMusicSyncRoute(pathname: string | null) {
+  return !!pathname && /\/dashboard\/(?:courses(?:\/|$)|teachers(?:\/|$)|service-fee-calculator(?:\/|$))/.test(pathname);
+}
