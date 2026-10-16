@@ -72,12 +72,12 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),
     readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id)),
   ]);
-      return {pages,page,orders,customers,cards,held,attended,tuition,receipts};
+      return {count,pages,page,orders,customers,cards,held,attended,tuition,receipts};
     })(),
     getCourseReceiptTotals(storeId, from, to, params.dataScope),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
-  const {pages,page,orders,customers,cards,held,attended,tuition,receipts} = detail;
+  const {count,pages,page,orders,customers,cards,held,attended,tuition,receipts} = detail;
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
     const card = cards.find((c) => c.id === order.cardId);
