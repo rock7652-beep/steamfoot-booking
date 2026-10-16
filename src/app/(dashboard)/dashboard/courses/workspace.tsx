@@ -435,7 +435,7 @@ export function CourseWorkspace({
       !s.rentalCancelled &&
       (roomFilter === "all" || s.roomId === roomFilter) &&
       (coachFilter === "all" || s.coachId === coachFilter) &&
-      (businessProfile === "MUSIC" ? category === "all" || allTemplates.find((t) => t.id === s.templateId)?.category === category : courseClassMatches(classFilter, allTemplates.find(t => t.id === s.templateId)?.classType, !!(s.isTrial || allTemplates.find(t => t.id === s.templateId)?.musicTrialMode), !!s.rentalId || /租借|RENTAL/i.test(allTemplates.find(t => t.id === s.templateId)?.category ?? ""))) &&
+      (businessProfile === "MUSIC" ? category === "all" || (allTemplates.find((t) => t.id === s.templateId)?.musicSubjectId ?? s.templateId) === category : courseClassMatches(classFilter, allTemplates.find(t => t.id === s.templateId)?.classType, !!(s.isTrial || allTemplates.find(t => t.id === s.templateId)?.musicTrialMode), !!s.rentalId || /租借|RENTAL/i.test(allTemplates.find(t => t.id === s.templateId)?.category ?? ""))) &&
       (businessProfile === "MUSIC" || assignedCoachFilter === "all" || scheduleAssignedBookings(s.bookings, assignedCoachFilter).length > 0) &&
       (!scheduleQuery.trim() || [s.nameSnapshot, ...s.bookings.map(booking => booking.customerName)].some(text => text.toLocaleLowerCase().includes(scheduleQuery.trim().toLocaleLowerCase()))),
   ).map((session) => ({
@@ -867,20 +867,16 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label>{businessProfile === "MUSIC" ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-category-filter">課程分類
+            </label>{businessProfile === "MUSIC" ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-category-filter">教學項目
             <select
               id="course-category-filter"
-              aria-label="課程分類篩選"
+              aria-label="教學項目篩選"
               className={`${button} min-h-11 bg-white py-1 ${category !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={category}
               onChange={(e)=>{setSelectedIds([]);setCategory(e.target.value);}}
             >
-              <option value="all">全部分類</option>
-              {[...new Set(allTemplates.map((template) => template.category))].map((item) => (
-                <option key={item} value={item}>
-                  {item || "未分類"}
-                </option>
-              ))}
+              <option value="all">全部教學項目</option>
+              {[...new Map(allTemplates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??t.name}])).values()].map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             </label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
             <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />

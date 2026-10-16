@@ -69,8 +69,9 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     });
   }
   return <div className="space-y-4 text-sm">
+    <p className="text-earth-600">選教學項目排課；學員加入後，自動匹配對應學費方案。</p>
     <div className="grid gap-3 sm:grid-cols-2">
-    <label className="block">教學項目<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+    <label className="block">教學項目（大類）<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
     <div className="flex min-h-11 items-center text-earth-700">{duration} 分鐘 · 上限 {capacity} 人</div>
     </div>
     <label className="block">上課日期

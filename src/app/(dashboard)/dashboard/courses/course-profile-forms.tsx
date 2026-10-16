@@ -111,7 +111,7 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
  {selectionError&&<p role="alert" className="sm:col-span-2 text-sm text-red-700">{selectionError}</p>}
  <fieldset disabled={pending} className="contents">
                 <label className={music ? "block" : "block sm:col-span-2"}>
-                  名稱{!music&&" *"}
+                  {music?"學費方案名稱（小類）":"名稱 *"}
                   <input
                     className={field}
                     name="name"
@@ -122,12 +122,12 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
                 {music?<input type="hidden" name="unit" value="SESSION"/>:<label className="block">計費方式<select className={field} value={planKind} onChange={e=>{draft.setMany({kind:e.target.value,unit:e.target.value==="TERM"?"SESSION":e.target.value});}}><option value="POINT">點數</option><option value="SESSION">堂數</option><option value="TERM">期課</option></select><input type="hidden" name="unit" value={planKind==="TERM"?"SESSION":draft.values.unit}/></label>}
                 <label className="block">狀態<select className={field} name="active" value={draft.values.active} onChange={e=>draft.set("active",e.target.value)}><option value="yes">上架</option><option value="no">下架</option></select></label>
                 {music&&<>
-                <label>教學項目<select className={field} required value={draft.values.subjectId} onChange={e=>draft.set("subjectId",e.target.value)}><option value="">請選擇課程</option>{subjects.filter(s=>s.isActive||s.id===draft.values.subjectId).map(s=><option key={s.id} value={s.id}>{s.name}{!s.isActive?"（下架）":""}</option>)}</select></label>
+                <label>所屬教學項目（大類）<select className={field} required value={draft.values.subjectId} onChange={e=>draft.set("subjectId",e.target.value)}><option value="">請選擇教學項目</option>{subjects.filter(s=>s.isActive||s.id===draft.values.subjectId).map(s=><option key={s.id} value={s.id}>{s.name}{!s.isActive?"（下架）":""}</option>)}</select></label>
                 <div className="self-center text-earth-700">授課型態：{({PRIVATE:"個別課",SELF_ORGANIZED:"自組班",GROUP:"團體班"} as Record<string,string>)[itemRule?.classType??draft.values.classType]}<span className="block text-sm">依教學項目設定</span></div>
                 <label>每堂學費<input className={field} type="number" min="0" max="1000000" required value={draft.values.musicPricePerLesson} onChange={e=>draft.set("musicPricePerLesson",e.target.value)}/></label>
                 <label>每期堂數<input className={field} type="number" min="1" max="1000" required value={draft.values.musicTermLessons} onChange={e=>draft.set("musicTermLessons",e.target.value)}/></label>
                 <label>每期有效天數<input className={field} type="number" min="1" max="3650" required value={draft.values.musicValidityDaysPerTerm} onChange={e=>{draft.set("musicValidityDaysPerTerm",e.target.value);}}/></label>
-                <p className="sm:col-span-2 rounded-lg bg-primary-50 p-3 text-primary-900">{musicQuote?`每期 ${musicQuote.lessons} 堂 · ${musicQuote.validDays} 天 · NT$ ${musicQuote.price.toLocaleString("zh-TW")}`:"請選擇課程並填寫方案"}</p>
+                <p className="sm:col-span-2 rounded-lg bg-primary-50 p-3 text-primary-900">{musicQuote?`每期 ${musicQuote.lessons} 堂 · ${musicQuote.validDays} 天 · NT$ ${musicQuote.price.toLocaleString("zh-TW")}`:"請選擇教學項目並填寫學費方案"}</p>
                 <details className="sm:col-span-2"><summary className="cursor-pointer py-2">進階設定</summary><div className="grid gap-3 sm:grid-cols-2"><label>購買方式<select className={field} name="purchaseMode" value={draft.values.purchaseMode} onChange={e=>draft.set("purchaseMode",e.target.value)}><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select></label><label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="allowShared" value="yes" disabled={planKind==="TERM"} checked={planKind!=="TERM"&&draft.values.allowShared==="yes"} onChange={e=>draft.set("allowShared",e.target.checked?"yes":"no")}/>允許共用堂數</label></div></details>
                 </>}
 

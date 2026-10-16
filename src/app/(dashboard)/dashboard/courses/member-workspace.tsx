@@ -1,4 +1,5 @@
 "use client";
+import {musicPlanItems} from "@/lib/music-catalog";
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { musicNoteDisplay } from "@/lib/music-display";
@@ -163,6 +164,7 @@ export function CourseMemberWorkspace({
   const cardError = cardDetail.error;
   const [revenueStaffId,setRevenueStaffId]=useState("");
   const [planId, setPlanId] = useState(music ? "" : plans.find((p) => p.isActive)?.id ?? "");
+  const [purchaseSubjectId,setPurchaseSubjectId]=useState("");
   const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
@@ -178,7 +180,7 @@ export function CourseMemberWorkspace({
     if(value === "assign" || value === "card")setPersonTab("plans");
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
-    if (value === "assign" && music) { setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
+    if (value === "assign" && music) { setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
     if (value === "assign" && !music && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
       setPlanId(plans.find((p) => p.isActive && (!music || p.unit === "SESSION"))?.id ?? "");
     setError("");
@@ -231,7 +233,7 @@ export function CourseMemberWorkspace({
   const filteredPlans = plans
     .filter(
       (p) =>
-        (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + (music?musicPlanItems(p.templateIds,templates,subjects).map(s=>s.name).join(" "):templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" "))).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
         (templateFilter === "all" || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || purchaseFilter === "all" || (p.customerPurchasable !== false) === (purchaseFilter === "customer")) &&
@@ -246,6 +248,9 @@ export function CourseMemberWorkspace({
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   const visiblePlans=[...activeFilteredPlans.slice(currentPage*20,(currentPage+1)*20),...(inactiveExpanded?inactiveFilteredPlans:[])];
   const activePlans = order.rows.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
+  const planItems=(p:Plan)=>musicPlanItems(p.templateIds,templates,subjects);
+  const purchaseItems=[...new Map(activePlans.flatMap(p=>planItems(p)).map(s=>[s.id,s])).values()];
+  const purchasePlans=music?activePlans.filter(p=>planItems(p).some(s=>s.id===purchaseSubjectId)):activePlans;
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
 
@@ -297,7 +302,7 @@ export function CourseMemberWorkspace({
           {sharingVisible && <select aria-label="共卡篩選" className={`${field} max-w-40`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
           {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>}
-        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && music && <select aria-label="教學項目篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部教學項目</option>{subjects.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
@@ -344,7 +349,7 @@ export function CourseMemberWorkspace({
         <table className={`${music ? "block sm:table" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
           <thead className={`${music?"hidden sm:table-header-group":""} bg-earth-50`}>
             <tr>
-              {(music ? ["方案／適用課程", "堂數", "售價", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
+              {(music ? ["學費方案／教學項目", "堂數", "售價", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
                 <th key={h} className={`whitespace-nowrap px-3 py-2 font-medium ${!music ? ({"方案／適用課程":"w-[40%]","額度":"w-[10%]","售價":"w-[16%]","有效天數":"w-[12%]","購買方式":"w-[16%]"} as Record<string,string>)[h] ?? "" : ""} ${!music&&h==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {h}
                 </th>
@@ -360,7 +365,7 @@ export function CourseMemberWorkspace({
                     {...order.rowProps(p.id)}
                     className={`${music?"grid grid-cols-[1fr_auto] sm:table-row":""} ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    {music ? <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 min-w-0 break-words text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div><div className={`mt-1 flex flex-wrap gap-x-2 ${music ? "text-xs text-earth-500" : "text-sm text-earth-700"}`}>{music && <span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span>}<span>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span><span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "全部課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
+                    {music ? <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 min-w-0 break-words text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div><div className={`mt-1 flex flex-wrap gap-x-2 ${music ? "text-xs text-earth-500" : "text-sm text-earth-700"}`}>{music && <span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span>}<span>{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span><span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "全部課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
                     <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}{music && <p className="text-xs text-earth-500">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</p>}</td>
                     <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>NT$ {p.price.toLocaleString("zh-TW")}{(music || p.price > 0) && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</p>}</td>
                     {!music && <>
@@ -500,7 +505,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && (personTab === "payments" || personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
             {panel === "person" && (personTab === "bookings" || personTab === "records" && recordTab === "bookings") && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} />}
-            {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
+            {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],[music?"所屬教學項目":"適用課程",music?planItems(plan).map(s=>s.name).join("、")||"待確認對應":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
               <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
@@ -537,15 +542,16 @@ export function CourseMemberWorkspace({
                 }
               >
                 <fieldset disabled={pending} className="min-w-0 space-y-3">
-                <h3 className="font-semibold">方案資料</h3>
+                <h3 className="font-semibold">{music?"購課：教學項目 → 學費方案":"方案資料"}</h3>
                 {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
                   <CourseCustomerPicker name="customerId" required onChange={customers=>{setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
 
                 </label>}
+                {music&&<label className="block">教學項目（大類）<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});setDirty(true);}}/></label>}
                 <label className="block">
-                  方案
-                  <CourseOptionSelect label="方案" required value={planId} options={activePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
+                  {music?"學費方案（小類）":"方案"}
+                  <CourseOptionSelect label={music?"學費方案":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
 
                 </label>
                 {music ? <p className="text-sm text-earth-600"><input type="hidden" name="expires" value="2099-12-31"/>從第一堂實際上課日起算，依方案有效天數自動到期。</p> : <label className="block" key={planId}>
