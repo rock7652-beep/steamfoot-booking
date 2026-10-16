@@ -1,4 +1,5 @@
 import "server-only";
+import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
 
 import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
@@ -13,6 +14,11 @@ import { courseManagerRead } from "@/server/services/course-access";
 import { courseHistoryRange } from "@/lib/course-history-range";
 
 export async function readCourseCustomerPurchases(input: unknown, offset = 0, range: {from?:string;to?:string} = {}, previewOnly=false, timings?:Record<string,number>) {
+  const work=()=>readPurchases(input,offset,range,previewOnly,timings);
+  return previewOnly?withPermissionRequestSession(work):work();
+}
+
+async function readPurchases(input: unknown, offset: number, range: {from?:string;to?:string}, previewOnly:boolean, timings?:Record<string,number>) {
   const measure=async<T>(name:string,work:()=>Promise<T>):Promise<T>=>{const started=performance.now();try{return await work();}finally{if(timings)timings[name]=Math.round(performance.now()-started);}};
   try {
     const skip = z.number().int().min(0).max(1000000).parse(offset);
