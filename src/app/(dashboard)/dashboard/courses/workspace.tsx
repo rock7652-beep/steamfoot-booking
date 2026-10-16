@@ -1972,6 +1972,9 @@ export function CourseWorkspace({
                 rooms={rooms}
                 coaches={coaches}
                 initialDate={scheduleSeed.date ?? selectedDate}
+                initialTime={scheduleSeed.time}
+                initialRoomId={scheduleSeed.roomId}
+                initialCoachId={scheduleSeed.coachId}
                 initialTemplateId={copySource?.templateId}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}

@@ -23,7 +23,7 @@ it('filters locally, auto selects a sole teacher and suitable room, submits actu
 it('clears dependent selections when time changes and does not fetch again',async()=>{
  m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'large',coachIds:['teacher']},{time:'10:00',roomId:'large',coachIds:['teacher','other']}]});
  await act(async()=>root.render(React.createElement(MusicScheduleWizard,props)));await change('上課時間','09:00');await change('上課時間','10:00');
- expect(select('老師').value).toBe('');expect(select('教室').value).toBe('');expect(select('教室').disabled).toBe(true);expect(m.slots).toHaveBeenCalledTimes(1);
+ expect(select('老師').value).toBe('');expect(select('教室').value).toBe('');expect(select('教室').disabled).toBe(false);expect(m.slots).toHaveBeenCalledTimes(1);
 });
 it('ignores an old item response arriving after the current one',async()=>{
  let resolveOld!:(value:unknown)=>void;
@@ -31,4 +31,26 @@ it('ignores an old item response arriving after the current one',async()=>{
  await act(async()=>root.render(React.createElement(MusicScheduleWizard,props)));await change('教學項目（大類）','b');
  await act(async()=>resolveOld({success:true,data:[{time:'09:00',roomId:'large',coachIds:['teacher']}]}));
  expect(select('上課時間').textContent).toContain('11:00');expect(select('上課時間').textContent).not.toContain('09:00');
+});
+
+it('keeps the clicked classroom and time and only offers teachers available there',async()=>{
+ m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'large',coachIds:['other']},{time:'09:00',roomId:'small',coachIds:['teacher']}]});
+ await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,initialTime:'09:00',initialRoomId:'large'})));
+ expect(select('上課時間').value).toBe('09:00');expect(select('教室').value).toBe('large');expect(select('老師').value).toBe('other');
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='建立課程，接著選學員')!.click());
+ expect(m.create).toHaveBeenCalledWith(expect.objectContaining({time:'09:00',roomId:'large',coachId:'other'}));
+});
+it('does not silently substitute another room when the clicked room is unavailable',async()=>{
+ m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'small',coachIds:['teacher']}]});
+ await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,initialTime:'09:00',initialRoomId:'large'})));
+ expect(select('教室').value).toBe('large');expect(host.textContent).toContain('沒有符合資格');
+ expect([...host.querySelectorAll('button')].some(b=>b.textContent==='建立課程，接著選學員')).toBe(false);
+});
+it('filters teaching items by type and preserves the calendar location while switching types',async()=>{
+ m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'large',coachIds:['teacher']}]});
+ await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,templates:props.templates.map((t,i)=>({...t,classType:i?'PRIVATE':'GROUP'})),initialTime:'09:00',initialRoomId:'large'})));
+ expect(select('教學項目（大類）').textContent).not.toContain('鋼琴個別');
+ await change('課程型態','PRIVATE');
+ expect(select('教學項目（大類）').value).toBe('b');expect(select('上課時間').value).toBe('09:00');expect(select('教室').value).toBe('large');
+ expect(host.querySelector('.bg-blue-600')).not.toBeNull();
 });
