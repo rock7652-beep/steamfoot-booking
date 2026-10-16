@@ -15,6 +15,10 @@ export async function POST(request: Request) {
     return reply({ success: false, error: "請從本站的購課或付款表單送出。" }, 403);
   if (request.headers.get("x-music-contract") !== "1")
     return reply({ success: false, error: "請更新表單版本。" }, 409);
+  // Preserve the visible store through the existing authenticated store rewrite.
+  // The destination is fixed, never derived from client-provided store headers.
+  if (new URL(request.url).pathname === "/api/music-preview/checkout")
+    return Response.redirect(new URL("/s/lubymusic/admin/dashboard/music-checkout", request.url), 307);
   try {
     const { storeId } = await courseManager("transaction.create");
     if (!musicDataSeparationEnabled(storeId)) return reply({ success: false, error: "此入口僅供音樂教室測試站。" }, 403);
