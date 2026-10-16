@@ -9,7 +9,7 @@ export async function musicCheckoutTransport(
 ): Promise<MusicMutationResult> {
   if (!isMusicPreviewPage()) return fallback(input);
   try {
-    const response = await fetch("/api/music-preview/checkout", {
+    const response = await fetch("/s/lubymusic/admin/dashboard/music-checkout", {
       method: "POST", credentials: "same-origin", cache: "no-store",
       headers: { "Content-Type": "application/json", "X-Music-Contract": "1" },
       body: JSON.stringify({ operation, input }),

@@ -10,7 +10,7 @@ describe("deployment independent music checkout",()=>{
   const fallback=vi.fn();const input={requestKey:"same-key",amount:200};
   expect(await musicCheckoutTransport("receipt",input,fallback)).toEqual({success:true});
   expect(fallback).not.toHaveBeenCalled();
-  expect(fetcher).toHaveBeenCalledWith("/api/music-preview/checkout",expect.objectContaining({cache:"no-store",body:JSON.stringify({operation:"receipt",input})}));
+  expect(fetcher).toHaveBeenCalledWith("/s/lubymusic/admin/dashboard/music-checkout",expect.objectContaining({cache:"no-store",body:JSON.stringify({operation:"receipt",input})}));
   expect(notify).toHaveBeenCalledOnce();
  });
  it("never retries or falls back after an uncertain payment result",async()=>{

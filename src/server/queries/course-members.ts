@@ -112,22 +112,11 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
-  const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
   const nativeCandidates=musicDataSeparationEnabled(storeId)?[...new Set(bookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
-  const [nativePurchases,nativeLeaveIds,compatibleItemTemplates]=await Promise.all([
-    nativeCandidates.length?coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}}):[],
-    nativeDeductedLeaveIds(coursePrisma,storeId),
-    bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
-  ]);
-  const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
-  const nativeDebitedBookings=new Set(nativeLeaveIds);
-  const sourceTuition=pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : [];
-  const canCreateShared = bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
-    && await getCourseSharedCardState(storeId) === "ENABLED";
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
-  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases] = await Promise.all([
+  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared] = await Promise.all([
     groupSession && groupTermStart !== null && groupTermLessons
     ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
@@ -149,7 +138,19 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     where: { storeId, customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
     select: { customerId: true, cardId: true, points: true, price: true, paymentMethod: true, confirmedAt: true },
   }),
+    nativeCandidates.length?coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}}):[],
+    nativeDeductedLeaveIds(coursePrisma,storeId),
+    bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
+    (async()=>{
+  const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
+      return {pilotCards,sourceTuition:pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : []};
+    })(),
+    bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
+    ? getCourseSharedCardState(storeId).then(state=>state === "ENABLED") : false,
   ]);
+  const {pilotCards,sourceTuition}=pilotData;
+  const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
+  const nativeDebitedBookings=new Set(nativeLeaveIds);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({

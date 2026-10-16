@@ -6,8 +6,9 @@ import { handleActionError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
+  const started=performance.now();
   const reply = (value: unknown, status = 200) => Response.json(value, {
-    status, headers: { "Cache-Control": "no-store", "X-Music-Build": process.env.VERCEL_GIT_COMMIT_SHA ?? "local" },
+    status, headers: { "Cache-Control": "no-store", "Server-Timing": `checkout;dur=${Math.round(performance.now()-started)}`, "X-Music-Build": process.env.VERCEL_GIT_COMMIT_SHA ?? "local" },
   });
   // A cookie-authenticated JSON endpoint must retain Server Actions' CSRF protection.
   if (request.headers.get("origin") !== new URL(request.url).origin ||

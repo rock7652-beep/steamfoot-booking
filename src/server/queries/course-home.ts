@@ -1,4 +1,3 @@
-import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
 import {coursePrisma} from "@/lib/course-db";
 import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
 import { musicReceiptScopeSql } from "@/server/services/music-finance-scope";
@@ -33,14 +32,29 @@ export async function getCourseHomeToday(storeId: string, date: string, now = ne
 /** Matches the report's event-time ledger, including a receipt subsequently voided. */
 export async function getCourseReceiptTotals(storeId: string, from: string, to: string, dataScope?:string) {
   const start = dayRange(from).start, end = dayRange(to).end;
+  const ledger = musicDataSeparationEnabled(storeId);
+  const postedPurchases = ledger ? Prisma.sql`
+    WITH eligible AS (
+      SELECT id,price,"confirmedAt" FROM "CoursePurchase"
+      WHERE "storeId"=${storeId} AND status IN ('CONFIRMED','REFUNDED') ${musicReceiptScopeSql(storeId,"purchase",dataScope)}
+    ), cashflow AS (
+      SELECT p.price amount FROM eligible p
+      WHERE p."confirmedAt" BETWEEN ${start} AND ${end}
+        AND NOT EXISTS (SELECT 1 FROM "CourseMusicTuition" t WHERE t."storeId"=${storeId} AND t."purchaseId"=p.id)
+      UNION ALL
+      SELECT r.amount FROM "CourseMusicReceipt" r JOIN eligible p ON p.id=r."purchaseId"
+      WHERE r."storeId"=${storeId} AND r."paidAt" BETWEEN ${start} AND ${end}
+    ) SELECT COALESCE(sum(amount),0)::float8 purchases,count(*)::int "purchaseCount" FROM cashflow
+  ` : Prisma.sql`
+    SELECT COALESCE(sum(price),0)::float8 purchases,count(*)::int "purchaseCount" FROM "CoursePurchase"
+    WHERE "storeId"=${storeId} AND status IN ('CONFIRMED','REFUNDED') AND "confirmedAt" BETWEEN ${start} AND ${end}
+  `;
   const [row] = await prisma.$queryRaw<Array<{ purchases: number; purchaseCount: number; trial: number; refunds: number; voids: number }>>(Prisma.sql`
-    SELECT
-      (SELECT COALESCE(sum(price),0)::float8 FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status IN ('CONFIRMED','REFUNDED') AND "confirmedAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"purchase",dataScope)}) purchases,
-      (SELECT count(*)::int FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status IN ('CONFIRMED','REFUNDED') AND "confirmedAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"purchase",dataScope)}) "purchaseCount",
+    WITH posted AS (${postedPurchases})
+    SELECT posted.purchases, posted."purchaseCount",
       (SELECT COALESCE(sum(amount),0)::float8 FROM "CourseTrialPayment" WHERE "storeId"=${storeId} AND "createdAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"trial",dataScope)}) trial,
       (SELECT COALESCE(sum(amount),0)::float8 FROM "CoursePurchaseRefund" WHERE "storeId"=${storeId} AND "createdAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"refund",dataScope)}) refunds,
-      (SELECT COALESCE(sum(amount),0)::float8 FROM "CourseTrialPayment" WHERE "storeId"=${storeId} AND "voidedAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"trial",dataScope)}) voids`);
-  if(musicDataSeparationEnabled(storeId)){const flows=await coursePrisma.$transaction(tx=>coursePurchaseCashflow(tx,storeId,{gte:start,lte:end},dataScope));row.purchases=flows.reduce((n,r)=>n+r.price,0);row.purchaseCount=flows.length;}
+      (SELECT COALESCE(sum(amount),0)::float8 FROM "CourseTrialPayment" WHERE "storeId"=${storeId} AND "voidedAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"trial",dataScope)}) voids FROM posted`);
   return { ...row, gross: row.purchases + row.trial, net: row.purchases + row.trial - row.refunds - row.voids };
 }
 

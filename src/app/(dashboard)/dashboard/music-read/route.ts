@@ -7,9 +7,9 @@ import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
 export const dynamic="force-dynamic";
 export async function GET(request:Request){
   const started=performance.now();
-  const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`}});
+  const operation=new URL(request.url).searchParams.get("operation");
+  const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",{operation,status,totalMs:Math.round(performance.now()-started)});return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`}});};
   try{
-    const operation=new URL(request.url).searchParams.get("operation");
     const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":"customer.read");
     if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
     const params=new URL(request.url).searchParams,raw=params.get("args")??"[]";

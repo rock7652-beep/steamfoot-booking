@@ -275,15 +275,20 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
+    let initialDetailLoaded = false;
 
-    const refresh = () => {
+    const refresh = (quick = false) => {
       if (mutationLock.current || quickInFlight.current.size > 0) return Promise.resolve();
+      if (quick && isMusicPreviewPage() && view === "roster" && initialDetailLoaded) return load().catch(() => {
+        if (active) setMessage("讀取失敗，現有名單已保留，請重試");
+      });
       const version = ++readVersion.current;
       return musicPanelRead("session-detail",[sessionId,view === "roster"],()=>loadCourseSessionDetail(sessionId, view === "roster"))
 
         .then((result) => {
           if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
           if (result.success) {
+            initialDetailLoaded = true;
             setSession(result.data.session);
             setTrial(result.data.trial);
             setRoster(result.data.roster);
@@ -302,7 +307,7 @@ export function CourseRoster({
           if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
         });
     };
-    const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(); }) : () => {};
+    const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(true); }) : () => {};
     void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
@@ -317,6 +322,7 @@ export function CourseRoster({
     document.addEventListener("visibilitychange", refreshVisibleRoster);
     return () => {
       active = false;
+      ++readVersion.current;
       unsubscribe();
       if (timer) window.clearInterval(timer);
       window.removeEventListener("focus", refreshVisibleRoster);
