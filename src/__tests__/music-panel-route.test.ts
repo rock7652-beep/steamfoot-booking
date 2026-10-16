@@ -2,7 +2,7 @@ vi.mock("@/server/queries/music-revenue-transactions",()=>({getMusicRevenueTrans
 vi.mock("@/server/queries/course-home",()=>({getCourseReceiptTotals:m.totals}));
 import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),totals:vi.fn(),transactions:vi.fn()}));
-vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
+vi.mock('@/server/queries/music-student-workspace',()=>({readMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/server/queries/course-customer-purchases',()=>({readCourseCustomerPurchases:m.purchases}));
 vi.mock('@/server/actions/course-members',()=>({loadCourseCustomerBookings:m.bookings,loadCourseSessionDetail:m.detail,loadCourseRosterQuick:m.roster}));
@@ -37,3 +37,5 @@ it("uses the purchase reader's own dual permission and preview gate without a th
  m.purchases.mockResolvedValue({success:true,data:[]});expect((await GET(request("purchases"))).status).toBe(200);
  expect(m.purchases).toHaveBeenCalledWith({customerId:"student"},undefined,undefined,true,expect.any(Object));expect(m.auth).not.toHaveBeenCalled();
 });
+
+it("delegates overview authorization and preview scope to its reader once",async()=>{m.overview.mockResolvedValue({success:true,data:{}});const r=await GET(request("music-student-workspace"));expect(r.status).toBe(200);expect(m.overview).toHaveBeenCalledWith({customerId:"student"},true,expect.any(Object));expect(m.auth).not.toHaveBeenCalled();expect(r.headers.get("cache-control")).toBe("private, no-store");});
