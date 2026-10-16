@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
@@ -299,6 +300,7 @@ export function CourseRoster({
           if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
         });
     };
+    const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(); }) : () => {};
     void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
@@ -313,6 +315,7 @@ export function CourseRoster({
     document.addEventListener("visibilitychange", refreshVisibleRoster);
     return () => {
       active = false;
+      unsubscribe();
       if (timer) window.clearInterval(timer);
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
@@ -403,6 +406,7 @@ export function CourseRoster({
           }
           return;
         }
+        publishMusicFinanceChange();
         setMessage(successMessage);
         if (!bookingId) {
           setSelected([]);
@@ -1531,6 +1535,7 @@ export function CourseRoster({
           courseMode
           saveAction={(data) => collectCourseTrial({ ...data, requestKey })}
           onCollected={() => {
+            publishMusicFinanceChange();
             setPaymentBooking(null);
             void load();
             router.refresh();
@@ -1560,6 +1565,7 @@ export function CourseRoster({
             })
           }
           onCorrected={() => {
+            publishMusicFinanceChange();
             setPaymentBooking(null);
             void load();
             router.refresh();
@@ -1567,7 +1573,7 @@ export function CourseRoster({
         />
       )}
 
-      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {void load(); router.refresh();}} />}
+      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {publishMusicFinanceChange();void load(); router.refresh();}} />}
       {openActionMenu && typeof document !== "undefined" && createPortal(<>
         <div data-roster-action-menu className="fixed z-[141] flex w-48 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
           {actionBooking ? <>

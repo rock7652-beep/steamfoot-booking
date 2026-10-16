@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentOverview } from "./music-student-overview";
@@ -189,7 +190,7 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  function finishDraftForm(){publishMusicFinanceChange();setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, music ? personTab : undefined);
   function switchPersonTab(value: typeof personTab) {
@@ -213,6 +214,7 @@ export function CourseMemberWorkspace({
           setError(result.error ?? "儲存失敗");
           return;
         }
+        publishMusicFinanceChange();
         setDirty(false);setCardRevision(n=>n+1);
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);

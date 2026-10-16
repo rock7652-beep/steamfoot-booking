@@ -1,4 +1,5 @@
 "use client";
+import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
 import { RosterTable } from "@/components/admin/roster-primitives";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseCardReservations } from "./card-reservations";
@@ -18,7 +19,8 @@ export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSe
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
   const previousSearch = useRef(state.search);
-  const key=JSON.stringify([dataScope,customerId,state,revision,retry]);
+  const syncRevision = useMusicDataRevision();
+  const key=JSON.stringify([syncRevision,dataScope,customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
     const delay=previousSearch.current===state.search?0:200;

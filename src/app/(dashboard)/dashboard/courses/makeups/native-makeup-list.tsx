@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { useState, useTransition } from "react";
@@ -42,7 +43,7 @@ function NativeRow({ row, canCreate, hidden }: { hidden: boolean; row: MusicLeav
     <td><div className="flex flex-wrap gap-2">{canCreate && row.state === "待安排" && !row.issue && !open && <button type="button" className={button} onClick={() => { setOpen(true); setRequestKey(crypto.randomUUID()); }}>安排補課</button>}<DashboardLink className="inline-flex min-h-11 items-center text-primary-800 underline" href={`/dashboard/courses?date=${row.sourceDate}&action=booking&session=${encodeURIComponent(row.sourceSessionId)}${legacy?"&dataScope=legacy":""}`}>原課／更正點名</DashboardLink></div></td>
   </tr>
   {open && <tr hidden={hidden}><td colSpan={6}>
-    {open && <form className="space-y-2 border-t pt-3" onSubmit={event => { event.preventDefault(); if (pending || !row.cardId || !sessionId) return; start(async () => { try { const result = await createCourseBooking({ sessionId, customerId: row.customerId, cardId: row.cardId, makeupForBookingId: row.separate ? null : row.id, requestKey }); if (!result.success) { setError(result.error ?? "未能安排，請重試"); return; } setOpen(false); setError(""); router.refresh(); } catch { setError("連線未完成，選擇已保留，請重試。"); } }); }}>
+    {open && <form className="space-y-2 border-t pt-3" onSubmit={event => { event.preventDefault(); if (pending || !row.cardId || !sessionId) return; start(async () => { try { const result = await createCourseBooking({ sessionId, customerId: row.customerId, cardId: row.cardId, makeupForBookingId: row.separate ? null : row.id, requestKey }); if (!result.success) { setError(result.error ?? "未能安排，請重試"); return; } setOpen(false); setError(""); publishMusicFinanceChange(); router.refresh(); } catch { setError("連線未完成，選擇已保留，請重試。"); } }); }}>
       <label className="block">補課時段<select aria-label={`${row.customerName} 補課時段`} disabled={pending} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border px-3" value={sessionId} onChange={e => { setSessionId(e.target.value); setError(""); }}><option value="">選擇同課程、期限內的時段</option>{row.sessions.map(s => <option key={s.id} value={s.id}>{formatTWDateTime(new Date(s.date))} · {s.name}</option>)}</select></label>
       {!row.sessions.length && <p>目前沒有符合條件的未來課堂，請先到課表新增時段。</p>}
       {error && <p role="alert" className="text-red-700">{error}</p>}

@@ -1,11 +1,13 @@
 "use client";
+import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
 import { useEffect, useState } from "react";
 import { loadCourseCardReservations } from "@/server/actions/course-card-reservations";
 import { formatTWDateTime } from "@/lib/date-utils";
 export function CourseCardReservations({cardId,held,unit,revision=0}:{cardId:string;held:number;unit:string;revision?:number}) {
   const [open,setOpen]=useState(false),[page,setPage]=useState(0),[retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;value:Awaited<ReturnType<typeof loadCourseCardReservations>>}|null>(null);
-  const key=JSON.stringify([cardId,page,retry,revision,held]);
+  const syncRevision = useMusicDataRevision();
+  const key=JSON.stringify([syncRevision,cardId,page,retry,revision,held]);
   useEffect(()=>{
     if(!open)return;
     let active=true;

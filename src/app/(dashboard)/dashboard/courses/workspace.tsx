@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import styles from "./schedule-layout.module.css";
@@ -398,6 +399,7 @@ export function CourseWorkspace({
           return;
         }
         setNotice("狀態已更新，既有預約與歷史保留。");
+        publishMusicFinanceChange();
         router.refresh();
       } catch {
         setError("連線失敗，請重試。");
@@ -562,6 +564,7 @@ export function CourseWorkspace({
         }
         setMoveClipboard(null);
         setNotice("已調課");
+        publishMusicFinanceChange();
         router.refresh();
       } catch {
         setError("調課失敗，原課程保留。");
@@ -590,6 +593,7 @@ export function CourseWorkspace({
         }
         setCourseDialog(null);
         setNotice("已恢復原時段");
+        publishMusicFinanceChange();
         router.refresh();
       } catch {
         setError("恢復失敗，課程保留在目前時段。");
@@ -681,6 +685,7 @@ export function CourseWorkspace({
           restoreScrollY.current = window.scrollY;
         }
         if (panel === "catalog") setPanel(null);
+        publishMusicFinanceChange();
         router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
@@ -1976,6 +1981,7 @@ export function CourseWorkspace({
                 requestKey={requestKey}
                 onCreated={(sessionId,date) => {
                   setPanel(null);
+                  publishMusicFinanceChange();
                   go(date);
                   setCourseDialog({sessionId,kind:"roster"});
                   router.refresh();
@@ -2213,7 +2219,8 @@ export function CourseWorkspace({
                 </button>
               </footer>
             )}
-          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
+          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");
+        publishMusicFinanceChange();router.refresh();});}}>刪除</button>}</footer>}
           {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
             <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>

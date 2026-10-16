@@ -3,6 +3,10 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PanelReadProvider, usePanelReader } from "@/components/operations/panel-read-cache";
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/s/lubymusic/admin/dashboard/courses" }));
+vi.mock("@/lib/music-finance-sync", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/music-finance-sync")>(), isMusicPreviewPage: () => true }));
+import { MUSIC_FINANCE_SIGNAL } from "@/lib/music-finance-sync";
 let host: HTMLDivElement, root: Root;
 beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); host = document.createElement("div"); root = createRoot(host); });
 afterEach(async () => { await act(async () => root.unmount()); vi.useRealTimers(); });
@@ -41,4 +45,27 @@ it("live balances never reuse a completed response but deduplicate concurrent re
   await first;
   await readers.panel.read("1");
   expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it("invalidates other-panel reads without remounting drafts or duplicating refreshes", async () => {
+  vi.useFakeTimers(); refresh.mockClear();
+  let mounts = 0;
+  function Draft() {
+    React.useEffect(() => { mounts++; }, []);
+    return React.createElement("input", { defaultValue: "尚未儲存的內容" });
+  }
+  const fetcher = vi.fn().mockResolvedValueOnce("old").mockResolvedValueOnce("new");
+  await act(async () => root.render(tree("music", [consumer("panel", fetcher), React.createElement(Draft, {key:"draft"})])));
+  expect(await readers.panel.read("1")).toBe("old");
+  const input = host.querySelector("input")!; input.value = "保留我的草稿";
+  await act(async () => {
+    window.dispatchEvent(new StorageEvent("storage", {key:MUSIC_FINANCE_SIGNAL,newValue:"external-save"}));
+    window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL, {detail:"external-save"}));
+    await vi.advanceTimersByTimeAsync(151);
+  });
+  expect(await readers.panel.read("1")).toBe("new");
+  expect(refresh).toHaveBeenCalledOnce();
+  expect(mounts).toBe(1);
+  expect(host.querySelector("input")).toBe(input);
+  expect(input.value).toBe("保留我的草稿");
 });

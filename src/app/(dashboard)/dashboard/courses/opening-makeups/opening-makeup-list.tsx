@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { useState, useTransition } from "react";
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { useRouter } from "next/navigation";
@@ -46,7 +47,7 @@ function RightRow({ row, canCreate, canUpdate, hidden, legacy }: { legacy: boole
   function submit() {
     if (!mode || pending) return;
     const input: OpeningMakeupCommand = { action: mode, entitlementId: row.id, expectedVersion: row.version, requestKey, sessionId: mode === "RESERVE" ? sessionId : null, bookingId: row.booking?.id ?? null, expectedStatus: (row.booking?.status as "RESERVED" | "ATTENDED" | undefined) ?? null, actualAttendance: actual, reason };
-    startTransition(async () => { const result = await updateOpeningMakeup(input); if (!result.success) { setError(result.error); return; } close(); router.refresh(); });
+    startTransition(async () => { const result = await updateOpeningMakeup(input); if (!result.success) { setError(result.error); return; } close(); publishMusicFinanceChange(); router.refresh(); });
   }
   const button = "min-h-11 rounded border px-3 py-2 text-sm disabled:opacity-50";
   const status = makeupStatus(row.state, row.expiry, toLocalDateStr());
