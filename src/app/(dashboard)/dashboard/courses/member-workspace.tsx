@@ -336,7 +336,7 @@ export function CourseMemberWorkspace({
             disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
-            {music ? "繳費／續報" : "購買方案"}
+            {music ? "新增學費" : "購買方案"}
           </button>
         )}
       </div>
@@ -355,6 +355,7 @@ export function CourseMemberWorkspace({
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
+        onEdit={music && canEdit ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab("info"); setEditingPerson(true); } : undefined}
         onViewPlans={music && canReadCards ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab("plans"); setCustomerCardBrowse({search:"",history:false,page:0}); } : undefined}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
@@ -403,7 +404,7 @@ export function CourseMemberWorkspace({
             {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music ? 5 : 6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
-      </div> : canReadCards ? <CourseCardBrowser dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
+      </div> : canReadCards ? <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       <ModalPanel open={!!leaveAction} onClose={()=>setLeaveAction(null)} labelledById="music-unsaved-title" pending={pending||formPending}>
@@ -417,7 +418,7 @@ export function CourseMemberWorkspace({
         <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
           onClose={close}
-          width={customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
+          width={music && customerPanel ? 1100 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
           fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
           labelledById="course-member-sheet"
@@ -429,7 +430,7 @@ export function CourseMemberWorkspace({
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? planReadOnly&&plan ? plan.name : plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
-                    ? "購買方案"
+                    ? music ? "新增學費" : "購買方案"
                     : panel === "coach"
                       ? "加入為教練"
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
@@ -489,9 +490,9 @@ export function CourseMemberWorkspace({
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel === "person" && person && hasVisitedTab("plans") && <section hidden={personTab!=="plans"} className="mb-4 space-y-3">
-              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購買／續報學費方案" : "購買方案"}</button>}
+              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "新增學費" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
-                <CourseCardBrowser dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
 
@@ -524,7 +525,7 @@ export function CourseMemberWorkspace({
               <CourseCustomerDraftForm key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
-            {panel === "person" && (music?hasVisitedTab("payments"):personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div hidden={music&&personTab!=="payments"}><CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} /></div>}
+            {panel === "person" && (music?hasVisitedTab("payments"):personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div hidden={music&&personTab!=="payments"}><CourseCustomerPurchases music={music} key={`purchases-${person.id}`} customerId={person.id} /></div>}
             {panel === "person" && (music?hasVisitedTab("bookings"):personTab === "records" && recordTab === "bookings") && person && canReadBookings && <div hidden={music&&personTab!=="bookings"}><CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} /></div>}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],[music?"所屬教學項目":"適用課程",music?planItems(plan).map(s=>s.name).join("、")||"待確認對應":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
@@ -563,19 +564,19 @@ export function CourseMemberWorkspace({
                 }
               >
                 <fieldset disabled={pending} className="min-w-0 space-y-3">
-                <h3 className="font-semibold">{music?"購課：教學項目 → 學費方案":"方案資料"}</h3>
-                {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
-                  顧客
+                <h3 className="font-semibold">{music?"學費方案":"方案資料"}</h3>
+                {person ? <div><span className="text-sm text-earth-500">{music ? "學員" : "顧客"}</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
+                  {music ? "學員" : "顧客"}
                   <CourseCustomerPicker name="customerId" required onChange={customers=>{if(!music)setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
 
                 </label>}
-                {music&&<label className="block">教學項目（大類）<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
+                {music&&<label className="block">教學項目<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
                 <label className="block">
-                  {music?"學費方案（小類）":"方案"}
+                  {music?"學費方案":"方案"}
                   <CourseOptionSelect label={music?"學費方案":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);})}/>
 
                 </label>
-                {music ? <p className="text-sm text-earth-600"><input type="hidden" name="expires" value="2099-12-31"/>從第一堂實際上課日起算，依方案有效天數自動到期。</p> : <label className="block" key={planId}>
+                {music ? <input type="hidden" name="expires" value="2099-12-31"/> : <label className="block" key={planId}>
                   有效至（含當日）
                   <input
                     className={field}
@@ -646,7 +647,7 @@ export function CourseMemberWorkspace({
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : "w-full"} !bg-primary-700 !text-white`}
                 disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
-                {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
+                {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button></div>
             </footer>
           )}

@@ -46,7 +46,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);
   const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
   return <section className="min-w-0 space-y-3" aria-labelledby="assignment-payment-title">
-    <h3 id="assignment-payment-title" className="font-semibold">結帳資料</h3>
+    <h3 id="assignment-payment-title" className="font-semibold">{music ? "收款" : "結帳資料"}</h3>
     <input type="hidden" name="expectedStoreCost" value={storeCost}/><input type="hidden" name="expectedListPrice" value={price}/>
     <input type="hidden" name="discountKind" value={kind}/><input type="hidden" name="discountValue" value={discountValue}/>
     {canDiscount&&<label className="block">優惠方式<select className={field} value={offer} onChange={e=>{const next=e.target.value as typeof offer;setOffer(next);setValue(next==="RATE"?"9":"");}}><option value="NONE">無優惠</option><option value="AMOUNT">折抵金額</option><option value="RATE">打折</option></select></label>}
@@ -70,7 +70,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
     {profitEnabled&&paid!==null&&paid<storeCost&&<p role="alert" className="text-sm text-red-700">實收低於店家成本，請核對優惠；尚不能結帳。</p>}
     {showAllocation&&paid!==null&&(!profitEnabled||paid>=storeCost)&&<p className="text-sm text-earth-600">店家成本 NT$ {storeCost.toLocaleString()} · 開發人所得 NT$ {calculateCourseSaleAllocation(paid,storeCost).developerAmount.toLocaleString()}</p>}
     {paid===0?<><input type="hidden" name="paymentMethod" value="OTHER"/><p className="text-sm text-earth-600">{musicPeriods&&due!==0?"本次未收款：建立購課與堂數，之後由繳費紀錄補繳。":"全額折抵：保留購買與方案紀錄，不建立收款收入。"}</p></>:<>
-      <label className="block">已收款方式<select name="paymentMethod" className={field} value={method} onChange={e=>{setCashStatus("LOADING");setMethod(e.target.value);}} required><option value="">請選擇已收款方式</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
+      <label className="block">付款方式<select name="paymentMethod" className={field} value={method} onChange={e=>{setCashStatus("LOADING");setMethod(e.target.value);}} required><option value="">請選擇付款方式</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
       {needsCash&&<div role="status" className="text-sm text-earth-600">
         {cashStatus==="OPEN"?"付款日現金抽屜已開啟":cashStatus==="LOADING"?"確認現金抽屜中…":<>
           <p>{cashStatus==="ERROR"?"無法確認現金抽屜，請重試。":cashStatus==="CLOSED"?"付款日現金抽屜已結帳，請先處理。":"請先開啟付款日現金抽屜。"}</p>

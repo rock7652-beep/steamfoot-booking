@@ -87,6 +87,8 @@ interface Props {
   hideAssignedStaff?: boolean;
   assignedStaffLabel?: string;
   renderNote?: (row: CustomerRow) => ReactNode;
+  compactActions?: boolean;
+  onEdit?: (row: CustomerRow) => void;
 }
 
 /**
@@ -128,6 +130,8 @@ export function CustomersTable({
   hideAssignedStaff = false,
   assignedStaffLabel = "所屬店長",
   renderNote,
+  compactActions = false,
+  onEdit,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -290,7 +294,7 @@ export function CustomersTable({
       header: "操作",
       noLink: true,
       align: "center",
-      width: "w-36 min-w-36",
+      width: compactActions ? "w-16 min-w-16" : "w-36 min-w-36",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -299,7 +303,7 @@ export function CustomersTable({
         }
         return (
           <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-            {onQuickAssign ? (
+            {onQuickAssign && !compactActions ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -312,7 +316,7 @@ export function CustomersTable({
                 {quickAssignLabel}
               </button>
             ) : null}
-            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>{compactActions ? "查看資料" : "查看／編輯顧客"}</button>{onEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onEdit(c)}>編輯資料</button>}{compactActions && onQuickAssign && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onQuickAssign(c)}>{quickAssignLabel}</button>}</ExclusiveMenu>
           </div>
         );
       },

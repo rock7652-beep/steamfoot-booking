@@ -1,33 +1,94 @@
 "use client";
-import {isMusicPreviewPage} from "@/lib/music-finance-sync";
-import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
-import {useState} from "react";
-import {useRouter} from "next/navigation";
-import {recordMusicTuitionReceipt} from "@/server/actions/music-tuition";
-import {toLocalDateStr,formatTWDateTime} from "@/lib/date-utils";
-import {COURSE_PAYMENT_LABELS} from "@/lib/course-checkout";
-import type {loadCourseCustomerPurchases} from "@/server/actions/course-customer-history";
-type Result=Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
-type Order=Extract<Result,{success:true}>["data"][number];
-export function MusicTuitionDetails({order,onUpdated}:{order:Order;onUpdated:()=>void}){
- const router=useRouter();
- const [busy,setBusy]=useState(false),[error,setError]=useState(""),[requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
- const tuition=order.tuition;if(!tuition)return null;
- const outstanding=order.status==="CONFIRMED"?tuition.due-order.price:0;
- const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
- return <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">各期／繳費紀錄</summary>
-  <p className="py-2 text-sm">應收 {tuition.due.toLocaleString()} · 已收 {order.price.toLocaleString()} · 未收 {outstanding.toLocaleString()} · {tuition.expiry} · {tuition.discountTeacherFee?"折後學費拆帳":"原學費拆帳"}</p>
-  <div className="overflow-x-auto"><table className="w-full text-right text-sm tabular-nums"><thead><tr>{["期別","堂數","應收","已收","未收","點名"].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{tuition.periods.map(p=><tr key={p.period} className="border-t"><td className="p-2">{p.period}</td><td>{p.lessons}</td><td>{p.due.toLocaleString()}</td><td>{p.received.toLocaleString()}</td><td>{order.status==="CONFIRMED"?p.outstanding.toLocaleString():"已結清"}</td><td>{tuition.canReadBookings?<details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">查看</summary><ul className="min-w-56 text-left">{tuition.lessons.filter(l=>l.ordinal>tuition.periods.slice(0,p.period-1).reduce((n,r)=>n+r.lessons,0)&&l.ordinal<=tuition.periods.slice(0,p.period).reduce((n,r)=>n+r.lessons,0)).map(l=><li key={l.id} className="border-t py-2">{formatTWDateTime(new Date(l.date))} · {l.teacher} · {l.status}</li>)}{!tuition.lessons.some(l=>l.ordinal>tuition.periods.slice(0,p.period-1).reduce((n,r)=>n+r.lessons,0))&&<li className="py-2">尚未排課</li>}</ul></details>:"—"}</td></tr>)}</tbody></table></div>
-  <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><caption className="text-left font-medium">付款紀錄</caption><thead><tr><th className="p-2">付款日期</th><th>實收</th><th>方式</th><th>後四碼</th></tr></thead><tbody>{tuition.receipts.map(r=><tr key={r.id} className="border-t"><td className="p-2 whitespace-nowrap">{toLocalDateStr(new Date(r.paidAt))}</td><td>{r.amount.toLocaleString()}</td><td>{COURSE_PAYMENT_LABELS[r.method]}</td><td>{r.lastFour??"—"}</td></tr>)}</tbody></table>{!tuition.receipts.length&&<p className="py-2 text-sm">尚無付款</p>}</div>
-  {order.refunds.map(r=><p key={r.id} className="py-2 text-sm">退款 {r.amount.toLocaleString()} · {r.reason}</p>)}
-  {tuition.canReceive&&outstanding>0&&order.status==="CONFIRMED"&&<details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">新增付款</summary><form className="min-w-64 space-y-2" onSubmit={async e=>{e.preventDefault();if(busy)return;const data=new FormData(e.currentTarget);setBusy(true);setError("");try{const result=await musicCheckoutTransport("receipt", {purchaseId:order.id,amount:Number(data.get("amount")),paymentDate:String(data.get("date")),method:String(data.get("method")),lastFour:String(data.get("lastFour")??""),requestKey,expectedReceived:order.price}, recordMusicTuitionReceipt);if(!result.success){setError(result.error??"收款未完成");return;}setRequestKey(crypto.randomUUID());if(!isMusicPreviewPage()){onUpdated();router.refresh();}}catch{setError("尚未確認收款結果，可用相同資料重試。");}finally{setBusy(false);}}}>
-    <label className="block">本次實收<input className={field} name="amount" type="number" min="1" max={outstanding} step="1" required defaultValue={outstanding}/></label>
-    <label className="block">付款日期<input className={field} name="date" type="date" max={toLocalDateStr()} required defaultValue={toLocalDateStr()}/></label>
-    <label className="block">付款方式<select className={field} name="method" required defaultValue=""><option value="">請選擇</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
-    <label className="block">轉帳後四碼<input className={field} name="lastFour" inputMode="numeric" pattern="[0-9]{4}" maxLength={4}/></label>
-    <p className="text-sm text-earth-500">僅登錄已收到的款項，堂數維持原購課額度。</p>
-    {error&&<p role="alert" className="text-red-700">{error}</p>}
-    <button className="min-h-11 rounded-lg bg-primary-600 px-4 text-white disabled:opacity-50" disabled={busy}>{busy?"儲存中…":"確認登錄收款"}</button>
-  </form></details>}
- </details>;
+
+import { useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
+import { ModalPanel } from "@/components/admin/modal-panel";
+import { RosterTable } from "@/components/admin/roster-primitives";
+import { isMusicPreviewPage } from "@/lib/music-finance-sync";
+import { musicCheckoutTransport } from "@/lib/music-checkout-transport";
+import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
+import { toLocalDateStr, formatTWDateTime } from "@/lib/date-utils";
+import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
+import type { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
+
+type Result = Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
+export type TuitionOrder = Extract<Result, { success: true }>["data"][number];
+
+export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder; onUpdated: () => void }) {
+  const router = useRouter();
+  const titleId = useId();
+  const submitting = useRef(false);
+  const [mode, setMode] = useState<"details" | "receipt" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [method, setMethod] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const tuition = order.tuition;
+  if (!tuition) return null;
+  const outstanding = order.status === "CONFIRMED" ? Math.max(0, tuition.due - order.price) : 0;
+  const field = "min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
+  const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
+  const close = () => { if (submitting.current) return; if (dirty) setDiscard(true); else setMode(null); };
+  const open = (next: "details" | "receipt") => { setError(""); setDirty(false); setDiscard(false); setMethod(""); setMode(next); };
+  return <>
+    <ExclusiveMenu label={`${order.name} 收款操作`} triggerText="⋯">
+      <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("details")}>查看明細</button>
+      {tuition.canReceive && outstanding > 0 && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("receipt")}>補繳學費</button>}
+    </ExclusiveMenu>
+    <ModalPanel open={mode !== null} onClose={close} labelledById={titleId} pending={busy} width={mode === "receipt" ? 520 : 880}>
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
+        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? "補繳學費" : "學費明細"} · {order.name}</h3>
+        <button type="button" className={button} disabled={busy} onClick={close}>關閉</button>
+      </header>
+      <div className="min-h-0 overflow-y-auto p-4 text-sm">
+        {discard && <div role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p>放棄尚未儲存的收款資料？</p>
+          <div className="mt-2 flex gap-2"><button type="button" className={button} onClick={() => setDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={() => { setDirty(false); setDiscard(false); setMode(null); }}>放棄修改</button></div>
+        </div>}
+        {mode === "receipt" ? <form className="space-y-3" onChange={() => setDirty(true)} onSubmit={async event => {
+          event.preventDefault();
+          if (submitting.current) return;
+          const data = new FormData(event.currentTarget);
+          submitting.current = true; setBusy(true); setError("");
+          try {
+            const result = await musicCheckoutTransport("receipt", {
+              purchaseId: order.id, amount: Number(data.get("amount")), paymentDate: String(data.get("date")),
+              method: String(data.get("method")), lastFour: String(data.get("lastFour") ?? ""), requestKey, expectedReceived: order.price,
+            }, recordMusicTuitionReceipt);
+            if (!result.success) { setError(result.error ?? "收款未完成"); return; }
+            setRequestKey(crypto.randomUUID()); setDirty(false); setMode(null);
+            if (!isMusicPreviewPage()) { onUpdated(); router.refresh(); }
+          } catch { setError("尚未確認收款結果，可用相同資料重試。"); }
+          finally { submitting.current = false; setBusy(false); }
+        }}>
+          <p className="rounded-lg bg-earth-50 px-3 py-2">應收 {tuition.due.toLocaleString()} · 已收 {order.price.toLocaleString()} · <strong>欠款 {outstanding.toLocaleString()}</strong></p>
+          <fieldset disabled={busy} className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="space-y-1">本次實收<input className={field} name="amount" type="number" min="1" max={outstanding} step="1" required defaultValue={outstanding} /></label>
+            <label className="space-y-1">付款日期<input className={field} name="date" type="date" max={toLocalDateStr()} required defaultValue={toLocalDateStr()} /></label>
+            <label className="space-y-1">付款方式<select className={field} name="method" required value={method} onChange={event => setMethod(event.target.value)}><option value="">請選擇</option>{["CASH", "BANK_TRANSFER", "CARD", "OTHER"].map(value => <option key={value} value={value}>{COURSE_PAYMENT_LABELS[value]}</option>)}</select></label>
+            {method === "BANK_TRANSFER" && <label className="space-y-1">轉帳後四碼<input className={field} name="lastFour" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required /></label>}
+          </fieldset>
+          {error && <p role="alert" className="text-red-700">{error}</p>}
+          <div className="flex items-center justify-between gap-3 border-t pt-3"><span className="text-earth-500">登錄已收到的款項</span><button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white disabled:opacity-50" disabled={busy}>{busy ? "儲存中…" : "儲存收款"}</button></div>
+        </form> : <div className="space-y-3">
+          <p>期限：{tuition.expiry} · {tuition.discountTeacherFee ? "折後學費拆帳" : "原學費拆帳"}</p>
+          <RosterTable label="各期學費" columns={["期別", "堂數", "應收", "已收", "欠款"]}>
+            {tuition.periods.map(period => <tr key={period.period}><td>{period.period}</td><td>{period.lessons}</td><td className="text-right tabular-nums">{period.due.toLocaleString()}</td><td className="text-right tabular-nums">{period.received.toLocaleString()}</td><td className="text-right tabular-nums">{order.status === "CONFIRMED" ? period.outstanding.toLocaleString() : "—"}</td></tr>)}
+          </RosterTable>
+          <h4 className="font-semibold">付款紀錄</h4>
+          <RosterTable label="付款明細" columns={["付款日期", "實收", "方式", "後四碼"]}>
+            {tuition.receipts.map(receipt => <tr key={receipt.id}><td>{toLocalDateStr(new Date(receipt.paidAt))}</td><td className="text-right tabular-nums">{receipt.amount.toLocaleString()}</td><td>{COURSE_PAYMENT_LABELS[receipt.method]}</td><td>{receipt.lastFour ?? "—"}</td></tr>)}
+          </RosterTable>
+          {!tuition.receipts.length && <p className="text-earth-500">尚無付款紀錄</p>}
+          {tuition.canReadBookings && <details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看出勤紀錄（{tuition.lessons.length}）</summary><RosterTable label="學費對應出勤" columns={["上課時間", "老師", "狀態"]}>{tuition.lessons.map(lesson => <tr key={lesson.id}><td>{formatTWDateTime(new Date(lesson.date))}</td><td>{lesson.teacher}</td><td>{lesson.status}</td></tr>)}</RosterTable></details>}
+          {order.refunds.map(refund => <p key={refund.id}>退款 {refund.amount.toLocaleString()} · {refund.reason}</p>)}
+          {order.note && <p>備註：{order.note}</p>}
+          {order.voidReason && <p>作廢原因：{order.voidReason}</p>}
+        </div>}
+      </div>
+    </ModalPanel>
+  </>;
 }

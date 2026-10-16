@@ -1,5 +1,6 @@
 "use client";
 import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { RosterTable } from "@/components/admin/roster-primitives";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseCardReservations } from "./card-reservations";
@@ -10,7 +11,8 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+export function CourseCardBrowser({ compact=false, dataScope, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+  compact?: boolean;
   dataScope?: "operational" | "legacy";
   sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;
@@ -33,14 +35,14 @@ export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSe
   const ready=result?.key===key;
   const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">
-    {customerId && ready && visible?.totals && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</p><p>{courseBalanceText(visible.totals)}</p><p className="text-earth-600">{sharedCardState!=="HIDDEN"&&"共卡為共同餘額；"}各方案期限與適用課程分開計算。</p></div>}
+    {customerId && ready && visible?.totals && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p><span className="font-semibold">有效方案 {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</span> · {courseBalanceText(visible.totals)}</p>{!compact && <p className="text-earth-600">{sharedCardState!=="HIDDEN"&&"共卡為共同餘額；"}各方案期限與適用課程分開計算。</p>}</div>}
     <div className="flex flex-wrap items-center gap-2">
       <input aria-label={sharedCardState==="HIDDEN"?"搜尋持有方案或持有人":"搜尋持有方案或共卡成員"} className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder={sharedCardState==="HIDDEN"?"搜尋方案／持有人":"搜尋方案／共卡成員"} value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
       <select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
     </div>
     {!ready && <p role="status">更新中…</p>}
     {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
-      <RosterTable label="學費與堂數方案清單" columns={["方案", "剩餘", "已預約", "可再預約", "期限", "操作"]}>
+      <RosterTable label="學費與堂數方案清單" columns={["方案", "剩餘", "已預約", "可用", "期限", "操作"]}>
 
         {visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?"堂":"點";
@@ -52,7 +54,7 @@ export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSe
             <td className="text-right tabular-nums">{canReadBookings&&c.held>0 ? <CourseCardReservations cardId={c.id} held={c.held} unit={c.unit} revision={revision}/> : `${c.held} ${unit}`}</td>
             <td className="text-right font-semibold tabular-nums">{inactive ? "—" : `${c.available} ${unit}`}</td>
             <td>{c.expiryKind === "NO_EXPIRY" ? "無期限" : !c.expiresAt || (c.openingImported && !c.musicActivatedAt) ? "期初效期待核對" : c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : toLocalDateStr(new Date(c.expiresAt))}</td>
-            <td><button type="button" aria-label={`查看 ${c.name} 明細`} onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className="min-h-11 min-w-11 text-primary-700 underline">明細</button></td>
+            <td>{compact && <ExclusiveMenu label={`${c.name} 操作`} triggerText="⋯"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onSelect(c)}>查看堂數明細</button></ExclusiveMenu>}{!compact && <button type="button" aria-label={`查看 ${c.name} 明細`} onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className="min-h-11 min-w-11 text-primary-700 underline">明細</button>}</td>
           </tr>;
         })}
 

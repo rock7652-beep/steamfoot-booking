@@ -29,13 +29,13 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary}:{plan:MusicP
   <input type="hidden" name="musicJoinSessionId" value={join}/>
   <label className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-x-2">購買期數<input className={field} type="number" min="1" max="100" step="1" required disabled={!!join} value={terms} onChange={e=>{setTerms(e.target.value);setValidity("");}}/></label>
   {valid&&quote?<dl className="space-y-1 rounded-lg bg-earth-50 p-2 text-sm" aria-live="polite">
-    <div className="flex justify-between gap-3"><dt>本次購課</dt><dd>{quote.musicTermSizes.length} 期 · 共 {quote.points} 堂</dd></div>
-    <div className="flex justify-between gap-3"><dt>共用期限</dt><dd>首次扣堂起 {quote.validDays} 天</dd></div>
+    <div className="flex justify-between gap-3"><dt>堂數</dt><dd>{quote.musicTermSizes.length} 期 · 共 {quote.points} 堂</dd></div>
+    <div className="flex justify-between gap-3"><dt>期限</dt><dd>首次扣堂起 {quote.validDays} 天</dd></div>
     {quote.musicBonusLessons>0&&<div className="flex justify-between gap-3"><dt>包含贈課</dt><dd>{quote.musicBonusLessons} 堂</dd></div>}
-    <div className="flex justify-between gap-3"><dt>方案原價合計</dt><dd>NT$ {quote.price.toLocaleString()}</dd></div>
+
   </dl>:<p role="alert" className="text-red-700">請核對購買期數、堂數與有效天數。</p>}
   <details><summary className="min-h-11 cursor-pointer py-2.5 text-sm">查看各期堂數</summary>
-    {quote&&<div className="max-h-60 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="p-2">第 {i+1} 期</td><td className="p-2">{count} 堂</td><td className="p-2">本次購課共用</td></tr>)}</tbody></table></div>}
+    {quote&&<div className="max-h-60 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="p-2">第 {i+1} 期</td><td className="p-2">{count} 堂</td><td className="p-2">堂數共用</td></tr>)}</tbody></table></div>}
   </details>
   <details open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary className="min-h-11 cursor-pointer py-2.5 text-sm">其他調整{Number(manual)>0?` · 贈 ${manual} 堂`:""}{validity?` · ${validity} 天`:""}{join?" · 插班":""}</summary>
     <div className="space-y-3">
