@@ -7,7 +7,9 @@ vi.mock("@/lib/db",()=>({prisma:{staff:{findFirst:m.staff}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
 vi.mock("@/lib/session",()=>({requireSession:vi.fn()}));
 vi.mock("@/server/services/course-coach-notification-kick",()=>({kickCoachNotifications:vi.fn()}));
-import {courseManagerRead} from "@/server/services/course-access";
+import {courseManagerRead,courseManager} from "@/server/services/course-access";
+import {withMusicCheckoutRequest} from "@/server/services/music-checkout-request";
+import {resolveWriteStoreId} from "@/lib/store";
 import {registerHqStoreViewContext} from "@/lib/hq-store-view-context";
 beforeEach(()=>{vi.clearAllMocks();m.store.mockResolvedValue("authorized-store");m.module.mockResolvedValue(undefined);m.staff.mockResolvedValue({id:"staff"});});
 it("reuses only a server-registered actor object after permission and retains module checks",async()=>{
@@ -38,4 +40,11 @@ it("retains active staff and active user membership checks for store staff",asyn
 it("leaves the existing resolver path unchanged unless explicitly enabled",async()=>{
  const user={id:"hq",role:"ADMIN"};registerHqStoreViewContext(user,"verified-store");m.permission.mockResolvedValue(user);
  expect((await courseManagerRead("transaction.read")).storeId).toBe("authorized-store");expect(m.store).toHaveBeenCalledOnce();
+});
+it("shares the write-store resolver while still checking each permission and module",async()=>{
+ const user={id:"hq",role:"ADMIN",staffId:null,storeId:null};
+ m.permission.mockResolvedValue(user);vi.mocked(resolveWriteStoreId).mockResolvedValue("authorized-store");
+ await withMusicCheckoutRequest(()=>Promise.all([courseManager("transaction.create"),courseManager("wallet.create")]));
+ expect(m.permission.mock.calls.map(c=>c[0])).toEqual(["transaction.create","wallet.create"]);
+ expect(resolveWriteStoreId).toHaveBeenCalledOnce();expect(m.module).toHaveBeenCalledTimes(2);
 });

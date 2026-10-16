@@ -1,5 +1,4 @@
 import "server-only";
-import {musicProjectionRead} from "./music-projection-reads";
 import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
 import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
@@ -13,7 +12,7 @@ function fail(message:string):never {throw new AppError("VALIDATION",message);}
 export async function isMusicPilotCard(tx:Prisma.TransactionClient,storeId:string,card:{id:string;requestKey?:string}|null|undefined){
   if(!card?.requestKey?.startsWith("yjy-pilot-card:"))return false;
   if(process.env.VERCEL!=="1")fail("僅開放隔離測試站");assertMusicOpeningPreviewEnvironment(process.env);
-  const receipts=await musicProjectionRead(tx,JSON.stringify(["pilot-evidence",storeId,PILOT_RECEIPT_ID]),()=>tx.$queryRaw<Array<{afterJson:{contentHash:string;cardIds:string[]}}>>`SELECT "afterJson" FROM "AuditLog" WHERE id=${PILOT_RECEIPT_ID} AND "storeId"=${storeId} AND action='SOURCE_OPERATIONS_IMPORT'`);
+  const receipts=await tx.$queryRaw<Array<{afterJson:{contentHash:string;cardIds:string[]}}>>`SELECT "afterJson" FROM "AuditLog" WHERE id=${PILOT_RECEIPT_ID} AND "storeId"=${storeId} AND action='SOURCE_OPERATIONS_IMPORT'`;
   return receipts.length===1&&receipts[0].afterJson.contentHash===PILOT_EVIDENCE_HASH&&receipts[0].afterJson.cardIds.includes(card.id);
 }
 export async function isMusicPilotMakeupCard(tx:Prisma.TransactionClient,storeId:string,card:{id:string;requestKey?:string}|null|undefined,at?:Date){

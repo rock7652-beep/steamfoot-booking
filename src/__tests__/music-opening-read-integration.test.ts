@@ -5,7 +5,6 @@ vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.people}}}));
 vi.mock("@/server/services/course-access",()=>({courseTransaction:m.transaction}));
 import {getCourseRoster,getCourseCards} from "@/server/queries/course-members";
 import {getCourseBalanceSummary} from "@/server/queries/course-balance-summary";
-import {withMusicProjectionReads} from "@/server/services/music-projection-reads";
 import {readTeacherFeeSeats,capturedTeacherFee} from "@/server/services/course-teacher-fee";
 import {checkCourseAccounts} from "@/server/reconciliation/course-checks";
 import {syntheticOpeningBooking,syntheticOpeningRecord,syntheticOpeningCard,syntheticOpeningRow,syntheticOpeningScope} from "./fixtures/music-opening";
@@ -19,12 +18,6 @@ beforeEach(()=>{
   m.transaction.mockImplementation(async(_store,work)=>work({$queryRaw:m.query,coursePointCard:{findMany:m.openingCards},coursePurchase:{count:m.purchaseCount}}));
 });
 describe("actual roster and balance reads",()=>{
-  it("shares member display during one projection but keeps authoritative card queries and next reads fresh",async()=>{
-    const row=rosterRow();m.cards.mockResolvedValue([row.card]);
-    await withMusicProjectionReads(()=>Promise.all([getCourseCards(store,"synthetic-student"),getCourseBalanceSummary(store,"synthetic-student",true),getCourseCards(store,"synthetic-student")]));
-    expect(m.cards).toHaveBeenCalledTimes(3);expect(m.people).toHaveBeenCalledOnce();
-    await getCourseCards(store,"synthetic-student");expect(m.people).toHaveBeenCalledTimes(2);
-  });
   it("preserves the original third ordinal, hides closed prefix from unscheduled and keeps opening money separate",async()=>{
     m.bookings.mockResolvedValue([rosterRow()]);const [result]=await getCourseRoster(store,"synthetic-session");
     expect(result).toMatchObject({termNumber:7,termIndex:3,termCount:4,termClosedBeforeCutoff:2,termUnscheduledOrdinals:[4],openingTuition:{paid:2000,receivable:1200},termPayment:null,nextTerm:null});

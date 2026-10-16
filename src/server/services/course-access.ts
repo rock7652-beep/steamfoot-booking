@@ -1,5 +1,5 @@
 import "server-only";
-import { musicCheckoutPermission, musicCheckoutModule, measureMusicCheckout } from "./music-checkout-request";
+import { musicCheckoutPermission, musicCheckoutWriteStore, measureMusicCheckout } from "./music-checkout-request";
 import {getHqStoreViewContext} from "@/lib/hq-store-view-context";
 import {kickCoachNotifications} from "./course-coach-notification-kick";
 import { coursePrisma } from "@/lib/course-db";
@@ -22,12 +22,12 @@ export async function courseManager(permission: PermissionCode) {
 async function checkCourseManager(permission: PermissionCode) {
   const startedAt = Date.now();
   // Store resolution checks the subscription for the authorized target store.
-  const user = await requirePermission(permission, undefined, { deferSubscriptionGuard: true });
+  const user = await measureMusicCheckout(`permission.${permission}`,()=>requirePermission(permission, undefined, { deferSubscriptionGuard: true }));
   const permissionMs = Date.now() - startedAt;
-  const storeId = await resolveWriteStoreId(user);
+  const storeId = await musicCheckoutWriteStore(user,()=>resolveWriteStoreId(user));
   const storeMs = Date.now() - startedAt - permissionMs;
   const [, staff] = await Promise.all([
-    musicCheckoutModule(storeId,()=>requireCourseStore(storeId)),
+    requireCourseStore(storeId),
     user.role === "ADMIN"
       ? Promise.resolve(true)
       : prisma.staff.findFirst({
@@ -66,7 +66,7 @@ export async function courseManagerRead(permission: PermissionCode, options: {re
   const verified = options.reuseVerifiedStore ? getHqStoreViewContext(user) : undefined;
   const storeId = await measure(verified ? "store.verified" : "store.resolve",async()=>verified?.storeId ?? await getActiveStoreForRead(user));
   if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
-  await measure("store.module",()=>musicCheckoutModule(storeId,()=>requireCourseStore(storeId)));
+  await measure("store.module",()=>requireCourseStore(storeId));
 
   const isChildStoreView =
     user.role === "OWNER" && !!user.storeId && storeId !== user.storeId;
