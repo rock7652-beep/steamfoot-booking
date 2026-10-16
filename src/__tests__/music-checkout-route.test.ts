@@ -34,7 +34,7 @@ it("flushes committed success before the authorized projection finishes",async()
  const reader=response.body!.getReader();
  expect(new TextDecoder().decode((await reader.read()).value)).toBe(" ");
  finish(null);
- expect(JSON.parse(new TextDecoder().decode((await reader.read()).value))).toEqual({success:true});
+ expect(JSON.parse(new TextDecoder().decode((await reader.read()).value))).toEqual({success:true,readTiming:{}});
  expect((await reader.read()).done).toBe(true);
 });
 it("does not signal commit when the purchase fails",async()=>{

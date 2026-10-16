@@ -1,4 +1,6 @@
+import {measureMusicRead} from "@/lib/music-read-timing";
 import "server-only";
+import {musicReadTimingScope} from "@/lib/music-read-timing";
 import {readMusicStudentWorkspace} from "./music-student-workspace";
 import {readCourseCards} from "./course-card-browser";
 import type {MusicPurchaseSnapshot} from "@/lib/music-purchase-snapshot";
@@ -9,8 +11,8 @@ export async function readMusicPurchaseSnapshot(input: unknown): Promise<MusicPu
   const customerId = input.customerId;
   try {
     const [overview, cards] = await Promise.all([
-      readMusicStudentWorkspace(customerId, true, undefined, false),
-      readCourseCards({customerId}, true, undefined, true),
+      musicReadTimingScope("overview",()=>measureMusicRead("total",()=>readMusicStudentWorkspace(customerId, true, undefined, false))),
+      musicReadTimingScope("cards",()=>measureMusicRead("total",()=>readCourseCards({customerId}, true, undefined, true))),
     ]);
     // A failed/denied projection must never turn a committed purchase into a failed payment.
     return overview.success && cards.success ? {customerId, overview, cards} : null;

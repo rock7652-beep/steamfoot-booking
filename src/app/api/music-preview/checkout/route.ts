@@ -1,3 +1,4 @@
+import {withMusicReadTiming} from "@/lib/music-read-timing";
 import {readMusicPurchaseSnapshot} from "@/server/queries/music-purchase-snapshot";
 import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import { assignCoursePointCard } from "@/server/actions/course-members";
@@ -9,7 +10,8 @@ import { withMusicCheckoutRequest } from "@/server/services/music-checkout-reque
 
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
- return withPermissionRequestSession(() => withMusicCheckoutRequest(async timings => {
+ const detail:Record<string,number>={};
+ return withMusicReadTiming(detail,()=>withPermissionRequestSession(() => withMusicCheckoutRequest(async timings => {
   const started=performance.now();
   const reply = (value: unknown, status = 200) => {
     const totalMs=Math.round(performance.now()-started);
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
             try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
             timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
             console.info("[music-checkout-write]", JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
-            try { controller.enqueue(encoder.encode(JSON.stringify(snapshot ? {...result,snapshot} : result))); controller.close(); }
+            try { controller.enqueue(encoder.encode(JSON.stringify({...result,...(snapshot?{snapshot}:{}),readTiming:detail}))); controller.close(); }
             catch { /* Client disconnected after the committed header. */ }
           },
         });
@@ -75,5 +77,5 @@ export async function POST(request: Request) {
     if (operation === "receipt") return reply(await recordMusicTuitionReceipt(input));
     return reply({ success: false, error: "不支援的收款操作。" }, 400);
   } catch (error) { return reply(handleActionError(error)); }
- }));
+ })));
 }

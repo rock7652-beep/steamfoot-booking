@@ -26,7 +26,7 @@ export async function musicCheckoutTransport(
       console.info("[music-checkout-committed]", JSON.stringify({requestMs:Math.round(performance.now()-started)}));
     }
     const result = await response.json();
-    console.info("[music-checkout-response]", JSON.stringify({operation,requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-timing")}));
+    console.info("[music-checkout-response]", JSON.stringify({operation,requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-timing"),readTiming:result.readTiming}));
     if (typeof result?.success !== "boolean") throw new Error("Unexpected checkout response");
     if (result.success) {
       const snapshot = result.snapshot;

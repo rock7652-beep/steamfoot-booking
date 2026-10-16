@@ -1,3 +1,4 @@
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import NextAuth from "next-auth";
 import { recordStaffLogin } from "@/server/services/staff-login-audit";
@@ -1521,13 +1522,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // into a newly trusted session. Only authorize() can issue the stamp.
         const stamp = user ? user.staffSessionStamp : appToken.staffSessionStamp;
         if (!id || !stamp) return null;
-        const current = await prisma.user.findUnique({
+        const current = await measureMusicRead("session.staffState",()=>prisma.user.findUnique({
           where: { id },
           select: {
             id: true, role: true, status: true, passwordHash: true, updatedAt: true,
             staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
           },
-        });
+        }));
         // DB failures propagate through Auth.js; never reuse stale privileges.
         if (!current || !matchesStaffSessionStamp(stamp, current)) return null;
         appToken.sub = current.id;

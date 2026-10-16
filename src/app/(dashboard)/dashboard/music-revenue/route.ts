@@ -1,3 +1,4 @@
+import {withMusicReadTiming} from "@/lib/music-read-timing";
 import {z} from "zod";
 import {courseManagerRead} from "@/server/services/course-access";
 import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
@@ -11,12 +12,16 @@ const inputSchema=z.object({
  page:z.string().regex(/^\d{1,6}$/).optional(),
 });
 export async function GET(request:Request){
+ const detail:Record<string,number>={};
+ return withMusicReadTiming(detail,()=>readRevenue(request,detail));
+}
+async function readRevenue(request:Request,detail:Record<string,number>){
  const start=performance.now();
  let authMs=0,totalsMs=0,transactionsMs=0;
  const authorization:Record<string,number>={};
  const timing={measure:async<T>(name:string,work:()=>Promise<T>)=>{const started=performance.now();try{return await work();}finally{authorization[name]=Math.round(performance.now()-started);}}};
  const reply=(value:Record<string,unknown>,status=200)=>{
-  const timing={authMs,totalsMs,transactionsMs,totalMs:Math.round(performance.now()-start),authorization};
+  const timing={authMs,totalsMs,transactionsMs,totalMs:Math.round(performance.now()-start),authorization,detail};
   console.info("[music-revenue-read]",{status,...timing});
   return Response.json({...value,timing},{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`auth;dur=${authMs}, totals;dur=${totalsMs}, transactions;dur=${transactionsMs}, revenue;dur=${timing.totalMs}`}});
  };

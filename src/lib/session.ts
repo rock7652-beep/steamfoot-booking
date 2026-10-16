@@ -1,3 +1,4 @@
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -214,12 +215,12 @@ async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: 
 
 /** 取得當前 session user（null = 未登入）— React cache 確保同一 request 只查一次 */
 const getAuthenticatedUser = cache(async () => {
-  const session = await auth();
+  const session = await measureMusicRead("session.auth",()=>auth());
   if (!session?.user) return null;
   const user = await recoverMissingStaffIdentity(await recoverMissingCustomerIdentity(session.user));
   if (user.loginRecordId && isStaffRole(user.role)) {
     const { touchStaffLogin } = await import("@/server/services/staff-login-audit");
-    await touchStaffLogin(user.loginRecordId, user.id);
+    await measureMusicRead("session.loginAudit",()=>touchStaffLogin(user.loginRecordId!, user.id));
   }
   return registerAuditActor(user);
 });
@@ -236,9 +237,9 @@ export const getCurrentUser = cache(async () => {
   if (!user) return null;
   if (user.role === "ADMIN") {
     const { isHqStoreView } = await import("@/lib/hq-store-view");
-    if (await isHqStoreView(user)) {
+    if (await measureMusicRead("session.hqView",()=>isHqStoreView(user))) {
       const { getActiveStoreForRead } = await import("@/lib/store");
-      const storeId = await getActiveStoreForRead(user);
+      const storeId = await measureMusicRead("session.routeStore",()=>getActiveStoreForRead(user));
       if (!storeId) throw new AppError("FORBIDDEN", "請先選擇有效的店舖");
       const { registerHqStoreViewContext } = await import("@/lib/hq-store-view-context");
       registerHqStoreViewContext(user, storeId);

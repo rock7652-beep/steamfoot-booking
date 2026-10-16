@@ -1,3 +1,4 @@
+import {measureMusicRead} from "@/lib/music-read-timing";
 import "server-only";
 import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
@@ -23,7 +24,7 @@ export async function readCourseCards(input: unknown, previewOnly = false, timin
 }
 
 async function readCards(input: unknown, previewOnly: boolean, timings?: Record<string,number>) {
-  const measure=async<T>(name:string,work:()=>Promise<T>):Promise<T>=>{const started=performance.now();try{return await work();}finally{if(timings)timings[name]=Math.round(performance.now()-started);}};
+  const measure=async<T>(name:string,work:()=>Promise<T>):Promise<T>=>{const started=performance.now();try{return await measureMusicRead(name,work);}finally{if(timings)timings[name]=Math.round(performance.now()-started);}};
   try {
     const data = z.object({ customerId: z.string().min(1).optional(), cardId: z.string().min(1).optional(),
       dataScope: z.enum(["operational", "legacy"]).optional(),
@@ -34,13 +35,13 @@ async function readCards(input: unknown, previewOnly: boolean, timings?: Record<
     if(previewOnly&&!musicDataSeparationEnabled(storeId))throw new AppError("FORBIDDEN","僅供音樂測試站");
     const visibility = getManagerCustomerWhere(user.role,user.staffId,storeId);
     // Independent scope reads run together; no financial data is read until all have completed.
-    const [customer,visibleCustomers,matchingCustomers,musicEntitlement] = await Promise.all([
+    const [customer,visibleCustomers,matchingCustomers,musicEntitlement] = await measure("visibility",()=>Promise.all([
       data.customerId ? prisma.customer.findFirst({where:{...visibility,storeId,id:data.customerId,mergedIntoCustomerId:null},select:{id:true}}) : Promise.resolve(true),
       typeof visibility.assignedStaffId === "string" ? prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null},select:{id:true}}) : Promise.resolve(null),
       data.search ? prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null,
         OR:[{name:{contains:data.search,mode:"insensitive"}},{phone:{contains:data.search}}]},select:{id:true}}) : Promise.resolve([]),
       prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
-    ]);
+    ]));
     if (!customer) throw new AppError("NOT_FOUND","找不到本店顧客");
     const visibleIds = visibleCustomers?.map(c=>c.id) ?? null;
     const matchingIds = matchingCustomers.map(c=>c.id);
@@ -52,7 +53,7 @@ async function readCards(input: unknown, previewOnly: boolean, timings?: Record<
         AND:[musicCardWhere(storeId,data.dataScope),...(visibleIds ? [{members:{some:{customerId:{in:visibleIds},storeId}}}] : []),
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],
       }, skip:data.cardId ? 0 : data.page*20, take:data.cardId ? 1 : 21, entries:!!data.cardId,
-    }),data.customerId && !data.cardId ? getCourseBalanceSummary(storeId, data.customerId, musicStore, data.dataScope) : Promise.resolve(undefined)]));
+    }),data.customerId && !data.cardId ? measure("balanceSummary",()=>getCourseBalanceSummary(storeId, data.customerId!, musicStore, data.dataScope)) : Promise.resolve(undefined)]));
     return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20,totals};
   } catch(error) { return failure(error); }
 }

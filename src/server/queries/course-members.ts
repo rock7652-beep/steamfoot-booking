@@ -1,3 +1,4 @@
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
 import { nativeDeductedLeaveIds } from "@/server/services/music-native-leave";
@@ -13,7 +14,7 @@ import { isMusicPilotCard, readMusicPilotTuition } from "@/server/services/music
 import { musicSourceDisplayNote } from "@/lib/music-source-import";
 
 export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
-  const cards = await coursePrisma.coursePointCard.findMany({
+  const cards = await measureMusicRead("cardRows",()=>coursePrisma.coursePointCard.findMany({
     where: {
       ...page?.where,
       storeId,
@@ -28,8 +29,8 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     },
     ...(page ? { skip: page.skip, take: page.take } : {}),
     orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
-  });
-  const people = await prisma.customer.findMany({
+  }));
+  const people = await measureMusicRead("cardMembers",()=>prisma.customer.findMany({
     where: {
       storeId,
       id: {
@@ -39,7 +40,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       },
     },
     select: { id: true, name: true, phone: true },
-  });
+  }));
   return (await Promise.all(cards.map(async (c) => {
     const opening = readMusicOpeningCard(c, storeId, customerId);
     const openingIssue = musicOpeningOperationIssue(opening, c);
@@ -63,7 +64,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       expired,
       openingIssue,
       openingImported: opening.kind !== "NATIVE",
-      ...(opening.kind === "OPENING" && !openingIssue && await isMusicPilotCard(coursePrisma,storeId,c) ? {openingReservable:true} : {}),
+      ...(opening.kind === "OPENING" && !openingIssue && await measureMusicRead("pilotEvidence",()=>isMusicPilotCard(coursePrisma,storeId,c)) ? {openingReservable:true} : {}),
       expiresAt: originalExpiry?.toISOString() ?? null,
       ...(opening.kind === "OPENING" && opening.record.expiryVerification?.kind === "NO_EXPIRY" && !openingIssue ? { expiryKind: "NO_EXPIRY" as const } : {}),
       members: c.members.map((m) => ({
