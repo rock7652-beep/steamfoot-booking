@@ -231,7 +231,7 @@ export function CourseMemberWorkspace({
           setError(result.error ?? "儲存失敗");
           return;
         }
-        publishMusicFinanceChange();
+        if (!(music && panel === "assign" && isMusicPreviewPage())) publishMusicFinanceChange();
         setDirty(false);if(!isMusicPreviewPage())setCardRevision(n=>n+1);
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
@@ -454,7 +454,7 @@ export function CourseMemberWorkspace({
             {healthEnabled && !music && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={person.id} customerId={person.id} tab={personTab} />}
+            {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -521,7 +521,7 @@ export function CourseMemberWorkspace({
               </details>}
             </section>}
             {panel === "person" && (
-              <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
+              <CourseCustomerDraftForm key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && (music?hasVisitedTab("payments"):personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div hidden={music&&personTab!=="payments"}><CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} /></div>}

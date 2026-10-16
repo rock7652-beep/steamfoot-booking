@@ -1,4 +1,5 @@
 "use client";
+import {musicPanelRead} from "@/lib/music-panel-transport";
 
 import {useState} from "react";
 import {MusicTuitionDetails} from "./music-tuition-details";
@@ -10,9 +11,10 @@ import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 
 const statuses: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳發卡", REFUNDED: "已退款", VOIDED: "已作廢" };
 
+const readHistory:typeof loadCourseCustomerPurchases=(...args)=>musicPanelRead("purchases",args,()=>loadCourseCustomerPurchases(...args));
 export function CourseCustomerPurchases({ customerId }: { customerId: string }) {
   const [revision,setRevision]=useState(0);
-  return <CourseHistoryList revision={revision} columns={["日期／時間", "方案／堂數", "核帳狀態", "交易金額", "明細"]} customerId={customerId} label="購買、核帳與退款紀錄" empty="尚無交易紀錄" load={loadCourseCustomerPurchases} render={order=><>
+  return <CourseHistoryList revision={revision} columns={["日期／時間", "方案／堂數", "核帳狀態", "交易金額", "明細"]} customerId={customerId} label="購買、核帳與退款紀錄" empty="尚無交易紀錄" load={readHistory} render={order=><>
       <td className="tabular-nums">{formatTWDateTime(new Date(order.createdAt))}</td>
       <td><p className="font-medium">{order.name}</p><p className="text-earth-600">{order.points} {order.unit === "SESSION" ? "堂" : "點"}</p></td>
       <td><span className={`inline-block rounded px-2 py-1 ${order.status === "PENDING" ? "bg-amber-50 text-amber-800" : "bg-earth-50"}`}>{statuses[order.status] ?? "狀態待確認"}</span></td>

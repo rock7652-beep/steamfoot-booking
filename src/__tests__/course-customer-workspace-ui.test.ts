@@ -89,3 +89,14 @@ it("combines purchase and shared-card filters immediately without changing purch
  await filter("共卡篩選","disabled");expect(names()).toEqual(["舊方案"]);
  expect(plans[0]).toMatchObject({customerPurchasable:true});
 });
+
+it("keeps exactly one music summary when entering and leaving checkout repeatedly",async()=>{
+ const errors=vi.spyOn(console,"error");
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
+ for(let i=0;i<3;i++){
+  await click("學費與堂數");await click("購買／續報學費方案");
+  await click("‹ 返回 測試學員 詳情");
+  expect(host.querySelectorAll('[aria-label="學員概況"]').length).toBe(1);
+ }
+ expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
+});

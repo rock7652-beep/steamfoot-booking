@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useTransition, type ReactNode } from "react";
+import {musicPanelRead} from "@/lib/music-panel-transport";
 import { createClientReadCache } from "@/lib/client-read-cache";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -63,7 +64,7 @@ export function usePanelReadCache<T>(namespace: string, fetcher: (key: string) =
 export function usePanelReader<Args extends unknown[], T>(
   namespace: string, fetcher: (...args: Args) => Promise<T>, scopeVersion = "", ttlMs = 0,
 ) {
-  const decode = useCallback((key: string) => fetcher(...JSON.parse(key) as Args), [fetcher]);
+  const decode = useCallback((key: string) => {const args=JSON.parse(key) as Args;return musicPanelRead(namespace,args,()=>fetcher(...args));}, [fetcher,namespace]);
   const cache = usePanelReadCache(namespace, decode, scopeVersion, ttlMs);
   return useMemo(() => ({
     read: (...args: Args) => cache.load(JSON.stringify(args)),
