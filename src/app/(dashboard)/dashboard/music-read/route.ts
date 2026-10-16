@@ -1,3 +1,4 @@
+import {getMusicRevenueTransactions} from "@/server/queries/music-revenue-transactions";
 import {z} from "zod";
 import {getCourseReceiptTotals} from "@/server/queries/course-home";
 import {loadMusicStudentWorkspace} from "@/server/actions/music-student-workspace";
@@ -12,7 +13,7 @@ export async function GET(request:Request){
   const operation=new URL(request.url).searchParams.get("operation");
   const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",{operation,status,totalMs:Math.round(performance.now()-started)});return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`}});};
   try{
-    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":operation==="revenue-totals"?"transaction.read":"customer.read");
+    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":(operation==="revenue-totals"||operation==="revenue-transactions")?"transaction.read":"customer.read");
     if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
     const params=new URL(request.url).searchParams,raw=params.get("args")??"[]";
     if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
@@ -20,6 +21,12 @@ export async function GET(request:Request){
     if(!Array.isArray(args)||args.length>3)return reply({success:false,error:"參數無效"},400);
     // Existing readers retain their per-resource permissions and store scope.
     switch(operation){
+      case "revenue-transactions": {
+        const date=z.string().date();
+        const input=z.object({from:date,to:date,dataScope:z.enum(["operational","legacy"]).optional(),status:z.enum(["PENDING","CONFIRMED","REFUNDED","VOIDED"]).optional(),staff:z.string().max(100).optional(),page:z.string().regex(/^\d{1,6}$/).optional()}).parse(args[0]);
+        if(input.from>input.to)return reply({success:false,error:"日期區間無效"},400);
+        return reply({success:true,data:await getMusicRevenueTransactions(storeId,input)});
+      }
       case "revenue-totals": {
         const date=z.string().date();
         const data=z.object({from:date,to:date,dataScope:z.enum(["operational","legacy"]).optional()}).parse(args[0]);

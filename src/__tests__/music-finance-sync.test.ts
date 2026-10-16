@@ -21,3 +21,9 @@ it("limits automatic refresh to course, teacher and monthly pages",()=>{
  for(const route of ["/s/lubymusic/admin/dashboard/courses", "/s/lubymusic/admin/dashboard/courses/source-pilot/salary", "/s/lubymusic/admin/dashboard/teachers", "/s/lubymusic/admin/dashboard/service-fee-calculator"])expect(isMusicSyncRoute(route)).toBe(true);
  for(const route of [null,"/dashboard/revenue","/dashboard/teachers-other","/dashboard/service-fee-calculator-other"])expect(isMusicSyncRoute(route)).toBe(false);
 });
+
+it("routes typed checkout signals and retains old clients",()=>{
+ const callback=vi.fn(),dispose=subscribeMusicFinanceChange(callback);
+ for(const detail of ["purchase:1","receipt:2","old-uuid"])window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail}));
+ expect(callback.mock.calls).toEqual([["purchase"],["receipt"],["general"]]);dispose();
+});

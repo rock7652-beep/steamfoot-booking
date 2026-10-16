@@ -1,6 +1,7 @@
+vi.mock("@/server/queries/music-revenue-transactions",()=>({getMusicRevenueTransactions:m.transactions}));
 vi.mock("@/server/queries/course-home",()=>({getCourseReceiptTotals:m.totals}));
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),totals:vi.fn()}));
+const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),totals:vi.fn(),transactions:vi.fn()}));
 vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.purchases}));
@@ -20,4 +21,14 @@ it("authorizes finance totals and rejects invalid dates before querying",async()
  const req=(from:string)=>new Request("https://preview.example/music-read?"+new URLSearchParams({operation:"revenue-totals",args:JSON.stringify([{from,to:"2026-10-16"}])}));
  expect((await GET(req("2026-02-30"))).status).toBe(400);expect(m.totals).not.toHaveBeenCalled();
  m.totals.mockResolvedValue({net:100});expect((await GET(req("2026-10-01"))).status).toBe(200);expect(m.auth).toHaveBeenCalledWith("transaction.read");expect(m.totals).toHaveBeenCalledWith("store-lubymusic","2026-10-01","2026-10-16",undefined);
+});
+
+it("scopes transaction refresh to the authenticated store and validated filters",async()=>{
+ const input={from:"2026-10-01",to:"2026-10-16",dataScope:"legacy",status:"CONFIRMED",staff:"teacher",page:"2"};
+ const req=(value:unknown)=>new Request("https://preview.example/music-read?"+new URLSearchParams({operation:"revenue-transactions",args:JSON.stringify([value])}));
+ m.transactions.mockResolvedValue({rows:[],count:0,page:1,pages:1});
+ expect((await GET(req(input))).status).toBe(200);
+ expect(m.auth).toHaveBeenCalledWith("transaction.read");
+ expect(m.transactions).toHaveBeenCalledWith("store-lubymusic",input);
+ m.transactions.mockClear();expect((await GET(req({...input,page:"-1"}))).status).toBe(400);expect(m.transactions).not.toHaveBeenCalled();
 });

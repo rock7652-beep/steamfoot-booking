@@ -17,7 +17,7 @@ export async function musicCheckoutTransport(
     if (response.status === 409) return { success: false, error: "系統已更新，尚未送出；輸入仍保留，請開啟最新版後核對再送出。" };
     const result = await response.json();
     if (typeof result?.success !== "boolean") throw new Error("Unexpected checkout response");
-    if (result.success) publishMusicFinanceChange();
+    if (result.success) publishMusicFinanceChange(operation);
     return result;
   } catch {
     return { success: false, error: "尚未確認收款結果，輸入已保留；請用相同資料重試，系統會防止重複收款。" };

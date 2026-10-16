@@ -69,3 +69,13 @@ it("invalidates other-panel reads without remounting drafts or duplicating refre
   expect(host.querySelector("input")).toBe(input);
   expect(input.value).toBe("保留我的草稿");
 });
+
+it("refreshes receipt readers without refreshing the whole course page",async()=>{
+ refresh.mockClear();const fetcher=vi.fn().mockResolvedValueOnce("before").mockResolvedValueOnce("after");
+ await act(async()=>root.render(tree("receipt",[consumer("panel",fetcher)])));
+ expect(await readers.panel.read("1")).toBe("before");
+ await act(async()=>window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:one"})));
+ expect(await readers.panel.read("1")).toBe("after");expect(refresh).not.toHaveBeenCalled();
+ await act(async()=>{window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"purchase:two"}));window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:three"}));});
+ expect(refresh).toHaveBeenCalledOnce();
+});

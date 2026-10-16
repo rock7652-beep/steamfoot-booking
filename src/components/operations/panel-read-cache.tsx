@@ -21,18 +21,14 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const pathname = usePathname();
   useEffect(() => {
     if (!isMusicPreviewPage() || !isMusicSyncRoute(pathname)) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = subscribeMusicFinanceChange(() => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
+    const unsubscribe = subscribeMusicFinanceChange((kind) => {
         for (const cache of registry.values()) cache.clear();
         registry.clear();
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        startTransition(() => router.refresh());
-      }, 150);
+        if (kind !== "receipt" || !pathname?.includes("/dashboard/courses")) startTransition(() => router.refresh());
     });
-    return () => { clearTimeout(timer); unsubscribe(); };
+    return unsubscribe;
   }, [pathname, registry, router]);
   return <Context.Provider value={registry}><MusicRevision.Provider value={revision}>
     {revision > 0 && isMusicSyncRoute(pathname) && <p role="status" className="px-3 text-sm text-earth-600">{pending ? "同步教務資料中…" : "教務資料已同步"}</p>}
