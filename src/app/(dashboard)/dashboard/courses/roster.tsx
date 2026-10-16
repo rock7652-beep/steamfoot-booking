@@ -825,7 +825,7 @@ export function CourseRoster({
                   已優先帶入最快到期方案
                 </span>
               )}
-              {musicLayout && eligibleCards.length===1 ? <p className="mt-1 rounded-lg bg-white p-3">{eligibleCards[0].name} · 可用 {eligibleCards[0].available} 堂<br/><span className="text-earth-600">{eligibleCards[0].openingImported?"音教雲匯入":eligibleCards[0].createdAt?`購買 ${toLocalDateStr(new Date(eligibleCards[0].createdAt))}`:""} · {eligibleCards[0].musicValidityDays&&!eligibleCards[0].musicActivatedAt?`首次上課起 ${eligibleCards[0].musicValidityDays} 天`:eligibleCards[0].expiresAt?`到期 ${toLocalDateStr(new Date(eligibleCards[0].expiresAt!))}`:"無期限"}</span></p> : <select
+              {musicLayout && eligibleCards.length===1 ? <p className="mt-1 rounded-lg bg-white p-3">{eligibleCards[0].name} · 可用 {eligibleCards[0].available} 堂<br/><span className="text-earth-600">{eligibleCards[0].openingImported?"音教雲匯入":eligibleCards[0].createdAt?`購買 ${toLocalDateStr(new Date(eligibleCards[0].createdAt))}`:""} · {eligibleCards[0].expiryKind==="NO_EXPIRY"?"無期限":!eligibleCards[0].openingImported&&eligibleCards[0].musicValidityDays&&!eligibleCards[0].musicActivatedAt?`首次上課起 ${eligibleCards[0].musicValidityDays} 天`:eligibleCards[0].expiresAt?`到期 ${toLocalDateStr(new Date(eligibleCards[0].expiresAt!))}`:"期初效期待核對"}</span></p> : <select
                 className={`${field} mt-1`}
                 value={cardId}
                 required
