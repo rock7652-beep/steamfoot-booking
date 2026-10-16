@@ -2,6 +2,7 @@
 import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
+import { CourseOptionSelect } from "@/components/admin/course-option-select";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { SportsRosterReminders } from "./sports-roster-reminders";
 import sportsRoster from "./sports-roster.module.css";
@@ -699,7 +700,14 @@ export function CourseRoster({
         }}
       >
         {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
-        <div>
+        {musicLayout ? <div className="space-y-2">
+          <p className="font-medium">學員</p>
+          <CourseOptionSelect label="搜尋學員" placeholder="輸入姓名或手機末幾碼" searchable value={customerId}
+            options={learners.map(member=>{const count=eligibleCardsFor(member.id).length;const joined=roster.some(row=>row.customerId===member.id&&(row.status!=="CANCELLED"||["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED","TEACHER_ABSENT"].includes(row.absenceKind??"")));return {id:member.id,label:`${member.name} · ${member.phone} · ${joined?"已加入本堂":count?`${count} 個可用方案`:noCardReason(member.id)}`,disabled:joined};})}
+            onSearchChange={()=>{setCustomerId("");setCardId("");setMakeupForBookingId("");}}
+            onChange={id=>{setCustomerId(id);const memberCards=eligibleCardsFor(id);const makeup=pendingMakeups.find(item=>item.customerId===id&&memberCards.some(card=>card.id===item.cardId));setMakeupForBookingId(makeup?.id??"");setCardId(makeup?.cardId??memberCards[0]?.id??"");setRequestKey(crypto.randomUUID());}}/>
+          {allowTrialActions&&onCreateCustomer&&<button type="button" className={button} onClick={onCreateCustomer}>＋ 直接建立新顧客</button>}
+        </div> : <>        <div>
           <label htmlFor="course-member-search" className="mb-1 block text-sm font-medium">
             先找學員
           </label>
@@ -779,7 +787,7 @@ export function CourseRoster({
               新顧客可直接建檔並以體驗預約加入本堂，不必先前往顧客管理。
             </p>
           )}
-        </div>
+        </div></>}
 
         {customerId && cardId && occupiedCount>=capacity && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm">
           <span>全班 {occupiedCount}/{capacity} 人{waitlist.length?` · 候補 ${waitlist.length} 人`:""}</span>
@@ -817,7 +825,7 @@ export function CourseRoster({
                   已優先帶入最快到期方案
                 </span>
               )}
-              <select
+              {musicLayout && eligibleCards.length===1 ? <p className="mt-1 rounded-lg bg-white p-3">{eligibleCards[0].name} · 可用 {eligibleCards[0].available} 堂<br/><span className="text-earth-600">{eligibleCards[0].openingImported?"音教雲匯入":eligibleCards[0].createdAt?`購買 ${toLocalDateStr(new Date(eligibleCards[0].createdAt))}`:""} · {eligibleCards[0].musicValidityDays&&!eligibleCards[0].musicActivatedAt?`首次上課起 ${eligibleCards[0].musicValidityDays} 天`:eligibleCards[0].expiresAt?`到期 ${toLocalDateStr(new Date(eligibleCards[0].expiresAt!))}`:"無期限"}</span></p> : <select
                 className={`${field} mt-1`}
                 value={cardId}
                 required
@@ -830,10 +838,10 @@ export function CourseRoster({
                 <option value="">請選擇</option>
                 {eligibleCards.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · {item.expiryKind === "NO_EXPIRY" ? "無期限" : !item.openingImported && item.musicValidityDays && !item.musicActivatedAt ? `首次上課起 ${item.musicValidityDays} 天` : item.expiresAt ? `到期 ${formatTWDateTime(new Date(item.expiresAt)).slice(0, 10)}` : "期初效期待核對"}
+                    {item.name}{musicLayout?(item.openingImported?" · 音教雲匯入":item.createdAt?` · 購買 ${toLocalDateStr(new Date(item.createdAt))}`:""):""} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · {item.expiryKind === "NO_EXPIRY" ? "無期限" : !item.openingImported && item.musicValidityDays && !item.musicActivatedAt ? `首次上課起 ${item.musicValidityDays} 天` : item.expiresAt ? `到期 ${formatTWDateTime(new Date(item.expiresAt)).slice(0, 10)}` : "期初效期待核對"}
                   </option>
                 ))}
-              </select>
+              </select>}
             </label>
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">

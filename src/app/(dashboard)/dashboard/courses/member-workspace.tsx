@@ -1,6 +1,6 @@
 "use client";
 import {musicPlanItems} from "@/lib/music-catalog";
-import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentOverview } from "./music-student-overview";
@@ -27,7 +27,7 @@ import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useState, useTransition, type FormEvent } from "react";
+import { Fragment, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -135,7 +135,8 @@ export function CourseMemberWorkspace({
  const [hideTestData,setHideTestData]=useState(false);
  const [showInactive,setShowInactive]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
   const [page, setPage] = useRetainedState(`course-${view}:page`, 0, retainedPage);
   const [status, setStatus] = useRetainedState(`course-${view}:status`, "all", retainedString);
@@ -203,24 +204,27 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  function finishDraftForm(){publishMusicFinanceChange();setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  function finishDraftForm(){publishMusicFinanceChange();setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}if(!isMusicPreviewPage())router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, music ? personTab : undefined);
+  const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
+  const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
+    setVisitedTabs(previous=>({id:person?.id??"",tabs:[...new Set([...(previous.id===person?.id?previous.tabs:[]),personTab,value])]}));
     setPersonTab(value);
   }
 
-  function submit(
+  async function submit(
     event: FormEvent<HTMLFormElement>,
     action: (data: FormData) => Promise<{ success: boolean; error?: string }>,
   ) {
     event.preventDefault();
-    if (pending) return;
+    if (submitting.current) return;
+    submitting.current=true;setPending(true);
     const data = new FormData(event.currentTarget);
     setError("");
-    start(async () => {
       try {
         const result = await action(data);
         if (!result.success) {
@@ -228,17 +232,16 @@ export function CourseMemberWorkspace({
           return;
         }
         publishMusicFinanceChange();
-        setDirty(false);setCardRevision(n=>n+1);
+        setDirty(false);if(!isMusicPreviewPage())setCardRevision(n=>n+1);
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        setTimeout(() => router.refresh(), 0);
+        if(!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
-      }
-    });
+      } finally {submitting.current=false;setPending(false);}
   }
   const order=useCourseDisplayOrder("plan",plans,displayOrder,canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive);
   const filteredPlans = plans
@@ -451,7 +454,7 @@ export function CourseMemberWorkspace({
             {healthEnabled && !music && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`${person.id}:${cardRevision}`} customerId={person.id} tab={personTab} />}
+            {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={person.id} customerId={person.id} tab={personTab} />}
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -485,9 +488,9 @@ export function CourseMemberWorkspace({
               </form>
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
-            {panel === "person" && person && personTab === "plans" && <section className="mb-4 space-y-3">
+            {panel === "person" && person && hasVisitedTab("plans") && <section hidden={personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購買／續報學費方案" : "購買方案"}</button>}
-              {canReadCards && personTab === "plans" && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
+              {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
                 <CourseCardBrowser dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
@@ -521,8 +524,8 @@ export function CourseMemberWorkspace({
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
-            {panel === "person" && (personTab === "payments" || personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
-            {panel === "person" && (personTab === "bookings" || personTab === "records" && recordTab === "bookings") && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} />}
+            {panel === "person" && (music?hasVisitedTab("payments"):personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div hidden={music&&personTab!=="payments"}><CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} /></div>}
+            {panel === "person" && (music?hasVisitedTab("bookings"):personTab === "records" && recordTab === "bookings") && person && canReadBookings && <div hidden={music&&personTab!=="bookings"}><CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} /></div>}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],[music?"所屬教學項目":"適用課程",music?planItems(plan).map(s=>s.name).join("、")||"待確認對應":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 

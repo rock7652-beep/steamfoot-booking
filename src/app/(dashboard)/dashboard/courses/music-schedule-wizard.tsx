@@ -3,10 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
+import { CourseOptionSelect } from "@/components/admin/course-option-select";
 import { createCourseSchedule } from "@/server/actions/course";
 
 type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
-type Room = { id:string; name:string };
+type Room = { id:string; name:string; capacity?:number|null };
 type Coach = { id:string; displayName:string };
 
 export function MusicScheduleWizard({templates,rooms,coaches,initialDate,requestKey,sourceSessionId,initialTemplateId,onCreated}:{
@@ -29,12 +30,12 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [unavailable,setUnavailable]=useState<MusicUnavailableSlot[]>([]);
   const [time,setTime]=useState("");
   const [coachId,setCoachId]=useState("");
-  const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
+  const [roomId,setRoomId]=useState("");
   const [repeat,setRepeat]=useState(false);
   const [repeatCount,setRepeatCount]=useState(4);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
-  function resetSlot(){setSlots(null);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
+  function resetSlot(){setSlots(null);setUnavailable([]);setTime("");setCoachId("");setRoomId("");setRepeat(false);setError("");}
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;
@@ -48,7 +49,10 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const times=[...new Set(slots?.map(s=>s.time) ?? [])].sort();
   const pairs=slots?.filter(s=>s.time===time).flatMap(s=>s.coachIds.map(coachId=>({roomId:s.roomId,coachId,fixedOrigin:s.fixedOriginCoachIds?.includes(coachId)??false}))) ?? [];
   const teacherIds=[...new Set(pairs.map(option=>option.coachId))];
-  const availableRooms=pairs.filter(option=>option.coachId===coachId);
+  const selectedCoachId=teacherIds.includes(coachId)?coachId:teacherIds.length===1?teacherIds[0]:"";
+  const availableRooms=pairs.filter(option=>option.coachId===selectedCoachId && !(option.fixedOrigin && template?.musicScheduleMode==="FIXED") && (rooms.find(r=>r.id===option.roomId)?.capacity??capacity)>=capacity);
+  const selectedRoomId=availableRooms.some(r=>r.roomId===roomId)?roomId:availableRooms.length===1?availableRooms[0].roomId:"";
+  const pair=availableRooms.find(r=>r.roomId===selectedRoomId)??null;
   function create(){
     if(!template || !pair || !time || pending)return;
     if(!Number.isInteger(capacity)||capacity<1||capacity>500){setError("人數上限請填 1–500 人");return;}
@@ -68,47 +72,26 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
       }catch{setError("連線失敗，請重試");}
     });
   }
-  return <div className="space-y-4 text-sm">
-    <p className="text-earth-600">選教學項目排課；學員加入後，自動匹配對應學費方案。</p>
-    <div className="grid gap-3 sm:grid-cols-2">
-    <label className="block">教學項目（大類）<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-    <div className="flex min-h-11 items-center text-earth-700">{duration} 分鐘 · 上限 {capacity} 人</div>
+  const selectClass="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
+  return <div className="space-y-3 text-sm">
+    <p className="text-earth-600">選教學項目排課，加入學員時自動對應方案。</p>
+    <label className="block">教學項目（大類）<CourseOptionSelect label="教學項目（大類）" options={subjects.map(s=>({id:s.id,label:s.name}))} value={subjectId} onChange={id=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===id)?.id??"")} required/></label>
+    <p className="text-earth-600">{duration} 分鐘 · 上限 {capacity} 人</p>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label className="min-w-0">上課日期<input aria-label="找空位日期" className={selectClass} type="date" value={date} onChange={e=>{setDate(e.target.value);resetSlot();}}/></label>
+      <label className="min-w-0">上課時間<select aria-label="上課時間" className={selectClass} disabled={!slots || !times.length} value={time} onChange={e=>{setTime(e.target.value);setCoachId("");setRoomId("");setRepeat(false);}}><option value="">{!slots?"核對空位中…":times.length?"請選擇時間":"沒有可排時段"}</option>{times.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
+      <label className="min-w-0">老師<select aria-label="老師" className={selectClass} disabled={!time} value={selectedCoachId} onChange={e=>{setCoachId(e.target.value);setRoomId("");setRepeat(false);}}><option value="">{time?"請選擇老師":"先選上課時間"}</option>{teacherIds.map(id=><option key={id} value={id}>{coaches.find(c=>c.id===id)?.displayName??"老師"}</option>)}</select></label>
+      <label className="min-w-0">教室<select aria-label="教室" className={selectClass} disabled={!selectedCoachId} value={selectedRoomId} onChange={e=>{setRoomId(e.target.value);setRepeat(false);}}><option value="">{!selectedCoachId?"先選老師":availableRooms.length?"請選擇教室":"沒有符合人數的教室"}</option>{availableRooms.map(option=>{const room=rooms.find(r=>r.id===option.roomId);return <option key={option.roomId} value={option.roomId}>{room?.name??"教室"}{room?.capacity?` · ${room.capacity} 人`:""}{option.fixedOrigin?" · 限單次":""}</option>;})}</select></label>
     </div>
-    <label className="block">上課日期
-      <input aria-label="找空位日期" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" type="date" value={date} onChange={e=>{setDate(e.target.value);resetSlot();}}/>
-    </label>
-    <div aria-label="可排時段" className="space-y-2">
-      <strong>可排時段</strong>
-      {!slots && !error && <p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
-      {slots?.length===0 && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">這天沒有合適空位，請換日期或查看原因。</p>}
-      {time && <div className="flex items-center justify-between rounded-lg bg-primary-50 px-3"><span>已選 {time}</span><button type="button" className="min-h-11 px-3" onClick={()=>{setTime("");setCoachId("");setPair(null);}}>更改時段</button></div>}
-      {!time && <div className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-        {times.map(slotTime=>{
-          const matching=slots!.filter(s=>s.time===slotTime);
-          const teacherCount=new Set(matching.flatMap(s=>s.coachIds)).size;
-          return <button key={slotTime} type="button" className={`min-h-11 rounded-xl border px-2 ${slotTime===time?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`} onClick={()=>{setTime(slotTime);setCoachId("");setPair(null);}}>
-            {slotTime}<span className="block text-sm">{teacherCount} 位老師 · {matching.length} 間教室</span>
-          </button>;
-        })}
-      </div>}
-      {!!unavailable.length && <details className="rounded-xl border border-earth-200 px-3 py-2 text-earth-700"><summary className="cursor-pointer">查看其他時段為何不能排（{unavailable.length} 個）</summary><div className="mt-2 grid max-h-36 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3">{unavailable.map(slot=><span key={slot.time} className="rounded bg-earth-50 px-2 py-1 text-xs">{slot.time} · {slot.reason}</span>)}</div></details>}
-    </div>
-    {time && <div aria-label="合格老師與可用教室" className="space-y-2">
-      <strong>{date} {time} · 選老師／教室</strong>
-      <div className="grid grid-cols-2 gap-1.5">
-        {teacherIds.map(id=><button key={id} type="button" className={`min-h-11 rounded-xl border px-3 text-left ${coachId===id?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setCoachId(id);setPair(null);}}>
-          {coaches.find(c=>c.id===id)?.displayName} · {pairs.filter(option=>option.coachId===id).length} 間教室
-        </button>)}
-      </div>
-      {coachId&&<div aria-label="老師可用教室" className="grid max-h-44 grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
-        {availableRooms.map(option=><button key={option.roomId} type="button" disabled={option.fixedOrigin&&template?.musicScheduleMode==="FIXED"} title={option.fixedOrigin?"原固定課保留此時段，僅可排單次臨時課":undefined} className={`min-h-11 rounded-xl border px-3 text-left disabled:opacity-50 ${pair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>教室 {rooms.find(r=>r.id===option.roomId)?.name}{option.fixedOrigin&&<span className="block text-sm">原固定課保留 · 限單次臨時課</span>}</button>)}
-      </div>}
-    </div>}
-    {pair && <div className="space-y-3 border-t border-earth-100 pt-3">
-      <label className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pairs.find(option=>option.roomId===pair.roomId&&option.coachId===pair.coachId)?.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排課</label>
-      {repeat && <label className="flex items-center gap-2">連續堂數<input aria-label="連續排課堂數" className="min-h-11 w-24 rounded-lg border px-3" type="number" min={2} max={52} value={repeatCount} onChange={e=>setRepeatCount(Number(e.target.value))}/></label>}
+    {!slots&&!error&&<p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
+    {slots?.length===0&&<p className="text-earth-600">這天沒有合適空位，請換日期。</p>}
+    {!!unavailable.length&&<details className="border-t border-earth-100 pt-2"><summary className="min-h-11 cursor-pointer py-2">查看不可排時段原因</summary><div className="max-h-36 overflow-auto">{unavailable.map(s=><p key={s.time}>{s.time} · {s.reason}</p>)}</div></details>}
+    {pair&&<div className="space-y-3 border-t border-earth-100 pt-3">
+      <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pair.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排課</label>
+      {repeat&&<label className="flex items-center gap-2">連續堂數<input aria-label="連續排課堂數" className="min-h-11 w-24 rounded-lg border px-3" type="number" min={2} max={52} value={repeatCount} onChange={e=>setRepeatCount(Number(e.target.value))}/></label>}
+      <p className="text-earth-600">{date} {time} · {coaches.find(c=>c.id===selectedCoachId)?.displayName} · {rooms.find(r=>r.id===selectedRoomId)?.name}</p>
       <button type="button" disabled={pending} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"建立課程，接著選學員"}</button>
     </div>}
-    {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-700">{error}</p>}
+    {error&&<p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-700">{error}</p>}
   </div>;
 }

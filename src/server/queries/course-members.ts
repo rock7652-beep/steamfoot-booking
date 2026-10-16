@@ -48,6 +48,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     const expired = originalExpiry !== null && originalExpiry.getTime() < Date.now();
     return {
       id: c.id,
+      ...(c.createdAt ? {createdAt:c.createdAt.toISOString()} : {}),
       name: c.nameSnapshot,
       unit: c.unit,
       musicValidityDays:c.musicValidityDays,
