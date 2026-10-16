@@ -1,3 +1,5 @@
+import {z} from "zod";
+import {getCourseReceiptTotals} from "@/server/queries/course-home";
 import {loadMusicStudentWorkspace} from "@/server/actions/music-student-workspace";
 import {browseCourseCards} from "@/server/actions/course-browse";
 import {loadCourseCustomerPurchases} from "@/server/actions/course-customer-history";
@@ -10,7 +12,7 @@ export async function GET(request:Request){
   const operation=new URL(request.url).searchParams.get("operation");
   const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",{operation,status,totalMs:Math.round(performance.now()-started)});return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`}});};
   try{
-    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":"customer.read");
+    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":operation==="revenue-totals"?"transaction.read":"customer.read");
     if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
     const params=new URL(request.url).searchParams,raw=params.get("args")??"[]";
     if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
@@ -18,6 +20,12 @@ export async function GET(request:Request){
     if(!Array.isArray(args)||args.length>3)return reply({success:false,error:"參數無效"},400);
     // Existing readers retain their per-resource permissions and store scope.
     switch(operation){
+      case "revenue-totals": {
+        const date=z.string().date();
+        const data=z.object({from:date,to:date,dataScope:z.enum(["operational","legacy"]).optional()}).parse(args[0]);
+        if(data.from>data.to)return reply({success:false,error:"日期區間無效"},400);
+        return reply({success:true,data:await getCourseReceiptTotals(storeId,data.from,data.to,data.dataScope)});
+      }
       case "session-detail":return reply(await loadCourseSessionDetail(args[0],args[1]));
       case "roster-quick":return reply(await loadCourseRosterQuick(args[0]));
       case "music-student-workspace":return reply(await loadMusicStudentWorkspace(args[0]));

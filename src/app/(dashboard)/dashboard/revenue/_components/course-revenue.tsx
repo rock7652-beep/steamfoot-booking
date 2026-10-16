@@ -1,3 +1,4 @@
+import {MusicRevenueMetrics} from "@/components/admin/music-revenue-metrics";
 import {Suspense} from "react";
 import { MusicRevenueSync } from "@/components/admin/music-revenue-sync";
 import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
@@ -114,8 +115,10 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
     {legacy&&<p className="text-sm text-earth-600">舊驗收交易僅供查閱，不列入營運收款。</p>}
     <RevenueTabs readOnly={readOnly} />
+    {musicDataSeparationEnabled(storeId) ? <MusicRevenueMetrics key={`${storeId}:${from}:${to}:${params.dataScope??"operational"}`} initial={receiptTotals} from={from} to={to} dataScope={params.dataScope}/> : <>
     <KpiStrip items={[{ label: "期間收款收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "收款筆數", value: `${receiptTotals.purchaseCount} 筆` }]} />
     <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">收款入帳合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · <strong>淨收款 {money(receiptTotals.net)}</strong></p>
+    </>}
     <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計與日期說明</summary><p>摘要依核帳／退款發生日計算；下表依購買日期篩選。方案淨收入不重複加計現金帳的連動紀錄，也不包含手動收支。所有日期採台灣時間。</p></details>
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">
       <div className="border-b p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold">交易工作台</h2><p className="mt-0.5 text-[11px] text-earth-500">查詢購買、核帳及退款；交易處理集中在最右側。</p></div><nav aria-label="營運期間" className="flex rounded-lg bg-earth-100 p-1 text-sm"><Link className={`rounded-md px-3 py-1.5 ${isToday?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today,today)}>本日</Link><Link className={`rounded-md px-3 py-1.5 ${isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today.slice(0,7)+"-01",today)}>本月</Link><span className={`rounded-md px-3 py-1.5 ${!isToday&&!isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`}>任意區間</span></nav></div>

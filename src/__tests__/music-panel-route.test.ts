@@ -1,5 +1,6 @@
+vi.mock("@/server/queries/course-home",()=>({getCourseReceiptTotals:m.totals}));
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn()}));
+const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),totals:vi.fn()}));
 vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.purchases}));
@@ -14,3 +15,9 @@ it('delegates to authorized reader and never caches private results',async()=>{c
 it('rejects unknown operation without selecting arbitrary actions',async()=>{expect((await GET(request('delete'))).status).toBe(400);expect(m.cards).not.toHaveBeenCalled();});
 
 it.each(["session-detail","roster-quick"])("checks booking permission for %s",async(op)=>{m.detail.mockResolvedValue({success:true});m.roster.mockResolvedValue({success:true});const r=await GET(request(op));expect(r.status).toBe(200);expect(m.auth).toHaveBeenCalledWith("booking.read");expect(op==="session-detail"?m.detail:m.roster).toHaveBeenCalledOnce();});
+
+it("authorizes finance totals and rejects invalid dates before querying",async()=>{
+ const req=(from:string)=>new Request("https://preview.example/music-read?"+new URLSearchParams({operation:"revenue-totals",args:JSON.stringify([{from,to:"2026-10-16"}])}));
+ expect((await GET(req("2026-02-30"))).status).toBe(400);expect(m.totals).not.toHaveBeenCalled();
+ m.totals.mockResolvedValue({net:100});expect((await GET(req("2026-10-01"))).status).toBe(200);expect(m.auth).toHaveBeenCalledWith("transaction.read");expect(m.totals).toHaveBeenCalledWith("store-lubymusic","2026-10-01","2026-10-16",undefined);
+});

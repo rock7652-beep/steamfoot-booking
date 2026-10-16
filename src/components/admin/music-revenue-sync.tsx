@@ -18,5 +18,5 @@ export function MusicRevenueSync() {
     });
     return () => { clearTimeout(timer); unsubscribe(); };
   }, [router]);
-  return changed ? <p role="status" className="text-sm text-earth-600">{pending ? "同步收款資料中…" : "收款資料已同步"}</p> : null;
+  return changed ? <p role="status" className="text-sm text-earth-600">{pending ? "同步交易明細中…" : "交易明細已同步"}</p> : null;
 }
