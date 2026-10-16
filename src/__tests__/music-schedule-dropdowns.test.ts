@@ -61,3 +61,14 @@ it('lets the user choose among available teachers without a false no-availabilit
  expect(host.textContent).not.toContain('沒有符合資格');
  await change('老師','other');expect(select('教室').value).toBe('large');
 });
+
+it('switches arrangement without resetting the chosen classroom, time, or teacher',async()=>{
+ m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'large',coachIds:['teacher']}]});
+ await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,initialTime:'09:00',initialRoomId:'large'})));
+ await change('安排方式','OPEN');
+ expect(select('上課時間').value).toBe('09:00');expect(select('教室').value).toBe('large');expect(select('老師').value).toBe('teacher');
+ expect(m.slots).toHaveBeenCalledTimes(1);
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='建立開放選課課程')!.click());
+ expect(props.onCreated).toHaveBeenCalledWith('new','2026-10-20','OPEN');
+ expect(m.create).toHaveBeenCalledWith(expect.objectContaining({bookingAudience:'OPEN'}));
+});

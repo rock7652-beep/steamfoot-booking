@@ -151,6 +151,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           where: {
             storeId,
             cancelledAt: null,
+            bookingAudience: "OPEN",
             template: {isActive:true,visibility:"PUBLIC"},
             startsAt: { gte: range.start, lte: range.end },
           },

@@ -94,3 +94,15 @@ it.each([true, false])("keeps opening-state reschedule candidates hidden with se
   for (const write of [m.exec,m.reserve,m.settle,m.payments]) expect(write).not.toHaveBeenCalled();
  }
 });
+
+it("blocks rescheduling an assigned lesson before cancelling the original",async()=>{
+ const old=original();m.booking.mockResolvedValue({...old,session:{...old.session,bookingAudience:"ASSIGNED"}});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("指定學員")});
+ expect(m.settle).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();
+});
+it("blocks an assigned target even for the trial reschedule staff-like booking actor",async()=>{
+ m.target.mockResolvedValue({id:"new-session",bookingAudience:"ASSIGNED",startsAt:new Date("2099-10-08T15:00:00+08:00")});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false});
+ expect(m.settle).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();
+ expect(m.target).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingAudience:"OPEN"})}));
+});

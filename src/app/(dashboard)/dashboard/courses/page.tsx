@@ -179,6 +179,7 @@ export default async function CoursesPage({
         select: {
           id: true,
           isTrial: true,
+          bookingAudience: true,
           nameSnapshot: true,
           templateId: true,
           startsAt: true,

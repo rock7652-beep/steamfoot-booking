@@ -30,6 +30,7 @@ export const courseTemplateInput = z.object({
   waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  bookingAudience:z.enum(["ASSIGNED","OPEN"]).default("OPEN"),
   isTrial:z.boolean().default(false),
   templateId: id,
   roomId: id,

@@ -96,6 +96,7 @@ export async function joinCourseWaitlist(
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
     const activeCard = card!;
+    if (actor.customerId && activeSession.bookingAudience === "ASSIGNED") fail("此堂為指定學員課程，不開放自行候補");
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
     if (!activeSession.template.waitlistEnabled) fail("本課程未開放候補");
     if (activeSession.releasedAt || !activeSession.template.isActive || activeSession.template.visibility !== "PUBLIC")
@@ -251,6 +252,7 @@ export async function promoteCourseWaitlistForSession(
     include: { template: true },
   });
   if (!session || !session.template.waitlistEnabled) return [];
+  if (session.bookingAudience === "ASSIGNED" && !options.manual) return [];
   const stopMinutes = session.template.waitlistStopMinutes ?? settings.autoPromoteStopMinutes;
   if (!options.ignoreCutoff && !withinAutoPromoteWindow(session.startsAt, stopMinutes)) return [];
 

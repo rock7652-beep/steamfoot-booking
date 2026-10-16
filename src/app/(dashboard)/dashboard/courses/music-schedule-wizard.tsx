@@ -7,13 +7,13 @@ import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } f
 import { CourseOptionSelect } from "@/components/admin/course-option-select";
 import { createCourseSchedule } from "@/server/actions/course";
 
-type Template = { classType?:string|null;musicTrialMode?:string|null; musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
+type Template = { visibility?:string; classType?:string|null;musicTrialMode?:string|null; musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
 type Room = { id:string; name:string; capacity?:number|null };
 type Coach = { id:string; displayName:string };
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initialTime,initialRoomId,initialCoachId,requestKey,sourceSessionId,initialTemplateId,onCreated}:{
-  templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;initialTime?:string;initialRoomId?:string;initialCoachId?:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
-  onCreated:(sessionId:string,date:string)=>void;
+export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initialAudience,initialTime,initialRoomId,initialCoachId,requestKey,sourceSessionId,initialTemplateId,onCreated}:{
+  templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;initialAudience?:string;initialTime?:string;initialRoomId?:string;initialCoachId?:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
+  onCreated:(sessionId:string,date:string,audience:"ASSIGNED"|"OPEN")=>void;
 }) {
   const [templateId,setTemplateId]=useState(initialTemplateId ?? templates[0]?.id ?? "");
   const template=templates.find(t=>t.id===templateId);
@@ -36,6 +36,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initial
   const [time,setTime]=useState(initialTime??"");
   const [coachId,setCoachId]=useState(initialCoachId??"");
   const [roomId,setRoomId]=useState(initialRoomId??"");
+  const [audience,setAudience]=useState<"ASSIGNED"|"OPEN">(initialAudience==="OPEN"?"OPEN":"ASSIGNED");
   const [repeat,setRepeat]=useState(false);
   const [repeatCount,setRepeatCount]=useState(4);
   const [error,setError]=useState("");
@@ -62,12 +63,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initial
   const roomOptions=rooms.filter(r=>(r.capacity??capacity)>=capacity && pairs.some(p=>p.roomId===r.id && (!selectedCoachId || p.coachId===selectedCoachId)));
   function create(){
     if(!template || !pair || !time || pending)return;
+    if(audience==="OPEN"&&template.visibility&&template.visibility!=="PUBLIC"){setError("此教學項目未公開，請先在教學項目設定開放預約，或改用指定學員。");return;}
     if(!Number.isInteger(capacity)||capacity<1||capacity>500){setError("人數上限請填 1–500 人");return;}
     if(repeat&&(!Number.isInteger(repeatCount)||repeatCount<2||repeatCount>52)){setError("連續排課請填 2–52 堂");return;}
     setError("");
     startTransition(async()=>{
       try{
         const result=await createCourseSchedule({
+          bookingAudience:audience,
           templateId,sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,roomId:pair.roomId,coachId:pair.coachId,date,time,
           durationMinutes:duration,capacity,
           repeatUntil:repeat?addTaiwanDuration(date,(repeatCount-1)*7,"DAY"):undefined,
@@ -75,12 +78,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initial
         });
         if(!result.success){setError(result.error ?? "排課失敗，請重新選擇空位");return;}
         if(!result.data.sessionId){setError("課程已建立，請重新整理課表選學員");return;}
-        onCreated(result.data.sessionId,date);
+        onCreated(result.data.sessionId,date,audience);
       }catch{setError("連線失敗，請重試");}
     });
   }
   const selectClass="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
   return <div className="space-y-3 text-sm">
+    <label className="block">安排方式<select aria-label="安排方式" className={selectClass} value={audience} disabled={pending} onChange={e=>setAudience(e.target.value as "ASSIGNED"|"OPEN")}><option value="ASSIGNED">指定學員</option><option value="OPEN">開放選課</option></select></label>
+    <p className="text-earth-600">{audience==="ASSIGNED"?"僅由店家安排學員，不開放自行預約。":"符合方案及店家預約規則的學員可自行選課。"}</p>
     <label className="block">課程型態<select aria-label="課程型態" className={selectClass} value={classType} onChange={e=>{setClassType(e.target.value);chooseTemplate(templates.find(t=>typeOf(t)===e.target.value)?.id??"");}}>{typeOptions.map(type=><option key={type} value={type}>{courseClassPresentation(type,type==="TRIAL").label}</option>)}</select></label>
     
     <label className="block">教學項目（大類）<CourseOptionSelect label="教學項目（大類）" options={subjects.map(s=>({id:s.id,label:s.name}))} value={subjectId} onChange={id=>chooseTemplate(templates.find(t=>typeOf(t)===classType&&(t.musicSubjectId??t.id)===id)?.id??"")} required/></label>
@@ -99,7 +104,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,initial
       <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pair.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排課</label>
       {repeat&&<label className="flex items-center gap-2">連續堂數<input aria-label="連續排課堂數" className="min-h-11 w-24 rounded-lg border px-3" type="number" min={2} max={52} value={repeatCount} onChange={e=>setRepeatCount(Number(e.target.value))}/></label>}
       <p className="text-earth-600">{date} {time} · {coaches.find(c=>c.id===selectedCoachId)?.displayName} · {rooms.find(r=>r.id===selectedRoomId)?.name}</p>
-      <button type="button" disabled={pending} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"建立課程，接著選學員"}</button>
+      <button type="button" disabled={pending} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":audience==="ASSIGNED"?"建立課程，接著選學員":"建立開放選課課程"}</button>
     </div>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-700">{error}</p>}
   </div>;

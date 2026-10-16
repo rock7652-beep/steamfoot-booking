@@ -85,6 +85,7 @@ model CourseTemplate {
 }
 
 model CourseSession {
+  bookingAudience String @default("OPEN")
   isTrial Boolean @default(false)
   id             String @id @default(cuid())
   storeId        String

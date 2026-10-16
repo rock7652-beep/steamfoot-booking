@@ -45,7 +45,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
       await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
       const collision=await tx.courseSession.findFirst({where:{storeId,cancelledAt:null,releasedAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]}});
       if(collision)throw new AppError("CONFLICT",`${formatTWDateTime(collision.startsAt)} 教室或老師已有課程`);
-      const session=await tx.courseSession.create({data:{storeId,templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,nameSnapshot:`免費補課 · ${source.nameSnapshot}`,startsAt,endsAt,pointCost:0,capacity:source.capacity,requestKey:`teacher-makeup:${source.id}`,requestIndex:0,createdById:user.id,teacherMakeupForSessionId:source.id}});
+      const session=await tx.courseSession.create({data:{storeId,templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,nameSnapshot:`免費補課 · ${source.nameSnapshot}`,startsAt,endsAt,pointCost:0,capacity:source.capacity,requestKey:`teacher-makeup:${source.id}`,requestIndex:0,createdById:user.id,teacherMakeupForSessionId:source.id,bookingAudience:"ASSIGNED"}});
       await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
       return session.id;
     });
@@ -414,6 +414,7 @@ export async function createCourseSchedule(input: unknown) {
                 session.coachId !== data.coachId ||
                 session.capacity !== data.capacity ||
                 session.isTrial !== data.isTrial ||
+                session.bookingAudience !== data.bookingAudience ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
                 session.endsAt.getTime() !==
@@ -524,6 +525,7 @@ export async function createCourseSchedule(input: unknown) {
             ...range,
             storeId,
             isTrial:data.isTrial,
+            bookingAudience:data.bookingAudience,
             templateId: template.id,
             nameSnapshot: source?.nameSnapshot ?? template.musicSubject?.name ?? template.name,
             roomId: room.id,

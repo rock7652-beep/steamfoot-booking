@@ -245,6 +245,7 @@ export async function reserveCourseInTransaction(
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
   if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
     return fail("請選擇本店有效課程、方案與上課人");
+  if (actor.customerId && !options.manualWaitlistPromotion && session.bookingAudience === "ASSIGNED") return fail("此堂為指定學員課程，請由店家安排");
   if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.musicSubject?.isActive===false || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (

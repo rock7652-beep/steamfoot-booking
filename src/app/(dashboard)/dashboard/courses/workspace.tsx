@@ -98,6 +98,7 @@ type Session = {
   id: string;
   templateId: string;
   nameSnapshot: string;
+  bookingAudience?:string;
   startsAt: string;
   endsAt: string;
   coachId: string;
@@ -1972,17 +1973,19 @@ export function CourseWorkspace({
                 rooms={rooms}
                 coaches={coaches}
                 initialDate={scheduleSeed.date ?? selectedDate}
+                initialAudience={copySource?.bookingAudience}
                 initialTime={scheduleSeed.time}
                 initialRoomId={scheduleSeed.roomId}
                 initialCoachId={scheduleSeed.coachId}
                 initialTemplateId={copySource?.templateId}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
-                onCreated={(sessionId,date) => {
+                onCreated={(sessionId,date,audience) => {
                   setPanel(null);
                   publishMusicFinanceChange();
                   go(date);
-                  setCourseDialog({sessionId,kind:"roster"});
+                  if(audience==="ASSIGNED")setCourseDialog({sessionId,kind:"roster"});
+                  else setNotice("已建立課程，可依店家預約規則選課");
                   router.refresh();
                 }}
               />
@@ -2308,6 +2311,7 @@ export function CourseWorkspace({
             >
               <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : sportsRosterDialog ? "items-start bg-primary-50 py-2" : "items-start bg-primary-50 py-3"}`}>
                 <div className="min-w-0">
+                  {businessProfile==="MUSIC"&&!rentalDialog&&<p className="text-sm text-earth-600">{dialogSession.bookingAudience==="ASSIGNED"?"指定學員 · 僅由店家安排":"開放選課 · 依店家預約規則"}</p>}
                   <h2
                     id="course-operation-title"
                     className={`truncate font-semibold text-primary-900 ${rentalDialog ? "text-base" : "text-lg"}`}
