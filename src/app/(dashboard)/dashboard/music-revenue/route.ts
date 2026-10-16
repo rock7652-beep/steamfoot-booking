@@ -13,8 +13,10 @@ const inputSchema=z.object({
 export async function GET(request:Request){
  const start=performance.now();
  let authMs=0,totalsMs=0,transactionsMs=0;
+ const authorization:Record<string,number>={};
+ const timing={measure:async<T>(name:string,work:()=>Promise<T>)=>{const started=performance.now();try{return await work();}finally{authorization[name]=Math.round(performance.now()-started);}}};
  const reply=(value:Record<string,unknown>,status=200)=>{
-  const timing={authMs,totalsMs,transactionsMs,totalMs:Math.round(performance.now()-start)};
+  const timing={authMs,totalsMs,transactionsMs,totalMs:Math.round(performance.now()-start),authorization};
   console.info("[music-revenue-read]",{status,...timing});
   return Response.json({...value,timing},{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`auth;dur=${authMs}, totals;dur=${totalsMs}, transactions;dur=${transactionsMs}, revenue;dur=${timing.totalMs}`}});
  };
@@ -23,7 +25,7 @@ export async function GET(request:Request){
   if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
   const args=z.tuple([inputSchema]).parse(JSON.parse(raw)),input=args[0];
   if(input.from>input.to)return reply({success:false,error:"日期區間無效"},400);
-  const {storeId}=await courseManagerRead("transaction.read");
+  const {storeId}=await courseManagerRead("transaction.read",{reuseVerifiedStore:true,timing});
   authMs=Math.round(performance.now()-start);
   if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
   const queriesStart=performance.now();

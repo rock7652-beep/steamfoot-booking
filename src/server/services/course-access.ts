@@ -1,4 +1,5 @@
 import "server-only";
+import {getHqStoreViewContext} from "@/lib/hq-store-view-context";
 import {kickCoachNotifications} from "./course-coach-notification-kick";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -49,18 +50,23 @@ export async function courseManager(permission: PermissionCode) {
 }
 
 /** Read counterpart that permits an OWNER to inspect a direct child store. */
-export async function courseManagerRead(permission: PermissionCode) {
-  const user = await requirePermission(permission, undefined, {
+type ReadTiming={measure<T>(name:string,work:()=>Promise<T>):Promise<T>};
+export async function courseManagerRead(permission: PermissionCode, options: {reuseVerifiedStore?:boolean;timing?:ReadTiming} = {}) {
+  const measure=<T>(name:string,work:()=>Promise<T>)=>options.timing?options.timing.measure(name,work):work();
+  const user = await requirePermission(permission, options.timing, {
     deferSubscriptionGuard: true,
   });
-  const storeId = await getActiveStoreForRead(user);
+  // getCurrentUser registered this context only after authorizing the current request's route.
+  // Reuse the verified object identity, never a cookie, client field or cross-request cache.
+  const verified = options.reuseVerifiedStore ? getHqStoreViewContext(user) : undefined;
+  const storeId = await measure(verified ? "store.verified" : "store.resolve",async()=>verified?.storeId ?? await getActiveStoreForRead(user));
   if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
-  await requireCourseStore(storeId);
+  await measure("store.module",()=>requireCourseStore(storeId));
 
   const isChildStoreView =
     user.role === "OWNER" && !!user.storeId && storeId !== user.storeId;
   if (user.role !== "ADMIN" && !isChildStoreView) {
-    const staff = await prisma.staff.findFirst({
+    const staff = await measure("store.membership",()=>prisma.staff.findFirst({
       where: {
         id: user.staffId ?? "",
         storeId,
@@ -69,7 +75,7 @@ export async function courseManagerRead(permission: PermissionCode) {
         user: { status: "ACTIVE" },
       },
       select: { id: true },
-    });
+    }));
     if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   }
   return { user, storeId, isChildStoreView };

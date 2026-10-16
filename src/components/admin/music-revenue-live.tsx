@@ -29,7 +29,7 @@ export function MusicRevenueLive({initial,input,enabled,children}:{initial:Snaps
     if(!active||version!==sequence.current)return;
     if(!result.success||!result.data)throw new Error("read failed");
     setCurrent(result.data);setStatus("營收已同步");
-    console.info("[music-revenue-refresh]",{requestMs:Math.round(performance.now()-started),...result.timing});
+    console.info("[music-revenue-refresh]",JSON.stringify({requestMs:Math.round(performance.now()-started),...result.timing}));
    }).catch(()=>{if(active&&version===sequence.current)setStatus("營收更新失敗，請重新整理後核對。");});
   });
   return()=>{active=false;++sequence.current;dispose();};
