@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useCallback, useState, useEffect, u
 import {musicPanelRead} from "@/lib/music-panel-transport";
 import { createClientReadCache } from "@/lib/client-read-cache";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isMusicPreviewPage, isMusicSyncRoute, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
 const MusicRevision = createContext(0);
@@ -19,17 +19,22 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
   useEffect(() => {
     if (!isMusicPreviewPage() || !isMusicSyncRoute(pathname)) return;
     const unsubscribe = subscribeMusicFinanceChange((kind) => {
+        // A receipt does not change cards, bookings or student balances.
+        // The mounted payment list subscribes directly; other views retain their normal refresh.
+        if(kind === "receipt" && studentPage) return;
         for (const cache of registry.values()) cache.clear();
         registry.clear();
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        if (kind !== "receipt" || !pathname?.includes("/dashboard/courses")) startTransition(() => router.refresh());
+        startTransition(() => router.refresh());
     });
     return unsubscribe;
-  }, [pathname, registry, router]);
+  }, [pathname, studentPage, registry, router]);
   return <Context.Provider value={registry}><MusicRevision.Provider value={revision}>
     {revision > 0 && isMusicSyncRoute(pathname) && <p role="status" className="px-3 text-sm text-earth-600">{pending ? "同步教務資料中…" : "教務資料已同步"}</p>}
     {children}

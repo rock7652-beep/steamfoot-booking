@@ -4,7 +4,7 @@ import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),totals:vi.fn(),transactions:vi.fn()}));
 vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
-vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.purchases}));
+vi.mock('@/server/queries/course-customer-purchases',()=>({readCourseCustomerPurchases:m.purchases}));
 vi.mock('@/server/actions/course-members',()=>({loadCourseCustomerBookings:m.bookings,loadCourseSessionDetail:m.detail,loadCourseRosterQuick:m.roster}));
 vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.auth}));
 vi.mock('@/server/services/music-data-scope',()=>({musicDataSeparationEnabled:m.scope}));
@@ -31,4 +31,9 @@ it("scopes transaction refresh to the authenticated store and validated filters"
  expect(m.auth).toHaveBeenCalledWith("transaction.read");
  expect(m.transactions).toHaveBeenCalledWith("store-lubymusic",input);
  m.transactions.mockClear();expect((await GET(req({...input,page:"-1"}))).status).toBe(400);expect(m.transactions).not.toHaveBeenCalled();
+});
+
+it("uses the purchase reader's own dual permission and preview gate without a third authorization",async()=>{
+ m.purchases.mockResolvedValue({success:true,data:[]});expect((await GET(request("purchases"))).status).toBe(200);
+ expect(m.purchases).toHaveBeenCalledWith({customerId:"student"},undefined,undefined,true);expect(m.auth).not.toHaveBeenCalled();
 });

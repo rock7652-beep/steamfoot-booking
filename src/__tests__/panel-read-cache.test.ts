@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PanelReadProvider, usePanelReader } from "@/components/operations/panel-read-cache";
 const refresh = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/s/lubymusic/admin/dashboard/courses" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), useSearchParams:()=>new URLSearchParams("view=customers"), usePathname: () => "/s/lubymusic/admin/dashboard/courses" }));
 vi.mock("@/lib/music-finance-sync", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/music-finance-sync")>(), isMusicPreviewPage: () => true }));
 import { MUSIC_FINANCE_SIGNAL } from "@/lib/music-finance-sync";
 let host: HTMLDivElement, root: Root;
@@ -75,7 +75,7 @@ it("refreshes receipt readers without refreshing the whole course page",async()=
  await act(async()=>root.render(tree("receipt",[consumer("panel",fetcher)])));
  expect(await readers.panel.read("1")).toBe("before");
  await act(async()=>window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:one"})));
- expect(await readers.panel.read("1")).toBe("after");expect(refresh).not.toHaveBeenCalled();
+ expect(await readers.panel.read("1")).toBe("before");expect(refresh).not.toHaveBeenCalled();
  await act(async()=>{window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"purchase:two"}));window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:three"}));});
  expect(refresh).toHaveBeenCalledOnce();
 });

@@ -1,7 +1,8 @@
 "use client";
 import {musicPanelRead} from "@/lib/music-panel-transport";
 
-import {useState} from "react";
+import {useEffect,useState} from "react";
+import {isMusicPreviewPage,subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
 import {MusicTuitionDetails} from "./music-tuition-details";
 import { CourseHistoryList } from "./history-list";
 import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
@@ -14,6 +15,10 @@ const statuses: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已
 const readHistory:typeof loadCourseCustomerPurchases=(...args)=>musicPanelRead("purchases",args,()=>loadCourseCustomerPurchases(...args));
 export function CourseCustomerPurchases({ customerId }: { customerId: string }) {
   const [revision,setRevision]=useState(0);
+ useEffect(()=>{
+  if(!isMusicPreviewPage())return;
+  return subscribeMusicFinanceChange(kind=>{if(kind==="receipt")setRevision(n=>n+1);});
+ },[]);
   return <CourseHistoryList revision={revision} columns={["日期／時間", "方案／堂數", "核帳狀態", "交易金額", "明細"]} customerId={customerId} label="購買、核帳與退款紀錄" empty="尚無交易紀錄" load={readHistory} render={order=><>
       <td className="tabular-nums">{formatTWDateTime(new Date(order.createdAt))}</td>
       <td><p className="font-medium">{order.name}</p><p className="text-earth-600">{order.points} {order.unit === "SESSION" ? "堂" : "點"}</p></td>
