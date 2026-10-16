@@ -11,14 +11,15 @@ export const dynamic="force-dynamic";
 export async function GET(request:Request){
   const started=performance.now();
   const operation=new URL(request.url).searchParams.get("operation");
-  const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",{operation,status,totalMs:Math.round(performance.now()-started)});return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`}});};
+  const timings:Record<string,number>={};
+  const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",JSON.stringify({operation,status,totalMs:Math.round(performance.now()-started),timings}));return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`,"X-Music-Read-Timing":JSON.stringify(timings)}});};
   try{
     const params=new URL(request.url).searchParams,raw=params.get("args")??"[]";
     if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
     const args=JSON.parse(raw);
     if(!Array.isArray(args)||args.length>3)return reply({success:false,error:"參數無效"},400);
     // Purchase reader performs both permissions and the preview/store gate itself.
-    if(operation==="purchases")return reply(await readCourseCustomerPurchases(args[0],args[1],args[2],true));
+    if(operation==="purchases")return reply(await readCourseCustomerPurchases(args[0],args[1],args[2],true,timings));
     const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":(operation==="revenue-totals"||operation==="revenue-transactions")?"transaction.read":"customer.read");
     if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
     // Existing readers retain their per-resource permissions and store scope.

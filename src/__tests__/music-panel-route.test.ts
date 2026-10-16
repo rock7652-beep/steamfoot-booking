@@ -35,5 +35,5 @@ it("scopes transaction refresh to the authenticated store and validated filters"
 
 it("uses the purchase reader's own dual permission and preview gate without a third authorization",async()=>{
  m.purchases.mockResolvedValue({success:true,data:[]});expect((await GET(request("purchases"))).status).toBe(200);
- expect(m.purchases).toHaveBeenCalledWith({customerId:"student"},undefined,undefined,true);expect(m.auth).not.toHaveBeenCalled();
+ expect(m.purchases).toHaveBeenCalledWith({customerId:"student"},undefined,undefined,true,expect.any(Object));expect(m.auth).not.toHaveBeenCalled();
 });
