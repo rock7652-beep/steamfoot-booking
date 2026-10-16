@@ -60,3 +60,29 @@ describe("verified audit transaction context", () => {
     expect(auditActorData(actor, "other")).toEqual({});
   });
 });
+
+import {permissionRequestSession,withPermissionRequestSession,verifiedPermissionRequestSession} from '@/lib/permission-request-session';
+it('reuses only completed request authentication for audit stamping and rechecks next request',async()=>{
+ vi.clearAllMocks();
+ const stamps:string[]=[];
+ const tx={$executeRaw:vi.fn(async(sql)=>{stamps.push(sql.values[0]);})};
+ const client=withAuditDatabaseContext({$executeRaw:tx.$executeRaw,$transaction:async(work:(client:typeof tx)=>Promise<unknown>)=>work(tx)});
+ await Promise.all(['A','B'].map(login=>withPermissionRequestSession(async()=>{
+  expect(verifiedPermissionRequestSession()).toBeUndefined();
+  await permissionRequestSession(async()=>({id:'u',role:'OWNER',loginRecordId:login}));
+  await client.$transaction(async()=>expect(currentAuditActor()?.loginRecordId).toBe(login));
+ })));
+ expect(mocks.user).not.toHaveBeenCalled();expect(stamps.map(s=>JSON.parse(s).loginRecordId).sort()).toEqual(['A','B']);
+ mocks.user.mockRejectedValueOnce(new Error('revoked'));
+ await expect(withPermissionRequestSession(()=>client.$transaction(async()=>{}))).rejects.toThrow('revoked');
+ expect(verifiedPermissionRequestSession()).toBeUndefined();
+});
+it('does not expose pending or rejected authentication to audit consumers',async()=>{
+ await withPermissionRequestSession(async()=>{
+  let reject!:(error:Error)=>void;
+  const auth=permissionRequestSession(()=>new Promise((_,r)=>{reject=r;}));
+  expect(verifiedPermissionRequestSession()).toBeUndefined();
+  reject(new Error('denied'));await expect(auth).rejects.toThrow('denied');
+  expect(verifiedPermissionRequestSession()).toBeUndefined();
+ });
+});

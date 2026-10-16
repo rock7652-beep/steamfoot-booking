@@ -1,3 +1,4 @@
+import {verifiedPermissionRequestSession} from "@/lib/permission-request-session";
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma } from "@prisma/client";
@@ -48,7 +49,8 @@ async function resolveActor(): Promise<AuditActor | null> {
   const session = await (sessionModule ??= import("@/lib/session"));
   return scope.run("resolving", async () => {
     try {
-      const user = await session.getCurrentUser();
+      const verified = verifiedPermissionRequestSession() as Awaited<ReturnType<typeof session.getCurrentUser>> | undefined;
+      const user = verified ?? await session.getCurrentUser();
       // Copy only verified identity fields; never retain a mutable session.
       return user ? Object.freeze({ id: user.id, name: user.name, role: user.role,
         loginRecordId: user.loginRecordId ?? null, storeId: user.storeId }) : null;
