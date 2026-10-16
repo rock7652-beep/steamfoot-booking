@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-const m=vi.hoisted(()=>({trials:vi.fn(),scope:vi.fn(),orders:vi.fn(),refunds:vi.fn(),store:vi.fn(),people:vi.fn(),staff:vi.fn()}));
+const m=vi.hoisted(()=>({raw:vi.fn(),trials:vi.fn(),scope:vi.fn(),orders:vi.fn(),refunds:vi.fn(),store:vi.fn(),people:vi.fn(),staff:vi.fn()}));
 vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:m.scope}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async (work: (tx: unknown)=>unknown)=>work({courseTrialPayment:{findMany:m.trials},coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}),coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async (work: (tx: unknown)=>unknown)=>work({$queryRaw:m.raw,courseTrialPayment:{findMany:m.trials},coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}),coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}}));
 vi.mock("@/lib/db",()=>({prisma:{store:{findUniqueOrThrow:m.store},customer:{findMany:m.people},staff:{findMany:m.staff}}}));
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 const purchase={id:"p1",customerId:"a",name:"十點",unit:"POINT",price:1000,confirmedAt:new Date("2026-09-16T16:30:00Z"),confirmedBy:"owner",revenueStaffId:null,note:"測試"};
 const filters={startDate:"2026-09-17",endDate:"2026-09-17",storeFilter:{storeId:"a"}};
-beforeEach(()=>{vi.resetAllMocks();m.trials.mockResolvedValue([]);m.scope.mockResolvedValue(undefined);m.orders.mockImplementation(async(args)=>args.select?[{id:"p1",customerId:"a"}]:[purchase]);m.refunds.mockResolvedValue([]);m.store.mockResolvedValue({name:"測試店"});m.people.mockResolvedValue([{id:"a",name:"購買者",phone:"0912345678"}]);m.staff.mockResolvedValue([{id:"staff",userId:"owner",displayName:"店長",user:{role:"OWNER"}}]);});
+beforeEach(()=>{vi.resetAllMocks();m.raw.mockResolvedValue([]);m.trials.mockResolvedValue([]);m.scope.mockResolvedValue(undefined);m.orders.mockImplementation(async(args)=>args.select?[{id:"p1",customerId:"a"}]:[purchase]);m.refunds.mockResolvedValue([]);m.store.mockResolvedValue({name:"測試店"});m.people.mockResolvedValue([{id:"a",name:"購買者",phone:"0912345678"}]);m.staff.mockResolvedValue([{id:"staff",userId:"owner",displayName:"店長",user:{role:"OWNER"}}]);});
 describe("course revenue adapter",()=>{
  it("uses Taipei posting dates and scopes every source to the selected store",async()=>{
   const result=await getCourseRevenueReport("a",filters);

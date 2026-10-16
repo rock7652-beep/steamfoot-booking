@@ -1,4 +1,4 @@
-import {readMusicTuition} from "@/server/services/music-tuition";
+import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
@@ -62,7 +62,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     getCourseReceiptTotals(storeId, from, to, params.dataScope),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
-  const tuition=await readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id));
+  const [tuition,receipts]=await Promise.all([readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id))]);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),
@@ -73,7 +73,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
     const card = cards.find((c) => c.id === order.cardId);
-    return { ...order, tuitionDue:tuition.get(order.id)?.due, discountValue: order.discountValue == null ? null : Number(order.discountValue), date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
+    return { ...order, tuitionDue:tuition.get(order.id)?.due, tuitionReceipts:tuition.has(order.id)?receipts.filter(r=>r.purchaseId===order.id).map(r=>({id:r.id,amount:r.amount,date:formatTWTime(r.paidAt,{dateOnly:true}),method:r.method,lastFour:r.lastFour})):undefined, discountValue: order.discountValue == null ? null : Number(order.discountValue), date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
       reserved: held.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       attended: attended.find((b) => b.cardId === order.cardId)?._count ?? 0,
       usedQuota: attended.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
