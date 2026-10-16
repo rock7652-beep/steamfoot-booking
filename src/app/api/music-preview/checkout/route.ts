@@ -3,13 +3,19 @@ import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
 import { courseManager } from "@/server/services/course-access";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { handleActionError } from "@/lib/errors";
+import { withMusicCheckoutRequest } from "@/server/services/music-checkout-request";
 
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
+ return withMusicCheckoutRequest(async timings => {
   const started=performance.now();
-  const reply = (value: unknown, status = 200) => Response.json(value, {
-    status, headers: { "Cache-Control": "no-store", "Server-Timing": `checkout;dur=${Math.round(performance.now()-started)}`, "X-Music-Build": process.env.VERCEL_GIT_COMMIT_SHA ?? "local" },
-  });
+  const reply = (value: unknown, status = 200) => {
+    const totalMs=Math.round(performance.now()-started);
+    console.info("[music-checkout-write]",JSON.stringify({totalMs,phases:timings}));
+    return Response.json(value, {
+      status, headers: { "Cache-Control": "no-store", "Server-Timing": `checkout;dur=${totalMs}`, "X-Music-Timing": JSON.stringify(timings), "X-Music-Build": process.env.VERCEL_GIT_COMMIT_SHA ?? "local" },
+    });
+  };
   // A cookie-authenticated JSON endpoint must retain Server Actions' CSRF protection.
   if (request.headers.get("origin") !== new URL(request.url).origin ||
       !request.headers.get("content-type")?.startsWith("application/json"))
@@ -26,9 +32,10 @@ export async function POST(request: Request) {
     const body = await request.text();
     if (body.length > 20000) return reply({ success: false, error: "表單內容過長。" }, 400);
     const { operation, input } = JSON.parse(body);
-    // Existing actions re-check permissions, store, discounts, schema and transaction locks.
+    // Existing actions retain every permission; identical checks share this request only.
     if (operation === "purchase") return reply(await assignCoursePointCard(input));
     if (operation === "receipt") return reply(await recordMusicTuitionReceipt(input));
     return reply({ success: false, error: "不支援的收款操作。" }, 400);
   } catch (error) { return reply(handleActionError(error)); }
+ });
 }

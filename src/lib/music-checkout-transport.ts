@@ -8,6 +8,7 @@ export async function musicCheckoutTransport(
   fallback: (input: unknown) => Promise<MusicMutationResult>,
 ): Promise<MusicMutationResult> {
   if (!isMusicPreviewPage()) return fallback(input);
+  const started=performance.now();
   try {
     const response = await fetch("/s/lubymusic/admin/dashboard/music-checkout", {
       method: "POST", credentials: "same-origin", cache: "no-store",
@@ -16,6 +17,7 @@ export async function musicCheckoutTransport(
     });
     if (response.status === 409) return { success: false, error: "系統已更新，尚未送出；輸入仍保留，請開啟最新版後核對再送出。" };
     const result = await response.json();
+    console.info("[music-checkout-response]", JSON.stringify({operation,requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-timing")}));
     if (typeof result?.success !== "boolean") throw new Error("Unexpected checkout response");
     if (result.success) publishMusicFinanceChange(operation);
     return result;

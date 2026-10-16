@@ -1,4 +1,5 @@
 import "server-only";
+import { musicCheckoutPermission, measureMusicCheckout } from "./music-checkout-request";
 import {getHqStoreViewContext} from "@/lib/hq-store-view-context";
 import {kickCoachNotifications} from "./course-coach-notification-kick";
 import { coursePrisma } from "@/lib/course-db";
@@ -15,6 +16,10 @@ import type { Prisma } from "../../../generated/course-client";
 import { lockCourseStore } from "./course-store-lock";
 
 export async function courseManager(permission: PermissionCode) {
+  return musicCheckoutPermission(permission, () => checkCourseManager(permission));
+}
+
+async function checkCourseManager(permission: PermissionCode) {
   const startedAt = Date.now();
   // Store resolution checks the subscription for the authorized target store.
   const user = await requirePermission(permission, undefined, { deferSubscriptionGuard: true });
@@ -128,15 +133,15 @@ export async function courseTransaction<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   audit?: (result: T, tx: Prisma.TransactionClient) => Promise<unknown>,
 ) {
-  const result=await coursePrisma.$transaction(
+  const result=await measureMusicCheckout("transaction.total",()=>coursePrisma.$transaction(
     async (tx) => {
-      await lockCourseStore(tx, storeId);
-      const value = await work(tx);
+      await measureMusicCheckout("transaction.lock",()=>lockCourseStore(tx, storeId));
+      const value = await measureMusicCheckout("transaction.work",()=>work(tx));
       if (audit) await audit(value, tx);
       return value;
     },
     { timeout: 15000 },
-  );
+  ));
   kickCoachNotifications(storeId);
   return result;
 }
