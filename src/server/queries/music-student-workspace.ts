@@ -13,9 +13,10 @@ import { getOpeningMakeupWorkspace } from "@/server/queries/music-opening-makeup
 import { readMusicPilotTuition, PILOT_EVIDENCE_ID } from "@/server/services/music-pilot-policy";
 
 /** One learner only; each section keeps its own existing permission boundary. */
-export async function readMusicStudentWorkspace(input: unknown, previewOnly = false, timings?: Record<string, number>) {
+export async function readMusicStudentWorkspace(input: unknown, previewOnly = false, timings?: Record<string, number>, tuitionInput: unknown = true) {
   const measure = async <T>(name: string, work: () => Promise<T>): Promise<T> => { const start = performance.now(); try { return await work(); } finally { if (timings) timings[name] = Math.round(performance.now() - start); } };
   try {
+    const includeTuition = z.boolean().parse(tuitionInput);
     const customerId = z.string().min(1).max(200).parse(input);
     const { user, storeId } = await measure("authorization", () => courseManagerRead("customer.read", {reuseVerifiedStore: previewOnly}))
     if (previewOnly && !musicDataSeparationEnabled(storeId)) throw new AppError("FORBIDDEN", "僅供音樂測試站");
@@ -31,7 +32,7 @@ export async function readMusicStudentWorkspace(input: unknown, previewOnly = fa
       checkPermission(user.role, user.staffId, "transaction.read"),
     ]);
     const tuitionRead = async () => {
-      if (!canReadTransactions || !customerId.startsWith("yjy-lubymusic-student-")) return null;
+      if (!includeTuition || !canReadTransactions || !customerId.startsWith("yjy-lubymusic-student-")) return null;
       const source = await coursePrisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM "MusicSourceImportBatch" WHERE id=${PILOT_EVIDENCE_ID} AND "storeId"=${storeId}`;
       return source.length ? (await readMusicPilotTuition(coursePrisma, storeId)).find(row => row.customerId === customerId) ?? null : null;
     };

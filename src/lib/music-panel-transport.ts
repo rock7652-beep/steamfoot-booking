@@ -9,7 +9,7 @@ export async function musicPanelRead<T>(operation:string,args:unknown[],fallback
   const response=await fetch(`/s/lubymusic/admin/dashboard/${endpoint}?${query}`,{credentials:"same-origin",cache:"no-store"});
   if(!response.ok)throw new Error("學員資料讀取失敗，請重試");
   const result=await response.json();
-  if(operation==="purchases"||operation==="music-student-workspace")console.info(operation==="purchases"?"[music-payment-history]":"[music-student-overview]",JSON.stringify({requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-read-timing")}));
+  if(operation==="purchases"||operation==="music-student-workspace"||operation==="course-card")console.info(operation==="purchases"?"[music-payment-history]":operation==="course-card"?"[music-course-cards]":"[music-student-overview]",JSON.stringify({requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-read-timing")}));
   if(typeof result?.success!=="boolean")throw new Error("讀取回應格式不符");
   return result as T;
 }
