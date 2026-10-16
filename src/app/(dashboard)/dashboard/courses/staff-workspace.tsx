@@ -163,7 +163,7 @@ export function CourseStaffWorkspace({
     return () => window.removeEventListener("beforeunload", warn);
   }, [open, dirty]);
   useEffect(() => {
-    if (!open || tab!=="qualifications" || dirty || pending || (feesReady && loadedFeeRevision===syncRevision) || !person || (!canManage && !feeEnabled)) return;
+    if (!open || tab!=="qualifications" || (dirty && feesReady) || pending || (feesReady && loadedFeeRevision===syncRevision) || !person || (!canManage && !feeEnabled)) return;
     let active = true;
     readTeaching.read(person.id).then(result => {
       if (!active) return;
