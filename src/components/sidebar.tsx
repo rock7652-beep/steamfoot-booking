@@ -800,7 +800,7 @@ export default function DashboardShell({
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
-      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
       { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
@@ -828,6 +828,15 @@ export default function DashboardShell({
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
       permission: course ? "booking.read" : undefined,
     });
+    if (course && musicEnabled) {
+      const extraHrefs = new Set(["/dashboard/growth", "/dashboard/digital-butler/leads", "/dashboard/work-orders", "/dashboard/inventory", "/dashboard/courses?view=analytics"]);
+      const primaryOrder = ["/dashboard/courses?view=catalog", "/dashboard/courses?view=plans", "/dashboard/teachers", "/dashboard/courses?view=rooms", "/dashboard/staff", "/dashboard/courses?view=settings"];
+      return [
+        { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily.filter(item => !extraHrefs.has(item.href)) },
+        { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: [...management].sort((a,b) => primaryOrder.indexOf(a.href) - primaryOrder.indexOf(b.href)) },
+        { id: "music-more", label: "其他功能", defaultOpen: false, icon: <span aria-hidden="true">⋯</span>, items: daily.filter(item => extraHrefs.has(item.href)) },
+      ];
+    }
     return [
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },

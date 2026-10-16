@@ -13,8 +13,13 @@ const data: OpeningMakeupWorkspace = {
   opening: { issued: 2, outstanding: 2, reserved: 0, unreserved: 2, redeemed: 0 }, native: { issued: 1, outstanding: 1, reserved: 0, unreserved: 1, redeemed: 0 }, totalOutstanding: 3, verifiedCustomerCount: 1,
   rows: [{ id: "right", version: 0, customerId: "learner", customerName: "Synthetic learner", label: "原第 9 期第 3 堂", sourceDate: "2026-09-01", expiry: "2026-12-31", type: "STUDENT_LEAVE", state: "AVAILABLE", booking: null, sessions: [{ id: "session", label: "Synthetic lesson", date: "2026-10-15T02:00:00Z" }] }],
 };
-const button = (text: string) => Array.from(element.querySelectorAll("button")).find(b => b.textContent === text)!;
-const click = async (text: string) => { await act(async () => button(text).click()); };
+const button = (text: string) => Array.from(document.querySelectorAll("button")).find(b => b.textContent === text)!;
+const click = async (text: string) => {
+  if (!button(text) || button(text).closest("[hidden]")) {
+    await act(async () => button("⋯").click());
+  }
+  await act(async () => button(text).click());
+};
 const render = async (value = data, canCreate = true, canUpdate = true) => { await act(async () => root.render(createElement(OpeningMakeupList, { data: value, canCreate, canUpdate }))); };
 beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); mocks.update.mockReset(); mocks.refresh.mockReset(); element = document.createElement("div"); document.body.append(element); root = createRoot(element); });
 afterEach(async () => { await act(async () => root.unmount()); element.remove(); });

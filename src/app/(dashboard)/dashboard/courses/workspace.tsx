@@ -22,6 +22,7 @@ import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, u
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
+import { MusicScheduleList } from "./music-schedule-list";
 import { DailyAttendanceList, type DailyAttendanceRow } from "./daily-attendance-list";
 import {
   CourseScheduleBoard,
@@ -465,6 +466,7 @@ export function CourseWorkspace({
     const session = dailySessions.find((item) => item.id === booking.sessionId);
     return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];
   });
+  const [scheduleLayout, setScheduleLayout] = useState<"list" | "calendar">("list");
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions.map(withPendingAttendance)) {
@@ -472,6 +474,17 @@ export function CourseWorkspace({
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
+  const listWeekStart = addTaiwanDuration(selectedDate, -((parseLocalDate(selectedDate).getDay() + 6) % 7), "DAY");
+  const listWeekEnd = addTaiwanDuration(listWeekStart, 7, "DAY");
+  const listSessions = [...byDate.entries()].filter(([day]) => scheduleMode === "month" ? day.startsWith(month) : scheduleMode === "day" ? day === selectedDate : day >= listWeekStart && day < listWeekEnd).flatMap(([,rows]) => rows).sort((a,b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id));
+  function scheduleList(rows: Session[]) {
+    return <MusicScheduleList sessions={rows} coaches={allCoaches} rooms={allRooms} nowIso={nowIso} canCreate={canCreate} canEdit={canEdit}
+      onOpen={sessionId => { setPanel(null); setCourseDialog({sessionId,kind:"roster"}); }}
+      onBook={sessionId => { setPanel(null); setCourseDialog({sessionId,kind:"member-booking"}); }}
+      onTrial={sessionId => { setPanel(null); setCourseDialog({sessionId,kind:"trial-booking"}); }}
+      onCopy={sessionId => { const session=sessions.find(item=>item.id===sessionId); if(!session)return; setCopySource(session);setScheduleDate("");setArrangement(session.isTrial?"trial":"class");setChosen(session.templateId);setRepeatMode("once");setScheduleCreated(null);setScheduleSummary("");setScheduleValidationError("");setRequestKey(crypto.randomUUID());open("schedule"); }}
+      onEdit={sessionId => { const session=sessions.find(item=>item.id===sessionId); if(!session)return; setEditTemplateId(session.templateId);setEditing({kind:"session",value:session});open("edit"); }} />;
+  }
   function go(date: string) {
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
@@ -718,9 +731,9 @@ export function CourseWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 shrink-0">
-                <h1 className="admin-page-title">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>
-                {businessProfile === "MUSIC" && <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>}
+                <h1 className="admin-page-title">{businessProfile === "MUSIC" ? "課表" : "課表排程"}</h1>
               </div>
+              {businessProfile === "MUSIC" && <select aria-label="課表呈現方式" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-sm" value={scheduleLayout} onChange={e=>setScheduleLayout(e.target.value as "list"|"calendar")}><option value="list">清單</option><option value="calendar">日曆</option></select>}
               <div
                 className="inline-flex rounded-lg border border-earth-200 bg-white p-1"
                 aria-label="課表視角"
@@ -837,10 +850,10 @@ export function CourseWorkspace({
           </div>
 
           {<div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
-            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
+            <label className="flex items-center gap-2 text-sm font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
-              aria-label="教練篩選"
+              aria-label={businessProfile === "MUSIC" ? "教師篩選" : "教練篩選"}
               className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
@@ -852,7 +865,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label><label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-room-filter">教室
+            </label><label className="flex items-center gap-2 text-sm font-medium text-earth-700" htmlFor="course-room-filter">教室
             <select
               id="course-room-filter"
               aria-label="教室篩選"
@@ -867,7 +880,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label>{businessProfile === "MUSIC" ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-category-filter">教學項目
+            </label>{businessProfile === "MUSIC" ? <label className="flex items-center gap-2 text-sm font-medium text-earth-700" htmlFor="course-category-filter">教學項目
             <select
               id="course-category-filter"
               aria-label="教學項目篩選"
@@ -896,8 +909,10 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {businessProfile === "MUSIC" && scheduleLegend}
-          {scheduleMode === "month" ? (
+          {businessProfile === "MUSIC" && scheduleLayout === "list" && scheduleMode === "day" && <div className="flex gap-2"><button type="button" className={button} onClick={() => setDailyList("leave")}>請假 {leaveStudents.length}</button><button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名 {absentStudents.length}</button></div>}
+            {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
+          {businessProfile === "MUSIC" && scheduleLayout === "calendar" && scheduleLegend}
+          {businessProfile === "MUSIC" && scheduleLayout === "list" ? <> <div className="flex min-h-11 items-center text-sm text-earth-700">共 {listSessions.length} 筆</div>{scheduleList(listSessions)}</> : scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
@@ -990,7 +1005,7 @@ export function CourseWorkspace({
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
-            {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
+
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard
               legend={businessProfile !== "MUSIC" ? scheduleLegend : undefined}
@@ -1283,7 +1298,7 @@ export function CourseWorkspace({
           maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
           open
           onClose={closePanel}
-          width={panel === "day" ? 720 : businessProfile !== "MUSIC" ? 920 : 520}
+          width={panel === "day" ? (businessProfile === "MUSIC" ? 1100 : 720) : businessProfile !== "MUSIC" ? 920 : 520}
           labelledById="course-panel-title"
         >
           <div
@@ -1407,7 +1422,7 @@ export function CourseWorkspace({
                         當日尚無課程
                       </p>
                     )}
-                    {daySessions.map((sourceSession) => {
+                    {businessProfile === "MUSIC" ? scheduleList(daySessions) : daySessions.map((sourceSession) => {
                       const session = withPendingAttendance(sourceSession);
                       const rental = session.previewKind === "RENTAL";
                       const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);

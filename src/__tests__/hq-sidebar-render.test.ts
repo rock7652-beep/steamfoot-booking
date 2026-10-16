@@ -73,7 +73,11 @@ describe("actual HQ shell rendering", () => {
     expect(html).toContain("日常工作"); expect(html).toContain("店務管理");
     expect(html).not.toContain("店務設定");
     expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
-    expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf(music ? "收款與營收</span>" : "營運</span>"));
+    if (music) {
+      expect(html.indexOf("收款與營收</span>")).toBeLessThan(html.indexOf("其他功能"));
+      expect(html.indexOf("其他功能")).toBeLessThan(html.indexOf("進銷存"));
+      expect(html).toContain('aria-expanded="false"');
+    } else expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
     expect(html.indexOf(music ? "學費方案" : "方案管理")).toBeLessThan(html.indexOf("人員管理"));
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
