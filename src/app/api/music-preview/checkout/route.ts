@@ -29,11 +29,17 @@ export async function POST(request: Request) {
   if (new URL(request.url).pathname === "/api/music-preview/checkout")
     return Response.redirect(new URL("/s/lubymusic/admin/dashboard/music-checkout", request.url), 307);
   try {
-    const { storeId } = await courseManager("transaction.create");
-    if (!musicDataSeparationEnabled(storeId)) return reply({ success: false, error: "此入口僅供音樂教室測試站。" }, 403);
     const body = await request.text();
     if (body.length > 20000) return reply({ success: false, error: "表單內容過長。" }, 400);
     const { operation, input } = JSON.parse(body);
+    // Both existing guards must pass before mutation. Independent checks need not run serially.
+    const [actor, walletActor] = await Promise.all([
+      courseManager("transaction.create"),
+      operation === "purchase" ? courseManager("wallet.create") : Promise.resolve(null),
+    ]);
+    const {storeId} = actor;
+    if (walletActor && walletActor.storeId !== storeId) return reply({success:false,error:"店家範圍不一致"},403);
+    if (!musicDataSeparationEnabled(storeId)) return reply({ success: false, error: "此入口僅供音樂教室測試站。" }, 403);
     // Existing actions retain every permission; identical checks share this request only.
     if (operation === "purchase") {
       const result = await assignCoursePointCard(input);

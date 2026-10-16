@@ -9,10 +9,14 @@ export type RevenueTransactionsInput={from:string;to:string;dataScope?:string;st
 export async function getMusicRevenueTransactions(storeId:string,input:RevenueTransactionsInput){
  const {from,to,status,staff}=input;
  const where:Prisma.CoursePurchaseWhereInput={storeId,...musicPurchaseWhere(storeId,input.dataScope),createdAt:{gte:dayRange(from).start,lte:dayRange(to).end},...(status?{status}:{}),...(staff?{confirmedBy:staff}:{})};
-      const count = await coursePrisma.coursePurchase.count({ where });
+  const requestedPage = Math.max(1, Math.floor(Number(input.page) || 1));
+  const readOrders = (page:number) => coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 });
+  const [count, requestedOrders] = await Promise.all([
+    coursePrisma.coursePurchase.count({ where }), requestedPage === 1 ? readOrders(1) : Promise.resolve(null),
+  ]);
   const pages = Math.max(1, Math.ceil(count / 30));
-  const page = Math.min(pages, Math.max(1, Math.floor(Number(input.page) || 1)));
-  const orders = await coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 });
+  const page = Math.min(pages, requestedPage);
+  const orders = requestedOrders ?? await readOrders(page);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended,tuition,receipts] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),

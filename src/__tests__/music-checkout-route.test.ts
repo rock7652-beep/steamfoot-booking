@@ -44,3 +44,22 @@ it("does not signal commit when the purchase fails",async()=>{
  expect(response.headers.get("x-music-committed")).toBeNull();
  expect((await response.json()).success).toBe(false);
 });
+it("starts both independent guards before waiting and never writes until both pass",async()=>{
+ const finish:Record<string,(v:unknown)=>void>={};
+ mocks.manager.mockImplementation((permission:string)=>new Promise(resolve=>{finish[permission]=resolve;}));
+ const pending=POST(request());
+ await vi.waitFor(()=>expect(Object.keys(finish).sort()).toEqual(["transaction.create","wallet.create"]));
+ expect(mocks.purchase).not.toHaveBeenCalled();
+ finish["transaction.create"]({storeId:"store-lubymusic"});
+ await Promise.resolve();expect(mocks.purchase).not.toHaveBeenCalled();
+ finish["wallet.create"]({storeId:"store-lubymusic"});
+ expect((await (await pending).json()).success).toBe(true);
+});
+it("retains wallet denial and rejects a mismatched store before writing",async()=>{
+ mocks.manager.mockImplementation(async(permission:string)=>{if(permission==="wallet.create")throw new Error("denied");return {storeId:"store-lubymusic"};});
+ expect((await (await POST(request())).json()).success).toBe(false);
+ expect(mocks.purchase).not.toHaveBeenCalled();
+ mocks.manager.mockImplementation(async(permission:string)=>({storeId:permission==="wallet.create"?"other":"store-lubymusic"}));
+ expect((await POST(request())).status).toBe(403);
+ expect(mocks.purchase).not.toHaveBeenCalled();
+});
