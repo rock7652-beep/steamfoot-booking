@@ -18,7 +18,7 @@ export async function readMusicReceipts(tx:Reader,storeId:string,ids:string[]) {
  return tx.$queryRaw<MusicReceipt[]>`SELECT * FROM "CourseMusicReceipt" WHERE "storeId"=${storeId} AND "purchaseId"=ANY(${ids}::text[]) ORDER BY "paidAt", "createdAt", id`;
 }
 /** Caller holds the store lock and checks transaction.create. Never grants quota. */
-export async function receiveMusicTuition(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string},input:{purchaseId:string;amount:number;paymentDate:string;method:string;lastFour:string;requestKey:string;expectedReceived:number}) {
+export async function receiveMusicTuition(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string},input:{purchaseId:string;amount:number;paymentDate:string;method:string;lastFour:string;requestKey:string;expectedReceived:number;initial?:boolean}) {
  const {storeId,userId}=actor;
  if(!musicDataSeparationEnabled(storeId))throw new AppError("FORBIDDEN","分次收款目前僅開放音樂教室測試站");
  const paidAt=musicPaymentDate(input.paymentDate);
@@ -31,7 +31,8 @@ export async function receiveMusicTuition(tx:Prisma.TransactionClient,actor:{sto
  if(!order||!terms||order.status!=="CONFIRMED"||order.voidedAt)throw new AppError("BUSINESS_RULE","此購課紀錄無法補繳，請核對狀態");
  const receipts=await readMusicReceipts(tx,storeId,[order.id]);
  const received=receipts.reduce((n,r)=>n+r.amount,0);
- if(received!==order.price||received!==input.expectedReceived)throw new AppError("CONFLICT","收款金額已更新，請重新核對後補繳");
+ const initial=input.initial===true&&received===0&&input.expectedReceived===0&&order.price===input.amount;
+ if((!initial&&received!==order.price)||received!==input.expectedReceived)throw new AppError("CONFLICT","收款金額已更新，請重新核對後補繳");
  if(input.amount<=0)throw new AppError("VALIDATION","補繳金額須大於零");
  musicReceiptAmount(terms.due-received,input.amount);
  const day=new Date(toLocalDateStr(paidAt)+"T00:00:00Z");
