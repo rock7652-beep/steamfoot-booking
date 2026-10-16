@@ -1,3 +1,4 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 /** Fully synthetic regression characterization. No database clients or network
  * calls: real proxy -> route headers -> store resolver -> slots action -> GET. */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";

@@ -123,12 +123,12 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <StoreArchiveButton storeId={store.id} name={store.name} archived={Boolean(store.archivedAt)} />
-                      <Link
+                      {store.industryModule === "SPA" ? <span className="text-sm text-earth-500">模組已停用</span> : <Link
                         href={`/hq/dashboard/stores/${store.id}/features`}
                         className="whitespace-nowrap text-xs font-medium text-primary-600 hover:underline"
                       >
                         功能設定
-                      </Link>
+                      </Link>}
                       <Link
                         href={`/hq/dashboard/stores/${store.id}`}
                         className="text-xs text-earth-500 hover:text-primary-600 hover:underline"

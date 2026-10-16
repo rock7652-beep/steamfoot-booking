@@ -9,6 +9,17 @@ import {requireMusicFinance} from "@/server/services/music-finance-access";
 const input={templateId:"course",staffId:"teacher",rules:[{mode:"CLASS",value:600}],revision:0};
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"A",user:{role:"OWNER"}});m.template.mockResolvedValue({id:"course"});m.execute.mockResolvedValue(1);});
 describe("compensation settings authorization and concurrency",()=>{
+ it("checks music share eligibility inside the store transaction before writing",async()=>{
+  m.raw.mockResolvedValueOnce([]);
+  expect(await saveCourseCompensation({...input,rules:[{mode:"SHARE",value:55}]})).toMatchObject({success:false,error:"只有音樂教室可設定老師拆帳比例"});
+  expect(m.raw.mock.calls[0].slice(1)).toEqual(["A"]);
+  expect(m.template).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();
+ });
+ it("saves music share with qualified teacher and matching snapshot revision",async()=>{
+  m.raw.mockResolvedValueOnce([{featureKey:"business.music"}]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"teacher"}]);
+  expect(await saveCourseCompensation({...input,rules:[{mode:"SHARE",value:55}]})).toMatchObject({success:true});
+  expect(m.execute).toHaveBeenCalledTimes(1);
+ });
  it("checks the teacher finance permission before reading or writing compensation",async()=>{
   vi.mocked(requireMusicFinance).mockRejectedValueOnce(new Error("permission denied"));
   expect((await saveCourseCompensation(input)).success).toBe(false);

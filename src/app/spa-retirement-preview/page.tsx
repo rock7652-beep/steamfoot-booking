@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { isSpaRetirementUiPreview } from "../../../scripts/guide-ui-preview-scope.mjs";
 import { BookingTypes } from "../pricing/booking-types";
 import NewStoreForm from "../hq/dashboard/stores/new/new-store-form";
+import { RetiredStoreSettingsNotice } from "@/components/retired-store-settings-notice";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "模組調整預覽 — 蒸管家", robots: { index: false, follow: false } };
 
-export default function SpaRetirementPreview() {
+export default async function SpaRetirementPreview({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   if (!isSpaRetirementUiPreview()) notFound();
+  if ((await searchParams).view === "history") return <main className="mx-auto w-full max-w-4xl px-5 py-6"><RetiredStoreSettingsNotice storeId="synthetic-retired-spa" /></main>;
   return <main className="min-w-0 bg-earth-50 py-5 text-earth-900">
     <div className="mx-auto max-w-6xl px-5 sm:px-8">
       <h1 className="admin-page-title">模組調整預覽</h1>

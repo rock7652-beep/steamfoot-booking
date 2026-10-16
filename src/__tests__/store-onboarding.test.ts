@@ -190,6 +190,16 @@ describe("Store 狀態機", () => {
     });
     expect(result).toEqual({ success: true, data: { operatingStatus: "PAUSED" } });
   });
+
+  it("cannot change an archived SPA operating status through a direct action", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { updateStoreOperatingStatusAction } = await import("@/server/actions/store-onboarding");
+    vi.mocked(prisma.store.findUnique).mockResolvedValue({ id: "old-spa", industryModule: "SPA" } as never);
+    vi.mocked(prisma.store.update).mockClear();
+    expect(await updateStoreOperatingStatusAction("old-spa", "ACTIVE"))
+      .toEqual({ success: false, error: "SPA 模組已停用，無法修改營運狀態" });
+    expect(prisma.store.update).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================

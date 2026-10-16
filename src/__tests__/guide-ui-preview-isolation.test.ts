@@ -1,3 +1,4 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -36,7 +37,7 @@ const waitlistSafe = {
   DIRECT_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
 };
 const spaRetirementSafe = {
-  ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "codex/remove-spa-module-20261014",
+  ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "codex/fix-spa-history-access-20261015",
 };
 function enableSpaRetirement() {
   for (const [key, value] of Object.entries(spaRetirementSafe)) vi.stubEnv(key, value);

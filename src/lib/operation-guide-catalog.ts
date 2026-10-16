@@ -1730,13 +1730,14 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "",
     "success": "",
-    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 顧客 實際權限 OWNER 功能隱藏 功能鎖定 HIDDEN LOCKED 不冒用 店員 現金簿 返回總部",
+    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 顧客 實際權限 OWNER 功能隱藏 功能鎖定 HIDDEN LOCKED 不冒用 店員 現金簿 返回總部 無法存取此店舖 返回自己的店舖 重新登入",
     "details": [
       "母店店主也只能查看下層店；母店跨店查看不能新增或編輯顧客，也不提供預約、收款、扣次或退款，不會把本店 OWNER／MANAGER 的寫入權限延伸到其他店。",
       "HQ 選店後，系統保留真實 HQ 操作者與稽核來源，再依該店 OWNER 可用能力、訂閱方案及功能狀態決定畫面；不是切換成該店員工。",
       "HIDDEN 功能完全不顯示，也不掛載資料讀取；LOCKED 功能以未開通／不可用狀態呈現，後端同樣拒絕動作。",
       "HQ 門市視角的讀取、寫入與匯出都限定目前選店；跨店稽核、修復與總部工具要返回 HQ 使用。",
-      "需要真實 Staff 身分或個人歸屬的操作不會因 HQ 選店而放寬，例如個人名下現金簿編輯。"
+      "需要真實 Staff 身分或個人歸屬的操作不會因 HQ 選店而放寬，例如個人名下現金簿編輯。",
+      "若顯示「無法存取此店舖」，先用畫面提供的「返回自己的店舖」、「返回總部」或「重新登入」恢復正確範圍；系統依目前帳號與可用店家顯示合適入口，返回會重新載入共用外框。不要重複切入無權限店家、拼接網址或把拒絕存取當成資料已刪除。"
     ],
     "modules": [
       "steamfoot",
@@ -1751,7 +1752,8 @@ export const additionalGuides: OperationGuide[] = [
       "src/lib/hq-store-view.ts",
       "src/lib/hq-store-view-context.ts",
       "src/lib/core-feature-permissions.ts",
-      "src/components/dashboard-layout.tsx"
+      "src/components/dashboard-layout.tsx",
+      "src/components/ui/error-state.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "explanation",

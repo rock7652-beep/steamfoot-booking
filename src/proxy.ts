@@ -1,4 +1,6 @@
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
+import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
+import { retiredStoreResponse } from "@/lib/retired-store-response";
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
@@ -677,6 +679,10 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
     if (isSpaRetirementUiPreview()) {
+      // Synthetic-only rendering of the same 410 document used for retired stores.
+      // The exact preview mode has already rejected writes and disabled all clients.
+      if (path === "/spa-retirement-preview" && req.nextUrl.searchParams.get("view") === "retired")
+        return retiredStoreResponse(true);
       if (!isSpaRetirementPreviewPath(path))
         return new NextResponse("Not available in module review", { status: 404, headers });
       // Rewrite destinations may pass through Proxy again; serve the exact
@@ -750,7 +756,11 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     return response;
   }
   if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
-  return authenticatedProxy(...args);
+  const host = req.headers.get("host")?.split(":")[0] ?? "";
+  const retirement = retiredStoreBoundary(req, DOMAIN_STORE_MAP[host]);
+  return retirement
+    ? retirement.then(response => response ?? authenticatedProxy(...args))
+    : authenticatedProxy(...args);
 }
 
 export const config = { matcher: ["/:path*"] };

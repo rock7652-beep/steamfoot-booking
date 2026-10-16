@@ -1,4 +1,5 @@
 "use server";
+import { isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {replaceStaffPermissionGrants} from "@/server/services/staff-permission-write";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
@@ -110,7 +111,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if (d.permissions?.some(p=>["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(p)) && getEffectiveActorRole(user)!=="OWNER")
       throw new AppError("FORBIDDEN", "只有老闆能設定我的工作權限");
-    if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
+    if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     // Resolve access outside the transaction. Production uses a one-connection
     // pool, so querying through the global client while a transaction owns that

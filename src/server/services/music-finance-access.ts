@@ -1,11 +1,12 @@
 import "server-only";
 import {cache} from "react";
+import { isMusicCourseStoreFromEntitlements } from "./course-business-profile";
 import {prisma} from "@/lib/db";
 import {checkPermission,type PermissionCode} from "@/lib/permissions";
 import {AppError} from "@/lib/errors";
 import type {UserRole} from "@prisma/client";
 type Actor={role:UserRole;staffId:string|null};
-export const isMusicFinanceStore=cache(async(storeId:string)=>!!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}));
+export const isMusicFinanceStore=cache((storeId:string)=>isMusicCourseStoreFromEntitlements(prisma, storeId));
 /** Fresh per request: absent configuration preserves explicit whole-store grants.
  * Missing/inactive/cross-store operators always receive an empty scope. */
 export async function readMusicFinanceScope(user:Actor,storeId:string):Promise<string[]|null> {

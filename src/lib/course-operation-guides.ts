@@ -45,13 +45,13 @@ export const courseOperationGuides: OperationGuide[] = [
   },
   {
     id: "C103", category: "booking", title: "報到、完成與未到，額度有什麼差別？",
-    summary: "自由預約報到保留占用、完成才使用額度；固定期課未到仍扣堂，音樂課另有請假規則。", answer: "先確認是運動自由預約、固定期課或音樂課，再核對上課者與可操作的出席狀態。",
-    keywords: "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假", path: "課表排程／音樂課表 → 課程名單 → 點名",
+    summary: "報到只留下到場時間；出席、缺席扣堂及請假依課型與所選方式結算。", answer: "先確認是運動自由預約、固定期課或音樂課，再核對上課者與可操作的出席狀態。",
+    keywords: "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假 團體請假扣堂 自行取消", path: "課表排程／音樂課表 → 課程名單 → 點名",
     steps: ["開啟課程名單，核對姓名與目前狀態。", "在後台依實際情況選出席、未到或適用的請假；若使用報到，報到只留下到場時間，不扣額度。", "誤操作時使用更正，回到待點名後再依實際結果處理。"],
-    important: "報到不扣點。固定期課未到會扣堂；音樂課出席／曠課扣堂，自組班與團體班請假規則不同。不要為了更正另建重複預約。",
+    important: "報到不扣點。固定期課未到會扣堂；音樂課出席／曠課扣堂，個別／自組班請假不扣堂，團體班請假仍扣 1 堂。不要為了更正另建重複預約。",
     success: "後端確認成功後，原列才顯示新狀態且額度紀錄一致；重送不應再次扣點。",
-    details: ["點名送出後原列先顯示處理中並鎖定重複操作；只有後端成功才更新狀態。失敗會保留原狀態並顯示原因，請修正或重新整理後再試，不要連點。", "自由預約未到會釋放占用；固定期課依指定課次扣堂，未到不提供補課券，更正才返還。", "音樂課沒有補課券：出席與曠課各扣 1 堂；自組班請假不扣堂，可在期限內另約；團體班請假仍扣堂。詳細操作另搜尋音樂點名。", "教練僅能處理被授權的自身課程，操作受上課時間限制；卡片已退款等狀態不能任意回補額度。"],
-    permission: "booking.update", feature: null, sources: ["src/server/services/course-booking.ts", "src/server/actions/course-portal.ts", "src/app/(dashboard)/dashboard/courses/roster.tsx"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
+    details: ["點名送出後原列先顯示處理中並鎖定重複操作；只有後端成功才更新狀態。失敗會保留原狀態並顯示原因，請修正或重新整理後再試，不要連點。", "運動自由預約的缺席可依畫面選扣堂或不扣堂；選扣堂不會釋放本次額度，有補課券選項時須另行核對，不能把未到一律當成不扣堂。固定期課依指定課次扣堂，未到不提供補課券，更正才返還。", "音樂課沒有補課券：出席與曠課各扣 1 堂；個別／自組班請假不扣堂，可在期限內另約；團體班請假仍扣 1 堂。學員自行取消有方案的音樂預約也按請假課型處理，不會因按鈕叫取消就變成免扣堂；改期另依同交易轉移流程核對。詳細操作另搜尋音樂點名。", "教練僅能處理被授權的自身課程，操作受上課時間限制；卡片已退款等狀態不能任意回補額度。"],
+    permission: "booking.update", feature: null, sources: ["src/lib/course-debit-policy.ts", "src/server/services/course-booking.ts", "src/server/actions/course-portal.ts", "src/app/(dashboard)/dashboard/courses/roster.tsx"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C104", category: "hours", title: "公休或縮短可預約日期，為什麼不能儲存？",

@@ -26,6 +26,12 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
     throw new Error("Store archive Preview requires the isolated preview database.");
 }
 
+import { assertCourseBusinessBoundariesPreview } from "./course-business-boundaries-preview-scope.mjs";
+if (assertCourseBusinessBoundariesPreview(process.env)) {
+  console.info("[course-business-boundaries-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
+
 import { isGuideUiPreview } from "./guide-ui-preview-scope.mjs";
 if (isGuideUiPreview()) {
   console.info("[guide-ui-preview] database_disabled=true migrations_skipped=true");

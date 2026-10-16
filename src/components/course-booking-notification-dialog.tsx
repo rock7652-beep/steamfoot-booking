@@ -93,6 +93,7 @@ export function CourseBookingNotificationDialog({ bookingId, action, close, read
             <p className="text-sm">若新時段已滿或不符合方案，原預約會保留。{!data.sessions.length && "目前沒有可自行更換的時段，請聯絡店家。"}</p>
           </>}
           {action === "cancel" && <p>{teacher?"確認替這位學員登記請假？":"確認後取消此預約；體驗退款請洽店家。"}</p>}
+          {action === "cancel" && data.leaveMessage && <p>{data.leaveMessage}</p>}
         </>}
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {receipt && <p role="status">{receipt}</p>}

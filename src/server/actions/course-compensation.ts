@@ -1,4 +1,5 @@
 "use server";
+import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 import {z} from "zod";
 import {courseManager,courseTransaction} from "@/server/services/course-access";
@@ -16,11 +17,9 @@ export async function readCourseCompensation(input:unknown){try{
 export async function saveCourseCompensation(input:unknown){try{
  const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId}=await actor(d.staffId,true);
  if(d.rules.length!==1||!(["CLASS","SHARE"].includes(d.rules[0].mode)))throw new AppError("VALIDATION","僅支援每堂固定或音樂課按比例計酬");
- if(d.rules[0].mode==="SHARE"){
-  const music=await coursePrisma.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-  if(!music.length)throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
- }
  await courseTransaction(storeId,async tx=>{
+  if (d.rules[0].mode === "SHARE" && !await isMusicCourseStore(tx, storeId))
+    throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
   const template=await tx.courseTemplate.findFirst({where:{storeId,id:d.templateId},select:{id:true}});if(!template)throw new AppError("FORBIDDEN","找不到本店課程");
   const rows=await tx.$queryRaw<Array<{staffId:string;rules:CompensationRule[];revision:number}>>`SELECT "staffId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "templateId"=${d.templateId} FOR UPDATE`;
   if((rows.find(r=>r.staffId===d.staffId)?.revision??0)!==d.revision)throw new AppError("CONFLICT","設定已更新，請重新開啟核對");

@@ -1,3 +1,4 @@
+vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -29,6 +30,31 @@ const route = (path: string, host = "www.steamfoot.com") => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("public editorial guides", () => {
+  it("publishes the approved sports metrics manuscript with its definitions, example, SEO and CTA", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const slug = "sports-studio-business-metrics";
+    const guide = findPublicGuide(slug)!;
+    if (guide.format !== "article") throw new Error("Expected article");
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? []), ...(section.link ? [section.link.label] : []), ...(section.trailingParagraphs ?? [])]), guide.callToAction.text, guide.callToAction.label];
+    expect(createHash("sha256").update(ordered.join("\n")).digest("hex")).toBe("a8ea94338e51fb15df33f4f152d226953805cff44370f62a66d937347155ac98");
+    const html = renderToStaticMarkup(await GuideArticle(props(slug)));
+    let last = -1;
+    for (const text of ordered) { const position = html.indexOf(text!, last + 1); expect(position).toBeGreaterThan(last); last = position; }
+    expect(html).toContain('href="https://www.steamfoot.com/pricing/features#analysis"');
+    expect(html.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
+    expect(html).toContain('"datePublished":"2026-10-15"');
+    expect(html).not.toMatch(/編輯附錄|永久保留/);
+    const metadata = await generateMetadata(props(slug));
+    expect(metadata.title).toBe(guide.seoTitle);
+    expect(metadata.description).toBe(guide.summary);
+    expect(metadata.keywords).toEqual(["運動教室營運分析"]);
+    expect(metadata.alternates?.canonical).toBe(`https://www.steamfoot.com/guides/${slug}`);
+    expect(route(`/guides/${slug}`).status).toBe(200);
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${slug}`);
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(slug))).robots).toEqual({ index: false, follow: false });
+  });
+
   it("preserves the approved permissions Word v2 body and excludes editorial appendices", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const guide = findPublicGuide(permissionsSlug)!;
@@ -48,7 +74,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug, "sports-studio-business-metrics"]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -232,7 +258,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug)) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug && guide.id !== "sports-studio-business-metrics")) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -340,7 +366,7 @@ describe("public editorial guides", () => {
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     expect(index).toContain(`href="/guides/${notificationSlug}"`);
     expect(index).toContain(guide.summary);
-    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug)) {
+    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug && item.id !== "sports-studio-business-metrics")) {
       const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
       expect(previousHtml).toContain("申請免費試用 30 天 →");
       expect(previousHtml).not.toContain("前往蒸管家，了解體驗與適用流程");
@@ -518,7 +544,8 @@ describe("public editorial guides", () => {
       expect(schema["@graph"][0]).toMatchObject({ "@type": "Article", headline: guide.title });
       expect(schema["@graph"][1].itemListElement[2].item).toBe(`https://www.steamfoot.com${guidePath(guide)}`);
       expect(schema["@graph"][0]).not.toHaveProperty("author");
-      expect(schema["@graph"][0]).not.toHaveProperty("datePublished");
+      if (guide.publishedDate) expect(schema["@graph"][0].datePublished).toBe(guide.publishedDate);
+      else expect(schema["@graph"][0]).not.toHaveProperty("datePublished");
       expect(schema["@graph"][0]).not.toHaveProperty("dateModified");
     }
   });
@@ -527,8 +554,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(17);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(29);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(18);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(30);
     expect(xml).not.toContain("/pricing/features/services");
     for (const modulePath of ["slots", "music", "fitness"]) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com/pricing/features/${modulePath}</loc>`);

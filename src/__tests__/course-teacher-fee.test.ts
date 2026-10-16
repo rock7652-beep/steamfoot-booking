@@ -22,6 +22,17 @@ it("does not pay fixed class fees again for free teacher makeup or non-chargeabl
 });
 
 import { capturedTeacherFee } from "@/server/services/course-teacher-fee";
+it("preserves snapshot rounding across legacy and music v2 algorithms", () => {
+ const seats=[seat,{...seat,id:"b"}];
+ const legacy={rule:{mode:"SHARE",value:65},revision:1,musicPricePerLesson:650};
+ expect(capturedTeacherFee(legacy,seats).amount).toBe(845);
+ expect(capturedTeacherFee({...legacy,rule:{...legacy.rule,calculationVersion:2}},seats).amount).toBe(846);
+});
+it("keeps historical fixed fees while music v2 does not charge an empty class", () => {
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:500},revision:1},[]).amount).toBe(500);
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:500,calculationVersion:2},revision:1},[]).amount).toBe(0);
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:500,calculationVersion:2},revision:0},[seat]).amount).toBeNull();
+});
 it("keeps zero, fixed amount and unset fee distinct in a settlement snapshot",()=>{
  const attended=[seat];
  expect(capturedTeacherFee({rule:{mode:"CLASS",value:0},revision:1},attended)).toMatchObject({amount:0,issue:null});

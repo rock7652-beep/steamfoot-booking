@@ -428,6 +428,7 @@ export function CourseRoster({
 
     const perform = async () => {
       let outcome: "saved" | "error" | "unknown" = "unknown";
+      let teacherReconciled = false;
       try {
         let result: { success: boolean; error?: string };
         try {
@@ -451,6 +452,20 @@ export function CourseRoster({
           return;
         }
         outcome = "saved";
+        if (teacherStatus) {
+          // A teacher change also refunds/restores every booking. Read those
+          // committed rows before publishing the new class state or success.
+          const refreshed = await load(false);
+          if (!isCurrent()) return;
+          teacherReconciled = true;
+          if (refreshed !== "loaded") {
+            scope.uncertain = true;
+            const message = "出勤已儲存，名單尚未核對完成，請重新開啟核對。";
+            feedback({ phase: "saved", message });
+            setMessage(message);
+            return;
+          }
+        }
         applyConfirmed();
         feedback({ phase: "saved", message: "" });
         if (sequence === scope.sequence && !scope.uncertain) setMessage(successMessage);
@@ -463,7 +478,7 @@ export function CourseRoster({
         if (isCurrent()) {
           // Reconcile once the last individual write finishes. Read failures
           // must never turn a rejected or unknown write into a success message.
-          if (!bookingId || scope.inFlight.size === 0) {
+          if (!teacherReconciled && (!bookingId || scope.inFlight.size === 0)) {
             const refreshed = await load(false);
             if (isCurrent() && refreshed === "failed" && outcome === "saved") {
               const message = "已儲存，名單更新失敗，請重新開啟核對";
@@ -473,7 +488,7 @@ export function CourseRoster({
           }
           if (!bookingId && isCurrent()) {
             router.refresh();
-            if (outcome === "saved" && view !== "roster") onDone?.();
+            if (outcome === "saved" && !scope.uncertain && view !== "roster") onDone?.();
           }
         }
         if (!bookingId) scope.locked = false;

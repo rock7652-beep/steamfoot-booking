@@ -733,7 +733,9 @@ export async function moveCourseSessions(input: unknown) {
 
       const movedAt = new Date();
       for (const change of changes) {
-        const temporary = !restoring;
+        // FUTURE changes the permanent fixed slot. Only temporary moves keep
+        // an original-slot reservation (the DB permits SINGLE / WEEKS here).
+        const temporary = !restoring && d.scope !== "FUTURE";
         await tx.courseSessionMove.create({
           data: {
             storeId,

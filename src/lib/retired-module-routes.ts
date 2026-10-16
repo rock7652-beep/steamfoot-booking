@@ -9,5 +9,7 @@ export function isRetiredModuleRoute(pathname: string, search: URLSearchParams):
     "/pricing/features/services",
   ];
   if (prefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) return true;
-  return ["module", "theme"].some(key => search.get(key)?.toLowerCase() === "spa");
+  const previews = ["/pricing/header-review", "/pricing/schedule-review", "/pricing/panel-review"];
+  return previews.includes(path.replace(/\/$/, "")) &&
+    ["module", "theme"].some(key => search.getAll(key).some(value => value.toLowerCase() === "spa"));
 }
