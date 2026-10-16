@@ -57,17 +57,14 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const status = ["PENDING", "CONFIRMED", "REFUNDED", "VOIDED"].includes(params.status ?? "") ? params.status : undefined;
   const staff = params.staff?.slice(0, 100) || undefined;
   const where: Prisma.CoursePurchaseWhereInput = { storeId, ...musicPurchaseWhere(storeId,params.dataScope), createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
-  const [count,receiptTotals,staffRows] = await Promise.all([
-    coursePrisma.coursePurchase.count({ where }),
-    getCourseReceiptTotals(storeId, from, to, params.dataScope),
-    prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
-  ]);
+  const [detail, receiptTotals, staffRows] = await Promise.all([
+    (async () => {
+      const count = await coursePrisma.coursePurchase.count({ where });
   const pages = Math.max(1, Math.ceil(count / 30));
   const page = Math.min(pages, Math.max(1, Math.floor(Number(params.page) || 1)));
   const orders = await coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 });
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended,tuition,receipts] = await Promise.all([
-    /* independent order details are fetched together */
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),
     coursePrisma.coursePointCard.findMany({ where: { storeId, id: { in: cardIds } } }),
     coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "RESERVED" }, _sum: { pointCost: true } }),
@@ -75,6 +72,12 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),
     readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id)),
   ]);
+      return {pages,page,orders,customers,cards,held,attended,tuition,receipts};
+    })(),
+    getCourseReceiptTotals(storeId, from, to, params.dataScope),
+    prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
+  ]);
+  const {pages,page,orders,customers,cards,held,attended,tuition,receipts} = detail;
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
     const card = cards.find((c) => c.id === order.cardId);
