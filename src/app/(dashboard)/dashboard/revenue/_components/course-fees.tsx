@@ -1,4 +1,4 @@
-import { canViewCourseMonthly } from "@/lib/course-monthly-access";
+import { canViewCourseMonthly, canOperateCourseMonthly } from "@/lib/course-monthly-access";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, LEGACY_MUSIC_SESSION_IDS } from "@/server/services/music-data-scope";
@@ -15,7 +15,7 @@ export async function CourseFees({storeId,range,readOnly,dataScope}: {storeId:st
   const user=await getCurrentUser();
   if(!user||!canViewCourseMonthly(user.role,musicDataSeparationEnabled(storeId))||!await checkPermission(user.role,user.staffId,"cashbook.read"))return null;
   if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return null;
-  if(user.role==="ADMIN")readOnly=true;
+  if(!canOperateCourseMonthly(user.role,musicDataSeparationEnabled(storeId)))readOnly=true;
   const cohort=musicDataScope(storeId,dataScope);
   if(cohort==="legacy")readOnly=true;
   const scope=await readMusicFinanceScope(user,storeId);

@@ -1,4 +1,6 @@
 "use server";
+import { canOperateCourseMonthly } from "@/lib/course-monthly-access";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
@@ -13,7 +15,7 @@ import { recordCourseProfitPayment, voidCourseProfitPayment } from "@/server/ser
 import type { PermissionCode } from "@/lib/permissions";
 async function actor(permission:PermissionCode){
  const a=await courseManager(permission);
- if(a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可處理課程月結");
+ if(!canOperateCourseMonthly(a.user.role,musicDataSeparationEnabled(a.storeId)))throw new AppError("FORBIDDEN","僅店長可處理課程月結");
  await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  await assertStoreSubscriptionWritable(a.storeId);
  return a;

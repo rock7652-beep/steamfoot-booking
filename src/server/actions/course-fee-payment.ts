@@ -1,4 +1,6 @@
 "use server";
+import { canOperateCourseMonthly } from "@/lib/course-monthly-access";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import {courseFeePaymentInput,courseFeeVoidInput} from "@/lib/course-fee-payment";
 import {isMusicFinanceStore,requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
@@ -10,7 +12,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 export async function payCourseFee(input: unknown) {
   try {
     const {user, storeId} = await courseManager("cashbook.create");
-    if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可登錄授課費付款");
+    if (!canOperateCourseMonthly(user.role, musicDataSeparationEnabled(storeId))) throw new AppError("FORBIDDEN", "僅店長可登錄授課費付款");
     await assertStoreSubscriptionWritable(storeId);
     await courseTransaction(storeId, async tx => {
       if(await isMusicFinanceStore(storeId)) {
@@ -32,7 +34,7 @@ export async function payCourseFee(input: unknown) {
 export async function correctCourseFee(input: unknown) {
   try {
     const {user, storeId} = await courseManager("cashbook.create");
-    if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可更正授課費付款");
+    if (!canOperateCourseMonthly(user.role, musicDataSeparationEnabled(storeId))) throw new AppError("FORBIDDEN", "僅店長可更正授課費付款");
     await assertStoreSubscriptionWritable(storeId);
     await courseTransaction(storeId, async tx => {
       if(await isMusicFinanceStore(storeId)) {
