@@ -51,5 +51,5 @@ export function subscribeMusicFinanceChange(refresh: (kind: MusicFinanceChange) 
 
 /** Route allowlist; environment/store authorization remains separate. */
 export function isMusicSyncRoute(pathname: string | null) {
-  return !!pathname && /\/dashboard\/(?:courses(?:\/|$)|teachers(?:\/|$)|service-fee-calculator(?:\/|$))/.test(pathname);
+  return !!pathname && /\/dashboard\/(?:courses(?:\/|$)|teachers(?:\/|$)|cashbook$|service-fee-calculator(?:\/|$))/.test(pathname);
 }

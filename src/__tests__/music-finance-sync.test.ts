@@ -17,9 +17,9 @@ it("catches up when a suspended tab resumes",()=>{
  expect(refresh).toHaveBeenCalledOnce();dispose();
 });
 
-it("limits automatic refresh to course, teacher and monthly pages",()=>{
- for(const route of ["/s/lubymusic/admin/dashboard/courses", "/s/lubymusic/admin/dashboard/courses/source-pilot/salary", "/s/lubymusic/admin/dashboard/teachers", "/s/lubymusic/admin/dashboard/service-fee-calculator"])expect(isMusicSyncRoute(route)).toBe(true);
- for(const route of [null,"/dashboard/revenue","/dashboard/teachers-other","/dashboard/service-fee-calculator-other"])expect(isMusicSyncRoute(route)).toBe(false);
+it("limits automatic refresh to course, teacher, cashbook and monthly pages",()=>{
+ for(const route of ["/s/lubymusic/admin/dashboard/courses", "/s/lubymusic/admin/dashboard/courses/source-pilot/salary", "/s/lubymusic/admin/dashboard/teachers", "/s/lubymusic/admin/dashboard/cashbook", "/s/lubymusic/admin/dashboard/service-fee-calculator"])expect(isMusicSyncRoute(route)).toBe(true);
+ for(const route of [null,"/dashboard/revenue","/dashboard/cashbook/new","/dashboard/cashbook-other","/dashboard/teachers-other","/dashboard/service-fee-calculator-other"])expect(isMusicSyncRoute(route)).toBe(false);
 });
 
 it("routes typed checkout signals and retains old clients",()=>{

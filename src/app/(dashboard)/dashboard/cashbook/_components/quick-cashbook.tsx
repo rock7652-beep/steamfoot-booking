@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
@@ -8,6 +8,8 @@ import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
 import { readQuickCashbook, type QuickCashbookData } from "@/lib/quick-cashbook-client-transport";
+
+import { isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
 type Data = QuickCashbookData;
 type Entry = Data["entries"][number];
@@ -32,15 +34,32 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   const createRequestId = useRef<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
   const closeRef = useRef<() => void>(() => undefined);
-  async function refresh(page = 1) {
+  const [syncRevision, setSyncRevision] = useState(0);
+  const needsSync = useRef(false);
+  const refresh = useCallback(async (page = 1, background = false) => {
     const version = ++request.current;
     currentPage.current = page;
-    setLoading(true); setError(""); setData(null);
+    setLoading(true); setError(""); if (!background) setData(null);
     try { const result = await reader.read(storeId, page); if (version === request.current) setData(result); }
     catch { if (version === request.current) setError("收支紀錄暫時無法讀取，請重試。"); }
     finally { if (version === request.current) setLoading(false); }
-  }
+  }, [reader, storeId]);
   useEffect(() => () => { request.current++; reader.clear(); }, [reader]);
+  useEffect(() => {
+    if (storeId !== "store-lubymusic" || !isMusicPreviewPage()) return;
+    return subscribeMusicFinanceChange(() => {
+      request.current++;
+      reader.clear();
+      needsSync.current = true;
+      setSyncRevision(value => value + 1);
+    });
+  }, [reader, storeId]);
+  useEffect(() => {
+    // Leave a draft mounted; catch up after editing/saving finishes.
+    if (!open || editing || busy || !needsSync.current) return;
+    needsSync.current = false;
+    void refresh(currentPage.current, true);
+  }, [syncRevision, open, editing, busy, refresh]);
   function close() {
     if (locked.current) return;
     if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
