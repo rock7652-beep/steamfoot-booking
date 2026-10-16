@@ -89,7 +89,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const positionReady=!!parseTaipeiDateTime(date,time)&&!!roomId;
   const canChooseCourse=positionReady&&(isTrial||enrollmentMode==="OPEN"||learners.length>0);
   const dirty=date!==originalPosition.date||time!==originalPosition.time||roomId!==originalPosition.roomId||coachId!==originalPosition.coachId||duration!==originalPosition.durationMinutes||regularTemplateId!==(initialTemplateId??"")||!!trialTemplateId||regularLearners.length>0||trialLearners.some(row=>!!row.name||!!row.participantPhone)||enrollmentDirty||enrollmentMode!=="ASSIGNED"||capacity!==1||frequency!=="WEEKLY"||singleWeeks!==1;
-  useCourseDraftGuard(active&&dirty,active&&(pending||enrollmentPending));
+  useCourseDraftGuard(false,active&&(pending||enrollmentPending));
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   useEffect(()=>{if(active)onPositionChange?.({date,time,roomId:roomId||undefined,coachId:coachId||undefined,durationMinutes:duration});},[active,date,time,roomId,coachId,duration,onPositionChange]);
   useEffect(()=>{if(active)return;if(seed?.date)setDate(seed.date);if(seed?.time!==undefined)setTime(seed.time);setRoomId(seed?.roomId??"");setCoachId(seed?.coachId??"");if(seed?.durationMinutes)setDuration(seed.durationMinutes);},[active,seed?.date,seed?.time,seed?.roomId,seed?.coachId,seed?.durationMinutes]);

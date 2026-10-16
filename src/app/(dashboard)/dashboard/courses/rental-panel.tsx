@@ -31,7 +31,7 @@ export function RentalPanel({id,rooms,seed,permissions,customers=NO_CUSTOMERS,on
   const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(null);
   const [newCustomer,setNewCustomer]=useState(false);const [customerNotice,setCustomerNotice]=useState("");const [voidOnly,setVoidOnly]=useState(false);
   const [requestKey]=useState(()=>crypto.randomUUID());const paymentKey=useRef(crypto.randomUUID());
-  useCourseDraftGuard(active&&dirty,active&&pending);
+  useCourseDraftGuard(active&&dirty&&!(allowWeekly&&!record),active&&pending);
   useEffect(()=>{onGuard?.(pending,dirty);return()=>onGuard?.(false,false);},[pending,dirty,onGuard]);
   function apply(r:RentalDetail){setDirty(false);setRecord(r);setRoomId(r.roomId);setDuration((Date.parse(r.endsAt)-Date.parse(r.startsAt))/60000);setAmount(r.amount);setDate(toLocalDateStr(new Date(r.startsAt)));setTime(formatTWDateTime(new Date(r.startsAt)).slice(11));if(r.customerId)setCustomer({id:r.customerId,name:r.customerName,phone:r.customerPhone});setLoaded(true);}
   useEffect(()=>{if(!id)return;let active=true;getCourseRental(id).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id]);

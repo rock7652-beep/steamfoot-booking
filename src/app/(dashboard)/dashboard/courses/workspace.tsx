@@ -341,7 +341,12 @@ export function CourseWorkspace({
   function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
   function closePanel() {
     if(musicScheduleGuard.current.pending)return;
-    if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
+    if(panel === "schedule" && businessProfile === "MUSIC") {
+      if(pending || rentalGuard.current.pending)return;
+      setDirty(false);
+      setPanel(null);
+      return;
+    }
     if(rentalGuard.current.pending)return;
     if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
