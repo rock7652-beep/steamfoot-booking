@@ -2,6 +2,7 @@ import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_FEE_ISSUE } from "./m
 import { compensationRule } from "./course-compensation";
 
 export type TeacherFeeSeat = {
+  tuitionTemplateId?:string|null;
   id: string;
   customerName: string;
   status: string;

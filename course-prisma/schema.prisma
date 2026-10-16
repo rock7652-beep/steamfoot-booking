@@ -85,6 +85,11 @@ model CourseTemplate {
 }
 
 model CourseSession {
+  scheduleType String @default("LEGACY")
+  scheduleFrequency String @default("NONE")
+  enrollmentMode String @default("OPEN")
+  enrollmentFingerprint String?
+  rescheduleShadowHidden Boolean @default(false)
   bookingAudience String @default("OPEN")
   isTrial Boolean @default(false)
   id             String @id @default(cuid())
@@ -607,4 +612,34 @@ model CourseMusicOpeningMakeupEntitlement {
   bookings CourseBooking[]
   @@unique([id, storeId, customerId], map: "CourseMusicOpeningMakeupEntitlement_identity_key")
   @@index([storeId, customerId, templateId], map: "CourseMusicOpeningMakeupEntitlement_member_idx")
+}
+
+model CourseScheduleSeries {
+  id           String   @id @default(cuid())
+  storeId      String
+  requestKey   String
+  templateId   String
+  nameSnapshot String
+  roomId       String
+  coachId      String
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  pointCost    Int
+  capacity     Int
+  frequency    String
+  enrollmentMode String @default("OPEN")
+  learnerSnapshot Json @default("[]")
+  untilDate    DateTime? @db.Date
+  generatedThrough DateTime @db.Date
+  excludedDates String[] @default([])
+  generationError String?
+  cancelledAt  DateTime? @db.Timestamptz(3)
+  createdById  String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([storeId, requestKey])
+  @@index([storeId, cancelledAt, startsAt])
+  @@index([storeId, roomId, startsAt])
+  @@index([storeId, coachId, startsAt])
 }

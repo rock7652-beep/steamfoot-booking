@@ -179,7 +179,7 @@ export default async function CoursesPage({
         select: {
           id: true,
           isTrial: true,
-          bookingAudience: true,
+          bookingAudience: true, scheduleType:true, scheduleFrequency:true, enrollmentMode:true,
           nameSnapshot: true,
           templateId: true,
           startsAt: true,
@@ -379,8 +379,8 @@ export default async function CoursesPage({
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={[...sessions.map((s) => ({
           ...s,
-          isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
-          isBiweekly: biweeklyKeys.has(s.requestKey),
+          isFixed: s.scheduleType === "FIXED" || s.scheduleType === "LEGACY" && (recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED"),
+          isBiweekly: s.scheduleFrequency === "BIWEEKLY" || s.scheduleType === "LEGACY" && biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           bookings: s.bookings.map((booking) => ({

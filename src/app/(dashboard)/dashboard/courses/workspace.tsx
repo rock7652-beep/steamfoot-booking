@@ -49,6 +49,7 @@ import {
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
+import {musicScheduleColors} from "@/lib/music-schedule-colors";
 import { courseClassMatches, courseClassPresentation } from "@/lib/course-class-presentation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { courseAttendanceState } from "@/lib/course-attendance-visual";
@@ -332,11 +333,15 @@ export function CourseWorkspace({
     window.requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
   }, [allTemplates, sourceRooms]);
 
+  const musicScheduleGuard=useRef({dirty:false,pending:false});
+  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
   const rentalGuard=useRef({pending:false,dirty:false});
   const updateRentalGuard=useCallback((pending:boolean,dirty:boolean)=>{rentalGuard.current={pending,dirty};},[]);
   const [roomRentalHistory,setRoomRentalHistory]=useState(false);
   function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
   function closePanel() {
+    if(musicScheduleGuard.current.pending)return;
+    if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
     if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
@@ -522,7 +527,7 @@ export function CourseWorkspace({
     }
   }, [businessProfile, moveClipboard, moveClipboardLoaded, moveStorageKey]);
 
-  const [arrangement,setArrangement]=useState<"choose"|"class"|"trial"|"rental">("class");
+  const [arrangement,setArrangement]=useState<"choose"|"class"|"fixed"|"single"|"trial"|"rental">(businessProfile === "MUSIC" ? "single" : "class");
   const [scheduleDate, setScheduleDate] = useState(selectedDate);
   const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
@@ -639,7 +644,7 @@ export function CourseWorkspace({
   }
   function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
-    setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
+    setArrangement(businessProfile === "MUSIC" ? "single" : "class");
     setScheduleSeed(seed);
     setScheduleDate(seed.date ?? selectedDate);
     setChosen(templates[0]?.id ?? "");
@@ -694,7 +699,7 @@ export function CourseWorkspace({
     });
   }
   const template = templates.find((t) => t.id === chosen);
-  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
+  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(businessProfile === "MUSIC" ? [["每週固定","bg-blue-600"],["隔週固定","bg-violet-600"],["單次課","bg-emerald-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]] : [["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
   const repeatControl = (
     <label className="min-w-0 flex-1">
       重複
@@ -964,7 +969,7 @@ export function CourseWorkspace({
                     {businessProfile === "MUSIC" ? (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span> : (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none block w-full whitespace-nowrap text-[11px] font-semibold leading-4 tabular-nums text-primary-900">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
                     {list.slice(0,visibleCount).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
-                      const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
+                      const color = businessProfile === "MUSIC" ? musicScheduleColors(session).dot : courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500`}><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
@@ -994,7 +999,7 @@ export function CourseWorkspace({
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard
-              legend={businessProfile !== "MUSIC" ? scheduleLegend : undefined}
+              legend={scheduleLegend}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
@@ -1333,7 +1338,7 @@ export function CourseWorkspace({
           <div
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form") && !(panel === "schedule" && arrangement === "rental") && !roomRentalHistory) setDirty(true); }}
             className={
-              panel === "schedule" && arrangement === "rental" || roomRentalHistory
+              panel === "schedule" && (arrangement === "rental" || businessProfile === "MUSIC") || roomRentalHistory
                 ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3"
                 : view === "schedule"
                 ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:appearance-none"
@@ -1967,29 +1972,41 @@ export function CourseWorkspace({
               </form>
             )}
             {panel === "schedule" && businessProfile === "MUSIC" && (
+              <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard
                 key={requestKey}
-                templates={templates}
-                rooms={rooms}
+                onGuard={updateMusicScheduleGuard}
+                onRefresh={()=>router.refresh()}
+                onPositionChange={setScheduleSeed}
+                onArrangementChange={kind=>{if(!musicScheduleGuard.current.pending&&!rentalGuard.current.pending)setArrangement(kind);}}
+                active={arrangement!=="rental"}
+                onCancel={closePanel}
+                autoRoom={!!scheduleSeed.coachId&&!scheduleSeed.roomId}
+                subjects={Array.from(new Map(allTemplates.filter(t=>t.musicSubject).map(t=>[t.musicSubject!.id,t.musicSubject!])).values())}
+                templates={allTemplates}
+                isTrial={arrangement==="trial"}
+                initialScheduleKind={arrangement==="fixed"?"FIXED":"SINGLE"}
+                canCreateCustomer={rentalPermissions.customerCreate}
+                rooms={allRooms.filter(r=>r.isActive||r.id===scheduleSeed.roomId)}
                 coaches={coaches}
+                seed={scheduleSeed}
                 initialDate={scheduleSeed.date ?? selectedDate}
-                initialAudience={copySource?.bookingAudience}
-                initialTime={scheduleSeed.time}
-                initialRoomId={scheduleSeed.roomId}
-                initialCoachId={scheduleSeed.coachId}
                 initialTemplateId={copySource?.templateId}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
-                onCreated={(sessionId,date,audience) => {
+                onCreated={(_sessionId,date,savedSessions) => {
+                  setNotice("排課已儲存");
                   setPanel(null);
                   publishMusicFinanceChange();
                   go(date);
-                  if(audience==="ASSIGNED")setCourseDialog({sessionId,kind:"roster"});
-                  else setNotice("已建立課程，可依店家預約規則選課");
                   router.refresh();
+                  // Enrollment was saved together with the new class.
+                  // The schedule action already revalidates the route.
                 }}
               />
+              </div>
             )}
+            {panel === "schedule" && businessProfile === "MUSIC" && <div className={`${arrangement==="rental"?"flex":"hidden"} min-h-0 flex-1 flex-col`}><RentalPanel active={arrangement==="rental"} onCancel={closePanel} onPositionChange={setScheduleSeed} allowWeekly customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} typeControl={<label className="block rounded-lg border-l-4 border-pink-500 bg-pink-50 p-3">排課類型<select aria-label="安排類型" className={field} value={arrangement} onChange={e=>{if(!rentalGuard.current.pending)setArrangement(e.target.value as "fixed"|"single"|"trial"|"rental");}}><option value="fixed">固定課</option><option value="single">單次課</option><option value="trial">體驗課</option><option value="rental">空間租借</option></select></label>}/></div>}
             {panel === "schedule" && scheduleCreated && <section className="space-y-3" role="status" aria-label="排課成功日期">
               <h3 className="text-base font-semibold text-primary-900">已成功建立 {scheduleCreated.length} 堂課程</h3>
               <p className="text-sm text-earth-600">{templates.find(item => item.id === chosen)?.name} · 以下日期已建立</p>

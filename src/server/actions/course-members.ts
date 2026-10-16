@@ -19,7 +19,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
+import { addTaiwanDuration, toLocalDateStr, dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
@@ -270,6 +270,7 @@ export async function assignCoursePointCard(input: unknown) {
       .object({
         planId: id,
         customerId: id,
+        bookingId: id.optional(),
         expiresDate: z
           .string()
           .refine((v) => !!parseTaipeiDateTime(v, "00:00")),
@@ -284,7 +285,13 @@ export async function assignCoursePointCard(input: unknown) {
       const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
-      return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
+      const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
+      if(music&&data.bookingId&&purchase.cardId){
+        await courseManager("booking.update");
+        const {attachUnpaidMusicBookings}=await import("@/server/services/music-schedule-enrollment");
+        await attachUnpaidMusicBookings(tx,{storeId,userId:user.id,name:user.name??"店長"},purchase.cardId,data.customerId,data.bookingId);
+      }
+      return purchase;
     });
     // Invalidate before the client refresh; after() can race the first reload.
     // A committed receipt remains successful even if cache invalidation fails.
@@ -556,6 +563,12 @@ export async function cancelCourseSession(input: unknown) {
         where: { id: session.id },
         data: { cancelledAt: new Date() },
       });
+      const series = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: session.requestKey } } });
+      if (series && session.scheduleType === "FIXED") {
+        const date = toLocalDateStr(session.startsAt);
+        if (!series.excludedDates.includes(date))
+          await tx.courseScheduleSeries.update({ where: { id: series.id }, data: { excludedDates: [...series.excludedDates, date] } });
+      }
       await cancelCourseWaitlistForSession(tx, storeId, session.id);
     });
     refresh();
@@ -578,15 +591,15 @@ async function futureMusicCourseScope(
     select: { id: true, requestKey: true, templateId: true, startsAt: true },
   });
   if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+  const seriesRule = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: source.requestKey } }, select: { id: true, cancelledAt: true } });
   let customerId: string | undefined;
   let customerName: string | undefined;
   if (bookingId) {
     const learner = await tx.courseBooking.findFirst({
       where: { id: bookingId, storeId, sessionId, status: { not: "CANCELLED" } },
-      select: { customerId: true, customerName: true, bookingKind: true, musicOpeningMakeupEntitlementId: true },
+      select: { customerId: true, customerName: true },
     });
     if (!learner?.customerId) throw new AppError("NOT_FOUND", "找不到此堂學員");
-    if (isMusicOpeningMakeupBooking(learner)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     customerId = learner.customerId;
     customerName = learner.customerName;
   }
@@ -594,7 +607,7 @@ async function futureMusicCourseScope(
   const effectiveStart = effectiveDate ? dayRange(effectiveDate).start : undefined;
   const sessions = await tx.courseSession.findMany({
     where: { storeId, requestKey: source.requestKey, templateId: source.templateId,
-      startsAt: { gt: after, ...(effectiveStart ? { gte: effectiveStart } : {}) }, cancelledAt: null, releasedAt: null },
+      startsAt: { gte: effectiveStart && effectiveStart > after ? effectiveStart : after }, cancelledAt: null, releasedAt: null },
     select: { id: true, startsAt: true },
     orderBy: { startsAt: "asc" },
     take: 501,
@@ -602,17 +615,18 @@ async function futureMusicCourseScope(
   if (sessions.length > 500) throw new AppError("VALIDATION", "後續課程過多，請分段處理");
   const allBookings = await tx.courseBooking.findMany({
     where: { storeId, sessionId: { in: sessions.map((item) => item.id) },
-      ...(customerId ? { customerId } : {}), OR: [{status: {not: "CANCELLED"}}, {bookingKind: "OPENING_MAKEUP"}, {musicOpeningMakeupEntitlementId: {not: null}}] },
-    select: { id: true, status: true, sessionId: true, bookingKind: true, musicOpeningMakeupEntitlementId: true },
+      ...(customerId ? { customerId } : {}), status: { not: "CANCELLED" } },
+    select: { id: true, status: true, sessionId: true },
     orderBy: { id: "asc" },
   });
-  if (allBookings.some(isMusicOpeningMakeupBooking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if (allBookings.some((item) => item.status !== "RESERVED"))
     throw new AppError("CONFLICT", "後續課程已有完成點名，請先核對紀錄");
   return {
     sessionIds: sessions.map((item) => item.id),
     bookingIds: allBookings.map((item) => item.id),
     customerName,
+    hasSeriesRule: Boolean(seriesRule && !seriesRule.cancelledAt),
+    seriesStopDate: addTaiwanDuration(effectiveDate ?? toLocalDateStr(source.startsAt), -1, "DAY"),
   };
 }
 
@@ -641,7 +655,7 @@ export async function stopFutureCourseLessons(input: unknown) {
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
         throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
-      if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
+      if ((!scope.sessionIds.length && !scope.hasSeriesRule) || data.bookingId && !scope.bookingIds.length)
         throw new AppError("VALIDATION", "沒有可停止的後續已排課");
       const affectedSessionIds = new Set<string>();
       for (const bookingId of scope.bookingIds) {
@@ -655,9 +669,24 @@ export async function stopFutureCourseLessons(input: unknown) {
           where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
           data: { cancelledAt: new Date() },
         });
+        if (scope.hasSeriesRule) {
+          await tx.courseScheduleSeries.updateMany({
+            where: { storeId, requestKey: (await tx.courseSession.findFirstOrThrow({ where: { id: data.sessionId, storeId }, select: { requestKey: true } })).requestKey, cancelledAt: null },
+            data: { untilDate: new Date(`${scope.seriesStopDate}T00:00:00.000Z`) },
+          });
+        }
         for (const sessionId of scope.sessionIds)
           await cancelCourseWaitlistForSession(tx, storeId, sessionId);
         return [];
+      }
+      if(data.bookingId){
+        const learner=await tx.courseBooking.findFirstOrThrow({where:{id:data.bookingId,storeId},select:{customerId:true,session:{select:{requestKey:true,startsAt:true}}}});
+        const rule=await tx.courseScheduleSeries.findUnique({where:{storeId_requestKey:{storeId,requestKey:learner.session.requestKey}}});
+        if(rule){
+          const snapshot=z.array(z.object({customerId:z.string(),cardId:z.string().nullable().optional(),stopDate:z.string().optional()})).parse(rule.learnerSnapshot);
+          const stopDate=data.effectiveDate??toLocalDateStr(learner.session.startsAt);
+          await tx.courseScheduleSeries.update({where:{id:rule.id},data:{learnerSnapshot:snapshot.map(row=>row.customerId===learner.customerId?{...row,stopDate}:row)}});
+        }
       }
       return [...affectedSessionIds];
     });

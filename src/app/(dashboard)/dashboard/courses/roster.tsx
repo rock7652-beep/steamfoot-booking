@@ -1519,6 +1519,7 @@ export function CourseRoster({
                 paymentMethod: fields.get("paymentMethod"),
                 transferLastFour: String(fields.get("transferLastFour") ?? ""),
                 requestKey: purchaseKey,
+                bookingId:purchaseFor,
               }, assignCoursePointCard).then(async (result) => {
                 if (!result.success) { setPurchaseError(result.error??"購課未完成"); return; }
                 setPurchaseFor(null);

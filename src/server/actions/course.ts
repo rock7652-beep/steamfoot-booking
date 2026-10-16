@@ -1,6 +1,8 @@
 "use server";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
+import {courseTrialPrice} from "@/lib/course-trial-price";
+import { createHash } from "node:crypto";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -10,6 +12,7 @@ import { assertCourseSessionsFitHours } from "@/server/services/course-business-
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
 import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
+
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { coursePrisma } from "@/lib/course-db";
@@ -21,7 +24,8 @@ import {
   courseScheduleInput,
   courseTemplateInput,
 } from "@/lib/course-scheduling";
-import { formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
+import { findFixedSeriesConflicts, findOngoingFixedSeriesConflicts } from "@/lib/course-series";
+import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 export async function scheduleTeacherMakeup(input: unknown) {
   try {
@@ -45,6 +49,9 @@ export async function scheduleTeacherMakeup(input: unknown) {
       await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
       const collision=await tx.courseSession.findFirst({where:{storeId,cancelledAt:null,releasedAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]}});
       if(collision)throw new AppError("CONFLICT",`${formatTWDateTime(collision.startsAt)} 教室或老師已有課程`);
+      const seriesRules=await tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,startsAt:{lt:endsAt},OR:[{untilDate:null},{untilDate:{gte:new Date(`${toLocalDateStr(startsAt)}T00:00:00.000Z`)}}]}});
+      const seriesConflict=findFixedSeriesConflicts(seriesRules,[range],{roomId:data.roomId,coachId:data.coachId})[0];
+      if(seriesConflict)throw new AppError("CONFLICT",`${seriesConflict.date} · ${seriesConflict.reason}`);
       const session=await tx.courseSession.create({data:{storeId,templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,nameSnapshot:`免費補課 · ${source.nameSnapshot}`,startsAt,endsAt,pointCost:0,capacity:source.capacity,requestKey:`teacher-makeup:${source.id}`,requestIndex:0,createdById:user.id,teacherMakeupForSessionId:source.id,bookingAudience:"ASSIGNED"}});
       await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
       return session.id;
@@ -151,6 +158,7 @@ export async function updateCourseRoom(input: unknown) {
   }
 }
 
+
 export async function updateCourseTemplate(input: unknown) {
   try {
     const { storeId } = await writableStore("booking.update");
@@ -245,8 +253,9 @@ export async function updateCourseSession(input: unknown) {
           >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
         ]);
         if (!session || !room || !coaches.length)
-          throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與教練");
+          throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與授課人員");
         await assertCourseResources(tx,storeId,{...data,templateId:data.templateId ?? session.templateId},session);
+        if(data.templateId&&data.templateId!==session.templateId){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,data.templateId);}
         const bookings = await tx.courseBooking.findMany({
           where: {
             storeId,
@@ -291,8 +300,15 @@ export async function updateCourseSession(input: unknown) {
         if (conflict)
           throw new AppError(
             "CONFLICT",
-            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
+            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "授課人員"}已有課程，尚未儲存修改`,
           );
+        const fixedRules = await tx.courseScheduleSeries.findMany({
+          where: { storeId, cancelledAt: null, requestKey: { not: session.requestKey }, startsAt: { lt: range.endsAt },
+            OR: [{ untilDate: null }, { untilDate: { gte: new Date(`${toLocalDateStr(range.startsAt)}T00:00:00.000Z`) } }],
+          },
+        });
+        const recurringConflict = findFixedSeriesConflicts(fixedRules, [range], { roomId: data.roomId, coachId: data.coachId })[0];
+        if (recurringConflict) throw new AppError("CONFLICT", `${recurringConflict.date} · ${recurringConflict.reason}，尚未儲存修改`);
         await assertCourseSessionsFitHours(tx,storeId,[range]);
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
           await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
@@ -309,6 +325,16 @@ export async function updateCourseSession(input: unknown) {
             pointCost: data.pointCost,
           },
         });
+        if (session.scheduleType === "FIXED") {
+          const rule = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: session.requestKey } } });
+          if (rule) {
+            const excluded = new Set(rule.excludedDates);
+            const originalDate = toLocalDateStr(session.startsAt);
+            const unchanged = +range.startsAt === +session.startsAt && +range.endsAt === +session.endsAt && data.roomId === session.roomId && data.coachId === session.coachId;
+            if (unchanged) excluded.delete(originalDate); else excluded.add(originalDate);
+            await tx.courseScheduleSeries.update({ where: { id: rule.id }, data: { excludedDates: [...excluded] } });
+          }
+        }
         return data.capacity > session.capacity ? session.id : null;
       },
       { timeout: 15000 },
@@ -375,15 +401,54 @@ export async function createCourseTemplate(input: unknown) {
   }
 }
 
+
 export async function createCourseSchedule(input: unknown) {
   try {
     const { user, storeId } = await writableStore();
     const data = courseScheduleInput
-      .extend({ sourceSessionId: z.string().min(1).optional() })
+      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    const musicScheduling = data.enrollmentMode !== undefined;
+    if (musicScheduling) data.bookingAudience = data.enrollmentMode!;
+    if (musicScheduling) {
+      const music = await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+      if (!music) throw new AppError("FORBIDDEN","此排課流程僅適用音樂模組");
+      if (data.enrollmentMode === "ASSIGNED" && !data.learners.length) throw new AppError("VALIDATION","請指定至少一位學員");
+      if (data.enrollmentMode === "OPEN" && data.learners.length) throw new AppError("VALIDATION","開放報名建立時不指定學員");
+      if (data.enrollmentMode === "ASSIGNED") data.capacity = data.learners.length;
+      if (data.learners.length) {
+        await courseManager("customer.read");
+        const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
+        const ids=data.learners.flatMap(row=>row.customerId?[row.customerId]:[]);
+        const visible=await prisma.customer.count({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,id:{in:ids},mergedIntoCustomerId:null}});
+        if (visible!==new Set(ids).size) throw new AppError("FORBIDDEN","請選擇有權限查看的本店學員");
+      }
+      if(!data.isTrial&&data.learners.some(row=>row.trialPrice!==undefined||!row.customerId))throw new AppError("VALIDATION","正式課請選已建檔學員，體驗者請使用體驗課");
+      if(data.scheduleType==="FIXED"&&!["WEEKLY","BIWEEKLY"].includes(data.scheduleFrequency))throw new AppError("VALIDATION","請選每週或隔週");
+      const cards=data.learners.flatMap(row=>row.cardId?[row.cardId]:[]);
+      if(new Set(cards).size!==cards.length)throw new AppError("VALIDATION","音樂團體班每位學員須使用自己的方案");
+    }
+    const newTrialLearners=data.learners.filter(row=>!row.customerId&&row.customerPhone);
+    if(newTrialLearners.length){await courseManager("customer.create");await courseManager("customer.read");if(!data.isTrial)throw new AppError("VALIDATION","新體驗者請使用體驗課");if(new Set(newTrialLearners.map(row=>row.customerPhone)).size!==newTrialLearners.length)throw new AppError("VALIDATION","同一手機不可重複加入體驗名單");}
+    let trialPricing: Awaited<ReturnType<typeof import("@/lib/shop-config").getTrialSettings>> | undefined;
+    if(data.isTrial||data.learners.some(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined))){
+      await courseManager("trial.create");
+      const {getTrialSettings}=await import("@/lib/shop-config");
+      trialPricing=await getTrialSettings(storeId);
+      if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
+      const {readTeachingTrialPrice}=await import("@/server/services/music-teaching-item");
+      const trialTemplate=await readTeachingTrialPrice(coursePrisma,storeId,data.templateId);
+      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:courseTrialPrice(musicScheduling&&data.isTrial?undefined:learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
+    }
+    if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
+    if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
+    if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
+    const enrollmentFingerprint=musicScheduling?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice,customerName:row.customerName,customerPhone:row.customerPhone})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
+    const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
       occurrences = buildCourseOccurrences(data);
+      if(data.isTrial&&occurrences.length>1)throw new Error("體驗課僅能安排一次");
     } catch (error) {
       throw new AppError(
         "VALIDATION",
@@ -399,6 +464,7 @@ export async function createCourseSchedule(input: unknown) {
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+        if(musicScheduling){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,data.templateId,trialPricing?.trialDefaultPrice??0);}
         const existing = await tx.courseSession.findMany({
           where: { storeId, requestKey: data.requestKey },
           orderBy: { requestIndex: "asc" },
@@ -415,6 +481,10 @@ export async function createCourseSchedule(input: unknown) {
                 session.capacity !== data.capacity ||
                 session.isTrial !== data.isTrial ||
                 session.bookingAudience !== data.bookingAudience ||
+                (session.scheduleType ?? "LEGACY") !== data.scheduleType ||
+                (session.enrollmentMode ?? "OPEN") !== (data.enrollmentMode ?? "OPEN") ||
+                (musicScheduling && session.enrollmentFingerprint !== enrollmentFingerprint) ||
+                (session.scheduleFrequency ?? "NONE") !== data.scheduleFrequency ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
                 session.endsAt.getTime() !==
@@ -425,6 +495,9 @@ export async function createCourseSchedule(input: unknown) {
               "CONFLICT",
               "這次排課已送出，請重新開啟排課表單",
             );
+          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,customerName:true,cardId:true,trialPrice:true,requestKey:true,bookingKind:true}});
+          const expected=existing.flatMap((session,index)=>data.learners.filter(learner=>index===0||learner.cardId!==null||musicScheduling&&!data.isTrial&&learner.trialPrice===undefined).map(learner=>({session,learner})));
+          if(!musicScheduling&&(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&(booking.cardId===learner.cardId||musicScheduling&&booking.bookingKind==="UNPAID")&&(learner.cardId!==null||booking.trialPrice===(learner.trialPrice??null))&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
         const source = data.sourceSessionId
@@ -443,7 +516,7 @@ export async function createCourseSchedule(input: unknown) {
         const [template, room, coaches] = await Promise.all([
           tx.courseTemplate.findFirst({
             where: { id: data.templateId, storeId, isActive: true },
-            include: {musicSubject:{select:{name:true}}},
+            include: { musicSubject: { select: { name: true, isActive: true } } },
           }),
           tx.courseRoom.findFirst({
             where: { id: data.roomId, storeId, isActive: true },
@@ -453,9 +526,18 @@ export async function createCourseSchedule(input: unknown) {
             Array<{ id: string }>
           >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
         ]);
-        if (!template || !room || !coaches.length)
-          throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與教練");
-        await assertCourseResources(tx,storeId,data);
+        if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
+          throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
+        await assertCourseResources(tx,storeId,{...data,requireMusicSubject:musicScheduling});
+        if(musicScheduling&&data.scheduleType==="FIXED"){
+          const [rules,occupied,rentals]=await Promise.all([
+            tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null}}),
+            tx.courseSession.findMany({where:{storeId,cancelledAt:null,releasedAt:null,endsAt:{gt:occurrences[0].startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}}),
+            tx.courseRental.findMany({where:{storeId,roomId:data.roomId,cancelledAt:null,occupiedEndsAt:{gt:occurrences[0].startsAt}},select:{occupiedStartsAt:true,occupiedEndsAt:true}}),
+          ]);
+          const issues=findOngoingFixedSeriesConflicts({requestKey:data.requestKey,roomId:data.roomId,coachId:data.coachId,startsAt:occurrences[0].startsAt,endsAt:occurrences[0].endsAt,frequency:data.scheduleFrequency,untilDate:null,excludedDates:[],cancelledAt:null},rules,[...occupied,...rentals.map(row=>({startsAt:row.occupiedStartsAt,endsAt:row.occupiedEndsAt,roomId:data.roomId}))]);
+          if(issues.length)throw new AppError("CONFLICT",issues.map(issue=>`${issue.date} · ${issue.reason}`).join("；"));
+        }
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -476,11 +558,32 @@ export async function createCourseSchedule(input: unknown) {
         if (conflict)
           throw new AppError(
             "CONFLICT",
-            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
+            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "授課人員"}已有課程，整批尚未建立`,
           );
+        const fixedRules = await tx.courseScheduleSeries.findMany({
+          where: {
+            storeId,
+            cancelledAt: null,
+            startsAt: { lt: occurrences[occurrences.length - 1].endsAt },
+            OR: [
+              { untilDate: null },
+              { untilDate: { gte: new Date(`${toLocalDateStr(occurrences[0].startsAt)}T00:00:00.000Z`) } },
+            ],
+          },
+        });
+        const ruleConflict = findFixedSeriesConflicts(
+          fixedRules,
+          occurrences,
+          { roomId: data.roomId, coachId: data.coachId },
+          data.requestKey,
+        )[0];
+        if (ruleConflict)
+          throw new AppError("CONFLICT", `${ruleConflict.date} · ${ruleConflict.reason}，整批尚未建立`);
+        const rental=await tx.courseRental.findFirst({where:{storeId,roomId:data.roomId,cancelledAt:null,OR:occurrences.map(range=>({occupiedStartsAt:{lt:range.endsAt},occupiedEndsAt:{gt:range.startsAt}}))},select:{occupiedStartsAt:true}});
+        if(rental)throw new AppError("CONFLICT",`${formatTWDateTime(rental.occupiedStartsAt)} 教室已有租借，整批尚未建立`);
         // A moved fixed lesson still owns its original recurring slot. A one-off
         // lesson may use the released occurrence, but a new fixed series may not.
-        if (occurrences.length > 1 || template.musicScheduleMode === "FIXED") {
+        if (data.scheduleType === "FIXED" || (data.scheduleType === "LEGACY" && (occurrences.length > 1 || template.musicScheduleMode === "FIXED"))) {
           const movedOrigins = await tx.courseSession.findMany({
             where: {
               storeId,
@@ -520,35 +623,109 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
+        if(musicScheduling)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{not:null},OR:occurrences.map(range=>({rescheduledFromStartsAt:{lt:range.endsAt},rescheduledFromEndsAt:{gt:range.startsAt},OR:[{rescheduledFromRoomId:data.roomId},{rescheduledFromCoachId:data.coachId}]}))},data:{rescheduleShadowHidden:true}});
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
             isTrial:data.isTrial,
             bookingAudience:data.bookingAudience,
+            scheduleType:data.scheduleType,
+            scheduleFrequency:data.scheduleFrequency,
             templateId: template.id,
             nameSnapshot: source?.nameSnapshot ?? template.musicSubject?.name ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
             capacity: data.capacity,
+            enrollmentMode: data.enrollmentMode ?? "OPEN",
+            enrollmentFingerprint,
             requestKey: data.requestKey,
             requestIndex,
             createdById: user.id,
           })),
         });
+        if (data.scheduleType === "FIXED" && (data.scheduleFrequency === "WEEKLY" || data.scheduleFrequency === "BIWEEKLY")) {
+          await tx.courseScheduleSeries.create({
+            data: {
+              storeId,
+              requestKey: data.requestKey,
+              templateId: template.id,
+              nameSnapshot: source?.nameSnapshot ?? template.musicSubject?.name ?? template.name,
+              roomId: room.id,
+              coachId: data.coachId,
+              startsAt: occurrences[0].startsAt,
+              endsAt: occurrences[0].endsAt,
+              pointCost: source?.pointCost ?? template.pointCost,
+              capacity: data.capacity,
+              frequency: data.scheduleFrequency,
+              enrollmentMode: data.enrollmentMode ?? "OPEN",
+              learnerSnapshot: musicScheduling ? data.learners.filter(row=>row.customerId&&!data.isTrial&&row.trialPrice===undefined).map(row=>({customerId:row.customerId,cardId:row.cardId})) : [],
+              untilDate: data.fixedUntil ? new Date(`${data.fixedUntil}T00:00:00.000Z`) : null,
+              generatedThrough: new Date(`${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}T00:00:00.000Z`),
+              createdById: user.id,
+            },
+          });
+        }
+        if(data.learners.length){
+          const created=await tx.courseSession.findMany({where:{storeId,requestKey:data.requestKey,cancelledAt:null},orderBy:{requestIndex:"asc"},select:{id:true}});
+          if(created.length!==occurrences.length)throw new AppError("CONFLICT","排課結果未完整確認，請重試");
+          const {reserveCourseInTransaction}=await import("@/server/services/course-booking");
+          const trialCustomerIds=new Map<string,string>();
+          for(const learner of newTrialLearners){
+            const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
+            const visibility=getManagerCustomerWhere(user.role,user.staffId,storeId);
+            const existing=await tx.$queryRaw<Array<{id:string;assignedStaffId:string|null}>>`SELECT id,"assignedStaffId" FROM "Customer" WHERE "storeId"=${storeId} AND phone=${learner.customerPhone!} AND "mergedIntoCustomerId" IS NULL`;
+            if(existing.length){if(visibility.assignedStaffId&&existing[0].assignedStaffId!==visibility.assignedStaffId)throw new AppError("FORBIDDEN","此手機已有學員，請由有權限人員核對");trialCustomerIds.set(learner.participantKey!,existing[0].id);continue;}
+            if(limits!.maxCustomers!==null){const counts=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "Customer" WHERE "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;if(Number(counts[0].count)>=limits!.maxCustomers)throw new AppError("FORBIDDEN","已達顧客額度上限");}
+            const customerId=`trial:${learner.participantKey}`;
+            await tx.$executeRaw`INSERT INTO "Customer" (id,"storeId",name,phone,"assignedStaffId","updatedAt") VALUES (${customerId},${storeId},${learner.customerName!},${learner.customerPhone!},${typeof visibility.assignedStaffId==="string"?visibility.assignedStaffId:null},NOW())`;
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${storeId},'COURSE','體驗排課新增學員','Customer',${customerId},'CREATE_CUSTOMER',${JSON.stringify({storeId,name:learner.customerName,phone:learner.customerPhone})}::jsonb,NOW())`;
+            trialCustomerIds.set(learner.participantKey!,customerId);
+          }
+          for(const [index,session] of created.entries())for(const learner of data.learners){
+            const deferredRegular=musicScheduling&&!data.isTrial&&learner.trialPrice===undefined;
+            if(index>0&&learner.cardId===null&&!deferredRegular)continue;
+            if(deferredRegular){
+              const {reserveScheduledMusicLearner}=await import("@/server/services/music-schedule-enrollment");
+              await reserveScheduledMusicLearner(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId!,cardId:learner.cardId,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
+              continue;
+            }
+            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId??trialCustomerIds.get(learner.participantKey!)??null,customerName:learner.customerName,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId??learner.participantKey}`},limits!.maxMonthlyBookings);
+          }
+        }
+        if(data.templateId.startsWith("teaching:")){const {captureTeachingTuitionFees}=await import("@/server/services/music-teaching-item");await captureTeachingTuitionFees(tx,storeId,data.requestKey);}
         return { count: occurrences.length };
       },
       { timeout: 15000 },
     );
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
+    kickCoachNotifications(storeId);
+    if(!musicScheduling){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/hq/dashboard/courses");}
     const firstSession = await coursePrisma.courseSession.findFirst({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
       orderBy: { requestIndex: "asc" },
       select: { id: true },
     });
-    return { success: true as const, data: { ...result, sessionId: firstSession?.id ?? null } };
+    const savedSessions = await coursePrisma.courseSession.findMany({
+      where: { storeId, requestKey: data.requestKey, cancelledAt: null },
+      orderBy: { requestIndex: "asc" },
+      include: { bookings: true, template: { select: { musicScheduleMode: true, musicSubject: { select: { name: true } } } } },
+    });
+    const sessions = savedSessions.map(session => ({
+      id: session.id, templateId: session.templateId, nameSnapshot: session.nameSnapshot,
+      startsAt: session.startsAt.toISOString(), endsAt: session.endsAt.toISOString(),
+      coachId: session.coachId, roomId: session.roomId, capacity: session.capacity,
+      pointCost: session.pointCost, isTrial: session.isTrial, requestKey: session.requestKey,
+      scheduleType: session.scheduleType,
+      isBiweekly: session.scheduleFrequency === "BIWEEKLY",
+      isFixed: session.scheduleType === "FIXED" || (session.scheduleType === "LEGACY" && (result.count > 1 || session.template.musicScheduleMode === "FIXED")),
+      bookings: session.bookings.map(booking => ({
+        id: booking.id, customerId: booking.customerId, customerName: booking.customerName,
+        status: booking.status, bookingKind: booking.bookingKind,
+        checkedInAt: booking.checkedInAt?.toISOString() ?? null,
+      })),
+    }));
+    return { success: true as const, data: { ...result, sessionId: firstSession?.id ?? null, sessions } };
   } catch (error) {
     return handleCourseActionError(error);
   }
@@ -573,6 +750,7 @@ export async function moveCourseSessions(input: unknown) {
     const targetStart = parseTaipeiDateTime(d.date, d.time);
     if (!targetStart) throw new AppError("VALIDATION", "請選擇有效時間");
 
+    const musicStore=!!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     const result = await courseTransaction(storeId, async (tx) => {
       const source = await tx.courseSession.findFirst({
         where: { id: d.id, storeId, cancelledAt: null },
@@ -628,6 +806,7 @@ export async function moveCourseSessions(input: unknown) {
         endsAt: new Date(session.startsAt.getTime() + shift + duration),
       }));
       const selectedIds = sessions.map((session) => session.id);
+      const recurringRule = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: source.requestKey } } });
 
       const [room, coaches] = await Promise.all([
         tx.courseRoom.findFirst({ where: { id: d.roomId, storeId, isActive: true } }),
@@ -677,6 +856,14 @@ export async function moveCourseSessions(input: unknown) {
             ? `原時段${conflict.roomId === d.roomId ? "教室" : "老師"}已有課；請先處理占用課程，再恢復原課`
             : `${formatTWDateTime(change.startsAt)} ${conflict.roomId === d.roomId ? "教室" : "老師"}已有課`);
       }
+      const externalRules = await tx.courseScheduleSeries.findMany({
+        where: { storeId, cancelledAt: null, ...(recurringRule ? { id: { not: recurringRule.id } } : {}),
+          startsAt: { lt: changes[changes.length - 1].endsAt },
+          OR: [{ untilDate: null }, { untilDate: { gte: new Date(`${toLocalDateStr(changes[0].startsAt)}T00:00:00.000Z`) } }],
+        },
+      });
+      const recurringConflict = findFixedSeriesConflicts(externalRules, changes, { roomId: d.roomId, coachId: d.coachId })[0];
+      if (recurringConflict) throw new AppError("CONFLICT", `${recurringConflict.date} · ${recurringConflict.reason}`);
 
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
@@ -714,6 +901,7 @@ export async function moveCourseSessions(input: unknown) {
             roomId: d.roomId,
             coachId: d.coachId,
             cancelledAt: null,
+            rescheduleShadowHidden: temporary&&change.session.rescheduledFromStartsAt?change.session.rescheduleShadowHidden:false,
             rescheduledFromStartsAt: temporary
               ? change.session.rescheduledFromStartsAt ?? change.session.startsAt
               : null,
@@ -732,11 +920,36 @@ export async function moveCourseSessions(input: unknown) {
           },
         });
       }
-      return { count: changes.length };
+      if (recurringRule) {
+        if (d.scope === "FUTURE") {
+          await tx.courseScheduleSeries.update({ where: { id: recurringRule.id }, data: {
+            startsAt: changes[0].startsAt,
+            endsAt: new Date(changes[0].startsAt.getTime() + duration),
+            roomId: d.roomId,
+            coachId: d.coachId,
+            generatedThrough: new Date(`${toLocalDateStr(changes[changes.length - 1].startsAt)}T00:00:00.000Z`),
+            generationError: null,
+          } });
+        } else {
+          const excluded = new Set(recurringRule.excludedDates);
+          for (const change of changes) {
+            const sourceDate = toLocalDateStr(change.session.startsAt);
+            const targetDate = toLocalDateStr(change.startsAt);
+            if (restoring) excluded.delete(targetDate);
+            else excluded.add(sourceDate);
+          }
+          await tx.courseScheduleSeries.update({ where: { id: recurringRule.id }, data: { excludedDates: [...excluded] } });
+        }
+      }
+      for(const change of changes){
+        const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
+      }
+      if(source.templateId.startsWith("teaching:")){const {captureTeachingTuitionFees}=await import("@/server/services/music-teaching-item");await captureTeachingTuitionFees(tx,storeId,source.requestKey,selectedIds);}
+      const updated=await tx.courseSession.findMany({where:{storeId,id:{in:selectedIds},cancelledAt:null},include:{bookings:true}});
+      return { count: changes.length, sessions:updated.map(session=>({...session,startsAt:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),rescheduledFromStartsAt:session.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:session.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:session.rescheduledAt?.toISOString()??null,isFixed:session.scheduleType==="FIXED",isBiweekly:session.scheduleFrequency==="BIWEEKLY",bookings:session.bookings.map(booking=>({id:booking.id,customerId:booking.customerId,customerName:booking.customerName,status:booking.status,bookingKind:booking.bookingKind,checkedInAt:booking.checkedInAt?.toISOString()??null}))})) };
     });
 
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
+    kickCoachNotifications(storeId);if(!musicStore){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");}
     revalidatePath("/book");
     return { success: true as const, data: result };
   } catch (error) {
@@ -851,7 +1064,7 @@ export async function previewCourseSchedule(input: unknown) {
             name: c.nameSnapshot,
             startsAt: c.startsAt.toISOString(),
             endsAt: c.endsAt.toISOString(),
-            resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "教練" : ""].filter(Boolean).join("及"),
+            resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "授課人員" : ""].filter(Boolean).join("及"),
           })),
         })),
         capacityWarning:
@@ -890,7 +1103,7 @@ export async function updateCourseSeries(input: unknown) {
         where: { id: d.id, storeId, cancelledAt: null },
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
-      const [room, coaches, sessions] = await Promise.all([
+      const [room, coaches, sessions, seriesRule] = await Promise.all([
         tx.courseRoom.findFirst({
           where: { id: d.roomId, storeId, isActive: true },
         }),
@@ -912,9 +1125,10 @@ export async function updateCourseSeries(input: unknown) {
           },
           orderBy: { startsAt: "asc" },
         }),
+        tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: source.requestKey } } }),
       ]);
       if (!room || !coaches.length)
-        throw new AppError("VALIDATION", "請選擇本店啟用的教室與教練");
+        throw new AppError("VALIDATION", "請選擇本店啟用的教室與授課人員");
       const shift = range.startsAt.getTime() - source.startsAt.getTime();
       const changes = sessions.map((s) => ({
         session: s,
@@ -923,6 +1137,7 @@ export async function updateCourseSeries(input: unknown) {
           s.startsAt.getTime() + shift + d.durationMinutes * 60000,
         ),
       }));
+      if(d.templateId&&d.templateId!==source.templateId){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,d.templateId);}
       for (const change of changes) {
         await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
         for (const booking of change.session.bookings) {
@@ -974,6 +1189,17 @@ export async function updateCourseSeries(input: unknown) {
             `${formatTWDateTime(change.startsAt)} 撞期，整批尚未修改`,
           );
       }
+      if (seriesRule) {
+        const dateStart = new Date(`${toLocalDateStr(changes[0].startsAt)}T00:00:00.000Z`);
+        const otherRules = await tx.courseScheduleSeries.findMany({
+          where: { storeId, id: { not: seriesRule.id }, cancelledAt: null,
+            startsAt: { lt: changes[changes.length - 1].endsAt },
+            OR: [{ untilDate: null }, { untilDate: { gte: dateStart } }],
+          },
+        });
+        const conflict = findFixedSeriesConflicts(otherRules, changes, { roomId: d.roomId, coachId: d.coachId })[0];
+        if (conflict) throw new AppError("CONFLICT", `${conflict.date} · ${conflict.reason}，整批尚未修改`);
+      }
       await assertCourseSessionsFitHours(tx,storeId,changes);
       await assertMusicCourseAvailability(tx,storeId,d.coachId,changes.filter(change=>change.session.coachId!==d.coachId||+change.session.startsAt!==+change.startsAt||+change.session.endsAt!==+change.endsAt));
       await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
@@ -998,6 +1224,23 @@ export async function updateCourseSeries(input: unknown) {
             cancelledAt: null,
           },
         });
+      if (seriesRule) {
+        await tx.courseScheduleSeries.update({
+          where: { id: seriesRule.id },
+          data: {
+            templateId: d.templateId ?? seriesRule.templateId,
+            nameSnapshot: d.nameSnapshot,
+            startsAt: changes[0].startsAt,
+            endsAt: new Date(changes[0].startsAt.getTime() + d.durationMinutes * 60000),
+            roomId: d.roomId,
+            coachId: d.coachId,
+            pointCost: d.pointCost,
+            capacity: d.capacity,
+            generatedThrough: new Date(`${toLocalDateStr(changes[changes.length - 1].startsAt)}T00:00:00.000Z`),
+            generationError: null,
+          },
+        });
+      }
       return changes
         .filter(change => d.capacity > change.session.capacity)
         .map(change => change.session.id);

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError } from "@/lib/errors";
-import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { addTaiwanDuration, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { findFixedSeriesConflicts } from "@/lib/course-series";
 import { rentalInput,rentalOccupation } from "@/lib/course-rental";
 import { courseManager,courseManagerRead,courseTransaction } from "@/server/services/course-access";
 import { handleCourseActionError } from "@/server/services/course-resources";
@@ -39,7 +40,7 @@ export async function createRentalCustomer(input:unknown) {
 }
 export async function saveCourseRental(input:unknown) {
   try {
-    const d=rentalInput.extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
+    const d=rentalInput.extend({calendar:z.boolean().default(false),payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
     if(d.payment){
       if(d.id)throw new AppError("VALIDATION","已建立租借請使用收款或更正功能");
       await courseManager("cashbook.create");
@@ -47,8 +48,43 @@ export async function saveCourseRental(input:unknown) {
     }
     if(d.customerId)await courseManager("customer.read");
     const start=parseTaipeiDateTime(d.date,d.time);if(!start)throw new AppError("VALIDATION","日期不正確");
-    const end=new Date(start.getTime()+d.durationMinutes*60000);
+    if(d.repeatWeeks>1||d.calendar){
+      if(d.id)throw new AppError("VALIDATION","已建立租借請逐堂修改");
+      if(!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}}))throw new AppError("FORBIDDEN","連續租借僅適用音樂模組");
+    }
     const id=await courseTransaction(storeId,async tx=>{
+      if(!d.id){
+        const prior=await tx.courseRental.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
+        if(prior){
+          const children=await tx.courseRental.count({where:{storeId,requestKey:{startsWith:`${d.requestKey}:`}}});
+          if(children+1!==d.repeatWeeks)throw new AppError("CONFLICT","這次租借已送出，安排週數不同，請重新開啟表單");
+        }
+      }
+      const dates=Array.from({length:d.repeatWeeks},(_,index)=>addTaiwanDuration(d.date,index*7,"DAY"));
+      if(dates.length>1){
+        const room=await tx.courseRoom.findFirst({where:{id:d.roomId,storeId,isActive:true,rentalEnabled:true}});
+        if(!room)throw new AppError("VALIDATION","請選擇本店開放租借的空間");
+        const issues:string[]=[];
+        for(const [index,date] of dates.entries()){
+          const key=index?`${d.requestKey}:${index}`:d.requestKey;
+          if(await tx.courseRental.findUnique({where:{storeId_requestKey:{storeId,requestKey:key}}}))continue;
+          const start=parseTaipeiDateTime(date,d.time)!;
+          const end=new Date(start.getTime()+d.durationMinutes*60000);
+          const occupied=rentalOccupation(start,end,room.rentalBufferMinutes);
+          try{
+            await rentalConflict(tx,storeId,room.id,occupied.occupiedStartsAt,occupied.occupiedEndsAt);
+            const rules=await tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,startsAt:{lt:occupied.occupiedEndsAt},OR:[{untilDate:null},{untilDate:{gte:new Date(`${date}T00:00:00Z`)}}]}});
+            if(findFixedSeriesConflicts(rules,[{startsAt:occupied.occupiedStartsAt,endsAt:occupied.occupiedEndsAt}],{roomId:room.id,coachId:""}).length)throw new AppError("CONFLICT","空間已有固定課");
+            await assertCourseSessionsFitHours(tx,storeId,[{startsAt:start,endsAt:end}]);
+          }catch(error){issues.push(`${date} · ${handleCourseActionError(error).error??"空間衝突"}`);}
+        }
+        if(issues.length)throw new AppError("CONFLICT",issues.join("\n"));
+      }
+      const base=d;
+      async function saveDate(date:string,requestKey:string){
+      const d={...base,date,requestKey};
+      const start=parseTaipeiDateTime(date,d.time)!;
+      const end=new Date(start.getTime()+d.durationMinutes*60000);
       const prior=await tx.courseRental.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
       if(!d.id&&prior){
         if(prior.roomId!==d.roomId||prior.startsAt.getTime()!==start.getTime()||prior.endsAt.getTime()!==end.getTime()||prior.amount!==d.amount||prior.customerId!==d.customerId||prior.customerName!==d.customerName||prior.customerPhone!==d.customerPhone||prior.note!==d.note)throw new AppError("CONFLICT","這次租借已送出，請重新開啟表單");
@@ -68,8 +104,12 @@ export async function saveCourseRental(input:unknown) {
       }
       const occupied=rentalOccupation(start,end,room.rentalBufferMinutes);
       await rentalConflict(tx,storeId,room.id,occupied.occupiedStartsAt,occupied.occupiedEndsAt,d.id);
+      const fixedRules=await tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,startsAt:{lt:occupied.occupiedEndsAt},OR:[{untilDate:null},{untilDate:{gte:new Date(`${toLocalDateStr(occupied.occupiedStartsAt)}T00:00:00.000Z`)}}]}});
+      const fixedConflict=findFixedSeriesConflicts(fixedRules,[{startsAt:occupied.occupiedStartsAt,endsAt:occupied.occupiedEndsAt}],{roomId:room.id,coachId:""})[0];
+      if(fixedConflict)throw new AppError("CONFLICT",`${fixedConflict.date} · 空間已有固定課`);
       await assertCourseSessionsFitHours(tx,storeId,[{startsAt:start,endsAt:end}]);
       const fields={roomId:room.id,customerId:d.customerId,customerName:name,customerPhone:phone,startsAt:start,endsAt:end,...occupied,hourlyRateSnapshot:existing && existing.roomId===room.id && existing.startsAt.getTime()===start.getTime() && existing.endsAt.getTime()===end.getTime()?existing.hourlyRateSnapshot:room.rentalHourlyRate,amount:d.amount,note:d.note};
+      if(d.calendar)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{lt:end},rescheduledFromEndsAt:{gt:start},rescheduledFromRoomId:room.id},data:{rescheduleShadowHidden:true}});
       const record=d.id?await tx.courseRental.update({where:{id:d.id,storeId},data:{...fields,revision:{increment:1}}}):await tx.courseRental.create({data:{...fields,storeId,requestKey:d.requestKey,createdById:user.id}});
       await rentalAudit(tx,storeId,user.id,record.id,d.id?"UPDATE_RENTAL":"CREATE_RENTAL",existing,record);
       if(d.payment){
@@ -79,7 +119,16 @@ export async function saveCourseRental(input:unknown) {
         await rentalAudit(tx,storeId,user.id,record.id,"COLLECT_RENTAL_PAYMENT",null,{payment,automaticBankRefund:false});
       }
       return record.id;
-    });refresh();return {success:true as const,id};
+      }
+      const ids:string[]=[];
+      for(const [index,date] of dates.entries())ids.push(await saveDate(date,index?`${base.requestKey}:${index}`:base.requestKey));
+      return ids[0];
+    });
+    if(d.calendar){
+      const saved=await coursePrisma.courseRental.findMany({where:{storeId,cancelledAt:null,OR:[{requestKey:d.requestKey},{requestKey:{startsWith:`${d.requestKey}:`}}]}});
+      return {success:true as const,id,sessions:saved.map(row=>({id:`rental:${row.id}`,rentalId:row.id,templateId:"",nameSnapshot:row.customerName,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),coachId:"",roomId:row.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))};
+    }
+    refresh();return {success:true as const,id};
   }catch(error){return {success:false as const,error:handleCourseActionError(error).error??"操作失敗"};}
 }
 export async function getCourseRental(id:string) {
