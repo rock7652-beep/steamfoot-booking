@@ -1,6 +1,11 @@
 import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
+export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
+const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  SPORTS_SHARED_CARD_PREVIEW_BRANCH,
+  TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
+];
 
 /**
  * Existing mocked Vitest tests import the migration runner and business clients.
@@ -64,7 +69,7 @@ export function assertSportsSharedCardPreviewEnvironment(env) {
   if (env.VERCEL_ENV !== "preview") {
     throw new Error("Sports shared-card branch requires VERCEL_ENV=preview with outbound notifications blocked.");
   }
-  if (env.VERCEL_GIT_COMMIT_REF !== SPORTS_SHARED_CARD_PREVIEW_BRANCH ||
+  if (!AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Sports shared-card checkout requires its exact authorized Preview branch and repository metadata.");

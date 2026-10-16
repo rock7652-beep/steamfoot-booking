@@ -5,6 +5,7 @@ import { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRA
 import {
   assertSportsSharedCardPreviewEnvironment,
   isSportsSharedCardProductionRelease,
+  TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
 } from "./sports-shared-card-preview-scope.mjs";
 
 import {
@@ -298,6 +299,10 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
     assertCourseSelfBookingPreviewEnvironment(env);
     return "course-self-booking-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH) {
+    assertSportsSharedCardPreviewEnvironment(env);
+    return "sports-shared-card-preview";
   }
   assertSportsSharedCardPreviewEnvironment(env);
   return "sports-shared-card-preview";
