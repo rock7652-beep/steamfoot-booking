@@ -54,3 +54,10 @@ it('filters teaching items by type and preserves the calendar location while swi
  expect(select('教學項目（大類）').value).toBe('b');expect(select('上課時間').value).toBe('09:00');expect(select('教室').value).toBe('large');
  expect(host.querySelector('.bg-blue-600')).not.toBeNull();
 });
+
+it('lets the user choose among available teachers without a false no-availability warning',async()=>{
+ m.slots.mockResolvedValue({success:true,data:[{time:'09:00',roomId:'large',coachIds:['teacher','other']}]});
+ await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,initialTime:'09:00',initialRoomId:'large'})));
+ expect(host.textContent).not.toContain('沒有符合資格');
+ await change('老師','other');expect(select('教室').value).toBe('large');
+});
