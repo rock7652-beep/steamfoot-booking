@@ -1,3 +1,4 @@
+import {readMusicTuition} from "@/server/services/music-tuition";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
@@ -61,6 +62,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     getCourseReceiptTotals(storeId, from, to, params.dataScope),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
+  const tuition=await readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id));
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),
@@ -71,7 +73,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
     const card = cards.find((c) => c.id === order.cardId);
-    return { ...order, discountValue: order.discountValue == null ? null : Number(order.discountValue), date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
+    return { ...order, tuitionDue:tuition.get(order.id)?.due, discountValue: order.discountValue == null ? null : Number(order.discountValue), date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
       reserved: held.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       attended: attended.find((b) => b.cardId === order.cardId)?._count ?? 0,
       usedQuota: attended.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
@@ -84,10 +86,10 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     { key: "date", header: "購買日期", accessor: (r) => r.date },
     { key: "customer", header: "顧客", accessor: (r) => <span className="block max-w-32 truncate" title={r.customerName}>{r.customerName}</span> },
     { key: "plan", header: "方案", accessor: (r) => <span className="block max-w-32 truncate" title={r.name}>{r.name}</span> },
-    { key: "amount", header: "原金額", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}</span> },
+    { key: "amount", header: "累計實收", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}{r.tuitionDue!==undefined&&<span className="block text-sm text-earth-600">應收 {money(r.tuitionDue)} · 未收 {money(r.status==="CONFIRMED"?r.tuitionDue-r.price:0)}</span>}</span> },
     { key: "status", header: "狀態", accessor: (r) => <span className="whitespace-nowrap">{labels[r.status] ?? "需核對"}</span> },
     { key: "staff", header: "核帳人員", accessor: (r) => {const name=staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—";return <span className="block max-w-28 truncate whitespace-nowrap" title={name}>{name}</span>;} },
-    { key: "action", header: "處理", noLink: true, accessor: (r) => {const allocation=r.storeCostSnapshot==null?"舊交易待補":r.status==="VOIDED"?"已作廢":(()=>{const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return `店家 NT$ ${a.storeAmount.toLocaleString()}／開發人 NT$ ${a.developerAmount.toLocaleString()}`;})();return <CourseTransactionActions order={r} allocationSummary={allocation} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} />;} },
+    { key: "action", header: "處理", noLink: true, accessor: (r) => {const allocation=r.storeCostSnapshot==null?"舊交易待補":r.status==="VOIDED"?"已作廢":(()=>{const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return `店家 NT$ ${a.storeAmount.toLocaleString()}／開發人 NT$ ${a.developerAmount.toLocaleString()}`;})();return <CourseTransactionActions order={r} allocationSummary={allocation} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid&&r.tuitionDue===undefined} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} />;} },
   ];
   const income = receiptTotals.purchases; const refund = receiptTotals.refunds;
   const field = "mt-1 block h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-0 text-sm leading-none text-earth-800";
@@ -103,7 +105,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
     {legacy&&<p className="text-sm text-earth-600">舊驗收交易僅供查閱，不列入營運收款。</p>}
     <RevenueTabs readOnly={readOnly} />
-    <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receiptTotals.purchaseCount} 筆` }]} />
+    <KpiStrip items={[{ label: "期間收款收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "收款筆數", value: `${receiptTotals.purchaseCount} 筆` }]} />
     <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">收款入帳合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · <strong>淨收款 {money(receiptTotals.net)}</strong></p>
     <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計與日期說明</summary><p>摘要依核帳／退款發生日計算；下表依購買日期篩選。方案淨收入不重複加計現金帳的連動紀錄，也不包含手動收支。所有日期採台灣時間。</p></details>
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">

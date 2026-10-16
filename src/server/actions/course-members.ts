@@ -286,12 +286,12 @@ export async function assignCoursePointCard(input: unknown) {
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
     });
-    // The transaction is committed. Cache invalidation must not delay the
-    // checkout response or turn a successful payment into a reported failure.
-    after(() => {
-      for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
+    // Invalidate before the client refresh; after() can race the first reload.
+    // A committed receipt remains successful even if cache invalidation fails.
+    try {
+      for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer", "/dashboard/courses", "/dashboard/customers"]) revalidatePath(path);
       refresh();
-    });
+    } catch { console.error("[course-checkout] committed; refresh invalidation failed"); }
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);

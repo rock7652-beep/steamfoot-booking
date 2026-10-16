@@ -8,6 +8,7 @@ export type TeacherFeeSeat = {
   bookingKind: string;
   absenceKind: string | null;
   originalUnitPrice: number | null;
+  discountedBasis?: {total:number;lessons:number};
   openingPriceSource?: boolean;
   openingMakeupSource?: boolean;
   musicOpeningMakeupEntitlementId?: string | null;
@@ -49,10 +50,13 @@ export function calculateTeacherFee(input: {
     const freeTrial = s.bookingKind === "TRIAL" && input.trialMode === "FREE";
     const base = freeTrial ? s.verifiedTrialFeeBase ?? input.trialBase ?? null : s.originalUnitPrice;
     // Integer arithmetic at the rounding boundary avoids 0.55-style binary float drift.
-    const amount = base !== null && Number.isSafeInteger(base) && base >= 0
+    const rational=!freeTrial?s.discountedBasis:undefined;
+    const discountedAmount=rational&&Number.isSafeInteger(rational.total)&&rational.total>=0&&Number.isSafeInteger(rational.lessons)&&rational.lessons>0
+      ? Number((BigInt(rational.total)*BigInt(Math.round(rule.value*100))*BigInt(2)+BigInt(rational.lessons)*BigInt(10000))/(BigInt(rational.lessons)*BigInt(20000))):null;
+    const amount = rational?discountedAmount:base !== null && Number.isSafeInteger(base) && base >= 0
       ? Math.floor((base * Math.round(rule.value * 100) + 5000) / 10000) : null;
     return { id: s.id, name: s.customerName, base, amount,
-      reason: base === null ? "原單堂價待核對" : freeTrial ? "免費體驗計酬基數" : s.status === "NO_SHOW" ? "曠課扣堂" : s.absenceKind === "GROUP_LEAVE_FORFEITED" ? "團班請假扣堂" : "原單堂價" };
+      reason: base === null ? "原單堂價待核對" : freeTrial ? "免費體驗計酬基數" : rational ? "折後單堂價" : s.status === "NO_SHOW" ? "曠課扣堂" : s.absenceKind === "GROUP_LEAVE_FORFEITED" ? "團班請假扣堂" : "原單堂價" };
   });
   if (details.some(d => d.amount === null)) return result(null, "學員原單堂價待核對", details);
   const total = details.reduce((sum, d) => sum + d.amount!, 0);

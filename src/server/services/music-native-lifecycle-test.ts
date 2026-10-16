@@ -1,3 +1,5 @@
+import {receiveMusicTuition} from "./music-tuition";
+import {toLocalDateStr} from "@/lib/date-utils";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -24,10 +26,16 @@ export async function testNativeMusicLifecycle(tx:Prisma.TransactionClient,actor
   let sequence=0;
   for(const student of students){
     const key=crypto.randomUUID();
-    const input={planId:plan.id,customerId:student.customerId,expiresDate:"2099-12-31",requestKey:key,expectedListPrice:800,expectedStoreCost:0,revenueStaffId:"",discountKind:"AMOUNT" as const,discountValue:0,paymentMethod:"OTHER" as const,transferLastFour:""};
+    const input={planId:plan.id,customerId:student.customerId,expiresDate:"2099-12-31",requestKey:key,expectedListPrice:800,expectedStoreCost:0,revenueStaffId:"",discountKind:"AMOUNT" as const,discountValue:160,musicReceived:200,musicPaymentDate:toLocalDateStr(),musicDiscountTeacherFee:sequence%2===0,paymentMethod:"OTHER" as const,transferLastFour:""};
     const purchase=await assignCourseWithCheckout(tx,{...actor,music:true},input);
     const replay=await assignCourseWithCheckout(tx,{...actor,music:true},input);
     ensure(purchase.id===replay.id&&purchase.cardId,"購課重送產生重複交易");
+    const receiptInput={purchaseId:purchase.id,amount:440,paymentDate:toLocalDateStr(),method:"OTHER",lastFour:"",requestKey:key+":topup",expectedReceived:200};
+    await receiveMusicTuition(tx,actor,receiptInput);
+    await receiveMusicTuition(tx,actor,receiptInput);
+    const replayAfterPayment=await assignCourseWithCheckout(tx,{...actor,music:true},input);
+    ensure(replayAfterPayment.id===purchase.id,"補繳後購課重送新增課卡");
+    ensure(await tx.coursePointEntry.count({where:{storeId:actor.storeId,cardId:purchase.cardId,kind:"GRANT"}})===1,"補繳重複增加堂數");
     const makeSession=async(offset:number)=>{
       const startsAt=dayRange("2098-01-06").start;
       startsAt.setTime(startsAt.getTime()+(sequence*2+offset)*3600000);
@@ -48,15 +56,15 @@ export async function testNativeMusicLifecycle(tx:Prisma.TransactionClient,actor
     await settleCourseBooking(tx,actor,mb.id,"ATTENDED");
     await settleCourseBooking(tx,actor,mb.id,"ATTENDED");
     const fees=await readTeacherFeeSeats(tx,actor.storeId,[original.id,makeup.id]);
-    ensure(fees.get(original.id)?.[0].absenceKind==="STUDENT_LEAVE"&&fees.get(makeup.id)?.[0].originalUnitPrice===400,"補課鐘點未帶回原購課單價");
+    ensure(fees.get(original.id)?.[0].absenceKind==="STUDENT_LEAVE"&&fees.get(makeup.id)?.[0].originalUnitPrice===(input.musicDiscountTeacherFee?320:400),"補課鐘點未帶回原購課單價");
     await correctCourseAttendance(tx,actor,mb.id,"RESERVED","ATTENDED");
     await settleCourseBooking(tx,actor,mb.id,"CANCELLED");
     await correctCourseAttendance(tx,actor,booking.id,"RESERVED","CANCELLED");
     const restored=await tx.coursePointCard.findUniqueOrThrow({where:{id:card.id}});
     ensure(restored.remaining===2,"更正後堂數未復原");
-    const cash=await tx.$queryRaw<Array<{count:bigint;amount:bigint}>>`SELECT count(*) AS count,sum(amount)::bigint AS amount FROM "CashbookEntry" WHERE "storeId"=${actor.storeId} AND id=${"course-purchase:"+purchase.id}`;
-    ensure(Number(cash[0].count)===1&&Number(cash[0].amount)===800,"購課收款重複或金額不符");
-    checks.push(`${booking.customerName}：購課收款、同項目跨方案預約、出席更正、請假同期限補課及防重複通過`);
+    const cash=await tx.$queryRaw<Array<{count:bigint;amount:bigint}>>`SELECT count(*) AS count,sum(amount)::bigint AS amount FROM "CashbookEntry" WHERE "storeId"=${actor.storeId} AND id IN (SELECT 'music-receipt:'||id FROM "CourseMusicReceipt" WHERE "storeId"=${actor.storeId} AND "purchaseId"=${purchase.id})`;
+    ensure(Number(cash[0].count)===2&&Number(cash[0].amount)===640,"購課收款重複或金額不符");
+    checks.push(`${booking.customerName}：應收 640／首收 200／補繳 440、防重複發卡、同項目跨方案預約、出席更正、請假同期限補課及防重複通過`);
   }
   return checks;
 }

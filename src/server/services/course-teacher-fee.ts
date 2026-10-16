@@ -34,6 +34,11 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
       FROM "CoursePurchase" o WHERE o."storeId"=b."storeId" AND o."cardId"=CASE WHEN ${nativeMakeups} AND c."requestKey" LIKE 'music-leave-makeup:%' AND source.status='CANCELLED' AND source."absenceKind"='STUDENT_LEAVE' AND source."customerId"=b."customerId" THEN source."cardId" ELSE b."cardId" END AND o."confirmedAt" IS NOT NULL
     ) p ON true
     WHERE b."storeId"=${storeId} AND b."sessionId"=ANY(${sessionIds}::text[]) ORDER BY b.id`;
+  const discounted = nativeMakeups ? await tx.$queryRaw<Array<{cardId:string;total:number;lessons:number}>>`
+    SELECT o."cardId",t.due AS total,(o.points-o."musicBonusLessons") AS lessons
+    FROM "CourseMusicTuition" t JOIN "CoursePurchase" o ON o.id=t."purchaseId" AND o."storeId"=t."storeId"
+    WHERE t."storeId"=${storeId} AND t."discountTeacherFee" AND o."cardId"=ANY(${rows.flatMap(r=>[r.cardId,r.sourceCardId].filter((id):id is string=>!!id))}::text[])` : [];
+  const discountedByCard=new Map(discounted.map(r=>[r.cardId,{total:r.total,lessons:r.lessons}]));
   const pilotProof=rows.some(r=>r.cardId?.startsWith("yjy-pilot-")||r.customerId?.startsWith("yjy-lubymusic-student-"))?await readMusicPilotFeeProof(tx,storeId):null;
   for (const row of rows) {
     const openingMakeupSource = isMusicOpeningMakeupBooking(row);
@@ -58,10 +63,12 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     }
     const verified=pilotProof&&opening.kind!=="BLOCKED"&&!(opening.kind==="OPENING"&&lesson.kind==="BLOCKED")?verifiedMusicPilotFeeBasis(pilotProof,row):null;
     if(verified){originalUnitPrice=verified.price;openingIssue=null;}
+    const discountedBasis=!verified&&opening.kind==="NATIVE"&&Number(row.purchaseCount)===1?discountedByCard.get(row.cardRequestKey?.startsWith("music-leave-makeup:")?row.sourceCardId??"":row.cardId??""):undefined;
+    if(discountedBasis&&discountedBasis.lessons>0)originalUnitPrice=discountedBasis.total/discountedBasis.lessons;
     const seats = grouped.get(row.sessionId) ?? [];
     // Keep source snapshots/keys on the server; expose only the existing fee-seat shape.
     seats.push({ id:row.id, customerName:row.customerName, status:row.status, bookingKind:row.bookingKind,
-      absenceKind:row.absenceKind, originalUnitPrice,
+      absenceKind:row.absenceKind, originalUnitPrice, ...(discountedBasis?{discountedBasis}:{}),
       ...(verified&&row.bookingKind==="TRIAL"?{verifiedTrialFeeBase:verified.price}:{}),
       ...(openingMakeupSource ? { openingMakeupSource: true, openingIssue: verified?null:MUSIC_OPENING_MAKEUP_FEE_ISSUE,verifiedOpeningMakeupFee:!!verified?.makeup } : {}),
       ...(!openingMakeupSource && (verified||opening.kind !== "NATIVE" || openingIssue) ? { openingPriceSource:true, openingIssue } : {}) });

@@ -1,18 +1,26 @@
 "use client";
+import {toLocalDateStr} from "@/lib/date-utils";
+import {musicReceiptAmount,musicPaymentDate,musicTuitionPeriods} from "@/lib/music-tuition";
 import { getCourseCheckoutCashStatus } from "@/server/actions/course-checkout-status";
 import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type AssignmentSummary = { paid: number | null; valid: boolean };
-export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
-  profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
+export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
+  musicPeriods?:number[];profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
 }) {
+  const music=!!musicPeriods;
   const [offer,setOffer]=useState<"NONE"|"AMOUNT"|"RATE">("NONE"),[value,setValue]=useState(""),[method,setMethod]=useState(""),[lastFour,setLastFour]=useState("");
+  const [receipt,setReceipt]=useState("");
+  const [paymentDate,setPaymentDate]=useState(toLocalDateStr());
+  const [discountFee,setDiscountFee]=useState(false);
   const kind=offer==="RATE"&&canDiscount?"PERCENT":"AMOUNT";
   const discountValue=!canDiscount||offer==="NONE"?0:offer==="RATE"?Math.round((100-Number(value)*10)*100)/100:Number(value);
   let total:ReturnType<typeof calculateCourseCheckout>|null=null;
   try {if(!canDiscount||offer==="NONE"||(value!==""&&(offer!=="RATE"||Number(value)>0)))total=calculateCourseCheckout(price,kind,discountValue);}catch{}
-  const paid=total?.paid??null;
+  const due=total?.paid??null;
+  let paid=due;
+  if(musicPeriods&&due!==null){try{paid=musicReceiptAmount(due,receipt===""?undefined:Number(receipt));musicPaymentDate(paymentDate);}catch{paid=null;}}
   const [cashStatus,setCashStatus]=useState("LOADING");
   const [cashCheck,setCashCheck]=useState(0);
   const needsCash=method==="CASH"&&paid!==null&&paid>0;
@@ -24,7 +32,7 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
       const request=++sequence;
       setCashStatus("LOADING");
       try {
-        const result=await getCourseCheckoutCashStatus();
+        const result=await getCourseCheckoutCashStatus(music?paymentDate:undefined);
         if(active&&request===sequence)setCashStatus(result.success?result.status??"MISSING":"ERROR");
       } catch {if(active&&request===sequence)setCashStatus("ERROR");}
     }
@@ -33,7 +41,7 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
     window.addEventListener("focus",check);
     document.addEventListener("visibilitychange",visible);
     return ()=>{active=false;window.removeEventListener("focus",check);document.removeEventListener("visibilitychange",visible);};
-  },[needsCash,cashCheck]);
+  },[needsCash,cashCheck,music,paymentDate]);
   const valid=(!needsCash||cashStatus==="OPEN")&&paid!==null&&(!profitEnabled||paid>=storeCost)&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);
   const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
@@ -46,16 +54,26 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
     <dl className="space-y-2 rounded-lg bg-primary-50 p-3" aria-live="polite">
       <div className="flex justify-between gap-3"><dt>原價</dt><dd>NT$ {price.toLocaleString()}</dd></div>
       <div className="flex justify-between gap-3"><dt>折抵</dt><dd>{total?"− NT$ "+total.discount.toLocaleString():"—"}</dd></div>
-      <div className="flex justify-between gap-3 border-t border-primary-200 pt-2 font-semibold"><dt>實收</dt><dd>{paid!==null?"NT$ "+paid.toLocaleString():"—"}</dd></div>
+      <div className="flex justify-between gap-3 border-t border-primary-200 pt-2 font-semibold"><dt>{musicPeriods?"應收合計":"實收"}</dt><dd>{due!==null?"NT$ "+due.toLocaleString():"—"}</dd></div>
     </dl>
+    {musicPeriods&&<>
+      <label className="block">本次實收<input name="musicReceived" className={field} type="number" min="0" max={due??0} step="1" value={receipt} placeholder={String(due??0)} onChange={e=>setReceipt(e.target.value)}/></label>
+      <input type="hidden" name="musicReceivedResolved" value={paid??""}/>
+      <label className="block">付款日期<input name="musicPaymentDate" className={field} type="date" max={toLocalDateStr()} required value={paymentDate} onChange={e=>setPaymentDate(e.target.value)}/></label>
+      <p className="text-sm" aria-live="polite">本次實收 {paid===null?"—":paid.toLocaleString()} 元 · 未收 {paid!==null&&due!==null?(due-paid).toLocaleString():"—"} 元</p>
+      {paid===null&&<p role="alert" className="text-sm text-red-700">請核對實收與付款日期；實收不得超過應收。</p>}
+      <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={discountFee} onChange={e=>setDiscountFee(e.target.checked)}/>依折後學費拆帳</label>
+      <input type="hidden" name="musicDiscountTeacherFee" value={String(discountFee)}/>
+      <details><summary className="min-h-11 cursor-pointer py-2.5">各期金額</summary>{due!==null&&paid!==null&&<div className="overflow-x-auto"><table className="w-full text-right text-sm tabular-nums"><thead><tr>{["期別","堂數","應收","已收","未收"].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{musicTuitionPeriods(musicPeriods,due,paid).map(r=><tr key={r.period} className="border-t border-earth-200"><td className="p-2">{r.period}</td><td className="p-2">{r.lessons}</td><td className="p-2">{r.due.toLocaleString()}</td><td className="p-2">{r.received.toLocaleString()}</td><td className="p-2">{r.outstanding.toLocaleString()}</td></tr>)}</tbody></table></div>}<p className="text-sm text-earth-500">收款依期別順序抵付；共用本次購課期限。</p></details>
+    </>}
     {!total&&<p role="alert" className="text-sm text-red-700">請輸入有效優惠；打折填 0.01–10，折抵金額不得超過售價。</p>}
     {profitEnabled&&paid!==null&&paid<storeCost&&<p role="alert" className="text-sm text-red-700">實收低於店家成本，請核對優惠；尚不能結帳。</p>}
     {showAllocation&&paid!==null&&(!profitEnabled||paid>=storeCost)&&<p className="text-sm text-earth-600">店家成本 NT$ {storeCost.toLocaleString()} · 開發人所得 NT$ {calculateCourseSaleAllocation(paid,storeCost).developerAmount.toLocaleString()}</p>}
-    {paid===0?<><input type="hidden" name="paymentMethod" value="OTHER"/><p className="text-sm text-earth-600">全額折抵：保留購買與方案紀錄，不建立收款收入。</p></>:<>
+    {paid===0?<><input type="hidden" name="paymentMethod" value="OTHER"/><p className="text-sm text-earth-600">{musicPeriods&&due!==0?"本次未收款：建立購課與堂數，之後由繳費紀錄補繳。":"全額折抵：保留購買與方案紀錄，不建立收款收入。"}</p></>:<>
       <label className="block">已收款方式<select name="paymentMethod" className={field} value={method} onChange={e=>{setCashStatus("LOADING");setMethod(e.target.value);}} required><option value="">請選擇已收款方式</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
       {needsCash&&<div role="status" className="text-sm text-earth-600">
-        {cashStatus==="OPEN"?"今日現金抽屜已開啟":cashStatus==="LOADING"?"確認現金抽屜中…":<>
-          <p>{cashStatus==="ERROR"?"無法確認現金抽屜，請重試。":cashStatus==="CLOSED"?"今日現金抽屜已結帳，請先處理。":"請先開啟今日現金抽屜。"}</p>
+        {cashStatus==="OPEN"?"付款日現金抽屜已開啟":cashStatus==="LOADING"?"確認現金抽屜中…":<>
+          <p>{cashStatus==="ERROR"?"無法確認現金抽屜，請重試。":cashStatus==="CLOSED"?"付款日現金抽屜已結帳，請先處理。":"請先開啟付款日現金抽屜。"}</p>
           <div className="flex flex-wrap gap-3"><a className="inline-flex min-h-11 items-center underline" href="/dashboard/cash-drawer" target="_blank" rel="noopener noreferrer">開啟現金抽屜（新分頁）</a><button type="button" className="min-h-11 underline" onClick={()=>setCashCheck(n=>n+1)}>重新確認</button></div>
         </>}
       </div>}

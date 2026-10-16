@@ -1485,6 +1485,9 @@ export function CourseRoster({
                 customerId: purchaseOptions.customerId,
                 expiresDate: "2099-12-31",
                 musicPurchaseTerms:Number(fields.get("musicPurchaseTerms")??1),
+                      musicReceived:fields.get("musicReceivedResolved")!==null?Number(fields.get("musicReceivedResolved")):undefined,
+                      musicPaymentDate:fields.get("musicPaymentDate")?String(fields.get("musicPaymentDate")):undefined,
+                      musicDiscountTeacherFee:fields.get("musicDiscountTeacherFee")!==null?fields.get("musicDiscountTeacherFee")==="true":undefined,
                       musicValidityDays:fields.get("musicValidityDays")?Number(fields.get("musicValidityDays")):undefined,
                       musicManualBonus:Number(fields.get("musicManualBonus")??0),
                 musicJoinSessionId:String(fields.get("musicJoinSessionId")??"")||undefined,
@@ -1509,7 +1512,7 @@ export function CourseRoster({
               {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
-          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}
+          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認購課與本次收款"}</button></div> : null}
         </div>
       </div>}
       {payBooking && paymentSettings && !correctPayment && (

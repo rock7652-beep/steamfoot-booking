@@ -46,6 +46,6 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary}:{plan:MusicP
       <label className="block">本次共用有效天數<input className={field} type="number" min="1" max="3650" placeholder={String(quote?.validDays??plan.validDays)} value={validity} onChange={e=>setValidity(e.target.value)}/><span className="text-sm text-earth-500">目前套用 {quote?.validDays??plan.validDays} 天，從首次扣堂起算。</span></label>
     </div>
   </details>
-  <div hidden={!valid}><CourseAssignmentPayment price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
+  <div hidden={!valid}><CourseAssignmentPayment musicPeriods={quote?.musicTermSizes} price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
  </div>;
 }

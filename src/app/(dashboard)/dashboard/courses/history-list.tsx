@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { RosterTable } from "@/components/admin/roster-primitives";
-export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,mode,columns}: {
-  customerId:string;label:string;empty:string;mode?:string;
+export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,mode,columns,revision=0}: {
+  revision?:number;customerId:string;label:string;empty:string;mode?:string;
   load:(id:string,offset:number,range:{from:string;to:string;mode?:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
   render:(row:T)=>ReactNode;
   columns?:string[];
@@ -11,7 +11,7 @@ export function CourseHistoryList<T extends {id:string}>({customerId,label,load,
   const [page,setPage]=useState(0);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;rows:T[];hasMore:boolean;error?:string}|null>(null);
-  const key=JSON.stringify([customerId,range,page,retry,mode]);
+  const key=JSON.stringify([customerId,range,page,retry,mode,revision]);
   const invalid=!!range.from && !!range.to && range.from>range.to;
   useEffect(()=>{
     if(invalid)return;

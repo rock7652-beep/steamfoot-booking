@@ -26,6 +26,8 @@ async function baseline(tx:Prisma.TransactionClient,storeId:string){
     'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY s.id) FROM "CourseSession" s WHERE s."storeId"=${storeId}),
     'bookings',(SELECT jsonb_agg(to_jsonb(b) ORDER BY b.id) FROM "CourseBooking" b WHERE b."storeId"=${storeId}),
     'cards',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM "CoursePointCard" c WHERE c."storeId"=${storeId}),
+    'tuition',(SELECT jsonb_agg(to_jsonb(t) ORDER BY t."purchaseId") FROM "CourseMusicTuition" t WHERE t."storeId"=${storeId}),
+    'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM "CourseMusicReceipt" r WHERE r."storeId"=${storeId}),
     'purchases',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM "CoursePurchase" p WHERE p."storeId"=${storeId}),
     'points',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM "CoursePointEntry" p WHERE p."storeId"=${storeId}),
     'snapshots',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c."sessionId") FROM "CourseCompensationSnapshot" c WHERE c."storeId"=${storeId}),

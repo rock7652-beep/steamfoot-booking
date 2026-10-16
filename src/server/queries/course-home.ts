@@ -1,3 +1,6 @@
+import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
+import {coursePrisma} from "@/lib/course-db";
+import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
 import { musicReceiptScopeSql } from "@/server/services/music-finance-scope";
 import { musicDataScope, LEGACY_MUSIC_SESSION_IDS, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
@@ -37,6 +40,7 @@ export async function getCourseReceiptTotals(storeId: string, from: string, to: 
       (SELECT COALESCE(sum(amount),0)::float8 FROM "CourseTrialPayment" WHERE "storeId"=${storeId} AND "createdAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"trial",dataScope)}) trial,
       (SELECT COALESCE(sum(amount),0)::float8 FROM "CoursePurchaseRefund" WHERE "storeId"=${storeId} AND "createdAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"refund",dataScope)}) refunds,
       (SELECT COALESCE(sum(amount),0)::float8 FROM "CourseTrialPayment" WHERE "storeId"=${storeId} AND "voidedAt" BETWEEN ${start} AND ${end} ${musicReceiptScopeSql(storeId,"trial",dataScope)}) voids`);
+  if(musicDataSeparationEnabled(storeId)){const flows=await coursePrisma.$transaction(tx=>coursePurchaseCashflow(tx,storeId,{gte:start,lte:end},dataScope));row.purchases=flows.reduce((n,r)=>n+r.price,0);row.purchaseCount=flows.length;}
   return { ...row, gross: row.purchases + row.trial, net: row.purchases + row.trial - row.refunds - row.voids };
 }
 

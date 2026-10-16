@@ -1,3 +1,4 @@
+import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
 import { musicCustomerWhere, musicSessionWhere } from "@/server/services/music-data-scope";
 import { musicBookingCustomerWhere } from "@/server/services/music-analysis-scope";
 import { musicPurchaseWhere, musicTrialBookingWhere } from "@/server/services/music-finance-scope";
@@ -29,8 +30,9 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
         access.money ? tx.courseTrialPayment.findMany({where:{storeId,booking:musicTrialBookingWhere(storeId,dataScope),OR:[{createdAt:{gte:moneyStart,lte:end}},{voidedAt:{gte:moneyStart,lte:end}}]},select:{amount:true,createdAt:true,voidedAt:true,booking:{select:{customerId:true}}}}) : [],
         access.money ? tx.coursePurchaseRefund.findMany({where:{storeId,purchase:musicPurchaseWhere(storeId,dataScope),createdAt:{gte:moneyStart,lte:end}},select:{amount:true,createdAt:true,purchase:{select:{revenueStaffId:true}}}}) : [],
       ]);
+      const cashflow=access.money?await coursePurchaseCashflow(tx,storeId,{gte:moneyStart,lte:end},dataScope):[];
       const seats=access.fees?await readTeacherFeeSeats(tx,storeId,sessions.map(s=>s.id)):new Map();
-      return {sessions,purchases,fees:fees.map(f=>({...f,calculatedAmount:capturedTeacherFee({...f,teacherAttendance:sessions.find(s=>s.id===f.sessionId)?.teacherAttendance},seats.get(f.sessionId)??[]).amount})),receipts,refunds};
+      return {sessions,purchases,cashflow,fees:fees.map(f=>({...f,calculatedAmount:capturedTeacherFee({...f,teacherAttendance:sessions.find(s=>s.id===f.sessionId)?.teacherAttendance},seats.get(f.sessionId)??[]).amount})),receipts,refunds};
     },{isolationLevel:"RepeatableRead",timeout:20000}),
     prisma.store.findUniqueOrThrow({where:{id:storeId},select:{createdAt:true}}),
   ]);
@@ -46,13 +48,13 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
   const start=dayRange(range.startDate).start;
   const matches=(id:string|null)=>scope.view==="store" || scope.person==="all" || (id??"unassigned")===scope.person;
   const customerMap=new Map(customers.map(c=>[c.id,c.assignedStaffId]));
-  const salesIncome=records.purchases.filter(p=>p.confirmedAt && p.confirmedAt>=start && matches(p.revenueStaffId)).reduce((n,p)=>n+p.price,0);
+  const salesIncome=records.cashflow.filter(p=>p.confirmedAt && p.confirmedAt>=start && matches(p.revenueStaffId)).reduce((n,p)=>n+p.price,0);
   const refund=records.refunds.filter(r=>r.createdAt>=start&&matches(r.purchase.revenueStaffId)).reduce((n,r)=>n+r.amount,0);
   const trialIncome=records.receipts.filter(r=>matches(customerMap.get(r.booking.customerId ?? "")??null)).reduce((n,r)=>n+(r.createdAt>=start&&r.createdAt<=end?r.amount:0)-(r.voidedAt&&r.voidedAt>=start&&r.voidedAt<=end?r.amount:0),0);
   const dailyMoney=new Map<string,number>();
   const addMoney=(date:Date,amount:number)=>{const key=toLocalDateStr(date);dailyMoney.set(key,(dailyMoney.get(key)??0)+amount);};
   if(access.money&&scope.view!=="coach") {
-    for(const p of records.purchases)if(p.confirmedAt&&p.confirmedAt>=moneyStart&&matches(p.revenueStaffId))addMoney(p.confirmedAt,p.price);
+    for(const p of records.cashflow)if(p.confirmedAt&&p.confirmedAt>=moneyStart&&matches(p.revenueStaffId))addMoney(p.confirmedAt,p.price);
     for(const r of records.refunds)if(matches(r.purchase.revenueStaffId))addMoney(r.createdAt,-r.amount);
     for(const r of records.receipts)if(matches(customerMap.get(r.booking.customerId ?? "")??null)){if(r.createdAt>=moneyStart&&r.createdAt<=end)addMoney(r.createdAt,r.amount);if(r.voidedAt&&r.voidedAt>=moneyStart&&r.voidedAt<=end)addMoney(r.voidedAt,-r.amount);}
   }
