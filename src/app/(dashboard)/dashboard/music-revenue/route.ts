@@ -1,0 +1,36 @@
+import {z} from "zod";
+import {courseManagerRead} from "@/server/services/course-access";
+import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
+import {getCourseReceiptTotals} from "@/server/queries/course-home";
+import {getMusicRevenueTransactions} from "@/server/queries/music-revenue-transactions";
+
+export const dynamic="force-dynamic";
+const inputSchema=z.object({
+ from:z.string().date(),to:z.string().date(),dataScope:z.enum(["operational","legacy"]).optional(),
+ status:z.enum(["PENDING","CONFIRMED","REFUNDED","VOIDED"]).optional(),staff:z.string().max(100).optional(),
+ page:z.string().regex(/^\d{1,6}$/).optional(),
+});
+export async function GET(request:Request){
+ const start=performance.now();
+ let authMs=0,totalsMs=0,transactionsMs=0;
+ const reply=(value:Record<string,unknown>,status=200)=>{
+  const timing={authMs,totalsMs,transactionsMs,totalMs:Math.round(performance.now()-start)};
+  console.info("[music-revenue-read]",{status,...timing});
+  return Response.json({...value,timing},{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`auth;dur=${authMs}, totals;dur=${totalsMs}, transactions;dur=${transactionsMs}, revenue;dur=${timing.totalMs}`}});
+ };
+ try{
+  const raw=new URL(request.url).searchParams.get("args")??"[]";
+  if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
+  const args=z.tuple([inputSchema]).parse(JSON.parse(raw)),input=args[0];
+  if(input.from>input.to)return reply({success:false,error:"日期區間無效"},400);
+  const {storeId}=await courseManagerRead("transaction.read");
+  authMs=Math.round(performance.now()-start);
+  if(!musicDataSeparationEnabled(storeId))return reply({success:false,error:"僅供音樂測試站"},403);
+  const queriesStart=performance.now();
+  const [totals,transactions]=await Promise.all([
+   getCourseReceiptTotals(storeId,input.from,input.to,input.dataScope).then(value=>{totalsMs=Math.round(performance.now()-queriesStart);return value;}),
+   getMusicRevenueTransactions(storeId,input).then(value=>{transactionsMs=Math.round(performance.now()-queriesStart);return value;}),
+  ]);
+  return reply({success:true,data:{totals,transactions}});
+ }catch{return reply({success:false,error:"營收讀取未完成，請重試"},400);}
+}

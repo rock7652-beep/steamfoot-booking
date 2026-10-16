@@ -1,4 +1,5 @@
 "use client";
+import {useMusicRevenueLive} from "@/components/admin/music-revenue-live";
 import {useEffect,useRef,useState} from "react";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
@@ -13,12 +14,14 @@ const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 export function CourseRevenueTransactions({initial,input,staffRows,basePath,live,canRefund,canConfirm,canEdit,canVoid}:{
  initial:RevenueTransactions;input:RevenueTransactionsInput;staffRows:{id:string;userId:string|null;displayName:string;status:string}[];basePath:string;live:boolean;canRefund:boolean;canConfirm:boolean;canEdit:boolean;canVoid:boolean;
 }){
+ const coordinated=useMusicRevenueLive();
+ const hasCoordinator=!!coordinated;
  const [current,setCurrent]=useState<RevenueTransactions|null>(null),[sync,setSync]=useState("");
  const reader=usePanelReader("revenue-transactions",unavailable,"",0);
  const sequence=useRef(0);
  const {from,to,status,staff,page:requestedPage,dataScope}=input;
  useEffect(()=>{
-  if(!live)return;
+  if(!live||hasCoordinator)return;
   let active=true;
   const dispose=subscribeMusicFinanceChange(()=>{
    const version=++sequence.current;
@@ -31,8 +34,8 @@ export function CourseRevenueTransactions({initial,input,staffRows,basePath,live
    }).catch(()=>{if(active&&version===sequence.current)setSync("交易明細更新失敗，請重新整理後核對。");});
   });
   return()=>{active=false;++sequence.current;dispose();};
- },[live,from,to,status,staff,requestedPage,dataScope,reader]);
- const {rows,count,pages,page}=current??initial;
+ },[live,from,to,status,staff,requestedPage,dataScope,reader,hasCoordinator]);
+ const {rows,count,pages,page}=coordinated?.data.transactions??current??initial;
  const scopeQuery:Record<string,string>=dataScope==="legacy"?{dataScope:"legacy"}:{};
  const labels:Record<string,string>={PENDING:"待核帳",CONFIRMED:"已核帳並發卡",REFUNDED:"已登錄退款",VOIDED:"已作廢"};
   const columns: Column<(typeof rows)[number]>[] = [

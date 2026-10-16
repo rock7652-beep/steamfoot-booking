@@ -1,3 +1,4 @@
+import {MusicRevenueLive} from "@/components/admin/music-revenue-live";
 import {getMusicRevenueTransactions} from "@/server/queries/music-revenue-transactions";
 import {CourseRevenueTransactions} from "./course-revenue-transactions";
 import {MusicRevenueMetrics} from "@/components/admin/music-revenue-metrics";
@@ -68,7 +69,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const periodHref = (dateFrom: string, dateTo: string) => `${basePath}?${new URLSearchParams({...scopeQuery,dateFrom,dateTo,status:status??"",staff:staff??""})}`;
   const isToday = from === today && to === today;
   const isMonth = from === today.slice(0, 7) + "-01" && to === today;
-  return <PageShell compact>
+  return <MusicRevenueLive key={JSON.stringify([storeId,from,to,status,staff,params.page,params.dataScope])} initial={{totals:receiptTotals,transactions:detail}} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope}} enabled={musicDataSeparationEnabled(storeId)}><PageShell compact>
     <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:"PENDING",staff:staff??""})}`}>查看期間待核帳</Link>} />
     {musicDataSeparationEnabled(storeId)&&<MusicRevenueSync targetedTransactions/>}
       <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
@@ -95,5 +96,5 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具" subtitle="依工作目的快速前往"><div className="divide-y divide-earth-100 text-sm"><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">日常處理</p><Link className="block" href={`/dashboard/transactions?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""})}`}>交易明細與處理 →</Link><Link className="block" href={`/dashboard/courses?${new URLSearchParams({view:"plans",...scopeQuery})}`}>方案與待核帳訂單 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">帳務管理</p><Link className="block" href="/dashboard/cashbook">現金帳 →</Link><FeatureEntry feature={FEATURES.SERVICE_FEE_CALCULATOR} label="月結管理"><Link className="block" href={`/dashboard/service-fee-calculator?${new URLSearchParams(scopeQuery)}`}>月結管理 →</Link></FeatureEntry><Link className="block" href="/dashboard/reconciliation">對帳中心 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">報表</p><Link className="block" href={`/dashboard/store-revenue?${new URLSearchParams(scopeQuery)}`}>收入總覽與匯出 →</Link>{canDataExport && !readOnly && <Link className="block" href="/dashboard/data-export">資料匯出 →</Link>}</div></div></SideCard><SideCard title="退款"><details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看協商退款規則</summary><p className="text-sm">具退款權限的店長可登錄協商金額、方式及原因；累計不超過實付，有預約占用時先處理。確認後收回剩餘額度並停用卡片，保留原單及歷史。此操作不會自動匯款或退刷。</p></details></SideCard></aside></div>
     <Suspense fallback={<p role="status">讀取授課費…</p>}><CourseFees dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly}/></Suspense>
     <Suspense fallback={<p role="status">讀取體驗交易…</p>}><CourseTrialTransactions dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/></Suspense>
-  </PageShell>;
+  </PageShell></MusicRevenueLive>;
 }
