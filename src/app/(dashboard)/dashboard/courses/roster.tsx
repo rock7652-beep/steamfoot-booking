@@ -1,4 +1,5 @@
 "use client";
+import {musicPanelRead} from "@/lib/music-panel-transport";
 import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -258,7 +259,7 @@ export function CourseRoster({
   async function load() {
 
     const version = ++readVersion.current;
-    const result = await loadCourseRosterQuick(sessionId);
+    const result = await musicPanelRead("roster-quick",[sessionId],()=>loadCourseRosterQuick(sessionId));
     if (version !== readVersion.current || currentSession.current !== sessionId) return;
 
     if (result.success) {
@@ -278,7 +279,7 @@ export function CourseRoster({
     const refresh = () => {
       if (mutationLock.current || quickInFlight.current.size > 0) return Promise.resolve();
       const version = ++readVersion.current;
-      return loadCourseSessionDetail(sessionId, view === "roster")
+      return musicPanelRead("session-detail",[sessionId,view === "roster"],()=>loadCourseSessionDetail(sessionId, view === "roster"))
 
         .then((result) => {
           if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
@@ -403,7 +404,7 @@ export function CourseRoster({
           setMessage(result.error ?? "操作失敗");
           if (!bookingId) {
             await load();
-            router.refresh();
+            if(!isMusicPreviewPage())router.refresh();
           }
           return;
         }
@@ -414,10 +415,10 @@ export function CourseRoster({
           setRequestKey(crypto.randomUUID());
           if (view !== "roster" && onDone) {
             onDone();
-            router.refresh();
+            if(!isMusicPreviewPage())router.refresh();
           } else {
             await load();
-            router.refresh();
+            if(!isMusicPreviewPage())router.refresh();
           }
         }
       } catch {
@@ -1518,7 +1519,7 @@ export function CourseRoster({
                 setPurchaseOptions(null);
                 setMessage(`${purchaseOptions.customerName} 的購買及收款已登記`);
                 await load();
-                router.refresh();
+                if(!isMusicPreviewPage())router.refresh();
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
@@ -1546,7 +1547,7 @@ export function CourseRoster({
             publishMusicFinanceChange();
             setPaymentBooking(null);
             void load();
-            router.refresh();
+            if(!isMusicPreviewPage())router.refresh();
           }}
         />
       )}
@@ -1576,7 +1577,7 @@ export function CourseRoster({
             publishMusicFinanceChange();
             setPaymentBooking(null);
             void load();
-            router.refresh();
+            if(!isMusicPreviewPage())router.refresh();
           }}
         />
       )}

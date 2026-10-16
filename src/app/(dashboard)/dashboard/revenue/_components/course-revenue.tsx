@@ -1,3 +1,4 @@
+import {Suspense} from "react";
 import { MusicRevenueSync } from "@/components/admin/music-revenue-sync";
 import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
@@ -56,21 +57,23 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const status = ["PENDING", "CONFIRMED", "REFUNDED", "VOIDED"].includes(params.status ?? "") ? params.status : undefined;
   const staff = params.staff?.slice(0, 100) || undefined;
   const where: Prisma.CoursePurchaseWhereInput = { storeId, ...musicPurchaseWhere(storeId,params.dataScope), createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
-  const count = await coursePrisma.coursePurchase.count({ where });
-  const pages = Math.max(1, Math.ceil(count / 30));
-  const page = Math.min(pages, Math.max(1, Math.floor(Number(params.page) || 1)));
-  const [orders, receiptTotals, staffRows] = await Promise.all([
-    coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 }),
+  const [count,receiptTotals,staffRows] = await Promise.all([
+    coursePrisma.coursePurchase.count({ where }),
     getCourseReceiptTotals(storeId, from, to, params.dataScope),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
-  const [tuition,receipts]=await Promise.all([readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id))]);
+  const pages = Math.max(1, Math.ceil(count / 30));
+  const page = Math.min(pages, Math.max(1, Math.floor(Number(params.page) || 1)));
+  const orders = await coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 });
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
-  const [customers, cards, held, attended] = await Promise.all([
+  const [customers, cards, held, attended,tuition,receipts] = await Promise.all([
+    /* independent order details are fetched together */
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),
     coursePrisma.coursePointCard.findMany({ where: { storeId, id: { in: cardIds } } }),
     coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "RESERVED" }, _sum: { pointCost: true } }),
     coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "ATTENDED" }, _count: true, _sum: { pointCost: true } }),
+    readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),
+    readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id)),
   ]);
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
@@ -125,7 +128,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
     </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具" subtitle="依工作目的快速前往"><div className="divide-y divide-earth-100 text-sm"><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">日常處理</p><Link className="block" href={`/dashboard/transactions?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""})}`}>交易明細與處理 →</Link><Link className="block" href={`/dashboard/courses?${new URLSearchParams({view:"plans",...scopeQuery})}`}>方案與待核帳訂單 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">帳務管理</p><Link className="block" href="/dashboard/cashbook">現金帳 →</Link><FeatureEntry feature={FEATURES.SERVICE_FEE_CALCULATOR} label="月結管理"><Link className="block" href={`/dashboard/service-fee-calculator?${new URLSearchParams(scopeQuery)}`}>月結管理 →</Link></FeatureEntry><Link className="block" href="/dashboard/reconciliation">對帳中心 →</Link></div><div className="space-y-2 py-2"><p className="text-[11px] font-medium text-earth-400">報表</p><Link className="block" href={`/dashboard/store-revenue?${new URLSearchParams(scopeQuery)}`}>收入總覽與匯出 →</Link>{canDataExport && !readOnly && <Link className="block" href="/dashboard/data-export">資料匯出 →</Link>}</div></div></SideCard><SideCard title="退款"><details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看協商退款規則</summary><p className="text-sm">具退款權限的店長可登錄協商金額、方式及原因；累計不超過實付，有預約占用時先處理。確認後收回剩餘額度並停用卡片，保留原單及歷史。此操作不會自動匯款或退刷。</p></details></SideCard></aside></div>
-    <CourseFees dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly}/>
-    <CourseTrialTransactions dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
+    <Suspense fallback={<p role="status">讀取授課費…</p>}><CourseFees dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly}/></Suspense>
+    <Suspense fallback={<p role="status">讀取體驗交易…</p>}><CourseTrialTransactions dataScope={params.dataScope} storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/></Suspense>
   </PageShell>;
 }
