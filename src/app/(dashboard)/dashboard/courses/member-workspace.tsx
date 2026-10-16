@@ -205,6 +205,7 @@ export function CourseMemberWorkspace({
     event.preventDefault();
     if (pending) return;
     const data = new FormData(event.currentTarget);
+    setError("");
     start(async () => {
       try {
         const result = await action(data);
