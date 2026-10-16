@@ -62,7 +62,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
       <label className="block">付款日期<input name="musicPaymentDate" className={field} type="date" max={toLocalDateStr()} required value={paymentDate} onChange={e=>setPaymentDate(e.target.value)}/></label>
       <p className="text-sm" aria-live="polite">本次實收 {paid===null?"—":paid.toLocaleString()} 元 · 未收 {paid!==null&&due!==null?(due-paid).toLocaleString():"—"} 元</p>
       {paid===null&&<p role="alert" className="text-sm text-red-700">請核對實收與付款日期；實收不得超過應收。</p>}
-      <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={discountFee} onChange={e=>setDiscountFee(e.target.checked)}/>依折後學費拆帳</label>
+      {canDiscount&&<label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={discountFee} onChange={e=>setDiscountFee(e.target.checked)}/>依折後學費拆帳</label>}
       <input type="hidden" name="musicDiscountTeacherFee" value={String(discountFee)}/>
       <details><summary className="min-h-11 cursor-pointer py-2.5">各期金額</summary>{due!==null&&paid!==null&&<div className="overflow-x-auto"><table className="w-full text-right text-sm tabular-nums"><thead><tr>{["期別","堂數","應收","已收","未收"].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{musicTuitionPeriods(musicPeriods,due,paid).map(r=><tr key={r.period} className="border-t border-earth-200"><td className="p-2">{r.period}</td><td className="p-2">{r.lessons}</td><td className="p-2">{r.due.toLocaleString()}</td><td className="p-2">{r.received.toLocaleString()}</td><td className="p-2">{r.outstanding.toLocaleString()}</td></tr>)}</tbody></table></div>}<p className="text-sm text-earth-500">收款依期別順序抵付；共用本次購課期限。</p></details>
     </>}

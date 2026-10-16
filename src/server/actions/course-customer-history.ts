@@ -31,11 +31,11 @@ export async function loadCourseCustomerPurchases(input: unknown, offset = 0, ra
       },
     });
     const [tuition,receipts]=await Promise.all([readMusicTuition(coursePrisma,storeId,orders.map(o=>o.id)),readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id))]);
-    const canReadBookings=await checkPermission(user.role,user.staffId,"booking.read");
-    const canReceive=await checkPermission(user.role,user.staffId,"transaction.create");
+    const canReadBookings=tuition.size>0&&await checkPermission(user.role,user.staffId,"booking.read");
+    const canReceive=tuition.size>0&&await checkPermission(user.role,user.staffId,"transaction.create");
     const ledgerCardIds=orders.filter(o=>tuition.has(o.id)).flatMap(o=>o.cardId?[o.cardId]:[]);
     const [cards,lessons]=await Promise.all([
-      coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:ledgerCardIds}},select:{id:true,expiresAt:true,musicActivatedAt:true,musicValidityDays:true}}),
+      ledgerCardIds.length?coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:ledgerCardIds}},select:{id:true,expiresAt:true,musicActivatedAt:true,musicValidityDays:true}}):[],
       canReadBookings?coursePrisma.courseBooking.findMany({where:{storeId,customerId,cardId:{in:ledgerCardIds},OR:[{status:{not:"CANCELLED"}},{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]},select:{id:true,cardId:true,status:true,absenceKind:true,session:{select:{startsAt:true,nameSnapshot:true,coachId:true}}},orderBy:[{session:{startsAt:"asc"}},{id:"asc"}]}):[],
     ]);
     const teachers=lessons.length?await prisma.staff.findMany({where:{storeId,id:{in:[...new Set(lessons.map(l=>l.session.coachId))]}},select:{id:true,displayName:true}}):[];

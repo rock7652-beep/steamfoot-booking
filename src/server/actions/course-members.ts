@@ -278,7 +278,7 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
-    if (checkout.discountValue > 0 || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
+    if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
       const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
