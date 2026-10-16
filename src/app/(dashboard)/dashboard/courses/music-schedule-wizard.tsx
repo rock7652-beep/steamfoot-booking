@@ -141,7 +141,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   }
   const type=isTrial?"trial":scheduleKind==="FIXED"?"fixed":"single";
   const accent=isTrial?"border-orange-500 bg-orange-50":repeat?frequency==="BIWEEKLY"?"border-violet-500 bg-violet-50":"border-blue-500 bg-blue-50":"border-emerald-500 bg-emerald-50";
-  return <fieldset data-course-entry disabled={pending} className="flex h-full min-h-0 min-w-0 flex-col text-sm">
+  return <div data-course-entry aria-busy={pending} inert={pending} className="flex h-full min-h-0 min-w-0 flex-col text-sm">
     <div ref={scrollArea} className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-3">
       <section aria-label="時間與教室" className="grid min-w-0 grid-cols-2 gap-3 [&>label]:min-w-0">
         <label>日期<input aria-label="排課日期" type="date" value={date} className={field} onChange={e=>setDate(e.target.value)}/></label>
@@ -176,5 +176,5 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
       {saveReason&&<p role="status" className="mb-2 text-earth-600">下一步：{saveReason}</p>}
       <div className="flex justify-end gap-2">{onCancel&&<button type="button" className="min-h-11 rounded-lg border px-4" disabled={enrollmentPending} onClick={onCancel}>取消</button>}<button type="button" disabled={pending||enrollmentPending||checkPending||!!checkError||!!saveReason||conflicts.length>0} onClick={create} className={`min-h-11 rounded-lg px-6 font-medium text-white disabled:opacity-50 ${isTrial?"bg-orange-600":repeat?frequency==="BIWEEKLY"?"bg-violet-700":"bg-blue-700":"bg-emerald-700"}`}>{pending?"新增中…":"新增"}</button></div>
     </footer>
-  </fieldset>;
+  </div>;
 }
