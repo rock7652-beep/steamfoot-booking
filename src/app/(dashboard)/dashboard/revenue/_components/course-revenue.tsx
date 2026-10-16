@@ -1,3 +1,4 @@
+import { MusicRevenueSync } from "@/components/admin/music-revenue-sync";
 import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
@@ -45,6 +46,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       { key:"amount",header:"金額",accessor:r=>money(r.netAmount) },
     ];
     return <PageShell compact><PageHeader compact title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
+      {musicDataSeparationEnabled(storeId)&&<MusicRevenueSync/>}
       <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
       <p className="mb-3 text-sm">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 沖銷 {money(totals.voids)} · 淨收款 {money(totals.net)}</p>
       <DataTable columns={detailColumns} rows={detailRows} rowKey={r=>r.id}/>
@@ -102,7 +104,8 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const isMonth = from === today.slice(0, 7) + "-01" && to === today;
   return <PageShell compact>
     <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:"PENDING",staff:staff??""})}`}>查看期間待核帳</Link>} />
-    <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+    {musicDataSeparationEnabled(storeId)&&<MusicRevenueSync/>}
+      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
     {legacy&&<p className="text-sm text-earth-600">舊驗收交易僅供查閱，不列入營運收款。</p>}
     <RevenueTabs readOnly={readOnly} />
     <KpiStrip items={[{ label: "期間收款收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "收款筆數", value: `${receiptTotals.purchaseCount} 筆` }]} />

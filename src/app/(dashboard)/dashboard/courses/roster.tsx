@@ -1,4 +1,5 @@
 "use client";
+import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { SportsRosterReminders } from "./sports-roster-reminders";
@@ -508,7 +509,7 @@ export function CourseRoster({
       setPurchasePlanId(result.data.plans[0]?.id ?? "");
       setPurchaseKey(crypto.randomUUID());
       setPurchaseSummary({paid:null,valid:false});
-    } else setPurchaseError(result.error);
+    } else setPurchaseError(result.error??"購課未完成");
   }
 
   const actionBooking = roster.find((booking) => booking.id === openActionMenu?.bookingId);
@@ -1480,7 +1481,7 @@ export function CourseRoster({
               const fields = new FormData(event.currentTarget);
               setPurchasePending(true);
               setPurchaseError("");
-              void assignCoursePointCard({
+              void musicCheckoutTransport("purchase", {
                 planId: purchasePlanId,
                 customerId: purchaseOptions.customerId,
                 expiresDate: "2099-12-31",
@@ -1499,8 +1500,8 @@ export function CourseRoster({
                 paymentMethod: fields.get("paymentMethod"),
                 transferLastFour: String(fields.get("transferLastFour") ?? ""),
                 requestKey: purchaseKey,
-              }).then(async (result) => {
-                if (!result.success) { setPurchaseError(result.error); return; }
+              }, assignCoursePointCard).then(async (result) => {
+                if (!result.success) { setPurchaseError(result.error??"購課未完成"); return; }
                 setPurchaseFor(null);
                 setPurchaseOptions(null);
                 setMessage(`${purchaseOptions.customerName} 的購買及收款已登記`);

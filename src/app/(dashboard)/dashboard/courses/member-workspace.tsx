@@ -1,4 +1,5 @@
 "use client";
+import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentOverview } from "./music-student-overview";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -217,7 +218,7 @@ export function CourseMemberWorkspace({
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        if(panel!=="assign") setTimeout(() => router.refresh(), 0);
+        setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       }
@@ -509,7 +510,7 @@ export function CourseMemberWorkspace({
                 className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"
                 onSubmit={(e) =>
                   submit(e, (d) =>
-                    assignCoursePointCard({
+                    musicCheckoutTransport("purchase", {
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
@@ -528,7 +529,7 @@ export function CourseMemberWorkspace({
                       paymentMethod: d.get("paymentMethod"),
                       transferLastFour: String(d.get("transferLastFour") ?? ""),
                       requestKey,
-                    }),
+                    }, assignCoursePointCard),
                   )
                 }
               >

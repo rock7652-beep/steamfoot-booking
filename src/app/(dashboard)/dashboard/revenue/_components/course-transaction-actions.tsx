@@ -1,4 +1,5 @@
 "use client";
+import {publishMusicFinanceChange} from "@/lib/music-finance-sync";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -47,7 +48,7 @@ export function CourseTransactionActions({ order, allocationSummary, canRefund, 
           : action === "edit" ? await editCoursePurchase({ purchaseId: order.id, reason, note, revenueStaffId: staffId || null })
           : await confirmCoursePurchase({ purchaseId: order.id });
         if (!result.success) { setMessage(result.error); return; }
-        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); router.refresh();
+        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); publishMusicFinanceChange(); router.refresh();
       } catch { setMessage("送出失敗，已保留內容；請稍後重試。"); }
     });
   }
