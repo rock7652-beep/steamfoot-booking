@@ -1,5 +1,6 @@
 import { z } from "zod";
 export const musicSubjectRuleSchema=z.object({
+  totalPrice:z.number().int().min(0).max(10000000).optional(),
   subjectId:z.string().min(1).max(150),
   classType:z.enum(["PRIVATE","SELF_ORGANIZED","GROUP"]),
   musicPricePerLesson:z.number().int().min(0).max(1000000),

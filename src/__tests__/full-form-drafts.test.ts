@@ -6,7 +6,7 @@ import {OperationScope} from "@/components/operations/operation-scope";
 import {CourseCustomerDraftForm,CoursePlanDraftForm} from "@/app/(dashboard)/dashboard/courses/course-profile-forms";
 const m=vi.hoisted(()=>({customer:vi.fn(),plan:vi.fn(),refresh:vi.fn(),saved:vi.fn(),pending:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.customer,saveCoursePointPlan:m.plan}));
-vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
+vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams(),usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 const person={id:"a",updatedAt:"2026-09-27T00:00:00.000Z",name:"原姓名",phone:"0912345678",email:null,gender:null,birthday:"",serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null};

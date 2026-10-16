@@ -120,7 +120,7 @@ export async function CourseMemberPage({
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
-      {view === "plans" ? <PageHeader title={music ? "學費方案" : "方案管理"} /> : music && <PageHeader title="學員管理" />}
+      {view === "plans" ? <PageHeader title={music ? "收費方式" : "方案管理"} /> : music && <PageHeader title="學員管理" />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
       <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} previewStoreId={storeId} key={`${storeId}:${query.dataScope??"operational"}`} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}

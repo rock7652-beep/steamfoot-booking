@@ -811,7 +811,7 @@ export default function DashboardShell({
     if (course && musicEnabled && permissions.includes("customer.read")) daily.splice(3, 0, { ...entry("/dashboard/bookings"), href: "/dashboard/courses/makeups", label: "請假與補課" });
     const management: NavItem[] = [
       hqItem("/dashboard/operation-audits"),
-      { ...entry("/dashboard/plans"), label: musicEnabled ? "學費方案" : "方案管理", href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), label: musicEnabled ? "收費方式" : "方案管理", href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(

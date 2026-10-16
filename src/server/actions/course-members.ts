@@ -208,7 +208,7 @@ export async function saveCoursePointPlan(input: unknown) {
       const {musicPlanQuote}=await import("@/lib/music-course-products");
       const quote=musicPlanQuote(template,data.musicTerms);
       data.templateIds=[template.id];data.points=quote.lessons+data.musicBonusLessons;
-      data.price=quote.price;data.validDays=quote.validDays;
+      data.price=musicSetup.totalPrice??quote.price;data.validDays=quote.validDays;
       data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
       if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
     }

@@ -21,7 +21,7 @@ export function CourseCustomerPurchases({ customerId, music=false }: { customerI
   if(!isMusicPreviewPage())return;
   return subscribeMusicFinanceChange(kind=>{if(kind==="receipt")setRevision(n=>n+1);});
  },[]);
-  if (music) return <div className="[&_table]:min-w-[900px]"><CourseHistoryList revision={revision} columns={["日期", "學費方案", "期數／堂數", "應收", "已收", "欠款", "狀態", "操作"]} customerId={customerId} label="學費收款紀錄" empty="尚無學費收款紀錄" load={readHistory} render={order=><>
+  if (music) return <div className="[&_table]:min-w-[900px]"><CourseHistoryList revision={revision} columns={["日期", "收費方式", "期數／堂數", "應收", "已收", "欠款", "狀態", "操作"]} customerId={customerId} label="學費收款紀錄" empty="尚無學費收款紀錄" load={readHistory} render={order=><>
     <td className="tabular-nums">{formatTWDateTime(new Date(order.createdAt))}</td>
     <td className="font-medium">{order.name}</td>
     <td className="tabular-nums">{order.musicTermSizes?.length ? `${order.musicTermSizes.length} 期／` : ""}{order.points} {order.unit === "SESSION" ? "堂" : "點"}</td>
