@@ -17,9 +17,9 @@ function failure(error: unknown) {
   return { success: false as const, error: result.success ? "讀取失敗，請重試" : result.error };
 }
 
-export async function readCourseCards(input: unknown, previewOnly = false, timings?: Record<string,number>) {
+export async function readCourseCards(input: unknown, previewOnly = false, timings?: Record<string,number>, existingRequestSession = false) {
   const work=()=>readCards(input,previewOnly,timings);
-  return previewOnly ? withPermissionRequestSession(work) : work();
+  return previewOnly && !existingRequestSession ? withPermissionRequestSession(work) : work();
 }
 
 async function readCards(input: unknown, previewOnly: boolean, timings?: Record<string,number>) {

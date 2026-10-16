@@ -1,0 +1,14 @@
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({overview:vi.fn(),cards:vi.fn()}));
+vi.mock('server-only',()=>({}));
+vi.mock('@/server/queries/music-student-workspace',()=>({readMusicStudentWorkspace:m.overview}));
+vi.mock('@/server/queries/course-card-browser',()=>({readCourseCards:m.cards}));
+import {readMusicPurchaseSnapshot} from '@/server/queries/music-purchase-snapshot';
+import {createPurchaseSnapshotSeeds,purchaseSnapshotKey,type MusicPurchaseSnapshot} from '@/lib/music-purchase-snapshot';
+const snapshot={customerId:'learner',overview:{success:true,data:{balance:{remaining:19}}},cards:{success:true,rows:[{id:'new'}],hasMore:false}} as MusicPurchaseSnapshot;
+beforeEach(()=>{vi.clearAllMocks();m.overview.mockResolvedValue(snapshot.overview);m.cards.mockResolvedValue(snapshot.cards);});
+afterEach(()=>vi.useRealTimers());
+it('runs the authorized readers for exactly the purchase learner',async()=>{expect(await readMusicPurchaseSnapshot({customerId:'learner',storeId:'untrusted'})).toEqual(snapshot);expect(m.overview).toHaveBeenCalledWith('learner',true,undefined,false);expect(m.cards).toHaveBeenCalledWith({customerId:'learner'},true,undefined,true);});
+it('never returns partial denied data or throws into a committed purchase',async()=>{m.cards.mockResolvedValue({success:false,error:'denied'});expect(await readMusicPurchaseSnapshot({customerId:'learner'})).toBeNull();m.cards.mockRejectedValue(new Error('offline'));expect(await readMusicPurchaseSnapshot({customerId:'learner'})).toBeNull();expect(await readMusicPurchaseSnapshot({})).toBeNull();});
+it('hands exact authorized state to each reader once and never to another learner or filter',()=>{const seeds=createPurchaseSnapshotSeeds();seeds.install(snapshot);expect(seeds.take('course-card',[{customerId:'other'}])).toBeUndefined();for(const extra of [{search:'x'},{history:true},{page:1},{dataScope:'legacy'},{cardId:'new'}])expect(seeds.take('course-card',[{customerId:'learner',...extra}])).toBeUndefined();expect(seeds.take('music-student-workspace',['learner',true])).toBeUndefined();expect(seeds.take('music-student-workspace',['learner',false])).toEqual(snapshot.overview);expect(seeds.take('course-card',[{page:0,history:false,search:'',customerId:'learner',dataScope:undefined}])).toEqual(snapshot.cards);expect(seeds.take('course-card',[{customerId:'learner'}])).toBeUndefined();});
+it('expires unused data, clears on invalidation, and isolates providers',()=>{vi.useFakeTimers();const a=createPurchaseSnapshotSeeds(),b=createPurchaseSnapshotSeeds();a.install(snapshot);expect(b.take('course-card',[{customerId:'learner'}])).toBeUndefined();vi.advanceTimersByTime(1501);expect(a.take('course-card',[{customerId:'learner'}])).toBeUndefined();a.install(snapshot);a.clear();expect(a.take('course-card',[{customerId:'learner'}])).toBeUndefined();expect(purchaseSnapshotKey('other',[])).toBeNull();});

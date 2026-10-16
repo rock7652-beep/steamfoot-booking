@@ -1,3 +1,4 @@
+import {readMusicPurchaseSnapshot} from "@/server/queries/music-purchase-snapshot";
 import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import { assignCoursePointCard } from "@/server/actions/course-members";
 import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
@@ -34,7 +35,15 @@ export async function POST(request: Request) {
     if (body.length > 20000) return reply({ success: false, error: "表單內容過長。" }, 400);
     const { operation, input } = JSON.parse(body);
     // Existing actions retain every permission; identical checks share this request only.
-    if (operation === "purchase") return reply(await assignCoursePointCard(input));
+    if (operation === "purchase") {
+      const result = await assignCoursePointCard(input);
+      if (!result.success) return reply(result);
+      const snapshotStart = performance.now();
+      let snapshot = null;
+      try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
+      timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
+      return reply(snapshot ? {...result, snapshot} : result);
+    }
     if (operation === "receipt") return reply(await recordMusicTuitionReceipt(input));
     return reply({ success: false, error: "不支援的收款操作。" }, 400);
   } catch (error) { return reply(handleActionError(error)); }
