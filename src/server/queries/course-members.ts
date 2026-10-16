@@ -4,6 +4,7 @@ import { nativeDeductedLeaveIds } from "@/server/services/music-native-leave";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
+import {musicProjectionRead} from "@/server/services/music-projection-reads";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
@@ -29,18 +30,23 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     ...(page ? { skip: page.skip, take: page.take } : {}),
     orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
   });
-  const people = await prisma.customer.findMany({
+  const memberIds = [...new Set(cards.flatMap(c=>c.members.map(m=>m.customerId).filter((id):id is string=>!!id)))].sort();
+  const peopleRead = musicProjectionRead(prisma,JSON.stringify(["card-member-display",storeId,memberIds]),()=>prisma.customer.findMany({
     where: {
       storeId,
       id: {
-        in: [
-          ...new Set(cards.flatMap((c) => c.members.map((m) => m.customerId).filter((id): id is string => !!id))),
-        ],
+        in: memberIds,
       },
     },
     select: { id: true, name: true, phone: true },
-  });
-  return (await Promise.all(cards.map(async (c) => {
+  }));
+  // Source verification and member display are independent; preserve every source check.
+  const pilotRead = Promise.all(cards.map(c=>{
+    const opening=readMusicOpeningCard(c,storeId,customerId);
+    return opening.kind==="OPENING"&&!musicOpeningOperationIssue(opening,c) ? isMusicPilotCard(coursePrisma,storeId,c) : Promise.resolve(false);
+  }));
+  const [people,pilotFlags]=await Promise.all([peopleRead,pilotRead]);
+  return (await Promise.all(cards.map(async (c,index) => {
     const opening = readMusicOpeningCard(c, storeId, customerId);
     const openingIssue = musicOpeningOperationIssue(opening, c);
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
@@ -63,7 +69,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       expired,
       openingIssue,
       openingImported: opening.kind !== "NATIVE",
-      ...(opening.kind === "OPENING" && !openingIssue && await isMusicPilotCard(coursePrisma,storeId,c) ? {openingReservable:true} : {}),
+      ...(pilotFlags[index] ? {openingReservable:true} : {}),
       expiresAt: originalExpiry?.toISOString() ?? null,
       ...(opening.kind === "OPENING" && opening.record.expiryVerification?.kind === "NO_EXPIRY" && !openingIssue ? { expiryKind: "NO_EXPIRY" as const } : {}),
       members: c.members.map((m) => ({

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-import { withMusicCheckoutRequest, musicCheckoutPermission, measureMusicCheckout } from "@/server/services/music-checkout-request";
+import { withMusicCheckoutRequest, musicCheckoutPermission, musicCheckoutModule, measureMusicCheckout } from "@/server/services/music-checkout-request";
 
 it("shares identical checks only within one checkout, including concurrent callers", async()=>{
   const check=vi.fn().mockResolvedValue({storeId:"a"});
@@ -12,6 +12,17 @@ it("shares identical checks only within one checkout, including concurrent calle
   });
   await withMusicCheckoutRequest(async()=>{await musicCheckoutPermission("transaction.create",check);});
   expect(check).toHaveBeenCalledTimes(2);
+});
+it("shares module checks only for the exact store and rechecks failures next request",async()=>{
+ const check=vi.fn().mockResolvedValue(undefined);
+ await withMusicCheckoutRequest(async()=>{
+  await Promise.all([musicCheckoutModule("a",check),musicCheckoutModule("a",check)]);
+  expect(check).toHaveBeenCalledOnce();
+  await musicCheckoutModule("b",check);expect(check).toHaveBeenCalledTimes(2);
+ });
+ check.mockRejectedValue(new Error("module changed"));
+ await expect(withMusicCheckoutRequest(()=>musicCheckoutModule("a",check))).rejects.toThrow("module changed");
+ expect(check).toHaveBeenCalledTimes(3);
 });
 
 it("does not reuse another permission or bypass its denial",async()=>{
