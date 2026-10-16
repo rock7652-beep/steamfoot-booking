@@ -25,11 +25,11 @@ export function CourseCardBrowser({ dataScope, customerId, state, onChange, onSe
     let active=true;
     const delay=previousSearch.current===state.search?0:200;
     previousSearch.current=state.search;
-    const timer=setTimeout(()=>{browseCourseCards({customerId,dataScope,...state}).then(r=>{
+    const timer=setTimeout(()=>{detailReader.read({customerId,dataScope,...state}).then(r=>{
       if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore,totals:r.totals} : {key,customerId,rows:[],hasMore:false,error:r.error});
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},delay);
     return ()=>{active=false;clearTimeout(timer);};
-  },[customerId,dataScope,state,key]);
+  },[customerId,dataScope,state,key,detailReader]);
   const ready=result?.key===key;
   const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">

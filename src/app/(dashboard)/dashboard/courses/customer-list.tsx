@@ -1,4 +1,5 @@
 "use client";
+import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
 import { musicNoteDisplay } from "@/lib/music-display";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -13,7 +14,7 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onViewPlans, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
+export function CourseCustomerList({ rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onView: (id: string) => void; onViewPlans?: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
@@ -25,6 +26,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const cohortSuffix=music&&params.get("dataScope")==="legacy"?"&dataScope=legacy":"";
   const listBasePath=`/dashboard/courses?view=customers${cohortSuffix}`;
   const router = useRouter();
+  const customerPage=useMusicCustomerPage(sourceCustomerPage,params.toString(),rows.map(row=>row.id),music,router.refresh);
   const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({ scope: "", ids: new Set() });
   const [result, setResult] = useState("");
   const scopeParams = new URLSearchParams(params.toString());

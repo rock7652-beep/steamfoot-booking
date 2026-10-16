@@ -77,5 +77,6 @@ it("refreshes receipt readers without refreshing the whole course page",async()=
  await act(async()=>window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:one"})));
  expect(await readers.panel.read("1")).toBe("before");expect(refresh).not.toHaveBeenCalled();
  await act(async()=>{window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"purchase:two"}));window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:three"}));});
- expect(refresh).toHaveBeenCalledOnce();
+ expect(refresh).not.toHaveBeenCalled();
+ expect(await readers.panel.read("1")).toBe("after");
 });

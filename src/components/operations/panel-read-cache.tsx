@@ -31,6 +31,8 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         registry.clear();
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));
+        // Purchase panels and the music customer list re-read their own authoritative data.
+        if(kind === "purchase" && studentPage) return;
         startTransition(() => router.refresh());
     });
     return unsubscribe;
