@@ -31,7 +31,7 @@ export function MusicRevenueLive({initial,input,enabled,children}:{initial:Snaps
     setCurrent(result.data);setStatus("營收已同步");
     console.info("[music-revenue-refresh]",JSON.stringify({requestMs:Math.round(performance.now()-started),...result.timing}));
    }).catch(()=>{if(active&&version===sequence.current)setStatus("營收更新失敗，請重新整理後核對。");});
-  });
+  }, true);
   return()=>{active=false;++sequence.current;dispose();};
  },[enabled,from,to,dataScope,filterStatus,staff,page,reader]);
  return <Context.Provider value={enabled?{data:current??initial,status}:null}>{children}</Context.Provider>;

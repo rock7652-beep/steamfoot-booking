@@ -1,40 +1,49 @@
 /** Same-origin invalidation only: no student, payment or account data is shared. */
 export const MUSIC_FINANCE_SIGNAL = "music-preview:lubymusic:finance-v1";
+const MUSIC_REVENUE_COMMIT_SIGNAL = "music-preview:lubymusic:revenue-commit-v1";
 export function isMusicPreviewPage() {
   return process.env.NEXT_PUBLIC_BUILD_ENV === "staging" && typeof window !== "undefined" &&
     window.location.pathname.startsWith("/s/lubymusic/admin/");
 }
 export type MusicFinanceChange = "purchase" | "receipt" | "general";
-export function publishMusicFinanceChange(kind: MusicFinanceChange = "general") {
+function publishSignal(name: string, token: string) {
   if (!isMusicPreviewPage()) return;
-  const token = `${kind}:${crypto.randomUUID()}`;
-  try { localStorage.setItem(MUSIC_FINANCE_SIGNAL, token); } catch { /* Storage may be disabled. */ }
-  window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL, { detail: token }));
-  try { const channel = new BroadcastChannel(MUSIC_FINANCE_SIGNAL); channel.postMessage(token); channel.close(); } catch { /* storage events remain available */ }
+  try { localStorage.setItem(name, token); } catch { /* Storage may be disabled. */ }
+  window.dispatchEvent(new CustomEvent(name, { detail: token }));
+  try { const channel = new BroadcastChannel(name); channel.postMessage(token); channel.close(); } catch { /* storage events remain available */ }
 }
-export function subscribeMusicFinanceChange(refresh: (kind: MusicFinanceChange) => void) {
-  let last = "";
-  try { last = localStorage.getItem(MUSIC_FINANCE_SIGNAL) ?? ""; } catch {}
+export function publishMusicFinanceChange(kind: MusicFinanceChange = "general", token = `${kind}:${crypto.randomUUID()}`) {
+  publishSignal(MUSIC_FINANCE_SIGNAL, token);
+}
+/** Sent only after the server confirms commit, before optional student projections finish. */
+export function publishMusicRevenueCommit(token: string) {
+  publishSignal(MUSIC_REVENUE_COMMIT_SIGNAL, token);
+}
+export function subscribeMusicFinanceChange(refresh: (kind: MusicFinanceChange) => void, includeRevenueCommit = false) {
+  const names = includeRevenueCommit ? [MUSIC_FINANCE_SIGNAL, MUSIC_REVENUE_COMMIT_SIGNAL] : [MUSIC_FINANCE_SIGNAL];
+  const seen = new Set<string>();
+  for (const name of names) { try { const token = localStorage.getItem(name); if (token) seen.add(token); } catch {} }
   const accept = (token: unknown) => {
-    if (typeof token !== "string" || token.length > 100 || !token || token === last) return;
-    last = token;
+    if (typeof token !== "string" || token.length > 100 || !token || seen.has(token)) return;
+    seen.add(token);
+    if (seen.size > 128) seen.delete(seen.values().next().value!);
     refresh(token.startsWith("purchase:") ? "purchase" : token.startsWith("receipt:") ? "receipt" : "general");
   };
-  const storage = (event: StorageEvent) => { if (event.key === MUSIC_FINANCE_SIGNAL) accept(event.newValue); };
+  const storage = (event: StorageEvent) => { if (names.includes(event.key ?? "")) accept(event.newValue); };
   const local = (event: Event) => accept((event as CustomEvent).detail);
   const resume = () => {
-    try { accept(localStorage.getItem(MUSIC_FINANCE_SIGNAL)); } catch {}
+    for (const name of names) { try { accept(localStorage.getItem(name)); } catch {} }
   };
-  let channel: BroadcastChannel | undefined;
-  try { channel = new BroadcastChannel(MUSIC_FINANCE_SIGNAL); channel.onmessage = event => accept(event.data); } catch {}
+  const channels: BroadcastChannel[] = [];
+  for (const name of names) { try { const channel = new BroadcastChannel(name); channel.onmessage = event => accept(event.data); channels.push(channel); } catch {} }
   window.addEventListener("storage", storage);
-  window.addEventListener(MUSIC_FINANCE_SIGNAL, local);
+  for (const name of names) window.addEventListener(name, local);
   window.addEventListener("focus", resume);
   document.addEventListener("visibilitychange", resume);
   return () => {
-    channel?.close();
+    channels.forEach(channel => channel.close());
     window.removeEventListener("storage", storage);
-    window.removeEventListener(MUSIC_FINANCE_SIGNAL, local);
+    for (const name of names) window.removeEventListener(name, local);
     window.removeEventListener("focus", resume);
     document.removeEventListener("visibilitychange", resume);
   };

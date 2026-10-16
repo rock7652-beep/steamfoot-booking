@@ -25,3 +25,22 @@ it("adds authorized state only after commit, and never changes committed success
  mocks.snapshot.mockRejectedValue(new Error("read failed"));expect(await (await POST(request())).json()).toEqual({success:true});
 });
 it("never projects after a failed purchase",async()=>{mocks.purchase.mockResolvedValue({success:false,error:"denied"});await POST(request());expect(mocks.snapshot).not.toHaveBeenCalled();});
+it("flushes committed success before the authorized projection finishes",async()=>{
+ let finish!:(value:null)=>void;
+ mocks.snapshot.mockImplementation(()=>new Promise(r=>{finish=r;}));
+ const req=request();req.headers.set("x-music-stream","1");
+ const response=await POST(req);
+ expect(response.headers.get("x-music-committed")).toBe("1");
+ const reader=response.body!.getReader();
+ expect(new TextDecoder().decode((await reader.read()).value)).toBe(" ");
+ finish(null);
+ expect(JSON.parse(new TextDecoder().decode((await reader.read()).value))).toEqual({success:true});
+ expect((await reader.read()).done).toBe(true);
+});
+it("does not signal commit when the purchase fails",async()=>{
+ mocks.purchase.mockResolvedValue({success:false,error:"denied"});
+ const req=request();req.headers.set("x-music-stream","1");
+ const response=await POST(req);
+ expect(response.headers.get("x-music-committed")).toBeNull();
+ expect((await response.json()).success).toBe(false);
+});

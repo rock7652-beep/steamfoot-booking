@@ -38,6 +38,28 @@ export async function POST(request: Request) {
     if (operation === "purchase") {
       const result = await assignCoursePointCard(input);
       if (!result.success) return reply(result);
+      if (request.headers.get("x-music-stream") === "1") {
+        const encoder = new TextEncoder();
+        const committedMs = Math.round(performance.now() - started);
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            // JSON whitespace flushes committed headers while retaining the existing JSON response contract.
+            controller.enqueue(encoder.encode(" "));
+            const snapshotStart = performance.now();
+            let snapshot = null;
+            try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
+            timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
+            console.info("[music-checkout-write]", JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
+            try { controller.enqueue(encoder.encode(JSON.stringify(snapshot ? {...result,snapshot} : result))); controller.close(); }
+            catch { /* Client disconnected after the committed header. */ }
+          },
+        });
+        return new Response(stream, {headers: {
+          "Content-Type":"application/json", "Cache-Control":"no-store",
+          "X-Music-Committed":"1", "Server-Timing":`checkout-commit;dur=${committedMs}`,
+          "X-Music-Timing":JSON.stringify(timings), "X-Music-Build":process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+        }});
+      }
       const snapshotStart = performance.now();
       let snapshot = null;
       try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }

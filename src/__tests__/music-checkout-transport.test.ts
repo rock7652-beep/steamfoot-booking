@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { musicCheckoutTransport } from "@/lib/music-checkout-transport";
-const { enabled, notify } = vi.hoisted(() => ({ enabled:vi.fn(), notify:vi.fn() }));
-vi.mock("@/lib/music-finance-sync",()=>({isMusicPreviewPage:enabled,publishMusicFinanceChange:notify}));
+const { enabled, notify, early } = vi.hoisted(() => ({ enabled:vi.fn(), notify:vi.fn(), early:vi.fn() }));
+vi.mock("@/lib/music-finance-sync",()=>({isMusicPreviewPage:enabled,publishMusicFinanceChange:notify,publishMusicRevenueCommit:early}));
 beforeEach(()=>{vi.clearAllMocks();enabled.mockReturnValue(true);});
 afterEach(()=>vi.unstubAllGlobals());
 describe("deployment independent music checkout",()=>{
@@ -26,4 +26,19 @@ describe("deployment independent music checkout",()=>{
   enabled.mockReturnValue(false);const fallback=vi.fn().mockResolvedValue({success:true});
   await musicCheckoutTransport("purchase",{a:1},fallback);expect(fallback).toHaveBeenCalledWith({a:1});expect(notify).not.toHaveBeenCalled();
  });
+});
+it("starts revenue after committed headers, before projection, with the same deduplication token",async()=>{
+ let resolve!:(value:unknown)=>void;
+ const json=vi.fn(()=>new Promise(r=>{resolve=r;}));
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,status:200,headers:new Headers({"x-music-committed":"1"}),json}));
+ const pending=musicCheckoutTransport("purchase",{},vi.fn());
+ await vi.waitFor(()=>expect(early).toHaveBeenCalledOnce());
+ expect(notify).not.toHaveBeenCalled();
+ resolve({success:true});expect((await pending).success).toBe(true);
+ expect(notify).toHaveBeenCalledWith("purchase",early.mock.calls[0][0]);
+});
+it("retains confirmed success when the projection stream disconnects",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,status:200,headers:new Headers({"x-music-committed":"1"}),json:vi.fn().mockRejectedValue(new Error("disconnected"))}));
+ expect(await musicCheckoutTransport("purchase",{},vi.fn())).toEqual({success:true});
+ expect(early).toHaveBeenCalledOnce();expect(notify).toHaveBeenCalledOnce();
 });

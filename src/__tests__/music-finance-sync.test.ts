@@ -27,3 +27,17 @@ it("routes typed checkout signals and retains old clients",()=>{
  for(const detail of ["purchase:1","receipt:2","old-uuid"])window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail}));
  expect(callback.mock.calls).toEqual([["purchase"],["receipt"],["general"]]);dispose();
 });
+it("deduplicates early revenue and final signals even with an intervening transaction",()=>{
+ const revenue=vi.fn(),normal=vi.fn();
+ const stopRevenue=subscribeMusicFinanceChange(revenue,true),stopNormal=subscribeMusicFinanceChange(normal);
+ const early="music-preview:lubymusic:revenue-commit-v1";
+ window.dispatchEvent(new CustomEvent(early,{detail:"purchase:a"}));
+ expect(revenue).toHaveBeenCalledOnce();expect(normal).not.toHaveBeenCalled();
+ window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"receipt:b"}));
+ window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:"purchase:a"}));
+ expect(revenue.mock.calls).toEqual([["purchase"],["receipt"]]);
+ expect(normal.mock.calls).toEqual([["receipt"],["purchase"]]);
+ stopRevenue();stopNormal();
+ window.dispatchEvent(new CustomEvent(early,{detail:"purchase:c"}));
+ expect(revenue).toHaveBeenCalledTimes(2);
+});
