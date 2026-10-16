@@ -10,7 +10,7 @@ it("starts independent reads concurrently without invoking action fallbacks",asy
  const first=musicPanelRead("music-student-workspace",["learner"],fallback);
  const second=musicPanelRead("course-card",[{customerId:"learner"}],fallback);
  expect(fetcher).toHaveBeenCalledTimes(2);expect(fallback).not.toHaveBeenCalled();
- for(const done of resolve)done({ok:true,json:async()=>({success:true})});
+ for(const done of resolve)done(new Response(JSON.stringify({success:true}),{headers:{"Content-Type":"application/json"}}));
  await Promise.all([first,second]);
  expect(fetcher.mock.calls[0][1]).toMatchObject({cache:"no-store",credentials:"same-origin"});
 });
