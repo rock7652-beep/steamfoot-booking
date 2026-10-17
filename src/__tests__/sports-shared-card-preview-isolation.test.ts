@@ -55,6 +55,13 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("permits the sports refresh review only with isolated Preview connections", () => {
+    const branch = "codex/sports-background-refresh";
+    expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
+    for (const overrides of [{DATABASE_URL:production}, {DIRECT_URL:production}, {VERCEL_ENV:"production"}, {WORKERS_CI_BRANCH:branch}]) {
+      expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);
+    }
+  });
   it("accepts only known single-valued Prisma connection options and the public schema", () => {
     for (const connection of [direct, pooled]) {
       expect(isSportsSharedCardIsolatedConnection(connection + "?pgbouncer=true&sslmode=require&connection_limit=1&pool_timeout=10&connect_timeout=10&socket_timeout=0&statement_cache_size=0&schema=public")).toBe(true);

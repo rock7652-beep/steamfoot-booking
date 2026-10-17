@@ -4,6 +4,7 @@ export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-contro
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
+  "codex/sports-background-refresh",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
 ];
 

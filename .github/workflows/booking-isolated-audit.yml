@@ -12,6 +12,7 @@ permissions:
 jobs:
   postgres-integration:
     if: >-
+      github.head_ref == 'codex/sports-background-refresh' ||
       github.head_ref == 'codex/course-monthly-settlement' ||
       github.head_ref == 'codex/course-monthly-usability' ||
       github.head_ref == 'codex/course-daily-flow-acceptance' ||
