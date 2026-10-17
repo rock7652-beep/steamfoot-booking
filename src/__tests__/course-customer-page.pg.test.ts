@@ -22,14 +22,14 @@ const page=(params="",role="ADMIN",staffId:string|null=null,cards=true)=>getCour
     for(const ddl of [
       'CREATE TABLE "User" (id text PRIMARY KEY,status text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,"userId" text,name text,phone text,"lineName" text,"lineLinkStatus" text,"customerStage" text,"assignedStaffId" text,"sponsorId" text,"mergedIntoCustomerId" text,"createdAt" timestamptz)',
-      'CREATE TABLE "CourseSession" (id text,"storeId" text,"startsAt" timestamptz)',
+      'CREATE TABLE "CourseSession" (id text,"storeId" text,"startsAt" timestamptz,"cancelledAt" timestamptz,"releasedAt" timestamptz)',
       'CREATE TABLE "CourseBooking" ("customerId" text,"sessionId" text,"storeId" text,status text,"cardId" text,"pointCost" int)',
       'CREATE TABLE "CoursePointCard" (id text,"storeId" text,unit text,remaining int,"closedAt" timestamptz,"expiresAt" timestamptz)',
       'CREATE TABLE "CourseCardMember" ("cardId" text,"storeId" text,"customerId" text)',
     ])await db!.$executeRawUnsafe(ddl);
     await db!.$executeRawUnsafe(`INSERT INTO "Customer" SELECT 'a-'||n,'a',NULL,'顧客'||lpad(n::text,4,'0'),'09'||lpad(n::text,8,'0'),NULL,'UNLINKED','CUSTOMER',CASE WHEN n<=10 THEN 'manager-a' ELSE 'manager-b' END,NULL,NULL,'2026-09-01'::timestamptz FROM generate_series(1,1000) n`);
     await db!.$executeRawUnsafe(`INSERT INTO "Customer" VALUES ('foreign','b',NULL,'顧客0000','foreign',NULL,'LINKED','LEAD','manager-a',NULL,NULL,'2026-09-21')`);
-    await db!.$executeRawUnsafe(`INSERT INTO "CourseSession" VALUES ('s','a','2026-09-20T17:00:00Z'),('s-b','b','2026-09-21T01:00:00Z')`);
+    await db!.$executeRawUnsafe(`INSERT INTO "CourseSession" (id,"storeId","startsAt") VALUES ('s','a','2026-09-20T17:00:00Z'),('s-b','b','2026-09-21T01:00:00Z')`);
     await db!.$executeRawUnsafe(`INSERT INTO "CourseBooking" VALUES ('a-1000','s','a','ATTENDED',NULL,0),('a-999','s-b','b','ATTENDED',NULL,0)`);
     await db!.$executeRawUnsafe(`INSERT INTO "CoursePointCard" VALUES ('shared','a','POINT',100,NULL,'2026-10-01'),('expired','a','POINT',10000,NULL,'2026-09-01'),('closed','a','POINT',10000,'2026-09-20','2026-10-01'),('session','a','SESSION',5,NULL,'2026-10-01')`);
     await db!.$executeRawUnsafe(`INSERT INTO "CourseCardMember" VALUES ('shared','a','a-999'),('shared','a','a-998'),('expired','a','a-999'),('closed','a','a-999'),('session','a','a-999')`);
