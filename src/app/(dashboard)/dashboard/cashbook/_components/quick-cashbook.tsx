@@ -27,6 +27,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Entry | "new" | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const currentPage = useRef(1);
@@ -63,7 +64,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   function close() {
     if (locked.current) return;
     if (editing && !isMusicPreviewPage() && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
-    request.current++; reader.clear(); setOpen(false); setEditing(null);
+    request.current++; reader.clear(); setOpen(false); setEditing(null); setDeleteEntry(null);
   }
   closeRef.current = close;
   useEffect(() => {
@@ -93,13 +94,14 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
     } catch { toast.error("儲存失敗，請重試，表單內容已保留"); }
     finally { locked.current = false; setBusy(false); }
   }
-  async function remove(entry: Entry) {
-    if (locked.current || !window.confirm(`刪除 ${entry.category || "收支"} ${money(entry.amount)}？${data?.closedDates.length ? "這一天已結帳，刪除不會重算關帳快照。" : ""}此操作無法復原。`)) return;
+  async function remove(entry: Entry, accepted = false) {
+    if (!accepted && isMusicPreviewPage()) { setDeleteEntry(entry); return; }
+    if (locked.current || (!accepted && !window.confirm(`刪除 ${entry.category || "收支"} ${money(entry.amount)}？${data?.closedDates.length ? "這一天已結帳，刪除不會重算關帳快照。" : ""}此操作無法復原。`))) return;
     locked.current = true; setBusy(true);
     try {
       const result = await deleteQuickCashbook(storeId, entry.id);
       if (!result.success) { toast.error(result.error ?? "刪除失敗"); return; }
-      publishMusicFinanceChange(); reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
+      setDeleteEntry(null); publishMusicFinanceChange(); reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
     } catch { toast.error("刪除失敗，請重試"); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -118,6 +120,11 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
         <button type="button" className={button} disabled={busy} onClick={close} aria-label="關閉現金收支">關閉</button>
       </header>
       <div className="flex-1 overflow-y-auto bg-earth-50/40 p-5">
+        {deleteEntry && <div role="alertdialog" aria-label="確認刪除收支" className="mb-3 rounded-lg border border-red-200 p-3">
+          <p>刪除 {deleteEntry.category || "收支"} {money(deleteEntry.amount)}？此操作無法復原。</p>
+          <button type="button" className={button} disabled={busy} onClick={()=>void remove(deleteEntry,true)}>確認刪除</button>
+          <button type="button" className={button} disabled={busy} onClick={()=>setDeleteEntry(null)}>取消刪除</button>
+        </div>}
         {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" disabled={loading} onClick={() => { reader.invalidate(storeId, currentPage.current); void refresh(currentPage.current); }} className={button}>重試</button></div>}
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
