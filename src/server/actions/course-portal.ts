@@ -27,6 +27,9 @@ function refresh() {
   revalidatePath("/dashboard/courses");
   revalidatePath("/dashboard/plans");
   revalidatePath("/dashboard/cashbook");
+  revalidatePath("/dashboard/cash-drawer");
+  revalidatePath("/dashboard/revenue");
+  revalidatePath("/dashboard/transactions");
   revalidatePath("/dashboard/analytics");
 }
 export async function saveCourseAttendance(input: unknown) {

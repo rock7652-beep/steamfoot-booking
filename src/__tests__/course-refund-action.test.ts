@@ -6,6 +6,7 @@ vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTr
 vi.mock("@/server/services/course-refund",()=>({refundUnusedCoursePurchase:m.refund}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import {refundCoursePurchase} from "@/server/actions/course-refund";
+import {revalidatePath} from "next/cache";
 const input={purchaseId:"purchase",amount:400,method:"BANK_TRANSFER",reason:"協商",requestKey:"11111111-1111-4111-a111-111111111111",expectedRemaining:6,expectedRefundedAmount:0};
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({user:{id:"manager"},storeId:"own"});m.transaction.mockImplementation(async(_store,work)=>work("locked-tx"));m.refund.mockResolvedValue({id:"refund"});});
 it("requires refund permission and fixes store and actor from authorization",async()=>{
@@ -24,4 +25,12 @@ it("uses the confirmed gift example only as an unrounded reference",()=>{
  expect(courseRefundReference(800,10,6,0)).toBe(480);
  expect(courseRefundReference(100,6,6,0)).toBe(100);
  expect(courseRefundReference(1000,10,6,7)).toBeNull();
+});
+it("invalidates both transaction entrances and linked balances only after a committed refund",async()=>{
+ await refundCoursePurchase(input);
+ for(const path of ["/dashboard","/dashboard/revenue","/dashboard/transactions","/dashboard/courses","/dashboard/cashbook","/dashboard/cash-drawer","/book"])
+  expect(revalidatePath).toHaveBeenCalledWith(path);
+ vi.mocked(revalidatePath).mockClear();m.transaction.mockRejectedValueOnce(new Error("rollback"));
+ expect(await refundCoursePurchase(input)).toMatchObject({success:false});
+ expect(revalidatePath).not.toHaveBeenCalled();
 });

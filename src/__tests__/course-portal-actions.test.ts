@@ -8,6 +8,7 @@ vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseAccount:m.account,courseMember:m.member,courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/course-booking",()=>({correctCourseAttendance:m.correct,settleCourseBooking:m.settle}));
 import {saveCourseAttendance,saveCourseCoachNote,purchaseCoursePlan,confirmCoursePurchase} from "@/server/actions/course-portal";
+import {revalidatePath} from "next/cache";
 const actor={storeId:"store-a",user:{id:"u",name:"教練"},customer:{id:"c"}};
 beforeEach(()=>{vi.clearAllMocks();m.correct.mockImplementation(async(_tx,_actor,id,target)=>({id,status:target,checkedInAt:null,updatedAt:new Date("2026-09-20T03:00:00Z")}));m.settle.mockImplementation(async(_tx,_actor,id)=>({id,status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")}));m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(2);m.updateNote.mockResolvedValue({count:1});m.order.mockResolvedValue(null);m.createOrder.mockResolvedValue({id:"purchase"});m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{findFirst:m.findBooking,findFirstOrThrow:m.findBooking,count:m.count,updateMany:m.updateNote},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
 const attendance={sessionId:"s",target:"ATTENDED",bookings:[{id:"a",status:"RESERVED"},{id:"b",status:"RESERVED"}]};
@@ -35,6 +36,14 @@ describe("course portal mutations",()=>{
  it("accepts exactly four transfer digits",async()=>{expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"12345"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("replayed purchase cannot be claimed by another customer",async()=>{m.order.mockResolvedValue({customerId:"other",planId:"p",transferLastFive:"1234"});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false});expect(m.createOrder).not.toHaveBeenCalled();});
  it("replayed confirmation never issues a second card or receipt",async()=>{m.order.mockResolvedValue({status:"CONFIRMED"});expect(await confirmCoursePurchase({purchaseId:"p"})).toEqual({success:true});expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();});
+ it("refreshes both transaction entrances and the cash drawer after confirmation, but not rollback",async()=>{
+  m.order.mockResolvedValue({status:"CONFIRMED"});await confirmCoursePurchase({purchaseId:"p"});
+  for(const path of ["/dashboard/revenue","/dashboard/transactions","/dashboard/cashbook","/dashboard/cash-drawer","/dashboard","/book"])
+   expect(revalidatePath).toHaveBeenCalledWith(path);
+  vi.mocked(revalidatePath).mockClear();m.transaction.mockRejectedValueOnce(new Error("rollback"));
+  expect(await confirmCoursePurchase({purchaseId:"p"})).toMatchObject({success:false});
+  expect(revalidatePath).not.toHaveBeenCalled();
+ });
  it("blocks music point purchases before creating an order", async () => {
    m.plan.mockResolvedValue({id:"p",unit:"POINT"});
    m.raw.mockResolvedValue([{featureKey:"business.music"}]);

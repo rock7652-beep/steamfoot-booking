@@ -1,0 +1,63 @@
+{
+  "environment": "isolated PostgreSQL and actual Next application",
+  "scheduledSession": "2026-10-18; manager attendance permitted by current UI",
+  "steps": [
+    {
+      "label": "01-reserved",
+      "remaining": 10,
+      "held": 1,
+      "available": 9,
+      "bookings": [
+        {
+          "makeupForBookingId": null,
+          "id": "cmvcf31sc0005mrn8ih52lcyw",
+          "storeId": "sports-live-flow-store",
+          "sessionId": "sports-live-session",
+          "cardId": "cmvcf2w930001mrn8ytojhitx",
+          "bookingKind": "CARD",
+          "trialPrice": null,
+          "customerId": "sports-live-customer",
+          "companionIndex": null,
+          "reserverCustomerId": null,
+          "reserverName": null,
+          "reserverCardId": null,
+          "groupKey": null,
+          "operatorUserId": "sports-live-flow-owner",
+          "operatorCustomerId": null,
+          "operatorName": "驗收老闆",
+          "customerName": "運動驗收學員",
+          "pointCost": 1,
+          "status": "RESERVED",
+          "checkedInAt": null,
+          "notes": "",
+          "absenceKind": null,
+          "requestKey": "4f6bb7eb-dee9-417e-8d0e-f488ef848ade",
+          "createdAt": "2026-10-17T13:13:13.164Z",
+          "updatedAt": "2026-10-17T13:13:13.164Z"
+        }
+      ],
+      "entries": [
+        {
+          "id": "cmvcf2w930002mrn8hm5kntzy",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf2w930001mrn8ytojhitx",
+          "bookingId": null,
+          "kind": "GRANT",
+          "points": 10,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:13:05.992Z"
+        },
+        {
+          "id": "cmvcf31sf0007mrn85tpte0dw",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf2w930001mrn8ytojhitx",
+          "bookingId": "cmvcf31sc0005mrn8ih52lcyw",
+          "kind": "RESERVE",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:13:13.167Z"
+        }
+      ]
+    }
+  ]
+}
