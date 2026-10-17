@@ -1,0 +1,50 @@
+{
+  "checks": [
+    {
+      "name": "隔週固定異動確實保留原位資訊",
+      "passed": true
+    },
+    {
+      "name": "單次與體驗移動保留稽核資料，畫面未當成固定課淡化",
+      "passed": true
+    },
+    {
+      "name": "固定單堂取消後所有指定學員保留額度釋放",
+      "passed": true
+    },
+    {
+      "name": "租借移動後取消，原收款已作廢且無有效重複收款",
+      "passed": true
+    },
+    {
+      "name": "改價後舊購買仍為6000、原卡剩餘10堂",
+      "passed": true
+    }
+  ],
+  "compatibilityChecks": [
+    {
+      "name": "改售價保留原卡額度、效期、購買快照；過期編輯拒絕覆寫並保留輸入",
+      "passed": true
+    },
+    {
+      "name": "真實後台三頁及新增視窗 RWD 1440×900",
+      "passed": true
+    },
+    {
+      "name": "真實後台三頁及新增視窗 RWD 1366×1024",
+      "passed": true
+    },
+    {
+      "name": "真實後台三頁及新增視窗 RWD 1024×1366",
+      "passed": true
+    },
+    {
+      "name": "真實後台三頁及新增視窗 RWD 768×1024",
+      "passed": true
+    },
+    {
+      "name": "異動、取消、設定修改及 RWD 切換維持同一頁面",
+      "passed": true
+    }
+  ]
+}

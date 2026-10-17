@@ -1,0 +1,137 @@
+import "server-only";
+import {
+  requireSportsStaging,
+  sportsStagingEnabled,
+} from "@/lib/sports-staging";
+import {
+  sportsScheduleRule,
+  type SportsScheduleRule,
+} from "@/lib/sports-staging-types";
+import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
+import { AppError } from "@/lib/errors";
+import type { Prisma } from "../../../generated/course-client";
+import type { CourseActor } from "./course-booking";
+export async function readSportsSessionRule(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  storeId: string,
+  sessionId: string,
+) {
+  if (!sportsStagingEnabled()) return null;
+  const rows = await tx.$queryRaw<
+    Array<{
+      frequency: string;
+      enrollment: string;
+      planId: string | null;
+      trialPrice: number;
+      payload: SportsScheduleRule;
+    }>
+  >`SELECT frequency,enrollment,"planId","trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${sessionId}`;
+  return rows[0] ?? null;
+}
+export async function attachSportsSessionRules(
+  tx: Prisma.TransactionClient,
+  actor: CourseActor,
+  requestKey: string,
+  input: SportsScheduleRule,
+) {
+  requireSportsStaging();
+  const rule = sportsScheduleRule.parse(input);
+  const sessions = await tx.courseSession.findMany({
+    where: { storeId: actor.storeId, requestKey },
+    orderBy: { requestIndex: "asc" },
+  });
+  if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
+  if (rule.frequency === "SINGLE" && sessions.length !== 1)
+    throw new AppError("VALIDATION", "單次排課不可包含多堂");
+  if (
+    rule.frequency !== "SINGLE" &&
+    sessions.some(
+      (s, i) =>
+        toLocalDateStr(s.startsAt) !==
+          addTaiwanDuration(
+            toLocalDateStr(sessions[0].startsAt),
+            i * (rule.frequency === "BIWEEKLY" ? 14 : 7),
+            "DAY",
+          ) ||
+        s.startsAt.getUTCHours() !== sessions[0].startsAt.getUTCHours() ||
+        s.startsAt.getUTCMinutes() !== sessions[0].startsAt.getUTCMinutes(),
+    )
+  )
+    throw new AppError("VALIDATION", "固定頻率與課次日期不符");
+  if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
+  if (rule.enrollment === "ASSIGNED" && !rule.students.length)
+    throw new AppError("VALIDATION", "請至少指定一位學員");
+  if (rule.enrollment === "OPEN" && rule.students.length)
+    throw new AppError("VALIDATION", "開放選課不會自動加入指定學員");
+  if (
+    new Set(rule.students.map((s) => s.customerId)).size !==
+    rule.students.length
+  )
+    throw new AppError("VALIDATION", "學員不可重複");
+  const plan = rule.planId
+    ? await tx.coursePointPlan.findFirst({
+        where: { id: rule.planId, storeId: actor.storeId, isActive: true },
+      })
+    : null;
+  if (
+    !sessions[0].isTrial &&
+    (!plan || !plan.templateIds.includes(sessions[0].templateId))
+  )
+    throw new AppError("VALIDATION", "請選擇適用本課程的收費方式");
+  if (sessions[0].isTrial && rule.frequency !== "SINGLE")
+    throw new AppError("VALIDATION", "體驗僅建立單次課程");
+  for (const session of sessions) {
+    await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
+  }
+  if (rule.students.length) {
+    const { reserveCourseInTransaction } = await import("./course-booking");
+    const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
+    const limits = await getStoreLimitsByStoreId(actor.storeId);
+    for (const session of sessions)
+      for (const student of rule.students) {
+        if (!session.isTrial) {
+          const card = student.cardId
+            ? await tx.coursePointCard.findFirst({
+                where: { id: student.cardId, storeId: actor.storeId },
+              })
+            : null;
+          if (!card || card.planId !== rule.planId)
+            throw new AppError("VALIDATION", "學員持有方案不符合收費方式");
+        }
+        await reserveCourseInTransaction(
+          tx,
+          actor,
+          {
+            sessionId: session.id,
+            cardId: session.isTrial ? null : student.cardId,
+            customerId: student.customerId,
+            trialPrice: session.isTrial ? rule.trialPrice : undefined,
+            requestKey: `${requestKey}:${session.requestIndex}:${student.customerId}`,
+          },
+          limits.maxMonthlyBookings,
+        );
+      }
+  }
+}
+
+export async function assertSportsRentalFree(
+  tx: Prisma.TransactionClient,
+  storeId: string,
+  roomId: string,
+  ranges: Array<{ startsAt: Date; endsAt: Date }>,
+) {
+  if (!sportsStagingEnabled()) return;
+  for (const range of ranges)
+    if (
+      await tx.courseRental.findFirst({
+        where: {
+          storeId,
+          roomId,
+          cancelledAt: null,
+          occupiedStartsAt: { lt: range.endsAt },
+          occupiedEndsAt: { gt: range.startsAt },
+        },
+      })
+    )
+      throw new AppError("CONFLICT", "這個空間已有租借");
+}
