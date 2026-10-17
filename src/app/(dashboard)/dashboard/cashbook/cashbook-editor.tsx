@@ -1,5 +1,5 @@
 "use client";
-import { isMusicPreviewPage } from "@/lib/music-finance-sync";
+import { publishMusicFinanceChange, isMusicPreviewPage } from "@/lib/music-finance-sync";
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -97,6 +97,7 @@ export function CashbookEditor({
       }
       setOpen(false);
       setDirty(false);
+      publishMusicFinanceChange();
       router.refresh();
       toast.success("已儲存收支紀錄");
     } catch {

@@ -9,7 +9,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
 import { readQuickCashbook, type QuickCashbookData } from "@/lib/quick-cashbook-client-transport";
 
-import { isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
+import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
 type Data = QuickCashbookData;
 type Entry = Data["entries"][number];
@@ -89,7 +89,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
       if (editing === "new") form.set("requestId", createRequestId.current ?? (createRequestId.current = crypto.randomUUID()));
       const result = await saveQuickCashbook(storeId, editing && editing !== "new" ? editing.id : null, form);
       if (!result.success) { toast.error(result.error ?? "儲存失敗"); return; }
-      reader.clear(); createRequestId.current = null; setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
+      publishMusicFinanceChange(); reader.clear(); createRequestId.current = null; setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
     } catch { toast.error("儲存失敗，請重試，表單內容已保留"); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -99,7 +99,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
     try {
       const result = await deleteQuickCashbook(storeId, entry.id);
       if (!result.success) { toast.error(result.error ?? "刪除失敗"); return; }
-      reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
+      publishMusicFinanceChange(); reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
     } catch { toast.error("刪除失敗，請重試"); }
     finally { locked.current = false; setBusy(false); }
   }

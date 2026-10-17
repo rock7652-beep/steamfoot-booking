@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ export function CashbookEntryDeleteButton({ entryId }: CashbookEntryDeleteButton
         }
 
         toast.success("已刪除現金帳紀錄");
+        publishMusicFinanceChange();
         router.refresh();
       } catch {
         toast.error("刪除失敗，請稍後再試");
