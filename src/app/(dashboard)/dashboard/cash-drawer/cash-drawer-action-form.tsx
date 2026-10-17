@@ -24,6 +24,7 @@
 
 import { useActionState, useEffect, type ReactNode } from "react";
 
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -69,6 +70,7 @@ export function CashDrawerActionForm({
 
   useEffect(() => {
     if (state?.success) {
+      publishMusicFinanceChange();
       // 等效 F5：full page navigation，重新跑 page server components，
       // 不依賴 server action response 內 inline 的 RSC payload。
       window.location.assign(returnPath);

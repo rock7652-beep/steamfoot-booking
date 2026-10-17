@@ -1,3 +1,6 @@
+import { isPreviewHqStoreManager } from "@/server/cashbook-management-access";
+import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
+import { MusicCashDrawerSync } from "@/components/admin/music-cash-drawer-sync";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 /**
  * /dashboard/cash-drawer — 現金抽屜獨立頁
@@ -74,7 +77,8 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const industryModule = await getStoreIndustryModule(storeId);
   // The lightweight panel omits DashboardLayout, so retain its course staff
   // membership boundary here before reading any financial amounts.
-  if (panel && industryModule === "course" && getEffectiveActorRole(user) !== "ADMIN"
+  const previewHq = isPreviewHqStoreManager(user, storeId);
+  if (panel && !previewHq && industryModule === "course" && getEffectiveActorRole(user) !== "ADMIN"
     && !(user.role === "OWNER" && !!user.storeId && activeStoreId !== user.storeId)
     && !await prisma.staff.findFirst({ where: { id: user.staffId ?? "", storeId: activeStoreId!, userId: user.id, status: "ACTIVE" } })) {
     return panelError("目前人員無法存取此店，請聯絡店長。");
@@ -111,7 +115,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
     listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
     !isViewMode && getEffectiveActorRole(user) === "ADMIN" ? listStaffSelectOptions() : Promise.resolve([]),
   ]);
-  const canInit = !isViewMode && (getEffectiveActorRole(user) === "ADMIN" || user.role === "OWNER");
+  const canInit = !isViewMode && (getEffectiveActorRole(user) === "ADMIN" || user.role === "OWNER" || previewHq);
   const canReopen = canInit && canClose;
   const canAssignStaff = !isViewMode && getEffectiveActorRole(user) === "ADMIN";
 
@@ -119,6 +123,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const panelReturnPath = `${panelPrefix}/dashboard/cash-drawer?${new URLSearchParams({cashDrawerPanel: "1", panelStoreId: storeId, panelPrefix})}`;
   return (
     <PageShell className={courseHome ? "course-home flex w-full min-w-0 flex-col gap-4 py-6" : undefined}>
+      {musicDataSeparationEnabled(storeId) && <MusicCashDrawerSync />}
       {panel && <CashDrawerPanelBridge storeId={storeId} status={view.state === "OPENED_TODAY" ? view.session.status === "OPEN" ? "營業中" : "已結帳" : view.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>}
       <FormErrorToast />
 
