@@ -25,3 +25,8 @@ it("reports consumed recovery as a restored link rather than proven session succ
   m.grants.mockResolvedValue([{ status: "CONSUMED", consumedAt: new Date(), expiresAt: new Date() }]);
   expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "登入連結已恢復，尚需顧客確認實際登入" });
 });
+it("does not let an older consumed grant mask a newer expired login request", async () => {
+  m.requests.mockResolvedValue([{ channelKey: "login:123", status: "PENDING", expiresAt: new Date(0) }]);
+  m.grants.mockResolvedValue([{ status: "CONSUMED", consumedAt: new Date(0), expiresAt: new Date(0) }]);
+  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "登入確認申請已過期，請顧客重新提交並核對" });
+});

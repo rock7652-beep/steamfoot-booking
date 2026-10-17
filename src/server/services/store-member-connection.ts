@@ -187,7 +187,7 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
 export async function readStoreMemberConnection(storeId: string, customerId: string) {
   const [customer, connections] = await Promise.all([
     prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true } } } }),
-    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { createdAt: "desc" } }),
+    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { updatedAt: "desc" } }),
   ]);
   if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
   const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(l => l.userId)]);
@@ -195,7 +195,9 @@ export async function readStoreMemberConnection(storeId: string, customerId: str
   const grants = await prisma.lineRebindRequest.findMany({ where: { storeId, customerId,
     reason: { startsWith: "LIFF_LOGIN_" } }, select: { status: true, expiresAt: true, consumedAt: true }, orderBy: { createdAt: "desc" }, take: 1 });
   const grant = grants[0];
+  const latestLoginRequest = connections.find(c => c.channelKey.startsWith("login:"));
   const login = pending.some(c => c.channelKey.startsWith("login:")) ? "待店家核對登入身分"
+    : latestLoginRequest?.status === "PENDING" ? "登入確認申請已過期，請顧客重新提交並核對"
     : grant?.consumedAt ? "登入連結已恢復，尚需顧客確認實際登入"
     : grant?.status === "PENDING_CAPTURE" && grant.expiresAt > new Date() ? "已授權，等待顧客重新進入並完成登入"
     : connections.some(c => c.channelKey.startsWith("login:")) || grant ? "恢復申請已失效，請顧客重新提交並核對"
