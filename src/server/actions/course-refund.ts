@@ -21,7 +21,7 @@ export async function refundCoursePurchase(input: unknown) {
     const { user, storeId } = await courseManager("transaction.refund");
     const refund = await courseTransaction(storeId, (tx) =>
       refundUnusedCoursePurchase(tx, { storeId, userId: user.id }, data));
-    for (const path of ["/dashboard/revenue", "/dashboard/courses", "/dashboard/cashbook", "/book"])
+    for (const path of ["/dashboard", "/dashboard/revenue", "/dashboard/transactions", "/dashboard/courses", "/dashboard/cashbook", "/dashboard/cash-drawer", "/book"])
       revalidatePath(path);
     return { success: true as const, refundId: refund.id };
   } catch (error) { return handleActionError(error); }

@@ -1,0 +1,151 @@
+Error: locator.innerText: Error: strict mode violation: getByRole('dialog') resolved to 2 elements:
+    1) <aside tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="course-panel-title" class="right-sheet-module__2vBPGq__panel right-sheet-module__2vBPGq__centered right-sheet-module__2vBPGq__mobileScrollable flex flex-col  bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 visible">…</aside> aka getByRole('dialog', { name: '-10-17' })
+    2) <aside tabindex="-1" role="dialog" aria-modal="true" data-fit-content="true" aria-labelledby="course-operation-title" class="right-sheet-module__2vBPGq__panel right-sheet-module__2vBPGq__centered right-sheet-module__2vBPGq__mobileScrollable flex flex-col  bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 visible">…</aside> aka getByRole('dialog', { name: '上課名單' })
+
+Call log:
+[2m  - waiting for getByRole('dialog')[22m
+
+v2.9.0
+現金抽屜
+預覽
+▾
+體驗版 · 剩 14 天
+運動流程隔離驗收店
+後台
+驗收老闆
+老闆
+繼續設定
+已完成 5/6
+下一步：設定營業時間與公休 →
+查看全部步驟 →
+稍後設定
+不再提醒
+課表排程
+月表
+週表
+日表
+‹
+今天
+›
+課表日期
+2026 年 10 月
+現金收支
+＋ 排課
+授課教練
+全部授課教練
+驗收老闆
+教室
+全部空間
+運動驗收空間
+班別
+全部班別
+團體課
+個別課
+自組課
+體驗
+空間租借
+未設定
+所屬店長
+全部所屬店長
+驗收老闆
+未指定所屬店長
+本月已排課程 1 堂｜名單 2 人次｜有課 1 天
+團體課
+個別課
+自組課
+體驗
+空間租借
+日
+一
+二
+三
+四
+五
+六
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17今天
+18
+1堂・2人次
+10:00 運動驗收課程 · 驗收老闆
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+
+2026-10-17
+關閉
+每 60 秒自動更新
+立即更新
+0 堂
+名單 0
+
+當日尚無課程
+
+＋ 新增排課
+上課名單
+
+2026-10-18 10:00 · 運動驗收課程 · 運動驗收空間
+
+＋加入學員
+＋體驗客
+關閉
+授課教練
+驗收老闆
+備註 ✎
+正常授課
+教練請假
+教練曠課
+上課名單 2
+待點名 2
+未收款 1
+篩選
+批次點名
+⋯
+學員／電話
+所屬店長
+本堂點數
+課後剩餘
+：本方案扣除本堂全部使用同一卡的預約後餘額，不含其他方案；其他堂預約尚未扣點
+標籤／備註
+體驗驗收學員
+體驗 ·
+待收 $499
+☎ 0900-000-102
+驗收老闆
+尚無備註
+⋯
+運動驗收學員
+☎ 0900-000-101
+驗收老闆
+1
+9
+尚無備註
+⋯
+
+○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額
+
+v2.9.0 • 2026/10/17 21:12 • dev

@@ -14,6 +14,7 @@ const boundary = vi.hoisted(() => ({
   createBookingCompletedEvent: vi.fn(),
 }));
 
+vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: await boundary.requireSession() }) }));
 vi.mock("@/lib/session", () => ({ requireSession: boundary.requireSession }));
 vi.mock("@/lib/permissions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/permissions")>()),
@@ -101,6 +102,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
         validityDays: 36500,
       },
     });
+    await db().user.create({ data: { id: `admin_${storeId}`, name: "Integration admin", role: "ADMIN" } });
     admin(storeId);
     return { prefix, storeId, planId: plan.id };
   }
@@ -214,6 +216,8 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       await tx.staff.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.pointRecord.deleteMany({ where: { customerId: { in: customerIds } } });
       await tx.customer.deleteMany({ where: { id: { in: customerIds } } });
+      await tx.auditLog.deleteMany({ where: { storeId: { in: storeIds } } });
+      await tx.user.deleteMany({ where: { id: { in: storeIds.map(id => `admin_${id}`) } } });
       await tx.store.deleteMany({ where: { id: { in: storeIds } } });
     });
 

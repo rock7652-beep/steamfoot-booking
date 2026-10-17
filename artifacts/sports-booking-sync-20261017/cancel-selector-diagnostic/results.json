@@ -1,0 +1,223 @@
+{
+  "environment": "isolated PostgreSQL and actual Next application",
+  "scheduledSession": "2026-10-18; manager attendance permitted by current UI",
+  "steps": [
+    {
+      "label": "01-reserved",
+      "remaining": 10,
+      "held": 1,
+      "available": 9,
+      "bookings": [
+        {
+          "makeupForBookingId": null,
+          "id": "cmvcf5dge000dmrn82wns3rap",
+          "storeId": "sports-live-flow-store",
+          "sessionId": "sports-live-session",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingKind": "CARD",
+          "trialPrice": null,
+          "customerId": "sports-live-customer",
+          "companionIndex": null,
+          "reserverCustomerId": null,
+          "reserverName": null,
+          "reserverCardId": null,
+          "groupKey": null,
+          "operatorUserId": "sports-live-flow-owner",
+          "operatorCustomerId": null,
+          "operatorName": "驗收老闆",
+          "customerName": "運動驗收學員",
+          "pointCost": 1,
+          "status": "RESERVED",
+          "checkedInAt": null,
+          "notes": "",
+          "absenceKind": null,
+          "requestKey": "6ddf9cfe-7f6b-4c06-b10d-9cfb6e6f6581",
+          "createdAt": "2026-10-17T13:15:01.599Z",
+          "updatedAt": "2026-10-17T13:15:01.599Z"
+        }
+      ],
+      "entries": [
+        {
+          "id": "cmvcf58xs000amrn8dquq13ep",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": null,
+          "kind": "GRANT",
+          "points": 10,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:14:55.744Z"
+        },
+        {
+          "id": "cmvcf5dgh000fmrn8njzhjl03",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "RESERVE",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:15:01.601Z"
+        }
+      ],
+      "observer": {
+        "status": "待點名",
+        "postClassBalance": 9,
+        "delayMs": 56961,
+        "urlUnchanged": true,
+        "documentReload": false,
+        "dialogText": "上課名單\n\n2026-10-18 10:00 · 運動驗收課程 · 運動驗收空間\n\n＋加入學員\n＋體驗客\n關閉\n授課教練\n驗收老闆\n備註 ✎\n正常授課\n教練請假\n教練曠課\n上課名單 2\n待點名 2\n未收款 1\n篩選\n批次點名\n⋯\n學員／電話\n本堂點數\n課後剩餘\n：本方案扣除本堂全部使用同一卡的預約後餘額，不含其他方案；其他堂預約尚未扣點\n標籤／備註\n體驗驗收學員\n驗收老闆\n體驗 ·\n待收 $499\n☎ 0900-000-102\n尚無備註\n⋯\n運動驗收學員\n驗收老闆\n☎ 0900-000-101\n1\n9\n尚無備註\n⋯\n\n○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額"
+      }
+    },
+    {
+      "label": "02-attended",
+      "remaining": 9,
+      "held": 0,
+      "available": 9,
+      "bookings": [
+        {
+          "makeupForBookingId": null,
+          "id": "cmvcf5dge000dmrn82wns3rap",
+          "storeId": "sports-live-flow-store",
+          "sessionId": "sports-live-session",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingKind": "CARD",
+          "trialPrice": null,
+          "customerId": "sports-live-customer",
+          "companionIndex": null,
+          "reserverCustomerId": null,
+          "reserverName": null,
+          "reserverCardId": null,
+          "groupKey": null,
+          "operatorUserId": "sports-live-flow-owner",
+          "operatorCustomerId": null,
+          "operatorName": "驗收老闆",
+          "customerName": "運動驗收學員",
+          "pointCost": 1,
+          "status": "ATTENDED",
+          "checkedInAt": null,
+          "notes": "",
+          "absenceKind": null,
+          "requestKey": "6ddf9cfe-7f6b-4c06-b10d-9cfb6e6f6581",
+          "createdAt": "2026-10-17T13:15:01.599Z",
+          "updatedAt": "2026-10-17T13:16:00.491Z"
+        }
+      ],
+      "entries": [
+        {
+          "id": "cmvcf58xs000amrn8dquq13ep",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": null,
+          "kind": "GRANT",
+          "points": 10,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:14:55.744Z"
+        },
+        {
+          "id": "cmvcf5dgh000fmrn8njzhjl03",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "RESERVE",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:15:01.601Z"
+        },
+        {
+          "id": "cmvcf6mwd000hmrn8ysf3v8t9",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "DEBIT",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:16:00.494Z"
+        }
+      ],
+      "observer": {
+        "status": "已出席",
+        "postClassBalance": 9,
+        "delayMs": 59434,
+        "urlUnchanged": true,
+        "documentReload": false,
+        "dialogText": "上課名單\n\n2026-10-18 10:00 · 運動驗收課程 · 運動驗收空間\n\n＋加入學員\n＋體驗客\n關閉\n授課教練\n驗收老闆\n備註 ✎\n正常授課\n教練請假\n教練曠課\n上課名單 2\n待點名 1\n未收款 1\n篩選\n批次點名\n⋯\n學員／電話\n本堂點數\n課後剩餘\n：本方案扣除本堂全部使用同一卡的預約後餘額，不含其他方案；其他堂預約尚未扣點\n標籤／備註\n體驗驗收學員\n驗收老闆\n體驗 ·\n待收 $499\n☎ 0900-000-102\n尚無備註\n⋯\n✓\n運動驗收學員\n驗收老闆\n☎ 0900-000-101\n1\n9\n尚無備註\n⋯\n\n○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額"
+      }
+    },
+    {
+      "label": "03-cancelled",
+      "remaining": 10,
+      "held": 0,
+      "available": 10,
+      "bookings": [
+        {
+          "makeupForBookingId": null,
+          "id": "cmvcf5dge000dmrn82wns3rap",
+          "storeId": "sports-live-flow-store",
+          "sessionId": "sports-live-session",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingKind": "CARD",
+          "trialPrice": null,
+          "customerId": "sports-live-customer",
+          "companionIndex": null,
+          "reserverCustomerId": null,
+          "reserverName": null,
+          "reserverCardId": null,
+          "groupKey": null,
+          "operatorUserId": "sports-live-flow-owner",
+          "operatorCustomerId": null,
+          "operatorName": "驗收老闆",
+          "customerName": "運動驗收學員",
+          "pointCost": 1,
+          "status": "CANCELLED",
+          "checkedInAt": null,
+          "notes": "",
+          "absenceKind": null,
+          "requestKey": "6ddf9cfe-7f6b-4c06-b10d-9cfb6e6f6581",
+          "createdAt": "2026-10-17T13:15:01.599Z",
+          "updatedAt": "2026-10-17T13:17:00.479Z"
+        }
+      ],
+      "entries": [
+        {
+          "id": "cmvcf58xs000amrn8dquq13ep",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": null,
+          "kind": "GRANT",
+          "points": 10,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:14:55.744Z"
+        },
+        {
+          "id": "cmvcf5dgh000fmrn8njzhjl03",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "RESERVE",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:15:01.601Z"
+        },
+        {
+          "id": "cmvcf6mwd000hmrn8ysf3v8t9",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "DEBIT",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:16:00.494Z"
+        },
+        {
+          "id": "cmvcf7x6l000jmrn8aje22wx5",
+          "storeId": "sports-live-flow-store",
+          "cardId": "cmvcf58xs0009mrn8xy0qangd",
+          "bookingId": "cmvcf5dge000dmrn82wns3rap",
+          "kind": "CORRECT:ATTENDED:CANCELLED:f1c941ea-d955-44a1-b464-48081e8a3796",
+          "points": 1,
+          "actorUserId": "sports-live-flow-owner",
+          "createdAt": "2026-10-17T13:17:00.478Z"
+        }
+      ]
+    }
+  ]
+}

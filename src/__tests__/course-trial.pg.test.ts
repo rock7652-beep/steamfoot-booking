@@ -10,6 +10,7 @@ import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-conc
 import { collectCourseTrialInTransaction, voidCourseTrialInTransaction } from "@/server/services/course-trial-payment";
 import {settleCourseBooking,correctCourseAttendance} from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 // Explicit loopback-only disposable database; never falls back to DATABASE_URL.
 const databaseUrl = resolveBookingConcurrencyTestDatabaseUrl(process.env);
@@ -48,13 +49,15 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL)');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookEntryType" AS ENUM (\'INCOME\',\'EXPENSE\')');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookPaymentMethod" AS ENUM (\'CASH\',\'OTHER\')');
+    await testDb().$executeRawUnsafe('CREATE TABLE "CashDrawerSession" (id text PRIMARY KEY,"storeId" text,"businessDate" date,status text,"updatedAt" timestamp)');
     await testDb().$executeRawUnsafe(`CREATE TABLE "CashbookEntry" (
       id text PRIMARY KEY, "storeId" text, "entryDate" date, type text,
       "paymentMethod" "CashbookPaymentMethod", category text, amount integer,
       note text CHECK (note NOT LIKE '%force-rollback%'), "createdByUserId" text, "updatedAt" timestamp)`);
     await testDb().$executeRawUnsafe(`CREATE TABLE "AuditLog" (
       id text PRIMARY KEY, "actorUserId" text, "targetType" text, "targetId" text,
-      action text, "beforeJson" jsonb, "afterJson" jsonb, "createdAt" timestamp)`);
+      action text, "beforeJson" jsonb, "afterJson" jsonb, "createdAt" timestamp,
+      "storeId" text, module text, summary text, "actorNameSnapshot" text)`);
   }, 30000);
   afterAll(async () => {
     if (created) await testDb().$executeRawUnsafe(`DROP SCHEMA "${schemaName}" CASCADE`);
@@ -121,6 +124,16 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     expect(await testDb().courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({status:"RESERVED",checkedInAt:null});
     expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId,status:"VOIDED"}})).toBe(1);
     expect(await testDb().coursePointEntry.count({where:{storeId:f.storeId}})).toBe(0);
+  });
+  it("closed cash day blocks collection atomically and reopening allows the same request",async()=>{
+    const f=await fixture(),key=randomUUID(),day=new Date(toLocalDateStr()+"T00:00:00Z");
+    await testDb().$executeRaw`INSERT INTO "CashDrawerSession" VALUES (${randomUUID()},${f.storeId},${day},'CLOSED',NOW())`;
+    await expect(collect(f,key)).rejects.toThrow("已經結帳");
+    expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId}})).toBe(0);
+    expect(await balance(f)).toEqual([{net:0}]);
+    await testDb().$executeRaw`UPDATE "CashDrawerSession" SET status='OPEN' WHERE "storeId"=${f.storeId}`;
+    await collect(f,key);
+    expect(await balance(f)).toEqual([{net:499}]);
   });
 
 });

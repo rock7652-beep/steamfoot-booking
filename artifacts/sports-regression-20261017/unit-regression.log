@@ -1,0 +1,14 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-booking
+
+
+ Test Files  19 passed (19)
+      Tests  350 passed (350)
+   Start at  12:44:08
+   Duration  3.95s (transform 1.79s, setup 0ms, import 2.78s, tests 5.69s, environment 977ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

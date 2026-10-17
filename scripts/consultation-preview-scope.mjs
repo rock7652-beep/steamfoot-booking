@@ -1,4 +1,5 @@
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
+import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
 import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "./store-notices-preview-preflight.mjs";
 import { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRANCH } from "./store-member-workorder-review-gate.mjs";
@@ -249,9 +250,13 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"mocked-unit-test" | "production" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (env.SPORTS_LIVE_FLOW_QA === "1") {
+    assertSportsLiveFlowQaEnvironment(env);
+    return "local-sports-qa";
+  }
   if ([env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(STORE_MEMBER_WORKORDER_REVIEW_BRANCH)) {
     assertStoreMemberWorkorderReviewOnly(env);
     return "member-workorder-preview";

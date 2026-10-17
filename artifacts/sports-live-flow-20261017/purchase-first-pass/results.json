@@ -1,0 +1,11 @@
+{
+  "realLogin": true,
+  "realServerAction": true,
+  "orderCreatedOnce": true,
+  "cardRemaining": 10,
+  "income": 1000,
+  "observerBefore": 4,
+  "observerAfter": 5,
+  "observerUpdated": true,
+  "documentReload": false
+}
