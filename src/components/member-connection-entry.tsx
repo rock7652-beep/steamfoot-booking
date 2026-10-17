@@ -7,7 +7,7 @@ export function MemberConnectionEntry({ slug, basicId, linked = false }: { slug:
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
-  if (linked) return <p role="status">本店會員已連結，不需再次填寫。通知將依本店 LINE 狀態發送。</p>;
+  if (linked) return <p role="status">本店 LINE 通知連結已確認。會員登入需另外驗證，通知將依本店 LINE 狀態發送。</p>;
   if (!basicId) return <p role="status">本店 LINE 連結尚未設定，請由門市協助。</p>;
   function submit(event: FormEvent) {
     event.preventDefault();

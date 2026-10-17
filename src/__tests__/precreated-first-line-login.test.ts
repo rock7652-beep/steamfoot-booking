@@ -53,6 +53,23 @@ describe("precreated member first LINE login", () => {
   it("normalizes phone and trims the entered name before matching", async () => {
     expect(await activateUnlinkedStoreMember({ ...input, name: " 呂育芬 ", phone: "0972-153-183" })).toBe("activated");
   });
+  it("activates a notification-only trial customer when its recipient is the verified Login subject", async () => {
+    tx.customer.findMany.mockResolvedValue([{ ...customer, lineUserId: input.lineUserId }]);
+    expect(await activateUnlinkedStoreMember(input)).toBe("activated");
+    expect(tx.customer.findFirst).toHaveBeenCalledWith({ where: {
+      storeId: input.storeId, lineUserId: input.lineUserId, id: { not: customer.id },
+    }, select: { id: true } });
+    expect(tx.customer.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ lineUserId: input.lineUserId, userId: null, identityLinks: { none: {} } }),
+      data: expect.objectContaining({ lineUserId: input.lineUserId }),
+    }));
+  });
+  it("does not claim a notification recipient that changed during activation", async () => {
+    tx.customer.findMany.mockResolvedValue([{ ...customer, lineUserId: input.lineUserId }]);
+    tx.customer.updateMany.mockResolvedValue({ count: 0 });
+    expect(await activateUnlinkedStoreMember(input)).toBe("review");
+    expect(tx.account.create).not.toHaveBeenCalled();
+  });
   it("rejects invalid phones without opening a transaction", async () => {
     expect(await activateUnlinkedStoreMember({ ...input, phone: "invalid" })).toBe("review");
     expect(transaction).not.toHaveBeenCalled();

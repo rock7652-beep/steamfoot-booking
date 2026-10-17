@@ -1,6 +1,7 @@
 "use server";
 
 import { activateUnlinkedStoreMember } from "@/server/services/precreated-first-line-login";
+import { requestLiffLoginRecovery } from "@/server/services/liff-login-recovery";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 
 /**
@@ -60,6 +61,7 @@ export type OnboardingActionResult =
   | { status: "ambiguous"; referenceId?: string }                     // ambiguous_multiple_candidates
   | { status: "expired" }                       // ID token expired
   | { status: "identity_review_required"; referenceId?: string }
+  | { status: "login_review_pending"; referenceId: string; verificationCode: string }
   | { status: "service_unavailable" };          // network / config / store not found / unexpected
 
 export async function submitOnboarding(
@@ -127,6 +129,12 @@ export async function submitOnboarding(
     });
     return diagnostic.referenceId;
   };
+  const requestReview = async (): Promise<OnboardingActionResult> => {
+    const result = await requestLiffLoginRecovery({ storeId: store.id, channelId: verified.channelId, lineUserId: verified.lineUserId, phone });
+    if (result.status === "unavailable") return { status: "service_unavailable" };
+    const referenceId = recordReview("store_membership_unconfirmed", "first_login_confirmation");
+    return result.status === "pending" ? { status: "login_review_pending", referenceId, verificationCode: result.verificationCode } : { status: "identity_review_required", referenceId };
+  };
 
   // Recheck verified ownership even if this page was opened directly or left open.
   try {
@@ -137,9 +145,17 @@ export async function submitOnboarding(
       const activation = await activateUnlinkedStoreMember({ storeId: store.id, lineUserId: verified.lineUserId, name, phone });
       if (activation === "activated") return { status: "ok" };
       if (activation === "unavailable") return { status: "service_unavailable" };
-      return { status: "identity_review_required", referenceId: recordReview("store_membership_unconfirmed", "first_login_confirmation") };
+      return requestReview();
     }
   } catch (error) {
+    if (error instanceof LineIdentityReviewError && error.reason === "store_membership_unconfirmed") {
+      // A verified central Account can still lack its store link. Let an
+      // exact staff-reviewed grant complete before re-queuing the request.
+      try {
+        if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
+        return requestReview();
+      } catch { return { status: "service_unavailable" }; }
+    }
     if (error instanceof LineIdentityReviewError) return { status: "ambiguous", referenceId: recordReview(error.reason, "verified_identity_lookup") };
     console.error("[liff/onboarding] identity lookup unavailable");
     return { status: "service_unavailable" };

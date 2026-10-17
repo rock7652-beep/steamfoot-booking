@@ -10,7 +10,7 @@ export default async function MemberLinkPage() {
   if (!user || !store) return null;
   const [setting, connection] = await Promise.all([
     prisma.shopConfig.findUnique({ where: { storeId: store.storeId }, select: { lineOfficialId: true, lineOfficialUrl: true } }),
-    prisma.storeMemberConnection.findFirst({ where: { storeId: store.storeId, centralUserId: user.id, status: "APPROVED" }, select: { id: true } }),
+    prisma.storeMemberConnection.findFirst({ where: { storeId: store.storeId, centralUserId: user.id, status: "APPROVED", channelKey: { not: { startsWith: "login:" } } }, select: { id: true } }),
   ]);
   const config = getConfiguredStoreLine(store.storeId);
   const basicId = config?.basicId ?? workOrderLineId(setting?.lineOfficialId, setting?.lineOfficialUrl);

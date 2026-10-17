@@ -14,6 +14,6 @@ export default async function MemberConnectPage({ searchParams }: { searchParams
   const config = getConfiguredStoreLine(store.id);
   const basicId = config?.basicId ?? workOrderLineId(store.shopConfig?.lineOfficialId, store.shopConfig?.lineOfficialUrl);
   const user = await getCurrentUser();
-  const linked = user?.role === "CUSTOMER" && !!await prisma.storeMemberConnection.findFirst({ where: { storeId: store.id, centralUserId: user.id, status: "APPROVED" }, select: { id: true } });
+  const linked = user?.role === "CUSTOMER" && !!await prisma.storeMemberConnection.findFirst({ where: { storeId: store.id, centralUserId: user.id, status: "APPROVED", channelKey: { not: { startsWith: "login:" } } }, select: { id: true } });
   return <main className="mx-auto min-h-screen max-w-md space-y-5 bg-white p-5 text-base text-earth-900"><h1 className="text-xl font-semibold">{store.name}・會員連結</h1><MemberConnectionEntry slug={slug} basicId={basicId} linked={linked} /></main>;
 }

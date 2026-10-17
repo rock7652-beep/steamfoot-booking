@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertReviewedReleaseEnvironment } from "../../scripts/consultation-preview-scope.mjs";
 
-const env = {
+const baseEnv = {
   VERCEL: "1", VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "fix/trial-first-member-login-20261013",
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
@@ -9,7 +9,8 @@ const env = {
   DIRECT_URL: "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres",
 };
 
-describe("trial member login preview isolation", () => {
+describe.each(["fix/trial-first-member-login-20261013", "fix/member-login-recovery-20261017"])("trial member login preview isolation: %s", branch => {
+  const env = { ...baseEnv, VERCEL_GIT_COMMIT_REF: branch };
   it("uses the existing migration-free isolated preview mode", () => {
     expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview");
   });

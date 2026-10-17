@@ -284,6 +284,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       // store link was never persisted. Recover only that exact authorized
       // Account snapshot inside this transaction; never infer ownership from
       // a submitted phone or display name alone.
+      let restoredMissingLink = false;
       if (oldLinks.length === 0 && customer.userId === ownerUserId) {
         const accounts = await tx.account.findMany({
           where: { userId: ownerUserId, provider: "line" },
@@ -310,6 +311,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
             lineUserId: accounts[0].providerAccountId },
           select: { id: true, userId: true, providerAccountId: true, lineUserId: true },
         }));
+        restoredMissingLink = true;
       }
       if (
         oldLinks.length !== 1 ||
@@ -321,7 +323,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         throw new RebindRejected("OLD_LOGIN_IDENTITY_CHANGED");
       }
       const oldLineUserId = oldLinks[0].providerAccountId;
-      if (oldLineUserId === input.candidateLineUserId) {
+      if (oldLineUserId === input.candidateLineUserId && !(restoredMissingLink && request.reason === pinnedReason)) {
         throw new RebindRejected("CANDIDATE_UNCHANGED");
       }
 
@@ -477,6 +479,7 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
 }): Promise<AuthorizedLiffLoginRebindResult> {
   const phone = normalizePhone(input.phone);
   if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) return { status: "rejected", code: "INVALID_INPUT" };
+  const pinnedReason = `${LIFF_LOGIN_FIRST_CAPTURE_REASON}:verified:${sha256(JSON.stringify([input.storeId, "line", input.candidateLineUserId]))}`;
   try {
     return await prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -485,14 +488,14 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
         WHERE "storeId" = ${input.storeId}
           AND "customerId" = ${input.customerId}
           AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
-          AND "reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON}
+          AND ("reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON} OR "reason" = ${pinnedReason})
           AND "expiresAt" > ${now}
         ORDER BY "createdAt" DESC LIMIT 2 FOR UPDATE
       `;
       if (requests.length === 0) return { status: "not_authorized" as const };
       if (requests.length !== 1) throw new RebindRejected("MULTIPLE_ACTIVE_REQUESTS");
       const request = await tx.lineRebindRequest.findUnique({ where: { id: requests[0].id } });
-      if (!request || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
+      if (!request || ![LIFF_LOGIN_FIRST_CAPTURE_REASON, pinnedReason].includes(request.reason) || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
         throw new RebindRejected("REQUEST_STATE_CHANGED");
       }
       const lockedCustomers = await tx.$queryRaw<Array<{ id: string }>>`

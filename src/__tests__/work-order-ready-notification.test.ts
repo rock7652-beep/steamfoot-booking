@@ -29,6 +29,19 @@ beforeEach(() => {
   m.probe.mockResolvedValue({status:"COMPATIBLE"}); m.push.mockResolvedValue({success:true});
 });
 describe("actual work-order notification dispatcher with isolated transports", () => {
+  it("excludes Login review approvals when selecting a notification recipient", async () => {
+    m.event.findUnique.mockResolvedValue(null);
+    m.connection.mockResolvedValue([]);
+    await enqueueWorkOrderReady(tx as unknown as Prisma.TransactionClient, "a", { id: "o", partyId: "c" });
+    expect(m.connection).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      status: "APPROVED", channelKey: { not: { startsWith: "login:" } },
+    }) }));
+    expect(m.event.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SKIPPED", connectionId: null }) }));
+  });
+  it("rechecks notification-only connection selection immediately before sending", async () => {
+    await dispatchWorkOrderReadyNotification("e");
+    expect(m.connection).toHaveBeenCalledWith({ where: expect.objectContaining({ channelKey: { not: { startsWith: "login:" } } }) });
+  });
   it("blocks Preview before any reads or external probes", async () => { m.blocked.mockReturnValue(true); await dispatchWorkOrderReadyNotification("e"); expect(m.event.findUnique).not.toHaveBeenCalled(); expect(m.probe).not.toHaveBeenCalled(); expect(m.push).not.toHaveBeenCalled(); });
   it.each(["COLLECTED","CANCELLED","PROCESSING"])("does not send queued work changed to %s", async status => {m.order.mockResolvedValue({id:"o",partyId:"c",workOrder:{...details(),status}}); await dispatchWorkOrderReadyNotification("e"); expect(m.push).not.toHaveBeenCalled(); expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"SKIPPED"})}));});
   it.each(["setting","blocked","quota","identity","channel"])("rechecks %s immediately before sending", async guard => {

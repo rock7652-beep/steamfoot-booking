@@ -20,7 +20,7 @@ export function connectionConflict(customer: {
 
 export const connectionResultLabels = {
   pending: "已收到電話，請門市核對本人後確認；尚未完成綁定。",
-  linked: "本店會員已連結，不需再次填寫。請保持官方 LINE 未封鎖以接收通知。",
+  linked: "本店通知連結已確認。會員登入需另外驗證；若登入遇到確認畫面，請提交登入確認申請並向門市出示確認碼。",
   review: "資料需要確認，請聯繫門市；原有連結未變更。",
   unavailable: "目前無法完成，請稍後再試或聯繫門市。",
 } as const;

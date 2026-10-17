@@ -18,7 +18,7 @@ export async function enqueueWorkOrderReady(tx: Prisma.TransactionClient, storeI
   if (await tx.workOrderReadyNotification.findUnique({ where: { storeId_orderId: { storeId, orderId: order.id } }, select: { id: true } })) return;
   const [setting, connections] = await Promise.all([
     tx.shopConfig.findUnique({ where: { storeId }, select: { workOrderReadyNotificationEnabled: true } }),
-    tx.storeMemberConnection.findMany({ where: { storeId, customerId: order.partyId, status: "APPROVED" }, select: { id: true }, take: 2 }),
+    tx.storeMemberConnection.findMany({ where: { storeId, customerId: order.partyId, status: "APPROVED", channelKey: { not: { startsWith: "login:" } } }, select: { id: true }, take: 2 }),
   ]);
   const reason = !setting?.workOrderReadyNotificationEnabled ? "轉為待取件時通知未開啟，不補發" : connections.length !== 1 ? "轉為待取件時本店 LINE 尚未確認，不補發" : null;
   await tx.workOrderReadyNotification.create({ data: { storeId, orderId: order.id, customerId: order.partyId, connectionId: connections.length === 1 ? connections[0].id : null, status: reason ? "SKIPPED" : "PENDING", errorMessage: reason, retryKey: randomUUID(), retryUntil: new Date(Date.now() + 23 * 60 * 60_000) } });
@@ -47,7 +47,7 @@ async function dispatchWithTransport(id: string, transport: DeliveryTransport): 
       const row = await tx.workOrderReadyNotification.findUnique({ where: { id } });
       if (!row || row.snapshot || !row.connectionId || !["PENDING", "FAILED"].includes(row.status)) return;
       const [connection, order, store, setting] = await Promise.all([
-        tx.storeMemberConnection.findFirst({ where: { id: row.connectionId, storeId: row.storeId, customerId: row.customerId, status: "APPROVED" } }),
+        tx.storeMemberConnection.findFirst({ where: { id: row.connectionId, storeId: row.storeId, customerId: row.customerId, status: "APPROVED", channelKey: { not: { startsWith: "login:" } } } }),
         tx.inventoryOrder.findFirst({ where: { id: row.orderId, storeId: row.storeId } }),
         tx.store.findUnique({ where: { id: row.storeId } }),
         tx.shopConfig.findUnique({ where: { storeId: row.storeId }, select: { shopPhone: true, address: true } }),
@@ -85,7 +85,7 @@ async function dispatchWithTransport(id: string, transport: DeliveryTransport): 
         tx.inventoryOrder.findFirst({ where: { id: delivery.orderId, storeId: delivery.storeId, kind: "SALE" } }),
         tx.store.findUnique({ where: { id: delivery.storeId } }),
         tx.shopConfig.findUnique({ where: { storeId: delivery.storeId } }),
-        delivery.connectionId ? tx.storeMemberConnection.findFirst({ where: { id: delivery.connectionId, storeId: delivery.storeId, customerId: delivery.customerId, status: "APPROVED" } }) : null,
+        delivery.connectionId ? tx.storeMemberConnection.findFirst({ where: { id: delivery.connectionId, storeId: delivery.storeId, customerId: delivery.customerId, status: "APPROVED", channelKey: { not: { startsWith: "login:" } } } }) : null,
         tx.storeFeatureEntitlement.findMany({ where: { storeId: delivery.storeId, featureKey: { in: [FEATURES.WORK_ORDERS, FEATURES.LINE_REMINDER] } } }),
       ]);
       const details = workOrderDetails(order?.workOrder);
