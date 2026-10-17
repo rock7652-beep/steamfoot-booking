@@ -173,6 +173,23 @@ describe("authorized LIFF Login rebind", () => {
     expect(h.linkCreate).toHaveBeenCalledOnce();
     expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "recovered-link" }) }));
   });
+  it("restores the missing store link for the same verified Account only with exact staff authorization", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: verifiedLiffLoginRebindReason("store-1", oldLoginId) });
+    h.linksFind.mockReset().mockResolvedValue([]);
+    h.accountsFind.mockReset()
+      .mockResolvedValueOnce([{ id: "account-old", providerAccountId: oldLoginId }])
+      .mockResolvedValueOnce([{ id: "account-old", userId: "user-1" }])
+      .mockResolvedValueOnce([{ id: "account-old" }]);
+    h.customerCount.mockResolvedValue(1);
+    h.linkCreate.mockResolvedValue({ id: "recovered-link", userId: "user-1", providerAccountId: oldLoginId, lineUserId: oldLoginId });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: oldLoginId }))
+      .toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+    expect(h.accountDelete).not.toHaveBeenCalled();
+    expect(h.accountCreate).not.toHaveBeenCalled();
+    expect(h.requestUpdate).toHaveBeenCalled();
+  });
 
   it("rejects missing-link recovery when the Account no longer matches authorization", async () => {
     h.linksFind.mockReset().mockResolvedValue([]);

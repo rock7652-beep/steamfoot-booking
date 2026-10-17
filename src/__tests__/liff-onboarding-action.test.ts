@@ -112,6 +112,15 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(await submitOnboarding(VALID_INPUT)).toMatchObject({ status: "login_review_pending" });
     expect(mockBindLine).not.toHaveBeenCalled();
   });
+  it("consumes an approved recovery even when the Account lookup still reports missing membership", async () => {
+    const { completeAuthorizedFirstStoreLogin } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockMember.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    vi.mocked(completeAuthorizedFirstStoreLogin).mockResolvedValueOnce(true);
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ok" });
+    expect(mockRecovery).not.toHaveBeenCalled();
+  });
   it("completes staff-authorized first login before the phone collision guard", async () => {
     const { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());

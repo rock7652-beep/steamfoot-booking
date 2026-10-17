@@ -284,6 +284,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       // store link was never persisted. Recover only that exact authorized
       // Account snapshot inside this transaction; never infer ownership from
       // a submitted phone or display name alone.
+      let restoredMissingLink = false;
       if (oldLinks.length === 0 && customer.userId === ownerUserId) {
         const accounts = await tx.account.findMany({
           where: { userId: ownerUserId, provider: "line" },
@@ -310,6 +311,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
             lineUserId: accounts[0].providerAccountId },
           select: { id: true, userId: true, providerAccountId: true, lineUserId: true },
         }));
+        restoredMissingLink = true;
       }
       if (
         oldLinks.length !== 1 ||
@@ -321,7 +323,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         throw new RebindRejected("OLD_LOGIN_IDENTITY_CHANGED");
       }
       const oldLineUserId = oldLinks[0].providerAccountId;
-      if (oldLineUserId === input.candidateLineUserId) {
+      if (oldLineUserId === input.candidateLineUserId && !(restoredMissingLink && request.reason === pinnedReason)) {
         throw new RebindRejected("CANDIDATE_UNCHANGED");
       }
 

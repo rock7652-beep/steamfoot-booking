@@ -148,7 +148,14 @@ export async function submitOnboarding(
       return requestReview();
     }
   } catch (error) {
-    if (error instanceof LineIdentityReviewError && error.reason === "store_membership_unconfirmed") return requestReview();
+    if (error instanceof LineIdentityReviewError && error.reason === "store_membership_unconfirmed") {
+      // A verified central Account can still lack its store link. Let an
+      // exact staff-reviewed grant complete before re-queuing the request.
+      try {
+        if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
+        return requestReview();
+      } catch { return { status: "service_unavailable" }; }
+    }
     if (error instanceof LineIdentityReviewError) return { status: "ambiguous", referenceId: recordReview(error.reason, "verified_identity_lookup") };
     console.error("[liff/onboarding] identity lookup unavailable");
     return { status: "service_unavailable" };
