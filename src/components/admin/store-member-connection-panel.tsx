@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { loadMemberConnectionAction, approveMemberConnectionAction } from "@/server/actions/store-member-connection";
+import { loadMemberConnectionAction, approveMemberConnectionAction, approveLoginRecoveryAction } from "@/server/actions/store-member-connection";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
@@ -22,24 +22,25 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
     }).catch(() => { if (key === sequence.current) setError("目前無法讀取，請重新開啟"); });
     return () => { sequence.current = key + 1; };
   }, [customerId, reader]);
-  async function confirm(id: string) {
+  async function confirm(id: string, kind: "login" | "notification", verificationCode: string) {
     if (submitting.current) return;
     submitting.current = true; setBusy(true); setError(null);
     const key = sequence.current;
     try {
-      const value = await approveMemberConnectionAction(id, customerId);
+      const value = kind === "login" ? await approveLoginRecoveryAction(id, customerId, verificationCode) : await approveMemberConnectionAction(id, customerId);
       if (key !== sequence.current) return;
       if (!value.success) { setError(value.error); return; }
       reader.invalidate(customerId);
-      // The server action only returns success after the approval transaction
-      // commits. Update the panel from that confirmation instead of waiting on
-      // a second read request before showing the completed state.
+      // Approval authorizes a fresh Login attempt; it does not prove that the
+      // customer has logged in or that an OA notification was delivered.
       setResult(current => current ? {
         ...current,
         data: {
           ...current.data,
-          membership: "已連結",
-          notification: "本店已確認，發送前再檢查通道",
+          ...(kind === "login" ? { login: "已授權，等待顧客重新進入並完成登入" } : {
+            membership: "已連結",
+            notification: "本店已確認，發送前再檢查通道",
+          }),
           pending: current.data.pending.filter(request => request.id !== id),
           conflict: false,
         },
@@ -47,5 +48,20 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
     } catch { if (key === sequence.current) setError("目前無法確認，請稍後再試"); }
     finally { submitting.current = false; if (key === sequence.current) setBusy(false); }
   }
-  return <section className="space-y-2 rounded-lg border border-earth-200 p-3 text-sm" aria-label="本店會員與 LINE"><p className="font-semibold">本店會員與 LINE</p>{result ? <><p>會員：{result.data.membership}・{result.data.notification}</p>{result.data.conflict ? <p className="text-amber-800">有多筆待確認身分，請核對後處理。</p> : result.data.pending.map(request => <div key={request.id} className="flex flex-wrap items-center gap-2"><p>LINE 待確認・核對本人與手機上的確認碼 {request.verificationCode}</p>{result.canConfirm && <button type="button" disabled={busy} onClick={() => void confirm(request.id)} className="min-h-11 rounded-md bg-primary-700 px-3 text-white">{busy ? "確認中…" : "已核對本人，確認綁定"}</button>}</div>)}</> : !error && <p>讀取中…</p>}{error && <p role="alert" className="break-words text-red-700">{error}</p>}</section>;
+  return <section className="min-w-0 space-y-2 rounded-lg border border-earth-200 p-3 text-sm" aria-label="本店會員與 LINE" aria-busy={busy}>
+    <p className="font-semibold">本店會員與 LINE</p>
+    {result ? <>
+      <p>會員資料：{result.data.membership}</p>
+      <p role="status">登入：{result.data.login}</p>
+      <p>通知：{result.data.notification}</p>
+      {result.data.conflict ? <p className="text-amber-800">有多筆待確認身分，請核對後處理。</p> : result.data.pending.map(request =>
+        <div key={request.id} className="flex flex-wrap items-center gap-2">
+          <p className="min-w-0 break-words">{request.kind === "login" ? "會員登入" : "LINE 通知"}待確認・核對本人與手機上的確認碼 {request.verificationCode}</p>
+          {result.canConfirm && <button type="button" disabled={busy} onClick={() => void confirm(request.id, request.kind, request.verificationCode)} className="min-h-11 rounded-md bg-primary-700 px-3 text-white">
+            {busy ? "確認中…" : request.kind === "login" ? "已核對本人與確認碼，允許重新登入" : "已核對本人，確認通知連結"}
+          </button>}
+        </div>)}
+    </> : !error && <p>讀取中…</p>}
+    {error && <p role="alert" className="break-words text-red-700">{error}</p>}
+  </section>;
 }

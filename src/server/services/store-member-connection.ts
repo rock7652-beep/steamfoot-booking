@@ -97,6 +97,9 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
     if (!access("customer.update")) throw new AppError("FORBIDDEN", "沒有確認顧客資料的權限");
     const request = await tx.storeMemberConnection.findFirst({ where: { id: requestId, storeId: ctx.storeId, customerId } });
     if (!request) throw new AppError("NOT_FOUND", "找不到本店連結申請");
+    // Login reviews have a separate approval path and must never become OA
+    // recipients, even if a caller submits their ID to this action directly.
+    if (request.channelKey?.startsWith("login:")) throw new AppError("CONFLICT", "請使用會員登入確認操作");
     if (request.status === "APPROVED") return;
     if (request.status !== "PENDING" || request.expiresAt <= new Date()) throw new AppError("CONFLICT", "申請已逾時，請顧客重新操作");
     const config = getConfiguredStoreLine(ctx.storeId);
@@ -160,7 +163,7 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
     // Scoped link is authoritative; Customer.userId is globally unique.
     await tx.customer.update({ where: { id: customerId }, data: { lineUserId: request.lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: new Date() } });
     await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: new Date(), confirmedByUserId: ctx.user.id } });
-    await tx.storeMemberConnection.updateMany({ where: { storeId: ctx.storeId, customerId, status: "PENDING", id: { not: request.id } }, data: { status: "REJECTED" } });
+    await tx.storeMemberConnection.updateMany({ where: { storeId: ctx.storeId, customerId, status: "PENDING", channelKey: { not: { startsWith: "login:" } }, id: { not: request.id } }, data: { status: "REJECTED" } });
     // Messaging confirmation does not itself prove a Login subject. Authorize
     // one fresh verified Login capture instead of copying notification IDs.
     if (request.identityProvider.startsWith("line-messaging:")) {
@@ -184,12 +187,22 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
 export async function readStoreMemberConnection(storeId: string, customerId: string) {
   const [customer, connections] = await Promise.all([
     prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true } } } }),
-    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true }, orderBy: { createdAt: "desc" }, take: 3 }),
+    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { createdAt: "desc" } }),
   ]);
   if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
   const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(l => l.userId)]);
   const pending = connections.filter(c => c.status === "PENDING" && c.expiresAt > new Date());
-  return { membership: owners.size > 1 ? "需確認" : owners.size === 1 ? "已連結" : "尚未連結", notification: customer.lineLinkStatus === "BLOCKED" ? "已封鎖，無法通知" : connections.some(c => c.status === "APPROVED") ? "本店已確認，發送前再檢查通道" : "本店通知尚未確認", pending: pending.map(c => ({ id: c.id, verificationCode: c.verificationCode })), conflict: owners.size > 1 };
+  const grants = await prisma.lineRebindRequest.findMany({ where: { storeId, customerId,
+    reason: { startsWith: "LIFF_LOGIN_" } }, select: { status: true, expiresAt: true, consumedAt: true }, orderBy: { createdAt: "desc" }, take: 1 });
+  const grant = grants[0];
+  const login = pending.some(c => c.channelKey.startsWith("login:")) ? "待店家核對登入身分"
+    : grant?.consumedAt ? "登入連結已恢復，尚需顧客確認實際登入"
+    : grant?.status === "PENDING_CAPTURE" && grant.expiresAt > new Date() ? "已授權，等待顧客重新進入並完成登入"
+    : connections.some(c => c.channelKey.startsWith("login:")) || grant ? "恢復申請已失效，請顧客重新提交並核對"
+    : "尚未驗證本次登入";
+  return { membership: owners.size > 1 ? "需確認" : owners.size === 1 ? "已連結" : "尚未連結", login,
+    notification: customer.lineLinkStatus === "BLOCKED" ? "已封鎖，無法通知" : connections.some(c => !c.channelKey.startsWith("login:") && c.status === "APPROVED") ? "本店已確認，發送前再檢查通道" : "本店通知尚未確認",
+    pending: pending.map(c => ({ id: c.id, verificationCode: c.verificationCode, kind: c.channelKey.startsWith("login:") ? "login" as const : "notification" as const })), conflict: owners.size > 1 };
 }
 
 export async function connectionReplyText(result: "pending" | "linked" | "review" | "unavailable", storeId: string, lineUserId: string) {

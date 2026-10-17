@@ -477,6 +477,7 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
 }): Promise<AuthorizedLiffLoginRebindResult> {
   const phone = normalizePhone(input.phone);
   if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) return { status: "rejected", code: "INVALID_INPUT" };
+  const pinnedReason = `${LIFF_LOGIN_FIRST_CAPTURE_REASON}:verified:${sha256(JSON.stringify([input.storeId, "line", input.candidateLineUserId]))}`;
   try {
     return await prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -485,14 +486,14 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
         WHERE "storeId" = ${input.storeId}
           AND "customerId" = ${input.customerId}
           AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
-          AND "reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON}
+          AND ("reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON} OR "reason" = ${pinnedReason})
           AND "expiresAt" > ${now}
         ORDER BY "createdAt" DESC LIMIT 2 FOR UPDATE
       `;
       if (requests.length === 0) return { status: "not_authorized" as const };
       if (requests.length !== 1) throw new RebindRejected("MULTIPLE_ACTIVE_REQUESTS");
       const request = await tx.lineRebindRequest.findUnique({ where: { id: requests[0].id } });
-      if (!request || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
+      if (!request || ![LIFF_LOGIN_FIRST_CAPTURE_REASON, pinnedReason].includes(request.reason) || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
         throw new RebindRejected("REQUEST_STATE_CHANGED");
       }
       const lockedCustomers = await tx.$queryRaw<Array<{ id: string }>>`

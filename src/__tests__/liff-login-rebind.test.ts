@@ -346,6 +346,17 @@ describe("authorized first LIFF Login capture", () => {
     expect(tx().customer).not.toHaveProperty("update");
     expect(tx().customer).not.toHaveProperty("updateMany");
   });
+  it("consumes a first capture pinned to the exact verified subject", async () => {
+    const request = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...request, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", newLoginId]))}` });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "executed" });
+  });
+  it("rejects a pinned first capture for a different verified subject", async () => {
+    const request = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...request, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", "other"]))}` });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "rejected", code: "REQUEST_STATE_CHANGED" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
+  });
   it("uses the unique store-linked owner when Customer.userId is empty", async () => {
     h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", phone, userId: null, mergedIntoCustomerId: null, user: null, identityLinks: [{ userId: "user-1" }] });
     h.userFind.mockResolvedValue({ id: "user-1", status: "ACTIVE", role: "CUSTOMER" });

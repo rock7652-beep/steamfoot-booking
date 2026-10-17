@@ -17,6 +17,8 @@ import { LineIdentityReviewError } from "@/server/services/line-identity-review"
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockModule = vi.fn();
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockModule(...args) }));
 const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
@@ -72,9 +74,20 @@ function verifiedOk(overrides: Partial<{ displayName: string | null; pictureUrl:
 }
 
 describe("POST /api/liff/exchange", () => {
+  it("allows a steamfoot membership review form without minting a session", async () => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "need_onboarding" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockSignIn.mockReset();
+    mockModule.mockReset().mockResolvedValue("course");
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockResolveCustomer.mockReset();
