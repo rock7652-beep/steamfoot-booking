@@ -22,7 +22,7 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     const customers=await prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000});
     const trialSettings=await getTrialSettings(storeId);
     const subjectId=musicTeachingSubjectId(templateId)??(templateId?(await coursePrisma.courseTemplate.findFirst({where:{storeId,id:templateId},select:{musicSubjectId:true}}))?.musicSubjectId:null);
-    const template=templateId&&(!subjectId||templateId.startsWith("teaching-trial:")) ? await readTeachingTrialPrice(coursePrisma,storeId,templateId) : null;
+    const template=templateId&&(!musicTeachingSubjectId(templateId)||templateId.startsWith("teaching-trial:")) ? await readTeachingTrialPrice(coursePrisma,storeId,templateId) : null;
     const relatedIds=subjectId?(await coursePrisma.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:templateId.startsWith("teaching-trial:")?{in:["FREE","PAID"]}:null},select:{id:true}})).map(row=>row.id):[templateId];
     let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
     const visibleIds=new Set(customers.map(person=>person.id));
