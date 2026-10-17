@@ -700,7 +700,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {!!eligible(s).length && eligible(s).every(c => c.available < amount(s, c)) && <li>可用額度不足</li>}
             </ul>
           </details>
-          {s.sportsTrialPrice!==null?<button className="primary" disabled={pending||!!reason||reserved} onClick={()=>{if(window.confirm(`體驗價格 NT$ ${s.sportsTrialPrice}，確認預約？`))run(()=>bookSportsTrial({sessionId:s.id,expectedPrice:s.sportsTrialPrice,requestKey:crypto.randomUUID()}),()=>{},'體驗預約成功');}}>{reserved?'已預約':`體驗預約 NT$ ${s.sportsTrialPrice}`}</button>:<button className="primary" disabled={pending || !!reason} onClick={() => book(s)}>
+          {typeof s.sportsTrialPrice==="number"?<button className="primary" disabled={pending||!!reason||reserved} onClick={()=>{if(window.confirm(`體驗價格 NT$ ${s.sportsTrialPrice}，確認預約？`))run(()=>bookSportsTrial({sessionId:s.id,expectedPrice:s.sportsTrialPrice,requestKey:crypto.randomUUID()}),()=>{},'體驗預約成功');}}>{reserved?'已預約':`體驗預約 NT$ ${s.sportsTrialPrice}`}</button>:<button className="primary" disabled={pending || !!reason} onClick={() => book(s)}>
             {s.waitlistPosition ? `候補中・第 ${s.waitlistPosition} 位` : reason || (s.occupied >= s.capacity ? "候補" : planHint ? "查看方案" : reserved ? "再預約" : "預約")}
           </button>}
         </article>;
