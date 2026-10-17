@@ -1,3 +1,4 @@
+import {assertActionSuccess} from "./action-result.mjs";
 import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -192,7 +193,9 @@ try {
     headers: receipt.headers,
     data: receipt.data,
   });
-  assert.ok(replay.ok());
+  const replayResult=await assertActionSuccess(replay);
+  assert.equal(replayResult.data.count,4);
+  assert.equal(replayResult.data.sessionId,weekly[0].id);
   assert.equal(
     await db.courseSession.count({
       where: { storeId, requestKey: weekly[0].requestKey },

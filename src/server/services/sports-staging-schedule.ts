@@ -58,7 +58,6 @@ export async function attachSportsSessionRules(
     )
   )
     throw new AppError("VALIDATION", "固定頻率與課次日期不符");
-  if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
   if (rule.enrollment === "ASSIGNED" && !rule.students.length)
     throw new AppError("VALIDATION", "請至少指定一位學員");
   if (rule.enrollment === "OPEN" && rule.students.length)
@@ -87,30 +86,62 @@ export async function attachSportsSessionRules(
     const { reserveCourseInTransaction } = await import("./course-booking");
     const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
     const limits = await getStoreLimitsByStoreId(actor.storeId);
-    for (const session of sessions)
-      for (const student of rule.students) {
-        if (!session.isTrial) {
-          const card = student.cardId
-            ? await tx.coursePointCard.findFirst({
-                where: { id: student.cardId, storeId: actor.storeId },
-              })
-            : null;
-          if (!card || card.planId !== rule.planId)
-            throw new AppError("VALIDATION", "學員持有方案不符合收費方式");
+    // This caller already holds the Store lock. Allocate once per learner,
+    // reserve the full batch, then choose for the next learner (shared cards).
+    for (const student of rule.students) {
+      let cardId = student.cardId;
+      if (!sessions[0].isTrial) {
+        if (!cardId) {
+          const cards = await tx.coursePointCard.findMany({
+            where: {
+              storeId: actor.storeId,
+              planId: rule.planId!,
+              closedAt: null,
+              expiresAt: { gte: sessions[sessions.length - 1].startsAt },
+              members: { some: { customerId: student.customerId } },
+              OR: [
+                { templateIds: { isEmpty: true } },
+                { templateIds: { has: sessions[0].templateId } },
+              ],
+            },
+            include: {
+              bookings: {
+                where: { status: "RESERVED" },
+                select: { pointCost: true },
+              },
+            },
+            orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+          });
+          cardId =
+            cards.find(
+              (c) =>
+                c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
+                (c.unit === "SESSION" ? 1 : sessions[0].pointCost) *
+                  sessions.length,
+            )?.id ?? null;
         }
+        const card = cardId
+          ? await tx.coursePointCard.findFirst({
+              where: { id: cardId, storeId: actor.storeId },
+            })
+          : null;
+        if (!card || card.planId !== rule.planId)
+          throw new AppError("VALIDATION", "學員沒有額度與效期足夠的適用方案");
+      }
+      for (const session of sessions)
         await reserveCourseInTransaction(
           tx,
           actor,
           {
             sessionId: session.id,
-            cardId: session.isTrial ? null : student.cardId,
+            cardId: session.isTrial ? null : cardId,
             customerId: student.customerId,
             trialPrice: session.isTrial ? rule.trialPrice : undefined,
             requestKey: `${requestKey}:${session.requestIndex}:${student.customerId}`,
           },
           limits.maxMonthlyBookings,
         );
-      }
+    }
   }
 }
 

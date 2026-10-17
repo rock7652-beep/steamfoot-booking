@@ -1,4 +1,5 @@
 "use server";
+import {sameSportsScheduleRule} from "@/lib/sports-staging-types";
 import {requireSportsStaging,sportsStagingEnabled} from "@/lib/sports-staging";
 import { createHash } from "node:crypto";
 import { courseTemplateSaveInput, courseTemplateRevision, savedCourseTemplate } from "@/lib/course-template-save";
@@ -488,7 +489,7 @@ export async function createCourseSchedule(input: unknown) {
               "CONFLICT",
               "這次排課已送出，請重新開啟排課表單",
             );
-          if(data.sportsStaging){const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");const rule=await readSportsSessionRule(tx,storeId,existing[0].id);if(!rule||JSON.stringify(rule.payload)!==JSON.stringify(data.sportsStaging))throw new AppError("CONFLICT","排課請求已使用且參加方式不同");}
+          if(data.sportsStaging){const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");const rule=await readSportsSessionRule(tx,storeId,existing[0].id);if(!rule||!sameSportsScheduleRule(rule.payload,data.sportsStaging))throw new AppError("CONFLICT","排課請求已使用且參加方式不同");}
           return { count: existing.length };
         }
         const source = data.sourceSessionId

@@ -93,3 +93,21 @@ export const sportsFeeSetup = z.object({
   coachIds: z.array(z.string().min(1).max(100)).min(1).max(100),
   requestKey: z.string().uuid(),
 });
+
+/** Compare validated intent, independent of JSONB object-key ordering.
+ * A null requested card means automatic allocation; an earlier explicit
+ * allocation is still a valid receipt for that same automatic request.
+ */
+export function sameSportsScheduleRule(stored: unknown, requested: unknown) {
+  const a = sportsScheduleRule.safeParse(stored),
+    b = sportsScheduleRule.safeParse(requested);
+  if (!a.success || !b.success) return false;
+  const normalized = {
+    ...a.data,
+    students: a.data.students.map((student, i) => ({
+      ...student,
+      cardId: b.data.students[i]?.cardId === null ? null : student.cardId,
+    })),
+  };
+  return JSON.stringify(normalized) === JSON.stringify(b.data);
+}

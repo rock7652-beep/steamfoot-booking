@@ -42,3 +42,5 @@ RWD：1440×900、1366×1024、1024×1366、768×1024；教學項目、收費、
 本次未驗證公開測試網域、正式部署、真實金流收單與真實通知送達；「收款／退款」證據是系統帳本登錄及沖銷，不代表銀行或刷卡端已實際退款。新頻率／參加方式 metadata 仍為測試站限定表，正式資料轉換需另行審查。
 
 審查限制：測試工作區的課次、出租等讀取上限為 500 筆，未進行大量營運資料壓力測試；未實測實體 iPad、Safari 或 LINE LIFF。審查分支 `codex/sports-core-integration-review` 已停用 Vercel Git 自動部署。
+
+重送審查修正與補驗：請看 `replay-fix.md`、`replay-checks.json`、`replay-unit.log`。舊 `checks.json` 的 HTTP-only 重送斷言不足以證明業務成功，已由新驗收補強；其他原始證據保留原紀錄。

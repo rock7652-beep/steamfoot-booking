@@ -483,42 +483,9 @@ export async function sportsStagingCommand(input: unknown) {
             ? "BIWEEKLY"
             : "SINGLE";
       const count = frequency === "SINGLE" ? 1 : d.count;
-      const students = [];
-      for (const customerId of d.mode === "指定學員" ? d.students : []) {
-        const cards =
-          d.kind === "體驗"
-            ? []
-            : await coursePrisma.coursePointCard.findMany({
-                where: {
-                  storeId,
-                  planId: plan.id,
-                  closedAt: null,
-                  expiresAt: {
-                    gte: new Date(
-                      `${addTaiwanDuration(d.date, (count - 1) * (frequency === "BIWEEKLY" ? 14 : 7), "DAY")}T${d.time}:00+08:00`,
-                    ),
-                  },
-                  members: { some: { customerId } },
-                  OR: [
-                    { templateIds: { isEmpty: true } },
-                    { templateIds: { has: template.id } },
-                  ],
-                },
-                include: {
-                  bookings: {
-                    where: { status: "RESERVED" },
-                    select: { pointCost: true },
-                  },
-                },
-                orderBy: { expiresAt: "asc" },
-              });
-        const card = cards.find(
-          (c) =>
-            c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
-            (c.unit === "SESSION" ? 1 : template.pointCost) * count,
-        );
-        students.push({ customerId, cardId: card?.id ?? null });
-      }
+      // Resolve cards only after createCourseSchedule holds the Store lock and
+      // has checked for an existing receipt. Retries preserve original intent.
+      const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
       if (d.kind === "體驗") await courseManager("trial.create");
       return await result(
         createCourseSchedule({
