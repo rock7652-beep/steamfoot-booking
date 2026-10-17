@@ -271,11 +271,13 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
     "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
-    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段",
+    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段 剩餘堂數 方案名稱 到期日 方案待核對 無到期限制",
     "details": [
       "手機與 iPad 窄寬度會重排月份、篩選與主要操作；平板橫直向及舊 iPad 會優先壓縮欄距與文字，月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
       "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
-      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。"
+      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。",
+      "月曆待到店的逐人方案摘要會顯示「剩 X 堂・方案名稱・到期日」，不再只顯示預留 1 堂；沒有到期限制會明列「無到期限制」。這是顯示恢復，內部仍保留本次預約，另按完成才正式扣堂，不能把剩餘堂數都當成可再預約堂數。",
+      "摘要顯示「方案待核對」或「到期日待確認」時，先開原預約與方案核對，不當成零堂、無期限或已扣堂。已完成者另顯示已扣 1 堂；同組多人摘要以分隔顯示，體驗待處理與方案扣堂分開看。"
     ],
     "modules": [
       "steamfoot"
@@ -286,7 +288,9 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/booking-calendar-desktop.tsx",
       "src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx",
       "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx",
-      "src/app/(dashboard)/dashboard/bookings/booking-layout.module.css"
+      "src/app/(dashboard)/dashboard/bookings/booking-layout.module.css",
+      "src/server/queries/booking.ts",
+      "src/lib/booking-plan-expiry.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",

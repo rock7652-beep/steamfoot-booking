@@ -68,11 +68,11 @@ it("uses actual participant services for plan labels and unpaid filtering", asyn
   vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
   h.bookings.mockResolvedValue([booking("plan-only",28),booking("mixed",28,2)]);
   h.participants.mockResolvedValue([
-    {bookingId:"plan-only",service:"PACKAGE_SESSION",status:"PENDING",planName:"十堂",collectionTransactionId:null},
+    {bookingId:"plan-only",service:"PACKAGE_SESSION",status:"PENDING",planName:"十堂",remainingSessions:10,expiryDate:null,collectionTransactionId:null},
     {bookingId:"mixed",service:"PACKAGE_SESSION",status:"COMPLETED",planName:"十堂",collectionTransactionId:null},
     {bookingId:"mixed",service:"FIRST_TRIAL",status:"PENDING",planName:null,collectionTransactionId:null},
   ]);
   const rows=await getMonthBookingSummary(2026,9,"store");
-  expect(rows[27].bookings[0]).toMatchObject({participantSummary:"十堂・預留 1 堂",participantNeedsCollection:false});
+  expect(rows[27].bookings[0]).toMatchObject({participantSummary:"剩 10 堂・十堂・無到期限制",participantNeedsCollection:false});
   expect(rows[27].bookings[1]).toMatchObject({participantSummary:"十堂・已扣 1 堂 ／ 體驗・待到店",participantNeedsCollection:true});
 });

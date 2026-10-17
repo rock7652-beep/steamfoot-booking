@@ -1,3 +1,4 @@
+import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import { bookingCollectedNet } from "@/lib/booking-collected-net";
 import { prisma } from "@/lib/db";
 import { OperationTiming } from "@/lib/operation-timing";
@@ -545,8 +546,8 @@ async function computeMonthBookingSummaryMeasured(
         }) : Promise.resolve([])),
   ]);
   const participantServices = process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && monthBookings.length
-    ? await prisma.$queryRaw<Array<{ bookingId: string; service: string; status: string; planName: string | null; collectionTransactionId: string | null }>>`
-      SELECT g."bookingId", p.service, p.status, p."collectionTransactionId", sp.name AS "planName" FROM "BookingParticipantGroup" g
+    ? await prisma.$queryRaw<Array<{ bookingId: string; service: string; status: string; planName: string | null; remainingSessions: number | null; expiryDate: Date | null; collectionTransactionId: string | null }>>`
+      SELECT g."bookingId", p.service, p.status, p."collectionTransactionId", sp.name AS "planName", w."remainingSessions", w."expiryDate" FROM "BookingParticipantGroup" g
       JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
       LEFT JOIN "WalletSession" ws ON ws.id = p."walletSessionId"
       LEFT JOIN "CustomerPlanWallet" w ON w.id = ws."walletId" AND w."storeId" = p."storeId"
@@ -557,7 +558,14 @@ async function computeMonthBookingSummaryMeasured(
   const participantNeedsCollectionByBooking = new Map<string, boolean>();
   for (const person of participantServices) {
     const labels = participantSummaryByBooking.get(person.bookingId) ?? [];
-    const label = person.service === "PACKAGE_SESSION" ? `${person.planName ?? "方案"}・${person.status === "COMPLETED" ? "已扣 1 堂" : person.status === "PENDING" ? "預留 1 堂" : "未扣堂"}`
+    // Restore the original balance / plan / expiry display without changing
+    // participant lifecycle, collection filtering or the internal reserved session.
+    const pendingPlanLabel = person.remainingSessions == null
+      ? "方案待核對"
+      : `剩 ${person.remainingSessions} 堂・${person.planName ?? "方案"}・${bookingPlanExpiry(person.expiryDate).compact}`;
+    const label = person.service === "PACKAGE_SESSION" ? (person.status === "PENDING"
+      ? pendingPlanLabel
+      : `${person.planName ?? "方案"}・${person.status === "COMPLETED" ? "已扣 1 堂" : "未扣堂"}`)
       : `體驗・${person.status === "COMPLETED" ? "已完成" : person.status === "PENDING" ? "待到店" : person.status === "CANCELLED" ? "已取消" : "未到"}`;
     labels.push(label); participantSummaryByBooking.set(person.bookingId, labels);
     participantNeedsCollectionByBooking.set(person.bookingId, !!participantNeedsCollectionByBooking.get(person.bookingId)

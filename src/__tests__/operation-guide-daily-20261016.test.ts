@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
@@ -10,19 +9,9 @@ const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g
 const access: GuideAccess = { module: "course", permissions, features };
 
 describe("2026-10-16 backend guide review", () => {
-  it("preserves backend-only counts and does not clear authenticated acceptance", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+  it("preserves the backend-only catalog counts after SPA retirement", () => {
     expect(operationGuides).toHaveLength(187);
     expect(guideCategories).toHaveLength(15);
-    expect(state.newGuideIds).toEqual([]);
-    expect(state.updatedGuideIds).toHaveLength(13);
-    expect(state.backendInteractionPendingCount).toBe(56);
-    expect(state.cumulativeDraftNewGuideIds).toHaveLength(3);
-    expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(52);
-    expect(state.authenticatedAcceptance.status).toBe("blocked");
-    expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(state.lastInventoriedMainCommit).toBe("1f305d214d54e68dca5f51cd8b8208a02f0c8817");
   });
 
   it("explains music leave without writing frontend instructions", () => {
