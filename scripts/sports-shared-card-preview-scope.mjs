@@ -5,6 +5,7 @@ export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
+  "codex/fix-vercel-home-redirect",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
 ];
 
