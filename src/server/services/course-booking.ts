@@ -1,3 +1,4 @@
+import {courseCardStartIssue} from "@/lib/course-card-start";
 import { syncNativeMakeupExpiry, nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
 import { courseCardMatchesItem } from "./music-item-compatibility";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
@@ -302,7 +303,8 @@ export async function reserveCourseInTransaction(
   if (card?.templateIds?.length && !(musicTeachingSubjectId(session.templateId) ? await cardCoversTeachingItem(tx,storeId,session.templateId,card.templateIds) : await courseCardMatchesItem(tx, storeId, card.templateIds, session.templateId))) return fail("此方案不適用本堂課");
   if(card?.musicJoinSessionId) {
     const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
-    if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
+    const startIssue=courseCardStartIssue(true,first?.startsAt,session.startsAt);
+    if(startIssue)return fail(startIssue);
   }
   if (input.makeupForBookingId) {
     if (actor.customerId || !card || card.unit !== "SESSION") return fail("補課僅由店長使用原堂數方案安排");

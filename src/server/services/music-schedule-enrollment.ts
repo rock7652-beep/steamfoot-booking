@@ -1,4 +1,5 @@
 import "server-only";
+import {courseCardStartIssue} from "@/lib/course-card-start";
 import {courseCardCoversDate} from "@/lib/course-card-expiry";
 import {MUSIC_OPENING_SELECT} from "@/lib/music-opening-runtime";
 import {cardCoversTeachingItem} from "./music-teaching-item";
@@ -16,12 +17,14 @@ export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,a
   if(input.cardId){
     const card=await tx.coursePointCard.findFirst({where:{id:input.cardId,storeId:actor.storeId},include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}});
     if(!card||card.unit!=="SESSION"||!card.members.some(member=>member.customerId===input.customerId)||!await cardCoversTeachingItem(tx,actor.storeId,session.templateId,card.templateIds))throw new AppError("VALIDATION","請使用此學員適用的個人方案");
+    const join=card.musicJoinSessionId?await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId:actor.storeId},select:{startsAt:true}}):null;
+    const startIssue=courseCardStartIssue(!!card.musicJoinSessionId,join?.startsAt,session.startsAt);
+    if(startIssue)throw new AppError("VALIDATION",startIssue);
     const termAllowed=!card.termSessionIds.length||card.termSessionIds.includes(input.sessionId)||session.templateId.startsWith("teaching:")&&!!await tx.courseSession.findFirst({where:{storeId:actor.storeId,id:{in:card.termSessionIds},requestKey:session.requestKey},select:{id:true}});
     const held=await tx.courseBooking.aggregate({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},_sum:{pointCost:true}});
     const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
     const expiry=card.musicValidityDays&&!card.musicActivatedAt?musicCourseExpiry(first?.session.startsAt??session.startsAt,card.musicValidityDays):card.expiresAt;
-    const join=card.musicJoinSessionId?await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId:actor.storeId},select:{startsAt:true}}):null;
-    if(termAllowed&&!card.closedAt&&card.remaining-(held._sum.pointCost??0)>0&&courseCardCoversDate(card,actor.storeId,new Date())&&(expiry?session.startsAt<=expiry:courseCardCoversDate(card,actor.storeId,session.startsAt))&&(!card.musicJoinSessionId||join&&session.startsAt>=join.startsAt)){usableCardId=card.id;if(card.termSessionIds.length&&!card.termSessionIds.includes(input.sessionId))await tx.coursePointCard.update({where:{id:card.id},data:{termSessionIds:[...card.termSessionIds,input.sessionId]}});}
+    if(termAllowed&&!card.closedAt&&card.remaining-(held._sum.pointCost??0)>0&&courseCardCoversDate(card,actor.storeId,new Date())&&(expiry?session.startsAt<=expiry:courseCardCoversDate(card,actor.storeId,session.startsAt))){usableCardId=card.id;if(card.termSessionIds.length&&!card.termSessionIds.includes(input.sessionId))await tx.coursePointCard.update({where:{id:card.id},data:{termSessionIds:[...card.termSessionIds,input.sessionId]}});}
   }
   return reserveCourseInTransaction(tx,actor,{...input,cardId:usableCardId,deferredPayment:!usableCardId},limit);
 }

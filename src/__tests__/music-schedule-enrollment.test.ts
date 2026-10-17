@@ -53,3 +53,20 @@ it("extends a paid group's reserved dates only within the same teaching series",
  tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),templateIds:["teaching:guitar"],termSessionIds:["first-paid-date"]});
  await reserveScheduledMusicLearner(db(),actor,input,null);expect(tx.coursePointCard.update).toHaveBeenCalledWith({where:{id:"card"},data:{termSessionIds:["first-paid-date","lesson"]}});expect(reserve.mock.calls[0][2]).toMatchObject({cardId:"card",deferredPayment:false});
 });
+
+it.each(["2099-10-07T12:00:00Z","2099-10-08T09:59:59Z"])("rejects a selected card before its start instead of creating unpaid: %s",async startsAt=>{
+ tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});
+ tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"guitar",startsAt:new Date(startsAt)}).mockResolvedValueOnce({startsAt:new Date("2099-10-08T10:00:00Z")});
+ await expect(reserveScheduledMusicLearner(db(),actor,input,null)).rejects.toThrow("尚未到課卡起始時間：2099-10-08 18:00");
+ expect(reserve).not.toHaveBeenCalled();expect(tx.coursePointCard.update).not.toHaveBeenCalled();
+});
+it("allows the exact card start instant",async()=>{
+ tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});
+ tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce({startsAt:new Date("2099-10-08T10:00:00Z")});
+ await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve.mock.calls[0][2]).toMatchObject({cardId:"card",deferredPayment:false});
+});
+it("fails clearly when the linked start session cannot be found in this store",async()=>{
+ tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});
+ tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce(null);
+ await expect(reserveScheduledMusicLearner(db(),actor,input,null)).rejects.toThrow("課卡起始課堂資料不完整");expect(reserve).not.toHaveBeenCalled();
+});

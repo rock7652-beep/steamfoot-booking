@@ -28,7 +28,12 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
     const visibleIds=new Set(customers.map(person=>person.id));
     const cards=templateId ? await getCourseCards(storeId,undefined,{where:{closedAt:null,AND:[courseCardActiveExpiryWhere(new Date(),true),{OR:[{templateIds:{isEmpty:true}},{templateIds:{hasSome:relatedIds}}]}]},skip:0,take:500,entries:false}) : [];
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:cards.map(card=>({id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
+    const visibleCards=cards.filter(card=>card.members.some(member=>!!member.id&&visibleIds.has(member.id)));
+    const starts=visibleCards.length?await coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:visibleCards.map(card=>card.id)}},select:{id:true,musicJoinSessionId:true}}):[];
+    const joinIds=[...new Set(starts.flatMap(card=>card.musicJoinSessionId?[card.musicJoinSessionId]:[]))];
+    const joins=joinIds.length?await coursePrisma.courseSession.findMany({where:{storeId,id:{in:joinIds}},select:{id:true,startsAt:true}}):[];
+    const startByCard=new Map(starts.map(card=>[card.id,{startRequired:!!card.musicJoinSessionId,startsAt:joins.find(join=>join.id===card.musicJoinSessionId)?.startsAt.toISOString()??null}]));
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:visibleCards.map(card=>({...startByCard.get(card.id),id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 
