@@ -1,0 +1,38 @@
+[
+  {
+    "name": "每週合成學員",
+    "kind": "CARD",
+    "before": 3,
+    "after": 2,
+    "debitEntries": 1,
+    "simultaneousHttpStatuses": [
+      200,
+      200
+    ],
+    "status": "ATTENDED"
+  },
+  {
+    "name": "隔週合成學員",
+    "kind": "UNPAID",
+    "before": 4,
+    "after": 4,
+    "debitEntries": 0,
+    "simultaneousHttpStatuses": [
+      200,
+      200
+    ],
+    "status": "ATTENDED"
+  },
+  {
+    "name": "待繳費合成學員",
+    "kind": "UNPAID",
+    "before": null,
+    "after": null,
+    "debitEntries": 0,
+    "simultaneousHttpStatuses": [
+      200,
+      200
+    ],
+    "status": "ATTENDED"
+  }
+]

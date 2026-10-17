@@ -11,12 +11,14 @@ if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.e
 import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
 isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import type { NextConfig } from "next";
 import { assertReviewedReleaseEnvironment } from "./scripts/consultation-preview-scope.mjs";
 
 // Provider build-command overrides cannot bypass either Preview gate or the
 // positively identified production main boundary. Guide mode has no DB access.
-if (!isGuideUiPreview()) assertReviewedReleaseEnvironment(process.env);
+if (process.env.STEAMFOOT_ISOLATED_DEV === undefined && !isGuideUiPreview()) assertReviewedReleaseEnvironment(process.env);
+// Validate the actual Next phase below; NODE_ENV alone never unlocks builds.
 
 // Vercel can override package.json's build command, so enforce isolation here too.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {
@@ -98,4 +100,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default async function config(phase: string) {
+  if (process.env.STEAMFOOT_ISOLATED_DEV !== undefined) {
+    if (phase !== PHASE_DEVELOPMENT_SERVER) throw new Error("Isolated development cannot build or serve a deployment.");
+    const { verifyIsolatedDevelopmentDatabase } = await import("./scripts/isolated-dev-scope.mjs");
+    const { PrismaClient } = await import("@prisma/client");
+    assertReviewedReleaseEnvironment(process.env);
+    const client = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+    try { await verifyIsolatedDevelopmentDatabase(client); } finally { await client.$disconnect(); }
+  } else if (!isGuideUiPreview()) assertReviewedReleaseEnvironment(process.env);
+  return nextConfig;
+}

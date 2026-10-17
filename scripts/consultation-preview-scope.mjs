@@ -1,3 +1,4 @@
+import { assertIsolatedDevelopment } from "./isolated-dev-scope.mjs";
 import { MUSIC_OPENING_BRANCH, assertMusicOpeningPreviewEnvironment } from "./music-opening-preview-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
 import {
@@ -113,9 +114,10 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "music-opening-preview" | "course-self-booking-preview"}
+ * @returns {"isolated-development" | "mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "music-opening-preview" | "course-self-booking-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (env.STEAMFOOT_ISOLATED_DEV !== undefined) return assertIsolatedDevelopment(env);
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
   if (isSportsSharedCardProductionRelease(env)) {
     if (env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true") {

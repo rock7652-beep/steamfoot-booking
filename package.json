@@ -19,7 +19,8 @@
     "preflight:digital-butler": "tsx scripts/digital-butler-production-preflight.ts",
     "upgrade:zhubei-messenger-flow": "tsx scripts/upgrade-zhubei-messenger-digital-butler-flow.ts",
     "audit:messenger-production": "tsx scripts/messenger-production-audit.ts",
-    "postinstall": "npm run generate:clients"
+    "postinstall": "npm run generate:clients",
+    "dev:isolated": "node scripts/isolated-dev.mjs"
   },
   "prisma": {
     "schema": "prisma",
@@ -56,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "jsdom": "^26.1.0",
+    "playwright-core": "1.64.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

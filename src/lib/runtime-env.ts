@@ -47,6 +47,6 @@ export function isDevelopment(): boolean {
 export function isPreviewExternalIntegrationBlocked(): boolean {
   // Preview and unknown deployments stay blocked before DB imports. Only
   // positively identified production main can resume normal outbound behavior.
-  return isPreview() || (!isSportsSharedCardMockedUnitTest(process.env) &&
+  return process.env.STEAMFOOT_ISOLATED_DEV !== undefined || isPreview() || (!isSportsSharedCardMockedUnitTest(process.env) &&
     !isSportsSharedCardProductionRelease(process.env));
 }

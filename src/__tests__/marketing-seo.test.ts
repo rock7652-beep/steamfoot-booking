@@ -113,7 +113,7 @@ describe("public crawler documents", () => {
     expect(readFileSync("src/app/layout.tsx", "utf8")).not.toContain("marketingMetadata");
   });
   it("sets noindex headers for all Preview responses while leaving production headers alone", async () => {
-    const { default: nextConfig } = await import("../../next.config");
+    const nextConfig = await (await import("../../next.config")).default("phase-development-server");
     vi.stubEnv("VERCEL_ENV", "preview");
     expect(await nextConfig.headers!()).toEqual([{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]);
     vi.stubEnv("VERCEL_ENV", "production");

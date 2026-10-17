@@ -1,0 +1,113 @@
+[
+  {
+    "name": "每週合成學員",
+    "frequency": "WEEKLY",
+    "preview": "日期\n課卡使用\n2026-11-02\n占用 1 堂・點名後扣堂\n2026-11-09\n占用 1 堂・點名後扣堂\n2026-11-16\n占用 1 堂・點名後扣堂\n2026-11-23\n堂數不足・待繳費，不扣堂",
+    "remaining": 3,
+    "bookings": [
+      {
+        "id": "cmvcek2p90006oh73g2zbn6uq",
+        "date": "2026-11-02T02:00:00.000Z",
+        "kind": "CARD",
+        "cost": 1,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek2q1000aoh73zo4ed7ux",
+        "date": "2026-11-09T02:00:00.000Z",
+        "kind": "CARD",
+        "cost": 1,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek2qo000eoh73feqhyy14",
+        "date": "2026-11-16T02:00:00.000Z",
+        "kind": "CARD",
+        "cost": 1,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek2r9000ioh732mq3pow9",
+        "date": "2026-11-23T02:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      }
+    ],
+    "seriesCount": 1
+  },
+  {
+    "name": "隔週合成學員",
+    "frequency": "BIWEEKLY",
+    "preview": "日期\n課卡使用\n2026-11-02\n占用 1 堂・點名後扣堂\n2026-11-16\n已過期・待繳費，不扣堂\n2026-11-30\n已過期・待繳費，不扣堂\n2026-12-14\n已過期・待繳費，不扣堂",
+    "remaining": 4,
+    "bookings": [
+      {
+        "id": "cmvcek55b000poh73tirodae0",
+        "date": "2026-11-02T03:00:00.000Z",
+        "kind": "CARD",
+        "cost": 1,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek55w000toh737zta48vd",
+        "date": "2026-11-16T03:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek56h000voh73u7vig0w2",
+        "date": "2026-11-30T03:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek56z000xoh73o2xbt265",
+        "date": "2026-12-14T03:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      }
+    ],
+    "seriesCount": 1
+  },
+  {
+    "name": "待繳費合成學員",
+    "frequency": "WEEKLY",
+    "preview": "日期\n課卡使用\n2026-11-02\n未選課卡・待繳費，不扣堂\n2026-11-09\n未選課卡・待繳費，不扣堂\n2026-11-16\n未選課卡・待繳費，不扣堂\n2026-11-23\n未選課卡・待繳費，不扣堂",
+    "remaining": null,
+    "bookings": [
+      {
+        "id": "cmvcek7i50014oh73ae19vxv4",
+        "date": "2026-11-02T04:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek7ik0016oh73hhs5w0pl",
+        "date": "2026-11-09T04:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek7j60018oh73zn91kjnh",
+        "date": "2026-11-16T04:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      },
+      {
+        "id": "cmvcek7jj001aoh73grdj9mpr",
+        "date": "2026-11-23T04:00:00.000Z",
+        "kind": "UNPAID",
+        "cost": 0,
+        "status": "RESERVED"
+      }
+    ],
+    "seriesCount": 1
+  }
+]

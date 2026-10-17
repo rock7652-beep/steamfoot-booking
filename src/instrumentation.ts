@@ -1,5 +1,15 @@
 /** Log-only, read-only connection verification for the isolated SPA Preview. */
 export async function register() {
+  if (process.env.STEAMFOOT_ISOLATED_DEV !== undefined) {
+    const { assertIsolatedDevelopment, verifyIsolatedDevelopmentDatabase } = await import("../scripts/isolated-dev-scope.mjs");
+    assertIsolatedDevelopment(process.env);
+    if (process.env.NEXT_RUNTIME === "nodejs") {
+      const { PrismaClient } = await import("@prisma/client");
+      const client = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+      try { await verifyIsolatedDevelopmentDatabase(client); } finally { await client.$disconnect(); }
+    }
+    return;
+  }
   // This feature branch is Preview-only. Missing scope or schema blocks readiness.
   const { assertMusicOpeningPreviewEnvironment } = await import("../scripts/music-opening-preview-scope.mjs");
   if (process.env.NODE_ENV !== "test" || process.env.VERCEL === "1") {

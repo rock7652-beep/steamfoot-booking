@@ -119,7 +119,7 @@ describe.each(previewModes)("$name outer request boundary before auth", ({ name,
     expect(spies.auth).not.toHaveBeenCalled();
   });
   it("disables config-level external redirects only in isolated mode", async () => {
-    const { default: nextConfig } = await import("../../next.config");
+    const nextConfig = await (await import("../../next.config")).default("phase-development-server");
     expect(await nextConfig.redirects!()).toEqual([]);
     expect(nextConfig.images).toMatchObject({ unoptimized: true, remotePatterns: [], localPatterns: [{ pathname: "/pricing/brand/steam-butler-logo.png", search: "" }] });
     vi.stubEnv("GUIDE_UI_PREVIEW", ""); vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");

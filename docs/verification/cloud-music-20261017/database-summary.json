@@ -1,0 +1,12 @@
+{
+  "series": 3,
+  "sessions": 12,
+  "bookings": 12,
+  "attended": 3,
+  "unpaid": 8,
+  "debits": 1,
+  "negative_cards": 0,
+  "duplicate_bookings": 0,
+  "attributed_audits": 18,
+  "failed_logins": 2
+}

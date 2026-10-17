@@ -1,3 +1,4 @@
+if (process.env.STEAMFOOT_ISOLATED_DEV !== undefined) throw new Error("Isolated development cannot run deployment builds or migrations.");
 import { runMusicOpeningSchemaPreflight } from "./music-opening-schema-check.mjs";
 
 // This command must be the first build step; it never applies DDL or sends notifications.

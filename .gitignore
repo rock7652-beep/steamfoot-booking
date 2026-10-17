@@ -62,3 +62,9 @@ wallet-review-*.csv
 .env.course-preview
 
 /supabase/.temp/
+
+# Local isolated development secrets, data and browser state
+/work/
+.env.*.local
+.env.development
+.env.test
