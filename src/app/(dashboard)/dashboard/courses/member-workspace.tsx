@@ -148,7 +148,6 @@ export function CourseMemberWorkspace({
   const [personTab, setPersonTab] = useState<"info" | "plans" | "records" | "payments" | "bookings" | "makeups">(() => music && ["plans", "payments", "bookings", "makeups"].includes(params.get("studentTab") ?? "") ? params.get("studentTab") as "plans" | "payments" | "bookings" | "makeups" : "info");
   const [editingPerson, setEditingPerson] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [leaveAction,setLeaveAction]=useState<(()=>void)|null>(null);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
@@ -160,11 +159,12 @@ export function CourseMemberWorkspace({
   function canLeave() {
     if(pending || formPending)return false;
     if(!dirty)return true;
-    if(music){setLeaveAction(()=>()=>{setPanel(null);setDirty(false);});return false;}
+    if(music)return true;
     return window.confirm("尚有未儲存的變更，確定離開？");
   }
   function changePurchaseSelection(action:()=>void){
-    if(music&&dirty){setLeaveAction(()=>()=>{setDirty(false);action();});return;}
+    if(pending || formPending)return;
+    if(music)setDirty(false);
     action();
   }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
@@ -408,13 +408,7 @@ export function CourseMemberWorkspace({
       </div> : canReadCards ? <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
-      <ModalPanel open={!!leaveAction} onClose={()=>setLeaveAction(null)} labelledById="music-unsaved-title" pending={pending||formPending}>
-        <div className="space-y-3 p-4">
-          <h2 id="music-unsaved-title" className="font-semibold">放棄尚未儲存的修改？</h2>
-          <p className="text-sm text-earth-700">{panel==="assign"?"已修改購買期數、優惠或收款資料，尚未送出結帳。":"目前表單有尚未儲存的修改。"}</p>
-          <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={()=>setLeaveAction(null)}>繼續編輯</button><button type="button" className={button} disabled={pending||formPending} onClick={()=>{const action=leaveAction;setLeaveAction(null);action?.();}}>放棄修改</button></div>
-        </div>
-      </ModalPanel>
+
       {panel && (
         <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open

@@ -25,6 +25,7 @@
 import { useActionState, useEffect, type ReactNode } from "react";
 
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -64,16 +65,20 @@ export function CashDrawerActionForm({
   children,
 }: Props) {
   const [state, formAction] = useActionState<ActionResult<unknown> | null, FormData>(
-    action,
+    async (previous, data) => {
+      const result = await action(previous, data);
+      // Notify even when the returned RSC replaces the open/closed form.
+      if (result.success) publishMusicFinanceChange();
+      return result;
+    },
     null,
   );
 
   useEffect(() => {
     if (state?.success) {
-      publishMusicFinanceChange();
       // 等效 F5：full page navigation，重新跑 page server components，
       // 不依賴 server action response 內 inline 的 RSC payload。
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 

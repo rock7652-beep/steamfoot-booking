@@ -8,6 +8,7 @@ import {
   COURSE_PERMISSIONS,
   COURSE_PERMISSION_LABELS,
 } from "@/lib/course-permissions";
+import { EmptyState } from "@/components/ui/empty-state";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
@@ -30,11 +31,10 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const user = await getCurrentUser();
-  if (
-    !user ||
-    !(await checkPermission(user.role, user.staffId, "staff.view"))
-  )
-    notFound();
+  if (!user) notFound();
+  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) {
+    return <PageShell><PageHeader title={teachers ? "教師管理" : "人員管理"} /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
+  }
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   const isChildStoreView = !!user.storeId && storeId !== user.storeId;
