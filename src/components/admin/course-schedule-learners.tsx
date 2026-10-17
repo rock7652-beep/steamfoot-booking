@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState,useTransition} from "react";
 import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer} from "@/server/actions/course-schedule-enrollment";
-import {courseCardStartIssue} from "@/lib/course-card-start";
+import {courseCardScheduleIssue} from "@/lib/course-card-schedule-issue";
 import {parseTaipeiDateTime,toLocalDateStr} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number;participantPhone?:string};
@@ -31,8 +31,9 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
     return()=>{active=false;};
   },[reader,templateId,retry]);
   const scheduledAt=scheduleDate?parseTaipeiDateTime(scheduleDate,scheduleTime??"00:00"):null;
-  const startIssue=(card:Card)=>courseCardStartIssue(!!card.startRequired,card.startsAt,scheduledAt);
-  const cardCoversDate=(card:Card)=>!startIssue(card)&&(!scheduleDate||!card.expiresAt||toLocalDateStr(new Date(card.expiresAt))>=scheduleDate);
+  const requiredFor=(card:Card)=>(allowDeferred?1:occurrenceCount)*(card.unit==="SESSION"?1:pointCost);
+  const cardIssue=(card:Card,required=requiredFor(card))=>courseCardScheduleIssue(card,scheduledAt,required);
+  const cardCoversDate=(card:Card)=>!cardIssue(card);
   const ready=loadedTemplate===templateId;
   useEffect(()=>{
     if(!ready||!trialMode||!useConfiguredTrialPrice)return;
@@ -44,43 +45,42 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
     resolvedTemplate.current=`${templateId}:${scheduleDate??""}:${scheduleTime??""}`;
     const used=new Set<string>();
     const next=value.map(row=>{
-      const eligible=cards.filter(card=>!used.has(card.id)&&card.available>=1&&cardCoversDate(card)&&card.members.some(member=>member.id===row.customerId));
-      const chosen=eligible.find(card=>card.id===row.cardId)??eligible[0]??cards.find(card=>card.members.some(member=>member.id===row.customerId)&&startIssue(card));
+      const eligible=cards.filter(card=>!used.has(card.id)&&cardCoversDate(card)&&card.members.some(member=>member.id===row.customerId));
+      const chosen=eligible.find(card=>card.id===row.cardId)??eligible[0]??cards.find(card=>card.subjectMatches!==false&&card.members.some(member=>member.id===row.customerId))??cards.find(card=>card.members.some(member=>member.id===row.customerId));
       if(chosen)used.add(chosen.id);
       return {...row,cardId:chosen?.id??"",trialPrice:undefined};
     });
     if(next.some((row,index)=>row.cardId!==value[index].cardId||value[index].trialPrice!==undefined))onChange(next);
   },[ready,templateId,allowDeferred,trialMode,cards,value,onChange,scheduleDate,scheduleTime]);
-  const requiredFor=(card:Card)=>(allowDeferred?1:occurrenceCount)*(card.unit==="SESSION"?1:pointCost);
   const available=ready?cards.filter(card=>cardCoversDate(card)&&card.available>=requiredFor(card)):[];
   const totalRequired=(card:Card)=>value.filter(row=>row.cardId===card.id).length*requiredFor(card);
   const enrollmentValid=value.length<=capacity&&(!allowDeferred||new Set(value.filter(row=>row.cardId).map(row=>row.cardId)).size===value.filter(row=>row.cardId).length)&&value.every(row=>{
     if(!row.cardId)return ready&&((allowDeferred&&!trialMode&&row.trialPrice===undefined)||trial.enabled&&Number.isInteger(row.trialPrice)&&row.trialPrice!>=0);
     const card=cards.find(item=>item.id===row.cardId&&item.members.some(member=>member.id===row.customerId));
-    return !ready?false:!!card&&cardCoversDate(card)&&(allowDeferred ? card.available>=1 : card.available>=totalRequired(card));
+    return !ready?false:!!card&&cardCoversDate(card)&&!cardIssue(card,allowDeferred?requiredFor(card):totalRequired(card));
   });
   useEffect(()=>{onValidityChange?.(enrollmentValid);},[enrollmentValid,onValidityChange]);
   const people=[...new Map([...customers.map(person=>[person.id,person] as const),...available.flatMap(card=>card.members.filter(member=>member.id).map(member=>[member.id!,{id:member.id!,name:member.name,phone:member.phone}] as const))]).values()];
   const matches=query.trim()?people.filter(person=>!value.some(row=>row.customerId===person.id)&&(person.name.includes(query.trim())||person.phone.includes(query.trim()))).slice(0,30):[];
   return <section aria-label="排課學員" className="col-span-full min-w-0 space-y-2 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-x-2"><strong>加入學員</strong><span>{value.length}{showCapacity?` / ${capacity}`:""} 人{occurrenceCount>1?` · 共 ${occurrenceCount} 堂`:""}</span></div>
-    {value.map(row=>{const memberCards=cards.filter(card=>card.members.some(member=>member.id===row.customerId));const selectedCard=memberCards.find(card=>card.id===row.cardId);const enough=row.cardId?!!selectedCard&&cardCoversDate(selectedCard)&&(allowDeferred?selectedCard.available>=1:selectedCard.available>=totalRequired(selectedCard)):(allowDeferred&&!trialMode&&row.trialPrice===undefined)||trial.enabled&&row.trialPrice!==undefined;return <div key={row.customerId} className="flex flex-wrap items-center gap-2 rounded-lg bg-earth-50 px-3 py-1">
+    {value.map(row=>{const memberCards=cards.filter(card=>card.members.some(member=>member.id===row.customerId));const selectedCard=memberCards.find(card=>card.id===row.cardId);const enough=row.cardId?!!selectedCard&&cardCoversDate(selectedCard)&&!cardIssue(selectedCard,allowDeferred?requiredFor(selectedCard):totalRequired(selectedCard)):(allowDeferred&&!trialMode&&row.trialPrice===undefined)||trial.enabled&&row.trialPrice!==undefined;return <div key={row.customerId} className="flex flex-wrap items-center gap-2 rounded-lg bg-earth-50 px-3 py-1">
       <strong className="min-w-0 flex-1 break-words">{row.name}</strong>
-      {allowDeferred&&!trialMode&&(!templateId||!ready)?<span className="text-earth-600">{templateId?"正在確認適用方案…":"選課後確認適用方案"}</span>:!row.cardId&&allowDeferred&&!trialMode?<span className="text-amber-800">{memberCards.some(card=>cardCoversDate(card)&&card.available>=1)?"之後個別繳費 · 可先排課":"無適用方案 · 可先排課，之後繳費"}</span>:!row.cardId&&trial.enabled&&row.trialPrice!==undefined?<span className="text-earth-600">{templateId&&ready?`體驗 · $${row.trialPrice??trial.price} · 僅本堂`:"選課後確認體驗費用"}</span>:!allowDeferred&&memberCards.length===1&&enough?<span className="min-w-0 break-words text-earth-600">{selectedCard!.name} · 可用 {selectedCard!.available}{occurrenceCount>1?` · 本次需 ${requiredFor(selectedCard!)}`:""}</span>:null}
+      {allowDeferred&&!trialMode&&(!templateId||!ready)?<span className="text-earth-600">{templateId?"正在確認適用方案…":"選課後確認適用方案"}</span>:!row.cardId&&allowDeferred&&!trialMode?<span className="text-amber-800">{memberCards.some(card=>cardCoversDate(card))?"之後個別繳費 · 可先排課":"無適用方案 · 可先排課，之後繳費"}</span>:!row.cardId&&trial.enabled&&row.trialPrice!==undefined?<span className="text-earth-600">{templateId&&ready?`體驗 · $${row.trialPrice??trial.price} · 僅本堂`:"選課後確認體驗費用"}</span>:!allowDeferred&&memberCards.length===1&&enough?<span className="min-w-0 break-words text-earth-600">{selectedCard!.name} · 可用 {selectedCard!.available}{occurrenceCount>1?` · 本次需 ${requiredFor(selectedCard!)}`:""}</span>:null}
       {ready&&templateId&&((allowDeferred&&!trialMode&&memberCards.length>0)||(!allowDeferred&&(row.cardId||!trial.enabled)&&!(memberCards.length===1&&enough)))&&<select aria-label={`${row.name}的方案`} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2" disabled={disabled} value={row.cardId} onChange={event=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:event.target.value,trialPrice:event.target.value||allowDeferred&&!trialMode?undefined:trial.price}:item))}>
         {allowDeferred&&!trialMode?<option value="">之後個別繳費</option>:!selectedCard&&<option disabled value={row.cardId}>請選方案</option>}
-        {memberCards.map(card=><option key={card.id} value={card.id} disabled={!cardCoversDate(card)||card.available<requiredFor(card)||allowDeferred&&value.some(other=>other.customerId!==row.customerId&&other.cardId===card.id)}>{card.name} · {startIssue(card)?"尚未開始":`可用 ${card.available} · 本次需 ${requiredFor(card)}`}</option>)}
+        {memberCards.map(card=><option key={card.id} value={card.id} disabled={!cardCoversDate(card)||card.available<requiredFor(card)||allowDeferred&&value.some(other=>other.customerId!==row.customerId&&other.cardId===card.id)}>{card.name} · {cardIssue(card)?cardIssue(card)!.label:`可用 ${card.available} · 本次需 ${requiredFor(card)}`}</option>)}
       </select>}
-      {ready&&selectedCard&&startIssue(selectedCard)&&<p role="alert" className="w-full break-words text-red-700">{startIssue(selectedCard)}</p>}
-      {ready&&templateId&&selectedCard?.expiresAt&&!startIssue(selectedCard)&&<span className="w-full break-words text-earth-600">有效至 {toLocalDateStr(new Date(selectedCard.expiresAt))}{allowDeferred?"；後續超過額度或期限的課程另行繳費。":""}</span>}
+      {ready&&selectedCard&&cardIssue(selectedCard,allowDeferred?requiredFor(selectedCard):totalRequired(selectedCard))&&<p role="alert" className="w-full break-words text-red-700">{cardIssue(selectedCard,allowDeferred?requiredFor(selectedCard):totalRequired(selectedCard))?.message}</p>}
+      {ready&&templateId&&selectedCard?.expiresAt&&!cardIssue(selectedCard)&&<span className="w-full break-words text-earth-600">有效至 {toLocalDateStr(new Date(selectedCard.expiresAt))}{allowDeferred?"；後續超過額度或期限的課程另行繳費。":""}</span>}
       {canCreateCustomer&&row.customerId.startsWith("trial-draft:")&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled||creating} onClick={()=>{setSupplementKey(row.customerId);setNewCustomer(true);setNewName("");setNewPhone("");setCreateError("");setQuery("");}}>補資料</button>}
       <button type="button" aria-label={`移除${row.name}`} disabled={disabled} className="min-h-11 min-w-11" onClick={()=>onChange(value.filter(item=>item.customerId!==row.customerId))}>×</button>
       {!allowDeferred&&trial.enabled&&(row.cardId||row.trialPrice===undefined)&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:"",trialPrice:trial.price}:item))}>{row.cardId?"改為體驗":"設為體驗"}</button>}
       {!allowDeferred&&!trialMode&&!row.cardId&&memberCards.length>0&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:memberCards[0].id,trialPrice:undefined}:item))}>使用方案</button>}
-      {!enough&&!(selectedCard&&startIssue(selectedCard))&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選方案或體驗。":"請確認方案與可用額度。"}</p>}
+      {!enough&&!(selectedCard&&cardIssue(selectedCard,allowDeferred?requiredFor(selectedCard):totalRequired(selectedCard)))&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選方案或體驗。":"請確認方案與可用額度。"}</p>}
     </div>;})}
     <input aria-label="搜尋排課學員" placeholder={value.length>=capacity?"已滿":ready?"姓名或電話":"讀取中…"} className="min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth-200 px-3" value={query} disabled={disabled||!ready||value.length>=capacity} onChange={event=>setQuery(event.target.value)}/>
-    {!newCustomer&&matches.length>0&&<div className="max-h-48 overflow-y-auto rounded-lg border border-earth-200">{matches.map(person=><button key={person.id} type="button" className="flex min-h-11 w-full items-center justify-between border-b border-earth-100 px-3 text-left" disabled={disabled||value.length>=capacity} onClick={()=>{const card=!trialMode?(available.find(card=>card.members.some(member=>member.id===person.id))??(allowDeferred?cards.find(card=>card.members.some(member=>member.id===person.id)&&startIssue(card)):undefined)):undefined;onChange([...value,{customerId:person.id,cardId:card?.id??"",name:person.name,...(!card&&trialMode?{trialPrice:trial.price}:{})}]);setQuery("");}}>{person.name}<span className="ml-auto text-earth-500">{person.phone.slice(-3)}</span><span className="ml-2">＋</span></button>)}</div>}
+    {!newCustomer&&matches.length>0&&<div className="max-h-48 overflow-y-auto rounded-lg border border-earth-200">{matches.map(person=><button key={person.id} type="button" className="flex min-h-11 w-full items-center justify-between border-b border-earth-100 px-3 text-left" disabled={disabled||value.length>=capacity} onClick={()=>{const card=!trialMode?(available.find(card=>card.members.some(member=>member.id===person.id))??(allowDeferred?cards.find(card=>card.members.some(member=>member.id===person.id)):undefined)):undefined;onChange([...value,{customerId:person.id,cardId:card?.id??"",name:person.name,...(!card&&trialMode?{trialPrice:trial.price}:{})}]);setQuery("");}}>{person.name}<span className="ml-auto text-earth-500">{person.phone.slice(-3)}</span><span className="ml-2">＋</span></button>)}</div>}
     {ready&&query.trim()&&!matches.length&&<p className="text-earth-600">沒有符合的學員</p>}
     {trialMode&&trial.enabled&&value.length<capacity&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled||creating} onClick={()=>onChange([...value,{customerId:`trial-draft:${crypto.randomUUID()}`,cardId:"",name:`體驗者 ${Math.max(0,...value.map(p=>Number(p.name.match(/^體驗者\s*(\d+)$/)?.[1])||0))+1}`,trialPrice:trial.price}])}>＋體驗者</button>}
     {canCreateCustomer&&value.length<capacity&&<button type="button" disabled={disabled||creating} className="min-h-11 text-primary-700" onClick={()=>{setSupplementKey(null);setNewCustomer(v=>!v);setCreateError("");const text=query.trim();if(/^[+\d\s()-]+$/.test(text)){setNewPhone(text);setNewName("");}else{setNewName(text);setNewPhone("");}setQuery("");}}>＋建立新學員</button>}
@@ -94,7 +94,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
         if(supplementKey){
           if(value.some(row=>row.customerId===person.id&&row.customerId!==supplementKey)){setCreateError("此學員已在名單，請核對同行者");return;}
           onChange(value.map(row=>row.customerId===supplementKey?{...row,customerId:person.id,name:person.name}:row));
-        }else if(!value.some(row=>row.customerId===person.id)){const card=!trialMode?(available.find(card=>card.members.some(member=>member.id===person.id))??(allowDeferred?cards.find(card=>card.members.some(member=>member.id===person.id)&&startIssue(card)):undefined)):undefined;onChange([...value,{customerId:person.id,name:person.name,cardId:card?.id??"",...(!card&&trialMode?{trialPrice:trial.price}:{})}]);}
+        }else if(!value.some(row=>row.customerId===person.id)){const card=!trialMode?(available.find(card=>card.members.some(member=>member.id===person.id))??(allowDeferred?cards.find(card=>card.members.some(member=>member.id===person.id)):undefined)):undefined;onChange([...value,{customerId:person.id,name:person.name,cardId:card?.id??"",...(!card&&trialMode?{trialPrice:trial.price}:{})}]);}
         setNotice(person.existing?"此手機已有學員，已帶入原資料":"學員已建檔");setNewCustomer(false);setSupplementKey(null);setNewName("");setNewPhone("");
         }catch{setCreateError("連線失敗，請重試");}
       })}>{creating?"儲存中…":supplementKey?"儲存資料":"建立並加入"}</button>

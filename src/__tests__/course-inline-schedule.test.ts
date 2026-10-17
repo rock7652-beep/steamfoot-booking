@@ -17,7 +17,7 @@ it("blocks a selected learner whose plan cannot cover every class in the batch",
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:3,value:[{customerId:"a",cardId:"card-a",name:"小安"}],onChange:vi.fn(),onValidityChange})));
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain("可用額度");
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("堂數不足：可用 2 堂，本次需 3 堂");
     expect(onValidityChange).toHaveBeenLastCalledWith(false);
   }finally{await act(async()=>root.unmount());host.remove();}
 });

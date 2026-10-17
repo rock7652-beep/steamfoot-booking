@@ -1,5 +1,4 @@
 "use server";
-import {courseCardActiveExpiryWhere} from "@/lib/course-card-expiry";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import {readTeachingTrialPrice} from "@/server/services/music-teaching-item";
 import { z } from "zod";
@@ -22,18 +21,23 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     await courseManager("customer.read");
     const customers=await prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000});
     const trialSettings=await getTrialSettings(storeId);
-    const subjectId=musicTeachingSubjectId(templateId);
+    const subjectId=musicTeachingSubjectId(templateId)??(templateId?(await coursePrisma.courseTemplate.findFirst({where:{storeId,id:templateId},select:{musicSubjectId:true}}))?.musicSubjectId:null);
     const template=templateId&&(!subjectId||templateId.startsWith("teaching-trial:")) ? await readTeachingTrialPrice(coursePrisma,storeId,templateId) : null;
-    const relatedIds=subjectId?(await coursePrisma.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:null},select:{id:true}})).map(row=>row.id):[templateId];
+    const relatedIds=subjectId?(await coursePrisma.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:templateId.startsWith("teaching-trial:")?{in:["FREE","PAID"]}:null},select:{id:true}})).map(row=>row.id):[templateId];
     let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
     const visibleIds=new Set(customers.map(person=>person.id));
-    const cards=templateId ? await getCourseCards(storeId,undefined,{where:{closedAt:null,AND:[courseCardActiveExpiryWhere(new Date(),true),{OR:[{templateIds:{isEmpty:true}},{templateIds:{hasSome:relatedIds}}]}]},skip:0,take:500,entries:false}) : [];
+    // Keep ineligible cards visible so the picker can explain why, within the same customer permissions.
+    const cards:Awaited<ReturnType<typeof getCourseCards>>=[];
+    if(templateId&&visibleIds.size)for(let skip=0;;skip+=500){
+      const batch=await getCourseCards(storeId,undefined,{where:{closedAt:null,members:{some:{customerId:{in:[...visibleIds]}}}},skip,take:500,entries:false});
+      cards.push(...batch);if(batch.length<500)break;
+    }
     const visibleCards=cards.filter(card=>card.members.some(member=>!!member.id&&visibleIds.has(member.id)));
     const starts=visibleCards.length?await coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:visibleCards.map(card=>card.id)}},select:{id:true,musicJoinSessionId:true}}):[];
     const joinIds=[...new Set(starts.flatMap(card=>card.musicJoinSessionId?[card.musicJoinSessionId]:[]))];
     const joins=joinIds.length?await coursePrisma.courseSession.findMany({where:{storeId,id:{in:joinIds}},select:{id:true,startsAt:true}}):[];
     const startByCard=new Map(starts.map(card=>[card.id,{startRequired:!!card.musicJoinSessionId,startsAt:joins.find(join=>join.id===card.musicJoinSessionId)?.startsAt.toISOString()??null}]));
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:visibleCards.map(card=>({...startByCard.get(card.id),id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:visibleCards.map(card=>({...startByCard.get(card.id),id:card.id,name:card.name,unit:card.unit,available:card.available,remaining:card.remaining,held:card.held,expired:card.expired,unavailableReason:card.openingIssue,subjectMatches:!card.templateIds.length||card.templateIds.includes(templateId)||card.templateIds.some(id=>relatedIds.includes(id)),expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 
