@@ -1,4 +1,5 @@
 "use client";
+import {loadSportsCalendar} from "@/server/actions/sports-calendar";
 import {SportsScheduleFields} from "./sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
@@ -230,11 +231,11 @@ export function CourseWorkspace({
   selectedDate: loadedDate,
   today,
   nowIso,
-  calendarDays,
+  calendarDays:sourceCalendarDays,
   rooms: sourceRooms,
   templates: sourceTemplates,
-  sessions,
-  cancelledBookings,
+  sessions:sourceSessions,
+  cancelledBookings:sourceCancelledBookings,
   coaches: allCoaches,
   canCreate,
   canEdit,
@@ -248,7 +249,7 @@ export function CourseWorkspace({
   waitlistDefaultLimit = 5,
   waitlistDefaultStopMinutes = 240,
   staffAvailability,
-  staffAvailabilityExceptions,
+  staffAvailabilityExceptions:sourceStaffAvailabilityExceptions,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -275,7 +276,20 @@ export function CourseWorkspace({
     if (result.success) { confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id); }
     return result;
   }
-  const requestedDate = params.get("date");
+  const [nativeDate,setNativeDate]=useState(loadedDate);
+  const [nativeCalendar,setNativeCalendar]=useState<Extract<Awaited<ReturnType<typeof loadSportsCalendar>>,{success:true}>["data"]|null>(null);
+  const calendarRequest=useRef(0);
+  const [calendarReading,setCalendarReading]=useState(false);
+  const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
+  const sessions=nativeCalendar?.sessions??sourceSessions;
+  const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
+  const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
+  const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
+  async function refreshNativeCalendar(date:string){
+    const request=++calendarRequest.current;setCalendarReading(true);
+    try{const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
+  }
+  const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
@@ -287,6 +301,7 @@ export function CourseWorkspace({
   );
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
+    if(sportsNative)return;
     const next = new URLSearchParams(params.toString());
     next.set("scheduleView", nextMode);
     window.history.replaceState(null, "", `${pathname}?${next}`);
@@ -352,6 +367,7 @@ export function CourseWorkspace({
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
+      if(sportsNative){void refreshNativeCalendar(nativeDateRef.current);return;}
       startTransition(() => {
         router.refresh();
         setLastUpdated(new Date());
@@ -367,8 +383,8 @@ export function CourseWorkspace({
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition]);
-  useCourseDraftGuard(dirty,!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
+  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative]);
+  useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
   const restoreScrollY = useRef<number | null>(null);
@@ -382,13 +398,13 @@ export function CourseWorkspace({
   const rentalGuard=useRef({pending:false,dirty:false});
   const updateRentalGuard=useCallback((pending:boolean,dirty:boolean)=>{rentalGuard.current={pending,dirty};},[]);
   const [roomRentalHistory,setRoomRentalHistory]=useState(false);
-  function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
+  function closeRentalDialog(){if(rentalGuard.current.pending)return;if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
   function closePanel() {
     if(musicScheduleGuard.current.pending)return;
-    if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
+    if(!sportsNative&&musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
-    if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
-    if (roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain || pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
+    if (roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain || pending || (!sportsNative && dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
     setPanel(null);
   }
@@ -522,6 +538,7 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
+    if(sportsNative){++calendarRequest.current;setCalendarReading(false);setNativeDate(date);if(date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date);return;}
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
@@ -765,6 +782,7 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
+      {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -878,7 +896,7 @@ export function CourseWorkspace({
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
-                    disabled={pending}
+                    disabled={pending || calendarReading}
                     onClick={()=>openSchedule()}
                   >
                     ＋ 排課
@@ -1071,7 +1089,7 @@ export function CourseWorkspace({
               rooms={roomFilter === "all" ? allRooms : allRooms.filter(room => room.id === roomFilter)}
               coaches={allCoaches}
               templates={allTemplates}
-              pending={pending}
+              pending={pending || (sportsNative && calendarReading)}
               staffAvailability={staffAvailability}
               staffAvailabilityExceptions={staffAvailabilityExceptions}
               storePeriods={calendarDays[selectedDate]?.periods ?? []}
@@ -2016,7 +2034,7 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields initial={sportsData} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setPanel(null);go(date);router.refresh();}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields initial={sportsData} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
@@ -2045,7 +2063,7 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && <>
-              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
+              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
@@ -2287,7 +2305,7 @@ export function CourseWorkspace({
                 className={button}
                 disabled={pending || templateSave.uncertain || roomSave.uncertain}
                 onClick={() => {
-                  if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
+                  if (!sportsNative && dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
                   open(editing.kind === "session" ? "day" : null);
                   setEditing(null);
                 }}

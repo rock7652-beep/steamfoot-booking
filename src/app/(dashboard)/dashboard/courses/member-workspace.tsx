@@ -166,7 +166,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && !formUncertain && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
+  function canLeave() { return !pending && !formPending && !formUncertain && (sportsData || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -203,7 +203,7 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard(!!panel&&(dirty || supportGuard.dirty),!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
+  useCourseDraftGuard(!sportsData&&!!panel&&(dirty || supportGuard.dirty),!sportsData&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);

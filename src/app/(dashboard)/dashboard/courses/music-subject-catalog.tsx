@@ -35,8 +35,8 @@ export function MusicSubjectCatalog({sportsNative=false,storeId,displayOrder,sub
  const [pending,start]=useTransition();
  const saving=useRef(false);
  const [created,setCreated]=useState(false);
- useCourseDraftGuard(editing!==undefined&&dirty,pending);
- function close(){if(!pending&&(!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
+ useCourseDraftGuard(!sportsNative&&editing!==undefined&&dirty,!sportsNative&&pending);
+ function close(){if(!pending&&(sportsNative||!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
  const order=useCourseDisplayOrder("subject",subjects,displayOrder,canEdit&&!search&&!category&&status==="all"&&!hideTestData&&!busyIds.length,s=>s.isActive);
  const categories=[...new Set(subjects.map(s=>s.category).filter(Boolean))].sort();
  const rows=subjects.filter(s=>s.id===lastSavedId||((!hideTestData||!isCourseTestData(s.name))&&(!search||s.name.includes(search)||s.category.includes(search))&&(!category||s.category===category)&&(status==="all"||s.isActive===(status==="active")))).sort((a,b)=>Number(b.isActive)-Number(a.isActive)||order.compare(a,b));
