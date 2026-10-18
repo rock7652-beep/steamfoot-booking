@@ -22,7 +22,7 @@ export function SportsScheduleFields({initial,date,requestKey,onGuard,onCreated}
   start(async()=>{try{const result=await sportsStagingCommand({operation:"schedule",payload:{subject,fee:feeId||undefined,kind,mode:enrollment,date:day,time,duration,count:fixed?count:1,coach,room,capacity,students:enrollment==="指定學員"?students:[],price,customer,phone,requestKey}});if(!result.success){setError(result.error??"排課失敗");return;}setDirty(false);onCreated(day);}catch{setError("連線失敗，輸入已保留，請重試");}finally{lock.current=false;}});
  }}>
  <fieldset disabled={pending} className="contents">
- <label>排課類型<select aria-label="排課類型" className={field} value={kind} onChange={e=>setKind(e.target.value)}>{["每週固定","隔週固定","單次","體驗","空間出租"].map(k=><option key={k}>{k}</option>)}</select></label>
+ <label>排課類型<select aria-label="排課類型" className={field} value={kind} onChange={e=>setKind(e.target.value)}>{["每週固定","隔週固定","單次","體驗","空間出租"].map(k=><option key={k} value={k}>{k==="每週固定"?"固定每週":k==="隔週固定"?"固定隔週":k}</option>)}</select></label>
  <label>日期<input aria-label="排課日期" className={field} required type="date" value={day} onChange={e=>setDay(e.target.value)}/></label>
  <label>時間<input aria-label="排課時間" className={field} required type="time" value={time} onChange={e=>setTime(e.target.value)}/></label>
  <label>時長（分鐘）<select aria-label="排課時長" className={field} value={duration} onChange={e=>setDuration(Number(e.target.value))}>{[30,60,90,120].map(n=><option key={n} value={n}>{n}</option>)}</select></label>

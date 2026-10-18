@@ -398,6 +398,7 @@ export default async function CoursesPage({
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={[...sessions.map((s) => ({
           ...s,
+          sportsPalette:sportsNative,
           isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
@@ -412,7 +413,7 @@ export default async function CoursesPage({
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
           previewFaded: s.releasedAt ? "異動／請假" as const : undefined,
           previewStudentNames: s.releasedAt ? cancelledBookings.filter((booking) => booking.sessionId === s.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map((booking) => booking.customerName) : undefined,
-        })),...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))]}
+        })),...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:sportsNative,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))]}
         cancelledBookings={cancelledBookings}
       />
     </PageShell>

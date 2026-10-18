@@ -1,4 +1,5 @@
 "use client";
+import {sportsCalendarPresentation} from "@/lib/sports-calendar-presentation";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -43,6 +44,7 @@ type Session = {
   pointCost: number;
   teacherAttendance?: string;
   requestKey?: string;
+  sportsPalette?:boolean;
   isFixed?: boolean;
   isBiweekly?: boolean;
   rescheduledFromStartsAt?: string | null;
@@ -273,7 +275,7 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
-  const presentation = courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
+  const presentation = session.sportsPalette?sportsCalendarPresentation(session):courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
@@ -306,14 +308,15 @@ function SessionCard({
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 border-earth-300 bg-white ${session.previewFaded ? "border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.sportsPalette?sportsCalendarPresentation(session).card:"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
-      {(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
+      {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
@@ -369,7 +372,8 @@ function SessionCard({
             {session.isBiweekly ? "隔週固定" : "每週固定"}
           </span>
         )}
-        {fixed && businessProfile !== "MUSIC" && (
+        {session.sportsPalette && <span className="text-[10px] font-medium">{presentation.label}</span>}
+        {fixed && businessProfile !== "MUSIC" && !session.sportsPalette && (
           <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">{session.isBiweekly ? "隔週" : "固定"}</span>
         )}
         {businessProfile === "MUSIC" && !fixed && (
