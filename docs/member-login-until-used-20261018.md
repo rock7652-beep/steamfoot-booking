@@ -21,5 +21,6 @@ Migration 僅轉換有 AUTHORIZE_VERIFIED_LIFF_LOGIN_RECOVERY 稽核、尚未消
 - 受影響入口：顧客明細「本店會員與 LINE」、進階綁定狀態與窄 panel。已核對的登入恢復不再顯示成等待官方 LINE 輸入手機，撤銷按鈕明確標示為「撤銷登入授權」。
 - 真實 React 元件＋正式 CSS 的隔離瀏覽器 fixture：1366×900、1920×1080、1024×768、768×1024、390×844、320px 窄容器，6 種情境通過。核對後狀態顯示正確、只送出一次、無整頁橫向溢出、切換尺寸保留狀態；操作高度 44px。截圖與結果保存於工作區 `/workspace/login-recovery-until-used-validation/`。
 - 此 fixture 的 server actions 為 mocks，不視為 hosted Preview、實體 iPad 或真實 LINE 端到端登入成功；測試庫驗證也不取代會員本人登入核驗。
-- hosted build 仍保留 review 分支停止條件，避免沿用預設正式資料庫連線。後續部署 Preview 前需確認全部資料庫連線均指向 steamfoot-preview，正式 rollout 需 schema 先於引用 untilUsed 的程式。
+- 使用者授權測試資料庫後，review 分支已接上既有 module-roster Preview 隔離檢查：精確分支/倉庫/Vercel Preview、DATABASE_URL 與 DIRECT_URL 必須都指向 steamfoot-preview，否則在建立 DB client 前拒絕。build runner 不執行額外 migration，Next config 同步執行隔離檢查，以涵蓋 Vercel buildCommand override。正式 rollout 需 schema 先於引用 untilUsed 的程式。
+- 隔離部署 gate 及其他 Preview 組合回歸 52 項通過。CI 另發現既有工單財務 Postgres 測試在 HTTP request 外呼叫 Next after；補上 request 排程邊界 mock，實際財務 SQL/鎖定驗證不變，通知服務仍由專屬測試驗證。
 - 先前測試資料庫操作被自動審核拒絕的阻擋，已由使用者本次明確授權解除；本次已成功完成核准範圍，尚未合併正式站。

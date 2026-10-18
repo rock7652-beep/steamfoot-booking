@@ -27,6 +27,9 @@ vi.mock("@/lib/feature-gate", () => ({
   hasStoreFeature: vi.fn(async () => true), checkCurrentStoreFeature: vi.fn(async () => true),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// These tests exercise finance with real SQL outside an HTTP request. The
+// notification service has separate tests; Next owns scheduling after response.
+vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: vi.fn() }));
 import { prisma as appDb } from "@/lib/db";
 import { saveOrder } from "@/server/actions/inventory";
