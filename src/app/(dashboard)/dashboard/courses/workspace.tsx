@@ -394,7 +394,8 @@ export function CourseWorkspace({
   }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
-  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
+  const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
+  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};if(sportsNative)setSportsScheduleBusy(pending);},[sportsNative]);
   const restoreScrollY = useRef<number | null>(null);
   useEffect(() => {
     if (restoreScrollY.current === null) return;
@@ -1415,7 +1416,7 @@ export function CourseWorkspace({
             {
               <button
                 className={button}
-                disabled={pending || templateSave.uncertain || roomSave.uncertain}
+                disabled={pending || templateSave.uncertain || roomSave.uncertain || (sportsNative&&panel==="schedule"&&sportsScheduleBusy)}
                 onClick={closePanel}
               >
                 關閉
