@@ -1,0 +1,65 @@
+name: Editorial scope review
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  scope:
+    if: github.head_ref == 'content/editorial-preview'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          # checkout cleanup traverses existing malformed gitlinks; remove the
+          # root HTTP header explicitly before any repository code instead.
+          persist-credentials: true
+          sparse-checkout: |
+            scripts
+            src/content
+      - name: Remove checkout HTTP credentials
+        run: git config --local --unset-all http.https://github.com/.extraheader
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check exact article scope with base-branch policy
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          policy_dir=$(mktemp -d)
+          bootstrap_args=()
+          if git cat-file -e "$BASE_SHA:scripts/editorial-release-preflight.mjs" 2>/dev/null; then
+            for file in editorial-release-preflight.mjs editorial-content.mjs editorial-preview-scope.mjs; do
+              git show "$BASE_SHA:scripts/$file" > "$policy_dir/$file"
+            done
+          else
+            test "$BASE_SHA" = 7ddfeed6b8b0611b1669df067c4580e5b9481323
+            # One-time setup requires review of these policy files themselves.
+            # No secrets, writes, deployment or approval pins are available here.
+            cp scripts/editorial-{release-preflight,content,preview-scope}.mjs "$policy_dir/"
+            bootstrap_args=(--bootstrap)
+          fi
+          # Infer the one changed JSON record without importing candidate code.
+          git show "$BASE_SHA:src/content/editorial-guides.json" > /tmp/editorial-before.json 2>/dev/null || printf '[]' > /tmp/editorial-before.json
+          slug=$(node --input-type=module -e '
+            import fs from "node:fs";
+            const before=JSON.parse(fs.readFileSync("/tmp/editorial-before.json","utf8"));
+            const after=JSON.parse(fs.readFileSync("src/content/editorial-guides.json","utf8"));
+            const changed=after.filter(a=>JSON.stringify(a)!==JSON.stringify(before.find(b=>b.id===a.id)));
+            if(changed.length!==1)throw Error("Exactly one reviewed article required");
+            console.log(changed[0].id);
+          ')
+          node "$policy_dir/editorial-release-preflight.mjs" --base "$BASE_SHA" --head "$HEAD_SHA" --repository "$HEAD_REPOSITORY" --branch "$HEAD_BRANCH" --slug "$slug" "${bootstrap_args[@]}" > editorial-scope.json
+          cat editorial-scope.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editorial-scope-${{ github.event.pull_request.head.sha }}
+          path: editorial-scope.json

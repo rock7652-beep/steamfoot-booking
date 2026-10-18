@@ -1,10 +1,13 @@
+import editorialGuideData from "@/content/editorial-guides.json";
+import { parseEditorialGuides } from "../../scripts/editorial-content.mjs";
+
 /** Public editorial content only. Keep authenticated operation manuals separate. */
 export type GuideCategory = "booking" | "customers" | "operations";
 export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[]; link?: { label: string; href: string } };
-type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; publishedDate?: string; primaryKeyword?: string; featureLinkLabel?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
+type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; publishedDate?: string; primaryKeyword?: string; featureLinkLabel?: string; featureUrl?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
-  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string } }
+  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string; inlineParts?: readonly (string | { label: string; href: string })[] } }
 );
 
 export const GUIDE_CATEGORIES = [
@@ -1208,8 +1211,13 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
     "label": "了解好久不見名單與關懷追蹤",
     "url": "https://www.steamfoot.com/pricing/features#care"
   }
-}
+},
+  ...parseEditorialGuides(editorialGuideData),
 ];
+
+if (new Set(PUBLIC_GUIDES.map(guide => guide.id)).size !== PUBLIC_GUIDES.length) {
+  throw new Error("Duplicate public guide ID");
+}
 
 export function canReviewDraftGuides() {
   return process.env.VERCEL_ENV === "preview" || (process.env.VERCEL_ENV !== "production" && ["development", "test"].includes(process.env.NODE_ENV ?? ""));

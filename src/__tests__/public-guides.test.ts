@@ -1,3 +1,8 @@
+// @vitest-environment jsdom
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { MarketingStickyOffer } from "@/components/marketing-sticky-offer";
+import editorialGuides from "@/content/editorial-guides.json";
 vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
@@ -30,6 +35,63 @@ const route = (path: string, host = "www.steamfoot.com") => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("public editorial guides", () => {
+  it("preserves the approved holiday closure article and inline trial links", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const slug = "music-school-holiday-closure-checklist";
+    const guide = findPublicGuide(slug)!;
+    if (guide.format !== "article") throw new Error("Expected article");
+    const cta = guide.callToAction.inlineParts!.map(part => typeof part === "string" ? part : part.label).join("");
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), cta];
+    expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("8490d63329e94d03c9f6a18cadeb142934bd3220e56db5a43c7e372828010042");
+    const html = renderToStaticMarkup(await GuideArticle(props(slug)));
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+    expect(article.match(/<h1\b/g)).toHaveLength(1);
+    expect(article.match(/<h2\b/g)).toHaveLength(3);
+    expect(article).toContain('href="https://www.steamfoot.com/pricing#trial-details"');
+    expect(article.match(/href="https:\/\/www.steamfoot.com\/apply"/g)).toHaveLength(1);
+    expect(html).toContain('href="/pricing/features/music"');
+    expect(html).toContain(`href="/guides#${slug}"`);
+    expect(article).not.toMatch(/校稿備註|SEO 工作表|校閱草稿|永久保留/);
+    const metadata = await generateMetadata(props(slug));
+    expect(metadata.title).toBe(guide.title);
+    expect(metadata.description).toBe(guide.summary);
+    expect(metadata.alternates?.canonical).toBe(`https://www.steamfoot.com/guides/${slug}`);
+    expect(html).toContain('"datePublished":"2026-10-18"');
+    expect(route(`/guides/${slug}`).status).toBe(200);
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${slug}`);
+  });
+
+
+  it("lets the holiday article trial CTA navigate without opening the preview form", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const article = document.createElement("div");
+    article.innerHTML = renderToStaticMarkup(await GuideArticle(props("music-school-holiday-closure-checklist")));
+    const host = document.createElement("div");
+    document.body.append(article, host);
+    const root = createRoot(host);
+    const showModal = vi.fn();
+    try {
+      await act(async () => root.render(createElement(MarketingStickyOffer)));
+      Object.defineProperty(host.querySelector("dialog")!, "showModal", { value: showModal });
+      const link = article.querySelector<HTMLAnchorElement>('article a[href="https://www.steamfoot.com/apply"]')!;
+      expect(link.target).toBe("_top");
+      let intercepted: boolean | undefined;
+      // Observe after the real document capture handler, then stop jsdom navigation.
+      link.addEventListener("click", event => { intercepted = event.defaultPrevented; event.preventDefault(); });
+      await act(async () => { link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); });
+      expect(intercepted).toBe(false);
+      expect(showModal).not.toHaveBeenCalled();
+      expect(host.querySelector("iframe")).toBeNull();
+      // The existing modal behavior remains enabled for ordinary marketing links.
+      link.removeAttribute("target");
+      await act(async () => { link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); });
+      expect(showModal).toHaveBeenCalledOnce();
+      expect(host.querySelector("iframe")?.getAttribute("src")).toBe("/apply?intent=trial&embedded=1");
+    } finally {
+      await act(async () => root.unmount());
+      article.remove(); host.remove(); vi.unstubAllGlobals();
+    }
+  });
 
   it("preserves the approved paid attendance Word body and uses the care CTA", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
@@ -137,7 +199,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug, "sports-studio-business-metrics", "music-fitness-studio-student-loyalty", "paid-members-attendance-drop-follow-up"]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug, teacherFeeSlug, renewalSlug, handoverSlug, permissionsSlug, "sports-studio-business-metrics", "music-fitness-studio-student-loyalty", "paid-members-attendance-drop-follow-up", ...editorialGuides.filter(guide => guide.status === "published").map(guide => guide.id)]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -321,7 +383,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug && guide.id !== "sports-studio-business-metrics" && guide.id !== "music-fitness-studio-student-loyalty" && guide.id !== "paid-members-attendance-drop-follow-up")) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug && guide.id !== teacherFeeSlug && guide.id !== renewalSlug && guide.id !== handoverSlug && guide.id !== permissionsSlug && guide.id !== "sports-studio-business-metrics" && guide.id !== "music-fitness-studio-student-loyalty" && guide.id !== "paid-members-attendance-drop-follow-up" && !editorialGuides.some(item => item.id === guide.id))) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -429,7 +491,7 @@ describe("public editorial guides", () => {
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     expect(index).toContain(`href="/guides/${notificationSlug}"`);
     expect(index).toContain(guide.summary);
-    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug && item.id !== "sports-studio-business-metrics" && item.id !== "music-fitness-studio-student-loyalty" && item.id !== "paid-members-attendance-drop-follow-up")) {
+    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug && item.id !== teacherFeeSlug && item.id !== renewalSlug && item.id !== handoverSlug && item.id !== permissionsSlug && item.id !== "sports-studio-business-metrics" && item.id !== "music-fitness-studio-student-loyalty" && item.id !== "paid-members-attendance-drop-follow-up" && !editorialGuides.some(guide => guide.id === item.id))) {
       const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
       expect(previousHtml).toContain("申請免費試用 30 天 →");
       expect(previousHtml).not.toContain("前往蒸管家，了解體驗與適用流程");
@@ -617,8 +679,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(20);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(32);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(20 + editorialGuides.filter(guide => guide.status === "published").length);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(12 + PUBLISHED_GUIDE_PATHS.length);
     expect(xml).not.toContain("/pricing/features/services");
     for (const modulePath of ["slots", "music", "fitness"]) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com/pricing/features/${modulePath}</loc>`);
