@@ -1,0 +1,209 @@
+{
+  "checks": [
+    {
+      "name": "每週固定 開放選課",
+      "passed": true
+    },
+    {
+      "name": "隔週固定 開放選課",
+      "passed": true
+    },
+    {
+      "name": "隔週固定 指定學員",
+      "passed": true
+    },
+    {
+      "name": "體驗 指定學員",
+      "passed": true
+    },
+    {
+      "name": "體驗 開放選課",
+      "passed": true
+    },
+    {
+      "name": "空間出租 ",
+      "passed": true
+    },
+    {
+      "name": "單次 指定學員",
+      "passed": true
+    },
+    {
+      "name": "點數方案出席扣兩點，資料庫確認餘額八點",
+      "passed": true
+    },
+    {
+      "name": "點數方案出席後取消，業務回應成功",
+      "passed": true
+    },
+    {
+      "name": "五種排課類型與兩種參加方式補驗完成",
+      "passed": true
+    }
+  ],
+  "actions": [
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "kind": "每週固定",
+        "mode": "開放選課",
+        "date": "2026-10-19",
+        "time": "10:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 499,
+        "customer": "",
+        "phone": "",
+        "students": [],
+        "requestKey": "62658c2f-a64d-48b6-a8cf-e2a9912d5a55"
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 2,
+          "sessionId": "cmvd3q7uu000rjq08q6j5j55u"
+        }
+      }
+    },
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "kind": "隔週固定",
+        "mode": "開放選課",
+        "date": "2026-10-19",
+        "time": "13:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 499,
+        "customer": "",
+        "phone": "",
+        "students": [],
+        "requestKey": "e773b846-ac51-43b4-9553-734b5cd880dd"
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 2,
+          "sessionId": "cmvd3qblg000tjq08wu5pennl"
+        }
+      }
+    },
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "kind": "體驗",
+        "mode": "開放選課",
+        "date": "2026-10-19",
+        "time": "19:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 499,
+        "customer": "",
+        "phone": "",
+        "students": [],
+        "requestKey": "025527f3-c51f-4fbb-9d86-c5bef5c042cf"
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvd3qnsp0018jq0813h6hcd7"
+        }
+      }
+    },
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "kind": "空間出租",
+        "mode": "開放選課",
+        "date": "2026-10-19",
+        "time": "21:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 1000,
+        "customer": "遠端出租驗收",
+        "phone": "0900000103",
+        "students": [],
+        "requestKey": "2a1257a5-1636-4484-8662-93c1e4ec62d0"
+      },
+      "result": {
+        "success": true,
+        "id": "cmvd3qrd8001ajq08uqqbpfoq"
+      }
+    },
+    {
+      "operation": "purchase",
+      "payload": {
+        "planId": "plan_f6b9fe60c52a494f67c7bd06ae8e2aca5fdcbd4bf66368caefca76d3972a59aa",
+        "customerId": "sports-live-customer",
+        "expectedPrice": 4800,
+        "requestKey": "b1c5edeb-5707-4c99-931f-a0bf87f9e4b6"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_f6b9fe60c52a494f67c7bd06ae8e2aca5fdcbd4bf66368caefca76d3972a59aa",
+        "kind": "單次",
+        "mode": "指定學員",
+        "date": "2026-10-19",
+        "time": "15:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 1000,
+        "customer": "遠端出租驗收",
+        "phone": "0900000103",
+        "students": [
+          "sports-live-customer"
+        ],
+        "requestKey": "7e686a56-0ff4-44d5-98a2-22b65c0ae64c"
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvd3rcsq0004jz07974mm6l0"
+        }
+      }
+    },
+    {
+      "operation": "attendance",
+      "payload": {
+        "bookingId": "cmvd3rd0u0006jz07on95uav4",
+        "status": "CANCELLED",
+        "expectedStatus": "ATTENDED",
+        "requestKey": "6c769806-8398-44e9-a10d-1d3ac63d24c5"
+      },
+      "result": {
+        "success": true
+      }
+    }
+  ]
+}

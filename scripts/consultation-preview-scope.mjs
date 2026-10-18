@@ -1,3 +1,4 @@
+import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
@@ -253,6 +254,10 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"mocked-unit-test" | "production" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(SPORTS_REDESIGN_PREVIEW_BRANCH)) {
+    assertSportsRedesignPreviewEnvironment(env);
+    return "sports-redesign-preview";
+  }
   if (env.SPORTS_LIVE_FLOW_QA === "1") {
     assertSportsLiveFlowQaEnvironment(env);
     return "local-sports-qa";

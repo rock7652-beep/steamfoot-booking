@@ -47,6 +47,7 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
+      "codex/sports-redesign-staging-20261018": false,
       "codex/sports-core-integration-review": false,
       "content/music-fitness-studio-student-loyalty": false,
       "fix/course-people-unified-20261011": false,

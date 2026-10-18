@@ -1,8 +1,10 @@
+import { assertSportsRedesignPreviewEnvironment } from "../../scripts/sports-redesign-preview-scope.mjs";
 import { assertSportsLiveFlowQaEnvironment } from "../../scripts/sports-live-flow-qa-scope.mjs";
-/** Never enables on a deployment or against a non-loopback database. */
+/** Local QA or the exact isolated Preview; production remains forbidden. */
 export function sportsStagingEnabled() {
   if (process.env.SPORTS_REDESIGN_STAGING !== "1") return false;
-  assertSportsLiveFlowQaEnvironment(process.env);
+  if (process.env.SPORTS_REDESIGN_PREVIEW === "1") assertSportsRedesignPreviewEnvironment(process.env);
+  else assertSportsLiveFlowQaEnvironment(process.env);
   return true;
 }
 export function requireSportsStaging() {
