@@ -1,22 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { availableGuides, findOperationGuides } from "../lib/operation-guide";
-import { operationGuides, retiredFrontendOperationGuides } from "../lib/operation-guide";
-const spaOperationGuides = operationGuides.filter(g => /^J(1[4-9]|2[0-3])$/.test(g.id));
+import { retiredSpaOperationGuides, retiredFrontendOperationGuides } from "../lib/operation-guide";
+const spaOperationGuides = retiredSpaOperationGuides.filter(g => /^J(1[4-9]|2[0-3])$/.test(g.id));
 import type { GuideAccess } from "../lib/operation-guide-types";
 
 const spa: GuideAccess = { module: "spa", permissions: ["booking.read", "booking.update", "customer.read", "duty.manage"], features: {} };
 describe("SPA guide access and search", () => {
-  it("keeps SPA instructions out of the other modules and respects action permissions", () => {
+  it("keeps retired SPA instructions out of every live module regardless of permissions", () => {
     for (const industry of ["steamfoot", "course"] as const) {
       expect(availableGuides({ ...spa, module: industry }).some(g => spaOperationGuides.some(s => s.id === g.id))).toBe(false);
     }
     const readOnly = availableGuides({...spa, permissions:["booking.read"]});
     expect(readOnly.some(g => g.id === "J15" || g.id === "J22")).toBe(false);
-    expect(availableGuides(spa).some(g => g.id === "J15")).toBe(true);
+    expect(availableGuides(spa)).toEqual([]);
+    expect(spaOperationGuides.some(g => g.id === "J15")).toBe(true);
   });
-  it("finds backend troubleshooting and keeps retired staff instructions archived", () => {
+  it("keeps backend troubleshooting and frontend instructions archived outside live search", () => {
     for (const [query, id] of [["取消截止 12", "J18"], ["會員連結", "J15"], ["LINE 未送達", "J23"]]) {
-      expect(findOperationGuides(query, spa).some(g => g.id === id)).toBe(true);
+      expect(findOperationGuides(query, spa)).toEqual([]);
+      expect(retiredSpaOperationGuides.some(g => g.id === id)).toBe(true);
     }
     expect(findOperationGuides("工作 備註", spa).some(g => g.id === "J20")).toBe(false);
     expect(retiredFrontendOperationGuides.some(g => g.id === "J20")).toBe(true);

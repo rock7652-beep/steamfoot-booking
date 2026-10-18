@@ -13,7 +13,7 @@ describe("October 4 guide access and search", () => {
     expect(availableGuides({...access, features: {customer_labels: true}}).some(g => g.id === "I16")).toBe(false);
   });
   it("shares label guidance across modules without duplicating articles or bypassing editing access", () => {
-    for (const guideModule of ["steamfoot", "spa", "course"] as const) {
+    for (const guideModule of ["steamfoot", "course"] as const) {
       expect(findOperationGuides("拖拉 方向鍵", {...access, module: guideModule}).map(g => g.id)).toContain("C160");
       expect(availableGuides({...access, module: guideModule, permissions: ["customer.read"]}).some(g => g.id === "C160")).toBe(false);
     }

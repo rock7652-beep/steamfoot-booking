@@ -30,6 +30,13 @@ describe("operation guide Preview isolation", () => {
     expect(() => assertOperationGuidePreviewEnvironment({...valid, [key]: "wrong"})).toThrow("exact authorized Vercel branch");
   });
 
+  it("rejects the superseded operation-guide branch", () => {
+    expect(() => assertOperationGuidePreviewEnvironment({
+      ...valid,
+      VERCEL_GIT_COMMIT_REF: "docs/operation-guide-audit-20261008",
+    })).toThrow("exact authorized Vercel branch");
+  });
+
   it.each(["DATABASE_URL", "DIRECT_URL"])("rejects a non-isolated %s", key => {
     expect(() => assertOperationGuidePreviewEnvironment({...valid, [key]: "postgresql://production.invalid/db"})).toThrow("existing isolated database");
   });

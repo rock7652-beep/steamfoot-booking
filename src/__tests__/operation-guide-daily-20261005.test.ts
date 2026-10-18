@@ -38,19 +38,19 @@ describe("October 5 operation guide audit", () => {
     expect(item.steps.join(" ")).toContain("1024×768");
     expect(item.steps.join(" ")).toContain("1440×900");
     expect(item.important).toContain("操作仍可能生效");
-    expect(findOperationGuides("平板 直向", access("spa")).map((entry) => entry.id)).toContain("I08");
+    expect(findOperationGuides("平板 直向", access("steamfoot")).map((entry) => entry.id)).toContain("I08");
   });
 
-  it("documents HQ SPA read-only scope without exposing write guidance", () => {
+  it("documents HQ read-only scope without exposing retired SPA guidance", () => {
     const item = guide("I05");
-    expect(item.modules).toEqual(expect.arrayContaining(["steamfoot", "spa", "course"]));
+    expect(item.modules).toEqual(expect.arrayContaining(["steamfoot", "course"]));
     expect(item.details.join(" ")).toContain("不能新增或編輯顧客");
     expect(item.details.join(" ")).toContain("退款");
-    expect(findOperationGuides("SPA 顧客 唯讀", access("spa")).map((entry) => entry.id)).toContain("I05");
+    expect(findOperationGuides("顧客 唯讀", access("steamfoot")).map((entry) => entry.id)).toContain("I05");
   });
 
   it("keeps customer list synchronization and preview identity searchable", () => {
-    expect(findOperationGuides("顧客 清單同步", access("spa")).map((entry) => entry.id)).toContain("C03");
+    expect(findOperationGuides("顧客 清單同步", access("steamfoot")).map((entry) => entry.id)).toContain("C03");
     expect(guide("I16").details.join(" ")).toContain("CustomerIdentityLink");
     expect(guide("I16").details.join(" ")).toContain("StaffMemberLink");
   });
