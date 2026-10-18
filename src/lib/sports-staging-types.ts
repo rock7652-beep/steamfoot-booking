@@ -1,5 +1,6 @@
 import { z } from "zod";
 export const sportsScheduleRule = z.object({
+  perpetual:z.boolean().optional(),
   frequency: z.enum(["SINGLE", "WEEKLY", "BIWEEKLY"]),
   enrollment: z.enum(["ASSIGNED", "OPEN"]),
   planId: z.string().min(1).max(100).nullable(),

@@ -66,6 +66,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  sportsNative=false,
   previewStoreId,
   displayOrder,
   subjects=[],
@@ -74,7 +75,7 @@ export function CourseMemberWorkspace({
   termSessions=[],
   view,
   templates,
-  people,
+  people:sourcePeople,
   plans: sourcePlans,
   cards,
   canEdit,
@@ -96,6 +97,7 @@ export function CourseMemberWorkspace({
   music = false,
   sharedCardState = "ENABLED",
 }: {
+  sportsNative?:boolean;
   sportsData?: SportsSnapshot;
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
@@ -127,6 +129,8 @@ export function CourseMemberWorkspace({
   sharedCardState?: FeaturePresentationState;
 }) {
   const supportGuard = useCustomerPanelGuard();
+  const [noteReceipts,setNoteReceipts]=useState<Record<string,string|null>>({});
+  const people=sourcePeople.map(p=>Object.prototype.hasOwnProperty.call(noteReceipts,p.id)?{...p,serviceNote:noteReceipts[p.id]}:p);
   const [editingAttribution, setEditingAttribution] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
@@ -166,7 +170,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && !formUncertain && (sportsData || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
+  function canLeave() { return !pending && !formPending && !formUncertain && (sportsNative || sportsData || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -203,10 +207,10 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard(!sportsData&&!!panel&&(dirty || supportGuard.dirty),!sportsData&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
+  useCourseDraftGuard(!sportsNative&&!sportsData&&!!panel&&(dirty || supportGuard.dirty),!sportsNative&&!sportsData&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
+  useCustomerPanelUrl(view === "customers"&&!sportsNative, panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
@@ -484,7 +488,7 @@ export function CourseMemberWorkspace({
               <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
-                onSaved={() => router.refresh()} />
+                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:value}));else router.refresh();}} />
               <section aria-label="歸屬設定" className="border-t border-earth-100 py-2">
                 <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   {!music && <span>所屬店長：{customerRows.find(row => row.id === person.id)?.assignedStaff?.displayName ?? "未指派"}</span>}

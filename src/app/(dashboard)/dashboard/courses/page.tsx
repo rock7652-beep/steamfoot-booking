@@ -113,6 +113,7 @@ export default async function CoursesPage({
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey));
   // Catalog saves must not wait for the monthly schedule, rental or customer reads.
   const sportsNative = businessProfile === "FITNESS" && sportsNativePreview(storeId);
+
   if (view === "catalog" && (businessProfile === "MUSIC" || sportsNative)) {
     const [subjects, displayOrders, canCreate, canEdit] = await Promise.all([
       coursePrisma.musicSubject.findMany({
@@ -127,12 +128,18 @@ export default async function CoursesPage({
     const writable = user.role === "ADMIN" || user.storeId === storeId;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
+  const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&(user.role==="ADMIN"||user.storeId===storeId)?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
       ? requested
       : toLocalDateStr();
   const firstOfMonth = `${selected.slice(0, 7)}-01`;
+  if(sportsNative&&(user.role==="ADMIN"||user.storeId===storeId)&&await checkPermission(user.role,user.staffId,"booking.create")){
+    const {ensureSportsMonth}=await import("@/server/services/sports-permanent-series");
+    await ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY"));
+  }
+
   const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
@@ -389,7 +396,7 @@ export default async function CoursesPage({
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         sportsNative={sportsNative}
-        sportsData={sportsNative && writable && (await Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean) ? await loadSportsStaging().then(r=>r.success?r.data:undefined) : undefined}
+        sportsData={await sportsFormPromise}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}

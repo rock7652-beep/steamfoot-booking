@@ -35,12 +35,14 @@ export async function attachSportsSessionRules(
   actor: CourseActor,
   requestKey: string,
   input: SportsScheduleRule,
+  sessionIds?:string[],
 ) {
   requireSportsStaging(actor.storeId);
   await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
+  if(rule.perpetual&&rule.frequency==="SINGLE")throw new AppError("VALIDATION","單次課不建立固定系列");
   const sessions = await tx.courseSession.findMany({
-    where: { storeId: actor.storeId, requestKey },
+    where: { storeId: actor.storeId, requestKey, ...(sessionIds?{id:{in:sessionIds}}:{}) },
     orderBy: { requestIndex: "asc" },
   });
   if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
@@ -61,7 +63,7 @@ export async function attachSportsSessionRules(
     )
   )
     throw new AppError("VALIDATION", "固定頻率與課次日期不符");
-  if (rule.enrollment === "ASSIGNED" && !rule.students.length)
+  if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length)
     throw new AppError("VALIDATION", "請至少指定一位學員");
   if (rule.enrollment === "OPEN" && rule.students.length)
     throw new AppError("VALIDATION", "開放選課不會自動加入指定學員");
@@ -91,6 +93,12 @@ export async function attachSportsSessionRules(
       await tx.courseCompensationSnapshot.upsert({where:{sessionId:session.id},create:{sessionId:session.id,storeId:actor.storeId,staffId:session.coachId,rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes},update:{rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes}});
     }
     await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
+  }
+  if(rule.perpetual){
+    const {addSportsFixedLearners,persistSportsSeries}=await import("./sports-permanent-series");
+    if(!sessionIds)await persistSportsSeries(tx,actor,requestKey,rule);
+    for(const session of sessions)await addSportsFixedLearners(tx,actor,session,rule);
+    return;
   }
   if (rule.students.length) {
     const { reserveCourseInTransaction } = await import("./course-booking");

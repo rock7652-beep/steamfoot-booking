@@ -1,5 +1,6 @@
 "use server";
 import { z } from "zod";
+import {sportsProductionEnabled} from "@/lib/sports-staging";
 import { sportsCompensation } from "@/lib/sports-staging-types";
 import { createHash } from "node:crypto";
 import { requireSportsStaging } from "@/lib/sports-staging";
@@ -51,7 +52,7 @@ async function actor(permission: Parameters<typeof courseManager>[0]) {
     },
   });
   if (!fitness) throw new AppError("FORBIDDEN", "此入口僅適用運動店");
-  await coursePrisma.$transaction(tx => assertSportsProductionReady(tx, a.storeId));
+  if(sportsProductionEnabled(a.storeId))await coursePrisma.$transaction(tx => assertSportsProductionReady(tx, a.storeId));
   return a;
 }
 async function result<T extends { success: boolean; error?: string }>(
@@ -61,15 +62,12 @@ async function result<T extends { success: boolean; error?: string }>(
   if (!r.success) throw new AppError("VALIDATION", r.error ?? "操作失敗");
   return r;
 }
-export async function loadSportsStaging(): Promise<
+export async function loadSportsStaging(formOnly = false): Promise<
   { success: true; data: SportsSnapshot } | { success: false; error: string }
 > {
   try {
     const { storeId } = await actor("booking.read");
-    await courseManager("plans.edit");
-    await courseManager("customer.read");
-    await courseManager("wallet.read");
-    await courseManager("transaction.read");
+    await Promise.all(["plans.edit", "customer.read", "wallet.read", "transaction.read", "teacher.compensation.read"].map(p=>courseManager(p as Parameters<typeof courseManager>[0])));
     const [
       subjects,
       plans,
@@ -91,7 +89,7 @@ export async function loadSportsStaging(): Promise<
         orderBy: { name: "asc" },
       }),
       coursePrisma.courseTemplate.findMany({ where: { storeId } }),
-      coursePrisma.courseSession.findMany({
+      formOnly ? [] : coursePrisma.courseSession.findMany({
         where: { storeId, cancelledAt: null },
         include: {
           bookings: {
@@ -101,7 +99,7 @@ export async function loadSportsStaging(): Promise<
         orderBy: { startsAt: "asc" },
         take: 501,
       }),
-      coursePrisma.courseRental.findMany({
+      formOnly ? [] : coursePrisma.courseRental.findMany({
         where: { storeId, cancelledAt: null },
         include: { payments: { where: { status: "SUCCESS" } } },
         orderBy: { startsAt: "asc" },
@@ -124,8 +122,8 @@ export async function loadSportsStaging(): Promise<
           courseQualifiedTemplateIds: true,
         },
       }),
-      coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true } }),
-      coursePrisma.$queryRaw<
+      coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true },orderBy:{name:"asc"} }),
+      formOnly ? [] : coursePrisma.$queryRaw<
         Array<{
           sessionId: string;
           frequency: string;
@@ -137,7 +135,6 @@ export async function loadSportsStaging(): Promise<
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
-    await courseManager("teacher.compensation.read");
     const compensationRows = await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""}});
     const fees = plans.map((p) => {
       const t = templates.find((t) => t.id === p.templateIds[0]);
@@ -497,7 +494,7 @@ export async function sportsStagingCommand(input: unknown) {
           : d.kind === "隔週固定"
             ? "BIWEEKLY"
             : "SINGLE";
-      const count = frequency === "SINGLE" ? 1 : d.count;
+      const count = 1;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
       const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
@@ -521,6 +518,7 @@ export async function sportsStagingCommand(input: unknown) {
           ),
           requestKey: d.requestKey,
           sportsStaging: {
+            perpetual:frequency!=="SINGLE",
             frequency,
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan.id,

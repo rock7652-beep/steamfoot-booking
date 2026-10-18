@@ -318,7 +318,7 @@ export function CourseRoster({
     const refresh = () => {
       if (operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve();
       const version = ++readVersion.current;
-      return loadCourseSessionDetail(sessionId, view === "roster")
+      return loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking")
 
         .then((result) => {
           if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;

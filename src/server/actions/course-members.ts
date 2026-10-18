@@ -487,8 +487,10 @@ export async function updateCourseBookingStatus(input: unknown) {
       });
 
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
-    if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
-    else refresh();
+    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(actor.storeId)){
+      if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
+      else refresh();
+    }
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -645,32 +647,30 @@ export async function stopFutureCourseLessons(input: unknown) {
   }
 }
 
-export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false) {
+export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false, trialOnly = false) {
   try {
     const { user, storeId } = await courseManager("booking.read");
     id.parse(sessionId);
     const { getCourseRoster, getCourseCards } =
       await import("@/server/queries/course-members");
     const { checkPermission } = await import("@/lib/permissions");
-    const canReadCards = await checkPermission(
-      user.role,
-      user.staffId,
-      "wallet.read",
-    );
-    const canCreate = await checkPermission(
-      user.role,
-      user.staffId,
-      "booking.create",
-    );
-    const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}} } });
+    const trialSettingsPromise=import("@/lib/shop-config").then(m=>m.getTrialSettings(storeId));
+    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,session,musicStore,waitlistSetting] = await Promise.all([
+      ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
+    ]).then(async permissions=>{
+      const [session,music,setting]=await Promise.all([
+       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}} } }),
+       isMusicCourseStoreFromEntitlements(prisma,storeId),
+       coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
+      ]);
+      return [...permissions,session,music,setting] as [boolean,boolean,boolean,boolean,boolean,boolean,boolean,typeof session,boolean,typeof setting];
+    });
+    const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-    const musicStore = await isMusicCourseStoreFromEntitlements(prisma, storeId);
-    const waitlistSetting = await coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}});
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly ? getCourseCards(storeId) : [],
-      canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId) : [],
+      canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
       }).then(async leaves => {
@@ -704,11 +704,11 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           };
         }),
         trial: {
-          settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
-          canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
-          canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
-          canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
-          customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
+          settings: await trialSettingsPromise,
+          canCreate: canCreate && canTrial,
+          canCollect: canCollectTrial,
+          canCorrect: canCorrectTrial,
+          customers: !rosterOnly && canCreate && canTrial ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && session.template.waitlistEnabled, waitlistStopMinutes: session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({

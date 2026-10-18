@@ -522,6 +522,8 @@ export async function createCourseSchedule(input: unknown) {
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
         if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
+        const {assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
+        await assertSportsSeriesFree(tx,storeId,occurrences,data,data.requestKey,data.sportsStaging?.perpetual?data.sportsStaging.frequency:undefined);
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -742,6 +744,9 @@ export async function moveCourseSessions(input: unknown) {
             : `${formatTWDateTime(change.startsAt)} ${conflict.roomId === d.roomId ? "教室" : "老師"}已有課`);
       }
 
+      const {readSportsSeries,assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
+      const permanent=(await readSportsSeries(tx,storeId)).find(r=>r.requestKey===source.requestKey);
+      await assertSportsSeriesFree(tx,storeId,changes,{roomId:d.roomId,coachId:d.coachId},source.requestKey,d.scope==="FUTURE"?permanent?.frequency:undefined);
       if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
@@ -798,6 +803,10 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+      }
+      if(permanent&&d.scope==="FUTURE"){
+        const startsAt=new Date(permanent.startsAt.getTime()+shift),endsAt=new Date(startsAt.getTime()+duration);
+        await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "startsAt"=${startsAt},"endsAt"=${endsAt},"roomId"=${d.roomId},"coachId"=${d.coachId},"updatedAt"=NOW() WHERE id=${permanent.id} AND "storeId"=${storeId}`;
       }
       for(const change of changes){
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});

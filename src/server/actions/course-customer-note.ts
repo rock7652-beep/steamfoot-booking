@@ -3,7 +3,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { handleActionError } from "@/lib/errors";
-import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
+import {assertStoreSubscriptionWritable} from "@/lib/subscription-guard";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { courseManager } from "@/server/services/course-access";
 const schema = z.object({ customerId: z.string().min(1), serviceNote: z.string().max(1000).nullable(), expectedServiceNote: z.string().max(1000).nullable() });
 export async function saveCourseCustomerNote(input: z.infer<typeof schema>) {
@@ -23,7 +24,7 @@ export async function saveCourseCustomerNote(input: z.infer<typeof schema>) {
       await tx.auditLog.create({ data: { actorUserId: user.id, targetType: "Customer", targetId: data.customerId, action: "SERVICE_NOTE_UPDATED" } });
       return { success: true as const };
     });
-    if (result.success) revalidatePath("/dashboard/courses");
+    if (result.success&&!sportsNativePreview(storeId)) revalidatePath("/dashboard/courses");
     return result;
   } catch (error) { return handleActionError(error); }
 }

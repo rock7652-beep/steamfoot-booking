@@ -1,4 +1,5 @@
 "use client";
+import {SportsNavigationLink} from "./admin/sports-navigation-link";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
@@ -716,6 +717,7 @@ export default function DashboardShell({
   const isIframePreview = isDevicePreviewMode || isEmbeddedPreview;
   const [collapsed, setCollapsed] = useState(false);
   const [readingPage, setReadingPage] = useState<string | null>(null);
+
   useEffect(() => {
     const reset = () => setReadingPage(null);
     window.addEventListener("pageshow", reset);
@@ -723,7 +725,7 @@ export default function DashboardShell({
   }, []);
   const showReadFeedback = (event: ReactMouseEvent<HTMLAnchorElement>, label: string) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    setReadingPage(label);
+    if(!sportsNative)setReadingPage(label);
   };
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -959,6 +961,7 @@ export default function DashboardShell({
     });
   }
 
+  const MenuLink=sportsNative?SportsNavigationLink:"a";
   const renderNavItem = (c: { item: NavItem; locked: boolean; status?: string }, options: { indented: boolean }) => {
     const { item, locked, status } = c;
 
@@ -982,7 +985,7 @@ export default function DashboardShell({
 
     return (
       <li key={item.href}>
-        <a
+        <MenuLink
           href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
@@ -1005,7 +1008,7 @@ export default function DashboardShell({
           </span>
           <span>{readingPage === item.label ? "讀取中…" : item.label}</span>
           {isHighlighted && <span className="ml-auto text-xs text-amber-400">&#9733;</span>}
-        </a>
+        </MenuLink>
       </li>
     );
   };
@@ -1031,7 +1034,7 @@ export default function DashboardShell({
     const active = isActive(item.href);
     return (
       <li key={item.href}>
-        <a
+        <MenuLink
           href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           className={`group relative flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -1044,7 +1047,7 @@ export default function DashboardShell({
           <span className={`shrink-0 ${active ? "text-primary-600" : "text-earth-500 group-hover:text-earth-700"}`}>
             {item.icon}
           </span>
-        </a>
+        </MenuLink>
       </li>
     );
   };
