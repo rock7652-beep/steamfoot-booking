@@ -441,7 +441,9 @@ export async function sportsStagingCommand(input: unknown) {
           mode: z.enum(["指定學員", "開放選課"]),
           date: z.string(),
           time: z.string(),
-          duration: z.number().int().min(30).max(120),
+          duration: z.number().int().min(5).max(480),
+          waitlistLimit:z.number().int().min(0).max(100).optional(),
+          waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
           count: z.number().int().min(1).max(24),
           coach: z.string(),
           room: z.string(),
@@ -524,6 +526,7 @@ export async function sportsStagingCommand(input: unknown) {
           sportsStaging: {
             perpetual:perpetual?true:undefined,
             frequency,
+            ...(sportsNativePreview(storeId)&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan.id,
             students,

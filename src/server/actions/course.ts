@@ -1,4 +1,5 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sameSportsScheduleRule} from "@/lib/sports-staging-types";
 import {requireSportsStaging,sportsStagingEnabled} from "@/lib/sports-staging";
@@ -634,11 +635,15 @@ export async function moveCourseSessions(input: unknown) {
       scope: z.enum(["SINGLE", "WEEKS", "FUTURE"]),
       weeks: z.number().int().min(2).max(12).optional(),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      time: z.string().regex(/^([01]\d|2[0-3]):(?:00|30)$/),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      durationMinutes:z.number().int().min(5).max(480).optional(),
+      expectedStartsAt:z.string().datetime().optional(),
       roomId: z.string().min(1),
       coachId: z.string().min(1),
       restore: z.boolean().optional(),
     }).parse(input);
+    const native=sportsNativePreview(storeId);
+    if(!native&&(d.durationMinutes!==undefined||!/(?:00|30)$/.test(d.time)))throw new AppError("VALIDATION","請選擇原有時段");
     if (d.scope === "WEEKS" && !d.weeks)
       throw new AppError("VALIDATION", "請選擇週數");
 
@@ -656,6 +661,8 @@ export async function moveCourseSessions(input: unknown) {
         },
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+      if(native&&d.expectedStartsAt&&source.startsAt.toISOString()!==d.expectedStartsAt)throw new AppError("CONFLICT","原課已異動，請重新開啟後再調課");
+      if(native&&(source.bookings.some(b=>["ATTENDED","NO_SHOW","CHECKED_IN"].includes(b.status))||await tx.coursePointEntry.findFirst({where:{storeId,booking:{sessionId:source.id}}})||await tx.courseTrialPayment.findFirst({where:{storeId,booking:{sessionId:source.id},status:"SUCCESS"}})))throw new AppError("CONFLICT","本堂已有出席、扣抵或收款，請先核對原紀錄");
       const original = source.rescheduledFromStartsAt
         ? formatTWDateTime(source.rescheduledFromStartsAt)
         : null;
@@ -692,7 +699,7 @@ export async function moveCourseSessions(input: unknown) {
         : candidates;
       if (!sessions.length) throw new AppError("NOT_FOUND", "沒有可調整的課程");
 
-      const duration = source.endsAt.getTime() - source.startsAt.getTime();
+      const duration = native&&d.durationMinutes!==undefined?d.durationMinutes*60000:source.endsAt.getTime() - source.startsAt.getTime();
       const shift = targetStart.getTime() - source.startsAt.getTime();
       const changes = sessions.map((session) => ({
         session,
@@ -723,6 +730,10 @@ export async function moveCourseSessions(input: unknown) {
           },
           change.session,
         );
+        if(native){
+          const learnerIds=change.session.bookings.flatMap(b=>b.customerId?[b.customerId]:[]);
+          if(learnerIds.length&&await tx.courseBooking.findFirst({where:{storeId,customerId:{in:learnerIds},status:{not:"CANCELLED"},sessionId:{notIn:selectedIds},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:change.endsAt},endsAt:{gt:change.startsAt}}}}))throw new AppError("CONFLICT","學員在新時段已有課程，尚未調課");
+        }
         if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
           throw new AppError("CONFLICT", "已完成的課程不可調整");
         if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
@@ -780,6 +791,10 @@ export async function moveCourseSessions(input: unknown) {
             actorUserId: user.id,
           },
         });
+        if(native){
+          const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
+          if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
+        }
         await tx.courseSession.update({
           where: { id: change.session.id },
           data: {

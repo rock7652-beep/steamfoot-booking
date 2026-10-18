@@ -40,6 +40,10 @@ export async function attachSportsSessionRules(
   requireSportsStaging(actor.storeId);
   await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
+  if(rule.waitlist?.limit){
+    const {getCourseWaitlistSettings}=await import("./course-waitlist");
+    if(rule.enrollment!=="OPEN"||!(await getCourseWaitlistSettings(actor.storeId,tx)).enabled)throw new AppError("VALIDATION","請先在後台設定啟用候補，或將候補人數設為0");
+  }
   if(rule.perpetual&&rule.frequency==="SINGLE")throw new AppError("VALIDATION","單次課不建立固定系列");
   const sessions = await tx.courseSession.findMany({
     where: { storeId: actor.storeId, requestKey, ...(sessionIds?{id:{in:sessionIds}}:{}) },

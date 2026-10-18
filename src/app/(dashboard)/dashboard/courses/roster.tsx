@@ -1,4 +1,6 @@
 "use client";
+import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { RosterReminders as SharedRosterReminders } from "@/components/admin/roster-reminders";
@@ -137,6 +139,7 @@ export function CourseRoster({
   initialAssignedCoach?: string;
 }) {
   const router = useRouter();
+  const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
   const noteEditorTitleId = useId();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
@@ -295,6 +298,7 @@ export function CourseRoster({
   }
 
   async function load(reportError = true): Promise<"loaded" | "failed" | "stale"> {
+    if(sportsNative)sportsDetailReader.clear();
     const scope = operationScope.current;
     const version = ++readVersion.current;
     const isCurrent = () => rosterMounted.current && scope === operationScope.current && version === readVersion.current;
@@ -324,7 +328,7 @@ export function CourseRoster({
     const refresh = () => {
       if (operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve();
       const version = ++readVersion.current;
-      return loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking")
+      return (sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
 
         .then((result) => {
           if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
@@ -365,7 +369,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view]);
+  }, [sessionId, view, sportsNative, sportsDetailReader]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -1350,7 +1354,7 @@ export function CourseRoster({
           })}
           {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">{rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"}</li>}
         </ul>
-        {activeRows.length > 0 && <p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>}
+        {!sportsNative && activeRows.length > 0 && <p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>}
       </div>}
 
 

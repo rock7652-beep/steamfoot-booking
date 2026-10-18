@@ -661,7 +661,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
     ]).then(async permissions=>{
       const [session,music,setting]=await Promise.all([
-       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}} } }),
+       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
        isMusicCourseStoreFromEntitlements(prisma,storeId),
        coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
       ]);
@@ -669,9 +669,11 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     });
     const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
+    const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
+    const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId) : [],
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,sportsNativePreview(storeId)?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}}]},entries:false}:undefined) : [],
       canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
@@ -710,9 +712,9 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           canCreate: canCreate && canTrial,
           canCollect: canCollectTrial,
           canCorrect: canCorrectTrial,
-          customers: !rosterOnly && canCreate && canTrial ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
+          customers: !rosterOnly && canCreate && canTrial && (!sportsNativePreview(storeId)||trialOnly) ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && session.template.waitlistEnabled, waitlistStopMinutes: session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -733,7 +735,7 @@ export async function loadCourseRosterQuick(sessionId: string) {
     const { storeId } = await courseManager("booking.read");
     authMs = Date.now() - startedAt;
     id.parse(sessionId);
-    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}}}});
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}}});
     sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");

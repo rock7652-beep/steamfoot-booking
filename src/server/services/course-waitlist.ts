@@ -1,3 +1,4 @@
+import {sessionWaitlistPolicy} from "./sports-session-waitlist";
 import { isMusicCourseStore } from "./course-business-profile";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
 import { assertCourseSelfBookingEnabled } from "./course-self-booking";
@@ -45,6 +46,7 @@ export async function getCourseWaitlistSettings(storeId: string, reader: Pick<Pr
     autoPromoteStopMinutes: row?.autoPromoteStopMinutes ?? 240,
   };
 }
+
 
 function groupKeyFor(requestKey: string, customerIds: string[]) {
   return createHash("sha256")
@@ -98,7 +100,8 @@ export async function joinCourseWaitlist(
     const activeSession = session!;
     const activeCard = card!;
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
-    if (!activeSession.template.waitlistEnabled) fail("本課程未開放候補");
+    const policy=await sessionWaitlistPolicy(tx,actor.storeId,activeSession.id,activeSession.template);
+    if (!policy.waitlistEnabled) fail("本課程未開放候補");
     if (activeSession.releasedAt || !activeSession.template.isActive || activeSession.template.visibility !== "PUBLIC")
       fail("本課程目前不開放候補");
     if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
@@ -152,7 +155,7 @@ export async function joinCourseWaitlist(
     if (occupied + participantCount <= activeSession.capacity) fail("本堂課還有名額，請直接預約");
     if (existingBookings.length) fail("選擇的人員中已有本堂正式預約");
     if (existingWaitlist.length) fail("選擇的人員中已有本堂候補");
-    const limit = activeSession.template.waitlistLimit || settings.defaultLimit;
+    const limit = policy.waitlistLimit || settings.defaultLimit;
     if (waitingCount + participantCount > limit) fail("本堂候補名額已滿");
     if (activeCard.remaining - (held._sum.pointCost ?? 0) < bookingCost * participantCount)
       fail(activeCard.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
@@ -250,8 +253,10 @@ export async function promoteCourseWaitlistForSession(
     where: { id: sessionId, storeId, cancelledAt: null, releasedAt: null },
     include: { template: true },
   });
-  if (!session || !session.template.waitlistEnabled) return [];
-  const stopMinutes = session.template.waitlistStopMinutes ?? settings.autoPromoteStopMinutes;
+  if (!session) return [];
+  const policy=await sessionWaitlistPolicy(tx,storeId,session.id,session.template);
+  if(!policy.waitlistEnabled)return [];
+  const stopMinutes = policy.waitlistStopMinutes ?? settings.autoPromoteStopMinutes;
   if (!options.ignoreCutoff && !withinAutoPromoteWindow(session.startsAt, stopMinutes)) return [];
 
   const occupied = await tx.courseBooking.count({

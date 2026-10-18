@@ -5,7 +5,7 @@ import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
 
-export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
+export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip?: number; take?: number; entries?: boolean }) {
   const cards = await coursePrisma.coursePointCard.findMany({
     where: {
       ...page?.where,

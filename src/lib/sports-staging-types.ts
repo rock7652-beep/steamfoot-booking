@@ -1,6 +1,7 @@
 import { z } from "zod";
 export const sportsScheduleRule = z.object({
   perpetual:z.boolean().optional(),
+  waitlist:z.object({limit:z.number().int().min(0).max(100),stopMinutes:z.number().int().min(0).max(10080)}).optional(),
   frequency: z.enum(["SINGLE", "WEEKLY", "BIWEEKLY"]),
   enrollment: z.enum(["ASSIGNED", "OPEN"]),
   planId: z.string().min(1).max(100).nullable(),

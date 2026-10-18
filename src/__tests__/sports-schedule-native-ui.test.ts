@@ -29,7 +29,10 @@ it("教練視角帶入教練，空間預設第一個；五種排課有對應選�
 });
 
 it("學員姓名／電話即時篩選，切換開放選課仍保留已選草稿",async()=>{
- const m=await mount();const checkbox=m.host.querySelector('input[type="checkbox"]') as HTMLInputElement;
+ const m=await mount();expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
+ const initialQuery=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(initialQuery,"學員");initialQuery.dispatchEvent(new Event("input",{bubbles:true}));});
+ const checkbox=m.host.querySelector('input[type="checkbox"]') as HTMLInputElement;
  await act(async()=>checkbox.click());expect(m.host.textContent).toContain("已選 1 人");
  const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;

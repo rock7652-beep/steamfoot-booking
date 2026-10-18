@@ -90,6 +90,7 @@ type Template = {
 };
 
 export type CourseMoveClipboard = {
+  startsAt?:string;
   sessionId: string;
   templateId: string;
   coachId: string;
@@ -125,7 +126,7 @@ type Props = {
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
   onOpenEmpty: (value:{single?:boolean;date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
   moveClipboard?: CourseMoveClipboard | null;
-  onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
+  onPasteMove?: (value:{date?:string;time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
   readOnly?: boolean;
@@ -473,7 +474,7 @@ export function CourseScheduleBoard({
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
   React.useEffect(() => {
-    if ((!sportsNative&&businessProfile !== "MUSIC") || mode !== "day" || !moveClipboard) {
+    if (sportsNative || businessProfile !== "MUSIC" || mode !== "day" || !moveClipboard) {
       setMatchedSlots(null);
       setTeacherChoice(null);
       return;
@@ -586,7 +587,7 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? sportsNative&&moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{sportsNative&&moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -938,7 +939,7 @@ export function CourseScheduleBoard({
                                : null;
                              const enabled = resourceView === "room" ? rooms.some(room=>room.id===resource.id && room.isActive) : coaches.some(coach=>coach.id===resource.id && coach.status==="ACTIVE" && coach.courseCoachEnabled);
                              const available=moveClipboard
-                               ? Boolean(serverMatch) && !matchError
+                               ? sportsNative ? enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict : Boolean(serverMatch) && !matchError
                                : enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict;
                              const origin = movedShadows.find((session) => {
                                const starts = session.rescheduledFromStartsAt;
@@ -959,9 +960,9 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly||!canCreate}
-                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
-                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
-                                 onClick={()=>available&&(moveClipboard&&onPasteMove
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${sportsNative?"貼上課程":choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${sportsNative?"貼上課程":choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
+                                 onClick={()=>available&&(sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date:selectedDate,time:startTime,roomId:resourceView==="room"?resource.id:moveClipboard.roomId,coachId:resourceView==="coach"?resource.id:moveClipboard.coachId}):moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
                                          ? onPasteMove({time:startTime,roomId:resource.id,coachId:coachIds[0]})
@@ -969,7 +970,7 @@ export function CourseScheduleBoard({
                                        : matches.length === 1
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
-                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?30:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id}),...releasedSeed(selectedDate,startTime,resource.id,resourceView)}))}
+                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?60:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id}),...releasedSeed(selectedDate,startTime,resource.id,resourceView)}))}
                                  className={`group relative ${sportsNative?"hover:z-20 focus-visible:z-20":""} touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}

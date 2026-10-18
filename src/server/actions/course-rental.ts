@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError } from "@/lib/errors";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
-import { rentalInput,rentalOccupation } from "@/lib/course-rental";
+import { rentalInput,sportsRentalInput,rentalOccupation } from "@/lib/course-rental";
 import { courseManager,courseManagerRead,courseTransaction } from "@/server/services/course-access";
 import { handleCourseActionError } from "@/server/services/course-resources";
 import { rentalConflict,rentalCash,rentalAudit } from "@/server/services/course-rental";
@@ -40,7 +40,8 @@ export async function createRentalCustomer(input:unknown) {
 }
 export async function saveCourseRental(input:unknown) {
   try {
-    const d=rentalInput.extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
+    const {storeId,user}=await courseManager((input as {id?:string})?.id?"booking.update":"booking.create");
+    const d=(sportsNativePreview(storeId)?sportsRentalInput:rentalInput).extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);
     if(d.payment){
       if(d.id)throw new AppError("VALIDATION","已建立租借請使用收款或更正功能");
       await courseManager("cashbook.create");

@@ -3,6 +3,7 @@ import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} fr
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
 import {SportsAttendancePanel} from "./sports-attendance-panel";
+import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsSeriesPanel} from "./sports-series-panel";
 import {SportsScheduleFields} from "./sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
@@ -605,17 +606,19 @@ export function CourseWorkspace({
   const [scheduleDate, setScheduleDate] = useState(selectedDate);
   const [sportsSeriesOpen,setSportsSeriesOpen]=useState(false);
   const [scheduleSeed,setScheduleSeed]=useState<{single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  const [moveTarget,setMoveTarget]=useState<{date:string;time:string;roomId:string;coachId:string}|null>(null);
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
-    const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+    const durationMinutes = Math.max(sportsNative?5:30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
       sessionId: session.id,
+      startsAt:session.startsAt,
       templateId: session.templateId,
       coachId: session.coachId,
       roomId: session.roomId,
       durationMinutes,
       scope,
       weeks,
-      label: session.bookings[0]?.customerName || session.nameSnapshot,
+      label: sportsNative ? session.nameSnapshot : session.bookings[0]?.customerName || session.nameSnapshot,
     });
     setMoveChoice(null);
     setMoveWeeksOpen(false);
@@ -624,7 +627,8 @@ export function CourseWorkspace({
     setNotice("");
     setError("");
   }
-  function pasteMove(value: {time:string;roomId:string;coachId:string}) {
+  function pasteMove(value: {date?:string;time:string;roomId:string;coachId:string}) {
+    if(sportsNative&&moveClipboard){setMoveTarget({date:value.date??selectedDate,time:value.time,roomId:value.roomId,coachId:value.coachId});return;}
     if (!moveClipboard || pending) return;
     setError("");
     setNotice("");
@@ -797,6 +801,7 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
+      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onSaved={()=>{setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");refreshWorkspace();}}/>}
       {sportsNative&&sportsSeriesOpen&&courseDialog&&<SportsSeriesPanel key={courseDialog.sessionId} sessionId={courseDialog.sessionId} canEdit={canEdit} onClose={()=>setSportsSeriesOpen(false)} onChanged={refreshWorkspace}/>}
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
@@ -988,6 +993,13 @@ export function CourseWorkspace({
             )}
           </div>}
           {businessProfile === "MUSIC" && scheduleLegend}
+            {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
+                <span className="text-xs text-indigo-700">選白格貼上</span>
+                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+              </div>
+            )}
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (
@@ -1041,7 +1053,7 @@ export function CourseWorkspace({
                             : "bg-white text-earth-400"
                     }`}
                   >
-                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className="absolute inset-x-0 top-0 h-11 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
+                    <button type="button" disabled={pending} aria-label={sportsNative&&moveClipboard?`${date} 貼上課程`:`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className={`${sportsNative?"absolute inset-0":"absolute inset-x-0 top-0 h-11"} focus-visible:ring-2 focus-visible:ring-primary-500`} onClick={() => {go(date);if(sportsNative&&moveClipboard){pasteMove({date,time:"09:00",roomId:moveClipboard.roomId,coachId:moveClipboard.coachId});return;}open("day");}} />
                     <span className={`pointer-events-none shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
@@ -1058,7 +1070,7 @@ export function CourseWorkspace({
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
+                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
@@ -1071,13 +1083,6 @@ export function CourseWorkspace({
             </>
           ) : (
             <>
-            {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
-                <span className="text-xs text-indigo-700">選白格貼上</span>
-                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
-              </div>
-            )}
             {businessProfile === "MUSIC" && <details name="course-workspace-details" className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
@@ -2052,7 +2057,7 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
@@ -2413,7 +2418,7 @@ export function CourseWorkspace({
                   )}
                   {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && !moveClipboard && (
                     <button type="button" className={primary} onClick={() => {
-                      if (dialogSession.isFixed) {
+                      if (dialogSession.isFixed&&!sportsNative) {
                         setMoveChoice(dialogSession);
                         setMoveWeeksOpen(false);
                       } else {
@@ -2423,8 +2428,8 @@ export function CourseWorkspace({
                       ✂ 調課
                     </button>
                   )}
-                  {sportsNative&&!rentalDialog&&courseDialog.kind==="roster"&&<button className={button} onClick={()=>setSportsSeriesOpen(true)}>固定學員／補課</button>}
-                  {!rentalDialog && courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋加入學員</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
+                  {sportsNative&&!rentalDialog&&courseDialog.kind==="roster"&&<details className="relative"><summary className={`${button} flex cursor-pointer items-center`}>更多</summary><div className="absolute right-0 z-20 min-w-40 rounded-lg border bg-white p-1"><button className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setSportsSeriesOpen(true)}>停課與補課管理</button></div></details>}
+                  {!rentalDialog && courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
                 </div>
 

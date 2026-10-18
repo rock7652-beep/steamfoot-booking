@@ -292,7 +292,7 @@ export function CourseMemberWorkspace({
         {view === "customers" && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
-          className={`${field} max-w-xs`}
+          className={`${field} ${sportsData?"!w-44":"max-w-xs"}`}
           aria-label="搜尋"
           placeholder={sportsData?"搜尋收費方式":"搜尋方案"}
           value={search}
@@ -300,7 +300,7 @@ export function CourseMemberWorkspace({
         />}
         {view === "plans" && planArea === "catalog" && (
           <select
-            className={`${field} max-w-36`}
+            className={`${field} ${sportsData?"!w-28":"max-w-36"}`}
             aria-label="狀態篩選"
             value={status}
             onChange={(e) => { setSelected([]);setStatus(e.target.value); setPage(0); }}
@@ -310,13 +310,13 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} ${sportsData?"!w-32":"max-w-40"}`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
         {view === "plans" && planArea === "catalog" && !music && <>
-          <select aria-label="購買方式篩選" className={`${field} max-w-44`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
-          {sharingVisible && <select aria-label="共卡篩選" className={`${field} max-w-40`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
+          <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
+          {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
           {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>}
-        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?"教學項目篩選":"適用課程篩選"} className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?"全部教學項目":"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?"教學項目篩選":"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?"全部教學項目":"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
@@ -352,7 +352,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList sportsNative={!!sportsData} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
