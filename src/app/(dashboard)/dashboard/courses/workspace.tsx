@@ -289,6 +289,7 @@ export function CourseWorkspace({
     const request=++calendarRequest.current;setCalendarReading(true);
     try{const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
   }
+  function refreshWorkspace(){if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();}
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
@@ -369,7 +370,7 @@ export function CourseWorkspace({
       backgroundRefreshRequestedAt.current = Date.now();
       if(sportsNative){void refreshNativeCalendar(nativeDateRef.current);return;}
       startTransition(() => {
-        router.refresh();
+        refreshWorkspace();
         setLastUpdated(new Date());
       });
     };
@@ -465,7 +466,7 @@ export function CourseWorkspace({
           return;
         }
         setNotice("狀態已更新，既有預約與歷史保留。");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("連線失敗，請重試。");
       }
@@ -634,7 +635,7 @@ export function CourseWorkspace({
         }
         setMoveClipboard(null);
         setNotice("已調課");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("調課失敗，原課程保留。");
       }
@@ -662,7 +663,7 @@ export function CourseWorkspace({
         }
         setCourseDialog(null);
         setNotice("已恢復原時段");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("恢復失敗，課程保留在目前時段。");
       }
@@ -756,7 +757,7 @@ export function CourseWorkspace({
         if (panel === "catalog") setPanel(null);
         // Setting actions already revalidate this route. Keep the refresh for
         // operational actions, whose authoritative schedule may need reconciling.
-        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
+        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) refreshWorkspace();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
       } finally {submitLock.current=false;}
@@ -1072,7 +1073,7 @@ export function CourseWorkspace({
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
               initialWeekRoomId={params.get("resourceId") ?? undefined}
-              onResourceChange={(view,resourceId)=>{ const next=new URLSearchParams(window.location.search);next.set("resourceView",view);if(resourceId) next.set("resourceId",resourceId);else next.delete("resourceId");window.history.replaceState(null,"",`${pathname}?${next}`); }}
+              onResourceChange={(view,resourceId)=>{ if(sportsNative)return;const next=new URLSearchParams(window.location.search);next.set("resourceView",view);if(resourceId) next.set("resourceId",resourceId);else next.delete("resourceId");window.history.replaceState(null,"",`${pathname}?${next}`); }}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
@@ -1453,7 +1454,7 @@ export function CourseWorkspace({
                         type="button"
                         className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-earth-700"
                         onClick={() => {
-                          router.refresh();
+                          refreshWorkspace();
                           setLastUpdated(new Date());
                         }}
                       >
@@ -2039,7 +2040,7 @@ export function CourseWorkspace({
               <MusicScheduleWizard
                 key={requestKey}
                 onGuard={updateMusicScheduleGuard}
-                onRefresh={()=>router.refresh()}
+                onRefresh={()=>refreshWorkspace()}
                 templates={templates}
                 rooms={rooms}
                 coaches={coaches}
@@ -2052,7 +2053,7 @@ export function CourseWorkspace({
                   setPanel(null);
                   go(date);
                   setCourseDialog({sessionId,kind:"roster"});
-                  router.refresh();
+                  refreshWorkspace();
                 }}
               />
             )}
@@ -2142,7 +2143,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>router.refresh()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>refreshWorkspace()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
                     </label>
                     <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
@@ -2285,7 +2286,7 @@ export function CourseWorkspace({
                 </button>
               </footer>
             )}
-          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
+          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");refreshWorkspace();});}}>刪除</button>}</footer>}
           {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
             <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
