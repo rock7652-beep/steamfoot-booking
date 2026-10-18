@@ -244,6 +244,7 @@ export function CourseRoster({
   const [futureStopError, setFutureStopError] = useState("");
   const [futureStopPending, setFutureStopPending] = useState(false);
   const [requestKey, setRequestKey] = useState("");
+  const [noteError,setNoteError]=useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
   const infoGuard = useCustomerPanelGuard();
@@ -1104,7 +1105,7 @@ export function CourseRoster({
       <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? "老師" : "授課教練"}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
-        {canEdit ? <button className="min-h-11 max-w-64 truncate text-xs text-earth-600" title={session?.teacherNote || "教師備註"} onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote || "備註 ✎"}</button> : session?.teacherNote && <span className="max-w-64 truncate text-xs">{session.teacherNote}</span>}
+        {canEdit ? <button className="min-h-11 max-w-64 truncate text-xs text-earth-600" title={session?.teacherNote || "教師備註"} onClick={() => {setNoteError("");setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote || "備註 ✎"}</button> : session?.teacherNote && <span className="max-w-64 truncate text-xs">{session.teacherNote}</span>}
         {canEdit && <select aria-label="教師出勤狀態" className={`${button} ml-auto bg-white`} disabled={pending || savingBookingIds.length > 0} value={session?.teacherAttendance ?? "SCHEDULED"} onChange={event => {setTeacherDialog(event.target.value as "SCHEDULED" | "LEAVE" | "NO_SHOW");setTeacherReason("");}}><option value="SCHEDULED">正常授課</option><option value="LEAVE">{musicLayout ? "老師" : "教練"}請假</option><option value="NO_SHOW">{musicLayout ? "老師" : "教練"}曠課</option></select>}
         {musicLayout && canEdit && session?.teacherAttendance === "NO_SHOW" && <button className={button} disabled={pending} onClick={() => {setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
         {session?.teacherAttendanceReason && <span className="w-full text-xs text-earth-600">{session.teacherAttendanceReason}</span>}
@@ -1547,7 +1548,7 @@ export function CourseRoster({
 
       {editingNote && <ModalPanel open onClose={() => setEditingNote(null)} labelledById={noteEditorTitleId} width={512}>
         <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
-          if(sportsNative){start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setMessage(result.error??"備註尚未儲存");return;}if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存");}catch{setMessage("連線失敗，輸入已保留");}});return;}
+          if(sportsNative){setNoteError("");start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存");}catch{setNoteError("連線失敗，輸入已保留");setMessage("連線失敗，輸入已保留");}});return;}
           run(()=>{
           if(target.bookingId) {
             // A newer save through the existing details editor also supersedes
@@ -1557,6 +1558,7 @@ export function CourseRoster({
           }
           return saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft});
         },"備註已儲存");setEditingNote(null);}}>
+          {noteError&&<p role="alert" className="mb-2 text-red-700">{noteError}</p>}
           <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
           <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
           <div className="mt-4 flex justify-end gap-2"><button type="button" className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
