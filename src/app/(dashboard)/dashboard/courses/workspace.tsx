@@ -803,7 +803,7 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
-      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onSaved={()=>{const date=moveTarget.date;setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date);}}/>}
+      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onSaved={date=>{setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date);}}/>}
       {sportsNative&&sportsSeriesOpen&&courseDialog&&<SportsSeriesPanel key={courseDialog.sessionId} sessionId={courseDialog.sessionId} canEdit={canEdit} onClose={()=>setSportsSeriesOpen(false)} onChanged={refreshWorkspace}/>}
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
