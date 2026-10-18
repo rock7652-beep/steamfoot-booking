@@ -235,3 +235,9 @@ it("collapsing a bound LINE picker keeps its submitted identity and switching ta
  await click("基本資料");await click("LINE 與權限");
  expect(new FormData(document.querySelector('#course-staff-form') as HTMLFormElement).get("customerId")).toBe("member-a");
 });
+it("sports availability opens independently and keeps its unsaved draft across assignment tabs",async()=>{
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{sportsNative:true,previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await click("編輯");await click("授課時間");expect(document.querySelector('[data-staff-tab="schedule"]')).toBeNull();
+ const box=document.querySelector<HTMLInputElement>('[data-staff-tab="availability"] input[type="checkbox"]')!;expect(box.checked).toBe(true);await act(async()=>box.click());expect(box.checked).toBe(false);
+ await click("授課明細");expect(document.querySelector('[data-staff-tab="availability"]')?.hasAttribute('hidden')).toBe(true);await click("授課時間");expect(document.querySelector('[data-staff-tab="availability"] input[type="checkbox"]')).toBe(box);expect(box.checked).toBe(false);expect(m.save).not.toHaveBeenCalled();
+});
