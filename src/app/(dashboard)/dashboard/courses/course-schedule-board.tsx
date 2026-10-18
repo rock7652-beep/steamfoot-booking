@@ -101,6 +101,7 @@ export type CourseMoveClipboard = {
 };
 
 type Props = {
+  sportsNative?:boolean;
   businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
   selectedDate: string;
@@ -415,6 +416,7 @@ function SessionCard({
 }
 
 export function CourseScheduleBoard({
+  sportsNative=false,
   legend,
   assignedFiltered = false,
   businessProfile,
@@ -461,7 +463,7 @@ export function CourseScheduleBoard({
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
   React.useEffect(() => {
-    if (businessProfile !== "MUSIC" || mode !== "day" || !moveClipboard) {
+    if ((!sportsNative&&businessProfile !== "MUSIC") || mode !== "day" || !moveClipboard) {
       setMatchedSlots(null);
       setTeacherChoice(null);
       return;
@@ -483,7 +485,7 @@ export function CourseScheduleBoard({
       else setMatchError(result.error ?? "空位暫時無法讀取");
     }).catch(() => { if (current) setMatchError("空位暫時無法讀取，請重試"); });
     return () => { current = false; };
-  }, [businessProfile, mode, selectedDate, moveClipboard]);
+  }, [businessProfile, sportsNative, mode, selectedDate, moveClipboard]);
   const boardRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     const board = boardRef.current;

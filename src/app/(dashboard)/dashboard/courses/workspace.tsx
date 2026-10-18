@@ -1074,7 +1074,7 @@ export function CourseWorkspace({
             </div></details>}
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
-            <CourseScheduleBoard
+            <CourseScheduleBoard sportsNative={sportsNative}
               legend={businessProfile !== "MUSIC" ? scheduleLegend : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
