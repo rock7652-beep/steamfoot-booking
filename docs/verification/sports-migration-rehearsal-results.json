@@ -1,0 +1,25 @@
+{
+  "database": "local disposable PostgreSQL",
+  "source": "5a0ed085",
+  "checks": [
+    "Old constraint reproduces attendance failure; entire transaction unchanged",
+    "Old constraint reproduces private leave failure; entire transaction unchanged",
+    "Old constraint reproduces group leave failure; entire transaction unchanged",
+    "Old constraint reproduces makeup coupon failure; entire transaction unchanged",
+    "Forced DDL failure atomically restores original constraint and missing metadata table",
+    "Clean rollback succeeds and preserves every original ledger row",
+    "Repeated migration refuses constraint drift without changing installed schema",
+    "SESSION: reserve, attend, concurrent cancellation refunds exactly once",
+    "POINT: reserve, attend, concurrent cancellation refunds exactly once",
+    "Music private undeducted leave cancellation restores correct balance",
+    "Music group deducted leave cancellation restores correct balance",
+    "Unused makeup coupon reclaimed and original debit refunded once; retry cannot double-refund",
+    "Used makeup coupon refuses cancellation; original and coupon balances unchanged",
+    "Music private leave withdrawal restores reservation and correct balance",
+    "Music group leave withdrawal restores reservation and correct balance",
+    "Database rejects zero/negative points, unknown kinds, empty/control-character source IDs and malformed correction UUIDs",
+    "Metadata validates scheduling types, pricing and store FK; RLS enabled and client roles denied",
+    "Contended rollback aborts at lock timeout without changing data",
+    "Post-transaction rollback refuses without altering data; all original ledger rows preserved and expanded CHECK validated"
+  ]
+}
