@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
@@ -14,16 +15,17 @@ type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
-export function QuickCashbook({ storeId, triggerClassName, instantSearch = false }: { storeId: string; triggerClassName?: string; instantSearch?: boolean }) {
-  return <QuickCashbookPanel key={storeId} storeId={storeId} triggerClassName={triggerClassName} instantSearch={instantSearch} />;
+export function QuickCashbook({ storeId, triggerClassName, instantSearch = false, compact=false }: { compact?:boolean; storeId: string; triggerClassName?: string; instantSearch?: boolean }) {
+  return <QuickCashbookPanel key={storeId} storeId={storeId} triggerClassName={triggerClassName} instantSearch={instantSearch} compact={compact} />;
 }
 
-function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { storeId: string; triggerClassName?: string; instantSearch: boolean }) {
+function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact }: { compact:boolean; storeId: string; triggerClassName?: string; instantSearch: boolean }) {
   const reader = usePanelReader("quick-cashbook", readQuickCashbook, storeId);
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [detail,setDetail]=useState<Entry|null>(null);
   const [editing, setEditing] = useState<Entry | "new" | null>(null);
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
@@ -87,14 +89,14 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   const entry = editing && editing !== "new" ? editing : null;
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
-    <button type="button" className={`${button} ${triggerClassName ?? ""}`} onPointerEnter={() => reader.prefetch(storeId, 1)} onFocus={() => reader.prefetch(storeId, 1)} onTouchStart={() => reader.prefetch(storeId, 1)} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
+    <button type="button" className={`${button} ${triggerClassName ?? ""}`} onPointerEnter={() => reader.prefetch(storeId, 1)} onFocus={() => reader.prefetch(storeId, 1)} onTouchStart={() => reader.prefetch(storeId, 1)} onClick={() => { setOpen(true); setDetail(null); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
     {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end bg-earth-950/35 sm:items-center sm:justify-center sm:p-5">
       <button type="button" aria-label="關閉現金收支" onClick={close} className="absolute inset-0 cursor-default" />
       <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-cashbook-title" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-3xl sm:rounded-2xl">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
           <div className="mb-1 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" /><h2 id="quick-cashbook-title" className="text-lg font-semibold text-primary-900">現金收支</h2></div>
-          <p className="text-sm text-earth-500">{data?.today ?? "今日"} · 手動收支紀錄</p>
+          <p className="text-sm text-earth-500">{data?.today ?? "今日"}{!compact&&" · 手動收支紀錄"}</p>
         </div>
         <button type="button" className={button} disabled={busy} onClick={close} aria-label="關閉現金收支">關閉</button>
       </header>
@@ -102,9 +104,11 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
         {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" disabled={loading} onClick={() => { reader.invalidate(storeId, currentPage.current); void refresh(currentPage.current); }} className={button}>重試</button></div>}
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
-          {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
-          {editing ? <form id="quick-cashbook-entry-form" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
+          {compact&&data.canDrawer&&<p className="mb-2 text-sm text-earth-600">{data.balanceLabel}{data.balance!==null&&` · ${money(data.balance)}`}</p>}
+          {!compact&&data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
+          {detail?<section aria-label="收支明細" className="space-y-3"><h3 className="font-semibold">收支明細 · {money(detail.amount)}</h3><p className="whitespace-pre-wrap break-words">{detail.note||detail.category||"未分類"}</p>{detail.customer&&<p>{detail.customer.name}</p>}<button type="button" className={button} onClick={()=>setDetail(null)}>返回清單</button></section>:editing ? <form id="quick-cashbook-entry-form" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
             <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增記帳"}</h3>
+            <p className="text-sm text-earth-500">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
             <CashbookEntryFields
               key={entry?.id ?? "new"}
@@ -124,9 +128,9 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
             />
           </form> : <>
             <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { createRequestId.current = null; setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
-            <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
+            {!compact&&<p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>}
             {!data.entries.length && <p className="steamfoot-brand-card rounded-xl border py-8 text-center text-earth-500">今日尚無手動收支紀錄</p>}
-            <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
+            {compact?<div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="border-b text-earth-600"><tr>{["類型","項目","付款方式","金額","操作"].map(h=><th key={h} className="px-2 py-2 font-medium">{h}</th>)}</tr></thead><tbody>{data.entries.map(e=><tr key={e.id} className="border-b border-earth-100"><td className="whitespace-nowrap px-2 py-2">{e.type==="INCOME"?"收入":e.type==="EXPENSE"?"支出":e.type==="WITHDRAW"?"提領":"調整"}</td><td className="max-w-72 px-2 py-2"><span className="block truncate">{e.note?.split(" / ")[0]||e.category||"未分類"}</span></td><td className="whitespace-nowrap px-2 py-2">{e.paymentMethod==="CASH"?"現金":"其他"}</td><td className="whitespace-nowrap px-2 py-2 font-semibold text-primary-800">{e.type==="INCOME"?"+":"−"}{money(e.amount)}</td><td className="px-2 py-1"><ExclusiveMenu label={`${e.category||"收支"} ${e.amount} 操作`} triggerText="⋯"><button type="button" className={button} onClick={()=>setDetail(e)}>查看明細</button>{e.canEdit&&(e.type==="INCOME"||e.type==="EXPENSE")&&<><button type="button" className={button} disabled={busy||loading} onClick={()=>setEditing(e)}>編輯</button><button type="button" className={`${button} text-red-700`} disabled={busy||loading} onClick={()=>void remove(e)}>刪除</button></>}</ExclusiveMenu></td></tr>)}</tbody></table></div>:<div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>}
             {data.total > 20 && <div className="mt-4 flex items-center justify-between"><button className={button} disabled={loading || data.page === 1} onClick={() => void refresh(data.page - 1)}>上一頁</button><span className="text-sm text-earth-500">{data.page} / {Math.ceil(data.total / 20)}</span><button className={button} disabled={loading || data.page * 20 >= data.total} onClick={() => void refresh(data.page + 1)}>下一頁</button></div>}
           </>}
         </>}

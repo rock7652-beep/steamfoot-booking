@@ -1135,3 +1135,12 @@ export async function checkSportsCourseMove(sessionId:string) {
     return reason?{success:false as const,error:reason}:{success:true as const};
   }catch(error){return handleCourseActionError(error);}
 }
+
+/** Read-only recovery when a paste response is lost. Never retries the write. */
+export async function readSportsMoveResult(sessionId:string){try{
+ const {storeId}=await courseManager("booking.read");
+ if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此入口僅供運動測試站使用");
+ const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}});
+ if(!row)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
+ return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString()}};
+ }catch(e){return handleCourseActionError(e);}}

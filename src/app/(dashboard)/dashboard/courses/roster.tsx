@@ -93,6 +93,7 @@ function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof ge
 
 export function CourseRoster({
   sportsNative=false,
+  onBusyChange,refreshVersion=0,
   sessionId,
   capacity,
   canEdit,
@@ -120,6 +121,8 @@ export function CourseRoster({
   canCreate: boolean;
   canEdit: boolean;
   sportsNative?:boolean;
+  refreshVersion?:number;
+  onBusyChange?:(busy:boolean)=>void;
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
@@ -162,6 +165,7 @@ export function CourseRoster({
   const uncertain = operationScope.current.uncertain;
   const pending = transitionPending || uncertain;
   const bulkPending = pending || savingBookingIds.length > 0;
+  useEffect(()=>{onBusyChange?.(bulkPending);return()=>onBusyChange?.(false);},[bulkPending,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -369,7 +373,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view, sportsNative, sportsDetailReader]);
+  }, [sessionId, view, sportsNative, sportsDetailReader,refreshVersion]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -1194,7 +1198,7 @@ export function CourseRoster({
           <label className="text-xs font-medium text-earth-700">預約類型<select aria-label="預約類型篩選" className={rosterFilterClass(kindFilter)} value={kindFilter} onChange={event => {setKindFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="CARD">一般</option><option value="TRIAL">體驗</option><option value="TEACHER_MAKEUP">免費券</option></select></label>
         </div>
         {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && activeRows.length > 1 && <button type="button" className={`${button} self-start`} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
-        {canEdit && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
+        {canEdit && !sportsNative && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
       </RosterToolbar>}
 
       {rosterFiltered && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" role="status"><strong>符合 {scopedRows.filter(row => matchesStatus(row,statusFilter)).length}／全班 {activeRows.length} 位</strong>{activeFilterLabels.map(label => <button type="button" key={label} aria-label={`移除${label}`} className="min-h-11 rounded px-2 text-primary-800" onClick={() => {if(label.startsWith("搜尋：")) setMemberQuery(""); else if(label.startsWith("點名：")) setStatusFilter("all"); else if(label.startsWith("收款：")) setPaymentFilter("all"); else if(label.startsWith("類型：")) setKindFilter("all"); else setAssignedFilter("all"); resetFilterSelection();}}>{label} ×</button>)}<button type="button" className="min-h-11 rounded px-2 font-medium text-primary-800 underline" onClick={clearRosterFilters}>清除篩選</button>{searchedRows.some(row => !matchesStatus(row,statusFilter)) && <span>已操作學員暫留，方便更正</span>}</div>}

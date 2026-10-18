@@ -427,9 +427,9 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={panel === "plan" && music ? 920 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
-          fixedHeight={panel === "plan"}
+          fixedHeight={panel === "plan"&&!sportsData}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
-          fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
+          fitContent={(!!sportsData&&panel==="plan")||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
@@ -464,7 +464,7 @@ export function CourseMemberWorkspace({
             {([ ["info","顧客概況"], ...((canReadTransactions || canReadBookings) ? [["records","紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${sportsData&&panel==="plan"?"@container p-3":"p-4"}`}>
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">

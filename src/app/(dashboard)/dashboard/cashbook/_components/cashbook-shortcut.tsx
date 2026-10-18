@@ -4,6 +4,7 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { QuickCashbook } from "./quick-cashbook";
 
 export async function CashbookShortcut({ readOnly = false, triggerClassName }: { readOnly?: boolean; triggerClassName?: string }) {
@@ -12,5 +13,5 @@ export async function CashbookShortcut({ readOnly = false, triggerClassName }: {
   if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.read"))) return null;
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || !(await hasStoreFeature(storeId, FEATURES.CASHBOOK))) return null;
-  return <QuickCashbook key={`${user.id}:${storeId}`} instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"} storeId={storeId} triggerClassName={triggerClassName} />;
+  return <QuickCashbook compact={sportsNativePreview(storeId)} key={`${user.id}:${storeId}`} instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"} storeId={storeId} triggerClassName={triggerClassName} />;
 }

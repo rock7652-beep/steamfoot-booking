@@ -7,6 +7,7 @@ import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {addTaiwanDuration,parseTaipeiDateTime,toLocalDateStr} from "@/lib/date-utils";
 import {AppError,handleActionError} from "@/lib/errors";
 import {ensureSportsMonth,readSportsSeries,sportsLearners} from "@/server/services/sports-permanent-series";
+import {cancelCourseWaitlistForSession} from "@/server/services/course-waitlist";
 import {reserveCourseInTransaction,settleCourseBooking} from "@/server/services/course-booking";
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(d=>!!parseTaipeiDateTime(d,"00:00"));
 async function actor(permission:Parameters<typeof courseManager>[0]){
@@ -70,13 +71,25 @@ export async function arrangeSportsMakeup(input:unknown){try{
  });return {success:true as const};
  }catch(e){return handleActionError(e);}}
 export async function stopSportsSeries(input:unknown){try{
- const d=z.object({seriesId:z.string().min(1),effectiveDate:date}).parse(input),a=await actor("booking.update");
+ const d=z.object({seriesId:z.string().min(1),effectiveDate:date,expectedSessionIds:z.array(z.string()).max(2000).optional(),expectedBookingIds:z.array(z.string()).max(10000).optional()}).parse(input),a=await actor("booking.update");
  if(d.effectiveDate<toLocalDateStr())throw new AppError("VALIDATION","結束日期不能早於今天");
  await courseTransaction(a.storeId,async tx=>{
   const s=(await readSportsSeries(tx,a.storeId)).find(r=>r.id===d.seriesId);if(!s)throw new AppError("NOT_FOUND","固定課不存在");
   const sessions=await tx.courseSession.findMany({where:{storeId:a.storeId,requestKey:s.requestKey,startsAt:{gte:parseTaipeiDateTime(d.effectiveDate,"00:00")!},cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}}}}});
+  if(d.expectedSessionIds&&(sessions.map(s=>s.id).sort().join(",")!==[...d.expectedSessionIds].sort().join(",")||sessions.flatMap(s=>s.bookings.map(b=>b.id)).sort().join(",")!==[...(d.expectedBookingIds??[])].sort().join(",")))throw new AppError("CONFLICT","課程或名單已變動，請重新核對取消範圍");
   if(sessions.some(s=>s.bookings.some(b=>b.status!=="RESERVED")))throw new AppError("CONFLICT","結束日期後已有點名，請先核對");
-  for(const s of sessions){for(const b of s.bookings)await settleCourseBooking(tx,a,b.id,"CANCELLED");await tx.courseSession.update({where:{id:s.id},data:{cancelledAt:new Date()}});}
+  for(const s of sessions){for(const b of s.bookings)await settleCourseBooking(tx,a,b.id,"CANCELLED");await tx.courseSession.update({where:{id:s.id},data:{cancelledAt:new Date()}});await cancelCourseWaitlistForSession(tx,a.storeId,s.id);}
   await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "untilDate"=${addTaiwanDuration(d.effectiveDate,-1,"DAY")}::date,"updatedAt"=NOW() WHERE id=${s.id} AND "storeId"=${a.storeId}`;
  });return {success:true as const};
+ }catch(e){return handleActionError(e);}}
+
+/** Authoritative cancellation preview, including the current day and the ongoing rule. */
+export async function previewSportsCourseCancellation(sessionId:string){try{
+ const a=await actor("booking.read");z.string().min(1).max(100).parse(sessionId);
+ const source=await coursePrisma.courseSession.findFirst({where:{storeId:a.storeId,id:sessionId,cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}},select:{id:true,status:true}}}});
+ if(!source)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
+ const effectiveDate=toLocalDateStr(source.startsAt);
+ const series=(await readSportsSeries(coursePrisma,a.storeId)).find(s=>s.requestKey===source.requestKey&&!s.cancelledAt);
+ const sessions=series?await coursePrisma.courseSession.findMany({where:{storeId:a.storeId,requestKey:series.requestKey,startsAt:{gte:parseTaipeiDateTime(effectiveDate,"00:00")!},cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}},select:{id:true,status:true}}}}):[];
+ return {success:true as const,data:{effectiveDate,seriesId:series?.id??null,canStop:!!series&&effectiveDate>=toLocalDateStr(),currentPeople:source.bookings.length,currentBlocked:source.bookings.some(b=>b.status!=="RESERVED"),sessionIds:sessions.map(s=>s.id),bookingIds:sessions.flatMap(s=>s.bookings.map(b=>b.id)),futureBlocked:sessions.some(s=>s.bookings.some(b=>b.status!=="RESERVED"))}};
  }catch(e){return handleActionError(e);}}
