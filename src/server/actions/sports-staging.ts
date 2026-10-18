@@ -361,6 +361,8 @@ export async function saveSportsFee(input: unknown) {
   try {
     const d = z
       .object({
+        active:z.boolean().optional(),
+        customerPurchasable:z.boolean().optional(),
         compensation: sportsCompensation.optional(),
         expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
@@ -393,7 +395,8 @@ export async function saveSportsFee(input: unknown) {
       validDays: d.days,
       storeCost: 0,
       allowShared: d.shared,
-      isActive: base.isActive ?? true,
+      isActive: d.active ?? base.isActive ?? true,
+      customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
       templateIds: [],
       sportsSetup: {
         compensation: d.compensation,
