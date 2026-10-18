@@ -470,13 +470,14 @@ export async function settleCourseBooking(
     !booking.card?.termSessionIds?.length &&
     booking.card
   ) {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
+    const sportsFixed=booking.requestKey?.startsWith("sports-fixed:")??false;
+    const expiresAt = sportsFixed?dayRange("2099-12-31").end:new Date();
+    if(!sportsFixed)expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
     const makeupCard = await tx.coursePointCard.create({
       data: {
         storeId: actor.storeId,
         planId: booking.card.planId,
-        nameSnapshot: `補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
+        nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
         unit: booking.card.unit,
         templateIds: [booking.session.templateId],
         termSessionIds: [],
@@ -530,7 +531,8 @@ export async function correctCourseAttendance(
     }
   }
   if (restoringLeave) {
-    if (["STUDENT_LEAVE", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,AND:[{OR:[{makeupForBookingId:b.id},{requestKey:{startsWith:`sports-makeup:${b.id}:`}}]}],OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
+    if(b.requestKey?.startsWith("sports-fixed:")&&await tx.courseBooking.findFirst({where:{storeId:actor.storeId,requestKey:{startsWith:`sports-makeup:${b.id}:`},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}}))return fail("此請假已安排補課，請先取消補課再恢復原堂");
+    if (["STUDENT_LEAVE", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
     const [occupied, duplicate] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
       b.customerId ? tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }) : Promise.resolve(0),
