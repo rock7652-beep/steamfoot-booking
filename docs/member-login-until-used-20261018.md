@@ -6,11 +6,20 @@
 
 Migration 僅轉換有 AUTHORIZE_VERIFIED_LIFF_LOGIN_RECOVERY 稽核、尚未消耗、仍 PENDING_CAPTURE、未合併且 ACTIVE CUSTOMER、店內手機唯一、原手機/owner/Login 快照一致的精確授權；不轉換一般舊遷移、不核准未審申請、不恢復已撤銷或已消耗項目。轉換另留稽核紀錄。
 
-## 驗證與上線限制
+## 測試資料庫驗證（2026-10-18）
 
-- 13 個相關測試檔 211 項通過；另新增既有授權升級測試。
-- PGlite 執行實際 migration SQL，驗證有條件轉換、重跑不重複及 constraint 拒絕 generic 永久授權。
-- TypeScript、針對服務及 migration 測試的 ESLint、git diff --check 通過。
-- 尚未完成 hosted Preview、桌機/iPad 畫面驗收或真實 LINE 登入核驗，不能視為完整業務驗收。
-- 套用 steamfoot-preview（ttworfzgwejdeolegkxl）的 schema + 授權轉換被自動審核拒絕：未認定此測試專案已獲明確授權。沒有重試，也沒有修改正式資料庫。
-- 此 review 分支的 hosted build 於 ci-migrate 開頭停止，避免未核准的資料庫操作。取得測試資料庫明確授權後，先驗證 migration 與 Preview，再規劃正式 rollout；正式 schema 必須先於引用 untilUsed 的程式上線。
+- 使用者已明確授權 steamfoot-preview（ttworfzgwejdeolegkxl）；migration `verified_login_until_used` 已成功套用，Supabase 版本 `20261018063140`。正式 steamfoot 未修改。
+- 欄位為 BOOLEAN NOT NULL DEFAULT false；精確 Login reason CHECK constraint 已 validated。
+- 測試庫套用前沒有登入恢復授權，既有資料轉換 0 筆，不能稱已轉換正式站的 73 位顧客。
+- `scripts/qa/member-login-until-used/preview-rollback-verification.sql` 在測試庫實際執行 12 類案例：已審遷移、一般舊授權、未審、取消、已用、手機變更、舊登入變更、首次登入、歸屬不符、停權、候選已捕捉、已標記過期。只有 2 筆符合條件者轉換；另驗證手機唯一限制、generic 永久授權被拒、重跑不重複、逾原期限可選取、單次使用 predicate。測試 SQL 需要空的 LineRebindRequest，並以完整交易 ROLLBACK 清理。
+- 回滾後 User/Store/Customer/Account/CustomerIdentityLink/LineRebindRequest/AuditLog 都沒有該次測試資料殘留。
+- 13 個相關測試檔 212 項通過；包含執行服務與 PGlite 實際 migration SQL。TypeScript、服務及修改 UI 的 ESLint、git diff --check 通過。
+- Supabase security advisor 對 LineRebindRequest 僅回報既有 RLS 開啟且無政策的 INFO；本次沒有新增公開權限或 RLS policy。
+
+## 畫面驗證與限制
+
+- 受影響入口：顧客明細「本店會員與 LINE」、進階綁定狀態與窄 panel。已核對的登入恢復不再顯示成等待官方 LINE 輸入手機，撤銷按鈕明確標示為「撤銷登入授權」。
+- 真實 React 元件＋正式 CSS 的隔離瀏覽器 fixture：1366×900、1920×1080、1024×768、768×1024、390×844、320px 窄容器，6 種情境通過。核對後狀態顯示正確、只送出一次、無整頁橫向溢出、切換尺寸保留狀態；操作高度 44px。截圖與結果保存於工作區 `/workspace/login-recovery-until-used-validation/`。
+- 此 fixture 的 server actions 為 mocks，不視為 hosted Preview、實體 iPad 或真實 LINE 端到端登入成功；測試庫驗證也不取代會員本人登入核驗。
+- hosted build 仍保留 review 分支停止條件，避免沿用預設正式資料庫連線。後續部署 Preview 前需確認全部資料庫連線均指向 steamfoot-preview，正式 rollout 需 schema 先於引用 untilUsed 的程式。
+- 先前測試資料庫操作被自動審核拒絕的阻擋，已由使用者本次明確授權解除；本次已成功完成核准範圍，尚未合併正式站。
