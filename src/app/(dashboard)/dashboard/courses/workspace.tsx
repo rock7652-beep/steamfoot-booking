@@ -281,7 +281,7 @@ export function CourseWorkspace({
   const calendarRequest=useRef(0);
   const [calendarReading,setCalendarReading]=useState(false);
   const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
-  const sessions=nativeCalendar?.sessions??sourceSessions;
+  const sessions:Session[]=nativeCalendar?.sessions??sourceSessions;
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
