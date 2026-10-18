@@ -19,6 +19,10 @@ describe("2026-10-18 backend guide review", () => {
     expect(text("C07")).toContain("也不是已成功登入證明");
     expect(text("C08")).toContain("確認其中一種不代表另一種完成");
     expect(text("F04")).toContain("不能把登入申請當成有效通知收件連結");
+    for (const id of ["C117", "W06"]) {
+      expect(text(id)).toContain("已核對本人，確認通知連結");
+      expect(text(id)).not.toContain("已核對本人，確認綁定");
+    }
     expect(findOperationGuides("允許重新登入", { ...access, module: "spa" })).toEqual([]);
   });
   it("explains background refresh without repeating successful business writes", () => {
@@ -36,7 +40,7 @@ describe("2026-10-18 backend guide review", () => {
     expect(state.lastInventoriedMainCommit).toBe("e115fd315fb8bb4fbc10950958a67fa71f658476");
     expect(state.reviewedMainCommitCount).toBe(3);
     expect(state.newGuideIds).toEqual([]);
-    expect(state.updatedGuideIds).toEqual(["C07", "C08", "F04", "C103", "C105", "C109", "C112"]);
+    expect(state.updatedGuideIds).toEqual(["C07", "C08", "F04", "C103", "C105", "C109", "C112", "C117", "W06"]);
     expect(state.cumulativeDraftNewGuideIds).toHaveLength(3);
     expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(56);
     expect(state.backendInteractionPendingCount).toBe(60);

@@ -31,7 +31,7 @@ describe("2026-10-14 backend operation guide audit", () => {
     for (const id of ["C08", "C117", "W06"]) {
       const text = [...guide(id).steps, ...(guide(id).details ?? [])].join(" ");
       expect(text).toContain("確認碼");
-      expect(text).toContain("確認綁定");
+      expect(text).toContain("確認通知連結");
       expect(guide(id).verification).toBe("source-reviewed");
     }
     expect(guide("C142").details?.join(" ")).not.toContain("另受每月提醒額度限制");

@@ -15,7 +15,9 @@
     "C103",
     "C105",
     "C109",
-    "C112"
+    "C112",
+    "C117",
+    "W06"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -420,7 +422,7 @@
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-18 從 main a8cbb586 比對至 e115fd31，3 筆 main 提交（#1342～#1344）。新增 0 題、更新 C07／C08／F04／C103／C105／C109／C112，後台維持 187 題／15 類，去重後 60 題待登入後隔離驗收。核對登入恢復與通知分流、課表背景更新及交易頁失效重讀；公開經營文章不新增後台題，前台與 SPA 教學維持封存。",
+  "continuation": "2026-10-18 從 main a8cbb586 比對至 e115fd31，3 筆 main 提交（#1342～#1344）。新增 0 題、更新 C07／C08／F04／C103／C105／C109／C112／C117／W06，後台維持 187 題／15 類，去重後 60 題待登入後隔離驗收。核對登入恢復與通知分流、課程及工單共用確認按鈕、課表背景更新及交易頁失效重讀；公開經營文章不新增後台題，前台與 SPA 教學維持封存。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
