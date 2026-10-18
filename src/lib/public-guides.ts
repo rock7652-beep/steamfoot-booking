@@ -4,7 +4,7 @@ export type GuideSection = { heading: string; paragraphs: readonly string[]; bul
 type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; publishedDate?: string; primaryKeyword?: string; featureLinkLabel?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
-  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string } }
+  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string; inlineParts?: readonly (string | { label: string; href: string })[] } }
 );
 
 export const GUIDE_CATEGORIES = [
@@ -1208,6 +1208,68 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
     "label": "了解好久不見名單與關懷追蹤",
     "url": "https://www.steamfoot.com/pricing/features#care"
   }
+},
+{
+  "id": "music-school-holiday-closure-checklist",
+  "category": "booking",
+  "title": "音樂教室連假停課，為什麼改課、補課還要反覆對資料？",
+  "seoTitle": "音樂教室連假停課，為什麼改課、補課還要反覆對資料？",
+  "summary": "音樂教室連假停課後，如何把原課、候選時間、確認結果與堂數接回同一份紀錄？從既有 LINE、Excel 或紙本整理，到用一堂改期課評估管理系統。",
+  "publishedDate": "2026-10-18",
+  "status": "published",
+  "format": "article",
+  "feature": "courses",
+  "featureName": "音樂教室功能",
+  "showSummary": false,
+  "introduction": [],
+  "sections": [
+    {
+      "heading": "同一堂鋼琴課 公告和課表卻接不起來",
+      "paragraphs": [
+        "以下是一個虛構情境，並非真實客戶案例。一位學生原本每週五晚上六點上鋼琴課。這次遇到教室安排連假休課，行政在 LINE 群組發了公告，老師也私訊提議把這堂改到下週二六點。學生回覆，還需要確認行程。",
+        "行政先從 Excel 課表移掉週五那堂課，在自己的工作筆記記下週二候選時段，打算等回覆後再排。老師手上的紙本還是原課表，群組公告則只寫休課日期，沒有這位學生的補課進度。",
+        "過了兩天，學生詢問：「原本週五那堂，現在是改到哪一天？」接手的行政看見週五已空白，週二也沒有正式排課，只好先找群組公告，再問老師，把私訊翻出來確認。光是回答一句上課時間，就得重新拼回整段經過。",
+        "這幾份紀錄各自說明了一部分：公告交代停課，私訊討論新時間，課表顯示目前安排。學生收到的資訊不完整，接手的人也看不出還在等誰回覆。對靠 LINE、Excel 或紙本排課的教室來說，困擾就出在這些資訊沒有接在同一堂課上。"
+      ]
+    },
+    {
+      "heading": "先把這堂課整理清楚 不急著換工具",
+      "paragraphs": [
+        "即使還沒用管理系統，也可以先從既有紀錄整理。週五那堂停課時，保留原日期、時間、老師及停課原因，讓同事知道這堂課曾經排過，後續仍需要處理。不要只留下空白，否則月底再看，很難分辨當初是沒排課，還是停課後尚未安排補課。",
+        "補課進度可以在原本的 Excel 或紙本備註中，分清「日期未定」「待確認」「已確定」。連候選時間都還沒談好，是日期未定；已提出週二六點、還在等學生回覆，是待確認；雙方都同意後，才記為已確定。這些是店內記錄時要分清楚的事，不必為此另外增加一套表單。",
+        "等學生確認週二可以上課，就把新時段接回原課紀錄，留下確認時間，再更新老師使用的課表。這樣接手者能知道，週二這堂是補原本週五的課，而不是學生另外多約了一堂。若老師不同，也在同一處註明，避免一邊改好時間，另一邊還在等原老師。",
+        "堂數則按教室事先說明的規則與個別約定核對。先查原課是否已扣堂，再確認這次補課應如何計算，不能只因為新課排進去，就順手多扣一次。若補課超過方案期限，也要先確認處理方式；有同意調整的日期與原因，就與這堂課一起記下，日後才不用再次追問。",
+        "通知內容也應以這份已確認的安排為準。誰已收到新時間、誰還需要聯絡，要讓接手的人看得懂。已發送的訊息與對方已確認的回覆是兩件事，不宜都只寫成「已通知」。",
+        "如果課量不多、主要由同一個人排課，整理好的 Excel 或紙本可能就用得很順。當改期變得頻繁、同一堂課常由不同人接手，即使有固定記法，大家仍花很多時間翻對話、對堂數，才值得評估管理系統。這時要改善的是反覆核對的工作，而不只是把課表換個畫面。"
+      ]
+    },
+    {
+      "heading": "第一次選系統，先看改一堂課能少多少麻煩",
+      "paragraphs": [
+        "評估時，就拿前面那堂週五鋼琴課做示範或試用情境，把學生姓名、聯絡方式等個資隱去，保留原時段、老師、堂數與期限。由平常負責排課的人操作，先說明店內的處理規則，不必一開始就搬入全教室的資料。",
+        "先處理週五停課，確認原安排和停課原因仍有紀錄可追。接著帶入「已提出週二六點、學生尚未回覆」的情況，讓另一位同事接手操作。要觀察的是，接手的人能否看出還需要跟進，不會把候選時間當成正式課程。這一段要看的是工作進度能否交接，不只是移動課表格子是否方便。",
+        "再模擬學生確認補課，完成新時段與老師安排，核對原課和補課的關係，以及依店內約定計算的剩餘堂數。示範時請對方說清楚哪些會自動更新、哪些必須手動處理，並親自操作一次。若新日期跨過方案期限，也把例外走完，避免到正式使用時才發現仍要另找地方記。",
+        "最後把確認好的時間通知出去，查看系統能留下哪些紀錄。通知管道可能需要設定，送出也不等於對方已讀或同意；若回覆仍在 LINE 裡，就要試出行政怎麼把確認結果接回這堂課。這些能力須以實際示範與試用為準，不能只聽到「有通知功能」就認定全程都會自動完成。",
+        "值得觀察的結果很日常：當學生再問「原本週五那堂改到哪一天」，換一位同事也能找到同一個答案：「已確認改到下週二六點。」同時看得出堂數已怎麼處理，不必再請學生或老師傳一次聊天截圖。能少掉這些來回，才是這間教室導入工具的實際幫助。"
+      ]
+    }
+  ],
+  "callToAction": {
+  "text": "",
+  "inlineParts": [
+    "如果這正是你想改善的工作，可以先",
+    {
+      "label": "了解蒸管家方案",
+      "href": "https://www.steamfoot.com/pricing#trial-details"
+    },
+    "，再",
+    {
+      "label": "申請30天免費體驗",
+      "href": "https://www.steamfoot.com/apply"
+    },
+    "，用自己的一堂改期課看看流程是否合適。體驗從帳號開通起算，確認適合後，再決定是否導入。"
+  ]
+}
 }
 ];
 
