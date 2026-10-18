@@ -287,6 +287,7 @@ export function CourseWorkspace({
   const [nativeDate,setNativeDate]=useState(loadedDate);
   const [nativeCalendar,setNativeCalendar]=useState<Extract<Awaited<ReturnType<typeof loadSportsCalendar>>,{success:true}>["data"]|null>(null);
   const calendarRequest=useRef(0);
+  const calendarTargetMonth=useRef(loadedDate.slice(0,7));
   const [calendarReading,setCalendarReading]=useState(false);
   const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
   const sessions:Session[]=nativeCalendar?.sessions??sourceSessions;
@@ -294,6 +295,7 @@ export function CourseWorkspace({
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
   const refreshNativeCalendar=useCallback(async(date:string)=>{
+    calendarTargetMonth.current=date.slice(0,7);
     const request=++calendarRequest.current;setCalendarReading(true);
     try{if(sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
   },[sportsNative,canCreate]);
@@ -549,7 +551,7 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
-    if(sportsNative){++calendarRequest.current;setCalendarReading(false);setNativeDate(date);if(date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date);return;}
+    if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
@@ -801,7 +803,7 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
-      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onSaved={()=>{setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");refreshWorkspace();}}/>}
+      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onSaved={()=>{const date=moveTarget.date;setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date);}}/>}
       {sportsNative&&sportsSeriesOpen&&courseDialog&&<SportsSeriesPanel key={courseDialog.sessionId} sessionId={courseDialog.sessionId} canEdit={canEdit} onClose={()=>setSportsSeriesOpen(false)} onChanged={refreshWorkspace}/>}
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
