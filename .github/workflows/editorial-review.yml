@@ -14,10 +14,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-          persist-credentials: false
+          # checkout cleanup traverses existing malformed gitlinks; remove the
+          # root HTTP header explicitly before any repository code instead.
+          persist-credentials: true
           sparse-checkout: |
             scripts
             src/content
+      - name: Remove checkout HTTP credentials
+        run: git config --local --unset-all http.https://github.com/.extraheader
       - uses: actions/setup-node@v4
         with:
           node-version: 24
