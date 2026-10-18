@@ -68,7 +68,10 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
-  const sportsAccess = sportsProductionEnabled(storeId) &&
+  // The new workspace loads through write-scoped courseManager. Keep the
+  // existing read-only schedule for owners inspecting a child store.
+  const sportsAccess = (user.role === "ADMIN" || user.storeId === storeId) &&
+    sportsProductionEnabled(storeId) &&
     (await Promise.all((["plans.edit", "customer.read", "wallet.read", "transaction.read"] as const)
       .map(permission => checkPermission(user.role, user.staffId, permission)))).every(Boolean);
   if(sportsAccess){
