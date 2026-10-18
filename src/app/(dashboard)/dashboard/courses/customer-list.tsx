@@ -12,10 +12,10 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false }: {
+export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
-  onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
+  onPurchase?:()=>void; onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
   canMerge?: boolean; canExport?: boolean; music?: boolean; sportsNative?: boolean;
 }) {
@@ -51,7 +51,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport ? <ExclusiveMenu label="更多">{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
+    <CustomersToolbar labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}

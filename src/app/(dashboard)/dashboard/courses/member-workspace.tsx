@@ -345,7 +345,7 @@ export function CourseMemberWorkspace({
             ＋新增{view === "customers" ? "顧客" : sportsData ? "收費方式" : music ? "班型與學費" : "方案"}
           </button>
         )}
-        {canAssign && (view === "customers" || planArea === "cards") && (
+        {canAssign && ((view === "customers"&&!sportsNative) || (view === "plans"&&planArea === "cards")) && (
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
@@ -372,6 +372,7 @@ export function CourseMemberWorkspace({
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
+        onPurchase={canAssign&&people.length>0&&activePlans.length>0 ? ()=>{setPerson(null);open("assign");setRevenueStaffId("");}:undefined}
         onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
