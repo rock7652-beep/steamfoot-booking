@@ -1,0 +1,40 @@
+{
+  "database": "local disposable PostgreSQL",
+  "source": "5a0ed085",
+  "candidates": {
+    "upSha256": "bd075a052bbd3435aeb7d50f846236f4a2c5aec5e5191861abddd7db5c87306c",
+    "downSha256": "1933eba7dbd34d8a3d89333445bb2bf89aeec9537a00ce7c33d7099597ac3423"
+  },
+  "checks": [
+    "Old constraint reproduces attendance failure; entire transaction unchanged",
+    "Old constraint reproduces private leave failure; entire transaction unchanged",
+    "Old constraint reproduces group leave failure; entire transaction unchanged",
+    "Old constraint reproduces makeup coupon failure; entire transaction unchanged",
+    "Forced DDL failure atomically restores original constraint and missing metadata table",
+    "Rollback refuses ledger CHECK replacement; original schema and ledger preserved",
+    "Rollback refuses metadata column addition; original schema and ledger preserved",
+    "Rollback refuses metadata index addition; original schema and ledger preserved",
+    "Rollback refuses metadata RLS disabled; original schema and ledger preserved",
+    "Rollback refuses metadata permission change; original schema and ledger preserved",
+    "Rollback refuses metadata policy addition; original schema and ledger preserved",
+    "Rollback refuses missing installation marker; original schema and ledger preserved",
+    "Rollback refuses different migration version; original schema and ledger preserved",
+    "Rollback refuses recreated empty metadata table; original schema and ledger preserved",
+    "Metadata-only rollback refuses before any new-format ledger exists",
+    "Clean rollback succeeds and preserves every original ledger row",
+    "Repeated migration refuses constraint drift without changing installed schema",
+    "SESSION: reserve, attend, concurrent cancellation refunds exactly once",
+    "POINT: reserve, attend, concurrent cancellation refunds exactly once",
+    "Music private undeducted leave cancellation restores correct balance",
+    "Music group deducted leave cancellation restores correct balance",
+    "Unused makeup coupon reclaimed and original debit refunded once; retry cannot double-refund",
+    "Used makeup coupon refuses cancellation; original and coupon balances unchanged",
+    "Music private leave withdrawal restores reservation and correct balance",
+    "Music group leave withdrawal restores reservation and correct balance",
+    "Database rejects zero/negative points, unknown kinds, empty/control-character source IDs and malformed correction UUIDs",
+    "Metadata validates scheduling types, pricing and store FK; RLS enabled and client roles denied",
+    "Contended rollback aborts at lock timeout without changing data",
+    "New-ledger-only rollback refuses with empty metadata; all data preserved",
+    "Post-transaction rollback refuses without altering data; all original ledger rows preserved and expanded CHECK validated"
+  ]
+}
