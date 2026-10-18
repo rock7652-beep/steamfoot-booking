@@ -1,4 +1,5 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsFeeSetup} from "@/lib/sports-staging-types";
 import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
@@ -473,6 +474,7 @@ export async function updateCourseBookingStatus(input: unknown) {
       return settled.sessionId;
     }, async (auditResult, tx) => { await enqueueOperationAudit({
       actorUserId: actor.userId,
+      ...(sportsNativePreview(actor.storeId)?{actorNameSnapshot:actor.name}:{}),
       storeId: actor.storeId,
       module: "COURSE",
       targetType: "CourseBooking",
@@ -896,7 +898,7 @@ export async function updateCourseRosterBatch(input: unknown) {
       writeMs = Date.now() - writeStartedAt;
     }, async (auditResult, tx) => { for (const booking of data.bookings) {
       await enqueueOperationAudit({
-        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        actorUserId: user.id, ...(sportsNativePreview(storeId)?{actorNameSnapshot:user.name??"門市人員"}:{}), storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ CHECKED_IN: "課程報到", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到", RESERVED: "恢復待點名" } as const)[data.target],
       }, tx);
@@ -941,7 +943,7 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
       }
     }, async (auditResult, tx) => { for (const booking of data.bookings) {
       await enqueueOperationAudit({
-        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        actorUserId: user.id, ...(sportsNativePreview(storeId)?{actorNameSnapshot:user.name??"門市人員"}:{}), storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ RESERVED: "恢復待點名", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到" } as const)[data.target],
       }, tx);

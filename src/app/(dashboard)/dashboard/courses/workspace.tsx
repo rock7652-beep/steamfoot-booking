@@ -712,7 +712,11 @@ export function CourseWorkspace({
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
+  const scheduleOpenIntent=useRef(false);
+  useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
   function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
+    if(pending||scheduleOpenIntent.current)return;
+    scheduleOpenIntent.current=true;
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleSeed(seed);
@@ -906,7 +910,7 @@ export function CourseWorkspace({
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
-                    disabled={pending || calendarReading}
+                    disabled={pending}
                     onClick={()=>openSchedule()}
                   >
                     ＋ 排課
@@ -1100,7 +1104,7 @@ export function CourseWorkspace({
               rooms={roomFilter === "all" ? allRooms : allRooms.filter(room => room.id === roomFilter)}
               coaches={allCoaches}
               templates={allTemplates}
-              pending={pending || (sportsNative && calendarReading)}
+              pending={pending}
               staffAvailability={staffAvailability}
               staffAvailabilityExceptions={staffAvailabilityExceptions}
               storePeriods={calendarDays[selectedDate]?.periods ?? []}

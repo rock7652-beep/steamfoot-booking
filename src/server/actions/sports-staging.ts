@@ -448,6 +448,7 @@ export async function sportsStagingCommand(input: unknown) {
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
           price: z.number().int().min(0).max(1000000),
+          customerId: z.string().min(1).nullable().optional(),
           customer: z.string().default(""),
           phone: z.string().default(""),
           requestKey: z.string().uuid(),
@@ -461,6 +462,7 @@ export async function sportsStagingCommand(input: unknown) {
         return await result(
           saveCourseRental({
             roomId: room.id,
+            customerId: d.customerId??null,
             customerName: d.customer,
             customerPhone: d.phone,
             date: d.date,

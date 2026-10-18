@@ -1,4 +1,5 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -34,7 +35,7 @@ export async function createRentalCustomer(input:unknown) {
       const created=await tx.customer.create({data:{storeId,...data},select:{id:true,name:true,phone:true}});
       await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"COURSE",summary:"租借新增顧客",targetType:"Customer",targetId:created.id,action:"CREATE_RENTAL_CUSTOMER",afterJson:{storeId,...created}}});
       return {...created,existing:false};
-    });refresh();return {success:true as const,customer};
+    });if(!sportsNativePreview(storeId))refresh();return {success:true as const,customer};
   }catch(error){return {success:false as const,error:handleCourseActionError(error).error??"操作失敗"};}
 }
 export async function saveCourseRental(input:unknown) {

@@ -308,6 +308,7 @@ function SessionCard({
     <button
       type="button"
       onClick={onOpen}
+      tabIndex={session.sportsPalette&&session.previewFaded?-1:undefined}
       disabled={readOnly}
       className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.sportsPalette?sportsCalendarPresentation(session).card:"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
       data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
@@ -533,7 +534,7 @@ export function CourseScheduleBoard({
     const matchesResource = (session:Session) => (resourceView === "room" ? session.roomId : session.coachId) === roomId;
     const weekSessions = sessions.filter((session) => matchesResource(session) && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
-    const weekLanes = scheduleLanes(weekSessions,resourceView === "room" ? "roomId" : "coachId");
+    const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
     const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
     const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
@@ -580,7 +581,7 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30})} className={`group relative min-h-11 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30,...(sportsNative?{single:true}:{})})} className={`group relative touch-manipulation min-h-11 hover:z-20 focus-visible:z-20 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -588,7 +589,7 @@ export function CourseScheduleBoard({
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;
@@ -907,7 +908,7 @@ export function CourseScheduleBoard({
                         <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
-                             const duration=moveClipboard?.durationMinutes ?? availabilityDuration;
+                             const duration=moveClipboard?.durationMinutes ?? (sportsNative?30:availabilityDuration);
                              const targetRoomId=moveClipboard
                                ? resourceView==="room" ? resource.id : moveClipboard.roomId
                                : resourceView==="room" ? resource.id : "";
@@ -953,8 +954,8 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly||!canCreate}
-                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
-                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${sportsNative?30:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
@@ -963,8 +964,8 @@ export function CourseScheduleBoard({
                                        : matches.length === 1
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
-                                   : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
-                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
+                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?30:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
+                                 className={`group relative hover:z-20 focus-visible:z-20 touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}
                                  {!readOnly&&<span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>}
@@ -984,7 +985,7 @@ export function CourseScheduleBoard({
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={timelineDense ? `absolute left-1 right-1 z-10 pointer-events-auto` : "pointer-events-auto"}
+                            className={timelineDense ? `absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":"pointer-events-auto"}` : "pointer-events-auto"}
                             style={timelineDense ? {
                               left: `calc(${(dayLanes.get(session.id)?.lane ?? 0) * 100 / (dayLanes.get(session.id)?.count ?? 1)}% + 4px)`,
                               right: "auto",
