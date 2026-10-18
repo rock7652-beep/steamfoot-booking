@@ -24,13 +24,6 @@ const pass = (name) => {
   console.log("PASS", name);
 };
 let browser, p, lastAttendance;
-async function close() {
-  await p
-    .getByRole("dialog")
-    .getByRole("button", { name: "關閉", exact: true })
-    .click();
-  await p.getByRole("dialog").waitFor({ state: "hidden" });
-}
 async function save() {
   await p
     .getByRole("dialog")
@@ -177,9 +170,6 @@ try {
   }
   let d = await detail("15:00");
   if (!resume) {
-    let response = p.waitForResponse((r) =>
-      r.request().postData()?.includes('\"operation\":\"attendance\"'),
-    );
     await d.getByRole("button", { name: "標記出席", exact: true }).click();
     await p.getByText("運動驗收學員 · ATTENDED", { exact: true }).waitFor();
     assert.equal(lastAttendance.success, true);
