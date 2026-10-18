@@ -129,8 +129,9 @@ export function CourseMemberWorkspace({
   sharedCardState?: FeaturePresentationState;
 }) {
   const supportGuard = useCustomerPanelGuard();
-  const [noteReceipts,setNoteReceipts]=useState<Record<string,string|null>>({});
-  const people=sourcePeople.map(p=>Object.prototype.hasOwnProperty.call(noteReceipts,p.id)?{...p,serviceNote:noteReceipts[p.id]}:p);
+  const [noteReceipts,setNoteReceipts]=useState<Record<string,{source:string|null;value:string|null}>>({});
+  const people=sourcePeople.map(p=>noteReceipts[p.id]&&p.serviceNote===noteReceipts[p.id].source?{...p,serviceNote:noteReceipts[p.id].value}:p);
+  const visibleCustomerRows=customerRows.map(row=>noteReceipts[row.id]&&row.serviceNote===noteReceipts[row.id].source?{...row,serviceNote:noteReceipts[row.id].value}:row);
   const [editingAttribution, setEditingAttribution] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
@@ -351,7 +352,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
@@ -488,7 +489,7 @@ export function CourseMemberWorkspace({
               <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
-                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:value}));else router.refresh();}} />
+                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();}} />
               <section aria-label="歸屬設定" className="border-t border-earth-100 py-2">
                 <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   {!music && <span>所屬店長：{customerRows.find(row => row.id === person.id)?.assignedStaff?.displayName ?? "未指派"}</span>}
