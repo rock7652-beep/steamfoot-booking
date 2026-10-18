@@ -42,6 +42,10 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "sports-redesign-preview") {
+  console.info("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "feat/customer-unified-detail-20261012") {
   const { verifyBookingParticipantsPreviewReadiness } = await import("./booking-participants-preview-readiness.mjs");
   await verifyBookingParticipantsPreviewReadiness(process.env);
