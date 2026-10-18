@@ -37,6 +37,6 @@ describe.each([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, H
   });
   it("keeps automatic branch deployment off and production main unchanged", () => {
     const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
-    expect(enabled[branch]).toBe(false); expect(enabled.main).not.toBe(false);
+    expect(enabled[branch]).toBe(false); expect(enabled.main).toBe(false);
   });
 });

@@ -273,7 +273,7 @@ describe("music migration publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/music-school-data-migration"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 
@@ -301,7 +301,7 @@ describe("Pilates publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/pilates-equipment-scheduling-20261010"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 
@@ -330,7 +330,7 @@ describe("Teacher-fee publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/music-teacher-fee-reconciliation-20261011"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 

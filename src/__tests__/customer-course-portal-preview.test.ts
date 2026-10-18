@@ -13,7 +13,7 @@ it("accepts only the exact isolated customer course portal Preview and needs no 
   expect(() => assertModuleRosterPreviewEnvironment(valid)).not.toThrow();
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH]).toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each([

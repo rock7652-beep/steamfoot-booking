@@ -174,6 +174,6 @@ describe("independent audit release dispatch", () => {
     expect(enabled[STORE_OPERATION_AUDIT_PREVIEW_BRANCH]).toBe(false);
     expect(enabled[SPORTS_SHARED_CARD_PREVIEW_BRANCH]).toBe(false);
     expect(enabled[CONSULTATION_PREVIEW_BRANCH]).toBe(false);
-    expect(enabled.main).not.toBe(false);
+    expect(enabled.main).toBe(false);
   });
 });

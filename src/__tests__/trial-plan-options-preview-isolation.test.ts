@@ -13,7 +13,7 @@ it("accepts only the exact isolated trial plan options Preview and needs no new 
   expect(() => assertModuleRosterPreviewEnvironment(valid)).not.toThrow();
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH]).toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each([

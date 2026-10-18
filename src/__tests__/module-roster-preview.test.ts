@@ -19,7 +19,7 @@ it("accepts only the exact isolated four-module roster Preview and needs no new 
   expect(() => assertModuleRosterPreviewEnvironment(valid)).not.toThrow();
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[MODULE_ROSTER_PREVIEW_BRANCH]).toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each([

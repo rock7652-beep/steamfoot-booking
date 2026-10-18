@@ -4,7 +4,8 @@ import { act, createElement as el } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn() }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn(), sportsTrial: vi.fn() }));
+vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:m.sportsTrial}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn(),loadCourseStoreNotices:vi.fn(),markCourseStoreNotice:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams(window.location.search) }));
@@ -43,12 +44,30 @@ beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.history.replaceState(null, "", "/s/a/book"); window.scrollTo = vi.fn(); HTMLElement.prototype.scrollIntoView = vi.fn();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  for (const action of [m.booking, m.cancel, m.join, m.leave, m.confirm, m.reschedule, m.purchase, m.attendance]) action.mockResolvedValue({ success: true });
+  for (const action of [m.booking, m.cancel, m.join, m.leave, m.confirm, m.reschedule, m.purchase, m.attendance, m.sportsTrial]) action.mockResolvedValue({ success: true });
   m.load.mockResolvedValue(notificationData());
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+afterEach(async () => { vi.restoreAllMocks(); await act(async () => root.unmount()); host.remove(); });
 
 describe("student booking switch portal", () => {
+  it.each([499, 0])("books an explicitly priced sports trial (%s) without a regular card", async price => {
+    const data=props();data.cards=[];data.sessions[0].sportsTrialPrice=price;
+    vi.spyOn(window,'confirm').mockReturnValue(true);
+    await render(data);
+    await click(`體驗預約 NT$ ${price}`);
+    expect(m.sportsTrial).toHaveBeenCalledExactlyOnceWith({sessionId:'session',expectedPrice:price,requestKey:expect.any(String)});
+    expect(m.booking).not.toHaveBeenCalled();
+  });
+  it("keeps an absent trial price on the regular booking path", async () => {
+    const data=props();
+    await render(data);
+    expect(host.textContent).not.toContain('體驗預約 NT$');
+    await click('預約',host.querySelector('.cp-lesson')!);
+    await click('確認預約',dialog());
+    expect(m.booking).toHaveBeenCalledTimes(1);
+    expect(m.sportsTrial).not.toHaveBeenCalled();
+  });
+
   it("cancels inside the reservation card, keeps failure retryable and submits once", async () => {
     const data = props();
     data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];

@@ -1,4 +1,5 @@
 "use server";
+import {sportsFeeSetup} from "@/lib/sports-staging-types";
 import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
@@ -154,14 +155,22 @@ export async function saveCourseCustomer(input: unknown) {
 
 export async function saveCoursePointPlan(input: unknown) {
   try {
-    const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional(),receipt:coursePlanReceipt.optional()});
-    const { id: planId, expectedSnapshot, musicSetup, allowShared, receipt, ...fields } = schema.parse(input);
+    const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional(),receipt:coursePlanReceipt.optional(),sportsSetup:sportsFeeSetup.optional()});
+    const { id: planId, expectedSnapshot, musicSetup, allowShared, receipt, sportsSetup, ...fields } = schema.parse(input);
     const data = { ...fields, allowShared: allowShared ?? false };
-    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true}).parse(JSON.parse(expectedSnapshot)) : null;
-    const { storeId } = await courseManager("plans.edit");
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true,sportsSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
+    const { storeId,user } = await courseManager("plans.edit");
+    if(sportsSetup){
+      const {requireSportsStaging}=await import('@/lib/sports-staging');requireSportsStaging();
+      await courseManager('booking.create');await courseManager('staff.manage');
+      if(!receipt)throw new AppError('VALIDATION','缺少收費設定請求');
+      const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
+      if(!fitness)throw new AppError('FORBIDDEN','此入口僅適用運動測試店');
+    }
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const saved = await courseTransaction(storeId,async tx=>{
+    if(sportsSetup){const {prepareSportsFee}=await import('@/server/services/sports-staging-fee');const setup=await prepareSportsFee(tx,storeId,user.id,planId??receiptId!,sportsSetup,data.unit);data.templateIds=[setup.templateId];data.storeCost=setup.storeCost;}
     const isMusic = await isMusicCourseStore(tx, storeId);
     assertCoursePlanBusiness(isMusic, data, !!musicSetup);
     if (isMusic && !musicSetup) {

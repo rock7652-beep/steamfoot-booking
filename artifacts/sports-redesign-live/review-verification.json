@@ -1,0 +1,29 @@
+{
+  "scope": "local isolated review verification; no production deployment",
+  "verifiedAtUtc": "2026-10-17T23:07:29.711173+00:00",
+  "checks": {
+    "compatibility-checks.json": 6,
+    "final-state-checks.json": 5,
+    "security-checks.json": 4,
+    "member-checks.json": 9,
+    "checks.json": 19
+  },
+  "realFlowChecks": 43,
+  "vitest": {
+    "files": 11,
+    "passed": 100,
+    "log": "review-tests.log"
+  },
+  "typecheck": {
+    "command": "npx tsc --noEmit --incremental false",
+    "exitCode": 0
+  },
+  "eslint": {
+    "scope": "changed TS/TSX files including guarded seed",
+    "exitCode": 0
+  },
+  "gitDiffCheck": {
+    "exitCode": 0
+  },
+  "remoteDeploymentPerformed": false
+}
