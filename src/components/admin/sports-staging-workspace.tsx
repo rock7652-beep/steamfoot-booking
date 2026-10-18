@@ -1,5 +1,5 @@
 "use client";
-import { useSearchParams } from "next/navigation";
+import { useSportsWorkspaceView, selectSportsWorkspaceView } from "@/lib/sports-workspace-location";
 import { sportsWorkspaceTab, sportsWorkspaceView } from "@/lib/sports-workspace-navigation";
 import {
   useState,
@@ -79,21 +79,16 @@ export function SportsStagingWorkspace({
       "DAY",
     ),
     weekEnd = addTaiwanDuration(base, 6, "DAY");
-  const searchParams = useSearchParams();
+  const locationView = useSportsWorkspaceView(initialView);
   const [localTab, setLocalTab] = useState("課表"),
     [subjects, setSubjects] = useState<Subject[]>(initial.subjects),
     [fees, setFees] = useState<Fee[]>(initial.fees),
     [lessons, setLessons] = useState<Lesson[]>(initial.lessons);
-  const tab = integratedNavigation ? sportsWorkspaceTab(searchParams?.get("view") ?? initialView) : localTab;
+  const tab = integratedNavigation ? sportsWorkspaceTab(locationView) : localTab;
   function setTab(next: string) {
     setLocalTab(next);
     if (integratedNavigation) {
-      const url = new URL(window.location.href);
-      const view = sportsWorkspaceView(next);
-      if (view === "schedule") url.searchParams.delete("view");
-      else url.searchParams.set("view", view);
-      // Next supports native history updates; keep the same workspace/document.
-      window.history.replaceState(null, "", url);
+      selectSportsWorkspaceView(sportsWorkspaceView(next));
     }
   }
   const faded = lessons

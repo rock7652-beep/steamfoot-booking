@@ -1,4 +1,5 @@
 "use client";
+import { useSportsWorkspaceView, selectSportsWorkspaceView, sportsWorkspaceRouteQuery } from "@/lib/sports-workspace-location";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
@@ -706,7 +707,9 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
-  const routeQuery = searchParams.toString();
+  const sportsView = useSportsWorkspaceView(searchParams.get("view") ?? "schedule");
+  const routeQuery = sportsWorkspacePreview && rawPathname.endsWith("/dashboard/courses")
+    ? sportsWorkspaceRouteQuery(searchParams.toString(), sportsView) : searchParams.toString();
   const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
   const isEmbeddedPreview = useSyncExternalStore(
     () => () => {},
@@ -730,7 +733,7 @@ export default function DashboardShell({
           [null, "schedule", "catalog", "plans"].includes(next.searchParams.get("view"))) {
         event.preventDefault();
         // These three items select tabs in the already-authorized workspace.
-        window.history.pushState(null, "", next);
+        selectSportsWorkspaceView(next.searchParams.get("view") ?? "schedule");
         setMobileOpen(false);
         return;
       }
