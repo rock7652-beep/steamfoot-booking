@@ -611,14 +611,15 @@ export function CourseWorkspace({
   const [scheduleSeed,setScheduleSeed]=useState<{single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   const [moveTarget,setMoveTarget]=useState<{date:string;time:string;roomId:string;coachId:string}|null>(null);
   const movePreflight=useRef(false);
+  const [checkingMove,setCheckingMove]=useState(false);
   async function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     if(sportsNative){
       if(movePreflight.current)return;
       if(moveClipboard?.sessionId!==session.id&&moveClipboard&&!window.confirm(`改為剪下「${session.nameSnapshot}」？原本待貼上的課程不會變動。`))return;
-      movePreflight.current=true;
+      movePreflight.current=true;setCheckingMove(true);
       try{const result=await checkSportsCourseMove(session.id);if(!result.success){setError(result.error??"暫時無法調課");return;}}
       catch{setError("無法核對調課條件，請重試");return;}
-      finally{movePreflight.current=false;}
+      finally{movePreflight.current=false;setCheckingMove(false);}
     }
     const durationMinutes = Math.max(sportsNative?5:30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
@@ -2429,7 +2430,7 @@ export function CourseWorkspace({
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
                   )}
                   {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && (!moveClipboard||sportsNative) && (
-                    <button type="button" className={primary} onClick={() => {
+                    <button type="button" className={primary} disabled={sportsNative&&checkingMove} onClick={() => {
                       if (dialogSession.isFixed&&!sportsNative) {
                         setMoveChoice(dialogSession);
                         setMoveWeeksOpen(false);
@@ -2437,7 +2438,7 @@ export function CourseWorkspace({
                         beginMove(dialogSession, "SINGLE");
                       }
                     }}>
-                      ✂ 調課
+                      {sportsNative&&checkingMove?"核對中…":"✂ 調課"}
                     </button>
                   )}
                   {sportsNative&&!rentalDialog&&courseDialog.kind==="roster"&&<details className="relative"><summary className={`${button} flex cursor-pointer items-center`}>更多</summary><div className="absolute right-0 z-20 min-w-40 rounded-lg border bg-white p-1"><button className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setSportsSeriesOpen(true)}>停課與補課管理</button></div></details>}

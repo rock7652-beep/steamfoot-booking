@@ -75,7 +75,7 @@ export function HealthRecordForm({
         </div>
       )}
 
-      <section className={compact?"grid grid-cols-2 items-start gap-x-3 gap-y-2 @[620px]:grid-cols-3 @[880px]:grid-cols-4":"rounded-2xl border border-earth-200 bg-white p-5 shadow-sm"}>
+      <section className={compact?"grid grid-cols-2 items-start gap-x-3 gap-y-2 @[620px]:grid-cols-3 @[780px]:grid-cols-4":"rounded-2xl border border-earth-200 bg-white p-5 shadow-sm"}>
         <div>
         <label htmlFor="measuredAt" className="block text-sm font-semibold text-earth-900">
           量測日期
@@ -129,7 +129,7 @@ export function HealthRecordForm({
           rows={compact?1:3}
           maxLength={500}
           placeholder={notePlaceholder}
-          className="mt-2 w-full rounded-xl border border-earth-200 px-4 py-3 text-base text-earth-900"
+          className={compact?"mt-1 !min-h-11 !h-11 w-full rounded-lg border border-earth-200 px-3 py-2 text-base text-earth-900":"mt-2 w-full rounded-xl border border-earth-200 px-4 py-3 text-base text-earth-900"}
           defaultValue={initialValues?.note ?? ""}
         />
         <FieldError messages={state.fieldErrors?.note} /></div>
