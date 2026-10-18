@@ -1,3 +1,7 @@
+// @vitest-environment jsdom
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { MarketingStickyOffer } from "@/components/marketing-sticky-offer";
 import editorialGuides from "@/content/editorial-guides.json";
 vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -57,6 +61,37 @@ describe("public editorial guides", () => {
     expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${slug}`);
   });
 
+
+  it("lets the holiday article trial CTA navigate without opening the preview form", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const article = document.createElement("div");
+    article.innerHTML = renderToStaticMarkup(await GuideArticle(props("music-school-holiday-closure-checklist")));
+    const host = document.createElement("div");
+    document.body.append(article, host);
+    const root = createRoot(host);
+    const showModal = vi.fn();
+    try {
+      await act(async () => root.render(createElement(MarketingStickyOffer)));
+      Object.defineProperty(host.querySelector("dialog")!, "showModal", { value: showModal });
+      const link = article.querySelector<HTMLAnchorElement>('article a[href="https://www.steamfoot.com/apply"]')!;
+      expect(link.target).toBe("_top");
+      let intercepted: boolean | undefined;
+      // Observe after the real document capture handler, then stop jsdom navigation.
+      link.addEventListener("click", event => { intercepted = event.defaultPrevented; event.preventDefault(); });
+      await act(async () => { link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); });
+      expect(intercepted).toBe(false);
+      expect(showModal).not.toHaveBeenCalled();
+      expect(host.querySelector("iframe")).toBeNull();
+      // The existing modal behavior remains enabled for ordinary marketing links.
+      link.removeAttribute("target");
+      await act(async () => { link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); });
+      expect(showModal).toHaveBeenCalledOnce();
+      expect(host.querySelector("iframe")?.getAttribute("src")).toBe("/apply?intent=trial&embedded=1");
+    } finally {
+      await act(async () => root.unmount());
+      article.remove(); host.remove(); vi.unstubAllGlobals();
+    }
+  });
 
   it("preserves the approved paid attendance Word body and uses the care CTA", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
