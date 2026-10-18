@@ -37,10 +37,11 @@ import {
 } from "./course-trial";
 import { refundCoursePurchase } from "./course-refund";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
+import { assertSportsProductionReady } from "@/server/services/sports-production-readiness";
 const id = z.string().min(1).max(100);
 async function actor(permission: Parameters<typeof courseManager>[0]) {
-  requireSportsStaging();
   const a = await courseManager(permission);
+  requireSportsStaging(a.storeId);
   const fitness = await prisma.storeFeatureEntitlement.findFirst({
     where: {
       storeId: a.storeId,
@@ -48,7 +49,8 @@ async function actor(permission: Parameters<typeof courseManager>[0]) {
       status: "ENABLED",
     },
   });
-  if (!fitness) throw new AppError("FORBIDDEN", "此測試入口僅適用運動店");
+  if (!fitness) throw new AppError("FORBIDDEN", "此入口僅適用運動店");
+  await coursePrisma.$transaction(tx => assertSportsProductionReady(tx, a.storeId));
   return a;
 }
 async function result<T extends { success: boolean; error?: string }>(
@@ -96,13 +98,13 @@ export async function loadSportsStaging(): Promise<
           },
         },
         orderBy: { startsAt: "asc" },
-        take: 500,
+        take: 501,
       }),
       coursePrisma.courseRental.findMany({
         where: { storeId, cancelledAt: null },
         include: { payments: { where: { status: "SUCCESS" } } },
         orderBy: { startsAt: "asc" },
-        take: 500,
+        take: 501,
       }),
       coursePrisma.coursePointCard.findMany({
         where: { storeId, closedAt: null, expiresAt: { gte: new Date() } },
@@ -111,7 +113,7 @@ export async function loadSportsStaging(): Promise<
       prisma.customer.findMany({
         where: { storeId, mergedIntoCustomerId: null },
         select: { id: true, name: true, phone: true },
-        take: 500,
+        take: 501,
       }),
       prisma.staff.findMany({
         where: { storeId, status: "ACTIVE", courseCoachEnabled: true },
@@ -132,6 +134,8 @@ export async function loadSportsStaging(): Promise<
         }>
       >`SELECT "sessionId",frequency,enrollment,"planId","trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`,
     ]);
+    if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
+      throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
     const fees = plans.map((p) => {
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {
@@ -669,7 +673,6 @@ export async function sportsStagingCommand(input: unknown) {
 
 export async function bookSportsTrial(input: unknown) {
   try {
-    requireSportsStaging();
     const d = z
       .object({
         sessionId: id,
@@ -678,10 +681,11 @@ export async function bookSportsTrial(input: unknown) {
       })
       .parse(input);
     const { storeId, user, customer } = await courseMember({ write: true });
+    requireSportsStaging(storeId);
     const fitness = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.fitness", status: "ENABLED" },
     });
-    if (!fitness) throw new AppError("FORBIDDEN", "此入口僅適用運動測試店");
+    if (!fitness) throw new AppError("FORBIDDEN", "此入口僅適用運動店");
     const { getTrialSettings, clampTrialTotal } =
       await import("@/lib/shop-config");
     const settings = await getTrialSettings(storeId);
@@ -690,6 +694,7 @@ export async function bookSportsTrial(input: unknown) {
     const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
     const limits = await getStoreLimitsByStoreId(storeId);
     await courseTransaction(storeId, async (tx) => {
+      await assertSportsProductionReady(tx, storeId);
       const { readSportsSessionRule } =
         await import("@/server/services/sports-staging-schedule");
       const rule = await readSportsSessionRule(tx, storeId, d.sessionId);

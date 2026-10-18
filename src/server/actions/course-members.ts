@@ -161,7 +161,7 @@ export async function saveCoursePointPlan(input: unknown) {
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true,sportsSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId,user } = await courseManager("plans.edit");
     if(sportsSetup){
-      const {requireSportsStaging}=await import('@/lib/sports-staging');requireSportsStaging();
+      const {requireSportsStaging}=await import('@/lib/sports-staging');requireSportsStaging(storeId);
       await courseManager('booking.create');await courseManager('staff.manage');
       if(!receipt)throw new AppError('VALIDATION','缺少收費設定請求');
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});

@@ -1,0 +1,26 @@
+
+ RUN  v4.1.4 /workspace/sports-production-enable-pr
+
+ ❯ src/__tests__/sports-production-child-view.test.ts (5 tests | 1 failed) 10ms
+   × renders the selected child schedule without entering write-scoped sports loading 5ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  02:55:36
+   Duration  357ms (transform 187ms, setup 0ms, import 235ms, tests 10ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > renders the selected child schedule without entering write-scoped sports loading
+AssertionError: expected undefined to be defined
+ ❯ src/__tests__/sports-production-child-view.test.ts:46:20
+     44|  const page = await CoursesPage({ searchParams: Promise.resolve({ date…
+     45|  const workspace = find(page, 'legacy-workspace');
+     46|  expect(workspace).toBeDefined(); expect(workspace!.props).toMatchObje…
+       |                    ^
+     47|  expect(workspace!.props.rentalPermissions).toMatchObject({ collect: f…
+     48|  expect(m.sessions).toHaveBeenCalledWith(expect.objectContaining({ whe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
