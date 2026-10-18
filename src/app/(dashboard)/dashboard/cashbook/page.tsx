@@ -384,9 +384,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <CashbookActionsMenu compact={sportsNativePreview(cashbookStoreId??undefined)}>
-                          <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
+                          <OperationHistoryButton portal={sportsNativePreview(cashbookStoreId??undefined)} targetType="CashbookEntry" targetId={e.id} />
                           {e.id.startsWith("inventory:") ? <Link href={`/dashboard/inventory?reference=${encodeURIComponent(e.id.split(":")[1])}`} className="text-sm text-primary-700 hover:underline">進銷存連動・查看原單</Link> : <>
-                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} inMenu={sportsNativePreview(cashbookStoreId??undefined)} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >

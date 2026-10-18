@@ -4,7 +4,8 @@ import { AuditChanges } from "@/components/audit-changes";
 import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
 import { useOperationAuditAccess, useHqOperationAuditAccess } from "@/components/operation-audit-access";
 import { isStoreAuditTarget } from "@/lib/store-operation-audit-policy";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import {createPortal} from "react-dom";
 import { loadOperationHistory, type OperationHistoryItem } from "@/server/actions/operation-audit";
 
 function formatTime(value: string) {
@@ -21,10 +22,11 @@ function formatTime(value: string) {
 export function OperationHistoryButton({
   targetType,
   targetId,
+  portal=false,
   className = "text-sm text-earth-500 underline underline-offset-2 hover:text-earth-800",
 }: {
   targetType: "Booking" | "SpaBooking" | "CourseBooking" | "CashbookEntry" | "StaffPermission" | "InventoryOrder" | "InventoryProduct" | "InventorySupplier" | "InventoryPayment" | "InventoryStockCount";
-  targetId: string;
+  portal?:boolean; targetId: string;
   className?: string;
 }) {
   const canViewAudit = useOperationAuditAccess();
@@ -48,10 +50,10 @@ export function OperationHistoryButton({
 
   return (
     <>
-      <button type="button" className={className} onClick={(event) => { event.stopPropagation(); void showHistory(); }}>
+      <button type="button" className={className} onClick={(event) => { if(!portal)event.stopPropagation(); void showHistory(); }}>
         查看紀錄
       </button>
-      {open && (
+      {open && (<HistoryOverlay portal={portal}>
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-4" role="presentation" onClick={() => setOpen(false)}>
           <section className="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby={`operation-history-${targetId}`} onClick={(event) => event.stopPropagation()}>
             <header className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
@@ -83,7 +85,9 @@ export function OperationHistoryButton({
             </div>
           </section>
         </div>
-      )}
+      </HistoryOverlay>)}
     </>
   );
 }
+
+function HistoryOverlay({portal,children}:{portal:boolean;children:ReactNode}){return portal?createPortal(children,document.body):children;}
