@@ -587,13 +587,14 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
+        const sportsPlanName=data.sportsStaging?.planId?await tx.coursePointPlan.findFirst({where:{storeId,id:data.sportsStaging.planId},select:{name:true}}):null;
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? template.name,
+            nameSnapshot: source?.nameSnapshot ?? sportsPlanName?.name ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,

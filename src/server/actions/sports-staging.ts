@@ -1,5 +1,6 @@
 "use server";
 import { z } from "zod";
+import { sportsCompensation } from "@/lib/sports-staging-types";
 import { createHash } from "node:crypto";
 import { requireSportsStaging } from "@/lib/sports-staging";
 import type { SportsSnapshot, SportsLesson } from "@/lib/sports-staging-types";
@@ -136,6 +137,8 @@ export async function loadSportsStaging(): Promise<
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
+    await courseManager("teacher.compensation.read");
+    const compensationRows = await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""}});
     const fees = plans.map((p) => {
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {
@@ -150,6 +153,7 @@ export async function loadSportsStaging(): Promise<
         shared: p.allowShared,
         templateId: t?.id ?? "",
         snapshot: JSON.stringify(coursePlanValues.parse(p)),
+        compensation: (()=>{const parsed=sportsCompensation.safeParse((compensationRows.find(r=>r.templateId===t?.id)?.rules as unknown[])?.[0]);return parsed.success?parsed.data:undefined;})(),
       };
     });
     const lessons: SportsLesson[] = sessions.map((s) => {
@@ -357,6 +361,8 @@ export async function saveSportsFee(input: unknown) {
   try {
     const d = z
       .object({
+        compensation: sportsCompensation.optional(),
+        expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
         subject: id,
         name: z.string().trim().min(1).max(80),
@@ -390,6 +396,8 @@ export async function saveSportsFee(input: unknown) {
       isActive: base.isActive ?? true,
       templateIds: [],
       sportsSetup: {
+        compensation: d.compensation,
+        expectedCompensation: d.expectedCompensation,
         subject: d.subject,
         cost: d.cost,
         coachIds: d.coachIds,

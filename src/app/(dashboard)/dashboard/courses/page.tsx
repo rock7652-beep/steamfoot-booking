@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsProductionEnabled} from "@/lib/sports-staging";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
 import {SportsStagingWorkspace} from "@/components/admin/sports-staging-workspace";
@@ -111,7 +112,8 @@ export default async function CoursesPage({
   });
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey));
   // Catalog saves must not wait for the monthly schedule, rental or customer reads.
-  if (view === "catalog" && businessProfile === "MUSIC") {
+  const sportsNative = businessProfile === "FITNESS" && sportsNativePreview(storeId);
+  if (view === "catalog" && (businessProfile === "MUSIC" || sportsNative)) {
     const [subjects, displayOrders, canCreate, canEdit] = await Promise.all([
       coursePrisma.musicSubject.findMany({
         where: { storeId },
@@ -123,7 +125,7 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
     ]);
     const writable = user.role === "ADMIN" || user.storeId === storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const requested = query.date;
   const selected =
@@ -297,6 +299,7 @@ export default async function CoursesPage({
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
   const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
   templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
+  const sportsFixedRows=sportsNative?await coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string}>>`SELECT "sessionId",frequency FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
         by: ["requestKey"],
@@ -385,6 +388,8 @@ export default async function CoursesPage({
         rentalCustomers={rentalCustomers}
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
+        sportsNative={sportsNative}
+        sportsData={sportsNative && writable && (await Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean) ? await loadSportsStaging().then(r=>r.success?r.data:undefined) : undefined}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
@@ -393,8 +398,8 @@ export default async function CoursesPage({
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={[...sessions.map((s) => ({
           ...s,
-          isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
-          isBiweekly: biweeklyKeys.has(s.requestKey),
+          isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
+          isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           bookings: s.bookings.map((booking) => ({
@@ -402,7 +407,7 @@ export default async function CoursesPage({
             assignedCoachId: assignedByCustomer.get(booking.customerId ?? "") ?? null,
             checkedInAt: booking.checkedInAt?.toISOString() ?? null,
           })),
-          rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
+          rescheduledFromStartsAt: sportsNative&&!sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE")?null:s.rescheduledFromStartsAt?.toISOString() ?? null,
           rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
           previewFaded: s.releasedAt ? "異動／請假" as const : undefined,

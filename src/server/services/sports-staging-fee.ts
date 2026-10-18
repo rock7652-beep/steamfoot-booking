@@ -29,6 +29,9 @@ export async function prepareSportsFee(
         where: { id: prior.templateIds[0], storeId },
       })
     : null;
+  const priorRule=oldTemplate ? await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId,templateId:oldTemplate.id,staffId:""}}}) : null;
+  const expectedRules=d.expectedCompensation?[d.expectedCompensation]:[];
+  if(d.compensation && prior && JSON.stringify(priorRule?.rules??[])!==JSON.stringify(expectedRules) && JSON.stringify(priorRule?.rules)!==JSON.stringify([d.compensation]))throw new AppError("CONFLICT","計酬設定已更新，請重新開啟收費方式核對");
   const same =
     oldTemplate &&
     oldTemplate.musicSubjectId === d.subject &&
@@ -51,6 +54,11 @@ export async function prepareSportsFee(
         pointCost: unit === "POINT" ? d.cost : 1,
       },
     }));
+  if (d.compensation) {
+    const previous=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId,templateId:template.id,staffId:""}}});
+    if(previous && JSON.stringify(previous.rules)!==JSON.stringify([d.compensation]))await tx.courseCompensation.update({where:{storeId_templateId_staffId:{storeId,templateId:template.id,staffId:""}},data:{rules:[d.compensation],revision:{increment:1},updatedAt:new Date()}});
+    if(!previous)await tx.courseCompensation.create({data:{storeId,templateId:template.id,staffId:"",rules:[d.compensation]}});
+  }
   for (const coachId of d.coachIds) {
     const staff = await tx.$queryRaw<
       Array<{ id: string }>

@@ -1,4 +1,6 @@
 "use client";
+import {SportsScheduleFields} from "./sports-schedule-fields";
+import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -144,6 +146,8 @@ type Props = {
   canDelete?: boolean;
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
+  sportsNative?:boolean;
+  sportsData?:SportsSnapshot;
   businessProfile: "FITNESS" | "MUSIC";
   waitlistEnabled?: boolean;
   waitlistDefaultLimit?: number;
@@ -237,6 +241,8 @@ export function CourseWorkspace({
   rentalCustomers=[],
   rentalPermissions={customerRead:false,customerCreate:false,collect:false,correct:false,edit:false},
   cashbookShortcut,
+  sportsNative=false,
+  sportsData,
   businessProfile,
   waitlistEnabled = false,
   waitlistDefaultLimit = 5,
@@ -2010,6 +2016,7 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields initial={sportsData} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setPanel(null);go(date);router.refresh();}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
@@ -2037,12 +2044,12 @@ export function CourseWorkspace({
               <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">{scheduleCreated.map(date => <span key={date} className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-900">{date}</span>)}</div>
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
-            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && <>
+            {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && <>
               <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
-            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
+            {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
               <>
                 {!templates.length ? (
                   <>
@@ -2261,7 +2268,7 @@ export function CourseWorkspace({
               </footer>
             )}
           {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
-          {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
+          {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
             <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
               <button

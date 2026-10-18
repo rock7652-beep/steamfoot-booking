@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { RosterPreviewDiagnosticsProvider } from "@/components/admin/roster-preview-diagnostics";
 import { allowModuleRosterPreviewDiagnostics } from "@/lib/module-roster-preview-diagnostics";
@@ -250,6 +251,7 @@ export default async function DashboardLayout({
       pricingPlan={pricingPlan}
       effectiveFeatures={effectiveFeatures}
       featureStates={featureStates}
+      sportsNative={sportsNativePreview(effectiveStoreId??undefined)}
       musicEnabled={industryModule==="course" && !!effectiveStoreId && !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:effectiveStoreId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}})}
       userName={user.name ?? ""}
       roleLabel={roleLabel}

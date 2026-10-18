@@ -6,6 +6,8 @@ const m = vi.hoisted(() => ({
   card: vi.fn(),
   execute: vi.fn(),
   sessions: vi.fn(),
+  compensation:vi.fn(),
+  snapshot:vi.fn(),
 }));
 vi.mock("@/lib/sports-staging", () => ({
   requireSportsStaging: vi.fn(),
@@ -34,6 +36,8 @@ const sessions = Array.from({ length: 8 }, (_, i) => ({
 const tx = {
   $executeRaw: m.execute,
   courseSession: { findMany: m.sessions },
+  courseCompensation:{findUnique:m.compensation},
+  courseCompensationSnapshot:{upsert:m.snapshot},
   coursePointPlan: {
     findFirst: async () => ({ id: "plan", templateIds: ["template"] }),
   },
@@ -49,6 +53,7 @@ const rule = {
 beforeEach(() => {
   vi.clearAllMocks();
   m.sessions.mockResolvedValue(sessions);
+  m.compensation.mockResolvedValue(null);
   m.cards.mockResolvedValue([
     {
       id: "used",
@@ -98,4 +103,12 @@ it("rejects a batch with no sufficient card before creating any reservation", as
     attachSportsSessionRules(tx, actor, "request", rule),
   ).rejects.toThrow("額度");
   expect(m.reserve).not.toHaveBeenCalled();
+});
+
+it("captures each new hourly class independently without multiplying by pupils",async()=>{
+ m.sessions.mockResolvedValue(sessions.map(s=>({...s,coachId:"coach",endsAt:new Date(s.startsAt.getTime()+90*60000)})));
+ m.compensation.mockResolvedValue({rules:[{mode:"HOUR",value:600}],revision:2});
+ await attachSportsSessionRules(tx,actor,"request",rule);
+ expect(m.snapshot).toHaveBeenCalledTimes(8);
+ expect(m.snapshot.mock.calls[0][0].create).toMatchObject({storeId:"store",rule:{mode:"HOUR",value:600,calculationVersion:3,durationMinutes:90},revision:2});
 });

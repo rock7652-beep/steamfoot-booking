@@ -1,4 +1,5 @@
 "use client";
+import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
@@ -91,9 +92,11 @@ export function CourseMemberWorkspace({
   canMerge = false,
   canExport = false,
   canDiscount = false,
+  sportsData,
   music = false,
   sharedCardState = "ENABLED",
 }: {
+  sportsData?: SportsSnapshot;
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
   subjects?:{id:string;name:string;category:string;isActive:boolean}[];
@@ -286,7 +289,7 @@ export function CourseMemberWorkspace({
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
-          placeholder="搜尋方案"
+          placeholder={sportsData?"搜尋收費方式":"搜尋方案"}
           value={search}
           onChange={(e) => { setSelected([]);setSearch(e.target.value); setPage(0); }}
         />}
@@ -308,7 +311,7 @@ export function CourseMemberWorkspace({
           {sharingVisible && <select aria-label="共卡篩選" className={`${field} max-w-40`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
           {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>}
-        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?"教學項目篩選":"適用課程篩選"} className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?"全部教學項目":"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
@@ -319,7 +322,7 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : music ? "班型與學費" : "方案"}
+            ＋新增{view === "customers" ? "顧客" : sportsData ? "收費方式" : music ? "班型與學費" : "方案"}
           </button>
         )}
         {canAssign && (view === "customers" || planArea === "cards") && (
@@ -413,7 +416,7 @@ export function CourseMemberWorkspace({
               {customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
-                  ? planReadOnly&&plan ? plan.name : plan ? music ? "編輯班型與學費" : "編輯方案" : music ? "新增班型與學費" : "新增方案"
+                  ? planReadOnly&&plan ? plan.name : plan ? sportsData ? "編輯收費方式" : music ? "編輯班型與學費" : "編輯方案" : sportsData ? "新增收費方式" : music ? "新增班型與學費" : "新增方案"
                   : panel === "assign"
                     ? "購買方案"
                     : panel === "coach"
@@ -514,7 +517,7 @@ export function CourseMemberWorkspace({
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(courseTemplateLabel).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (
