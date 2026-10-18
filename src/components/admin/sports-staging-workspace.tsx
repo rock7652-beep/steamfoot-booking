@@ -1,4 +1,6 @@
 "use client";
+import { useSearchParams } from "next/navigation";
+import { sportsWorkspaceTab, sportsWorkspaceView } from "@/lib/sports-workspace-navigation";
 import {
   useState,
   useId,
@@ -47,10 +49,14 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function SportsStagingWorkspace({
   initial,
   production = false,
+  integratedNavigation = false,
+  initialView,
   storeName = "運動流程測試店",
 }: {
   initial: SportsSnapshot;
   production?: boolean;
+  integratedNavigation?: boolean;
+  initialView?: string;
   storeName?: string;
 }) {
   const [live, setLive] = useState(initial),
@@ -73,10 +79,23 @@ export function SportsStagingWorkspace({
       "DAY",
     ),
     weekEnd = addTaiwanDuration(base, 6, "DAY");
-  const [tab, setTab] = useState("課表"),
+  const searchParams = useSearchParams();
+  const [localTab, setLocalTab] = useState("課表"),
     [subjects, setSubjects] = useState<Subject[]>(initial.subjects),
     [fees, setFees] = useState<Fee[]>(initial.fees),
     [lessons, setLessons] = useState<Lesson[]>(initial.lessons);
+  const tab = integratedNavigation ? sportsWorkspaceTab(searchParams?.get("view") ?? initialView) : localTab;
+  function setTab(next: string) {
+    setLocalTab(next);
+    if (integratedNavigation) {
+      const url = new URL(window.location.href);
+      const view = sportsWorkspaceView(next);
+      if (view === "schedule") url.searchParams.delete("view");
+      else url.searchParams.set("view", view);
+      // Next supports native history updates; keep the same workspace/document.
+      window.history.replaceState(null, "", url);
+    }
+  }
   const faded = lessons
     .filter((l) => fixedKind(l.kind) && l.originalDate)
     .map((l) => ({
@@ -300,7 +319,7 @@ export function SportsStagingWorkspace({
   const selectedSubject = subjects.find((s) => s.id === editing),
     selectedFee = fees.find((f) => f.id === editing);
   return (
-    <div className="sports-staging">
+    <div className="sports-staging" data-sports-integrated={integratedNavigation ? "true" : undefined}>
       <div className="app">
         <aside className="sidebar">
           <div className="brand">

@@ -12,3 +12,8 @@ it('identifies real store and never labels real transactions as test data',()=>{
  if(process.env.SPORTS_ENABLE_CAPTURE==='1'){mkdirSync('artifacts/sports-production-enable',{recursive:true});writeFileSync('artifacts/sports-production-enable/presentation.html','<!doctype html><meta charset="utf-8"><style>body{margin:0;font-family:system-ui}'+readFileSync('src/components/admin/sports-staging.css','utf8')+'</style>'+html);}
 });
 it('keeps QA labels in isolated mode',()=>{expect(renderToStaticMarkup(React.createElement(SportsStagingWorkspace,{initial}))).toContain('隔離測試站');});
+
+it.each([['catalog','教學項目'],['plans','收費方式'],['schedule','課表']])('opens the integrated %s entry on the correct tab',(view,tab)=>{
+ const html=renderToStaticMarkup(React.createElement(SportsStagingWorkspace,{initial,integratedNavigation:true,initialView:view}));
+ expect(html).toContain(`<h1>${tab}</h1>`);expect(html).toContain(`aria-label="${tab}" aria-current="page"`);
+});

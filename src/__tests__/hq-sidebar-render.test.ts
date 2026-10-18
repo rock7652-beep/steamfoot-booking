@@ -187,3 +187,16 @@ it.each(["steamfoot", "spa", "course"] as const)("shows granted %s store operati
   expect(html).toContain("操作紀錄");
   expect(html).not.toContain("操作與登入紀錄");
 });
+
+it('shows all three integrated Preview entries in normal store navigation',()=>{
+ context.path='/s/sports-live-flow/admin/dashboard';context.search='';
+ const html=renderToStaticMarkup(createElement(DashboardShell,{
+  industryModule:'course',industryModuleId:'course',sportsWorkspacePreview:true,
+  isOwner:true,permissions:[...ALL_PERMISSIONS],pricingPlan:'ALLIANCE',userName:'驗收',roleLabel:'老闆',logoutButton:null,
+  effectiveFeatures:Object.fromEntries(Object.values(FEATURES).map(key=>[key,true])),
+ }));
+ expect(html).toContain('href="/s/sports-live-flow/admin/dashboard/courses"');
+ expect(html).toContain('href="/s/sports-live-flow/admin/dashboard/courses?view=catalog"');
+ expect(html).toContain('href="/s/sports-live-flow/admin/dashboard/courses?view=plans"');
+ expect(html).toContain('教學項目');expect(html).toContain('收費方式');expect(html).not.toContain('課程管理');expect(html).not.toContain('方案管理');
+});
