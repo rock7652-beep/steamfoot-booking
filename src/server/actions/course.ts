@@ -699,7 +699,9 @@ export async function moveCourseSessions(input: unknown) {
         : candidates;
       if (!sessions.length) throw new AppError("NOT_FOUND", "沒有可調整的課程");
 
-      const duration = native&&d.durationMinutes!==undefined?d.durationMinutes*60000:source.endsAt.getTime() - source.startsAt.getTime();
+      const duration = native&&d.restore&&source.rescheduledFromStartsAt&&source.rescheduledFromEndsAt
+        ?source.rescheduledFromEndsAt.getTime()-source.rescheduledFromStartsAt.getTime()
+        :native&&d.durationMinutes!==undefined?d.durationMinutes*60000:source.endsAt.getTime() - source.startsAt.getTime();
       const shift = targetStart.getTime() - source.startsAt.getTime();
       const changes = sessions.map((session) => ({
         session,
