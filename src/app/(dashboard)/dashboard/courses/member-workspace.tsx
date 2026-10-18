@@ -352,7 +352,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? <CourseCustomerList sportsNative={!!sportsData} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}

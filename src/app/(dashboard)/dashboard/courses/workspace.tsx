@@ -995,7 +995,7 @@ export function CourseWorkspace({
           {businessProfile === "MUSIC" && scheduleLegend}
             {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
+                <strong>✂ {moveClipboard.label} · {moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)):""} · {moveClipboard.durationMinutes}分</strong>
                 <span className="text-xs text-indigo-700">選白格貼上</span>
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
@@ -1053,7 +1053,7 @@ export function CourseWorkspace({
                             : "bg-white text-earth-400"
                     }`}
                   >
-                    <button type="button" disabled={pending} aria-label={sportsNative&&moveClipboard?`${date} 貼上課程`:`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className={`${sportsNative?"absolute inset-0":"absolute inset-x-0 top-0 h-11"} focus-visible:ring-2 focus-visible:ring-primary-500`} onClick={() => {go(date);if(sportsNative&&moveClipboard){pasteMove({date,time:"09:00",roomId:moveClipboard.roomId,coachId:moveClipboard.coachId});return;}open("day");}} />
+                    <button type="button" disabled={pending} aria-label={sportsNative&&moveClipboard?`${date} 貼上課程`:`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className={`${sportsNative?"absolute inset-0":"absolute inset-x-0 top-0 h-11"} focus-visible:ring-2 focus-visible:ring-primary-500`} onClick={() => {go(date);if(sportsNative&&moveClipboard){pasteMove({date,time:moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)).slice(11,16):"09:00",roomId:moveClipboard.roomId,coachId:moveClipboard.coachId});return;}open("day");}} />
                     <span className={`pointer-events-none shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
