@@ -9,6 +9,7 @@
 .member [data-search-results] button{min-height:44px;padding:6px 10px;}
 .member [data-search-results] button>span:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;}
 .trial>p,.trial>[data-trial-search],.trial>[data-trial-results],.trial>[role="status"]{grid-column:1/-1;}
+.trial>[data-trial-results]{max-height:128px;}
 .trial>[data-trial-identity]{display:contents;}
 .member textarea,.trial textarea{min-height:44px;height:44px;resize:vertical;}
 @container(min-width:600px){

@@ -1017,7 +1017,7 @@ export function CourseRoster({
               )}
             </div>
             {normalizedTrialQuery && (
-              <div data-trial-results className="max-h-32 divide-y overflow-y-auto rounded-lg border border-earth-200">
+              <div data-trial-results className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
                 {filteredTrialCustomers.length ? (
                   filteredTrialCustomers.map((customer) => (
                     <label
