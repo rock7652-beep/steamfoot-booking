@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
-const m = vi.hoisted(() => ({ user: vi.fn(), store: vi.fn(), permission: vi.fn(), enabled: vi.fn(), load: vi.fn(), sessions: vi.fn(), context: vi.fn(), preview: vi.fn() }));
-vi.mock('@/lib/sports-workspace-preview', () => ({ sportsWorkspacePreviewEnabled: m.preview }));
+const m = vi.hoisted(() => ({ user: vi.fn(), store: vi.fn(), permission: vi.fn(), enabled: vi.fn(), load: vi.fn(), sessions: vi.fn(), context: vi.fn() }));
 vi.mock('@/lib/session', () => ({ getCurrentUser: m.user }));
 vi.mock('@/lib/store', () => ({ getActiveStoreForRead: m.store }));
 vi.mock('@/lib/permissions', () => ({ checkPermission: m.permission }));
@@ -35,7 +34,7 @@ function find(node: unknown, type: string): ReactElement<Record<string, unknown>
  return find(element.props?.children, type);
 }
 beforeEach(() => {
- vi.clearAllMocks(); m.preview.mockReturnValue(false);
+ vi.clearAllMocks();
  m.user.mockResolvedValue({ id: 'owner', role: 'OWNER', staffId: 'staff', storeId: 'parent' });
  m.store.mockResolvedValue('child'); m.permission.mockResolvedValue(true); m.enabled.mockReturnValue(true);
  m.context.mockResolvedValue({ isViewMode: true }); m.sessions.mockResolvedValue([]);
@@ -68,18 +67,4 @@ it('does not bypass backend refusal for a writable store', async () => {
  const page = await CoursesPage({ searchParams: Promise.resolve({}) });
  expect(page.props).toMatchObject({ role: 'alert', children: '子店查看模式僅供查閱，不可執行操作' });
  expect(m.load).toHaveBeenCalledTimes(1); expect(m.sessions).not.toHaveBeenCalled();
-});
-
-it.each([undefined, 'schedule', 'catalog', 'plans'])('routes authorized Preview %s through the integrated workspace before legacy views', async view => {
- m.preview.mockReturnValue(true);m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',storeId:'child'});
- m.load.mockResolvedValue({success:true,data:{lessons:[]}});
- const page=await CoursesPage({searchParams:Promise.resolve({view})});
- expect(find(page,'sports-workspace')?.props).toMatchObject({integratedNavigation:true,initialView:view});
- expect(m.load).toHaveBeenCalledTimes(1);expect(m.sessions).not.toHaveBeenCalled();
-});
-it('keeps child-store Preview viewing read-only',async()=>{
- m.preview.mockReturnValue(true);
- const page=await CoursesPage({searchParams:Promise.resolve({})});
- expect(find(page,'legacy-workspace')?.props).toMatchObject({canCreate:false,canEdit:false,canDelete:false});
- expect(m.load).not.toHaveBeenCalled();
 });

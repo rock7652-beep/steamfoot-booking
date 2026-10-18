@@ -1,5 +1,4 @@
 "use client";
-import { useSportsWorkspaceView, selectSportsWorkspaceView, sportsWorkspaceRouteQuery } from "@/lib/sports-workspace-location";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
@@ -641,7 +640,6 @@ interface DashboardShellProps {
   courseNoticeStoreId?: string | null;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
-  sportsWorkspacePreview?: boolean;
   operationGuidePreview?: boolean;
   /** True only for the server-authorized, unselected HQ scope. */
   hqOperationGuide?: boolean;
@@ -682,7 +680,6 @@ export default function DashboardShell({
   courseNoticeStoreId,
   cashDrawerStoreId,
   musicEnabled=false,
-  sportsWorkspacePreview=false,
   operationGuidePreview = false,
   hqOperationGuide = false,
   industryModule = "steamfoot",
@@ -707,9 +704,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
-  const sportsView = useSportsWorkspaceView(searchParams.get("view") ?? "schedule");
-  const routeQuery = sportsWorkspacePreview && rawPathname.endsWith("/dashboard/courses")
-    ? sportsWorkspaceRouteQuery(searchParams.toString(), sportsView) : searchParams.toString();
+  const routeQuery = searchParams.toString();
   const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
   const isEmbeddedPreview = useSyncExternalStore(
     () => () => {},
@@ -726,18 +721,6 @@ export default function DashboardShell({
   }, []);
   const showReadFeedback = (event: ReactMouseEvent<HTMLAnchorElement>, label: string) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (sportsWorkspacePreview && document.querySelector('[data-sports-integrated="true"]')) {
-      const current = new URL(window.location.href);
-      const next = new URL(event.currentTarget.href);
-      if (next.origin === current.origin && next.pathname === current.pathname &&
-          [null, "schedule", "catalog", "plans"].includes(next.searchParams.get("view"))) {
-        event.preventDefault();
-        // These three items select tabs in the already-authorized workspace.
-        selectSportsWorkspaceView(next.searchParams.get("view") ?? "schedule");
-        setMobileOpen(false);
-        return;
-      }
-    }
     setReadingPage(label);
   };
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -824,7 +807,7 @@ export default function DashboardShell({
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
-      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? (sportsWorkspacePreview ? "課表" : "課表排程") : "預約管理" },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
       { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
@@ -834,11 +817,11 @@ export default function DashboardShell({
     ];
     const management: NavItem[] = [
       { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: course && sportsWorkspacePreview ? "收費方式" : course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: musicEnabled || sportsWorkspacePreview ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: musicEnabled ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
@@ -867,7 +850,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsWorkspacePreview, effectiveFeatures, canOpenCourseSettings]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);
@@ -937,7 +920,7 @@ export default function DashboardShell({
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    setMobileOpen(false);
+    setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [rawPathname, routeQuery]);
 
   // Prevent body scroll when mobile sidebar is open

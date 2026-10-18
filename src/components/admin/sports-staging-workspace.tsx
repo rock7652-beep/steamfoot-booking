@@ -1,6 +1,4 @@
 "use client";
-import { useSportsWorkspaceView, selectSportsWorkspaceView } from "@/lib/sports-workspace-location";
-import { sportsWorkspaceTab, sportsWorkspaceView } from "@/lib/sports-workspace-navigation";
 import {
   useState,
   useId,
@@ -49,14 +47,10 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function SportsStagingWorkspace({
   initial,
   production = false,
-  integratedNavigation = false,
-  initialView,
   storeName = "運動流程測試店",
 }: {
   initial: SportsSnapshot;
   production?: boolean;
-  integratedNavigation?: boolean;
-  initialView?: string;
   storeName?: string;
 }) {
   const [live, setLive] = useState(initial),
@@ -79,18 +73,10 @@ export function SportsStagingWorkspace({
       "DAY",
     ),
     weekEnd = addTaiwanDuration(base, 6, "DAY");
-  const locationView = useSportsWorkspaceView(initialView);
-  const [localTab, setLocalTab] = useState("課表"),
+  const [tab, setTab] = useState("課表"),
     [subjects, setSubjects] = useState<Subject[]>(initial.subjects),
     [fees, setFees] = useState<Fee[]>(initial.fees),
     [lessons, setLessons] = useState<Lesson[]>(initial.lessons);
-  const tab = integratedNavigation ? sportsWorkspaceTab(locationView) : localTab;
-  function setTab(next: string) {
-    setLocalTab(next);
-    if (integratedNavigation) {
-      selectSportsWorkspaceView(sportsWorkspaceView(next));
-    }
-  }
   const faded = lessons
     .filter((l) => fixedKind(l.kind) && l.originalDate)
     .map((l) => ({
@@ -314,7 +300,7 @@ export function SportsStagingWorkspace({
   const selectedSubject = subjects.find((s) => s.id === editing),
     selectedFee = fees.find((f) => f.id === editing);
   return (
-    <div className="sports-staging" data-sports-integrated={integratedNavigation ? "true" : undefined}>
+    <div className="sports-staging">
       <div className="app">
         <aside className="sidebar">
           <div className="brand">

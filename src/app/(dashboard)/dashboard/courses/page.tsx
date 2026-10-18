@@ -1,4 +1,3 @@
-import { sportsWorkspacePreviewEnabled } from "@/lib/sports-workspace-preview";
 import {sportsProductionEnabled} from "@/lib/sports-staging";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
 import {SportsStagingWorkspace} from "@/components/admin/sports-staging-workspace";
@@ -51,16 +50,6 @@ export default async function CoursesPage({
       : query.view === "plans" ? FEATURES.PLAN_MANAGEMENT
       : ["analytics", "settings", "operations"].includes(query.view ?? "") ? undefined : FEATURES.BASIC_BOOKING;
     if (routeFeature) await requireStoreFeature(routeStoreId, routeFeature);
-  }
-  // Preview-only normal navigation; legacy and production entry behavior stays intact.
-  if (sportsWorkspacePreviewEnabled(routeStoreId) &&
-      [undefined, "schedule", "catalog", "plans"].includes(query.view) &&
-      (routeUser.role === "ADMIN" || routeUser.storeId === routeStoreId) &&
-      (await Promise.all((["booking.read", "plans.edit", "customer.read", "wallet.read", "transaction.read"] as const)
-        .map(permission => checkPermission(routeUser.role, routeUser.staffId, permission)))).every(Boolean)) {
-    const result = await loadSportsStaging();
-    if (!result.success) return <p role="alert">{result.error}</p>;
-    return <SportsStagingWorkspace initial={result.data} integratedNavigation initialView={query.view} />;
   }
   if (query.view === "analytics") return <CourseAnalyticsPage params={query}/>;
   if (query.view === "customers" || query.view === "plans")
