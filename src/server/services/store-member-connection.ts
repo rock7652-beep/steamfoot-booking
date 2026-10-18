@@ -8,7 +8,7 @@ import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-l
 import { connectionConflict } from "@/lib/store-member-connection";
 import type { InventoryContext } from "./inventory";
 import { sha256 } from "./line-rebind";
-import { LIFF_LOGIN_FIRST_CAPTURE_REASON, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "./liff-login-rebind";
+import { LIFF_LOGIN_FIRST_CAPTURE_REASON, isUntilUsedVerifiedLoginGrant, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "./liff-login-rebind";
 
 /** Phone selects a row; only a prior staff authorization may activate it. */
 export async function completeAuthorizedFirstStoreLogin(input: { storeId: string; phone: string; candidateLineUserId: string }) {
@@ -170,11 +170,11 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
       const now = new Date();
       // The partial unique index includes expired rows until their status is
       // transitioned. Preserve any still-active rebind of either kind.
-      await tx.lineRebindRequest.updateMany({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
+      await tx.lineRebindRequest.updateMany({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, untilUsed: false, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
       const [loginAccount, loginLink, activeCapture] = await Promise.all([
         tx.account.findFirst({ where: { userId, provider: "line" }, select: { id: true } }),
         tx.customerIdentityLink.findFirst({ where: { customerId, provider: "line" }, select: { id: true } }),
-        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { gt: now } }, select: { id: true } }),
+        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, OR: [{ expiresAt: { gt: now } }, { untilUsed: true }] }, select: { id: true } }),
       ]);
       if (!loginAccount && !loginLink && !activeCapture) {
         await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId, createdByUserId: ctx.user.id, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, phoneHash: sha256(request.phone), oldUserIdHash: null, status: "PENDING_CAPTURE", expiresAt: new Date(Date.now() + 24 * 60 * 60_000) } });
@@ -193,12 +193,13 @@ export async function readStoreMemberConnection(storeId: string, customerId: str
   const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(l => l.userId)]);
   const pending = connections.filter(c => c.status === "PENDING" && c.expiresAt > new Date());
   const grants = await prisma.lineRebindRequest.findMany({ where: { storeId, customerId,
-    reason: { startsWith: "LIFF_LOGIN_" } }, select: { status: true, expiresAt: true, consumedAt: true }, orderBy: { createdAt: "desc" }, take: 1 });
+    reason: { startsWith: "LIFF_LOGIN_" } }, select: { status: true, expiresAt: true, consumedAt: true, untilUsed: true, reason: true }, orderBy: { createdAt: "desc" }, take: 1 });
   const grant = grants[0];
   const latestLoginRequest = connections.find(c => c.channelKey.startsWith("login:"));
   const login = pending.some(c => c.channelKey.startsWith("login:")) ? "待店家核對登入身分"
     : latestLoginRequest?.status === "PENDING" ? "登入確認申請已過期，請顧客重新提交並核對"
     : grant?.consumedAt ? "登入連結已恢復，尚需顧客確認實際登入"
+    : grant?.status === "PENDING_CAPTURE" && isUntilUsedVerifiedLoginGrant(grant) ? "已核對，登入前持續有效；等待顧客完成登入"
     : grant?.status === "PENDING_CAPTURE" && grant.expiresAt > new Date() ? "已授權，等待顧客重新進入並完成登入"
     : connections.some(c => c.channelKey.startsWith("login:")) || grant ? "恢復申請已失效，請顧客重新提交並核對"
     : "尚未驗證本次登入";

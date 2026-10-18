@@ -1,3 +1,7 @@
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/member-login-until-used-20261018")) {
+  throw new Error("Until-used Login policy review requires approved schema rollout; hosted database work is disabled.");
+}
+
 // Review implementation only. No deployment or database work.
 if([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("codex/sports-production-enable")){
  throw new Error("Sports enablement review branch deployment is disabled.");

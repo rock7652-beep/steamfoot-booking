@@ -20,7 +20,7 @@ interface LineBindingSectionProps {
   canManageLineRebind: boolean;
   canRunLineRebindDryRun: boolean;
   activeLineRebindRequest: {
-    id: string; status: string; capturedAt: string | null; expiresAt: string; userIdHashPrefix: string | null;
+    id: string; status: string; capturedAt: string | null; expiresAt: string; untilUsed?: boolean; userIdHashPrefix: string | null;
   } | null;
 }
 
@@ -260,7 +260,7 @@ export function LineBindingSection({
           <p className="font-medium">受控 LINE 重新綁定（僅捕捉候選身份）</p>
           {!canRunLineRebindDryRun && <p className="mt-1">此店 LINE Bot 尚未完成安全識別設定，暫時無法執行重新綁定檢查。</p>}
           {activeLineRebindRequest ? <>
-            <p className="mt-1">狀態：{activeLineRebindRequest.status}；到期：{new Date(activeLineRebindRequest.expiresAt).toLocaleString("zh-TW")}</p>
+            <p className="mt-1">狀態：{activeLineRebindRequest.status}；{activeLineRebindRequest.untilUsed ? "登入前持續有效" : `到期：${new Date(activeLineRebindRequest.expiresAt).toLocaleString("zh-TW")}`}</p>
             {activeLineRebindRequest.capturedAt && <p className="mt-1">已捕捉；userId hash：{activeLineRebindRequest.userIdHashPrefix ?? "—"}</p>}
             {canRunLineRebindDryRun && activeLineRebindRequest.status === "CANDIDATE_CAPTURED" && <button onClick={handleDryRun} disabled={pending} className="mt-2 mr-3 text-amber-800 underline disabled:opacity-50">執行安全檢查</button>}
             {activeDryRun?.overall === "READY_FOR_REBIND" && <button onClick={() => setExecuteConfirmOpen(true)} disabled={pending} className="mt-2 mr-3 text-red-800 underline disabled:opacity-50">確認正式重新綁定</button>}

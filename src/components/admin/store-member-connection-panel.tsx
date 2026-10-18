@@ -37,7 +37,7 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
         ...current,
         data: {
           ...current.data,
-          ...(kind === "login" ? { login: "已授權，等待顧客重新進入並完成登入" } : {
+          ...(kind === "login" ? { login: "已核對，登入前持續有效；等待顧客完成登入" } : {
             membership: "已連結",
             notification: "本店已確認，發送前再檢查通道",
           }),

@@ -1440,6 +1440,7 @@ model LineRebindRequest {
   oldUserIdHash     String?
   status            LineRebindRequestStatus @default(PENDING_CAPTURE)
   expiresAt         DateTime
+  untilUsed         Boolean                 @default(false) // Only an exact verified Login recovery may opt out of expiry.
   capturedAt        DateTime?
   consumedAt        DateTime?
   expiredAt         DateTime?
