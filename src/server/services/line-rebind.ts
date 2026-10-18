@@ -78,6 +78,7 @@ export async function createLineRebindRequest(input: {
             storeId: input.storeId,
             customerId: input.customerId,
             status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
+            untilUsed: false,
             expiresAt: { lte: now },
           },
           data: { status: "EXPIRED", expiredAt: now },

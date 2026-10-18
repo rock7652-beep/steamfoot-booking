@@ -1,12 +1,22 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { assertReviewedReleaseEnvironment, assertModuleRosterPreviewEnvironment, MODULE_ROSTER_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment, assertModuleRosterPreviewEnvironment, MODULE_ROSTER_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH, MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: MODULE_ROSTER_PREVIEW_BRANCH,
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: pool, DIRECT_URL: direct };
+
+it("allows the approved until-used Login branch only with both isolated database connections", () => {
+  const candidate = { ...valid, VERCEL_GIT_COMMIT_REF: MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH };
+  expect(assertReviewedReleaseEnvironment(candidate)).toBe("module-roster-preview");
+  for (const key of ["DATABASE_URL", "DIRECT_URL"]) {
+    expect(() => assertReviewedReleaseEnvironment({ ...candidate, [key]: undefined })).toThrow("existing isolated database");
+    expect(() => assertReviewedReleaseEnvironment({ ...candidate, [key]: direct.replace("ttworfzgwejdeolegkxl", "production-project") })).toThrow("existing isolated database");
+  }
+  expect(() => assertReviewedReleaseEnvironment({ ...candidate, VERCEL_ENV: "production" })).toThrow();
+});
 
 it("accepts the authorized walk-in participant review branch only on isolated Preview", () => {
   const candidate = { ...valid, VERCEL_GIT_COMMIT_REF: WALK_IN_PARTICIPANT_PREVIEW_BRANCH };
@@ -43,13 +53,13 @@ it("does not let mocked unit-test flags bypass a deployed Preview check", () => 
   expect(() => assertReviewedReleaseEnvironment({ ...valid, NODE_ENV: "test", VITEST: "true", VITEST_WORKER_ID: "1", DIRECT_URL: undefined })).toThrow();
 });
 
-it("exits the build gate before any Prisma construction or migration subprocess", () => {
+it.each([MODULE_ROSTER_PREVIEW_BRANCH, MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH])("exits %s before any Prisma construction or migration subprocess", branch => {
   const tripwire = "ROSTER_PREVIEW_UNEXPECTED_DATABASE_OR_SUBPROCESS";
   const stub = `export class PrismaClient { constructor() { throw Error(${JSON.stringify(tripwire)}); } }`;
   const processStub = `export function execFileSync() { throw Error(${JSON.stringify(tripwire)}); }`;
   const preload = `import {registerHooks} from 'node:module'; registerHooks({resolve(s,c,n){const x=s==='@prisma/client'?${JSON.stringify(stub)}:s==='node:child_process'?${JSON.stringify(processStub)}:null;return x?{url:'data:text/javascript,'+encodeURIComponent(x),shortCircuit:true}:n(s,c);}});`;
   const result = spawnSync(process.execPath, ["--import", `data:text/javascript,${encodeURIComponent(preload)}`, "scripts/ci-migrate.mjs"], {
-    env: { ...process.env, ...valid, GUIDE_UI_PREVIEW: "", WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", PRODUCTION_MIGRATION_TARGET: "must-not-run" },
+    env: { ...process.env, ...valid, VERCEL_GIT_COMMIT_REF: branch, GUIDE_UI_PREVIEW: "", WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", PRODUCTION_MIGRATION_TARGET: "must-not-run" },
     encoding: "utf8", timeout: 10000,
   });
   expect(result.error).toBeUndefined(); expect(result.status).toBe(0);

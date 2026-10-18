@@ -21,6 +21,11 @@ it("shows an expired grant as requiring a new submission and review", async () =
   m.grants.mockResolvedValue([{ status: "PENDING_CAPTURE", consumedAt: null, expiresAt: new Date(0) }]);
   expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "恢復申請已失效，請顧客重新提交並核對" });
 });
+it("keeps an exact staff-approved until-used recovery available regardless of its old deadline", async () => {
+  m.grants.mockResolvedValue([{ status: "PENDING_CAPTURE", consumedAt: null, expiresAt: new Date(0), untilUsed: true,
+    reason: "LIFF_LOGIN_CHANNEL_MIGRATION_V1:verified:" + "a".repeat(64) }]);
+  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "已核對，登入前持續有效；等待顧客完成登入" });
+});
 it("reports consumed recovery as a restored link rather than proven session success", async () => {
   m.grants.mockResolvedValue([{ status: "CONSUMED", consumedAt: new Date(), expiresAt: new Date() }]);
   expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "登入連結已恢復，尚需顧客確認實際登入" });

@@ -13,6 +13,9 @@ export function verifiedLiffLoginRebindReason(storeId: string, candidateLineUser
 }
 
 export const LIFF_LOGIN_FIRST_CAPTURE_REASON = "LIFF_LOGIN_FIRST_CAPTURE_V1";
+export function isUntilUsedVerifiedLoginGrant(grant: { untilUsed?: boolean; reason?: string }) {
+  return grant.untilUsed === true && /^LIFF_LOGIN_(CHANNEL_MIGRATION|FIRST_CAPTURE)_V1:verified:[a-f0-9]{64}$/.test(grant.reason ?? "");
+}
 export const RECENT_LIFF_AUTO_MIGRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type AuthorizedLiffLoginRebindResult =
@@ -206,7 +209,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           AND "customerId" = ${input.customerId}
           AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
           AND ("reason" = ${LIFF_LOGIN_REBIND_REASON} OR "reason" = ${pinnedReason})
-          AND "expiresAt" > ${now}
+          AND ("expiresAt" > ${now} OR ("untilUsed" = true AND "reason" = ${pinnedReason}))
         ORDER BY "createdAt" DESC
         LIMIT 2
         FOR UPDATE
@@ -226,6 +229,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           phoneHash: true,
           oldUserIdHash: true,
           expiresAt: true,
+          untilUsed: true,
           consumedAt: true,
         },
       });
@@ -233,7 +237,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         !request ||
         request.status !== "PENDING_CAPTURE" ||
         ![LIFF_LOGIN_REBIND_REASON, pinnedReason].includes(request.reason) ||
-        request.expiresAt <= now ||
+        (!isUntilUsedVerifiedLoginGrant(request) && request.expiresAt <= now) ||
         request.consumedAt ||
         request.storeId !== input.storeId ||
         request.customerId !== input.customerId ||
@@ -419,7 +423,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           id: request.id,
           status: "PENDING_CAPTURE",
           consumedAt: null,
-          expiresAt: { gt: now },
+          OR: [{ expiresAt: { gt: now } }, { untilUsed: true, reason: pinnedReason }],
         },
         data: { status: "CONSUMED", consumedAt: now },
       });
@@ -489,13 +493,13 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
           AND "customerId" = ${input.customerId}
           AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
           AND ("reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON} OR "reason" = ${pinnedReason})
-          AND "expiresAt" > ${now}
+          AND ("expiresAt" > ${now} OR ("untilUsed" = true AND "reason" = ${pinnedReason}))
         ORDER BY "createdAt" DESC LIMIT 2 FOR UPDATE
       `;
       if (requests.length === 0) return { status: "not_authorized" as const };
       if (requests.length !== 1) throw new RebindRejected("MULTIPLE_ACTIVE_REQUESTS");
       const request = await tx.lineRebindRequest.findUnique({ where: { id: requests[0].id } });
-      if (!request || ![LIFF_LOGIN_FIRST_CAPTURE_REASON, pinnedReason].includes(request.reason) || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
+      if (!request || request.status !== "PENDING_CAPTURE" || request.storeId !== input.storeId || request.customerId !== input.customerId || ![LIFF_LOGIN_FIRST_CAPTURE_REASON, pinnedReason].includes(request.reason) || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || (!isUntilUsedVerifiedLoginGrant(request) && request.expiresAt <= now)) {
         throw new RebindRejected("REQUEST_STATE_CHANGED");
       }
       const lockedCustomers = await tx.$queryRaw<Array<{ id: string }>>`
@@ -525,7 +529,7 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
       await tx.account.create({ data: { userId: ownerUserId, type: "oauth", provider: "line", providerAccountId: input.candidateLineUserId } });
       await tx.customerIdentityLink.create({ data: { userId: ownerUserId, storeId: customer.storeId, customerId: customer.id, provider: "line", providerAccountId: input.candidateLineUserId, lineUserId: input.candidateLineUserId } });
       const consumed = await tx.lineRebindRequest.updateMany({
-        where: { id: request.id, status: "PENDING_CAPTURE", consumedAt: null, expiresAt: { gt: now } },
+        where: { id: request.id, status: "PENDING_CAPTURE", consumedAt: null, OR: [{ expiresAt: { gt: now } }, { untilUsed: true, reason: pinnedReason }] },
         data: { status: "CONSUMED", consumedAt: now },
       });
       if (consumed.count !== 1) throw new RebindRejected("REQUEST_COMPARE_AND_SET_FAILED");
