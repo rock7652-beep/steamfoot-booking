@@ -5,6 +5,8 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
+import {cache} from "react";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -52,6 +54,8 @@ const getCachedStoreFeatureEntitlement = unstable_cache(
   { revalidate: 60, tags: [CACHE_TAGS.storeFeatureEntitlements] },
 );
 
+const previewEntitlements=cache((storeId:string)=>prisma.storeFeatureEntitlement.findMany({where:{storeId},select:{featureKey:true,status:true,startsAt:true,expiresAt:true}}));
+
 export async function getActiveStoreFeatureEntitlement(
   storeId: string,
   feature: FeatureKey,
@@ -59,7 +63,7 @@ export async function getActiveStoreFeatureEntitlement(
 ): Promise<StoreFeatureEntitlementFields | null> {
   if (!isFeatureKey(feature)) return null;
 
-  const entitlement = await getCachedStoreFeatureEntitlement(storeId, feature);
+  const entitlement = sportsNativePreview(storeId)?(await previewEntitlements(storeId)).find(row=>row.featureKey===feature)??null:await getCachedStoreFeatureEntitlement(storeId, feature);
   if (!entitlement) return null;
 
   if (entitlement.startsAt && entitlement.startsAt > now) return null;
