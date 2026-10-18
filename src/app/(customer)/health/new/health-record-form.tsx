@@ -138,7 +138,7 @@ export function HealthRecordForm({
       <button
         type="submit"
         disabled={pending}
-        className={`${compact?"min-h-11 ml-auto w-auto":"min-h-[52px] w-full"} flex items-center justify-center rounded-lg bg-primary-600 px-5 text-base font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70`}
+        className={compact?"flex min-h-11 ml-auto w-auto items-center justify-center rounded-lg bg-primary-600 px-5 text-base font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70":"flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70"}
       >
         {pending
           ? "正在儲存…"
