@@ -1061,7 +1061,7 @@ export function CourseWorkspace({
             </>
           ) : (
             <>
-            {businessProfile === "MUSIC" && moveClipboard && (
+            {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
                 <span className="text-xs text-indigo-700">選白格貼上</span>
@@ -2397,10 +2397,10 @@ export function CourseWorkspace({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
+                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && dialogSession.rescheduledFromStartsAt && (
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
                   )}
-                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
+                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && !moveClipboard && (
                     <button type="button" className={primary} onClick={() => {
                       if (dialogSession.isFixed) {
                         setMoveChoice(dialogSession);

@@ -815,9 +815,8 @@ export async function moveCourseSessions(input: unknown) {
       return { count: changes.length };
     });
 
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
-    revalidatePath("/book");
+    kickCoachNotifications(storeId);
+    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(storeId)){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/book");}
     return { success: true as const, data: result };
   } catch (error) {
     return handleCourseActionError(error);
