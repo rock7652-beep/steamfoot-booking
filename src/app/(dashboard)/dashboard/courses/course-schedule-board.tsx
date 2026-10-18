@@ -447,6 +447,11 @@ export function CourseScheduleBoard({
   readOnly = false,
   replica = false,
 }: Props) {
+  function releasedSeed(date:string,time:string,resourceId:string,view:ResourceView) {
+    if(!sportsNative)return {};
+    const source=sessions.map(s=>s.previewFaded?s:originalPlace(s)).find(s=>s&&(view==="room"?s.roomId:s.coachId)===resourceId&&sessionDate(s)===date&&minuteOfDay(time)>=minuteOfDay(hhmm(s.startsAt))&&minuteOfDay(time)<minuteOfDay(hhmm(s.endsAt)));
+    return source?{roomId:source.roomId,coachId:source.coachId}:{};
+  }
   function openCard(session:Session,date:string) {
     if(sportsNative&&session.previewFaded){if(canCreate&&!pending&&!readOnly)onOpenEmpty({date,time:hhmm(session.startsAt),roomId:session.roomId,coachId:session.coachId,durationMinutes:Math.round((new Date(session.endsAt).getTime()-new Date(session.startsAt).getTime())/60000),single:true});return;}
     onOpenSession(session.id,date);
@@ -581,7 +586,7 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30,...(sportsNative?{single:true}:{})})} className={`group relative touch-manipulation min-h-11 hover:z-20 focus-visible:z-20 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative touch-manipulation min-h-11 hover:z-20 focus-visible:z-20 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -964,7 +969,7 @@ export function CourseScheduleBoard({
                                        : matches.length === 1
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
-                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?30:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
+                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?30:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id}),...releasedSeed(selectedDate,startTime,resource.id,resourceView)}))}
                                  className={`group relative hover:z-20 focus-visible:z-20 touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}
