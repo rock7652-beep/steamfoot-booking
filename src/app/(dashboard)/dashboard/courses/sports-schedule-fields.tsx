@@ -7,9 +7,9 @@ import {sportsStagingCommand} from "@/server/actions/sports-staging";
 import {DashboardLink} from "@/components/dashboard-link";
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 /** Music's scheduling arrangement inside the existing course sheet, backed by sports transactions. */
-export function SportsScheduleFields({initial,date,seed={},requestKey,onGuard,onCreated}:{initial:SportsSnapshot;date:string;seed?:{time?:string;roomId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
+export function SportsScheduleFields({initial,date,seed={},requestKey,onGuard,onCreated}:{initial:SportsSnapshot;date:string;seed?:{single?:boolean;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
  const live=initial,ready=true;const [error,setError]=useState("");
- const [kind,setKind]=useState("每週固定"),[enrollment,setEnrollment]=useState("指定學員");
+ const [kind,setKind]=useState(seed.single?"單次":"每週固定"),[enrollment,setEnrollment]=useState("指定學員");
  const [subject,setSubject]=useState(initial.subjects[0]?.id??""),[feeId,setFeeId]=useState("");
  const [day,setDay]=useState(date),[time,setTime]=useState(seed.time??"09:00"),[duration,setDuration]=useState(seed.durationMinutes??60),[capacity,setCapacity]=useState(8);
  const [coach,setCoach]=useState(initial.coaches.find(c=>c.id===seed.coachId)?.name??""),[room,setRoom]=useState(initial.rooms.find(r=>r.id===seed.roomId)?.name??initial.rooms[0]?.name??""),[students,setStudents]=useState<string[]>([]);

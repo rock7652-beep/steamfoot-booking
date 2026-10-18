@@ -2,6 +2,7 @@
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
+import {SportsAttendancePanel} from "./sports-attendance-panel";
 import {SportsSeriesPanel} from "./sports-series-panel";
 import {SportsScheduleFields} from "./sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
@@ -535,6 +536,7 @@ export function CourseWorkspace({
     const session = dailySessions.find((item) => item.id === booking.sessionId);
     return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];
   });
+  const [sportsAttendanceOpen,setSportsAttendanceOpen]=useState(false);
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions.map(withPendingAttendance)) {
@@ -599,7 +601,7 @@ export function CourseWorkspace({
   const [arrangement,setArrangement]=useState<"choose"|"class"|"trial"|"rental">("class");
   const [scheduleDate, setScheduleDate] = useState(selectedDate);
   const [sportsSeriesOpen,setSportsSeriesOpen]=useState(false);
-  const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  const [scheduleSeed,setScheduleSeed]=useState<{single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
@@ -710,7 +712,7 @@ export function CourseWorkspace({
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
-  function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
+  function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleSeed(seed);
@@ -900,6 +902,7 @@ export function CourseWorkspace({
             {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex shrink-0 gap-2">
                 {cashbookShortcut}
+                {sportsNative&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
@@ -1048,7 +1051,7 @@ export function CourseWorkspace({
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
+                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
@@ -1104,7 +1107,7 @@ export function CourseWorkspace({
               canCreate={canCreate}
               calendarDays={calendarDays}
               occupiedSessions={sessions}
-              onOpenEmpty={({date,time,roomId,coachId,durationMinutes})=>openSchedule({date,time,roomId,coachId:coachId ?? (coachFilter !== "all" ? coachFilter : undefined),durationMinutes})}
+              onOpenEmpty={({date,time,roomId,coachId,durationMinutes,single})=>openSchedule({single,date,time,roomId,coachId:coachId ?? (coachFilter !== "all" ? coachFilter : undefined),durationMinutes})}
               moveClipboard={moveClipboard}
               onPasteMove={pasteMove}
               onSelectDate={go}
@@ -2352,6 +2355,7 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
+      {sportsNative&&sportsAttendanceOpen&&<SportsAttendancePanel date={selectedDate} sessions={dailySessions} leaves={cancelledBookings} canEdit={canEdit} onClose={()=>setSportsAttendanceOpen(false)} onChanged={()=>refreshNativeCalendar(selectedDate)}/>}
       {courseDialog &&
         sessions.find((session) => session.id === courseDialog.sessionId) &&
         (() => {

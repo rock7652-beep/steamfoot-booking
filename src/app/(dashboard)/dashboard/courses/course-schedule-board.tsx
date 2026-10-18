@@ -123,7 +123,7 @@ type Props = {
   storePeriods: {openTime:string;closeTime:string}[];
   staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
-  onOpenEmpty: (value:{date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
+  onOpenEmpty: (value:{single?:boolean;date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
   moveClipboard?: CourseMoveClipboard | null;
   onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
@@ -446,6 +446,10 @@ export function CourseScheduleBoard({
   readOnly = false,
   replica = false,
 }: Props) {
+  function openCard(session:Session,date:string) {
+    if(sportsNative&&session.previewFaded){if(canCreate&&!pending&&!readOnly)onOpenEmpty({date,time:hhmm(session.startsAt),roomId:session.roomId,coachId:session.coachId,durationMinutes:Math.round((new Date(session.endsAt).getTime()-new Date(session.startsAt).getTime())/60000),single:true});return;}
+    onOpenSession(session.id,date);
+  }
   const activeRooms = rooms.filter((room) => room.isActive || sessions.some(session => session.roomId === room.id));
   const knownRooms = new Set(activeRooms.map(room => room.id));
   for (const session of sessions) if (!knownRooms.has(session.roomId)) { activeRooms.push({id:session.roomId,name:"未建檔教室",isActive:false}); knownRooms.add(session.roomId); }
@@ -585,7 +589,7 @@ export function CourseScheduleBoard({
                     </div>;
                   })}
                   {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
-                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
+                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;
               })}
@@ -636,7 +640,7 @@ export function CourseScheduleBoard({
                           fixed={session.isFixed}
                           leaveCount={leaveCounts[session.id] ?? 0}
                           readOnly={readOnly}
-                          onOpen={() => onOpenSession(session.id, date)}
+                          onOpen={() => openCard(session, date)}
                         />
                       ))
                     ) : (
@@ -1001,7 +1005,7 @@ export function CourseScheduleBoard({
                               wide={resourceCount === 1 && (dayLanes.get(session.id)?.count ?? 1) === 1}
                               dense={timelineDense}
                               resourceView={resourceView}
-                              onOpen={() => onOpenSession(session.id, selectedDate)}
+                              onOpen={() => openCard(session, selectedDate)}
                             />
                           </div>
                         ))}

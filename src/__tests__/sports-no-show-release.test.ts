@@ -4,7 +4,7 @@ vi.mock('@/lib/feature-gate',()=>({getStoreLimitsByStoreId:vi.fn()}));
 vi.mock('@/server/services/course-access',()=>({courseTransaction:vi.fn()}));
 const scope=vi.hoisted(()=>({sports:true}));
 vi.mock('@/lib/sports-native-preview',()=>({sportsNativePreview:()=>scope.sports}));
-import {syncCourseRelease} from '@/server/services/course-booking';
+import {syncCourseRelease,correctCourseAttendance} from '@/server/services/course-booking';
 import type {Prisma} from '../../generated/course-client';
 type Row={status:string;absenceKind?:string};
 type Filter={status?:string|{not?:string;notIn?:string[]};absenceKind?:{in:string[]};OR?:Filter[]};
@@ -36,4 +36,19 @@ it('已有新課占用時禁止恢復原課，保持釋出',async()=>{
 });
 it('沒有新占用時可恢復原課占用',async()=>{
  const f=fixture([{status:'ATTENDED'}],true);await syncCourseRelease(f.tx,'sports-live-flow-store','s');expect(f.update).toHaveBeenCalledWith({where:{id:'s'},data:{releasedAt:null}});
+});
+
+it('取消曠課恢復待點名時回收未使用補課券、還回扣抵並取消預占',async()=>{
+ const f=fixture([{status:'RESERVED'}],true);
+ const row={id:'b',sessionId:'s',requestKey:'sports-fixed:s:p',status:'NO_SHOW',cardId:'card',pointCost:1,bookingKind:'CARD',session:{cancelledAt:null,teacherAttendance:'SCHEDULED',startsAt:new Date('2026-10-26T01:00Z')},card:{remaining:7,closedAt:null}};
+ const update=vi.fn();const tx={...f.tx,courseBooking:{findFirst:vi.fn().mockResolvedValue(row),count:vi.fn().mockResolvedValue(0),aggregate:vi.fn().mockResolvedValue({_sum:{pointCost:0}}),update:vi.fn()},coursePointCard:{findUnique:vi.fn().mockResolvedValue({id:'coupon',remaining:1,closedAt:null}),update},coursePointEntry:{create:vi.fn()}};
+ await correctCourseAttendance(tx as unknown as Prisma.TransactionClient,{storeId:'sports-live-flow-store',userId:'owner',name:'Owner'},'b','RESERVED','NO_SHOW');
+ expect(update).toHaveBeenCalledWith({where:{id:'coupon'},data:{remaining:0,closedAt:expect.any(Date)}});
+ expect(update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:{increment:1}}});
+ expect(tx.courseBooking.update).toHaveBeenCalledWith({where:{id:'b'},data:expect.objectContaining({status:'RESERVED',cardId:null,bookingKind:'UNPAID',pointCost:0})});
+});
+it('取消曠課前發現補課券已使用或已預約則阻擋，不還點或改名單',async()=>{
+ const row={id:'b',status:'NO_SHOW',cardId:'card',pointCost:1,session:{cancelledAt:null,teacherAttendance:'SCHEDULED'},card:{remaining:7}};
+ const update=vi.fn();const tx={courseBooking:{findFirst:vi.fn().mockResolvedValue(row),count:vi.fn().mockResolvedValue(1),update},coursePointCard:{findUnique:vi.fn().mockResolvedValue({id:'coupon',remaining:1,closedAt:null}),update}};
+ await expect(correctCourseAttendance(tx as unknown as Prisma.TransactionClient,{storeId:'sports-live-flow-store',userId:'owner',name:'Owner'},'b','RESERVED','NO_SHOW')).rejects.toThrow('補課券已使用或預約');expect(update).not.toHaveBeenCalled();
 });
