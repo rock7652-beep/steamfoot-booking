@@ -98,6 +98,7 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onCommitted,
   onAttendanceOptimistic,
   onTeacherAttendanceOptimistic,
   onCreateCustomer,
@@ -120,6 +121,7 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onCommitted?: () => void;
   onAttendanceOptimistic?: (bookingId: string, status: "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED" | null, leave?:boolean) => void;
   onTeacherAttendanceOptimistic?: (status: "SCHEDULED" | "LEAVE" | "NO_SHOW" | null) => void;
   onCreateCustomer?: () => void;
@@ -471,6 +473,7 @@ export function CourseRoster({
           }
         }
         applyConfirmed();
+        if(sportsNative)onCommitted?.();
         feedback({ phase: "saved", message: "" });
         if (sequence === scope.sequence && !scope.uncertain) setMessage(successMessage);
         if (!bookingId) {
