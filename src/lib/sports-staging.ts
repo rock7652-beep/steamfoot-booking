@@ -1,12 +1,15 @@
+import { sportsProductionEnabled } from "../../scripts/sports-production-scope.mjs";
+export { sportsProductionEnabled };
 import { assertSportsRedesignPreviewEnvironment } from "../../scripts/sports-redesign-preview-scope.mjs";
 import { assertSportsLiveFlowQaEnvironment } from "../../scripts/sports-live-flow-qa-scope.mjs";
-/** Local QA or the exact isolated Preview; production remains forbidden. */
-export function sportsStagingEnabled() {
+/** Isolated QA or explicit production opt-in for an authenticated store. */
+export function sportsStagingEnabled(storeId?: string) {
+  if (process.env.SPORTS_REDESIGN_PRODUCTION === "1") return sportsProductionEnabled(storeId);
   if (process.env.SPORTS_REDESIGN_STAGING !== "1") return false;
   if (process.env.SPORTS_REDESIGN_PREVIEW === "1") assertSportsRedesignPreviewEnvironment(process.env);
   else assertSportsLiveFlowQaEnvironment(process.env);
   return true;
 }
-export function requireSportsStaging() {
-  if (!sportsStagingEnabled()) throw new Error("運動改版僅開放隔離測試站");
+export function requireSportsStaging(storeId?: string) {
+  if (!sportsStagingEnabled(storeId)) throw new Error("運動模組尚未開放此店家");
 }

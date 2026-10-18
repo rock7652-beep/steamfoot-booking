@@ -1,3 +1,8 @@
+// Review implementation only. No deployment or database work.
+if([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("codex/sports-production-enable")){
+ throw new Error("Sports enablement review branch deployment is disabled.");
+}
+
 // Registration/review only: never deploy or access a database on this branch.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-production-migration-review")) {
   throw new Error("Sports production migration review branch deployment is disabled; database execution is not authorized.");

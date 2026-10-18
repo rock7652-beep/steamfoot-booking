@@ -1,3 +1,4 @@
+import {assertSportsProductionReady,sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sportsStagingEnabled} from '@/lib/sports-staging';
 import { courseCardPublicMembers } from "@/lib/course-card-public-members";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
@@ -113,7 +114,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       },
     },
   } as const;
-  const sportsRules=sportsStagingEnabled()?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number}>>`SELECT "sessionId",enrollment,"trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  if (sportsStagingEnabled(storeId)) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
+  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number}>>`SELECT "sessionId",enrollment,"trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
   const assignedSportsIds=sportsRules.filter(row=>row.enrollment==='ASSIGNED').map(row=>row.sessionId);
   const [
     sessions,

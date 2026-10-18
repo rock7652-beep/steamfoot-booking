@@ -1,4 +1,5 @@
 import "server-only";
+import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
 import {
   requireSportsStaging,
   sportsStagingEnabled,
@@ -12,11 +13,12 @@ import { AppError } from "@/lib/errors";
 import type { Prisma } from "../../../generated/course-client";
 import type { CourseActor } from "./course-booking";
 export async function readSportsSessionRule(
-  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  tx: Pick<Prisma.TransactionClient, "$queryRaw" | "$queryRawUnsafe" | "$executeRawUnsafe">,
   storeId: string,
   sessionId: string,
 ) {
-  if (!sportsStagingEnabled()) return null;
+  if (!(await sportsRulesAvailable(tx, storeId))) return null;
+  await assertSportsProductionReady(tx, storeId);
   const rows = await tx.$queryRaw<
     Array<{
       frequency: string;
@@ -34,7 +36,8 @@ export async function attachSportsSessionRules(
   requestKey: string,
   input: SportsScheduleRule,
 ) {
-  requireSportsStaging();
+  requireSportsStaging(actor.storeId);
+  await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
   const sessions = await tx.courseSession.findMany({
     where: { storeId: actor.storeId, requestKey },
@@ -151,7 +154,7 @@ export async function assertSportsRentalFree(
   roomId: string,
   ranges: Array<{ startsAt: Date; endsAt: Date }>,
 ) {
-  if (!sportsStagingEnabled()) return;
+  if (!sportsStagingEnabled(storeId)) return;
   for (const range of ranges)
     if (
       await tx.courseRental.findFirst({
