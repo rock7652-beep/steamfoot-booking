@@ -1,7 +1,7 @@
 import { afterAll, expect, it, vi } from "vitest";
 vi.mock("@/server/services/course-access", () => ({ courseTransaction: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: vi.fn() }));
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { PrismaClient, type Prisma } from "../../generated/course-client";
@@ -15,7 +15,7 @@ const db = enabled ? new PrismaClient({ datasourceUrl: expected }) : null;
 const root = "scripts/qa/sports-migration-rehearsal/";
 const up = readFileSync(root + "up.sql", "utf8"), down = readFileSync(root + "down.sql", "utf8");
 const checks: string[] = [];
-function record(name: string) { checks.push(name); writeFileSync("docs/verification/sports-migration-rehearsal-results.json", JSON.stringify({ database: "local disposable PostgreSQL", source: "5a0ed085", checks }, null, 2) + "\n"); }
+function record(name: string) { checks.push(name); writeFileSync("docs/verification/sports-migration-rehearsal-results.json", JSON.stringify({ database: "local disposable PostgreSQL", source: "5a0ed085", candidates: { upSha256: createHash("sha256").update(up).digest("hex"), downSha256: createHash("sha256").update(down).digest("hex") }, checks }, null, 2) + "\n"); }
 function sql(source: string) { return execFileSync("docker", ["exec", "-i", "sports-staging-postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "sports_migration_rehearsal_20261018_test"], { input: source, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
 const actor = { storeId: "sports-live-flow-store", userId: "sports-live-flow-owner", name: "演練店長" };
 const transact = <T>(run: (tx: Prisma.TransactionClient) => Promise<T>) => db!.$transaction(async tx => { await lockCourseStore(tx, actor.storeId); return run(tx); });
@@ -54,7 +54,36 @@ afterAll(async () => { vi.useRealTimers(); await db?.$disconnect(); });
  expect(() => sql(up.replace(/COMMIT;\s*$/, "SELECT missing_rehearsal_column; COMMIT;"))).toThrow();
  expect(sql('SELECT md5(pg_get_expr(conbin,conrelid)) FROM pg_constraint WHERE conname=\'CoursePointEntry_values\';')).toBe(baseline);
  expect(sql('SELECT to_regclass(\'public."SportsStagingSessionRule"\') IS NULL;')).toContain("t"); record("Forced DDL failure atomically restores original constraint and missing metadata table");
- sql(up); sql(down);
+ sql(up);
+ const installedMarker = sql(`SELECT obj_description('public."SportsStagingSessionRule"'::regclass,'pg_class');`);
+ const beforeDriftRows = await db!.coursePointEntry.findMany({ orderBy: { id: "asc" } });
+ const downWithinTransaction = down.replace(/^BEGIN;$/m, "").replace(/^COMMIT;$/m, "");
+ const refusals = [
+  ["ledger CHECK replacement", 'ALTER TABLE "CoursePointEntry" DROP CONSTRAINT "CoursePointEntry_values"; ALTER TABLE "CoursePointEntry" ADD CONSTRAINT "CoursePointEntry_values" CHECK (points>0);'],
+  ["metadata column addition", 'ALTER TABLE "SportsStagingSessionRule" ADD COLUMN "futureSchemaColumn" text;'],
+  ["metadata index addition", 'CREATE INDEX "future_metadata_index" ON "SportsStagingSessionRule" (frequency);'],
+  ["metadata RLS disabled", 'ALTER TABLE "SportsStagingSessionRule" DISABLE ROW LEVEL SECURITY;'],
+  ["metadata permission change", 'GRANT SELECT ON "SportsStagingSessionRule" TO anon;'],
+  ["metadata policy addition", 'CREATE POLICY "future_policy" ON "SportsStagingSessionRule" USING (true);'],
+  ["missing installation marker", 'COMMENT ON TABLE "SportsStagingSessionRule" IS NULL;'],
+  ["different migration version", `COMMENT ON TABLE "SportsStagingSessionRule" IS 'sports-cancel-migration-rehearsal:v2:unknown';`],
+  ["recreated empty metadata table", 'DROP TABLE "SportsStagingSessionRule"; CREATE TABLE "SportsStagingSessionRule" ("futureSchemaColumn" text);'],
+ ];
+ for (const [name, drift] of refusals) {
+  try { sql("BEGIN;\n" + drift + "\n" + downWithinTransaction); throw new Error("Expected schema drift refusal"); }
+  catch (error) { expect(String((error as { stderr?: Buffer }).stderr)).toContain("Rollback schema/version drift"); }
+  // Failed psql connection closes its outer transaction, preserving the installed schema and data.
+  expect(sql(`SELECT obj_description('public."SportsStagingSessionRule"'::regclass,'pg_class');`)).toBe(installedMarker);
+  expect(await db!.coursePointEntry.findMany({ orderBy: { id: "asc" } })).toEqual(beforeDriftRows);
+  record("Rollback refuses " + name + "; original schema and ledger preserved");
+ }
+ const metadataSession = await db!.courseSession.findFirstOrThrow({ where: { storeId: actor.storeId } });
+ const metadataInsert = `INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"trialPrice",payload) VALUES ('${metadataSession.id}','${actor.storeId}','WEEKLY','ASSIGNED',0,'{}');`;
+ try { sql("BEGIN;\n" + metadataInsert + "\n" + downWithinTransaction); throw new Error("Expected metadata refusal"); }
+ catch (error) { expect(String((error as { stderr?: Buffer }).stderr)).toContain("Metadata rows exist; preserve history"); }
+ expect(sql(`SELECT obj_description('public."SportsStagingSessionRule"'::regclass,'pg_class');`)).toBe(installedMarker);
+ record("Metadata-only rollback refuses before any new-format ledger exists");
+ sql(down);
  expect(sql('SELECT md5(pg_get_expr(conbin,conrelid)) FROM pg_constraint WHERE conname=\'CoursePointEntry_values\';')).toBe(baseline);
  expect(await db!.coursePointEntry.findMany({ orderBy: { id: "asc" } })).toEqual(oldRows); record("Clean rollback succeeds and preserves every original ledger row");
  sql(up); expect(() => sql(up)).toThrow(); record("Repeated migration refuses constraint drift without changing installed schema");
@@ -121,9 +150,15 @@ afterAll(async () => { vi.useRealTimers(); await db?.$disconnect(); });
  try { sql(down); throw new Error("Expected lock timeout"); } catch (error) { expect(String((error as { stderr?: Buffer }).stderr)).toContain("lock timeout"); }
  await released;
  expect(await snapshot(f)).toEqual(final); record("Contended rollback aborts at lock timeout without changing data");
+ const metadataBefore = await db!.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "SportsStagingSessionRule"`;
+ try { sql('BEGIN; DELETE FROM public."SportsStagingSessionRule";\n' + downWithinTransaction); throw new Error("Expected ledger-only refusal"); }
+ catch (error) { expect(String((error as { stderr?: Buffer }).stderr)).toContain("New-format ledger rows exist; preserve history"); }
+ expect(await db!.$queryRaw`SELECT count(*) FROM "SportsStagingSessionRule"`).toEqual(metadataBefore);
+ expect(await db!.coursePointEntry.findMany({ orderBy: { id: "asc" } })).toEqual(finalRows);
+ record("New-ledger-only rollback refuses with empty metadata; all data preserved");
  expect(() => sql(down)).toThrow(); expect(await snapshot(f)).toEqual(final);
  expect(await db!.coursePointEntry.findMany({ orderBy: { id: "asc" } })).toEqual(finalRows);
  for (const row of oldRows) expect(finalRows).toContainEqual(row);
- expect(sql('SELECT convalidated FROM pg_constraint WHERE conname=\'CoursePointEntry_values\';')).toContain("t");
+ expect(sql('SELECT convalidated FROM pg_constraint WHERE conname=\'CoursePointEntry_values\';').trim().split("\n")[2].trim()).toBe("t");
  record("Post-transaction rollback refuses without altering data; all original ledger rows preserved and expanded CHECK validated");
 }, 90000);
