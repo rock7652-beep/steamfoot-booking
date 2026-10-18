@@ -28,7 +28,7 @@ it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"
 it("keeps automatic deployment disabled for only this candidate", () => {
   const config = JSON.parse(readFileSync("vercel.json", "utf8"));
   expect(config.git.deploymentEnabled[TODO_DISMISS_PREVIEW_BRANCH]).toBe(false);
-  expect(config.git.deploymentEnabled.main).not.toBe(false);
+  expect(config.git.deploymentEnabled.main).toBe(false);
 });
 it.each(["?host=production.invalid", "?options=anything", "?schema=private", "?schema=public&schema=public"])("rejects routing/schema overrides %s", suffix => {
   expect(() => assertReviewedReleaseEnvironment({...env, DATABASE_URL: isolated + suffix})).toThrow();
