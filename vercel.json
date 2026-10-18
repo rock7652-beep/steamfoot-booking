@@ -99,7 +99,8 @@
       "fix/course-plan-teaching-clarity-20261012": false,
       "feat/teacher-own-session-20261012": false,
       "feat/customer-retention-clarity-20261012": false,
-      "content/paid-members-attendance-drop-follow-up": false
+      "content/paid-members-attendance-drop-follow-up": false,
+      "content/editorial-preview": false
     }
   }
 }
