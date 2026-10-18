@@ -1,0 +1,17 @@
+{
+  "testsPassed": 147,
+  "testFiles": 8,
+  "changedFileEslint": "passed",
+  "typecheck": "passed",
+  "earlierExistingLocalDbReadOnlyCheck": {
+    "role": "postgres",
+    "ready": true,
+    "migrationExecuted": false
+  },
+  "productionDatabaseQueried": false,
+  "migrationExecuted": false,
+  "deployed": false,
+  "productionFlagDefault": "disabled",
+  "reviewBranchDeployment": "disabled",
+  "visualScope": "static component presentation only; not end-to-end transactions"
+}

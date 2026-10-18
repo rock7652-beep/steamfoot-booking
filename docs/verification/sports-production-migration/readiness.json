@@ -1,0 +1,84 @@
+[
+  {
+    "readiness": {
+      "roles": [
+        "anon",
+        "authenticated",
+        "service_role"
+      ],
+      "ledger": {
+        "rows": 16,
+        "cards": 2,
+        "invalid_values": 0,
+        "new_cancel_entries": 0,
+        "coupon_reclaim_entries": 0,
+        "outside_original_constraint": 0
+      },
+      "checked_at": "2026-10-18T01:54:08.93147+00:00",
+      "fk_indexes": [
+        {
+          "ready": true,
+          "table": "CourseSession",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CourseSession_pkey\" ON public.\"CourseSession\" USING btree (id)"
+        },
+        {
+          "ready": true,
+          "table": "CourseSession",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CourseSession_id_storeId_key\" ON public.\"CourseSession\" USING btree (id, \"storeId\")"
+        },
+        {
+          "ready": true,
+          "table": "CourseSession",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CourseSession_storeId_requestKey_requestIndex_key\" ON public.\"CourseSession\" USING btree (\"storeId\", \"requestKey\", \"requestIndex\")"
+        },
+        {
+          "ready": true,
+          "table": "CourseSession",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CourseSession_teacherMakeupForSessionId_key\" ON public.\"CourseSession\" USING btree (\"teacherMakeupForSessionId\")"
+        },
+        {
+          "ready": true,
+          "table": "CoursePointPlan",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CoursePointPlan_pkey\" ON public.\"CoursePointPlan\" USING btree (id)"
+        },
+        {
+          "ready": true,
+          "table": "CoursePointPlan",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CoursePointPlan_id_storeId_key\" ON public.\"CoursePointPlan\" USING btree (id, \"storeId\")"
+        },
+        {
+          "ready": true,
+          "table": "CoursePointPlan",
+          "valid": true,
+          "unique": true,
+          "definition": "CREATE UNIQUE INDEX \"CoursePointPlan_storeId_name_key\" ON public.\"CoursePointPlan\" USING btree (\"storeId\", name)"
+        }
+      ],
+      "ledger_bytes": 65536,
+      "ledger_check": {
+        "validated": true,
+        "definition": "CHECK (((points > 0) AND ((kind = ANY (ARRAY['GRANT'::text, 'RESERVE'::text, 'RELEASE'::text, 'DEBIT'::text, 'REFUND'::text, 'VOID'::text])) OR (kind ~ '^(DEBIT|RELEASE):[0-9a-f-]{36}$'::text) OR (kind ~ '^CORRECT:(RESERVED|ATTENDED|NO_SHOW):(RESERVED|ATTENDED|NO_SHOW):[0-9a-f-]{36}$'::text) OR (kind ~ '^CORRECT:CANCELLED:RESERVED:[0-9a-f-]{36}$'::text) OR (kind ~ '^(DEBIT|RELEASE|REFUND|RESERVE):USAGE:[0-9a-f-]{36}$'::text))))",
+        "expression": "((points > 0) AND ((kind = ANY (ARRAY['GRANT'::text, 'RESERVE'::text, 'RELEASE'::text, 'DEBIT'::text, 'REFUND'::text, 'VOID'::text])) OR (kind ~ '^(DEBIT|RELEASE):[0-9a-f-]{36}$'::text) OR (kind ~ '^CORRECT:(RESERVED|ATTENDED|NO_SHOW):(RESERVED|ATTENDED|NO_SHOW):[0-9a-f-]{36}$'::text) OR (kind ~ '^CORRECT:CANCELLED:RESERVED:[0-9a-f-]{36}$'::text) OR (kind ~ '^(DEBIT|RELEASE|REFUND|RESERVE):USAGE:[0-9a-f-]{36}$'::text)))",
+        "fingerprint": "acff8c4c1a3c1701a7415f896b058364",
+        "candidate_matches": true
+      },
+      "rental_table": "\"CourseRental\"",
+      "metadata_table": null,
+      "postgres_version": "17.6",
+      "pending_target_locks": 0,
+      "cancelled_leave_bookings": 0
+    }
+  }
+]

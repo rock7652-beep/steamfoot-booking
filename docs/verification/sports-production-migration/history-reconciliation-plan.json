@@ -1,0 +1,178 @@
+[
+  {
+    "migration": "20260923150000_trial_booking_source_analytics",
+    "sourceSha256": "086dcfd89fcb0c5211c37318f858e77d41f65145e2d6bd6f325111088e9940be",
+    "target": "bookingSource 欄位與統計索引",
+    "historyClue": "20260923120840 / trial_booking_source_analytics_20260923",
+    "action": "比對 varchar(16)、nullable 與索引；不回填歷史來源。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260924090000_course_monthly_settlement",
+    "sourceSha256": "a5bd07e2e00adc715b0a76c6703a7ff846be821dc5053cc53b8c4021d0748f3d",
+    "target": "月結三表與 course_capture_compensation 函式",
+    "historyClue": "20260924123440 / course_monthly_settlement",
+    "action": "比對表、FK、RLS／ACL 與目前函式完整定義；不得以舊版函式覆蓋後續音樂計酬。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260924143000_course_staff_availability_v1",
+    "sourceSha256": "627f774fee4010382b714ad19ad98f62d616d06ec46ae90fc133c2015a3dbc5b",
+    "target": "教師固定／例外可授課時段兩表",
+    "historyClue": "尚無直接同名對應",
+    "action": "查兩表、複合 FK、CHECK 與 unique index；缺漏另提增量修正，不混入本筆。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260924160000_course_personal_income",
+    "sourceSha256": "2c749e28998f2cc8062baba1633898f0374c4dd2a4d1cc6c6075940322fb229c",
+    "target": "CourseSettlementSetting.personalIncomeEnabled",
+    "historyClue": "20260925011831 / course_personal_income",
+    "action": "比對 boolean、NOT NULL、default=false，不更改現行開關。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260925040000_course_monthly_notifications",
+    "sourceSha256": "20f98eb9de23f68d70db920002af8e2538d1b47fbde79b66e2d24d2a8120e253",
+    "target": "CourseMonthlyNotification 與重送唯一鍵",
+    "historyClue": "20260925103129 / course_monthly_notifications",
+    "action": "比對欄位、唯一鍵、FK、RLS／ACL；不補發通知。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260925121500_course_music_reschedule_v1",
+    "sourceSha256": "2d2f490820a63449ef26b58ca8d1616e5e34efc9ef83581a55cf7edbc6a0b586",
+    "target": "CourseSession 改課欄位／CourseSessionMove",
+    "historyClue": "尚無直接同名對應",
+    "action": "核對歷史欄位、移課紀錄、FK 與 scope CHECK；不重排課程。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260925124707_steamfoot_rent_terms",
+    "sourceSha256": "05e3acb4e0b6ecd628463d540bc6faa350e8c69e6b1d002888ee034ff686c612",
+    "target": "StaffRentTerm 與租金條款限制",
+    "historyClue": "20260925133226 / steamfoot_rent_terms",
+    "action": "核對金額、週期、月份 CHECK／索引／RLS；不補扣租金。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260925182000_course_session_teacher_note",
+    "sourceSha256": "59bdce1038b29b6bc9a216157f92779d82d07747334288fad974711c80c6d37e",
+    "target": "CourseSession.teacherNote",
+    "historyClue": "尚無直接同名對應",
+    "action": "核對 NOT NULL、default 空字串；不得覆寫既有備註。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260925191000_course_music_absence",
+    "sourceSha256": "d83b486096d68cf993d07cc03a6639e519e66b665d4d9d72c48b2459b558d807",
+    "target": "教師缺席／補課欄位及課程／預約 CHECK",
+    "historyClue": "尚無直接同名對應",
+    "action": "核對最新 CHECK 全集；禁止直接套回早期限定狀態而破壞後續 CHECKED_IN 或其他已核准狀態。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260926001000_course_student_leave_restore_entry",
+    "sourceSha256": "0b85cc6237c1f41f91297991a33e3fb3adbb8268b9230e8478f7a28e8b6c1338",
+    "target": "CoursePointEntry_values 請假恢復格式",
+    "historyClue": "已證實目前 CHECK 含 CANCELLED:RESERVED",
+    "action": "禁止重跑：舊檔不含目前合法的 USAGE，更不含本 PR 新取消格式。核對後以後繼限制證據提出 history 修復，不改寫舊檔。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260926010000_course_group_leave_forfeit",
+    "sourceSha256": "c5aeafbab86175ff5a23ee2b9bd8d39847e4942a419172819bd8d98df88f59c7",
+    "target": "團體請假 absenceKind CHECK",
+    "historyClue": "後繼教師缺席限制須一併比對",
+    "action": "禁止直接回到只允許 STUDENT_LEAVE／GROUP_LEAVE_FORFEITED 的舊 CHECK；保留 TEACHER_ABSENT 等已核准值。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260926011000_course_self_organized_type",
+    "sourceSha256": "5b341dc9fe2b9e38b0a8c9c19bc854126e09e5efd5a95f6777a79b0ed55a9299",
+    "target": "CourseTemplate.classType CHECK",
+    "historyClue": "尚無直接同名對應",
+    "action": "比對 PRIVATE／SELF_ORGANIZED／GROUP 與目前核准全集；缺項採向前擴充，不猜舊課分類。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260926020000_music_course_products",
+    "sourceSha256": "a966e0e7627a93f5dc34c6687b1e76548806a3f42d510dc6716568599aad48bc",
+    "target": "音樂商品欄位、限制、計酬 snapshot 與函式",
+    "historyClue": "尚無直接同名對應",
+    "action": "逐項核對商品欄位及函式現行行為；CREATE OR REPLACE 舊函式不可直接重跑。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260927130000_course_released_original_slots",
+    "sourceSha256": "f81b8612fe17416c8ccfe69c8b505331cd169b0e6b5f8222a9796b730c5e5453",
+    "target": "CourseSession.releasedAt 與排課排他限制",
+    "historyClue": "尚無直接同名對應",
+    "action": "禁止重跑原 UPDATE 回填與重建排他限制；核對現況及異動釋放規則，缺漏另案審查。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260930081500_add_operation_audit_read_permission",
+    "sourceSha256": "219607735f26e760844f63912729cce97819390cbec6f9615714e43e25e6ab8e",
+    "target": "StaffPermission audit.read 授權資料",
+    "historyClue": "20260930020631 / add_operation_audit_read_permission",
+    "action": "屬權限資料變更；須另行唯讀彙總核對 owner 授權，不以重跑 INSERT 補授權。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20260930093000_shared_customer_labels",
+    "sourceSha256": "7ba1ac10115e94eadd8672f1e3ee876a4229234eb79bd1081407266071203585",
+    "target": "共用顧客標籤四表與複合 FK",
+    "historyClue": "customer_label_item_order 為後繼線索，非等價證明",
+    "action": "比對完整四表、唯一鍵、FK／RLS／ACL；不得只憑後繼名稱標記 applied。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261001093000_course_teacher_absence_refund",
+    "sourceSha256": "0ae16042fafe2d205f20bfdb3fcb439ecd5261b301349755eb579422283b2ab4",
+    "target": "TEACHER_ABSENT absenceKind 格式",
+    "historyClue": "目前完整 CHECK 尚需專項核對",
+    "action": "核對最新合法格式與教師缺席免扣流程；只在證據充分後提 history 修復。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261001143955_course_space_rentals",
+    "sourceSha256": "46dda127d998b7205cb4c1aa73f75f9b4a4f80e74d7d51ce4b70efa4fa5e3041",
+    "target": "空間出租兩表、價格欄位、函式／觸發器",
+    "historyClue": "已證實 CourseRental 存在；不代表整檔等價",
+    "action": "比對 CourseRentalPayment、RLS、占用／停用 guard 及 isTrial 等全部物件；不可重建既有出租資料。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261003105340_course_companion_booking",
+    "sourceSha256": "4af4e0eb8bec9eb15c445ff2b5756563acf23359dbb827d3cb857d1567ea05bb",
+    "target": "同伴欄位／候補／帳本 USAGE",
+    "historyClue": "20261003120909 / course_companion_booking；正式 CHECK 已含 USAGE",
+    "action": "禁止直接重跑舊欄位 DDL 或覆寫新 CHECK；比對 nullable／同伴欄位／索引及後繼修正。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261006070000_customer_care_lifecycle",
+    "sourceSha256": "c86c473cba8d68e5eaf9f18806f08f7b1527b49c07b86ae4b8dd6a748add1060",
+    "target": "CustomerFollowUp 關懷欄位與索引",
+    "historyClue": "20261006085647 / customer_care_lifecycle",
+    "action": "核對三個 nullable 欄位、索引；不新增關懷或通知。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261006120000_store_catalog_order",
+    "sourceSha256": "25b9509de2f4d3f39e16aebe9754a17fca8b71fe9cd38d84c97bfba7e8848013",
+    "target": "Store.catalogSortOrder",
+    "historyClue": "20261006034040 / store_catalog_order",
+    "action": "核對 NOT NULL、default=0；不重排現有店家順序。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  },
+  {
+    "migration": "20261008054000_course_student_self_booking",
+    "sourceSha256": "3d3b469ee63ff04bf08b7d74cb344c900757ec96ff42a5cc1360ca264d4d227a",
+    "target": "CourseBookingRule 自主預約開關與 revision",
+    "historyClue": "20261008103400 / course_student_self_booking_20261008",
+    "action": "核對兩欄、預設值與現行開關；不重設或啟用任何店家的自主預約。",
+    "status": "PLAN_ONLY_NOT_RECONCILED"
+  }
+]

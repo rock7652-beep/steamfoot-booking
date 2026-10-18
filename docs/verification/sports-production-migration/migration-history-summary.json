@@ -1,0 +1,32 @@
+{
+  "prismaSummary": {
+    "prisma_migration_rows": 138,
+    "unfinished_unrolled_back": 0,
+    "sports_candidate_records": 0,
+    "latest_finished_at": "2026-10-11 13:12:20.536701+00"
+  },
+  "supabaseSummary": {
+    "count": 94,
+    "latest": [
+      {
+        "version": "20261011015156",
+        "name": "booking_unregistered_participant_payment_20261011"
+      },
+      {
+        "version": "20261011131220",
+        "name": "course_store_notice_center"
+      },
+      {
+        "version": "20261012081652",
+        "name": "store_member_workorder_line_20261012"
+      },
+      {
+        "version": "20261013141636",
+        "name": "booking_participants_companion_removal"
+      }
+    ],
+    "sportsCandidates": []
+  },
+  "sourceCommit": "c0fa70ba907a4e90a0927f14eb0fca4fa50db321",
+  "productionChangesPerformed": false
+}

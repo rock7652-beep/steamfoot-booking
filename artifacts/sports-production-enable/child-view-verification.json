@@ -1,0 +1,9 @@
+{
+  "regressionBeforeFix": {"passed": 4, "failed": 1},
+  "afterFix": {"testFiles": 5, "passed": 46},
+  "typecheck": "passed",
+  "changedFileEslint": "passed",
+  "scope": "server page routing with mocked dependencies; no browser or production transaction acceptance",
+  "migrationExecuted": false,
+  "deployed": false
+}

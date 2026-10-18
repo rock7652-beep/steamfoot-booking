@@ -46,8 +46,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 export function SportsStagingWorkspace({
   initial,
+  production = false,
+  storeName = "運動流程測試店",
 }: {
   initial: SportsSnapshot;
+  production?: boolean;
+  storeName?: string;
 }) {
   const [live, setLive] = useState(initial),
     [pending, setPending] = useState(false);
@@ -303,7 +307,7 @@ export function SportsStagingWorkspace({
             蒸管家<span>運動教室</span>
           </div>
           <div className="store">
-            運動流程測試店<small>隔離測試站</small>
+            {storeName}<small>{production ? "店家後台" : "隔離測試站"}</small>
           </div>
           <nav aria-label="主要功能">
             {["課表", "教學項目", "收費方式"].map((t) => (
@@ -327,12 +331,12 @@ export function SportsStagingWorkspace({
         <main>
           <header className="top">
             <span>店家後台</span>
-            <span className="pill">隔離測試站 · 已串接核心</span>
+            <span className="pill">{production ? "運動教室" : "隔離測試站 · 已串接核心"}</span>
           </header>
           <div className="content">
             <div className="heading">
               <div>
-                <p className="eyebrow">運動流程測試店</p>
+                <p className="eyebrow">{storeName}</p>
                 <h1>{tab}</h1>
                 <p className="muted">
                   {tab === "課表"
@@ -362,9 +366,9 @@ export function SportsStagingWorkspace({
                     : "新增收費方式"}
               </button>
             </div>
-            <div className="preview-note">
+            {!production && <div className="preview-note">
               使用獨立測試資料庫；儲存、預約、收款與扣抵會保存在測試站。
-            </div>
+            </div>}
             {notice && (
               <p role="status" className="notice">
                 {notice}
@@ -638,7 +642,7 @@ export function SportsStagingWorkspace({
           <header className="panel-head">
             <div>
               <span className="eyebrow">
-                {detail ? "排課資料" : editing ? "編輯" : "新增"} · 測試站
+                {detail ? "排課資料" : editing ? "編輯" : "新增"} · {production ? "課程管理" : "測試站"}
               </span>
               <h2 id="preview-panel-title">{panel}</h2>
             </div>
@@ -1231,7 +1235,7 @@ export function SportsStagingWorkspace({
                             "trial-void",
                             {
                               paymentId: b.paymentId,
-                              reason: "測試站收款更正",
+                              reason: production ? "收款更正" : "測試站收款更正",
                             },
                             "體驗收款已作廢",
                           )
@@ -1303,7 +1307,7 @@ export function SportsStagingWorkspace({
                           voidOnly: true,
                           amount: 0,
                           paymentMethod: "OTHER",
-                          reason: "測試站核對作廢",
+                          reason: production ? "核對作廢" : "測試站核對作廢",
                         },
                         "租借收款已作廢",
                       )
@@ -1341,7 +1345,7 @@ export function SportsStagingWorkspace({
           </div>
           <footer className="panel-footer">
             <span className="muted">
-              {pending ? "處理中…" : dirty ? "尚未儲存" : "隔離測試資料"}
+              {pending ? "處理中…" : dirty ? "尚未儲存" : production ? "已儲存" : "隔離測試資料"}
             </span>
             {(!detail || panel === "調整本堂") && (
               <button

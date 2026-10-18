@@ -1,0 +1,15 @@
+{
+  "migrationBodyMatchesRehearsedCandidate": true,
+  "rollbackMatchesRehearsedCandidate": true,
+  "manifestHashesVerified": true,
+  "historyPlanEntriesAndSourceHashesVerified": 22,
+  "newMigrationFiles": 1,
+  "migrationExecuted": false,
+  "changedFileEslint": "passed",
+  "hostedBuildGuards": {
+    "VERCEL_GIT_COMMIT_REF": "blocked before database work",
+    "WORKERS_CI_BRANCH": "blocked before database work",
+    "CF_PAGES_BRANCH": "blocked before database work"
+  },
+  "productionAndReviewGitDeploymentDisabled": true
+}

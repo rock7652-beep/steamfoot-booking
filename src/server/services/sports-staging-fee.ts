@@ -14,7 +14,9 @@ export async function prepareSportsFee(
   d: z.infer<typeof sportsFeeSetup>,
   unit: "POINT" | "SESSION",
 ) {
-  requireSportsStaging();
+  requireSportsStaging(storeId);
+  const {assertSportsProductionReady}=await import("./sports-production-readiness");
+  await assertSportsProductionReady(tx,storeId);
   const subject = await tx.musicSubject.findFirst({
     where: { id: d.subject, storeId, isActive: true },
   });

@@ -41,7 +41,7 @@ export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$
   ]);
   if (!room || !template || !staff[0]?.courseCoachEnabled) throw new AppError("VALIDATION","請選擇本店啟用教室及具授課人員身分的人員");
   if ((!previous || previous.templateId !== input.templateId) && (!template.isActive || template.visibility === 'OFF' || template.musicSubject?.isActive===false)) throw new AppError("VALIDATION","下架課程不可新增使用");
-  const fitnessSubject=sportsStagingEnabled()&&template.musicSubject?await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.fitness' AND status::text='ENABLED'`:[];
+  const fitnessSubject=sportsStagingEnabled(storeId)&&template.musicSubject?await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.fitness' AND status::text='ENABLED'`:[];
   if ((!template.musicSubject || fitnessSubject.length>0) && room.capacity !== null && input.capacity > room.capacity) throw new AppError("CONFLICT",`排課上限 ${input.capacity} 人超過教室容量 ${room.capacity} 人`);
   const unchanged = previous?.coachId === input.coachId && previous.templateId === input.templateId;
   const coach = staff[0];

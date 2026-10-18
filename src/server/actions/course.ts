@@ -1,4 +1,5 @@
 "use server";
+import {sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sameSportsScheduleRule} from "@/lib/sports-staging-types";
 import {requireSportsStaging,sportsStagingEnabled} from "@/lib/sports-staging";
 import { createHash } from "node:crypto";
@@ -435,7 +436,7 @@ export async function createCourseSchedule(input: unknown) {
       .extend({ sourceSessionId: z.string().min(1).optional() })
       .parse(input);
     if(data.sportsStaging){
-      requireSportsStaging();
+      requireSportsStaging(storeId);
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
       if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用運動測試店');
       if(data.isTrial){
@@ -520,7 +521,7 @@ export async function createCourseSchedule(input: unknown) {
         if (!template || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
-        if(sportsStagingEnabled()){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
+        if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -571,7 +572,7 @@ export async function createCourseSchedule(input: unknown) {
             _count: { id: true },
             having: { id: { _count: { gt: 1 } } },
           })).map((row) => row.requestKey)) : new Set<string>();
-          const stagingFixedIds=sportsStagingEnabled()?new Set((await tx.$queryRaw<Array<{sessionId:string}>>`SELECT "sessionId" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND frequency<>'SINGLE'`).map(r=>r.sessionId)):new Set<string>();
+          const stagingFixedIds=(await sportsRulesAvailable(tx,storeId))?new Set((await tx.$queryRaw<Array<{sessionId:string}>>`SELECT "sessionId" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND frequency<>'SINGLE'`).map(r=>r.sessionId)):new Set<string>();
           const fixedOrigin = movedOrigins.find((item) =>
             (item.template.musicScheduleMode === "FIXED" || recurringKeys.has(item.requestKey) || stagingFixedIds.has(item.id)) &&
             occurrences.some((range) =>
@@ -740,7 +741,7 @@ export async function moveCourseSessions(input: unknown) {
             : `${formatTWDateTime(change.startsAt)} ${conflict.roomId === d.roomId ? "教室" : "老師"}已有課`);
       }
 
-      if(sportsStagingEnabled()){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
+      if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
       await assertCourseDutyCoverage(tx, storeId, changes.map((change) => ({ ...change, coachId: d.coachId })));

@@ -46,6 +46,9 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "codex/sports-production-enable": false,
+      "codex/sports-production-migration-review": false,
+      "codex/sports-cancel-migration-rehearsal": false,
       "main": false,
       "codex/sports-redesign-staging-20261018": false,
       "codex/sports-core-integration-review": false,
