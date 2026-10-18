@@ -2441,6 +2441,7 @@ export function CourseWorkspace({
                 }`}
               >
                 {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
+                  sportsNative={sportsNative}
                   key={`${dialogSession.id}-${courseDialog.kind}`}
                   sessionId={dialogSession.id}
                   capacity={dialogSession.capacity}

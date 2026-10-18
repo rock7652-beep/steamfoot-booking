@@ -40,9 +40,11 @@ export async function stopSportsLearner(input:unknown){try{
   const series=(await readSportsSeries(tx,a.storeId)).find(s=>s.id===d.seriesId);if(!series||series.cancelledAt)throw new AppError("NOT_FOUND","找不到有效固定課");
   const learners=sportsLearners.parse(series.learnerSnapshot),learner=learners.find(l=>l.customerId===d.customerId);if(!learner)throw new AppError("NOT_FOUND","學員不屬於此固定課");
   if(learner.stopDate){if(learner.stopDate===d.effectiveDate)return;throw new AppError("CONFLICT","學員已有停課日期，請重新核對");}
-  const bookings=await tx.courseBooking.findMany({where:{storeId:a.storeId,customerId:d.customerId,session:{requestKey:series.requestKey,startsAt:{gte:parseTaipeiDateTime(d.effectiveDate,"00:00")!}},status:{not:"CANCELLED"}},select:{id:true,status:true}});
+  const bookings=await tx.courseBooking.findMany({where:{storeId:a.storeId,customerId:d.customerId,session:{requestKey:series.requestKey,startsAt:{gte:parseTaipeiDateTime(d.effectiveDate,"00:00")!}},status:{not:"CANCELLED"}},select:{id:true,status:true,bookingKind:true,cardId:true}});
   if(bookings.some(b=>b.status!=="RESERVED"))throw new AppError("CONFLICT","生效日期後已有點名紀錄，請先核對");
-  for(const b of bookings)await settleCourseBooking(tx,a,b.id,"CANCELLED");
+  const deferred=bookings.filter(b=>b.bookingKind==="UNPAID"&&!b.cardId);
+  if(deferred.length)await tx.courseBooking.updateMany({where:{storeId:a.storeId,id:{in:deferred.map(b=>b.id)},status:"RESERVED"},data:{status:"CANCELLED",absenceKind:null}});
+  for(const b of bookings.filter(b=>!deferred.some(d=>d.id===b.id)))await settleCourseBooking(tx,a,b.id,"CANCELLED");
   learner.stopDate=d.effectiveDate;
   await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "learnerSnapshot"=${JSON.stringify(learners)}::jsonb,"updatedAt"=NOW() WHERE id=${series.id} AND "storeId"=${a.storeId}`;
   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${crypto.randomUUID()},${a.userId},${a.storeId},'COURSE','固定課學員停課，保留歷史缺課及補課','CourseScheduleSeries',${series.id},'SPORTS_LEARNER_STOP',NOW())`;

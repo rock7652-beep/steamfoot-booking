@@ -90,6 +90,7 @@ function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof ge
 }
 
 export function CourseRoster({
+  sportsNative=false,
   sessionId,
   capacity,
   canEdit,
@@ -115,6 +116,7 @@ export function CourseRoster({
   capacity: number;
   canCreate: boolean;
   canEdit: boolean;
+  sportsNative?:boolean;
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
@@ -488,7 +490,7 @@ export function CourseRoster({
             }
           }
           if (!bookingId && isCurrent()) {
-            router.refresh();
+            if(!sportsNative)router.refresh();
             if (outcome === "saved" && !scope.uncertain && view !== "roster") onDone?.();
           }
         }
@@ -1544,7 +1546,9 @@ export function CourseRoster({
       )}
 
       {editingNote && <ModalPanel open onClose={() => setEditingNote(null)} labelledById={noteEditorTitleId} width={512}>
-        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>{
+        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
+          if(sportsNative){start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setMessage(result.error??"備註尚未儲存");return;}if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存");}catch{setMessage("連線失敗，輸入已保留");}});return;}
+          run(()=>{
           if(target.bookingId) {
             // A newer save through the existing details editor also supersedes
             // delayed inline responses for this booking; teacher notes are separate.
