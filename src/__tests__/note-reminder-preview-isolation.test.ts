@@ -13,7 +13,7 @@ it("accepts only the exact isolated note/reminder Preview and needs no new flags
   expect(() => assertModuleRosterPreviewEnvironment(valid)).not.toThrow();
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[NOTE_REMINDER_PREVIEW_BRANCH]).not.toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each([

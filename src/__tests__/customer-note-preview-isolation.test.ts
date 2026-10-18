@@ -32,7 +32,7 @@ it("uses the existing isolated module Preview and permits the authorized Git aut
   expect(assertReviewedReleaseEnvironment(valid)).toBe("module-roster-preview");
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[CUSTOMER_NOTE_PREVIEW_BRANCH]).not.toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each(invalidProvenance)("fails closed for %s=%s", (key, value) => {

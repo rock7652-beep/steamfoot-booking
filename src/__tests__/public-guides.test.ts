@@ -591,7 +591,7 @@ describe("public editorial guides", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["fix/publish-music-guide-20261008"]).toBe(false);
     expect(deployment["content/yoga-waitlist-management"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 
   it("uses per-article canonical, metadata, and truthful structured data without invented authors/dates", async () => {

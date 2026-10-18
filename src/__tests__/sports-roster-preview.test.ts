@@ -13,7 +13,7 @@ it("accepts only the exact isolated sports roster Preview and needs no new flags
   expect(() => assertSportsRosterPreviewEnvironment(valid)).not.toThrow();
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[SPORTS_ROSTER_PREVIEW_BRANCH]).toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each([
