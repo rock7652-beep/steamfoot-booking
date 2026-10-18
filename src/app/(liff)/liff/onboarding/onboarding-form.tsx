@@ -38,6 +38,7 @@ type FormState =
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
   | { kind: "identity_review_required"; referenceId?: string }
+  | { kind: "login_review_pending"; referenceId: string; verificationCode: string }
   | { kind: "service_unavailable" }
   | { kind: "ready"; idToken: string; defaultName: string; pictureUrl: string | null }
   | { kind: "submitting"; idToken: string; defaultName: string; pictureUrl: string | null }
@@ -70,7 +71,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
   // iOS may retain the keyboard's viewport offset after the form is replaced
   // by a result. Release focus and reveal the result/header in normal flow.
   useEffect(() => {
-    if (!["blocked", "identity_review_required", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
+    if (!["blocked", "identity_review_required", "login_review_pending", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const frame = requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
     return () => cancelAnimationFrame(frame);
@@ -163,6 +164,9 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
     }
 
     switch (result.status) {
+      case "login_review_pending":
+        setState({ kind: "login_review_pending", referenceId: result.referenceId, verificationCode: result.verificationCode });
+        return;
       case "ok": {
         setState({ kind: "completing" });
         const session = await refreshLiffSession({ idToken, storeSlug });
@@ -241,6 +245,11 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
           showContactStore
           contactUrl={contactUrl}
         />
+      )}
+      {state.kind === "login_review_pending" && (
+        <InfoBlock tone="yellow"
+          body={`已送出會員登入確認申請。請向店家出示確認碼 ${state.verificationCode}，核對本人後，重新整理並再次輸入會員資料完成登入。請勿重新註冊或解除 LINE 綁定。查核編號：${state.referenceId}`}
+          showRetry showContactStore contactUrl={contactUrl} />
       )}
 
       {state.kind === "service_unavailable" && (
@@ -407,7 +416,7 @@ function InfoBlock({
   return (
     <div className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}>
       {title && <p className="font-medium">{title}</p>}
-      <p className="text-xs break-words opacity-90">{body}</p>
+      <p className="break-words text-sm leading-6 opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
         {showRetry && (
           <button
@@ -415,7 +424,7 @@ function InfoBlock({
             onClick={() => {
               if (typeof window !== "undefined") window.location.reload();
             }}
-            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
+            className="inline-flex min-h-11 items-center rounded-md border border-current bg-white/70 px-3 py-2 text-sm font-medium hover:bg-white"
           >
             {liffMessages.error.retryCta}
           </button>
@@ -425,7 +434,7 @@ function InfoBlock({
             href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
+            className="inline-flex min-h-11 items-center rounded-md border border-current bg-white/70 px-3 py-2 text-sm font-medium hover:bg-white"
           >
             {liffMessages.error.contactStoreCta}
           </a>

@@ -1,0 +1,56 @@
+[
+  {
+    "width": 1366,
+    "height": 900,
+    "polling": true,
+    "filterPreserved": true,
+    "noNavigation": true,
+    "noPageOverflow": true,
+    "schedulingPaused": true,
+    "draftPreserved": true,
+    "resizePreserved": true,
+    "resumedAfterClose": true
+  },
+  {
+    "width": 1920,
+    "height": 1080,
+    "polling": true,
+    "filterPreserved": true,
+    "noNavigation": true,
+    "noPageOverflow": true,
+    "schedulingPaused": true,
+    "draftPreserved": true,
+    "resizePreserved": true,
+    "resumedAfterClose": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "polling": true,
+    "filterPreserved": true,
+    "noNavigation": true,
+    "noPageOverflow": true,
+    "schedulingPaused": true,
+    "draftPreserved": true,
+    "resizePreserved": true,
+    "resumedAfterClose": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "polling": true,
+    "filterPreserved": true,
+    "noNavigation": true,
+    "noPageOverflow": true,
+    "schedulingPaused": true,
+    "draftPreserved": true,
+    "resizePreserved": true,
+    "resumedAfterClose": true
+  },
+  {
+    "twoContexts": true,
+    "syntheticHttpSnapshotShared": true,
+    "bothRefreshed": true,
+    "documentReload": false
+  }
+]

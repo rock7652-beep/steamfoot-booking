@@ -255,7 +255,7 @@ export async function assignCoursePointCard(input: unknown) {
     // The transaction is committed. Cache invalidation must not delay the
     // checkout response or turn a successful payment into a reported failure.
     after(() => {
-      for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
+      for (const path of ["/dashboard/revenue", "/dashboard/transactions", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
       refresh();
     });
     return { success: true as const };

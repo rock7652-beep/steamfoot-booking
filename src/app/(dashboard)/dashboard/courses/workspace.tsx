@@ -337,23 +337,31 @@ export function CourseWorkspace({
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
   >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
+  const [dirty, setDirty] = useState(false);
+  const backgroundRefreshRequestedAt = useRef(0);
   useEffect(() => {
-    if (view !== "schedule" || panel !== "day") return;
+    // Keep the calendar current even with the day sheet closed. Nested roster
+    // dialogs own their reads; never refresh their parent during a transaction.
+    if (view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
     const refresh = () => {
-      if (document.visibilityState !== "visible") return;
-      router.refresh();
-      setLastUpdated(new Date());
+      if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
+      backgroundRefreshRequestedAt.current = Date.now();
+      startTransition(() => {
+        router.refresh();
+        setLastUpdated(new Date());
+      });
     };
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [panel, router, view]);
-  const [dirty, setDirty] = useState(false);
+  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition]);
   useCourseDraftGuard(dirty,!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);

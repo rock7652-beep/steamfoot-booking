@@ -173,6 +173,23 @@ describe("authorized LIFF Login rebind", () => {
     expect(h.linkCreate).toHaveBeenCalledOnce();
     expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "recovered-link" }) }));
   });
+  it("restores the missing store link for the same verified Account only with exact staff authorization", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: verifiedLiffLoginRebindReason("store-1", oldLoginId) });
+    h.linksFind.mockReset().mockResolvedValue([]);
+    h.accountsFind.mockReset()
+      .mockResolvedValueOnce([{ id: "account-old", providerAccountId: oldLoginId }])
+      .mockResolvedValueOnce([{ id: "account-old", userId: "user-1" }])
+      .mockResolvedValueOnce([{ id: "account-old" }]);
+    h.customerCount.mockResolvedValue(1);
+    h.linkCreate.mockResolvedValue({ id: "recovered-link", userId: "user-1", providerAccountId: oldLoginId, lineUserId: oldLoginId });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: oldLoginId }))
+      .toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+    expect(h.accountDelete).not.toHaveBeenCalled();
+    expect(h.accountCreate).not.toHaveBeenCalled();
+    expect(h.requestUpdate).toHaveBeenCalled();
+  });
 
   it("rejects missing-link recovery when the Account no longer matches authorization", async () => {
     h.linksFind.mockReset().mockResolvedValue([]);
@@ -345,6 +362,17 @@ describe("authorized first LIFF Login capture", () => {
     expect(h.linkCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerAccountId: newLoginId, lineUserId: newLoginId }) }));
     expect(tx().customer).not.toHaveProperty("update");
     expect(tx().customer).not.toHaveProperty("updateMany");
+  });
+  it("consumes a first capture pinned to the exact verified subject", async () => {
+    const request = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...request, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", newLoginId]))}` });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "executed" });
+  });
+  it("rejects a pinned first capture for a different verified subject", async () => {
+    const request = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...request, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", "other"]))}` });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "rejected", code: "REQUEST_STATE_CHANGED" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
   });
   it("uses the unique store-linked owner when Customer.userId is empty", async () => {
     h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", phone, userId: null, mergedIntoCustomerId: null, user: null, identityLinks: [{ userId: "user-1" }] });

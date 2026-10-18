@@ -26,6 +26,7 @@ import { signIn } from "@/lib/auth";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagnostic";
 import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import {
   LiffIdTokenError,
@@ -164,7 +165,11 @@ export async function POST(req: Request): Promise<Response> {
   } catch (error) {
     if (error instanceof LineIdentityReviewError) {
       if (error.reason === "store_membership_unconfirmed") {
+        // No session or membership is granted here. The legacy store form may
+        // collect a staff-reviewed recovery request for the verified subject.
         try {
+          if (!context.config && await getStoreIndustryModule(store.id) === "steamfoot") return json({ status: "need_onboarding", storeSlug: store.slug,
+            lineUserId: verified.lineUserId, displayName: verified.displayName ?? null }, 200);
           if (await canOnboardCentralLineAccountToCourse({
             storeId: store.id, lineUserId: verified.lineUserId,
             identityProvider: context.identityProvider,

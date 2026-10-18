@@ -46,12 +46,12 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C103", category: "booking", title: "報到、完成與未到，額度有什麼差別？",
     summary: "報到只留下到場時間；出席、缺席扣堂及請假依課型與所選方式結算。", answer: "先確認是運動自由預約、固定期課或音樂課，再核對上課者與可操作的出席狀態。",
-    keywords: "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假 團體請假扣堂 自行取消", path: "課表排程／音樂課表 → 課程名單 → 點名",
+    keywords: "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假 團體請假扣堂 自行取消 課表更新 跨裝置同步 原紀錄核對", path: "課表排程／音樂課表 → 課程名單 → 點名",
     steps: ["開啟課程名單，核對姓名與目前狀態。", "在後台依實際情況選出席、未到或適用的請假；若使用報到，報到只留下到場時間，不扣額度。", "誤操作時使用更正，回到待點名後再依實際結果處理。"],
     important: "報到不扣點。固定期課未到會扣堂；音樂課出席／曠課扣堂，個別／自組班請假不扣堂，團體班請假仍扣 1 堂。不要為了更正另建重複預約。",
-    success: "後端確認成功後，原列才顯示新狀態且額度紀錄一致；重送不應再次扣點。",
+    success: "後端確認成功後，原列才顯示新狀態且額度紀錄一致；重送不應再次扣點。課表及相關營運資料會重新取得；另一裝置未即時反映時，先重新開啟原課次、核對原紀錄，不再點一次出席或更正來刷新畫面。",
     details: ["點名送出後原列先顯示處理中並鎖定重複操作；只有後端成功才更新狀態。失敗會保留原狀態並顯示原因，請修正或重新整理後再試，不要連點。", "運動自由預約的缺席可依畫面選扣堂或不扣堂；選扣堂不會釋放本次額度，有補課券選項時須另行核對，不能把未到一律當成不扣堂。固定期課依指定課次扣堂，未到不提供補課券，更正才返還。", "音樂課沒有補課券：出席與曠課各扣 1 堂；個別／自組班請假不扣堂，可在期限內另約；團體班請假仍扣 1 堂。學員自行取消有方案的音樂預約也按請假課型處理，不會因按鈕叫取消就變成免扣堂；改期另依同交易轉移流程核對。詳細操作另搜尋音樂點名。", "教練僅能處理被授權的自身課程，操作受上課時間限制；卡片已退款等狀態不能任意回補額度。"],
-    permission: "booking.update", feature: null, sources: ["src/lib/course-debit-policy.ts", "src/server/services/course-booking.ts", "src/server/actions/course-portal.ts", "src/app/(dashboard)/dashboard/courses/roster.tsx"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
+    permission: "booking.update", feature: null, sources: ["src/lib/course-debit-policy.ts", "src/server/services/course-booking.ts", "src/server/actions/course-portal.ts", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/app/(dashboard)/dashboard/courses/workspace.tsx"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C104", category: "hours", title: "公休或縮短可預約日期，為什麼不能儲存？",
@@ -66,12 +66,12 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C105", category: "money", title: "課程方案如何登錄協商退款？",
     summary: "核對實付、已退款、剩餘與占用，再輸入協商金額。", answer: "有退款權限的店長可登錄實際退款金額，累計不得超過原實付。",
-    keywords: "退款 實付 退費 作廢誤建交易 原交易明細 退款試算 選用 停用方案", path: "營運 → 購買明細 → 登錄退款",
+    keywords: "退款 實付 退費 作廢誤建交易 原交易明細 退款試算 選用 停用方案 交易更新 現金抽屜 背景同步", path: "營運 → 購買明細 → 登錄退款",
     steps: ["找到原核帳購買，核對已退款及尚可退款；需要查原資料時展開「原交易明細」。", "先處理預約占用，再填退款金額、方式及原因；「退款試算（選用）」不會自動帶入金額。", "核對收回全部剩餘額度的提示，點「登錄退款並停用方案」，再查看原交易與退款紀錄；系統不會自動退刷或轉帳。"],
     important: "累計退款不得超過實付。系統記錄退款不代表銀行已自動匯款，實際退款需另行核對。",
-    success: "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。",
+    success: "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。退款、更正或作廢成功會讓交易、營收及現金頁重新取得資料；其他已開頁面若尚未反映，先重開原紀錄核對，不重做退款或另補負數交易。",
     details: ["贈送額度不折算現金。參考金額不強制限制協商結果，但累計退款上限仍是實付。", "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。", "建錯或重複交易才用「作廢誤建交易」，須無預約及額度異動，填原因後「確認作廢」；另需作廢權限。實際退還款項不能用作廢冒充退款。"],
-    permission: "transaction.refund", additionalPermissions: ["transaction.read"], feature: null, sources: ["src/server/services/course-refund.ts", "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    permission: "transaction.refund", additionalPermissions: ["transaction.read"], feature: null, sources: ["src/server/services/course-refund.ts", "src/server/actions/course-refund.ts", "src/server/actions/course-purchase-correction.ts", "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C106", category: "care", title: "課程提醒會寄給誰？怎麼確認有沒有送達？",
@@ -106,11 +106,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C109", category: "booking", title: "怎麼一次排單堂、每週或多個指定日期？",
     summary: "選課程、教練、教室與日期，先看預覽再整批建立。", answer: "每週重複與指定日期都會整批檢查；其中一堂衝突時整批不建立。",
-    keywords: "新增排課 批次排課 每週 重複 指定日期 複製 預覽 衝突", path: "課表排程 → 新增排課／複製課程",
+    keywords: "新增排課 批次排課 每週 重複 指定日期 複製 預覽 衝突 課表更新 60秒 背景同步 草稿保留", path: "課表排程 → 新增排課／複製課程",
     steps: ["選課程、教練、教室、開始時間與人數上限。", "選單堂、每週至某日，或加入其他指定日期，再執行排課預覽。", "逐筆核對日期、營業時間、值班、教練與教室衝突後，確認建立。"],
     important: "預覽通過不保證稍後仍可儲存；正式送出會在鎖定店家資料後重新檢查全部日期。",
     success: "顯示建立堂數，所有日期都出現在課表；不會只建立無衝突的一部分。",
-    details: ["同一教練或教室時段重疊、超出營業時間、值班未涵蓋或資源停用都會阻擋。", "重送同一請求不會建立重複課次；若資料已變更，請重新開啟表單。"],
+    details: ["同一教練或教室時段重疊、超出營業時間、值班未涵蓋或資源停用都會阻擋。", "重送同一請求不會建立重複課次；若資料已變更，請重新開啟表單。", "課表在頁面可見、沒有編輯或交易進行時每 60 秒背景更新；關閉日期面板仍會更新，切回頁面也會檢查，短時間重複焦點事件會合併。開著排課編輯、課程名單視窗、有未儲存內容、處理中或結果未明時會暫停父課表更新；保留草稿，關閉後再核對，不代表資料即時推播或已儲存。"],
     permission: "booking.create", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/server/actions/course.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -136,12 +136,12 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C112", category: "plans", title: "店內購買方案並結帳，怎麼處理？",
     summary: "選顧客、方案、效期與本次開發人，再核對優惠、實收及收款方式。", answer: "「購買方案」確認結帳會同時完成發卡、購買與收款登記；全額折抵保留購買與方案，但不建立收入。",
-    keywords: "指派方案 購買方案 確認結帳 現金抽屜 重新確認 折扣 打折 折抵 轉帳 後四碼 店家成本 開發人", path: "顧客管理 → 顧客詳情 → 持有方案 → 購買方案",
+    keywords: "指派方案 購買方案 確認結帳 現金抽屜 重新確認 折扣 打折 折抵 轉帳 後四碼 店家成本 開發人 交易更新 背景同步 原交易", path: "顧客管理 → 顧客詳情 → 持有方案 → 購買方案",
     steps: ["從顧客詳情點「購買方案」（原指派方案），核對學員、上架方案、效期與本次開發人。", "選優惠與已收款方式；轉帳填後四碼。現金且實收大於零時，先等畫面確認今日現金抽屜已開啟。", "抽屜未開時可另開新分頁處理，回來按「重新確認」；若已結帳先依權限處理，不改填別種付款方式繞過。", "核對實收後點「確認結帳」一次，看到「結帳完成，方案已加入」，再查持有方案與原交易。"],
     important: "這個按鈕會同時發卡並登記收款，不是單純增加額度。連線中斷先查原交易，不要直接重按。",
     success: "只新增一張卡、一筆購買與一筆對應收款；顧客、效期、實收與本次開發人快照正確。",
-    details: ["從顧客進入時會帶入其所屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。"],
-    permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/actions/course-checkout-status.ts", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    details: ["從顧客進入時會帶入其所屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。", "結帳成功後，營收、交易與現金頁會重新取得資料；已開著的其他裝置不是即時推播。若清單尚未反映，先重開原交易、核對原卡片與收款，不要重新購買或換付款方式重做。背景資料更新失敗不會把已成功結帳變成失敗。"],
+    permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/actions/course-checkout-status.ts", "src/server/actions/course-members.ts", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C113", category: "money", title: "會員線上回報轉帳後，店家如何核帳？",

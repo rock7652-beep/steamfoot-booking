@@ -19,6 +19,8 @@ vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsCon
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── mocks (必須在 import action 之前) ──
+const mockRecovery = vi.fn();
+vi.mock("@/server/services/liff-login-recovery", () => ({ requestLiffLoginRecovery: (...args: unknown[]) => mockRecovery(...args) }));
 const mockFirstActivation = vi.fn();
 vi.mock("@/server/services/precreated-first-line-login", () => ({ activateUnlinkedStoreMember: (...args: unknown[]) => mockFirstActivation(...args) }));
 const mockMember = vi.fn();
@@ -92,6 +94,33 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("queues an exact verified login for staff confirmation without reporting success", async () => {
+    const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
+    mockRecovery.mockResolvedValueOnce({ status: "pending", verificationCode: "ABC123" });
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "login_review_pending", verificationCode: "ABC123", referenceId: expect.any(String) });
+    expect(mockRecovery).toHaveBeenCalledWith({ storeId: STORE.id, channelId: CHANNEL, lineUserId: LINE_USER_ID, phone: VALID_INPUT.phone });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
+  it("offers the same review flow when a verified account lacks confirmed store membership", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockMember.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    mockRecovery.mockResolvedValueOnce({ status: "pending", verificationCode: "ABC123" });
+    expect(await submitOnboarding(VALID_INPUT)).toMatchObject({ status: "login_review_pending" });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
+  it("consumes an approved recovery even when the Account lookup still reports missing membership", async () => {
+    const { completeAuthorizedFirstStoreLogin } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockMember.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    vi.mocked(completeAuthorizedFirstStoreLogin).mockResolvedValueOnce(true);
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ok" });
+    expect(mockRecovery).not.toHaveBeenCalled();
+  });
   it("completes staff-authorized first login before the phone collision guard", async () => {
     const { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());
@@ -120,7 +149,7 @@ describe("submitOnboarding action (PR-C2)", () => {
     await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/)});
     expect(mockBindLine).not.toHaveBeenCalled();
   });
-  it.each(["account_owner_conflict", "store_membership_unconfirmed", "ambiguous_legacy_identity", "customer_owner_conflict", "store_membership_conflict", "account_unavailable"] as const)("retains private onboarding rejection evidence for %s without granting access", async reason => {
+  it.each(["account_owner_conflict", "ambiguous_legacy_identity", "customer_owner_conflict", "store_membership_conflict", "account_unavailable"] as const)("retains private onboarding rejection evidence for %s without granting access", async reason => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
@@ -148,6 +177,7 @@ describe("submitOnboarding action (PR-C2)", () => {
 
   beforeEach(() => {
     mockFirstActivation.mockReset().mockResolvedValue("review");
+    mockRecovery.mockReset().mockResolvedValue({ status: "review" });
     mockIndustry.mockReset().mockResolvedValue("steamfoot");
     mockCourseOnboarding.mockReset();
     mockMember.mockReset().mockResolvedValue(null);

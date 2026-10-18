@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
@@ -18,16 +17,7 @@ describe("2026-10-17 backend guide review", () => {
     expect(findOperationGuides("方案待核對", access).map(g => g.id)).toEqual(expect.arrayContaining(["A05", "A16"]));
     expect(findOperationGuides("方案待核對", { ...access, module: "spa" })).toEqual([]);
   });
-  it("records the new main while retaining actual acceptance pending", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
-    expect(state.lastInventoriedMainCommit).toBe("a8cbb586bcaa61101a90ad794d7f5b3221b4769d");
-    expect(state.newGuideIds).toEqual([]);
-    expect(state.updatedGuideIds).toEqual(["A05", "A16"]);
-    expect(state.cumulativeDraftNewGuideIds).toHaveLength(3);
-    expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(53);
-    expect(state.backendInteractionPendingCount).toBe(57);
-    expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(state.frontendInteractionPendingGuideIds).toEqual([]);
+  it("keeps the backend catalog counts after SPA retirement", () => {
     expect(operationGuides).toHaveLength(187);
     expect(guideCategories).toHaveLength(15);
   });

@@ -1,16 +1,21 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-17",
+  "auditDateTaipei": "2026-10-18",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "a8cbb586bcaa61101a90ad794d7f5b3221b4769d",
-  "previousSuccessfulAuditCommit": "1f305d214d54e68dca5f51cd8b8208a02f0c8817",
+  "lastInventoriedMainCommit": "e115fd315fb8bb4fbc10950958a67fa71f658476",
+  "previousSuccessfulAuditCommit": "a8cbb586bcaa61101a90ad794d7f5b3221b4769d",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261012",
   "newGuideIds": [],
   "updatedGuideIds": [
-    "A05",
-    "A16"
+    "C07",
+    "C08",
+    "F04",
+    "C103",
+    "C105",
+    "C109",
+    "C112"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -70,7 +75,10 @@
     "C162",
     "C167",
     "I12",
-    "A05"
+    "A05",
+    "C105",
+    "C109",
+    "C112"
   ],
   "interactionPendingGuideIds": [
     "I20",
@@ -129,7 +137,10 @@
     "C162",
     "C167",
     "I12",
-    "A05"
+    "A05",
+    "C105",
+    "C109",
+    "C112"
   ],
   "articleCount": 187,
   "reviewedMainPullRequests": [
@@ -401,12 +412,15 @@
     1338,
     1339,
     1340,
-    1341
+    1341,
+    1342,
+    1343,
+    1344
   ],
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-17 從 main 1f305d21 比對至 a8cbb586，3 筆第一層 main 變更、包含 5 筆提交。新增 0 題、更新 A05 與 A16，後台維持 187 題／15 類，57 題待登入後隔離驗收。公開照片與經營文章不另新增後台操作題；前台與 SPA 教學維持封存。",
+  "continuation": "2026-10-18 從 main a8cbb586 比對至 e115fd31，3 筆 main 提交（#1342～#1344）。新增 0 題、更新 C07／C08／F04／C103／C105／C109／C112，後台維持 187 題／15 類，去重後 60 題待登入後隔離驗收。核對登入恢復與通知分流、課表背景更新及交易頁失效重讀；公開經營文章不新增後台題，前台與 SPA 教學維持封存。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -438,9 +452,9 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 57,
-  "totalInteractionPendingCount": 57,
-  "reviewedMainCommitCount": 5,
+  "backendInteractionPendingCount": 60,
+  "totalInteractionPendingCount": 60,
+  "reviewedMainCommitCount": 3,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -543,19 +557,19 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "a8cbb586bcaa61101a90ad794d7f5b3221b4769d",
+    "sourceCommit": "e115fd315fb8bb4fbc10950958a67fa71f658476",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
     "isolation": "本次可用雲端瀏覽器，但未確認本版已登入且隔離的測試工作階段",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "前批 56 題保留，新增待驗 A05；A16 已在待驗清單，去重後共 57 題。程式與測試不抵扣驗收。",
+    "note": "前批 57 題保留，新增待驗 C105／C109／C112，其餘本批修訂已在清單；去重後共 60 題。main 功能 PR 的既有截圖、程式與測試不抵扣本批指南驗收。",
     "blockers": [
       "本版已登入且確認資料隔離、通知封鎖的測試工作階段待確認",
       "I20 仍需具 store_operation_audit 的隔離 OWNER 身分"
     ],
     "nonBlockingFollowups": [
-      "桌機與 iPad 唯讀核對指南搜尋、開合、返回、月曆剩餘堂數／到期日摘要與方案待核對提示，不指派方案、收款、完成、取消或發通知。"
+      "桌機與 iPad 唯讀核對指南搜尋、開合、返回、本店會員與 LINE 的三種狀態、課表背景更新及原交易重讀。不確認登入或通知連結，不指派方案、收款、退款、完成、取消或發通知。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"

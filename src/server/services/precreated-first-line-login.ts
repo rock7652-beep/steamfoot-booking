@@ -4,7 +4,8 @@ import { normalizePhone } from "@/lib/normalize";
 
 /** Called only after the onboarding action verifies the store's LINE token.
  * First activation requires the submitted name AND phone to match the unique,
- * unowned store record. Never adopts an existing account or notification link.
+ * unowned store record. A notification recipient is usable only when it is
+ * exactly the subject verified by the caller; different subjects need review.
  */
 export async function activateUnlinkedStoreMember(input: {
   storeId: string; lineUserId: string; name: string; phone: string;
@@ -21,12 +22,13 @@ export async function activateUnlinkedStoreMember(input: {
       });
       if (customers.length !== 1) return "review";
       const customer = customers[0];
-      if (customer.name.trim() !== name || customer.userId || customer.lineUserId ||
+      if (customer.name.trim() !== name || customer.userId ||
+          (customer.lineUserId && customer.lineUserId !== input.lineUserId) ||
           customer.mergedIntoCustomerId || customer.identityLinks.length) return "review";
       const [phoneOwner, account, lineCustomer, lineLink] = await Promise.all([
         tx.user.findUnique({ where: { phone_role: { phone, role: "CUSTOMER" } }, select: { id: true } }),
         tx.account.findUnique({ where: { provider_providerAccountId: { provider: "line", providerAccountId: input.lineUserId } }, select: { id: true } }),
-        tx.customer.findFirst({ where: { storeId: input.storeId, lineUserId: input.lineUserId }, select: { id: true } }),
+        tx.customer.findFirst({ where: { storeId: input.storeId, lineUserId: input.lineUserId, id: { not: customer.id } }, select: { id: true } }),
         tx.customerIdentityLink.findFirst({ where: { provider: "line", providerAccountId: input.lineUserId }, select: { id: true } }),
       ]);
       if (phoneOwner || account || lineCustomer || lineLink) return "review";
@@ -35,7 +37,7 @@ export async function activateUnlinkedStoreMember(input: {
       });
       const claimed = await tx.customer.updateMany({
         where: { id: customer.id, storeId: input.storeId, phone, name: customer.name,
-          userId: null, lineUserId: null, mergedIntoCustomerId: null, identityLinks: { none: {} } },
+          userId: null, lineUserId: customer.lineUserId, mergedIntoCustomerId: null, identityLinks: { none: {} } },
         data: { userId: user.id, authSource: "LINE", lineUserId: input.lineUserId,
           lineLinkStatus: "LINKED", lineLinkedAt: new Date() },
       });

@@ -825,7 +825,7 @@ async function handlePhoneBindingRequest(
   const text = lineIdentityOwnedByOtherCustomer
     ? "此 LINE 已綁定其他顧客資料，請由店長確認解除或合併。"
     : result.status === "bound_existing" || result.status === "already_synced"
-      ? "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。"
+      ? "通知設定完成（僅限 LINE 通知收件）。請保持本店好友未封鎖，以接收通知。會員登入需另外確認；若會員專區顯示需要確認，請提交登入確認申請，並向店家出示確認碼，不需要重新註冊或解除 LINE 綁定。"
       : result.status === "customer_not_found"
         ? "查無顧客資料，請確認手機號碼是否與店長登記的一致，或聯繫店長協助確認。"
         : result.status === "ambiguous_multiple_candidates"
