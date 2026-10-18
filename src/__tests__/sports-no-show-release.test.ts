@@ -44,6 +44,7 @@ it('取消曠課恢復待點名時回收未使用補課券、還回扣抵並取�
  const update=vi.fn();const tx={...f.tx,courseBooking:{findFirst:vi.fn().mockResolvedValue(row),count:vi.fn().mockResolvedValue(0),aggregate:vi.fn().mockResolvedValue({_sum:{pointCost:0}}),update:vi.fn()},coursePointCard:{findUnique:vi.fn().mockResolvedValue({id:'coupon',remaining:1,closedAt:null}),update},coursePointEntry:{create:vi.fn()}};
  await correctCourseAttendance(tx as unknown as Prisma.TransactionClient,{storeId:'sports-live-flow-store',userId:'owner',name:'Owner'},'b','RESERVED','NO_SHOW');
  expect(update).toHaveBeenCalledWith({where:{id:'coupon'},data:{remaining:0,closedAt:expect.any(Date)}});
+ expect(tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:'coupon',kind:'VOID',points:1})});
  expect(update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:{increment:1}}});
  expect(tx.courseBooking.update).toHaveBeenCalledWith({where:{id:'b'},data:expect.objectContaining({status:'RESERVED',cardId:null,bookingKind:'UNPAID',pointCost:0})});
 });

@@ -501,7 +501,7 @@ export async function settleCourseBooking(
       data: {
         storeId: actor.storeId,
         cardId: makeupCard.id,
-        kind: recalled?`RESTORE_GRANT:${crypto.randomUUID()}`:"GRANT",
+        kind: "GRANT",
         points: booking.pointCost,
         actorUserId: actor.userId,
       },
@@ -531,7 +531,7 @@ export async function correctCourseAttendance(
       const used=await tx.courseBooking.count({where:{storeId:actor.storeId,cardId:coupon.id,status:{not:"CANCELLED"}}});
       if(used || coupon.remaining < b.pointCost)return fail("此缺席的補課券已使用或預約，請先處理補課再取消原堂");
       await tx.coursePointCard.update({where:{id:coupon.id},data:{remaining:0,closedAt:new Date()}});
-      await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId:coupon.id,actorUserId:actor.userId,kind:`CANCEL_SOURCE:${b.id}`,points:coupon.remaining}});
+      await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId:coupon.id,actorUserId:actor.userId,kind:sportsNativePreview(actor.storeId)?"VOID":`CANCEL_SOURCE:${b.id}`,points:coupon.remaining}});
     }
   }
   if (restoringLeave) {
