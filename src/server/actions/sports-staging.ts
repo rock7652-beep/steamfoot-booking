@@ -1,4 +1,5 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { z } from "zod";
 import {sportsProductionEnabled} from "@/lib/sports-staging";
 import { sportsCompensation } from "@/lib/sports-staging-types";
@@ -494,7 +495,8 @@ export async function sportsStagingCommand(input: unknown) {
           : d.kind === "隔週固定"
             ? "BIWEEKLY"
             : "SINGLE";
-      const count = 1;
+      const perpetual=sportsNativePreview(storeId)&&frequency!=="SINGLE";
+      const count=frequency==="SINGLE"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
       const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
@@ -518,7 +520,7 @@ export async function sportsStagingCommand(input: unknown) {
           ),
           requestKey: d.requestKey,
           sportsStaging: {
-            perpetual:frequency!=="SINGLE",
+            perpetual:perpetual?true:undefined,
             frequency,
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan.id,
