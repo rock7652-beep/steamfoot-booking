@@ -12,7 +12,7 @@ describe("health record form mobile date layout", () => {
       'className="mt-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-earth-200"',
     );
     expect(form).toContain(
-      'className="block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900"',
+      'block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900',
     );
   });
 });

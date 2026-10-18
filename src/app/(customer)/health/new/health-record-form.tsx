@@ -26,6 +26,7 @@ const fields = [
 ] as const;
 
 export function HealthRecordForm({
+  compact=false,
   requestId,
   today,
   storeSlug,
@@ -37,7 +38,7 @@ export function HealthRecordForm({
   onSaved,
   notePlaceholder = "例如：蒸足前量測",
 }: {
-  requestId: string;
+  compact?:boolean; requestId: string;
   today: string;
   storeSlug?: string;
   surface?: "web" | "liff";
@@ -64,7 +65,7 @@ export function HealthRecordForm({
   }, [state, onSaved]);
 
   return (
-    <form action={action} className="space-y-5">
+    <form action={action} className={compact?"space-y-3 @container":"space-y-5"}>
       <input type="hidden" name="requestId" value={requestId} />
       {recordId && <input type="hidden" name="recordId" value={recordId} />}
       {surface === "liff" && <input type="hidden" name="storeSlug" value={storeSlug} />}
@@ -74,7 +75,8 @@ export function HealthRecordForm({
         </div>
       )}
 
-      <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
+      <section className={compact?"grid grid-cols-2 items-start gap-x-3 gap-y-2 @[620px]:grid-cols-3 @[880px]:grid-cols-4":"rounded-2xl border border-earth-200 bg-white p-5 shadow-sm"}>
+        <div>
         <label htmlFor="measuredAt" className="block text-sm font-semibold text-earth-900">
           量測日期
         </label>
@@ -86,12 +88,12 @@ export function HealthRecordForm({
             defaultValue={initialValues?.measuredAt ?? today}
             max={today}
             required
-            className="block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900"
+            className={compact?"block min-h-11 w-full min-w-0 max-w-full appearance-none border-0 bg-white px-3 text-base text-earth-900":"block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900"}
           />
         </span>
         <FieldError messages={state.fieldErrors?.measuredAt} />
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        </div><div className={compact?"contents":"mt-5 grid grid-cols-2 gap-3"}>
           {fields.map(([name, label, unit, step]) => (
             <div key={name}>
               <label htmlFor={name} className="block text-sm font-semibold text-earth-900">
@@ -105,7 +107,7 @@ export function HealthRecordForm({
                   inputMode="decimal"
                   step={step}
                   defaultValue={initialValues?.[name] ?? ""}
-                  className="min-h-[52px] w-full rounded-xl border border-earth-200 px-4 pr-12 text-base text-earth-900"
+                  className={compact?"min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-3 pr-12 text-base text-earth-900":"min-h-[52px] w-full rounded-xl border border-earth-200 px-4 pr-12 text-base text-earth-900"}
                 />
                 {unit && <span className="absolute right-3 top-4 text-sm text-earth-500">{unit}</span>}
               </div>
@@ -114,29 +116,29 @@ export function HealthRecordForm({
           ))}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-earth-500">
+        {!compact&&<p className="mt-3 text-xs leading-relaxed text-earth-500">
           BMI 可直接填入量測儀器數值；內臟脂肪可填入 4.5 等半級數值。BMI 未填時，系統會在有身高與體重資料時自動計算。
-        </p>
+        </p>}
 
-        <label htmlFor="note" className="mt-5 block text-sm font-semibold text-earth-900">
+        <div className={compact?"col-span-full":""}><label htmlFor="note" className={`${compact?"":"mt-5"} block text-sm font-semibold text-earth-900`}>
           備註（選填）
         </label>
         <textarea
           id="note"
           name="note"
-          rows={3}
+          rows={compact?1:3}
           maxLength={500}
           placeholder={notePlaceholder}
           className="mt-2 w-full rounded-xl border border-earth-200 px-4 py-3 text-base text-earth-900"
           defaultValue={initialValues?.note ?? ""}
         />
-        <FieldError messages={state.fieldErrors?.note} />
+        <FieldError messages={state.fieldErrors?.note} /></div>
       </section>
 
       <button
         type="submit"
         disabled={pending}
-        className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70"
+        className={`${compact?"min-h-11 ml-auto w-auto":"min-h-[52px] w-full"} flex items-center justify-center rounded-lg bg-primary-600 px-5 text-base font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70`}
       >
         {pending
           ? "正在儲存…"
@@ -144,9 +146,9 @@ export function HealthRecordForm({
             ? "儲存修改"
             : "儲存並查看評估"}
       </button>
-      <p className="text-center text-xs leading-relaxed text-earth-500">
+      {!compact&&<p className="text-center text-xs leading-relaxed text-earth-500">
         健康評估為日常追蹤參考，不能取代醫療診斷；若身體不適請諮詢專業醫療人員。
-      </p>
+      </p>}
     </form>
   );
 }

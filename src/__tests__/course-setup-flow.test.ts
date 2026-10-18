@@ -43,3 +43,12 @@ it("completion hides details by default and offers the actual session roster",as
  expect(host.textContent).not.toContain("不再提醒");
  await act(async()=>host.querySelector("summary")!.click());expect(details.open).toBe(true);expect(details.querySelectorAll("ol > li")).toHaveLength(6);
 });
+
+it("sports settings category changes do not refresh the server tree; normal guide navigation still does",async()=>{
+ m.refresh.mockClear();m.search="view=settings&section=store";
+ const props={steps:courseSetupSteps(counts,false,true),preference:{mode:"never" as const},login:"test",manual:true,localSections:true};
+ await act(async()=>root.render(createElement(CourseSetupGuide,props)));
+ for(const section of ["booking","payment","notifications","subscription","store"]){m.search=`view=settings&section=${section}`;await act(async()=>root.render(createElement(CourseSetupGuide,props)));}
+ expect(m.refresh).not.toHaveBeenCalled();
+ m.search="view=rooms";await act(async()=>root.render(createElement(CourseSetupGuide,props)));expect(m.refresh).toHaveBeenCalledOnce();
+});

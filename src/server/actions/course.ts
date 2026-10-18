@@ -1,4 +1,5 @@
 "use server";
+import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sameSportsScheduleRule} from "@/lib/sports-staging-types";
@@ -662,7 +663,7 @@ export async function moveCourseSessions(input: unknown) {
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
       if(native&&d.expectedStartsAt&&source.startsAt.toISOString()!==d.expectedStartsAt)throw new AppError("CONFLICT","原課已異動，請重新開啟後再調課");
-      if(native&&(source.bookings.some(b=>["ATTENDED","NO_SHOW","CHECKED_IN"].includes(b.status))||await tx.coursePointEntry.findFirst({where:{storeId,booking:{sessionId:source.id}}})||await tx.courseTrialPayment.findFirst({where:{storeId,booking:{sessionId:source.id},status:"SUCCESS"}})))throw new AppError("CONFLICT","本堂已有出席、扣抵或收款，請先核對原紀錄");
+      if(native){const reason=await sportsMoveBlockedReason(tx,storeId,source);if(reason)throw new AppError("CONFLICT",reason);}
       const original = source.rescheduledFromStartsAt
         ? formatTWDateTime(source.rescheduledFromStartsAt)
         : null;
@@ -721,6 +722,7 @@ export async function moveCourseSessions(input: unknown) {
         throw new AppError("VALIDATION", "請選擇可用的老師與教室");
 
       for (const change of changes) {
+        if(native&&change.session.id!==source.id){const reason=await sportsMoveBlockedReason(tx,storeId,change.session);if(reason)throw new AppError("CONFLICT",reason);}
         await assertCourseResources(
           tx,
           storeId,
@@ -1120,4 +1122,16 @@ export async function batchCourseTemplates(input: unknown) {
     kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
     return {success:true as const};
   } catch(e){return handleCourseActionError(e);}
+}
+
+/** Read-only preflight; the write repeats every guard under the store lock. */
+export async function checkSportsCourseMove(sessionId:string) {
+  try {
+    const {storeId}=await courseManager("booking.update");
+    if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此入口僅供運動測試站使用");
+    const session=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true}});
+    if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
+    const reason=await sportsMoveBlockedReason(coursePrisma,storeId,session);
+    return reason?{success:false as const,error:reason}:{success:true as const};
+  }catch(error){return handleCourseActionError(error);}
 }

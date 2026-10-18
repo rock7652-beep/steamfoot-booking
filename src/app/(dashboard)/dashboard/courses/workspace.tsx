@@ -3,6 +3,7 @@ import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} fr
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
 import {SportsAttendancePanel} from "./sports-attendance-panel";
+import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsSeriesPanel} from "./sports-series-panel";
 import {SportsScheduleFields} from "./sports-schedule-fields";
@@ -609,7 +610,16 @@ export function CourseWorkspace({
   const [sportsSeriesOpen,setSportsSeriesOpen]=useState(false);
   const [scheduleSeed,setScheduleSeed]=useState<{single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   const [moveTarget,setMoveTarget]=useState<{date:string;time:string;roomId:string;coachId:string}|null>(null);
-  function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
+  const movePreflight=useRef(false);
+  async function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
+    if(sportsNative){
+      if(movePreflight.current)return;
+      if(moveClipboard?.sessionId!==session.id&&moveClipboard&&!window.confirm(`改為剪下「${session.nameSnapshot}」？原本待貼上的課程不會變動。`))return;
+      movePreflight.current=true;
+      try{const result=await checkSportsCourseMove(session.id);if(!result.success){setError(result.error??"暫時無法調課");return;}}
+      catch{setError("無法核對調課條件，請重試");return;}
+      finally{movePreflight.current=false;}
+    }
     const durationMinutes = Math.max(sportsNative?5:30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
       sessionId: session.id,
@@ -2418,7 +2428,7 @@ export function CourseWorkspace({
                   {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && dialogSession.rescheduledFromStartsAt && (
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
                   )}
-                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && !moveClipboard && (
+                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && (!moveClipboard||sportsNative) && (
                     <button type="button" className={primary} onClick={() => {
                       if (dialogSession.isFixed&&!sportsNative) {
                         setMoveChoice(dialogSession);

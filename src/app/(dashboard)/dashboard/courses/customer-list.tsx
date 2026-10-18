@@ -60,7 +60,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
-      quickAssignLabel="購買方案"
+      quickAssignLabel="購買方案" quickAssignInMenu={sportsNative}
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel="最近來店"
