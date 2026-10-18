@@ -444,4 +444,4 @@ function CashDrawerInlineLockedState() {
   );
 }
 
-function CashbookActionsMenu({compact,children}:{compact:boolean;children:React.ReactNode}){return compact?<ExclusiveMenu quiet triggerText="⋯" label="記帳操作">{children}</ExclusiveMenu>:<div className="flex items-center gap-3">{children}</div>;}
+function CashbookActionsMenu({compact,children}:{compact:boolean;children:React.ReactNode}){return compact?<ExclusiveMenu quiet triggerText="⋯" label="記帳操作"><div className="flex flex-col items-stretch [&_button]:min-h-11 [&_button]:text-left">{children}</div></ExclusiveMenu>:<div className="flex items-center gap-3">{children}</div>;}
