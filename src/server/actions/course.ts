@@ -1,4 +1,5 @@
 "use server";
+import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsRulesAvailable} from "@/server/services/sports-production-readiness";
@@ -775,6 +776,7 @@ export async function moveCourseSessions(input: unknown) {
       });
 
       const movedAt = new Date();
+      const moved:SportsMovePatch[]=[];
       for (const change of changes) {
         // FUTURE changes the permanent fixed slot. Only temporary moves keep
         // an original-slot reservation (the DB permits SINGLE / WEEKS here).
@@ -799,7 +801,7 @@ export async function moveCourseSessions(input: unknown) {
           const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
           if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
         }
-        await tx.courseSession.update({
+        const committed=await tx.courseSession.update({
           where: { id: change.session.id },
           data: {
             startsAt: change.startsAt,
@@ -824,6 +826,7 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+        if(native)moved.push({id:committed.id,startsAt:committed.startsAt.toISOString(),endsAt:committed.endsAt.toISOString(),roomId:committed.roomId,coachId:committed.coachId,rescheduledFromStartsAt:committed.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:committed.rescheduledFromEndsAt?.toISOString()??null,rescheduledFromRoomId:committed.rescheduledFromRoomId,rescheduledFromCoachId:committed.rescheduledFromCoachId,rescheduleKind:committed.rescheduleKind,rescheduledAt:committed.rescheduledAt?.toISOString()??null,releasedAt:committed.releasedAt?.toISOString()??null});
       }
       if(permanent&&d.scope==="FUTURE"){
         const startsAt=new Date(permanent.startsAt.getTime()+shift),endsAt=new Date(startsAt.getTime()+duration);
@@ -833,7 +836,7 @@ export async function moveCourseSessions(input: unknown) {
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
         if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:"MOVE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
       }
-      return { count: changes.length };
+      return { count: changes.length, ...(native?{moved}:{}) };
     });
 
     kickCoachNotifications(storeId);
@@ -1140,7 +1143,7 @@ export async function checkSportsCourseMove(sessionId:string) {
 export async function readSportsMoveResult(sessionId:string){try{
  const {storeId}=await courseManager("booking.read");
  if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此入口僅供運動測試站使用");
- const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}});
+ const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true,endsAt:true,roomId:true,coachId:true,rescheduledFromStartsAt:true,rescheduledFromEndsAt:true,rescheduledFromRoomId:true,rescheduledFromCoachId:true,rescheduleKind:true,rescheduledAt:true,releasedAt:true}});
  if(!row)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
- return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString()}};
+ return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),rescheduledFromStartsAt:row.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:row.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:row.rescheduledAt?.toISOString()??null,releasedAt:row.releasedAt?.toISOString()??null}};
  }catch(e){return handleCourseActionError(e);}}

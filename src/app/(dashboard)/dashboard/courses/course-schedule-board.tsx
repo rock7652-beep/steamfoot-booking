@@ -1,4 +1,5 @@
 "use client";
+import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {sportsCalendarPresentation} from "@/lib/sports-calendar-presentation";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
@@ -466,11 +467,13 @@ export function CourseScheduleBoard({
   );
   const knownCoaches = new Set(activeCoaches.map(coach=>coach.id));
   for(const session of sessions) if(!knownCoaches.has(session.coachId)) { activeCoaches.push({id:session.coachId,displayName:"未建檔老師",status:"INACTIVE",courseCoachEnabled:false}); knownCoaches.add(session.coachId); }
-  const [resourceView, updateResourceView] = React.useState<ResourceView>(initialResourceView ?? (businessProfile === "MUSIC" && !replica ? "coach" : "room"));
-  const [weekRoomId, setWeekRoomId] = React.useState(initialWeekRoomId ?? activeRooms[0]?.id ?? "");
+  const [resourceView, updateResourceView] = useSportsCalendarState<ResourceView>(sportsNative,"resourceView",initialResourceView ?? (businessProfile === "MUSIC" && !replica ? "coach" : "room"),calendarResource);
+  const [weekRoomId, setWeekRoomId] = useSportsCalendarState(sportsNative,`resourceId:${resourceView}`,initialWeekRoomId ?? activeRooms[0]?.id ?? "",calendarString);
+  React.useEffect(()=>{if(sportsNative&&initialResourceView)updateResourceView(initialResourceView);},[sportsNative,initialResourceView,updateResourceView]);
+  React.useEffect(()=>{if(sportsNative&&initialWeekRoomId)setWeekRoomId(initialWeekRoomId);},[sportsNative,initialWeekRoomId,setWeekRoomId]);
   function setResourceView(view:ResourceView) { updateResourceView(view); onResourceChange?.(view); }
-  const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
-  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(businessProfile === "MUSIC" ? 60 : 30);
+  const [quickFilter, setQuickFilter] = useSportsCalendarState<QuickFilter>(sportsNative,"quickFilter","all",(v):v is QuickFilter=>v==="all"||v==="trial"||v==="near-full"||v==="full"||v==="pending");
+  const [availabilityDuration, setAvailabilityDuration] = useSportsCalendarState<30 | 60 | 90 | 120>(sportsNative,"availabilityDuration",businessProfile === "MUSIC" ? 60 : 30,(v):v is 30|60|90|120=>v===30||v===60||v===90||v===120);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
@@ -524,6 +527,9 @@ export function CourseScheduleBoard({
     return () => { window.removeEventListener("scroll", schedule, true); board.removeEventListener("scroll", schedule, true); window.removeEventListener("resize", schedule); observer?.disconnect(); window.cancelAnimationFrame(frame); };
   }, [mode, selectedDate, weekRoomId, resourceView, sessions]);
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
+  const weekScrollRef=React.useRef<HTMLDivElement>(null);
+  useSportsCalendarScroll(sportsNative&&mode==="week",`week:${resourceView}`,weekScrollRef);
+  useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
   const hourHeight = 96;
@@ -556,7 +562,7 @@ export function CourseScheduleBoard({
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
-        <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
+        <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {

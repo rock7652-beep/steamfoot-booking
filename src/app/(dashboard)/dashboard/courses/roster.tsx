@@ -1,4 +1,5 @@
 "use client";
+import bookingLayout from "./sports-booking-layout.module.css";
 import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -735,7 +736,7 @@ export function CourseRoster({
     return (
       <form
         id="course-member-booking-form"
-        className="space-y-3"
+        className={sportsNative?bookingLayout.member:"space-y-3"}
         onSubmit={(event) => {
           event.preventDefault();
           if (!customerId || !cardId) {
@@ -766,7 +767,7 @@ export function CourseRoster({
         }}
       >
         {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
-        <div>
+        <div data-member-search>
           <label htmlFor="course-member-search" className="mb-1 block text-sm font-medium">
             先找學員
           </label>
@@ -786,7 +787,7 @@ export function CourseRoster({
             <p className="mt-2 text-sm text-earth-500">輸入關鍵字後才會顯示符合的學員。</p>
           )}
           {normalizedMemberQuery && (
-            <div className="mt-2 max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200 bg-white">
+            <div data-search-results className="mt-2 max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200 bg-white">
               {filteredLearners.length ? (
                 filteredLearners.map((member) => {
                   const memberCards = eligibleCardsFor(member.id);
@@ -841,7 +842,7 @@ export function CourseRoster({
               ＋ 直接建立新顧客
             </button>
           )}
-          {allowTrialActions && onCreateCustomer && (
+          {!sportsNative&&allowTrialActions && onCreateCustomer && (
             <p className="mt-2 text-xs text-earth-500">
               新顧客可直接建檔並以體驗預約加入本堂，不必先前往顧客管理。
             </p>
@@ -860,8 +861,8 @@ export function CourseRoster({
         </fieldset>}
         {enrollmentLoading && <p role="status" className="text-xs text-earth-500">確認後續堂次中…</p>}
         {customerId && (
-          <div className="space-y-3 rounded-xl border border-earth-200 bg-earth-50 p-3">
-            <p className="text-sm text-earth-600">已選學員</p>
+          <div data-member-selected className="space-y-3 rounded-xl border border-earth-200 bg-earth-50 p-3">
+            {!sportsNative&&<p className="text-sm text-earth-600">已選學員</p>}
             <p className="font-medium">
               {learners.find((member) => member.id === customerId)?.name}
             </p>
@@ -910,7 +911,7 @@ export function CourseRoster({
             )}
             <label className="block text-sm font-medium">
               本次備註
-              <textarea className={`${field} mt-1 min-h-20`} name="notes" maxLength={1000} />
+              <textarea rows={sportsNative?1:undefined} className={`${field} mt-1 ${sportsNative?"min-h-11":"min-h-20"}`} name="notes" maxLength={1000} />
             </label>
           </div>
         )}
@@ -938,17 +939,18 @@ export function CourseRoster({
       </label>
     );
     const noteField = (
-      <label className="block text-sm font-medium">
+      <label data-booking-notes className="block text-sm font-medium">
         本次備註
         <textarea
           name="notes"
+          rows={sportsNative?1:undefined}
           maxLength={1000}
           className={`${field} mt-1 min-h-20`}
         />
       </label>
     );
     return (
-      <section className="space-y-4">
+      <section className={sportsNative?"space-y-2":"space-y-4"}>
 
       {message && (
           <p role="status" className="text-sm text-primary-700">
@@ -975,7 +977,7 @@ export function CourseRoster({
         {trialMode === "existing" ? (
           <form
             id="course-trial-booking-form"
-            className="space-y-4"
+            className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
               const allowOverCapacity = occupiedCount >= capacity;
@@ -993,7 +995,7 @@ export function CourseRoster({
               );
             }}
           >
-            <div>
+            <div data-trial-search>
               <label
                 htmlFor="course-trial-search"
                 className="mb-1 block text-sm font-medium"
@@ -1015,7 +1017,7 @@ export function CourseRoster({
               )}
             </div>
             {normalizedTrialQuery && (
-              <div className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
+              <div data-trial-results className="max-h-32 divide-y overflow-y-auto rounded-lg border border-earth-200">
                 {filteredTrialCustomers.length ? (
                   filteredTrialCustomers.map((customer) => (
                     <label
@@ -1043,14 +1045,14 @@ export function CourseRoster({
             )}
             {priceField}
             {noteField}
-            <p className="text-sm text-earth-600">
+            {!sportsNative&&<p className="text-sm text-earth-600">
               先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
-            </p>
+            </p>}
           </form>
         ) : (
           <form
             id="course-trial-booking-form"
-            className="space-y-4"
+            className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
               const allowOverCapacity = occupiedCount >= capacity;
@@ -1073,7 +1075,7 @@ export function CourseRoster({
               });
             }}
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div data-trial-identity className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm font-medium">
                 姓名
                 <input
@@ -1096,14 +1098,14 @@ export function CourseRoster({
                 />
               </label>
             </div>
-            <p className="text-sm text-earth-500">
+            {!sportsNative&&<p className="text-sm text-earth-500">
               若手機已存在，請改用「選擇既有顧客」，避免重複建檔。
-            </p>
+            </p>}
             {priceField}
             {noteField}
-            <p className="text-sm text-earth-600">
+            {!sportsNative&&<p className="text-sm text-earth-600">
               建立顧客後會直接加入本堂，並先保留一位名額。
-            </p>
+            </p>}
           </form>
         )}
       </section>

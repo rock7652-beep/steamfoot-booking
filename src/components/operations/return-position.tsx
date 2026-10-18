@@ -12,7 +12,7 @@ export function ReturnPosition({ scope, children }: { scope: string; children?: 
     let top: number | undefined;
     try { top = readOperationState(sessionStorage, key, validPosition); sessionStorage.removeItem(key); } catch { return; }
     if (top === undefined) return;
-    router.refresh();
+    if(!document.querySelector("[data-operation-background-refresh]"))router.refresh();
     let stopped = false;
     let frame = 0;
     const restore = () => {

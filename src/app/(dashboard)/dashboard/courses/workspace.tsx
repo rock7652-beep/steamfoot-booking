@@ -1,4 +1,6 @@
 "use client";
+import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
@@ -285,8 +287,8 @@ export function CourseWorkspace({
   }
   const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
-  const [nativeDate,setNativeDate]=useState(loadedDate);
-  const [nativeCalendar,setNativeCalendar]=useState<Extract<Awaited<ReturnType<typeof loadSportsCalendar>>,{success:true}>["data"]|null>(null);
+  const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
+  const [nativeCalendar,setNativeCalendar]=useState<{month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const calendarRequest=useRef(0);
   const calendarTargetMonth=useRef(loadedDate.slice(0,7));
   const [calendarReading,setCalendarReading]=useState(false);
@@ -295,22 +297,26 @@ export function CourseWorkspace({
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
-  const refreshNativeCalendar=useCallback(async(date:string)=>{
+  const refreshNativeCalendar=useCallback(async(date:string,ensure=false)=>{
     calendarTargetMonth.current=date.slice(0,7);
     const request=++calendarRequest.current;setCalendarReading(true);
-    try{if(sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
+    try{if(ensure&&sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
   },[sportsNative,canCreate]);
+  useEffect(()=>{if(sportsNative&&nativeDate.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7))&&calendarTargetMonth.current!==nativeDate.slice(0,7))void refreshNativeCalendar(nativeDate,true);},[sportsNative,nativeDate,nativeCalendar?.month,loadedDate,refreshNativeCalendar]);
+  useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,!calendarReading);
   const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
-  const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
+  const [scheduleMode, setScheduleMode] = useSportsCalendarState<CourseScheduleMode>(sportsNative,"mode",
     requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
       ? requestedScheduleMode
       : businessProfile === "MUSIC"
         ? "day"
-        : "month",
+        : "month",calendarMode,
   );
+  const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
+  useEffect(()=>{if(!sportsNative)return;if(explicitDate&&calendarDate(explicitDate))setNativeDate(explicitDate);if(explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitDate,explicitMode,setNativeDate,setScheduleMode]);
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
     if(sportsNative)return;
@@ -432,12 +438,12 @@ export function CourseWorkspace({
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
-  const [roomFilter, setRoomFilter] = useState(params.get("room") ?? "all");
+  const [roomFilter, setRoomFilter] = useSportsCalendarState(sportsNative,"roomFilter",params.get("room") ?? "all",calendarString);
   const [rentalFilter, setRentalFilter] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [coachFilter, setCoachFilter] = useState("all");
-  const [assignedCoachFilter, setAssignedCoachFilter] = useState("all");
-  const [scheduleQuery, setScheduleQuery] = useState("");
+  const [classFilter, setClassFilter] = useSportsCalendarState(sportsNative,"classFilter","all",calendarString);
+  const [coachFilter, setCoachFilter] = useSportsCalendarState(sportsNative,"coachFilter","all",calendarString);
+  const [assignedCoachFilter, setAssignedCoachFilter] = useSportsCalendarState(sportsNative,"assignedCoachFilter","all",calendarString);
+  const [scheduleQuery, setScheduleQuery] = useSportsCalendarState(sportsNative,"scheduleQuery","",calendarString);
   const [hideTestData,setHideTestData]=useState(false);
   const [showInactive,setShowInactive]=useState(false);
   const catalogItems = view === "rooms" ? allRooms : allTemplates;
@@ -560,7 +566,7 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
-    if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
+    if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
@@ -822,7 +828,8 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
-      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={date=>{setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date);}}/>}
+      {sportsNative&&<span hidden data-operation-background-refresh/>}
+      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
@@ -2077,7 +2084,7 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
@@ -2505,7 +2512,7 @@ export function CourseWorkspace({
                     : "overflow-y-auto"
                 }`}
               >
-                {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <>{sportsNative&&courseDialog.kind!=="roster"&&<section aria-label="新增預約" className="mb-3 rounded-lg border border-primary-200 p-3" onChangeCapture={()=>{inlineDirty.current=true;}}>
+                {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <>{sportsNative&&courseDialog.kind!=="roster"&&<section aria-label="新增預約" className="@container mb-2 rounded-lg border border-primary-200 p-2" onChangeCapture={()=>{inlineDirty.current=true;}}>
                   <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">{courseDialog.kind==="member-booking"?"新增學員":"新增體驗客"}</h3><button type="button" className={button} disabled={inlineBusy} onClick={()=>changeBooking("roster",dialogSession.id)}>收起</button></div>
                   {rosterContent(courseDialog.kind)}
                   <button type="submit" form={courseDialog.kind==="member-booking"?"course-member-booking-form":"course-trial-booking-form"} disabled={inlineBusy||(courseDialog.kind==="member-booking"&&!memberBookingReady)} className={`${primary} mt-3`}>{inlineBusy?"處理中…":"確認新增"}</button>
