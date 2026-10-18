@@ -4,7 +4,7 @@ import {z} from "zod";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsScheduleRule,type SportsScheduleRule} from "@/lib/sports-staging-types";
 import {fixedSeriesOccurrenceOnDate,findFixedSeriesConflicts,findOngoingFixedSeriesConflicts,type FixedCourseSeries} from "@/lib/course-series";
-import {addTaiwanDuration,toLocalDateStr} from "@/lib/date-utils";
+import {addTaiwanDuration,toLocalDateStr,parseTaipeiDateTime} from "@/lib/date-utils";
 import {AppError} from "@/lib/errors";
 import type {Prisma} from "../../../generated/course-client";
 import type {CourseActor} from "./course-booking";
@@ -92,6 +92,10 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
 export async function ensureSportsMonth(actor:CourseActor,first:string,last:string){
  if(!sportsNativePreview(actor.storeId))return;
  const {coursePrisma}=await import("@/lib/course-db");
+ // Reconcile previously recorded no-shows in this visible range, without
+ // touching debit entries, makeup credit, or any other tenant.
+ const releasedCandidates=await coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{gte:parseTaipeiDateTime(first,"00:00")!,lt:parseTaipeiDateTime(addTaiwanDuration(last,1,"DAY"),"00:00")!},bookings:{some:{status:"NO_SHOW"},none:{status:{notIn:["CANCELLED","NO_SHOW"]}}}},select:{id:true}});
+ if(releasedCandidates.length){const {courseTransaction}=await import("./course-access");const {syncCourseRelease}=await import("./course-booking");await courseTransaction(actor.storeId,async tx=>{for(const s of releasedCandidates)await syncCourseRelease(tx,actor.storeId,s.id);});}
  const rules=await readSportsSeries(coursePrisma,actor.storeId);
  let missing=false;
  for(const series of rules){
