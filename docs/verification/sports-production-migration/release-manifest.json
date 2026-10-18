@@ -1,0 +1,23 @@
+{
+  "version": "20261018020054",
+  "sourceCommit": "c0fa70ba907a4e90a0927f14eb0fca4fa50db321",
+  "productionProject": "qijlnhtpbintanzpxkvf",
+  "migration": "supabase/migrations/20261018020054_sports_cancellation_ledger_and_schedule_rules.sql",
+  "migrationSha256": "538f7e072ef546a4105c143a1e63513607bd75f45a2fbc470eb472fd7e884f90",
+  "rollback": "supabase/rollbacks/20261018020054_sports_cancellation_ledger_and_schedule_rules.down.sql",
+  "rollbackSha256": "1933eba7dbd34d8a3d89333445bb2bf89aeec9537a00ce7c33d7099597ac3423",
+  "rehearsedCandidateUpSha256": "bd075a052bbd3435aeb7d50f846236f4a2c5aec5e5191861abddd7db5c87306c",
+  "rehearsedCandidateDownSha256": "1933eba7dbd34d8a3d89333445bb2bf89aeec9537a00ce7c33d7099597ac3423",
+  "sqlBodyIdenticalToRehearsedCandidate": true,
+  "priorIsolatedCheckpoints": 30,
+  "executedThisPR": false,
+  "historyRepaired": false,
+  "executionStatus": "NOT_AUTHORIZED",
+  "outstandingGates": [
+    "22 history differences classified and reviewed",
+    "backup/PITR restore evidence",
+    "production application role and privileges",
+    "fresh production read-only preflight",
+    "separate explicit migration execution authorization"
+  ]
+}
