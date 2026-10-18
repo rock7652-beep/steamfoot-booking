@@ -488,7 +488,12 @@ export function CourseMemberWorkspace({
               <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
               <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
-                save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
+                save={async(serviceNote, expectedServiceNote) => {
+                  const input={customerId:person.id,serviceNote,expectedServiceNote};
+                  if(!sportsNative)return saveCourseCustomerNote(input);
+                  const response=await fetch(`${window.location.pathname.replace(/\/$/,"")}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input)});
+                  const result=await response.json();if(!result||typeof result.success!=="boolean")throw new Error("儲存回應格式不正確");return result as Awaited<ReturnType<typeof saveCourseCustomerNote>>;
+                }}
                 onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();}} />
               <section aria-label="歸屬設定" className="border-t border-earth-100 py-2">
                 <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">

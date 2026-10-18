@@ -456,6 +456,7 @@ export async function createCourseSchedule(input: unknown) {
         error instanceof Error ? error.message : "排課日期不正確",
       );
     }
+    if(data.sportsStaging?.perpetual&&occurrences.length!==1)throw new AppError("VALIDATION","持續固定課只需選開始日期，不指定結束堂數");
     const result = await coursePrisma.$transaction(
       async (tx) => {
         // Serialize this store's batches; a retried request returns its original
@@ -465,10 +466,11 @@ export async function createCourseSchedule(input: unknown) {
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
-        const existing = await tx.courseSession.findMany({
+        let existing = await tx.courseSession.findMany({
           where: { storeId, requestKey: data.requestKey },
           orderBy: { requestIndex: "asc" },
         });
+        if(data.sportsStaging?.perpetual)existing=existing.filter(session=>session.requestIndex===0);
         if (existing.length) {
           if (
             existing.length !== occurrences.length ||
