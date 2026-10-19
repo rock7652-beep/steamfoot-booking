@@ -706,7 +706,7 @@ function BookingsManagerContent({
     const confirmed = () => {
       handleBookingUpdated(id, status);
       setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
-      setTrialNoShowId(null);
+      setTrialNoShowId(current => current === id ? null : current);
     };
     const outcome = await saves.run(id,
       () => status === "NO_SHOW" ? markBookingNoShow(id, choice) : cancelBooking(id), {
@@ -719,7 +719,7 @@ function BookingsManagerContent({
         },
       });
     if (outcome === "saved") toast.success(status === "NO_SHOW" ? "已標記未到" : "預約已取消");
-    if (outcome === "unknown") setTrialNoShowId(null);
+    if (outcome === "unknown") setTrialNoShowId(current => current === id ? null : current);
   }
 
   function cancelTrialFromRoster(id: string) {
