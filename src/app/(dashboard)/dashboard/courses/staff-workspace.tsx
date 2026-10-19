@@ -1,5 +1,6 @@
 "use client";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
+import { SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { CourseOwnIncomeSwitch, type CourseWorkPermissionFeedback } from "@/components/admin/course-own-income-switch";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -27,7 +28,7 @@ import { ModalPanel } from "@/components/admin/modal-panel";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 
-import {usePathname} from "next/navigation";
+import {usePathname,useSearchParams} from "next/navigation";
 import {useSettingsSave} from "@/components/admin/use-settings-save";
 import {useConfirmedSettingsRows} from "@/components/admin/use-confirmed-settings-rows";
 import {savedCourseStaff,courseStaffConflicts} from "@/lib/course-staff-save";
@@ -121,6 +122,8 @@ export function CourseStaffWorkspace({
   const accountRows=useMemo(()=>confirmed.rows.filter(row=>!accountKind||row.kind===accountKind),[confirmed.rows,accountKind]);
   const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(accountRows,"active");
   const pathname=usePathname();
+  const setupParams=useSearchParams();
+  const guidedCoachSetup=sportsNative&&accountKind==="coach"&&setupParams.get("setupStep")==="coach";
   const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff`,previewStoreId??"",savedCourseStaff);
   const submitLock=useRef(false);
   const [notice,setNotice]=useState("");
@@ -479,7 +482,7 @@ export function CourseStaffWorkspace({
                       r.data.rows.forEach(row=>readTeaching.invalidate(row.id));
                       setNotice(r.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":music?(accountKind==="coach"?(person?"教師資料已儲存":"教師已新增"):(person?"人員資料已儲存":"人員已新增")):"");
                       const saved=r.data.rows.find(row=>row.id===(person?.id??r.data.rows[0]?.id));
-                      if(saved){const password=submittedForm.querySelector<HTMLInputElement>('input[name="password"]');if(password)password.value="";setPerson(saved);setKey(crypto.randomUUID());setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setQualificationsTouched(false);setFeesReady(false);setError("");setConflicts([]);}
+                      if(saved){if(guidedCoachSetup&&!person)setOpen(false);if(guidedCoachSetup&&previewStoreId)window.dispatchEvent(new CustomEvent(SETTINGS_SAVED,{detail:{storeId:previewStoreId}}));const password=submittedForm.querySelector<HTMLInputElement>('input[name="password"]');if(password)password.value="";setPerson(saved);setKey(crypto.randomUUID());setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setQualificationsTouched(false);setFeesReady(false);setError("");setConflicts([]);}
                     }
                   } catch {
                     setError("儲存失敗，請重試");

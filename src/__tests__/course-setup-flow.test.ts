@@ -52,3 +52,15 @@ it("sports settings category changes do not refresh the server tree; normal guid
  expect(m.refresh).not.toHaveBeenCalled();
  m.search="view=rooms";await act(async()=>root.render(createElement(CourseSetupGuide,props)));expect(m.refresh).toHaveBeenCalledOnce();
 });
+
+it("sports modal badges match the reordered coach and fee steps without changing music",async()=>{
+ for(const [step,path,query,label] of [
+  ["coach","/s/sports/admin/dashboard/teachers","setupStep=coach&setupFlow=sports","第 4/6 步"],
+  ["plan","/s/sports/admin/dashboard/courses","view=plans&setupStep=plan&setupFlow=sports","第 5/6 步"],
+  ["plan","/s/music/admin/dashboard/courses","view=plans&setupStep=plan","第 4/6 步"],
+ ] as const){
+  m.pathname=path;m.search=query;
+  await act(async()=>root.render(createElement(CourseSetupStepBadge,{step})));
+  expect(host.textContent).toBe(label);
+ }
+});
