@@ -92,7 +92,7 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false, sp
     // The frame already navigated. Update history without changing frameSrc/key.
     const currentPage = new URLSearchParams(window.location.search).get("page") ?? DEFAULT_DEVICE_PREVIEW_PAGE;
     if (currentPage !== nextPage.id) updateUrl(nextPage.id, device);
-  }, [sportsPreview, pathname, moduleId, canViewAudit, updateUrl, device]);
+  }, [sportsPreview, pathname, moduleId, canViewAudit, updateUrl, device, pendingPage]);
 
   const handlePageChange = (nextPage: DevicePreviewPageId) => {
     pendingPage.current = nextPage;
