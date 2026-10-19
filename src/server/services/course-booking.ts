@@ -472,42 +472,51 @@ export async function settleCourseBooking(
     !booking.card?.termSessionIds?.length &&
     booking.card
   ) {
-    const sportsFixed=sportsNativePreview(actor.storeId)&&(booking.requestKey?.startsWith("sports-fixed:")??false);
-    const expiresAt = sportsFixed?dayRange("2099-12-31").end:new Date();
-    if(!sportsFixed)expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
-    const recalled = sportsNativePreview(actor.storeId) ? await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${booking.id}`}}}) : null;
-    if(recalled && (!recalled.closedAt || recalled.remaining!==0))return fail("原缺課補課資格尚未完成撤銷，請先核對");
-    const makeupCard = recalled ? await tx.coursePointCard.update({where:{id:recalled.id},data:{closedAt:null,remaining:booking.pointCost,expiresAt}}) : await tx.coursePointCard.create({
-      data: {
-        storeId: actor.storeId,
-        planId: booking.card.planId,
-        nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
-        unit: booking.card.unit,
-        templateIds: [booking.session.templateId],
-        termSessionIds: [],
-        remaining: booking.pointCost,
-        expiresAt,
-        requestKey: `no-show-makeup:${booking.id}`,
-      },
-    });
-    if(!recalled)await tx.courseCardMember.create({
-      data: {
-        storeId: actor.storeId,
-        cardId: makeupCard.id,
-        customerId: booking.customerId ?? booking.reserverCustomerId!,
-      },
-    });
-    await tx.coursePointEntry.create({
-      data: {
-        storeId: actor.storeId,
-        cardId: makeupCard.id,
-        kind: "GRANT",
-        points: booking.pointCost,
-        actorUserId: actor.userId,
-      },
-    });
+    await grantCourseNoShowMakeup(tx, actor, booking);
   }
   return updated;
+}
+
+// Called under the store transaction lock by initial settlement and correction.
+async function grantCourseNoShowMakeup(
+  tx: Prisma.TransactionClient, actor: CourseActor,
+  booking: {id:string;requestKey:string;pointCost:number;customerId:string|null;reserverCustomerId:string|null;session:{templateId:string};card:{planId:string;unit:string}|null},
+) {
+  if (!booking.card) return;
+  const sportsFixed=sportsNativePreview(actor.storeId)&&(booking.requestKey?.startsWith("sports-fixed:")??false);
+  const expiresAt = sportsFixed?dayRange("2099-12-31").end:new Date();
+  if(!sportsFixed)expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
+  const recalled = sportsNativePreview(actor.storeId) ? await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${booking.id}`}}}) : null;
+  if(recalled && (!recalled.closedAt || recalled.remaining!==0))return fail("原缺課補課資格尚未完成撤銷，請先核對");
+  const makeupCard = recalled ? await tx.coursePointCard.update({where:{id:recalled.id},data:{closedAt:null,remaining:booking.pointCost,expiresAt}}) : await tx.coursePointCard.create({
+    data: {
+      storeId: actor.storeId,
+      planId: booking.card.planId,
+      nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
+      unit: booking.card.unit,
+      templateIds: [booking.session.templateId],
+      termSessionIds: [],
+      remaining: booking.pointCost,
+      expiresAt,
+      requestKey: `no-show-makeup:${booking.id}`,
+    },
+  });
+  if(!recalled)await tx.courseCardMember.create({
+    data: {
+      storeId: actor.storeId,
+      cardId: makeupCard.id,
+      customerId: booking.customerId ?? booking.reserverCustomerId!,
+    },
+  });
+  await tx.coursePointEntry.create({
+    data: {
+      storeId: actor.storeId,
+      cardId: makeupCard.id,
+      kind: "GRANT",
+      points: booking.pointCost,
+      actorUserId: actor.userId,
+    },
+  });
 }
 
 // Caller must hold the course store lock and independently authorize the coach.
@@ -525,7 +534,7 @@ export async function correctCourseAttendance(
   if (b.status === target && !cancellingLeave) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
-  if ((target === "CANCELLED" || sportsNativePreview(actor.storeId)&&target === "RESERVED") && b.status === "NO_SHOW") {
+  if ((target === "CANCELLED" || sportsNativePreview(actor.storeId)&&(target === "RESERVED" || target === "ATTENDED")) && b.status === "NO_SHOW") {
     const coupon=await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${b.id}`}},select:{id:true,remaining:true,closedAt:true}});
     if(coupon && !coupon.closedAt) {
       const used=await tx.courseBooking.count({where:{storeId:actor.storeId,cardId:coupon.id,status:{not:"CANCELLED"}}});
@@ -566,6 +575,9 @@ export async function correctCourseAttendance(
   }
   if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
+  if (sportsNativePreview(actor.storeId) && target === "NO_SHOW" && b.status !== "NO_SHOW" && b.requestKey.startsWith("sports-fixed:") && !b.card.termSessionIds?.length) {
+    await grantCourseNoShowMakeup(tx, actor, b);
+  }
   const deferred=sportsNativePreview(actor.storeId)&&target==="RESERVED"&&(b.requestKey?.startsWith("sports-fixed:")||b.requestKey?.startsWith("sports-makeup:"))&&b.bookingKind!=="TRIAL";
   const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target,...(deferred?{cardId:null,bookingKind:"UNPAID",pointCost:0,makeupForBookingId:null}:{}), absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
   if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});

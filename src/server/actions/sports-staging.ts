@@ -67,7 +67,10 @@ export async function loadSportsStaging(formOnly = false): Promise<
 > {
   try {
     const { storeId } = await actor("booking.read");
-    await Promise.all(["plans.edit", "customer.read", "wallet.read", "transaction.read", "teacher.compensation.read"].map(p=>courseManager(p as Parameters<typeof courseManager>[0])));
+    await Promise.all(["plans.edit", "customer.read", "wallet.read", "transaction.read"].map(p=>courseManager(p as Parameters<typeof courseManager>[0])));
+    // Scheduling never returns compensation, even to an owner. Management reads
+    // keep the independent finance permission and query.
+    if (!formOnly) await courseManager("teacher.compensation.read");
     const [
       subjects,
       plans,
@@ -135,7 +138,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
-    const compensationRows = await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""}});
+    const compensationRows = formOnly ? [] : await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""}});
     const fees = plans.map((p) => {
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {

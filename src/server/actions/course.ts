@@ -30,7 +30,7 @@ import {
   courseScheduleInput,
   courseTemplateInput,
 } from "@/lib/course-scheduling";
-import { formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
+import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 export async function scheduleTeacherMakeup(input: unknown) {
   try {
@@ -764,7 +764,7 @@ export async function moveCourseSessions(input: unknown) {
 
       const {readSportsSeries,assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
       const permanent=(await readSportsSeries(tx,storeId)).find(r=>r.requestKey===source.requestKey);
-      await assertSportsSeriesFree(tx,storeId,changes,{roomId:d.roomId,coachId:d.coachId},source.requestKey,d.scope==="FUTURE"?permanent?.frequency:undefined);
+      await assertSportsSeriesFree(tx,storeId,changes,{roomId:d.roomId,coachId:d.coachId},source.requestKey,d.scope==="FUTURE"?permanent?.frequency:undefined,d.scope!=="FUTURE"?sessions.map(s=>toLocalDateStr(s.rescheduledFromStartsAt??s.startsAt)):undefined);
       if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);

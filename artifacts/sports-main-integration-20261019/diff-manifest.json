@@ -12,9 +12,9 @@
   "counts": {
     "build_guard_and_isolated_sql": 3,
     "domain_and_clients": 17,
-    "evidence": 12,
+    "evidence": 13,
     "server": 22,
-    "tests": 40,
+    "tests": 43,
     "ui_and_routes": 50
   },
   "files": [
@@ -40,6 +40,10 @@
     },
     {
       "path": "artifacts/sports-main-integration-20261019/diff-manifest.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/review-fixes-tests.log",
       "category": "evidence"
     },
     {
@@ -143,6 +147,10 @@
       "category": "tests"
     },
     {
+      "path": "src/__tests__/sports-attendance-correction-makeup.test.ts",
+      "category": "tests"
+    },
+    {
       "path": "src/__tests__/sports-attendance-evidence.test.ts",
       "category": "tests"
     },
@@ -223,7 +231,15 @@
       "category": "tests"
     },
     {
+      "path": "src/__tests__/sports-schedule-compensation-access.test.ts",
+      "category": "tests"
+    },
+    {
       "path": "src/__tests__/sports-schedule-native-ui.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-series-move-reservation.test.ts",
       "category": "tests"
     },
     {

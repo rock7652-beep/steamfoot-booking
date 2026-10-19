@@ -15,10 +15,12 @@ export async function readSportsSeries(tx:Pick<Tx,"$queryRaw">,storeId:string){
  if(!sportsNativePreview(storeId))return [];
  return tx.$queryRaw<SportsSeries[]>`SELECT * FROM "SportsPreviewScheduleSeries" WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`;
 }
-export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{startsAt:Date;endsAt:Date}>,resources:{roomId:string;coachId:string},requestKey?:string,frequency?:string){
+export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{startsAt:Date;endsAt:Date}>,resources:{roomId:string;coachId:string},requestKey?:string,frequency?:string,excludedOwnDates?:string[]){
  if(!sportsNativePreview(storeId))return;
  const rules=await readSportsSeries(tx,storeId);
- const active=rules.filter(r=>!r.cancelledAt&&r.requestKey!==requestKey);
+ // Moving selected occurrences must not exempt the rest of their ongoing rule.
+ const active=rules.filter(r=>!r.cancelledAt&&(r.requestKey!==requestKey||excludedOwnDates!==undefined))
+  .map(r=>r.requestKey===requestKey&&excludedOwnDates!==undefined?{...r,excludedDates:[...new Set([...r.excludedDates,...excludedOwnDates])]}:r);
  if(frequency&&frequency!=="SINGLE"){
   const [sessions,rentals]=await Promise.all([
    tx.courseSession.findMany({where:{storeId,...(requestKey?{requestKey:{not:requestKey}}:{}),cancelledAt:null,releasedAt:null,endsAt:{gt:ranges[0].startsAt},OR:[{roomId:resources.roomId},{coachId:resources.coachId}]},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}}),
