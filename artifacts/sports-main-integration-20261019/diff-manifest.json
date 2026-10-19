@@ -12,7 +12,7 @@
   "counts": {
     "build_guard_and_isolated_sql": 3,
     "domain_and_clients": 17,
-    "evidence": 27,
+    "evidence": 28,
     "server": 22,
     "tests": 46,
     "ui_and_routes": 53
@@ -40,6 +40,10 @@
     },
     {
       "path": "artifacts/sports-main-integration-20261019/diff-manifest.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/released-slot-tests.log",
       "category": "evidence"
     },
     {

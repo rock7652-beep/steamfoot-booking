@@ -31,9 +31,15 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
   if(issue)throw new AppError("CONFLICT",`${issue.date} ${issue.reason}；固定時段尚未建立`);
  }else for(const range of ranges){
   for(const rule of active){
-   if(!findFixedSeriesConflicts([rule],[range],resources).length)continue;
-   const released=await tx.courseSession.findFirst({where:{storeId,requestKey:rule.requestKey,OR:[{startsAt:{lte:range.startsAt},endsAt:{gte:range.endsAt},releasedAt:{not:null}},{rescheduledFromStartsAt:{lte:range.startsAt},rescheduledFromEndsAt:{gte:range.endsAt}}]},select:{id:true}});
-   if(!released)throw new AppError("CONFLICT","此時段已有持續固定課，請選擇其他時段");
+   const conflicts=findFixedSeriesConflicts([rule],[range],resources);
+   for(const conflict of conflicts){
+    // An exception frees this fixed occurrence, not the entire proposed class.
+    // Check every overlap separately so one released date cannot free another.
+    const startsAt=conflict.startsAt;
+    const endsAt=new Date(startsAt.getTime()+rule.endsAt.getTime()-rule.startsAt.getTime());
+    const released=await tx.courseSession.findFirst({where:{storeId,requestKey:rule.requestKey,OR:[{startsAt,endsAt,releasedAt:{not:null}},{rescheduledFromStartsAt:startsAt,rescheduledFromEndsAt:endsAt}]},select:{id:true}});
+    if(!released)throw new AppError("CONFLICT","此時段已有持續固定課，請選擇其他時段");
+   }
   }
  }
 }
