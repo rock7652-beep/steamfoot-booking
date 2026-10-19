@@ -15,26 +15,37 @@ const bootstrapFiles = new Set([
   "src/__tests__/editorial-release.test.ts", ".github/workflows/editorial-review.yml",
   "docs/editorial-release.md", "vercel.json",
 ]);
+// Explicit one-time renderer/schema maintenance review; ordinary article scope stays JSON-only.
+const inlineLinksBase = "8d717d5dc45da6fbd4e2984afea48165140281b3";
+const inlineLinksSlug = "fitness-studio-member-referral-handoff";
+const inlineLinksFiles = new Set([
+  contentPath, "src/lib/public-guides.ts", "src/app/pricing/guides/[slug]/page.tsx",
+  "scripts/editorial-content.mjs", "scripts/editorial-release-preflight.mjs",
+  "src/__tests__/editorial-release.test.ts", "src/__tests__/public-guides.test.ts",
+  ".github/workflows/editorial-review.yml", ".github/workflows/ci.yml", "docs/editorial-release.md",
+]);
 const sha = /^[0-9a-f]{40}$/;
 function reject(reason) { throw new Error(`Editorial preflight rejected: ${reason}`); }
 
-export function validateEditorialChange({ base, head, repository, branch, slug, files, before, after, bootstrap = false }) {
+export function validateEditorialChange({ base, head, repository, branch, slug, files, before, after, bootstrap = false, inlineLinksReview = false }) {
   if (repository !== EDITORIAL_REPOSITORY || branch !== EDITORIAL_PREVIEW_BRANCH || !sha.test(base) || !sha.test(head) || base === head)
     reject("exact repository, branch and distinct commit pair required");
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug ?? "")) reject("one reviewed article slug required");
   if (bootstrap && base !== bootstrapBase) reject("bootstrap is restricted to the original reviewed base");
-  if (!files.length || !files.includes(contentPath) || files.some(path => bootstrap ? !bootstrapFiles.has(path) : path !== contentPath))
+  if (inlineLinksReview && (bootstrap || base !== inlineLinksBase || slug !== inlineLinksSlug))
+    reject("inline links review is restricted to its fixed base and article");
+  if (!files.length || !files.includes(contentPath) || files.some(path => inlineLinksReview ? !inlineLinksFiles.has(path) : bootstrap ? !bootstrapFiles.has(path) : path !== contentPath))
     reject("changes outside the article data scope");
   parseEditorialGuides(before); parseEditorialGuides(after);
   if (JSON.stringify(before.filter(item => item.id !== slug)) !== JSON.stringify(after.filter(item => item.id !== slug)))
     reject("unrelated article changed or removed");
   const article = after.find(item => item.id === slug);
   if (!article || JSON.stringify(before.find(item => item.id === slug)) === JSON.stringify(article)) reject("reviewed article is missing or unchanged");
-  return { repository, branch, base, head, slug, mode: bootstrap ? "one-time-bootstrap-review" : "article-only", files,
+  return { repository, branch, base, head, slug, mode: inlineLinksReview ? "one-time-inline-links-review" : bootstrap ? "one-time-bootstrap-review" : "article-only", files,
     articleSha256: createHash("sha256").update(JSON.stringify(article)).digest("hex") };
 }
 
-export function verifyEditorialGit({ base, head, repository, branch, slug, bootstrap = false }, cwd = process.cwd()) {
+export function verifyEditorialGit({ base, head, repository, branch, slug, bootstrap = false, inlineLinksReview = false }, cwd = process.cwd()) {
   if (!sha.test(base ?? "") || !sha.test(head ?? "")) reject("full commit SHAs required");
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
   if (git("rev-parse", "HEAD") !== head || git("status", "--porcelain", "--untracked-files=no")) reject("head checkout must be exact and clean");
@@ -44,7 +55,7 @@ export function verifyEditorialGit({ base, head, repository, branch, slug, boots
   const read = ref => JSON.parse(git("show", `${ref}:${contentPath}`));
   const before = bootstrap ? [] : read(base);
   const after = read(head);
-  const result = validateEditorialChange({ base, head, repository, branch, slug, files, before, after, bootstrap });
+  const result = validateEditorialChange({ base, head, repository, branch, slug, files, before, after, bootstrap, inlineLinksReview });
   // Legacy content remains outside the JSON lane; reject collisions without
   // executing any code from the proposed commit.
   const legacy = git("show", `${base}:src/lib/public-guides.ts`);
@@ -58,7 +69,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const options = {};
     for (let i = 2; i < process.argv.length; i++) {
       const key = process.argv[i];
-      if (key === "--bootstrap") options.bootstrap = true;
+      if (key === "--inline-links-review") options.inlineLinksReview = true;
+      else if (key === "--bootstrap") options.bootstrap = true;
       else if (["--base", "--head", "--repository", "--branch", "--slug"].includes(key) && process.argv[i + 1]) options[key.slice(2)] = process.argv[++i];
       else reject("unknown argument");
     }
@@ -68,3 +80,4 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exitCode = 1;
   }
 }
+

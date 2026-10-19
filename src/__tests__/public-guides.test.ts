@@ -7,7 +7,7 @@ vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => nul
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import type { PublicGuide } from "@/lib/public-guides";
+import type { GuideParagraph, PublicGuide } from "@/lib/public-guides";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextRequest } from "next/server";
 import { PUBLIC_GUIDES, PUBLISHED_GUIDE_PATHS, GUIDE_CATEGORIES, findPublicGuide, guidePath, visiblePublicGuides } from "@/lib/public-guides";
@@ -27,6 +27,7 @@ const notificationSlug = "music-school-leave-reschedule-notifications";
 const waitlistSlug = "yoga-studio-waitlist-order";
 const musicSlug = "music-school-leave-makeup-lesson-balance";
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
+const paragraphText = (paragraph: GuideParagraph) => typeof paragraph === "string" ? paragraph : paragraph.inlineParts.map(part => typeof part === "string" ? part : part.label).join("");
 const route = (path: string, host = "www.steamfoot.com") => {
   const req = new NextRequest(`https://${host}${path}`, { headers: { host } });
   Object.assign(req, { auth: null });
@@ -35,13 +36,40 @@ const route = (path: string, host = "www.steamfoot.com") => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("public editorial guides", () => {
+  it("preserves the complete approved referral v5, body links and trial CTA", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const slug = "fitness-studio-member-referral-handoff";
+    const guide = findPublicGuide(slug)!;
+    if (guide.format !== "article") throw new Error("Expected article");
+    const cta = paragraphText({ inlineParts: guide.callToAction.inlineParts! });
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText), ...(section.bullets ?? []), ...(section.trailingParagraphs ?? [])]), cta];
+    expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("4b17800badcd6436441580cbafc0336089291267d91155c7fc99d91ec11039f2");
+    const html = renderToStaticMarkup(await GuideArticle(props(slug)));
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    const article = container.querySelector("article")!;
+    expect(article.querySelectorAll("h2")).toHaveLength(7);
+    expect(article.querySelectorAll("li")).toHaveLength(5);
+    expect([...article.querySelectorAll("a")].map(link => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["顧客管理功能", "https://www.steamfoot.com/pricing/features"],
+      ["運動教室管理功能", "https://www.steamfoot.com/pricing/features/fitness"],
+      ["申請蒸管家30天免費試用", "https://www.steamfoot.com/apply"],
+      ["申請頁", "https://www.steamfoot.com/apply"],
+      ["方案說明", "https://www.steamfoot.com/pricing"],
+    ]);
+    expect([...article.querySelectorAll('a[href="https://www.steamfoot.com/apply"]')].every(link => link.getAttribute("target") === "_top")).toBe(true);
+    expect(article.textContent).not.toMatch(/\[object Object\]|SEO 工作表|校稿備註/);
+    expect(html).toContain('"datePublished":"2026-10-19"');
+    expect((await generateMetadata(props(slug))).alternates?.canonical).toBe(`https://www.steamfoot.com/guides/${slug}`);
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${slug}`);
+  });
   it("preserves the approved holiday closure article and inline trial links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const slug = "music-school-holiday-closure-checklist";
     const guide = findPublicGuide(slug)!;
     if (guide.format !== "article") throw new Error("Expected article");
     const cta = guide.callToAction.inlineParts!.map(part => typeof part === "string" ? part : part.label).join("");
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), cta];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), cta];
     expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("8490d63329e94d03c9f6a18cadeb142934bd3220e56db5a43c7e372828010042");
     const html = renderToStaticMarkup(await GuideArticle(props(slug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
@@ -98,7 +126,7 @@ describe("public editorial guides", () => {
     const slug = "paid-members-attendance-drop-follow-up";
     const guide = findPublicGuide(slug)!;
     if (guide.format !== "article") throw new Error("Expected article");
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.heading!, guide.callToAction.text];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.heading!, guide.callToAction.text];
     expect(createHash("sha256").update(ordered.join("\n")).digest("hex")).toBe("5b736a971b6794c010067b849832eb70d4c18fe66c523fb3a8342d6de8218606");
     const html = renderToStaticMarkup(await GuideArticle(props(slug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
@@ -156,7 +184,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(permissionsSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const body = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.termsText].join("\n");
+    const body = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.text, guide.callToAction.termsText].join("\n");
     expect(createHash("sha256").update(body).digest("hex")).toBe("1623ae6e1d084379313150000512e11f3d3f804b2a5f53e856c6f2c76e21da78");
     const html = renderToStaticMarkup(await GuideArticle(props(permissionsSlug)));
     expect(html).toContain("看得到營運，同事做得了事");
@@ -172,7 +200,7 @@ describe("public editorial guides", () => {
     const slug = "music-fitness-studio-student-loyalty";
     const guide = findPublicGuide(slug)!;
     if (guide.format !== "article") throw new Error("Expected article");
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.label!];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.label!];
     expect(createHash("sha256").update(ordered.join("\n")).digest("hex")).toBe("61326b589a008e6a5a67b4ea8b2de141809e503a075dc6529bcb2717ae3bdc16");
     const html = renderToStaticMarkup(await GuideArticle(props(slug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
@@ -428,7 +456,7 @@ describe("public editorial guides", () => {
     expect(createHash("sha256").update(JSON.stringify(guide)).digest("hex")).toBe("d35b30350925e88d355f57c29e989d891191146595f491386ca993f9c4dbc21f");
     const html = renderToStaticMarkup(await GuideArticle(props(waitlistSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
-    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
+    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
     let cursor = 0;
     for (const text of ordered) {
       const position = article.indexOf(text, cursor);
@@ -457,7 +485,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(notificationSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, `${guide.callToAction.label}\n${guide.callToAction.url}`].join("\n\n") + "\n";
+    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.text, `${guide.callToAction.label}\n${guide.callToAction.url}`].join("\n\n") + "\n";
     // Exact UTF-8 approved v5 first-page manuscript; private SEO/product-gap appendix is excluded.
     expect(createHash("sha256").update(manuscript).digest("hex")).toBe("9c9a961e180c9543ac1c64d91c6ea7d2a8e3b2aec28af768513cc490dc9b4e42");
     expect(guide.sections).toHaveLength(3);
@@ -467,7 +495,7 @@ describe("public editorial guides", () => {
     expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
     expect(article).toContain("前往蒸管家，了解體驗與適用流程");
     let cursor = 0;
-    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
+    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.text, guide.callToAction.label!]) {
       const position = article.indexOf(text, cursor);
       expect(position, text).toBeGreaterThanOrEqual(cursor);
       cursor = position + text.length;
@@ -505,7 +533,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(pilatesSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label, guide.callToAction.url].join("\n\n") + "\n";
+    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.text, guide.callToAction.label, guide.callToAction.url].join("\n\n") + "\n";
     expect(createHash("sha256").update(manuscript).digest("hex")).toBe("89d02e68129cee51e07a25038895e21c8697579d30ccc2901b5448b38a4154d0");
     expect(guide.sections).toHaveLength(3);
     expect(guide.showSummary).toBe(false);
@@ -514,7 +542,7 @@ describe("public editorial guides", () => {
     expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
     expect(guide.callToAction.label).toBe("申請蒸管家 30 天免費體驗");
     let cursor = 0;
-    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
+    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.text, guide.callToAction.label!]) {
       const position = article.indexOf(text, cursor);
       expect(position, text).toBeGreaterThanOrEqual(cursor);
       cursor = position + text.length;
@@ -568,7 +596,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(renewalSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.heading!, guide.callToAction.text, guide.callToAction.termsText!];
+    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.heading!, guide.callToAction.text, guide.callToAction.termsText!];
     expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("2d1a3db20900a92f666c3e6ca75decd9acadff112a2f103cf04449af6d0abbe3");
     const html = renderToStaticMarkup(await GuideArticle(props(renewalSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
@@ -598,7 +626,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(handoverSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.heading!, guide.callToAction.text, guide.callToAction.termsText!];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText)]), guide.callToAction.heading!, guide.callToAction.text, guide.callToAction.termsText!];
     expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("bff7376b85ade01a4c4f48454c58bb5a9766168e566b7018e15145e8dd9b3d48");
     const html = renderToStaticMarkup(await GuideArticle(props(handoverSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
@@ -723,3 +751,4 @@ describe("public editorial guides", () => {
     }
   });
 });
+

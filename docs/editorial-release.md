@@ -5,7 +5,7 @@ This lane is for one explicitly approved public article at a time. It does not a
 ## Fixed boundaries
 
 - Repository: `rock7652-beep/steamfoot-booking`; review branch: `content/editorial-preview` only. No `content/*` wildcard.
-- After this initial setup, ordinary article PRs change only `src/content/editorial-guides.json`. JSON is validated as article data, not executable TypeScript. Links must remain within the approved public Steamfoot destinations. Legacy article data and application/security code cannot change in this lane.
+- After this initial setup, ordinary article PRs change only `src/content/editorial-guides.json`. JSON is validated as article data, not executable TypeScript. CTA and feature links remain within the approved public Steamfoot destinations; body inline links allow site-relative paths and HTTPS URLs without credentials, whitespace, controls or backslashes. No HTML fields or executable content are supported. Legacy article data and application/security code cannot change in this lane.
 - The preflight requires an ancestor base and exact clean head checkout, one requested slug, regular non-executable files, no deletion/symlink, no other article changes, and no collision with legacy IDs. CI runs the policy scripts from the PR base, not candidate scripts. A missing base policy is allowed only for the explicitly reviewed initial base `7ddfeed6b8b0611b1669df067c4580e5b9481323`, with a fixed setup file list and separate review of that setup. CI never creates deployment approval or writes credentials/settings.
 - Existing approved-manuscript locks remain in tests. Editing an already locked article may require a separately reviewed test change; do not weaken the content-only check to force it through.
 - The fixed branch remains `deploymentEnabled:false`; main remains false. Use an explicit deployment for a reviewed SHA only.
@@ -30,3 +30,10 @@ This lane is for one explicitly approved public article at a time. It does not a
 ## Bootstrap scope (this PR)
 
 The setup additionally changes the article template to support approved inline CTA links and data-selected public feature links, imports the JSON collection into the existing registry, adds the content validator/preflight/CI and exact Preview predicate, adds only the fixed branch auto-deploy exclusion, tests these boundaries, and documents the lane. No member, booking, payment, customer records, schema, migration, global guard or main auto-deploy behavior changes.
+
+
+## One-time inline-link maintenance review (2026-10-19)
+
+The approved referral v5 article needs two links inside a body paragraph. This is an explicit renderer/schema change, not an ordinary JSON-only article approval. Only base `8d717d5dc45da6fbd4e2984afea48165140281b3`, slug `fitness-studio-member-referral-handoff`, the fixed editorial branch and the ten named files in `inlineLinksFiles` may use `--inline-links-review`. The workflow runs the separately reviewed candidate policy for that fixed base only, with read-only permissions and no credentials/secrets/deployment actions. Review all policy and template changes before granting exact-head Preview pins. This exception cannot change auth, DB, migration, isolation predicates, Vercel settings or other articles. A moved main requires a new explicit maintenance review; do not silently widen the base anchor.
+
+Section paragraphs retain plain strings and additionally accept `{ "inlineParts": ["text", { "label": "link", "href": "https://example.org/" }] }`. React renders text and anchors; it never interprets the article as HTML. Introduction, bullets and trailing paragraphs retain their existing string-only shape. The existing trial CTA `_top` behavior remains intact. Future article-only PRs still use the trusted base policy and JSON-only scope.
