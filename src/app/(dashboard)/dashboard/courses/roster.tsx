@@ -1,5 +1,6 @@
 "use client";
 import bookingLayout from "./sports-booking-layout.module.css";
+import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -329,14 +330,16 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
+    let readInFlight = false;
 
     const refresh = () => {
-      if (operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve();
+      if ((sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
+      readInFlight = true;
       const version = ++readVersion.current;
       return (sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
 
         .then((result) => {
-          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
+          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return null;
           if (result.success) {
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -348,13 +351,16 @@ export function CourseRoster({
             setCanPurchase(result.data.canPurchase);
             setLoaded(true);
             setRequestKey((current) => current || crypto.randomUUID());
+            return true;
           } else {
             setMessage(result.error);
+            return false;
           }
         })
         .catch(() => {
           if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
-        });
+          return false;
+        }).finally(() => { readInFlight = false; });
     };
     void refresh();
     const refreshVisibleRoster = () => {
@@ -362,6 +368,10 @@ export function CourseRoster({
         void refresh();
       }
     };
+    if (sportsNative && view === "roster") {
+      const stop = startSportsBackgroundSync(refresh, () => operationScope.current.locked || operationScope.current.uncertain || operationScope.current.inFlight.size > 0);
+      return () => { active = false; stop(); };
+    }
     const timer =
       view === "roster"
         ? window.setInterval(refreshVisibleRoster, 60_000)
