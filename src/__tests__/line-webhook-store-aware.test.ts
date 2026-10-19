@@ -525,7 +525,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "通知設定完成（僅限 LINE 通知收件）。請保持本店好友未封鎖，以接收通知。會員登入需另外確認；若會員專區顯示需要確認，請提交登入確認申請，並向店家出示確認碼，不需要重新註冊或解除 LINE 綁定。" }],
+      [{ type: "text", text: "LINE 通知設定完成！請保持本店官方帳號為好友且未封鎖，以接收預約提醒與方案通知。" }],
     );
   });
 
@@ -556,7 +556,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "通知設定完成（僅限 LINE 通知收件）。請保持本店好友未封鎖，以接收通知。會員登入需另外確認；若會員專區顯示需要確認，請提交登入確認申請，並向店家出示確認碼，不需要重新註冊或解除 LINE 綁定。" }],
+      [{ type: "text", text: "LINE 通知設定完成！請保持本店官方帳號為好友且未封鎖，以接收預約提醒與方案通知。" }],
     );
   });
 
