@@ -11,7 +11,7 @@ let host:HTMLDivElement,root:Root;
 const prefix="/s/sports-live-flow/admin";
 beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});window.history.replaceState(null,"",`${prefix}/dashboard/device-preview?page=bookings&device=tablet`);state.replace.mockClear();host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function render(sportsPreview=true){await act(async()=>root.render(React.createElement(DevicePreview,{sportsPreview,moduleId:"course"})));}
+async function render(sportsPreview=true){await act(async()=>root.render(React.createElement(DevicePreview,{sportsPreview,moduleId:"course"})));if(sportsPreview)await report(state.frameProps!.src);}
 async function report(path:string){await act(async()=>state.frameProps!.onRouteChange(path));}
 it("inner work-order navigation synchronizes the URL without reloading its iframe",async()=>{
  await render();const src=state.frameProps!.src;await report(`${prefix}/dashboard/work-orders?devicePreview=1`);
@@ -31,3 +31,6 @@ it("back and forward restoration loads the corresponding selected page",async()=
 });
 it.each(["/s/another/admin/dashboard/work-orders","https://example.com/dashboard/work-orders",`${prefix}/dashboard/device-preview`,`${prefix}/dashboard/operation-audits`])("rejects unowned or disallowed frame routes %s",async path=>{await render();await report(path);expect(window.location.search).toBe('?page=bookings&device=tablet');});
 it("legacy music/non-sports behavior is not opted in",async()=>{await render(false);await report(`${prefix}/dashboard/work-orders?devicePreview=1`);expect(window.location.search).toBe('?page=bookings&device=tablet');expect(state.frameProps!.resilientLoading).toBe(false);});
+
+it("does not rewrite the default URL while the initial iframe is hydrating",async()=>{window.history.replaceState(null,"",`${prefix}/dashboard/device-preview`);const before=history.length;await render();expect(window.location.search).toBe("");expect(history.length).toBe(before);});
+it("an old frame readiness message cannot undo a newer quick-page selection",async()=>{await render();const select=host.querySelector('select')!;await act(async()=>{select.value="work-orders";select.dispatchEvent(new Event("change",{bubbles:true}));});await report(`${prefix}/dashboard/courses?devicePreview=1`);expect(window.location.search).toBe('?page=work-orders&device=tablet');expect(state.frameProps!.src).toBe(`${prefix}/dashboard/work-orders?devicePreview=1`);});

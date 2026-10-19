@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -36,6 +36,7 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false, sp
     ? requestedDevice
     : requestedDevice === "tabletPortrait" || moduleId === "course" ? "tablet" : DEFAULT_DEVICE_PRESET;
 
+  const pendingPage = useRef<DevicePreviewPageId | null>(page);
   const initialPage = getDevicePreviewPage(page, moduleId);
   const [framePath, setFramePath] = useState<string>(() =>
     resolveDashboardPreviewPath(initialPage.path, pathname),
@@ -67,6 +68,7 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false, sp
       const nextPage = isDevicePreviewPageId(requested, moduleId) && (requested !== "operation-audits" || canViewAudit)
         ? requested : DEFAULT_DEVICE_PREVIEW_PAGE;
       const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage, moduleId).path, pathname);
+      pendingPage.current = nextPage;
       setFramePath(nextPath);
       setFrameSrc(createDevicePreviewUrl(nextPath));
       // Inner navigation can differ from the original src prop; history must load its actual target.
@@ -84,18 +86,25 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false, sp
         !isPreviewableDashboardPath(destination.pathname)) return;
     const nextPage = getDevicePreviewPageForPath(path, moduleId);
     if (!nextPage || (nextPage.id === "operation-audits" && !canViewAudit)) return;
+    if (pendingPage.current && pendingPage.current !== nextPage.id) return;
+    pendingPage.current = null;
     setFramePath(path);
     // The frame already navigated. Update history without changing frameSrc/key.
-    updateUrl(nextPage.id, device);
+    const currentPage = new URLSearchParams(window.location.search).get("page") ?? DEFAULT_DEVICE_PREVIEW_PAGE;
+    if (currentPage !== nextPage.id) updateUrl(nextPage.id, device);
   }, [sportsPreview, pathname, moduleId, canViewAudit, updateUrl, device]);
 
   const handlePageChange = (nextPage: DevicePreviewPageId) => {
+    pendingPage.current = nextPage;
     const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage, moduleId).path, pathname);
     setFramePath(nextPath);
     setFrameSrc(createDevicePreviewUrl(nextPath));
     updateUrl(nextPage, device);
   };
-  const handleDeviceChange = (nextDevice: DevicePresetId) => updateUrl(quickPage, nextDevice, true);
+  const handleDeviceChange = (nextDevice: DevicePresetId) => {
+    if (sportsPreview && nextDevice === device) return;
+    updateUrl(quickPage, nextDevice, true);
+  };
 
   return (
     <div className="min-h-dvh bg-earth-50">
