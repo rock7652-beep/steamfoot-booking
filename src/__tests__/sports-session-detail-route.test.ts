@@ -1,0 +1,15 @@
+import {it,expect,beforeEach,vi} from "vitest";
+const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),scope:vi.fn(),save:vi.fn()}));
+vi.mock("@/lib/session",()=>({getCurrentUser:m.user}));
+vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.store}));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.save}));
+import {POST} from "@/app/(dashboard)/dashboard/courses/session-detail/route";
+const input={sessionId:"session",rosterOnly:false,trialOnly:true};
+const request=(origin="https://qa.test",body=JSON.stringify(input))=>new Request("https://qa.test/s/sports-live-flow/admin/dashboard/courses/session-detail",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body});
+beforeEach(()=>{vi.clearAllMocks();m.user.mockResolvedValue({id:"owner",role:"OWNER"});m.store.mockResolvedValue("sports-live-flow-store");m.scope.mockReturnValue(true);m.save.mockResolvedValue({success:true});});
+it("拒絕跨站請求，未接觸授權或寫入",async()=>{expect((await POST(request("https://other.test"))).status).toBe(403);expect(m.user).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();});
+it("未登入時不寫入",async()=>{m.user.mockResolvedValue(null);expect((await POST(request())).status).toBe(401);expect(m.save).not.toHaveBeenCalled();});
+it("正式站及非運動測試店不可使用獨立課程讀取入口",async()=>{m.scope.mockReturnValue(false);expect((await POST(request())).status).toBe(403);expect(m.save).not.toHaveBeenCalled();});
+it("沿用有權限及原子版本比較的既有權限讀取，不快取帳戶資料",async()=>{m.save.mockResolvedValue({success:false,error:"已被更新",currentValue:"其他裝置的新備註"});const r=await POST(request());expect(m.save).toHaveBeenCalledWith("session",false,true);expect(await r.json()).toMatchObject({success:false,currentValue:"其他裝置的新備註"});expect(r.headers.get("Cache-Control")).toBe("private, no-store");});
+it("格式錯誤不寫入",async()=>{expect((await POST(request("https://qa.test","not-json"))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});

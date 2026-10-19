@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { getCourseSetup } from "@/server/queries/course-setup";
 import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
 import { CourseSettingsWorkspace } from "./settings-workspace";
@@ -71,7 +72,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
-        music={music}
+        native={sportsNativePreview(storeId)} music={music}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}
         key={storeId}
         canDigitalButler={canPayment && !readOnly}

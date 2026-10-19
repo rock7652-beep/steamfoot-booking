@@ -69,6 +69,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  sportsNative=false,
   initialCreate=false,
   previewStoreId,
   counterpartChoices:sourceCounterpartChoices=[],
@@ -91,7 +92,7 @@ export function CourseStaffWorkspace({
   music = false,
 }: {
   initialCreate?:boolean;
-  previewStoreId?: string;
+  sportsNative?:boolean; previewStoreId?: string;
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
   teacherChoices?:{id:string;name:string}[];
@@ -162,6 +163,7 @@ export function CourseStaffWorkspace({
   const [submitAfterTime,setSubmitAfterTime]=useState(false);
   const availabilitySave=useRef<CourseAvailabilitySaveHandle>(null);
   const [scheduleVisited,setScheduleVisited]=useState(false);
+  const [availabilityVisited,setAvailabilityVisited]=useState(false);
   const [availabilityGuard,setAvailabilityGuard]=useState({dirty:false,pending:false});
   const [incomePending,setIncomePending]=useState(false);
   const [permissionFeedback,setPermissionFeedback]=useState<CourseWorkPermissionFeedback|null>(null);
@@ -243,7 +245,7 @@ export function CourseStaffWorkspace({
   const visibleRows=[...activeRows.slice(currentStaffPage*20,(currentStaffPage+1)*20),...(inactiveExpanded?inactiveRows:[])];
   function edit(p: Person | null) {
     if(locked)return;request.reset();setPermissionFeedback(null);
-    setAvailabilityGuard({dirty:false,pending:false});setScheduleVisited(false);
+    setAvailabilityGuard({dirty:false,pending:false});setScheduleVisited(false);setAvailabilityVisited(false);
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
     setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");setInvalidTemplateId(undefined);
@@ -373,7 +375,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? [["schedule","課表與時間"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount} 位。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
@@ -561,8 +563,9 @@ export function CourseStaffWorkspace({
               </div>
               {coachEnabled && person && scheduleVisited && <div data-browse-control data-staff-tab="schedule" hidden={tab!=="schedule"} className="space-y-3">
                 <CourseStaffAssignments items={person.assignments} label={person.active?"已排課程":"待交接課次"} fitness/>
-                <details><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 font-medium text-primary-900">可授課時間</summary><CourseStaffAvailabilityEditor key={person.id} storeId={previewStoreId} staffId={person.id} fitness externalSave saveRef={availabilitySave} onGuard={updateAvailabilityGuard}/></details>
+                {!sportsNative&&<details><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 font-medium text-primary-900">可授課時間</summary><CourseStaffAvailabilityEditor key={person.id} storeId={previewStoreId} staffId={person.id} fitness externalSave saveRef={availabilitySave} onGuard={updateAvailabilityGuard}/></details>}
               </div>}
+              {sportsNative&&coachEnabled&&person&&availabilityVisited&&<div data-browse-control data-staff-tab="availability" hidden={tab!=="availability"} className="space-y-3"><CourseStaffAvailabilityEditor key={person.id} storeId={previewStoreId} staffId={person.id} fitness externalSave saveRef={availabilitySave} onGuard={updateAvailabilityGuard}/></div>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
                 {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
                   onRole={value => { setBackendRole(value); setDirty(true); }}
@@ -668,7 +671,7 @@ export function CourseStaffWorkspace({
               <button type="submit" form="course-staff-form" className={`${button} ${fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`} disabled={locked||availabilityGuard.pending||(teachingDirty&&!feesReady)||(!!person&&!dirty&&!availabilityGuard.dirty)} onClick={event=>{
                 if(!availabilityGuard.dirty)return;
                 event.preventDefault();
-                start(async()=>{if(!await availabilitySave.current?.save()){setTab("schedule");return;}if(dirty)setSubmitAfterTime(true);});
+                start(async()=>{if(!await availabilitySave.current?.save()){setTab(sportsNative?"availability":"schedule");return;}if(dirty)setSubmitAfterTime(true);});
               }}>{transitionPending||request.pending||availabilityGuard.pending?"儲存中…":request.uncertain?"重試確認儲存結果":!person?(accountKind==="coach"?(music?"新增教師":"新增教練"):"新增人員"):"儲存"}</button>
             </div>}
           </footer>

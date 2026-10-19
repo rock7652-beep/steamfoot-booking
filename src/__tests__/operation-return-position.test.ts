@@ -24,3 +24,7 @@ it("stops restoration as soon as the user interacts",async()=>{
  sessionStorage.setItem(operationStateKey("a","position:/dashboard/customers?search=test"),JSON.stringify({at:Date.now(),value:430}));
  await render("a");window.dispatchEvent(new Event("pointerdown"));await act(async()=>{await vi.advanceTimersByTimeAsync(30);});expect(window.scrollTo).not.toHaveBeenCalled();
 });
+it("native calendar restores position without issuing a second route refresh",async()=>{
+ const marker=document.createElement("span");marker.setAttribute("data-operation-background-refresh","");document.body.append(marker);
+ try{sessionStorage.setItem(operationStateKey("a","position:/dashboard/customers?search=test"),JSON.stringify({at:Date.now(),value:250}));await render("a");await act(async()=>{await vi.advanceTimersByTimeAsync(20);});expect(window.scrollTo).toHaveBeenCalledWith({top:250,behavior:"instant"});expect(m.refresh).not.toHaveBeenCalled();}finally{marker.remove();}
+});

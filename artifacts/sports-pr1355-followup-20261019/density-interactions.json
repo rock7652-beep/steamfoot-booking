@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "checks": [
+    "faded card single click opens scheduling instead of old roster",
+    "week cut and paste opens confirmation for target slot without submitting",
+    "day cut clipboard opens paste confirmation at 11:30",
+    "month cut clipboard opens paste confirmation on selected date",
+    "touch tap on half-hour opens correct scheduling time"
+  ]
+}

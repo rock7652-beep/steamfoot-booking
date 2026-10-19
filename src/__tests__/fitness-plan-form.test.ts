@@ -59,3 +59,6 @@ it("delivers the committed plan and retains the original payload after an ambigu
  m.save.mockResolvedValueOnce({success:true,storeId:"store",data:row});await submit();
  expect(m.save.mock.calls[0][0]).toEqual(m.save.mock.calls[1][0]);expect(saved).toHaveBeenCalledExactlyOnceWith(row);expect(m.refresh).not.toHaveBeenCalled();
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));

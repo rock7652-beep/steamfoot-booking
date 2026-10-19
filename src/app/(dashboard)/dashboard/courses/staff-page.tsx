@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
@@ -68,7 +69,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
       <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
-      <CourseStaffWorkspace initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+      <CourseStaffWorkspace sportsNative={sportsNativePreview(storeId)} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
         canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}
         personalIncomeEnabled={settlementSettings.personalIncomeEnabled}
         financeScope={financeScope}

@@ -14,6 +14,7 @@ const PRESETS = [
 
 interface ReportDateRangeProps {
   preserveQuery?: boolean;
+  compact?: boolean;
   activePreset: string;
   startDate: string;
   endDate: string;
@@ -21,6 +22,7 @@ interface ReportDateRangeProps {
 
 export default function ReportDateRange({
   activePreset,
+  compact=false,
   preserveQuery = false,
   startDate,
   endDate,
@@ -66,7 +68,7 @@ export default function ReportDateRange({
   }
 
   return (
-    <div className={`${styles.workspace} space-y-3`}>
+    <div className={compact?"flex min-w-0 flex-wrap items-center gap-2":`${styles.workspace} space-y-3`}>
       {reading && <NavigationNotice />}
       {/* Preset pills */}
       <div className="flex flex-wrap gap-2">

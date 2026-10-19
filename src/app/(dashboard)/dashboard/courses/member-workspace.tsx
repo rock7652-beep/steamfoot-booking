@@ -1,4 +1,5 @@
 "use client";
+import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
@@ -65,6 +66,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  sportsNative=false,
   previewStoreId,
   displayOrder,
   subjects=[],
@@ -73,7 +75,7 @@ export function CourseMemberWorkspace({
   termSessions=[],
   view,
   templates,
-  people,
+  people:sourcePeople,
   plans: sourcePlans,
   cards,
   canEdit,
@@ -91,9 +93,12 @@ export function CourseMemberWorkspace({
   canMerge = false,
   canExport = false,
   canDiscount = false,
+  sportsData,
   music = false,
   sharedCardState = "ENABLED",
 }: {
+  sportsNative?:boolean;
+  sportsData?: SportsSnapshot;
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
   subjects?:{id:string;name:string;category:string;isActive:boolean}[];
@@ -124,6 +129,9 @@ export function CourseMemberWorkspace({
   sharedCardState?: FeaturePresentationState;
 }) {
   const supportGuard = useCustomerPanelGuard();
+  const [noteReceipts,setNoteReceipts]=useState<Record<string,{source:string|null;value:string|null}>>({});
+  const people=sourcePeople.map(p=>noteReceipts[p.id]&&p.serviceNote===noteReceipts[p.id].source?{...p,serviceNote:noteReceipts[p.id].value}:p);
+  const visibleCustomerRows=customerRows.map(row=>noteReceipts[row.id]&&row.serviceNote===noteReceipts[row.id].source?{...row,serviceNote:noteReceipts[row.id].value}:row);
   const [editingAttribution, setEditingAttribution] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
@@ -163,7 +171,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && !formUncertain && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
+  function canLeave() { return !pending && !formPending && !formUncertain && (sportsNative || sportsData || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -200,10 +208,10 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard(!!panel&&(dirty || supportGuard.dirty),!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
+  useCourseDraftGuard(!sportsNative&&!sportsData&&!!panel&&(dirty || supportGuard.dirty),!sportsNative&&!sportsData&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
+  useCustomerPanelUrl(view === "customers"&&!sportsNative, panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
@@ -261,6 +269,21 @@ export function CourseMemberWorkspace({
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
 
 
+  const attribution=person&&(<section aria-label="歸屬設定" className={sportsNative?"py-1":"border-t border-earth-100 py-2"}>
+                <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                  {!music && <span>所屬店長：{customerRows.find(row => row.id === person.id)?.assignedStaff?.displayName ?? "未指派"}</span>}
+                  <span>推薦人：{customerRows.find(row => row.id === person.id)?.sponsor?.name ?? "未設定"}</span>
+                  {canAssignManager && <button type="button" className="min-h-11 px-3 text-primary-700" onClick={() => { if (supportGuard.allowLeave()) setEditingAttribution(value => !value); }}>{editingAttribution ? "取消修改" : "修改歸屬"}</button>}
+                </div>
+                {editingAttribution && <CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}`} customerId={person.id} currentStaffId={customerRows.find(row=>row.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}} />}
+              </section>);
+  const detailFields=person&&(<CustomerDetailFields items={[
+                {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
+                {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
+                {label:"緊急聯絡人",value:person.emergencyContactName},
+                {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
+                {label:"地址",value:person.address,full:true},
+              ].filter(item => item.value != null && item.value !== "")}/>);
   return (
     <>
       {view === "plans" && <div className="flex flex-wrap items-center gap-3">
@@ -284,15 +307,15 @@ export function CourseMemberWorkspace({
         {view === "customers" && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
-          className={`${field} max-w-xs`}
+          className={`${field} ${sportsData?"!w-44":"max-w-xs"}`}
           aria-label="搜尋"
-          placeholder="搜尋方案"
+          placeholder={sportsData?"搜尋收費方式":"搜尋方案"}
           value={search}
           onChange={(e) => { setSelected([]);setSearch(e.target.value); setPage(0); }}
         />}
         {view === "plans" && planArea === "catalog" && (
           <select
-            className={`${field} max-w-36`}
+            className={`${field} ${sportsData?"!w-28":"max-w-36"}`}
             aria-label="狀態篩選"
             value={status}
             onChange={(e) => { setSelected([]);setStatus(e.target.value); setPage(0); }}
@@ -302,13 +325,13 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} ${sportsData?"!w-32":"max-w-40"}`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
         {view === "plans" && planArea === "catalog" && !music && <>
-          <select aria-label="購買方式篩選" className={`${field} max-w-44`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
-          {sharingVisible && <select aria-label="共卡篩選" className={`${field} max-w-40`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
+          <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
+          {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
           {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>}
-        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?"教學項目篩選":"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?"全部教學項目":"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
@@ -319,10 +342,10 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : music ? "班型與學費" : "方案"}
+            ＋新增{view === "customers" ? "顧客" : sportsData ? "收費方式" : music ? "班型與學費" : "方案"}
           </button>
         )}
-        {canAssign && (view === "customers" || planArea === "cards") && (
+        {canAssign && ((view === "customers"&&!sportsNative) || (view === "plans"&&planArea === "cards")) && (
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
@@ -344,11 +367,12 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
+        onPurchase={canAssign&&people.length>0&&activePlans.length>0 ? ()=>{setPerson(null);open("assign");setRevenueStaffId("");}:undefined}
         onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
@@ -403,9 +427,9 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={panel === "plan" && music ? 920 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
-          fixedHeight={panel === "plan"}
+          fixedHeight={panel === "plan"&&!sportsData}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
-          fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
+          fitContent={(!!sportsData&&panel==="plan")||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
@@ -413,7 +437,7 @@ export function CourseMemberWorkspace({
               {customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
-                  ? planReadOnly&&plan ? plan.name : plan ? music ? "編輯班型與學費" : "編輯方案" : music ? "新增班型與學費" : "新增方案"
+                  ? planReadOnly&&plan ? plan.name : plan ? sportsData ? "編輯收費方式" : music ? "編輯班型與學費" : "編輯方案" : sportsData ? "新增收費方式" : music ? "新增班型與學費" : "新增方案"
                   : panel === "assign"
                     ? "購買方案"
                     : panel === "coach"
@@ -440,7 +464,7 @@ export function CourseMemberWorkspace({
             {([ ["info","顧客概況"], ...((canReadTransactions || canReadBookings) ? [["records","紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${sportsData&&panel==="plan"?"@container p-3":"p-4"}`}>
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -473,48 +497,43 @@ export function CourseMemberWorkspace({
                 <p className="text-sm">建立後請到人員管理一次設定授課資格，再新增排課。</p>
               </form>
             )}
-            {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
+            {panel === "health" && healthEnabled && person && <CourseCustomerHealth compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab("info")}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
+              <div aria-label="顧客基本資料" className={sportsNative?"grid grid-cols-1 items-start gap-x-5 sm:grid-cols-2":"contents"}>
               <CustomerPhoneLink phone={person.phone}/>
               <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
+              {sportsNative&&<div className="sm:col-span-2">{attribution}{detailFields}</div>}
+              </div>
               <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
-                save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
-                onSaved={() => router.refresh()} />
-              <section aria-label="歸屬設定" className="border-t border-earth-100 py-2">
-                <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                  {!music && <span>所屬店長：{customerRows.find(row => row.id === person.id)?.assignedStaff?.displayName ?? "未指派"}</span>}
-                  <span>推薦人：{customerRows.find(row => row.id === person.id)?.sponsor?.name ?? "未設定"}</span>
-                  {canAssignManager && <button type="button" className="min-h-11 px-3 text-primary-700" onClick={() => { if (supportGuard.allowLeave()) setEditingAttribution(value => !value); }}>{editingAttribution ? "取消修改" : "修改歸屬"}</button>}
-                </div>
-                {editingAttribution && <CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}`} customerId={person.id} currentStaffId={customerRows.find(row=>row.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}} />}
-              </section>
+                save={async(serviceNote, expectedServiceNote) => {
+                  const input={customerId:person.id,serviceNote,expectedServiceNote};
+                  if(!sportsNative)return saveCourseCustomerNote(input);
+                  const response=await fetch(`${window.location.pathname.replace(/\/$/,"")}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input)});
+                  const result=await response.json();if(!result||typeof result.success!=="boolean")throw new Error("儲存回應格式不正確");return result as Awaited<ReturnType<typeof saveCourseCustomerNote>>;
+                }}
+                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();}} />
+              {!sportsNative&&attribution}
               {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
-                <CourseCardBrowser compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
-              <StoreMemberConnectionPanel key={`membership-${person.id}`} customerId={person.id} />
+              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
               <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={() => router.refresh()}/>
-              <CustomerDetailFields items={[
-                {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
-                {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
-                {label:"緊急聯絡人",value:person.emergencyContactName},
-                {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
-                {label:"地址",value:person.address,full:true},
-              ].filter(item => item.value != null && item.value !== "")}/>
+              {!sportsNative&&detailFields}
               {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button></ExclusiveMenu>}
             </section>}
             {panel === "person" && (
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
-            {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
-            {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases compact={sportsNative} key={`purchases-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings compact={sportsNative} key={`bookings-${person.id}`} customerId={person.id} />}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(courseTemplateLabel).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (

@@ -78,3 +78,10 @@ it("removes timers and focus listeners when leaving the calendar", async () => {
   await tick(); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("pageshow"));
   expect(m.router.refresh).not.toHaveBeenCalled();
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn(), previewSportsCourseCancellation: vi.fn(), stopSportsSeries: vi.fn() }));
+vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
+vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));

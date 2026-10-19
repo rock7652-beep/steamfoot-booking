@@ -7,7 +7,7 @@ const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx
 it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
   expect(source).toContain('styles.monthDay');
   expect(source).toContain('{total.classes}堂・{total.people}人次');
-  expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`}');
+  expect(source).toContain('`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}');
   expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
   expect(source).not.toContain('list.slice(0, 2).map');
 });

@@ -1,3 +1,5 @@
+import { sportsNativePreview } from "@/lib/sports-native-preview";
+import { loadSportsStaging } from "@/server/actions/sports-staging";
 import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
@@ -47,6 +49,8 @@ export async function CourseMemberPage({
     where: { storeId, featureKey: "business.music", status: "ENABLED" },
     select: { storeId: true },
   }));
+  const sportsNative=sportsNativePreview(storeId);
+  const sportsDataPromise=view==="plans"&&sportsNative&&!isViewMode&&(user.role==="ADMIN"||user.storeId===storeId)?loadSportsStaging(true).then(r=>r.success?r.data:undefined):Promise.resolve(undefined);
   const canReadCards = await checkPermission(
     user.role,
     user.staffId,
@@ -108,7 +112,7 @@ export async function CourseMemberPage({
     prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
     canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]}),
-    music ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
+    (music || sportsNative) ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
     readCourseOrders(storeId),
   ]);
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
@@ -120,9 +124,9 @@ export async function CourseMemberPage({
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
-      {view === "plans" && <PageHeader title={music ? "班型與學費" : "方案管理"} />}
+      {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "班型與學費" : "方案管理"} />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      <CourseMemberWorkspace sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
@@ -146,6 +150,7 @@ export async function CourseMemberPage({
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
         canDiscount={!isViewMode&&await checkPermission(user.role,user.staffId,"transaction.discount")}
         sharedCardState={music ? "ENABLED" : await getCourseSharedCardState(storeId)}
+        sportsData={await sportsDataPromise}
         music={music}
       />
     </PageShell>

@@ -1,3 +1,8 @@
+// Integration review is never a deployment or a database execution path.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-integration-review-20261019")) {
+  throw new Error("Sports integration review cannot deploy or execute migrations.");
+}
+
 // Review implementation only. No deployment or database work.
 if([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("codex/sports-production-enable")){
  throw new Error("Sports enablement review branch deployment is disabled.");

@@ -50,7 +50,7 @@ it("adaptive cards prioritize private members while group cards show capacity", 
 });
 
 it("course operations use the shared centered dialog", () => {
-  expect(workspace).toContain('courseDialog.kind === "roster" ? 1200 : 560');
+  expect(workspace).toContain('courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster"||sportsNative ? 1200 : 560');
   expect(workspace).toContain('presentation="centered"');
   expect(workspace).toContain('labelledById="course-operation-title"');
   expect(workspace).not.toContain('className="fixed inset-0 z-[80] flex items-center justify-center');

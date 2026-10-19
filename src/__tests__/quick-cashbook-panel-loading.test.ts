@@ -53,3 +53,9 @@ it("successful writes invalidate every page before rereading the balance", async
   await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   expect(m.save).toHaveBeenCalledTimes(1); expect(m.read).toHaveBeenCalledTimes(2); expect(document.querySelector('[role="dialog"]')?.textContent).toContain("after-save");
 });
+it("sports compact list keeps one row per entry and opens full notes outside the closed menu",async()=>{
+ m.read.mockResolvedValue({...payload("抽屜未啟用"),total:2,entries:[{id:"one",type:"INCOME",category:"課程方案",paymentMethod:"OTHER",amount:4800,note:"十點方案 / 原價 4800 / 信用卡",canEdit:true,customer:null},{id:"two",type:"EXPENSE",category:"清潔",paymentMethod:"CASH",amount:100,note:"清潔用品",canEdit:true,customer:null}]});
+ await act(async()=>root.render(React.createElement(PanelReadProvider,null,React.createElement(QuickCashbook,{storeId:"sports",compact:true}))));await click("現金收支");
+ expect(document.querySelectorAll('tbody tr')).toHaveLength(2);expect(document.querySelectorAll('article')).toHaveLength(0);expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain("請勿重複登記");
+ await act(async()=>(document.querySelector('button[aria-label="課程方案 4800 操作"]') as HTMLButtonElement).click());await click("查看明細");expect(document.querySelector('[aria-label="收支明細"]')?.textContent).toContain("原價 4800 / 信用卡");expect(document.querySelector('[aria-label="收支明細"]')?.closest('[hidden]')).toBeNull();await click("返回清單");expect(document.querySelectorAll('tbody tr')).toHaveLength(2);expect(m.save).not.toHaveBeenCalled();
+});

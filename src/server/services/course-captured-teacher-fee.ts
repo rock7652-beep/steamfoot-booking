@@ -1,4 +1,5 @@
 import "server-only";
+import {calculateSportsTeacherFee} from "@/lib/sports-teacher-fee";
 
 /** Dispatch only by immutable calculationVersion; never use the current store profile. */
 import { calculateLegacyTeacherFee } from "@/lib/course-legacy-teacher-fee";
@@ -12,6 +13,7 @@ export type CapturedTeacherFee = {
 export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeSeat[]):TeacherFeeResult {
   if (snapshot.cancelledAt || ["LEAVE","NO_SHOW"].includes(snapshot.teacherAttendance??"")) return {amount:0,issue:null,details:[]};
   if(snapshot.revision===0)return {amount:null,issue:"舊課次費率待核對",details:[]};
+  if(snapshot.rule && typeof snapshot.rule==="object" && "calculationVersion" in snapshot.rule && snapshot.rule.calculationVersion===3)return calculateSportsTeacherFee(snapshot.rule,seats);
   if(isTeacherFeeV2(snapshot.rule))return calculateMusicTeacherFee({rule:snapshot.rule,teacherAttendance:snapshot.teacherAttendance,trialMode:snapshot.musicTrialMode,trialBase:snapshot.musicTeacherFeeBase,seats});
   const due=seats.filter(s=>s.bookingKind!=="TEACHER_MAKEUP"&&(s.status==="ATTENDED"||s.status==="NO_SHOW"||s.absenceKind==="GROUP_LEAVE_FORFEITED"));
   const free=due.filter(s=>s.bookingKind==="TRIAL"&&snapshot.musicTrialMode==="FREE").length;

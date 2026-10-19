@@ -1,0 +1,8 @@
+
+ RUN  v4.1.4 /workspace/sports-integration-pr-20261019
+
+
+ Test Files  71 passed | 2 skipped (73)
+      Tests  600 passed | 7 skipped (607)
+   Start at  00:49:30
+   Duration  10.74s (transform 4.36s, setup 0ms, import 8.66s, tests 15.43s, environment 7.53s)

@@ -16,8 +16,8 @@ export type CourseTransactionDetail = {
   unit: string; expiresAt: string | null; transferLastFive: string;
   refunds: { amount: number; reason: string; date: string; method: string }[];
 };
-export function CourseTransactionActions({ order, allocationSummary, canRefund, canConfirm, canEdit, canVoid, staffOptions }: {
-  canEdit: boolean; canVoid: boolean; staffOptions: {id:string;name:string}[];
+export function CourseTransactionActions({ quiet=false, order, allocationSummary, canRefund, canConfirm, canEdit, canVoid, staffOptions }: {
+  quiet?:boolean; canEdit: boolean; canVoid: boolean; staffOptions: {id:string;name:string}[];
   order: CourseTransactionDetail; allocationSummary: string; canRefund: boolean; canConfirm: boolean;
 }) {
   const title = useId(); const router = useRouter();
@@ -52,7 +52,7 @@ export function CourseTransactionActions({ order, allocationSummary, canRefund, 
   }
   const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
-    <button className={btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
+    <button className={quiet?"min-h-11 whitespace-nowrap px-3 text-sm text-primary-700 hover:underline":btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
     {open && <RightSheet presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
       <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">

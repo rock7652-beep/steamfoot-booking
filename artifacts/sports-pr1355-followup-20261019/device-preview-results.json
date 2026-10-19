@@ -1,0 +1,121 @@
+{
+  "checks": [
+    {
+      "check": "quick navigation synchronizes URL and loads work orders once",
+      "documentLoads": 1
+    },
+    {
+      "check": "reload retains work orders"
+    },
+    {
+      "check": "back loads timetable"
+    },
+    {
+      "check": "forward loads work orders"
+    },
+    {
+      "check": "inner sidebar synchronizes outer URL"
+    },
+    {
+      "check": "inner navigation survives outer reload"
+    },
+    {
+      "check": "device rotation preserves frame without document reload",
+      "device": "平板直向"
+    },
+    {
+      "check": "device rotation preserves frame without document reload",
+      "device": "平板"
+    },
+    {
+      "check": "21-second delayed GET shows waiting instead of failure"
+    },
+    {
+      "check": "late successful read recovers to work orders"
+    },
+    {
+      "check": "late old request cannot override the last page selection"
+    },
+    {
+      "check": "HTTP 503 fixture remains visibly failed and is not replaced by success"
+    },
+    {
+      "check": "explicit retry recovers"
+    },
+    {
+      "check": "desktop layout does not overflow"
+    }
+  ],
+  "errors": [],
+  "documents": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/device-preview",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/device-preview",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/device-preview",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 503
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/work-orders",
+      "status": 200
+    }
+  ],
+  "passed": true
+}

@@ -11,8 +11,8 @@ import { saveCourseSetupReminder, readCourseSetupProgress } from "@/server/actio
 import { courseSetupHref, currentCourseSetupStep, setupReminderVisible, type CourseSetupStep } from "@/lib/course-setup-progress";
 
 type Preference = { mode: "show" | "later" | "never"; login?: string };
-export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, login, manual = false, studentHref: sourceStudentHref }: {
-  storeId?: string; steps: CourseSetupStep[]; preference: Preference; login: string; manual?: boolean; studentHref?: string;
+export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, login, manual = false, localSections = false, studentHref: sourceStudentHref }: {
+  localSections?:boolean; storeId?: string; steps: CourseSetupStep[]; preference: Preference; login: string; manual?: boolean; studentHref?: string;
 }) {
   const [updated, setUpdated] = useState<{ source: CourseSetupStep[]; steps: CourseSetupStep[]; studentHref?: string } | null>(null);
   const steps = updated?.source === sourceSteps ? updated.steps : sourceSteps;
@@ -37,8 +37,12 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
   const pathname = usePathname(), router = useRouter(), params = useSearchParams();
   const route = `${pathname}?${params.toString()}`, lastRoute = useRef(route);
   useEffect(() => {
-    if (lastRoute.current !== route) { lastRoute.current = route; router.refresh(); }
-  }, [route, router]);
+    if (lastRoute.current !== route) {
+      lastRoute.current = route;
+      if(localSections&&params.get("view")==="settings")return;
+      router.refresh();
+    }
+  }, [route, router, localSections, params]);
   useEffect(() => {
     if (manual) return;
     const refresh = () => router.refresh();

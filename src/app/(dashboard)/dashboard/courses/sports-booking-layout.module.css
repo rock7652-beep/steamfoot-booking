@@ -1,0 +1,23 @@
+/* Only the sports Preview uses these form grids. Fields remain 44px and normal type. */
+.member,.trial{display:grid;grid-template-columns:minmax(0,1fr);gap:8px 12px;align-items:start;min-width:0;}
+.member>p,.member>fieldset,.member>[role="status"],.member>[data-booking-warning]{grid-column:1/-1;}
+.member>*{order:1;}
+.member>[data-member-search],.member>[data-member-selected]{order:0;}
+.member>[data-member-selected]>*{margin-top:0;}
+.member>[data-member-selected]{display:grid;gap:8px;padding:8px;min-width:0;}
+.member [data-search-results]{max-height:132px;}
+.member [data-search-results] button{min-height:44px;padding:6px 10px;}
+.member [data-search-results] button>span:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;}
+.trial>p,.trial>[data-trial-search],.trial>[data-trial-results],.trial>[role="status"]{grid-column:1/-1;}
+.trial>[data-trial-results]{max-height:128px;}
+.trial>[data-trial-identity]{display:contents;}
+.member textarea,.trial textarea{min-height:44px;height:44px;resize:vertical;}
+@container(min-width:600px){
+ .member{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .trial{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .trial>[data-booking-notes]{grid-column:1/-1;}
+}
+@container(min-width:900px){
+ .trial{grid-template-columns:repeat(3,minmax(0,1fr));}
+ .trial>[data-booking-notes]{grid-column:1/-1;}
+}

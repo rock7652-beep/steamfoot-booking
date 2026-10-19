@@ -1,0 +1,12 @@
+Released fixed occurrence regression verification (2026-10-19)
+
+Before: new regression suite against the unchanged efd45ff3 service copied to /tmp; no repository source replacement. Five regression cases failed (longer, partial overlap, moved origin, multiple dates); 16 passed. No database connections.
+
+After: repository implementation, seven related test files:
+RUN  v4.1.4 /workspace/sports-integration-pr-20261019
+
+
+ Test Files  7 passed (7)
+      Tests  65 passed (65)
+   Start at  03:55:03
+   Duration  975ms (transform 830ms, setup 0ms, import 1.42s, tests 111ms, environment 1ms)

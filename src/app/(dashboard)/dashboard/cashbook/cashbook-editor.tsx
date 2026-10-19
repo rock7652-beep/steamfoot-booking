@@ -2,6 +2,7 @@
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {ModalPanel} from "@/components/admin/modal-panel";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   createCashbookEntry,
@@ -22,6 +23,7 @@ type Entry = {
 };
 export function CashbookEditor({
   storeId,
+  inMenu=false,
   instantSearch,
   entry,
   presentation = "side",
@@ -30,7 +32,7 @@ export function CashbookEditor({
   staffOptions,
   canAssignStaff,
 }: {
-  storeId: string;
+  inMenu?:boolean; storeId: string;
   instantSearch: boolean;
   entry?: Entry;
   presentation?: "side" | "centered";
@@ -47,6 +49,7 @@ export function CashbookEditor({
     router = useRouter();
   const createRequestId = useRef<string | null>(null);
   const titleId = useId();
+  const EditorPanel=inMenu?ModalPanel:RightSheet;
   const title = entry ? "編輯記帳" : "新增記帳";
   function close() {
     if (
@@ -120,7 +123,7 @@ export function CashbookEditor({
         {entry ? "編輯" : "＋ 新增記帳"}
       </button>
       {open && (
-        <RightSheet presentation={presentation} open onClose={close} width={640} labelledById={titleId}>
+        <EditorPanel presentation={presentation} open onClose={close} width={640} labelledById={titleId}>
           <header className="flex items-center justify-between border-b p-4">
             <h2 id={titleId} className="font-semibold">
               {title}
@@ -221,7 +224,7 @@ export function CashbookEditor({
               </button>
             </footer>
           </form>
-        </RightSheet>
+        </EditorPanel>
       )}
     </>
   );
