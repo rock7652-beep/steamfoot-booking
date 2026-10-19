@@ -3,7 +3,9 @@ import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
-import {loadSportsCalendar} from "@/server/actions/sports-calendar";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
+import {readSportsCalendar} from "@/lib/sports-calendar-client";
+import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {SportsAttendancePanel} from "./sports-attendance-panel";
 import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
@@ -289,7 +291,9 @@ export function CourseWorkspace({
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
   const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
   const [nativeCalendar,setNativeCalendar]=useState<{month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
+  const sportsCalendarReader=usePanelReader("sports-calendar",readSportsCalendar,storeId??"",0);
   const calendarRequest=useRef(0);
+  const calendarReadsInFlight=useRef(0);
   const calendarTargetMonth=useRef(loadedDate.slice(0,7));
   const [calendarReading,setCalendarReading]=useState(false);
   const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
@@ -297,11 +301,21 @@ export function CourseWorkspace({
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
-  const refreshNativeCalendar=useCallback(async(date:string,ensure=false)=>{
+  const refreshNativeCalendar=useCallback(async(date:string,ensure=false,background=false)=>{
     calendarTargetMonth.current=date.slice(0,7);
-    const request=++calendarRequest.current;setCalendarReading(true);
-    try{if(ensure&&sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}const result=await loadSportsCalendar(date);if(request!==calendarRequest.current)return;if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());}else setError(result.error);}catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");}finally{if(request===calendarRequest.current)setCalendarReading(false);}
-  },[sportsNative,canCreate]);
+    const request=++calendarRequest.current;
+    calendarReadsInFlight.current++;
+    if(!background)setCalendarReading(true);
+    try{
+      if(ensure&&sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}
+      if(!background)sportsCalendarReader.clear();
+      const result=await sportsCalendarReader.read(date);
+      if(request!==calendarRequest.current)return null;
+      if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
+      setError(result.error);return false;
+    }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
+    finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
+  },[sportsNative,canCreate,sportsCalendarReader]);
   useEffect(()=>{if(sportsNative&&nativeDate.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7))&&calendarTargetMonth.current!==nativeDate.slice(0,7))void refreshNativeCalendar(nativeDate,true);},[sportsNative,nativeDate,nativeCalendar?.month,loadedDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,!calendarReading);
   const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
@@ -390,10 +404,15 @@ export function CourseWorkspace({
     // Keep the calendar current even with the day sheet closed. Nested roster
     // dialogs own their reads; never refresh their parent during a transaction.
     if (view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
+    if (sportsNative) {
+      return startSportsBackgroundSync(
+        () => refreshNativeCalendar(nativeDateRef.current,false,true),
+        () => calendarReadsInFlight.current > 0,
+      );
+    }
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
-      if(sportsNative){void refreshNativeCalendar(nativeDateRef.current);return;}
       startTransition(() => {
         refreshWorkspace();
         setLastUpdated(new Date());
@@ -2394,7 +2413,7 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
-      {sportsNative&&sportsAttendanceOpen&&<SportsAttendancePanel date={selectedDate} sessions={dailySessions} leaves={cancelledBookings} canEdit={canEdit} onClose={()=>setSportsAttendanceOpen(false)} onChanged={()=>refreshNativeCalendar(selectedDate)}/>}
+      {sportsNative&&sportsAttendanceOpen&&<SportsAttendancePanel date={selectedDate} sessions={dailySessions} leaves={cancelledBookings} canEdit={canEdit} onClose={()=>setSportsAttendanceOpen(false)} onChanged={async()=>{await refreshNativeCalendar(selectedDate);}}/>}
       {courseDialog &&
         sessions.find((session) => session.id === courseDialog.sessionId) &&
         (() => {
