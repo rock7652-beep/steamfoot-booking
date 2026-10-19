@@ -80,18 +80,30 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
  const {assertStoreSubscriptionWritable}=await import("@/lib/subscription-guard");
  await assertStoreSubscriptionWritable(actor.storeId);
  const rules=await readSportsSeries(tx,actor.storeId);
+ let skippedCapacity=false;
  for(const series of rules){
   if(series.cancelledAt)continue;
   const learners=sportsLearners.parse(series.learnerSnapshot);
   const source=await tx.$queryRaw<Array<{payload:unknown}>>`SELECT r.payload FROM "SportsStagingSessionRule" r JOIN "CourseSession" s ON s.id=r."sessionId" AND s."storeId"=r."storeId" WHERE r."storeId"=${actor.storeId} AND s."requestKey"=${series.requestKey} ORDER BY s."requestIndex" LIMIT 1`;
   if(!source.length)throw new AppError("CONFLICT","固定課規則不完整，請核對");
   const original=sportsScheduleRule.parse(source[0].payload);
-  for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY")){
-   const range=fixedSeriesOccurrenceOnDate(series,date);if(!range)continue;
-   const index=Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7);
-   if(await tx.courseSession.findUnique({where:{storeId_requestKey_requestIndex:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:index}}}))continue;
-   const students=learners.filter(l=>!l.stopDate||date<l.stopDate).map(l=>({customerId:l.customerId,cardId:null}));
-   assertSportsFixedCapacity(series.capacity,students.length);
+  // Validate the entire pending series before its first write. A bad legacy
+  // roster must neither partially expand nor roll back another healthy series.
+  const pending:Array<{date:string;range:{startsAt:Date;endsAt:Date};index:number;students:SportsScheduleRule["students"]}>=[];
+  try{
+   for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY")){
+    const range=fixedSeriesOccurrenceOnDate(series,date);if(!range)continue;
+    const index=Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7);
+    if(await tx.courseSession.findUnique({where:{storeId_requestKey_requestIndex:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:index}}}))continue;
+    const students=learners.filter(l=>!l.stopDate||date<l.stopDate).map(l=>({customerId:l.customerId,cardId:null}));
+    assertSportsFixedCapacity(series.capacity,students.length);
+    pending.push({date,range,index,students});
+   }
+  }catch(error){
+   if(!(error instanceof SportsFixedCapacityError))throw error;
+   skippedCapacity=true;continue;
+  }
+  for(const {date,range,index,students} of pending){
    await assertSportsSeriesFree(tx,actor.storeId,[range],series,series.requestKey);
    const conflict=await tx.courseSession.findFirst({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{lt:range.endsAt},endsAt:{gt:range.startsAt},OR:[{roomId:series.roomId},{coachId:series.coachId}]}});
    const rental=await tx.courseRental.findFirst({where:{storeId:actor.storeId,roomId:series.roomId,cancelledAt:null,occupiedStartsAt:{lt:range.endsAt},occupiedEndsAt:{gt:range.startsAt}}});
@@ -101,6 +113,7 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
    await attachSportsSessionRules(tx,actor,series.requestKey,{...original,students},[s.id]);
   }
  }
+ if(skippedCapacity)return "部分固定課名單超過人數上限，已略過異常系列；其他正常固定課繼續展課，既有課表仍可查看。";
 }
 export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId:string){
  const b=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true}});
@@ -132,12 +145,6 @@ export async function ensureSportsMonth(actor:CourseActor,first:string,last:stri
  }
  if(missing){
   const {courseTransaction}=await import("./course-access");
-  try{await courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));}
-  catch(error){
-   // The transaction has rolled back. Only this known capacity problem is
-   // non-blocking for historical reads; auth, conflicts and DB failures propagate.
-   if(!(error instanceof SportsFixedCapacityError))throw error;
-   return "固定課名單超過人數上限，本次展課已暫停；既有課表仍可查看，請核對容量與名單。";
-  }
+  return courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));
  }
 }

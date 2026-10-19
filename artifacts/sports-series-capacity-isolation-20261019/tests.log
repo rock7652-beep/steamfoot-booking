@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-capacity-isolation-fix-20261019
+
+
+ Test Files  5 passed (5)
+      Tests  32 passed (32)
+   Start at  13:51:13
+   Duration  652ms (transform 416ms, setup 0ms, import 842ms, tests 65ms, environment 1ms)
+

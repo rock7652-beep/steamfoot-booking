@@ -106,7 +106,8 @@
       "codex/sports-native-entry-20261019": false,
       "fix/sports-onboarding-flow-20261019": false,
       "fix/sports-subscription-expansion-20261019": false,
-      "fix/sports-permanent-capacity-20261019": false
+      "fix/sports-permanent-capacity-20261019": false,
+      "fix/sports-series-capacity-isolation-20261019": false
     }
   }
 }

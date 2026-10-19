@@ -1,0 +1,2 @@
+cbfbe38f7ed33d8abe52ff2564ae52203f2d2379656e3eca6afcc825d265d4e4  src/server/services/sports-permanent-series.ts
+runtime-match=True
