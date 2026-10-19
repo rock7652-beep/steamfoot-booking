@@ -1,4 +1,9 @@
 // Review-only branch: reject hosted builds before database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-series-capacity-isolation-20261019")) {
+  throw new Error("Sports series isolation review cannot deploy or execute migrations.");
+}
+
+// Review-only branch: reject hosted builds before database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-permanent-capacity-20261019")) {
   throw new Error("Sports capacity review cannot deploy or execute migrations.");
 }

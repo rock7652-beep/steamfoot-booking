@@ -17,4 +17,6 @@
 
 證據：artifacts/sports-series-capacity-isolation-20261019/results.json、tests.log、source-hash.txt、restored.json；完整本機紀錄 /workspace/sports-capacity-isolation-acceptance-20261019。隔離資料還原顧客0、預約0、系列0、原課次1，服務及容器停止。
 
-只完成本機修正與隔離驗收；未推送、建立PR、合併、部署、執行正式migration、使用真實顧客或改動音樂/正式站。正式是否存在超額舊班並未查詢或宣稱。
+本機修正與隔離驗收完成後，依授權整理草稿PR；未合併、部署、執行正式migration、使用真實顧客或改動音樂/正式站。正式是否存在超額舊班並未查詢或宣稱。
+
+審查發布保護：vercel.json停用本分支Git部署；next.config.ts與ci-migrate.mjs對Vercel/Workers/Pages三種分支metadata先拒絕。main自動部署停用設定不變。
