@@ -1,3 +1,5 @@
+import {assertSportsProductionReady,sportsRulesAvailable} from "@/server/services/sports-production-readiness";
+import {sportsStagingEnabled} from '@/lib/sports-staging';
 import { courseCardPublicMembers } from "@/lib/course-card-public-members";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { authorizeFrontendPreview, resolveCoursePreviewIdentity, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
@@ -112,6 +114,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       },
     },
   } as const;
+  if (sportsStagingEnabled(storeId)) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
+  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number}>>`SELECT "sessionId",enrollment,"trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  const assignedSportsIds=sportsRules.filter(row=>row.enrollment==='ASSIGNED').map(row=>row.sessionId);
   const [
     sessions,
     bookings,
@@ -131,6 +136,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             cancelledAt: null,
             template: {isActive:true,visibility:"PUBLIC"},
+            ...(assignedSportsIds.length?{id:{notIn:assignedSportsIds}}:{}),
             startsAt: { gte: range.start, lte: range.end },
           },
           include: sessionInclude,
@@ -369,6 +375,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         }
       : null,
     sessions: sessions.map((s) => ({
+      sportsTrialPrice:s.isTrial?sportsRules.find(r=>r.sessionId===s.id)?.trialPrice??null:null,
       id: s.id,
       templateId: s.templateId,
       classType: s.template.classType,

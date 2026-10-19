@@ -161,7 +161,7 @@ export async function reserveCourseInTransaction(
     allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
-  options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean; memberReschedule?: boolean } = {},
+  options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean; memberReschedule?: boolean; sportsMemberTrial?: boolean } = {},
 ) {
   const { storeId } = actor;
   const previous = await tx.courseBooking.findUnique({
@@ -228,6 +228,14 @@ export async function reserveCourseInTransaction(
     if(options.memberReschedule)assertCourseSelfRescheduleEnabled(rule);
     else assertCourseSelfBookingEnabled(rule);
   }
+  {
+    const {readSportsSessionRule}=await import('./sports-staging-schedule');
+    const rule=await readSportsSessionRule(tx,storeId,input.sessionId);
+    if(actor.customerId&&rule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
+    if(rule?.planId && card && card.planId!==rule.planId)return fail('此方案不適用本堂收費方式');
+    if(rule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
+    if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||rule?.enrollment!=='OPEN'||rule.planId!==null))return fail('此課未開放體驗預約');
+  }
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
   if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
     return fail("請選擇本店有效課程、方案與上課人");
@@ -267,7 +275,7 @@ export async function reserveCourseInTransaction(
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }
   const bookingCost = card ? (card.unit === "SESSION" ? 1 : session.pointCost) : 0;
-  if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || actor.customerId)) return fail("體驗預約僅由有權限店長建立");
+  if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || (actor.customerId&&!options.sportsMemberTrial))) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
     !(input.onSite && !actor.customerId && session.endsAt > now) &&

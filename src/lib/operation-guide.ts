@@ -88,6 +88,7 @@ import { dailyOperationGuides20261011 } from "./operation-guide-daily-20261011";
 import { dailyOperationGuides20261012 } from "./operation-guide-daily-20261012";
 import { dailyOperationGuides20261013 } from "./operation-guide-daily-20261013";
 import { dailyOperationGuides20261014 } from "./operation-guide-daily-20261014";
+import { dailyOperationGuides20261019 } from "./operation-guide-daily-20261019";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 const catalogGuides: OperationGuide[] = [
@@ -112,6 +113,7 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261012,
   ...dailyOperationGuides20261013,
   ...dailyOperationGuides20261014,
+  ...dailyOperationGuides20261019,
 ];
 
 /** Historical frontend articles remain archived; backend search never returns them. */

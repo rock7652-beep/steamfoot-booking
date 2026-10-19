@@ -217,7 +217,7 @@ describe("composed consultation and shared-card release modes", () => {
     const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(enabled[CONSULTATION_PREVIEW_BRANCH]).toBe(false);
     expect(enabled[SPORTS_SHARED_CARD_PREVIEW_BRANCH]).toBe(false);
-    expect(enabled.main).not.toBe(false);
+    expect(enabled.main).toBe(false);
   });
 });
 

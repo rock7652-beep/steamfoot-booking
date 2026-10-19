@@ -1,0 +1,117 @@
+{
+  "scope": "isolated local real Next/PostgreSQL",
+  "productionDeployed": false,
+  "checks": [
+    {
+      "name": "教學項目寫入既有 MusicSubject",
+      "passed": true,
+      "id": "sports_c31822d1675dbc5d5ea3623ae47f4ea04dc9cf5dcc0b7fb894aacb470d2a8666"
+    },
+    {
+      "name": "堂數收費連接既有方案與授課資格",
+      "passed": true,
+      "id": "plan_21a3d2d66bc2cd82f8578b7853ea969b4c3b5f371765937dee1d5ec3e92a80b7"
+    },
+    {
+      "name": "真實購買建立一張卡及一筆交易",
+      "passed": true,
+      "cardId": "cmvcjpyfu003jmr24y6pf8w4p"
+    },
+    {
+      "name": "每週固定指定學員四堂原子預約，保留四堂未扣帳",
+      "passed": true
+    },
+    {
+      "name": "重送同一排課請求不重複建立課程或預約",
+      "passed": true
+    },
+    {
+      "name": "出席扣一堂，第二裝置開啟名單自動同步",
+      "passed": true
+    },
+    {
+      "name": "出席後取消還一堂，第二裝置不重整同步",
+      "passed": true
+    },
+    {
+      "name": "固定課單堂異動留下淡化原位，後續三堂不變",
+      "passed": true
+    },
+    {
+      "name": "淡化原位拒絕重複固定系列，拒絕時無新增",
+      "passed": true
+    },
+    {
+      "name": "固定課釋出原時段可排單次",
+      "passed": true
+    },
+    {
+      "name": "隔週固定開放選課建立",
+      "passed": true
+    },
+    {
+      "name": "體驗指定學員走既有試課預約",
+      "passed": true
+    },
+    {
+      "name": "體驗收款及作廢沿用帳本",
+      "passed": true
+    },
+    {
+      "name": "空間出租、收款及作廢沿用既有核心",
+      "passed": true
+    },
+    {
+      "name": "指定學員整批額度不足時回滾全部課次",
+      "passed": true
+    },
+    {
+      "name": "租借時段拒絕重疊排課",
+      "passed": true
+    },
+    {
+      "name": "四種教學排課皆驗證指定學員與開放選課，出租獨立",
+      "passed": true
+    },
+    {
+      "name": "資料庫確認單次／每週／隔週兩種參加方式齊全",
+      "passed": true,
+      "rows": [
+        {
+          "frequency": "BIWEEKLY",
+          "enrollment": "ASSIGNED",
+          "count": 2
+        },
+        {
+          "frequency": "BIWEEKLY",
+          "enrollment": "OPEN",
+          "count": 2
+        },
+        {
+          "frequency": "SINGLE",
+          "enrollment": "ASSIGNED",
+          "count": 2
+        },
+        {
+          "frequency": "SINGLE",
+          "enrollment": "OPEN",
+          "count": 2
+        },
+        {
+          "frequency": "WEEKLY",
+          "enrollment": "ASSIGNED",
+          "count": 4
+        },
+        {
+          "frequency": "WEEKLY",
+          "enrollment": "OPEN",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "name": "所有新增、交易、異動維持同一份頁面文件",
+      "passed": true
+    }
+  ]
+}

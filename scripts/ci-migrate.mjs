@@ -1,3 +1,18 @@
+// Review implementation only. No deployment or database work.
+if([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("codex/sports-production-enable")){
+ throw new Error("Sports enablement review branch deployment is disabled.");
+}
+
+// Registration/review only: never deploy or access a database on this branch.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-production-migration-review")) {
+  throw new Error("Sports production migration review branch deployment is disabled; database execution is not authorized.");
+}
+
+// Migration candidates are review-only: stop hosted builds before database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-cancel-migration-rehearsal")) {
+  throw new Error("Sports migration rehearsal review branch deployment is disabled; no database work is authorized.");
+}
+
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
@@ -42,6 +57,10 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "sports-redesign-preview") {
+  console.info("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "feat/customer-unified-detail-20261012") {
   const { verifyBookingParticipantsPreviewReadiness } = await import("./booking-participants-preview-readiness.mjs");
   await verifyBookingParticipantsPreviewReadiness(process.env);

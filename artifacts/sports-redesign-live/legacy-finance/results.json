@@ -1,0 +1,15 @@
+{
+  "realLogin": true,
+  "realServerAction": true,
+  "orderCreatedOnce": true,
+  "cardRemaining": 10,
+  "income": 1000,
+  "observerBefore": 0,
+  "observerAfter": 1,
+  "observerUpdated": true,
+  "documentReload": false,
+  "refundRecordedOnce": true,
+  "refundAmount": 400,
+  "cardRetired": true,
+  "refundObserverUpdated": true
+}

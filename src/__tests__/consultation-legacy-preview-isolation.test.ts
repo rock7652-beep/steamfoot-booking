@@ -35,6 +35,6 @@ describe("exact approved legacy consultation preview", () => {
   });
   it("keeps automatic branch deployment off and production main unchanged", () => {
     const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
-    expect(enabled[HQ_LEGACY_IMPORT_PREVIEW_BRANCH]).toBe(false); expect(enabled.main).not.toBe(false);
+    expect(enabled[HQ_LEGACY_IMPORT_PREVIEW_BRANCH]).toBe(false); expect(enabled.main).toBe(false);
   });
 });

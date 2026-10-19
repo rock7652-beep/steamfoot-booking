@@ -1,0 +1,29 @@
+{
+  "source": "main@c0fa70ba",
+  "localPrismaMigrationCount": 144,
+  "appliedPrismaMigrationCount": 122,
+  "repositoryNotRecordedAsFinished": [
+    "20260923150000_trial_booking_source_analytics",
+    "20260924090000_course_monthly_settlement",
+    "20260924143000_course_staff_availability_v1",
+    "20260924160000_course_personal_income",
+    "20260925040000_course_monthly_notifications",
+    "20260925121500_course_music_reschedule_v1",
+    "20260925124707_steamfoot_rent_terms",
+    "20260925182000_course_session_teacher_note",
+    "20260925191000_course_music_absence",
+    "20260926001000_course_student_leave_restore_entry",
+    "20260926010000_course_group_leave_forfeit",
+    "20260926011000_course_self_organized_type",
+    "20260926020000_music_course_products",
+    "20260927130000_course_released_original_slots",
+    "20260930081500_add_operation_audit_read_permission",
+    "20260930093000_shared_customer_labels",
+    "20261001093000_course_teacher_absence_refund",
+    "20261001143955_course_space_rentals",
+    "20261003105340_course_companion_booking",
+    "20261006070000_customer_care_lifecycle",
+    "20261006120000_store_catalog_order",
+    "20261008054000_course_student_self_booking"
+  ]
+}

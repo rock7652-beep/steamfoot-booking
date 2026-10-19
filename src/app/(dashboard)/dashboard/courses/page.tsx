@@ -1,3 +1,6 @@
+import {sportsProductionEnabled} from "@/lib/sports-staging";
+import {loadSportsStaging} from "@/server/actions/sports-staging";
+import {SportsStagingWorkspace} from "@/components/admin/sports-staging-workspace";
 import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
@@ -65,6 +68,18 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
+  // The new workspace loads through write-scoped courseManager. Keep the
+  // existing read-only schedule for owners inspecting a child store.
+  const sportsAccess = (user.role === "ADMIN" || user.storeId === storeId) &&
+    sportsProductionEnabled(storeId) &&
+    (await Promise.all((["plans.edit", "customer.read", "wallet.read", "transaction.read"] as const)
+      .map(permission => checkPermission(user.role, user.staffId, permission)))).every(Boolean);
+  if(sportsAccess){
+    const result=await loadSportsStaging();
+    if(!result.success)return <p role="alert">{result.error}</p>;
+    const store=await prisma.store.findUnique({where:{id:storeId},select:{name:true}});
+    return <SportsStagingWorkspace initial={result.data} production storeName={store?.name??"運動教室"}/>;
+  }
   if (query.showcase === "music-types" && process.env.VERCEL_ENV === "preview") {
     const date = query.date && parseTaipeiDateTime(query.date, "00:00")
       ? query.date

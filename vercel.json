@@ -46,6 +46,12 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "codex/sports-production-enable": false,
+      "codex/sports-production-migration-review": false,
+      "codex/sports-cancel-migration-rehearsal": false,
+      "main": false,
+      "codex/sports-redesign-staging-20261018": false,
+      "codex/sports-core-integration-review": false,
       "content/music-fitness-studio-student-loyalty": false,
       "fix/course-people-unified-20261011": false,
       "feat/teacher-own-income-20261011": false,
@@ -93,7 +99,8 @@
       "fix/course-plan-teaching-clarity-20261012": false,
       "feat/teacher-own-session-20261012": false,
       "feat/customer-retention-clarity-20261012": false,
-      "content/paid-members-attendance-drop-follow-up": false
+      "content/paid-members-attendance-drop-follow-up": false,
+      "content/editorial-preview": false
     }
   }
 }

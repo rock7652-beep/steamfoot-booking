@@ -32,7 +32,7 @@ it("uses the existing isolated module Preview and disables only this branch's au
   expect(assertReviewedReleaseEnvironment(valid)).toBe("module-roster-preview");
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[UI_OPERATION_PREVIEW_BRANCH]).toBe(false);
-  expect(deployment.main).not.toBe(false);
+  expect(deployment.main).toBe(false);
 });
 
 it.each(invalidProvenance)("fails closed for %s=%s", (key, value) => {

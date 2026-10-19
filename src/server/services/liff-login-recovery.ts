@@ -119,19 +119,19 @@ export async function approveLiffLoginRecovery(
       throw new AppError("CONFLICT", "原登入資料不一致，需先確認身分");
     }
     await tx.lineRebindRequest.updateMany({ where: { storeId: ctx.storeId, customerId,
-      status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
+      status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, untilUsed: false, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
     const reason = (old ? LIFF_LOGIN_REBIND_REASON : LIFF_LOGIN_FIRST_CAPTURE_REASON) + ":verified:" + request.lineUserId.slice(PREFIX.length);
     const active = await tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId,
-      status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { gt: now } } });
+      status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, OR: [{ expiresAt: { gt: now } }, { untilUsed: true }] } });
     if (active && (active.status !== "PENDING_CAPTURE" || active.consumedAt || active.reason !== reason || active.phoneHash !== sha256(request.phone) || active.oldUserIdHash !== (old ? sha256(old) : null))) {
       throw new AppError("CONFLICT", "已有其他身分恢復申請，請先處理原申請");
     }
-    const grant = active ?? await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId,
+    const grant = active ? await tx.lineRebindRequest.update({ where: { id: active.id }, data: { untilUsed: true } }) : await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId,
       createdByUserId: ctx.user.id, reason, phoneHash: sha256(request.phone), oldUserIdHash: old ? sha256(old) : null,
-      status: "PENDING_CAPTURE", expiresAt: new Date(now.getTime() + TTL) } });
+      status: "PENDING_CAPTURE", untilUsed: true, expiresAt: now } });
     await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: now, confirmedByUserId: ctx.user.id } });
     await tx.auditLog.create({ data: { actorUserId: ctx.user.id, storeId: ctx.storeId,
       targetType: "LineRebindRequest", targetId: grant.id, action: "AUTHORIZE_VERIFIED_LIFF_LOGIN_RECOVERY",
-      afterJson: { customerId, confirmationRequestId: request.id, messagingIdentityPreserved: true } } });
+      afterJson: { customerId, confirmationRequestId: request.id, untilUsed: true, messagingIdentityPreserved: true } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
 const h = vi.hoisted(() => ({
   transaction: vi.fn(),
@@ -34,7 +35,7 @@ import { tryAutoMigrateRecentLiffLoginIdentity, tryExecuteAuthorizedLiffLoginFir
 const phone = "0963770378";
 const oldLoginId = "U-old-login";
 const newLoginId = "U-new-login";
-const hash = (value: string) => `digest:${Buffer.from(value, "utf8").toString("hex")}`;
+const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 function tx() {
   return {
@@ -146,6 +147,23 @@ describe("authorized LIFF Login rebind", () => {
     expect(h.accountCreate).toHaveBeenCalledWith({ data: { userId: "user-1", type: "oauth", provider: "line", providerAccountId: newLoginId } });
     expect(h.accountUpdate).not.toHaveBeenCalled();
     expect(h.accountDelete).not.toHaveBeenCalled();
+  });
+  it("consumes an exact until-used recovery after its legacy deadline", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: verifiedLiffLoginRebindReason("store-1", newLoginId), untilUsed: true, expiresAt: new Date(0) });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.requestUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      OR: expect.arrayContaining([{ untilUsed: true, reason: verifiedLiffLoginRebindReason("store-1", newLoginId) }]),
+    }) }));
+    expect(h.accountDelete).not.toHaveBeenCalled();
+  });
+  it("does not make a generic legacy migration timeless", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, untilUsed: true, expiresAt: new Date(0) });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .toMatchObject({ status: "rejected", code: "REQUEST_STATE_CHANGED" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
   });
   it.each([
     ["store-1", "U-different-verified-subject"],
@@ -367,6 +385,12 @@ describe("authorized first LIFF Login capture", () => {
     const request = await h.requestFind();
     h.requestFind.mockResolvedValue({ ...request, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", newLoginId]))}` });
     await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "executed" });
+  });
+  it("consumes a pinned until-used first capture after its legacy deadline", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: `LIFF_LOGIN_FIRST_CAPTURE_V1:verified:${hash(JSON.stringify(["store-1", "line", newLoginId]))}`, untilUsed: true, expiresAt: new Date(0) });
+    expect(await tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .toEqual({ status: "executed", requestId: "capture-1" });
   });
   it("rejects a pinned first capture for a different verified subject", async () => {
     const request = await h.requestFind();

@@ -4,7 +4,7 @@ const m = vi.hoisted(() => ({ transaction: vi.fn(), access: vi.fn(), context: vi
   user: { findUnique: vi.fn(), create: vi.fn() }, account: { findUnique: vi.fn(), findMany: vi.fn() },
   link: { findFirst: vi.fn(), findMany: vi.fn() },
   request: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn() },
-  grant: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() }, audit: vi.fn() }));
+  grant: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() }, audit: vi.fn() }));
 const tx = { $queryRaw: vi.fn(), customer: m.customer, user: m.user, account: m.account,
   customerIdentityLink: m.link, storeMemberConnection: m.request, lineRebindRequest: m.grant, auditLog: { create: m.audit } };
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: m.transaction, store: m.store } }));
@@ -76,9 +76,20 @@ describe("staff approval of verified login recovery", () => {
     expect(m.grant.create).toHaveBeenCalledWith({ data: expect.objectContaining({
       storeId: "s", customerId: "c", createdByUserId: "staff", phoneHash: sha256(input.phone), oldUserIdHash: sha256("old"),
       reason: "LIFF_LOGIN_CHANNEL_MIGRATION_V1:verified:" + fingerprint, status: "PENDING_CAPTURE",
+      untilUsed: true,
     }) });
     expect(m.customer.update).not.toHaveBeenCalled(); expect(m.audit).toHaveBeenCalledOnce();
     expect(m.grant.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "EXPIRED" }) }));
+  });
+  it("preserves an existing matching grant and upgrades it until used", async () => {
+    m.grant.findFirst.mockResolvedValue({ id: "existing", status: "PENDING_CAPTURE", consumedAt: null,
+      reason: "LIFF_LOGIN_CHANNEL_MIGRATION_V1:verified:" + fingerprint,
+      phoneHash: sha256(input.phone), oldUserIdHash: sha256("old") });
+    m.grant.update.mockResolvedValue({ id: "existing" });
+    await approveLiffLoginRecovery(ctx, "r", "c", "ABC123");
+    expect(m.grant.update).toHaveBeenCalledWith({ where: { id: "existing" }, data: { untilUsed: true } });
+    expect(m.grant.create).not.toHaveBeenCalled();
+    expect(m.grant.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ untilUsed: false }) }));
   });
   it("creates an owner and pinned FIRST capture only after staff confirms an unowned trial record", async () => {
     m.customer.findMany.mockResolvedValue([{ ...customer, userId: null, identityLinks: [] }]);

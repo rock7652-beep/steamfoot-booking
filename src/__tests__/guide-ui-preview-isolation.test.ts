@@ -73,7 +73,11 @@ const attendanceSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/paid-m
 function enableAttendance() {
   for (const [key, value] of Object.entries(attendanceSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "paid attendance", enable: enableAttendance }, { name: "student loyalty", enable: enableLoyalty }, { name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
+const editorialSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/editorial-preview", VERCEL_GIT_COMMIT_SHA: "1".repeat(40), EDITORIAL_PREVIEW_APPROVED_COMMIT: "1".repeat(40), EDITORIAL_PREVIEW_BASE_COMMIT: "2".repeat(40) };
+function enableEditorial() {
+  for (const [key, value] of Object.entries(editorialSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "fixed editorial", enable: enableEditorial }, { name: "paid attendance", enable: enableAttendance }, { name: "student loyalty", enable: enableLoyalty }, { name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }, { name: "role permissions", enable: enablePermissions }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -124,7 +128,7 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/guides/music-school-remote-management-role-permissions", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/music-school-holiday-closure-checklist", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/guides/music-school-remote-management-role-permissions", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
@@ -158,6 +162,7 @@ describe.each(previewModes)("$name outer request boundary before auth", ({ name,
     expect(await nextConfig.redirects!()).toEqual([]);
     expect(nextConfig.images).toMatchObject({ unoptimized: true, remotePatterns: [], localPatterns: [{ pathname: "/pricing/brand/steam-butler-logo.png", search: "" }] });
     vi.stubEnv("GUIDE_UI_PREVIEW", ""); vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("EDITORIAL_PREVIEW_APPROVED_COMMIT", ""); vi.stubEnv("EDITORIAL_PREVIEW_BASE_COMMIT", "");
     expect((await nextConfig.redirects!()).length).toBeGreaterThan(0);
   });
 });
@@ -273,7 +278,7 @@ describe("music migration publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/music-school-data-migration"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 
@@ -301,7 +306,7 @@ describe("Pilates publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/pilates-equipment-scheduling-20261010"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 
@@ -330,7 +335,7 @@ describe("Teacher-fee publication exact Preview provenance", () => {
   it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["content/music-teacher-fee-reconciliation-20261011"]).toBe(false);
-    expect(deployment.main).toBeUndefined();
+    expect(deployment.main).toBe(false);
   });
 });
 

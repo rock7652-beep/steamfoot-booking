@@ -254,6 +254,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         status: true,
         capturedAt: true,
         expiresAt: true,
+        untilUsed: true,
         candidate: { select: { userIdHash: true } },
       },
     }),
@@ -904,6 +905,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     status: activeLineRebindRequest.status,
                     capturedAt: activeLineRebindRequest.capturedAt?.toISOString() ?? null,
                     expiresAt: activeLineRebindRequest.expiresAt.toISOString(),
+                    untilUsed: activeLineRebindRequest.untilUsed,
                     userIdHashPrefix: activeLineRebindRequest.candidate?.userIdHash.slice(0, 8) ?? null,
                   } : null}
                 />

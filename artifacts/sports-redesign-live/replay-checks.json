@@ -1,0 +1,28 @@
+{
+  "scope": "local Next Server Actions and real PostgreSQL",
+  "productionDeployed": false,
+  "checks": [
+    {
+      "name": "真實購買十堂後指定八堂，保留八堂、可用只剩二堂",
+      "passed": true,
+      "requestKey": "acf80a07-7542-48b0-bd41-a07f32470ce3",
+      "cardId": "cmvd1arh90001mr3wpoelj39w"
+    },
+    {
+      "name": "同請求重送回傳原成功收據、原課次與原卡，不受剩餘二堂影響",
+      "passed": true
+    },
+    {
+      "name": "兩次並行重送均業務成功，課次、預約與餘額不重複",
+      "passed": true
+    },
+    {
+      "name": "同請求變更人數或學員仍拒絕，HTTP 200 不視為業務成功",
+      "passed": true
+    },
+    {
+      "name": "保存原始自動配卡意圖，驗收全程不重整",
+      "passed": true
+    }
+  ]
+}

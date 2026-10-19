@@ -1,0 +1,92 @@
+{
+  "scope": "Vercel Preview + steamfoot-preview PostgreSQL",
+  "base": "https://steamfoot-booking-git-codex-spor-4df06f-rock7652-2111s-projects.vercel.app",
+  "productionDeployed": false,
+  "checks": [
+    {
+      "name": "真實介面建立教學項目",
+      "passed": true
+    },
+    {
+      "name": "建立收費並實際購買十堂方案",
+      "passed": true
+    },
+    {
+      "name": "每週固定指定學員排課與預約",
+      "passed": true
+    },
+    {
+      "name": "出席後另一獨立工作階段不重整同步",
+      "passed": true,
+      "latencyMs": 9866
+    }
+  ],
+  "actions": [
+    {
+      "operation": "purchase",
+      "payload": {
+        "planId": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "customerId": "sports-live-customer",
+        "expectedPrice": 6000,
+        "requestKey": "e542e324-6bd1-4af9-8942-9d66663b29cd"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "operation": "schedule",
+      "payload": {
+        "subject": "sports_376b8faf24bc9fa0d97a4922873c83633e1e823f0f95ee29009a68a3372d2a9a",
+        "fee": "plan_123824c990c924795aee9b6d965b62b415d8529ad4a0c96bf68ce46a3dbf1475",
+        "kind": "每週固定",
+        "mode": "指定學員",
+        "date": "2026-10-19",
+        "time": "09:00",
+        "duration": 60,
+        "count": 2,
+        "coach": "驗收老闆",
+        "room": "運動驗收空間",
+        "capacity": 8,
+        "price": 499,
+        "customer": "",
+        "phone": "",
+        "students": [
+          "sports-live-customer"
+        ],
+        "requestKey": "6832ebe2-7d18-4729-975d-30affd9ac98a"
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 2,
+          "sessionId": "cmvd3caa00004jq081pg5l7wt"
+        }
+      }
+    },
+    {
+      "operation": "attendance",
+      "payload": {
+        "bookingId": "cmvd3cahu0007jq086q9e5n5c",
+        "status": "ATTENDED",
+        "requestKey": "22b12374-f3cf-4451-a9fc-f1ba181862a6"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "operation": "attendance",
+      "payload": {
+        "bookingId": "cmvd3cahu0007jq086q9e5n5c",
+        "status": "CANCELLED",
+        "expectedStatus": "ATTENDED",
+        "requestKey": "6265f2f3-ffaf-4d94-8a6d-6f364d21cedd"
+      },
+      "result": {
+        "success": false,
+        "error": "ç³»çµ±éŒ¯èª¤ï¼Œè«‹ç¨å¾Œå†è©¦"
+      }
+    }
+  ]
+}

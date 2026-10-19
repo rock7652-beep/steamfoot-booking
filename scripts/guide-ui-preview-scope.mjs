@@ -1,3 +1,5 @@
+import { isEditorialUiPreview } from "./editorial-preview-scope.mjs";
+
 // Non-secret, exact-target UI sandbox. No real database is permitted here.
 export const GUIDE_UI_PREVIEW_BRANCH = "feat/public-guide-articles-20261007";
 export const GUIDE_UI_PREVIEW_DATABASE_URL = "postgresql://guide-ui:guide-ui@127.0.0.1:9/guide_ui_preview";
@@ -215,6 +217,7 @@ export function isSpaRetirementPreviewPath(path) {
 }
 
 export function isGuideUiPreview(env = process.env) {
+  if (isEditorialUiPreview(env)) return true;
   if (isSpaRetirementUiPreview(env) || isMarketingStickyUiPreview(env)) return true;
   if (isPaidAttendanceUiPreview(env) || isStudentLoyaltyUiPreview(env) || isRolePermissionsUiPreview(env) || isRenewalUiPreview(env) || isTeacherFeeUiPreview(env) || isPilatesUiPreview(env) || isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];

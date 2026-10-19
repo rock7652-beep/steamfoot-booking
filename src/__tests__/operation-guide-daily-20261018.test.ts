@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
@@ -34,19 +33,8 @@ describe("2026-10-18 backend guide review", () => {
     expect(findOperationGuides("課表更新", { ...access, module: "course" }).map(g => g.id)).toContain("C109");
     expect(findOperationGuides("交易更新", { ...access, module: "course" }).map(g => g.id)).toEqual(expect.arrayContaining(["C105", "C112"]));
   });
-  it("records the current main without treating inherited evidence as guide acceptance", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
-    expect(state.auditDateTaipei).toBe("2026-10-18");
-    expect(state.lastInventoriedMainCommit).toBe("e115fd315fb8bb4fbc10950958a67fa71f658476");
-    expect(state.reviewedMainCommitCount).toBe(3);
-    expect(state.newGuideIds).toEqual([]);
-    expect(state.updatedGuideIds).toEqual(["C07", "C08", "F04", "C103", "C105", "C109", "C112", "C117", "W06"]);
-    expect(state.cumulativeDraftNewGuideIds).toHaveLength(3);
-    expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(56);
-    expect(state.backendInteractionPendingCount).toBe(60);
-    expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(187);
+  it("keeps the current backend catalog count", () => {
+    expect(operationGuides).toHaveLength(190);
     expect(guideCategories).toHaveLength(15);
   });
 });
