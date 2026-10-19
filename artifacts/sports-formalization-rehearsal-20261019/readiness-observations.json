@@ -1,0 +1,277 @@
+[
+  {
+    "name": "missing table blocks activation",
+    "expected": false,
+    "rows": []
+  },
+  {
+    "name": "non owner readiness passes",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "runtime search_path readiness passes",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "ungranted LOGIN blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": false,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "untrusted_app"
+      }
+    ]
+  },
+  {
+    "name": "disabled RLS blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": false,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "disabled RLS rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed default blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed default rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed constraint blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed constraint rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed policy blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "changed policy rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "browser grant blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": false,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "browser grant rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "missing app grant blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": false,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "missing app grant rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "missing unique key blocks activation",
+    "expected": false,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": false,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "missing unique key rollback restores readiness",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  },
+  {
+    "name": "retained data remains usable after controlled stop",
+    "expected": true,
+    "rows": [
+      {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    ]
+  }
+]

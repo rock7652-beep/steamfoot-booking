@@ -1,0 +1,406 @@
+{
+  "head": "7d4ea42cb77991e5fc0d19013bf5cd914df8a52c",
+  "candidate_sha256": "a3ac4e02943e3391c674e76e5a73c7f1c3edca728b914f1563e335918c1b7ff0",
+  "at": "2026-10-19T05:13:45.809633+00:00",
+  "results": [
+    {
+      "name": "candidate rejects missing role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "atomic rollback after missing role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "candidate rejects browser role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "atomic rollback after browser role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "candidate rejects non LOGIN role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "atomic rollback after non LOGIN role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "candidate rejects browser inherited role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "atomic rollback after browser inherited role",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "missing table blocks activation",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "candidate installs exact SQL",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "actual connection is non owner, non superuser and no bypass",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner readiness passes",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "runtime search_path readiness passes",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "ungranted LOGIN blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": false,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "untrusted_app"
+      }
+    },
+    {
+      "name": "anon cannot SELECT",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "anon cannot UPDATE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "authenticated cannot SELECT",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "authenticated cannot UPDATE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "service_role cannot SELECT",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "service_role cannot UPDATE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner INSERT and SELECT",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner UPDATE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner denied DELETE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner denied TRUNCATE",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "non owner denied ALTER",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "duplicate request rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "invalid duration rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "invalid frequency rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "invalid learner JSON rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "unknown tenant FK rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "disabled RLS blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": false,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "disabled RLS rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed default blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed default rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed constraint blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed constraint rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed policy blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "changed policy rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "browser grant blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": false,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "browser grant rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "missing app grant blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": false,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "missing app grant rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "missing unique key blocks activation",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": false,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": false,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "missing unique key rollback restores readiness",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "candidate repeat fails without overwriting",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "repeat preserves row",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "stop transaction rollback preserves ongoing rule",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "controlled stop retains historical row",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "retained data remains usable after controlled stop",
+      "passed": true,
+      "detail": {
+        "rls_enabled": true,
+        "version_matches": true,
+        "browser_blocked": true,
+        "app_can_use": true,
+        "columns_match": true,
+        "unique_request": true,
+        "application_role": "sports_app"
+      }
+    },
+    {
+      "name": "music and ledger fixtures unchanged",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "no Preview table created",
+      "passed": true,
+      "detail": null
+    }
+  ]
+}

@@ -44,3 +44,9 @@ MCP 查詢角色 postgres 有既有表權限，不能當作 Vercel 應用角色�
 SQL候選只有離線PostgreSQL語法解析，未連線執行／演練；正式授權與表選擇、readiness拒絕及交易回歸以mock測試。沒有新增Preview或正式部署；既有介面實測證據可參考 PR #1355 的 `docs/qa/sports-main-integration-20261019.md` 與 artifacts（非此正式候選的線上驗收）。尚不能宣稱新表、非owner RLS或正式角色在實際DB已驗收。此為候選審查PR，非上線放行。
 
 本機驗證：11檔96項功能／回歸，加上獨立4項部署拒絕tripwire，共12檔100項通過；TypeScript noEmit、變更來源ESLint及diff檢查通過。PostgreSQL候選12個SQL敘述、2個PL/pgSQL DO區塊，以及readiness單一SELECT通過離線解析。日誌在 `artifacts/sports-formalization-20261019/`。此結果不等於實際DB角色、RLS或migration演練成功。
+
+## 隔離演練補充（2026-10-19）
+
+已完成原候選 `7d4ea42c` 的 PostgreSQL 16.15 隔離演練：51 項實際 DB 檢查、19 組實際結果經原 verifier 驗證及 100 項程式回歸測試通過。包含非 owner LOGIN、瀏覽器拒絕、DDL 整筆回退、版本／權限異動拒絕與停止日期回退。完整報告、合成 SQL transcript 與重現腳本見 `artifacts/sports-formalization-rehearsal-20261019/README.md`。此補充取代前述「尚未隔離演練」的狀態；前述原始提交的證據界線仍保留作為歷史紀錄。
+
+正式應用連線、完整正式 schema 與瀏覽器真實交易不在本次演練範圍；未執行正式 migration 或部署，亦未更改運動新版線上旗標。
