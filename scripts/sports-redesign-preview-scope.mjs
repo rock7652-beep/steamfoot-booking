@@ -4,7 +4,7 @@ export const SPORTS_REDESIGN_PREVIEW_BRANCH = 'codex/sports-redesign-staging-202
 export function assertSportsRedesignPreviewEnvironment(env) {
   if (env.SPORTS_REDESIGN_STAGING !== '1' || env.SPORTS_REDESIGN_PREVIEW !== '1' ||
       env.SPORTS_LIVE_FLOW_QA || env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview' ||
-      env.VERCEL_GIT_COMMIT_REF !== SPORTS_REDESIGN_PREVIEW_BRANCH ||
+      ![SPORTS_REDESIGN_PREVIEW_BRANCH, 'codex/sports-pr1355-acceptance-20261019'].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
       env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
       env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
       ![env.DATABASE_URL, env.DIRECT_URL].every(isSportsSharedCardIsolatedConnection)) {
