@@ -119,6 +119,8 @@ interface DayDetailPanelProps {
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
   onRevertSingle?: (id: string) => void;
+  onNoShowTrial?: (id: string) => void;
+  onCancelTrial?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
   actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
   onCheckAction?: (id: string) => void;
@@ -153,6 +155,8 @@ export function DayDetailPanel({
   onCompleteBatch,
   onCompleteSingle,
   onRevertSingle,
+  onNoShowTrial,
+  onCancelTrial,
   actionStates,
   onCheckAction,
   actingIds,
@@ -307,6 +311,8 @@ export function DayDetailPanel({
                     }
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     onRevertSingle={readOnly ? undefined : onRevertSingle}
+                    onNoShowTrial={readOnly ? undefined : onNoShowTrial}
+                    onCancelTrial={readOnly ? undefined : onCancelTrial}
                     isActing={isActing}
                   />
                   <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
@@ -356,6 +362,8 @@ function TimelineItem({
   onToggleSelect,
   onCompleteSingle,
   onRevertSingle,
+  onNoShowTrial,
+  onCancelTrial,
   isActing,
 }: {
   booking: DayBooking;
@@ -370,6 +378,8 @@ function TimelineItem({
   onToggleSelect?: (id: string) => void;
   onCompleteSingle?: (id: string) => void;
   onRevertSingle?: (id: string) => void;
+  onNoShowTrial?: (id: string) => void;
+  onCancelTrial?: (id: string) => void;
   isActing: boolean;
 }) {
   const needsCollection = booking.participantNeedsCollection ?? (!booking.collected && (booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE"));
@@ -565,6 +575,10 @@ function TimelineItem({
             {expiry && <span title={expiry.detail} className={`w-full min-w-0 [overflow-wrap:anywhere] ${expiry.className}`}>{expiry.compact}</span>}
           </span>
         ) : null}
+        {actionable && booking.bookingType === "FIRST_TRIAL" && !booking.participantSummary && (onNoShowTrial || onCancelTrial) && <div className="flex w-full flex-wrap gap-1">
+          {onNoShowTrial && <button type="button" disabled={isActing} onClick={() => onNoShowTrial(booking.id)} className="min-h-11 rounded-md px-2 text-sm text-amber-800 hover:bg-amber-50 disabled:opacity-50" aria-label={`標記 ${booking.customer.name} 未到`}>未到</button>}
+          {onCancelTrial && <button type="button" disabled={isActing} onClick={() => onCancelTrial(booking.id)} className="min-h-11 rounded-md px-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" aria-label={`取消 ${booking.customer.name} 的預約`}>取消預約</button>}
+        </div>}
         </div>
         <div className={styles.noteCell}>
           <RosterReminders customerId={booking.customer.id} name={booking.customer.name} canEdit={!readOnly}
