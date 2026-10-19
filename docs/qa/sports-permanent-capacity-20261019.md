@@ -19,3 +19,5 @@
 證據 artifacts/sports-capacity-fix-20261019/after.json、tests.log、source-hash.txt。完整截圖與腳本 /workspace/sports-capacity-fixed-20261019。本機localhost PostgreSQL16，沿用既有嚴格QA adapter，業務服務檔案與分支hash相同；不是正式/hosted Preview/實體多裝置驗收。
 
 本次不處理其他疑點，未合併或部署、不執行正式migration。
+
+隔離資料已還原至顧客0、預約0、固定系列0、原課次1，本機服務與容器已停止。審查分支在vercel.json停用Git部署，next.config.ts及ci-migrate.mjs對Vercel/Workers/Pages分支metadata先拒絕；三項拒絕檢查通過。main自動部署停用設定保持。
