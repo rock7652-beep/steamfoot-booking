@@ -760,6 +760,8 @@ export default function DashboardShell({
     const saved = document.cookie.split("; ").find(value => value.startsWith("sports-sidebar-collapsed-v1="))?.split("=")[1];
     if (saved !== "0" && saved !== "1") return;
     sidebarPreference.current = saved === "1";
+    // Restore external cookie state before paint so cached RSC props cannot flash the sidebar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(saved === "1");
   }, [sportsNative]);
   useEffect(() => {
