@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-subscription-fix-20261019
+
+
+ Test Files  5 passed (5)
+      Tests  39 passed (39)
+   Start at  11:08:43
+   Duration  684ms (transform 691ms, setup 0ms, import 1.18s, tests 61ms, environment 1ms)
+

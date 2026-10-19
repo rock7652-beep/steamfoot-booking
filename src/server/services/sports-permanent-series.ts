@@ -66,9 +66,11 @@ export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id
   await tx.courseBooking.create({data:{storeId:actor.storeId,sessionId:session.id,customerId:learner.customerId,customerName:customer[0].name,cardId:null,bookingKind:"UNPAID",pointCost:0,operatorUserId:actor.userId,operatorName:actor.name,requestKey:`sports-fixed:${session.id}:${learner.customerId}`}});
  }
 }
-/** Called only by the guarded Preview calendar action, not by production or music reads. */
+/** Automatic calendar expansion also checks subscription state before writing. */
 export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:string,last:string){
  if(!sportsNativePreview(actor.storeId))return;
+ const {assertStoreSubscriptionWritable}=await import("@/lib/subscription-guard");
+ await assertStoreSubscriptionWritable(actor.storeId);
  const rules=await readSportsSeries(tx,actor.storeId);
  for(const series of rules){
   if(series.cancelledAt)continue;
@@ -104,6 +106,8 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
 /** Existing/cancelled/moved occurrences count as generated; never resurrect an exception. */
 export async function ensureSportsMonth(actor:CourseActor,first:string,last:string){
  if(!sportsNativePreview(actor.storeId))return;
+ const {isStoreSubscriptionWriteBlocked}=await import("@/lib/subscription-guard");
+ if(await isStoreSubscriptionWriteBlocked(actor.storeId))return;
  const {coursePrisma}=await import("@/lib/course-db");
  // Reconcile previously recorded no-shows in this visible range, without
  // touching debit entries, makeup credit, or any other tenant.

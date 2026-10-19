@@ -1,0 +1,90 @@
+{
+  "cases": [
+    {
+      "status": "ACTIVE",
+      "date": "2026-11-01",
+      "before": {
+        "subscription": "ACTIVE",
+        "sessions": 1,
+        "bookings": 0,
+        "series": 1
+      },
+      "after": {
+        "subscription": "ACTIVE",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "newSessions": 6,
+      "newBookings": 6,
+      "httpStatus": 200,
+      "finalUrl": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?date=2026-11-01",
+      "readOnlyWarning": false
+    },
+    {
+      "status": "CANCELLED",
+      "date": "2027-01-01",
+      "before": {
+        "subscription": "CANCELLED",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "after": {
+        "subscription": "CANCELLED",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "newSessions": 0,
+      "newBookings": 0,
+      "httpStatus": 200,
+      "finalUrl": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?date=2027-01-01",
+      "readOnlyWarning": false
+    },
+    {
+      "status": "EXPIRED",
+      "date": "2027-03-01",
+      "before": {
+        "subscription": "EXPIRED",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "after": {
+        "subscription": "EXPIRED",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "newSessions": 0,
+      "newBookings": 0,
+      "httpStatus": 200,
+      "finalUrl": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?date=2027-03-01",
+      "readOnlyWarning": true
+    },
+    {
+      "status": "ACTIVE",
+      "date": "2027-01-01",
+      "before": {
+        "subscription": "ACTIVE",
+        "sessions": 7,
+        "bookings": 6,
+        "series": 1
+      },
+      "after": {
+        "subscription": "ACTIVE",
+        "sessions": 13,
+        "bookings": 12,
+        "series": 1
+      },
+      "newSessions": 6,
+      "newBookings": 6,
+      "httpStatus": 200,
+      "finalUrl": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?date=2027-01-01",
+      "readOnlyWarning": false
+    }
+  ],
+  "pageErrors": [],
+  "requestFailures": []
+}
