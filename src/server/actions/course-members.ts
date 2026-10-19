@@ -158,6 +158,7 @@ export async function saveCoursePointPlan(input: unknown) {
   try {
     const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional(),receipt:coursePlanReceipt.optional(),sportsSetup:sportsFeeSetup.optional()});
     const { id: planId, expectedSnapshot, musicSetup, allowShared, receipt, sportsSetup, ...fields } = schema.parse(input);
+    const hasSportsIntent=!!input&&typeof input==="object"&&Object.prototype.hasOwnProperty.call(input,"sportsMode");
     const data = { ...fields, allowShared: allowShared ?? false };
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true,sportsSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId,user } = await courseManager("plans.edit");
@@ -169,11 +170,28 @@ export async function saveCoursePointPlan(input: unknown) {
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
       if(!fitness)throw new AppError('FORBIDDEN','此入口僅適用運動測試店');
     }
+    if (data.sportsMode !== "LEGACY") {
+      const {requireSportsStaging}=await import("@/lib/sports-staging");requireSportsStaging(storeId);
+      if (!receipt || !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}})) throw new AppError("FORBIDDEN","此設定僅適用運動店");
+      const {sportsEntitlementSnapshot}=await import("@/lib/sports-entitlement");sportsEntitlementSnapshot(data);
+      if (data.termSessionIds.length || data.musicTerms !== null || musicSetup || sportsSetup) throw new AppError("VALIDATION","此方案不適用期課或舊收費設定");
+    } else if (data.sportsSubjectId !== null || data.sportsCost !== null) throw new AppError("VALIDATION","舊方案不可混入新模式權益");
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const saved = await courseTransaction(storeId,async tx=>{
     if(sportsSetup){const {prepareSportsFee}=await import('@/server/services/sports-staging-fee');const setup=await prepareSportsFee(tx,storeId,user.id,planId??receiptId!,sportsSetup,data.unit);data.templateIds=[setup.templateId];data.storeCost=setup.storeCost;}
+    if (data.sportsMode !== "LEGACY") {
+      const {assertSportsProductionReady}=await import("@/server/services/sports-production-readiness");await assertSportsProductionReady(tx,storeId);
+      if (data.sportsMode === "ASSIGNED") {
+        const {sportsTeachingTemplateId}=await import("@/server/services/sports-teaching-rule");
+        const subject=await tx.musicSubject.findFirst({where:{id:data.sportsSubjectId!,storeId,isActive:true}});
+        const template=await tx.courseTemplate.findFirst({where:{id:sportsTeachingTemplateId(storeId,data.sportsSubjectId!),storeId,isActive:true}});
+        if(!subject||!template)throw new AppError("VALIDATION","請先在教學項目設定授課教練與課程規則");
+        data.templateIds=[template.id];
+      } else data.templateIds=[];
+    }
     const isMusic = await isMusicCourseStore(tx, storeId);
+    if(isMusic && data.sportsMode!=="LEGACY")throw new AppError("VALIDATION","音樂方案不使用運動權益");
     assertCoursePlanBusiness(isMusic, data, !!musicSetup);
     if (isMusic && !musicSetup) {
       if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種課程與購買期數");
@@ -190,6 +208,11 @@ export async function saveCoursePointPlan(input: unknown) {
       Object.assign(data, quoteMusicPlanSettings(data, template));
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
+    if(previous&&(previous.sportsMode??"LEGACY")!=="LEGACY"&&data.sportsMode==="LEGACY"){
+      if(hasSportsIntent)throw new AppError("VALIDATION","新模式方案不可改為舊方案，請新增方案");
+      if(data.unit!==previous.unit)throw new AppError("VALIDATION","請從運動收費方式修改方案計費單位");
+      data.sportsMode=previous.sportsMode as "ASSIGNED"|"OPEN";data.sportsSubjectId=previous.sportsSubjectId;data.sportsCost=previous.sportsCost;data.templateIds=previous.templateIds;
+    }
     if(receipt && planId && !previous)throw new AppError("NOT_FOUND","找不到本店方案");
     // Hidden/locked controls may be omitted by a form. Preserve an existing choice.
     if (previous && !isMusic && allowShared === undefined) data.allowShared = previous.allowShared;
@@ -376,7 +399,7 @@ export async function createCourseBooking(input: unknown) {
     const { user, storeId } = await courseManager("booking.create");
     const booking = await reserveCourse(
       { userId: user.id, storeId, name: user.name ?? "店長" },
-      bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
+      bookingInput.extend({cardId:id.optional(),autoCard:z.boolean().optional(),allowOverCapacity:z.boolean().optional()}).refine(d=>!!d.cardId||d.autoCard===true,"請選擇有效方案").parse(input),
     );
 
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
@@ -661,7 +684,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
     ]).then(async permissions=>{
       const [session,music,setting]=await Promise.all([
-       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
+       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
        isMusicCourseStoreFromEntitlements(prisma,storeId),
        coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
       ]);
@@ -669,6 +692,10 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     });
     const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
+    const {resolveSportsEntitlement}=await import("@/lib/sports-entitlement");
+    const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
+    const sportsRule=sportsNativePreview(storeId)?await readSportsSessionRule(coursePrisma,storeId,sessionId):null;
+    const cardRights=(card:{planId?:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean})=>resolveSportsEntitlement({...card,planId:card.planId??""},{templateId:session.templateId,subjectId:session.template.musicSubjectId??null,pointCost:session.pointCost,enrollment:sportsRule?.enrollment==="ASSIGNED"?"ASSIGNED":sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
     const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
     const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
@@ -715,7 +742,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           customers: !rosterOnly && canCreate && canTrial && (!sportsNativePreview(storeId)||trialOnly) ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
-        cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
+        cards: cards.filter((card) => (!musicStore || card.unit === "SESSION")&&(!sportsRule||cardRights(card).eligible)).map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
         })),

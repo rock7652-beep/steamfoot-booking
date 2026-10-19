@@ -117,7 +117,10 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
     ]);
     const writable = writableStore;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    const canManageSportsRules=sportsNative&&writable&&["OWNER","ADMIN"].includes(user.role)&&(await Promise.all((["staff.view","staff.manage","teacher.compensation.manage","teacher.compensation.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean);
+    const sportsCoaches=canManageSportsRules?await prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true},select:{id:true,displayName:true}}):undefined;
+    const enrichedSubjects=canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRule}=await import("@/server/services/sports-teaching-rule");return Promise.all(subjects.map(async s=>({...s,sportsRule:await readSportsTeachingRule(tx,storeId,s.id)})));}):subjects;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} sportsCoaches={sportsCoaches?.map(c=>({id:c.id,name:c.displayName}))} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={enrichedSubjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&writableStore?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
   const requested = query.date;

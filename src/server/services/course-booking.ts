@@ -1,3 +1,4 @@
+import { resolveSportsEntitlement, sportsEntitlementSnapshot, type SportsEntitlementFields } from "@/lib/sports-entitlement";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { isMusicCourseStore, readCourseBusinessProfile } from "./course-business-profile";
 import { courseDebitPolicy, courseBookingWasDebited, correctedCourseBookingWillDebit } from "@/lib/course-debit-policy";
@@ -56,7 +57,8 @@ export async function reserveCourse(
   actor: CourseActor,
   input: {
     sessionId: string;
-    cardId: string;
+    cardId?: string;
+    autoCard?: boolean;
     customerId: string;
     requestKey: string;
     notes?: string;
@@ -66,10 +68,27 @@ export async function reserveCourse(
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, async (tx) => {
+    let cardId=input.cardId;
+    if(input.autoCard){
+      if(actor.customerId||!sportsNativePreview(actor.storeId))return fail("自動選卡僅適用運動店後台");
+      const previous=await tx.courseBooking.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:input.requestKey}}});
+      if(previous)cardId=previous.cardId??undefined;
+      else {
+        const session=await tx.courseSession.findFirst({where:{id:input.sessionId,storeId:actor.storeId,cancelledAt:null}});
+        const {readSportsSessionRule}=await import("./sports-staging-schedule");
+        const rule=await readSportsSessionRule(tx,actor.storeId,input.sessionId);
+        if(!session||session.isTrial||!rule)return fail("請選擇有效的一般運動課程");
+        const {findSportsCard}=await import("./sports-card-selection");
+        const picked=await findSportsCard(tx,actor.storeId,input.customerId,[session],rule);
+        if(!picked)return fail("學員沒有適用且足額的有效方案");
+        cardId=picked.card.id;
+      }
+    }
+    if(!cardId)return fail("請選擇有效方案");
     return reserveCourseInTransaction(
       tx,
       actor,
-      input,
+      {...input,cardId},
       limits.maxMonthlyBookings,
     );
   });
@@ -193,7 +212,7 @@ export async function reserveCourseInTransaction(
   const [session, card, rule, customers] = await Promise.all([
     tx.courseSession.findFirst({
       where: { id: input.sessionId, storeId, cancelledAt: null },
-      include: { template: {select:{visibility:true,isActive:true,musicSubject:{select:{isActive:true}}}} },
+      include: { template: {select:{visibility:true,isActive:true,musicSubjectId:true,musicSubject:{select:{isActive:true}}}} },
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
@@ -230,11 +249,22 @@ export async function reserveCourseInTransaction(
     if(options.memberReschedule)assertCourseSelfRescheduleEnabled(rule);
     else assertCourseSelfBookingEnabled(rule);
   }
+  let entitlementCost: number | null = null;
   {
     const {readSportsSessionRule}=await import('./sports-staging-schedule');
     const rule=await readSportsSessionRule(tx,storeId,input.sessionId);
+    if(input.companionIndex&&rule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
     if(actor.customerId&&rule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
-    if(rule?.planId && card && card.planId!==rule.planId)return fail('此方案不適用本堂收費方式');
+    if (card && session) {
+      const rights = resolveSportsEntitlement(
+        { ...card, templateRestricted: card.requestKey?.startsWith("no-show-makeup:") ?? false },
+        { templateId: session.templateId, subjectId: session.template.musicSubjectId ?? null,
+          pointCost: session.pointCost, enrollment: rule?.enrollment === "ASSIGNED" ? "ASSIGNED" : rule?.enrollment === "OPEN" ? "OPEN" : null,
+          legacyPlanId: rule?.planId ?? null },
+      );
+      if (!rights.eligible) return fail(rights.reason);
+      entitlementCost = rights.cost;
+    }
     if(rule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
     if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||rule?.enrollment!=='OPEN'||rule.planId!==null))return fail('此課未開放體驗預約');
   }
@@ -264,7 +294,6 @@ export async function reserveCourseInTransaction(
   }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
-  if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
   if(card?.musicJoinSessionId) {
     const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
     if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
@@ -276,7 +305,7 @@ export async function reserveCourseInTransaction(
     if (!music || !source || source.session.template.classType === "GROUP" || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }
-  const bookingCost = card ? (card.unit === "SESSION" ? 1 : session.pointCost) : 0;
+  const bookingCost = card ? entitlementCost! : 0;
   if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || (actor.customerId&&!options.sportsMemberTrial))) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
@@ -480,7 +509,7 @@ export async function settleCourseBooking(
 // Called under the store transaction lock by initial settlement and correction.
 async function grantCourseNoShowMakeup(
   tx: Prisma.TransactionClient, actor: CourseActor,
-  booking: {id:string;requestKey:string;pointCost:number;customerId:string|null;reserverCustomerId:string|null;session:{templateId:string};card:{planId:string;unit:string}|null},
+  booking: {id:string;requestKey:string;pointCost:number;customerId:string|null;reserverCustomerId:string|null;session:{templateId:string};card:({planId:string;unit:string} & SportsEntitlementFields)|null},
 ) {
   if (!booking.card) return;
   const sportsFixed=sportsNativePreview(actor.storeId)&&(booking.requestKey?.startsWith("sports-fixed:")??false);
@@ -492,6 +521,7 @@ async function grantCourseNoShowMakeup(
     data: {
       storeId: actor.storeId,
       planId: booking.card.planId,
+      ...sportsEntitlementSnapshot({ ...booking.card, ...(booking.card.sportsMode === "ASSIGNED" ? { sportsCost: booking.pointCost } : {}) }),
       nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
       unit: booking.card.unit,
       templateIds: [booking.session.templateId],

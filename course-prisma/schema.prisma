@@ -148,6 +148,9 @@ model CourseSessionMove {
 }
 
 model CoursePointPlan {
+  sportsMode String @default("LEGACY")
+  sportsSubjectId String?
+  sportsCost Int?
   musicTermSizes Int[] @default([])
   musicBonusLessons Int @default(0)
   musicTerms Int?
@@ -182,6 +185,9 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  sportsMode String @default("LEGACY")
+  sportsSubjectId String?
+  sportsCost Int?
   musicJoinSessionId String?
   musicManualBonus Int @default(0)
   musicTermSizes Int[] @default([])
@@ -303,6 +309,9 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  sportsMode String @default("LEGACY")
+  sportsSubjectId String?
+  sportsCost Int?
   musicJoinSessionId String?
   musicManualBonus Int @default(0)
   musicTermSizes Int[] @default([])

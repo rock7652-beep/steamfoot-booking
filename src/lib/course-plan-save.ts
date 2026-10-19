@@ -4,6 +4,9 @@ const id=z.string().min(1).max(100);
 export const coursePlanValues = z
       .object({
         id: id.optional(),
+        sportsMode: z.enum(["LEGACY", "ASSIGNED", "OPEN"]).default("LEGACY"),
+        sportsSubjectId: id.nullable().default(null),
+        sportsCost: z.number().int().min(1).max(10000).nullable().default(null),
         musicSetup: musicSubjectRuleSchema.optional(),
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
@@ -23,4 +26,4 @@ export const coursePlanValues = z
 
 export const coursePlanReceipt=z.object({expectedStoreId:id,requestKey:z.string().uuid()});
 export const coursePlanSaveInput=coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional()}).merge(coursePlanReceipt).refine(row=>!row.id||!!row.expectedSnapshot);
-export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({id,lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});
+export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN"]).optional(),sportsSubjectId:id.nullable().optional(),sportsCost:z.number().int().min(1).max(10000).nullable().optional(),id,lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});

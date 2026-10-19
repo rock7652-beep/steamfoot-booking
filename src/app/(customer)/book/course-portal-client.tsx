@@ -1,4 +1,5 @@
 "use client";
+import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import {bookSportsTrial} from "@/server/actions/sports-staging";
 import { courseLeaveDebitMessage } from "@/lib/course-leave-message";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -511,6 +512,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     trail.current = [];
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, 0)));
   }
+  const rightsFor = (s:Session,c:{planId?:string;id:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean}) => resolveSportsEntitlement({...c,planId:c.planId??c.id},{templateId:s.templateId,subjectId:s.sportsSubjectId??null,pointCost:s.cost,enrollment:s.sportsEnrollment==="OPEN"?"OPEN":s.sportsEnrollment==="ASSIGNED"?"ASSIGNED":null,legacyPlanId:s.sportsPlanId??null});
   const eligible = (s: Session) =>
     p.cards
       .filter(
@@ -518,11 +520,11 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           !c.expired && !c.closed &&
           c.expiresAt >= s.startsAt &&
           (!c.termSessionIds?.length || c.termSessionIds.includes(s.id)) &&
-          (!c.templateIds.length || c.templateIds.includes(s.templateId)),
+          rightsFor(s,c).eligible,
       )
-      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt)||a.id.localeCompare(b.id));
   const amount = (s: Session, c: CoursePortalData["cards"][number]) =>
-    c.unit === "SESSION" ? 1 : s.cost;
+    (()=>{const rights=rightsFor(s,c);return rights.eligible?rights.cost:0;})();
   function book(s: Session) {
     if (!selfBookingEnabled && !s.waitlistPosition) { setError(COURSE_SELF_BOOKING_DISABLED_MESSAGE); return; }
     setSession(s);
@@ -905,8 +907,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const shop = p.plans.filter(
     (plan) =>
       !session ||
-      !plan.templateIds.length ||
-      plan.templateIds.includes(session.templateId),
+      rightsFor(session,plan).eligible,
   );
   const storeInfo = (<>
               <section className="cp-card cp-pad cp-store-info">
@@ -1267,7 +1268,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {expanded && (c.history?.count ?? 0) > 100 && <p>顯示最近 100 筆</p>}
                   </section>}
                   <details className="cp-plan-content"><summary>可預約課程{c.members.length > 1 ? "／共卡成員" : ""}</summary>
-                    <p>適用：{c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
+                    <p>適用：{c.sportsMode==="OPEN"?"本店開放選課":c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
                     {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
                   </details>
                     {!!adjustments.length && <details className="cp-ledger"><summary>其他{unit(c.unit) === "堂" ? "堂數" : "點數"}異動</summary><ul className="cp-ledger-list">
@@ -1294,7 +1295,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   <p>{plan.validDays} 天有效 · 核帳後啟用</p>
                   <p>
                     適用：
-                    {plan.templateIds.length
+                    {plan.sportsMode==="OPEN"?"本店開放選課":plan.templateIds.length
                       ? p.templates
                           .filter((t) => plan.templateIds.includes(t.id))
                           .map((t) => t.name)

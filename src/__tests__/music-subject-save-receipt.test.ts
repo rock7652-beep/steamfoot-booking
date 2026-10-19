@@ -1,11 +1,12 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn()}));
+const m=vi.hoisted(()=>({native:false,manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn()}));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:()=>m.native}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.feature}}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,work:(tx:unknown)=>unknown)=>work({musicSubject:{create:m.create,findFirst:m.find,updateMany:m.update,findFirstOrThrow:m.findSaved}})}));
 import {saveMusicSubjectWithReceipt} from "@/server/services/music-subject-save";
 const input={name:"吉他",category:"",description:"",isActive:true,expectedStoreId:"store-a",requestKey:"123e4567-e89b-42d3-a456-426614174000"};
-beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:"store-a",user:{id:"u"}});m.feature.mockResolvedValue({storeId:"store-a"});m.find.mockResolvedValue(null);m.create.mockImplementation(async({data})=>({...data,updatedAt:new Date("2026-10-10T00:00:00Z")}));});
+beforeEach(()=>{vi.clearAllMocks();m.native=false;m.manager.mockResolvedValue({storeId:"store-a",user:{id:"u"}});m.feature.mockResolvedValue({storeId:"store-a"});m.find.mockResolvedValue(null);m.create.mockImplementation(async({data})=>({...data,updatedAt:new Date("2026-10-10T00:00:00Z")}));});
 it("returns only the committed row and reuses the durable receipt on retry",async()=>{
  const first=await saveMusicSubjectWithReceipt(input);
  expect(first).toMatchObject({storeId:"store-a",data:{id:expect.stringMatching(/^subject_/),name:"吉他",updatedAt:"2026-10-10T00:00:00.000Z"}});
@@ -38,4 +39,16 @@ it("confirms an already applied edit after a lost response without overwriting n
 });
 it("still rejects unavailable music features",async()=>{
  m.feature.mockResolvedValue(null);await expect(saveMusicSubjectWithReceipt(input)).rejects.toThrow("僅適用音樂教室");expect(m.create).not.toHaveBeenCalled();
+});
+
+const sportsRule={pointCost:3,coachIds:["coach"],expectedCoachIds:[],compensation:{mode:"SHARE",value:60},expectedCompensation:null};
+it.each(["STAFF","MANAGER"])("does not let %s change item compensation or coach qualifications",async role=>{
+ m.native=true;m.manager.mockResolvedValue({storeId:"store-a",user:{id:"u",role}});
+ await expect(saveMusicSubjectWithReceipt({...input,sportsRule})).rejects.toThrow("僅店長");
+ expect(m.create).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();
+});
+it("checks independent compensation permission before any sports item write",async()=>{
+ m.native=true;m.manager.mockImplementation(async permission=>{if(permission==="teacher.compensation.manage")throw new Error("FORBIDDEN");return {storeId:"store-a",user:{id:"u",role:"OWNER"}};});
+ await expect(saveMusicSubjectWithReceipt({...input,sportsRule})).rejects.toThrow("FORBIDDEN");
+ expect(m.create).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();
 });
