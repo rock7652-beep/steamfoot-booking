@@ -9,7 +9,7 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(117);
+    expect(availableGuides(course)).toHaveLength(120);
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
     expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
