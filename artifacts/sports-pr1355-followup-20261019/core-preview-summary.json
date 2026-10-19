@@ -1,0 +1,142 @@
+{
+  "sourcePr": 1355,
+  "sourceSha": "b25c6743fdb94df6dbe872260851b096958b7be9",
+  "previewSha": "94bfda5a7d4b22984b88e886aa01d136fa6e6c9e",
+  "previewOnlyDifferences": [
+    "scripts/sports-redesign-preview-scope.mjs",
+    "vercel.json"
+  ],
+  "deploymentId": "dpl_6ZE48mMVoq9Jz8NJSDanjXb8JvBh",
+  "target": "preview",
+  "url": "https://steamfoot-booking-3qeqceinp-rock7652-2111s-projects.vercel.app",
+  "coreChecks": [
+    {
+      "check": "新增固定課→另一登入課表",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.007
+      }
+    },
+    {
+      "check": "加入學員→另一登入名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.005
+      }
+    },
+    {
+      "check": "出席→另一登入名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.397
+      }
+    },
+    {
+      "check": "出席5次連點只扣2點，6→4",
+      "data": null
+    },
+    {
+      "check": "撤銷→另一登入名單（含未儲存草稿）",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 2.96
+      }
+    },
+    {
+      "check": "撤銷後4→6，背景同步未清空體驗客草稿",
+      "data": null
+    },
+    {
+      "check": "iPad橫直向草稿保持、無整頁水平溢出，沒有新增體驗客",
+      "data": null
+    },
+    {
+      "check": "調課→另一登入課表",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 3.924
+      }
+    },
+    {
+      "check": "快速同步仍保留舊剪貼簿衝突拒絕",
+      "data": null
+    },
+    {
+      "check": "停課→另一登入取消名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 2.92
+      }
+    },
+    {
+      "check": "停課→另一登入課表釋放",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 4.315
+      }
+    },
+    {
+      "check": "測試系列已停止、點數與預留回到原值，不留永久佔位",
+      "data": null
+    },
+    {
+      "check": "主要另一登入頁面全程沒有document重整或未處理錯誤",
+      "data": null
+    }
+  ],
+  "syncTimingsAfterLocalSuccessSeconds": {
+    "新增固定課→另一登入課表": 0.007,
+    "加入學員→另一登入名單": 0.005,
+    "出席→另一登入名單": 0.397,
+    "撤銷→另一登入名單（含未儲存草稿）": 2.96,
+    "調課→另一登入課表": 3.924,
+    "停課→另一登入取消名單": 2.92,
+    "停課→另一登入課表釋放": 4.315
+  },
+  "fixesChecks": [
+    {
+      "name": "指定固定學員不預扣、不綁定課卡",
+      "data": null
+    },
+    {
+      "name": "貼到自身跨年未產生固定時段被拒，原課保留",
+      "data": null
+    },
+    {
+      "name": "已登入交易入口：出席更正曠課不再扣點，建立兩點補課券",
+      "data": null
+    },
+    {
+      "name": "重送同狀態不重發補課券",
+      "data": null
+    },
+    {
+      "name": "曠課更正出席回收未用補課券，不重扣點",
+      "data": null
+    },
+    {
+      "name": "恢復待點名還回點數並解除預占",
+      "data": null
+    },
+    {
+      "name": "本組固定系列取消已提交，唯讀核對預約取消且原點數恢復6"
+    }
+  ],
+  "staffPermissionsReadback": {
+    "role": "STAFF",
+    "noCompensationRead": true,
+    "noCompensationManage": true,
+    "financeCheckboxesChecked": 0,
+    "ownerReadbackVerified": true
+  },
+  "cleanup": {
+    "bookingCancelled": true,
+    "originalPointRemaining": 6,
+    "originalHeldPoints": 4,
+    "qaStaffAccountRetainedForReview": true
+  },
+  "productionDeploymentUnchanged": "dpl_6VtZQkr3dui5RfAFndp4xEmazqNE",
+  "musicDeploymentUnchanged": "dpl_BPUexDb1zrTpiJJZ8Kbjy4b8Ppyd",
+  "migrationsExecuted": false,
+  "merged": false,
+  "pageErrors": [],
+  "limitations": [
+    "兩個獨立Chromium登入；iPad為尺寸模擬，非實體Safari。",
+    "同步數字為本機確認後單次觀測，不是commit-to-render延遲或p95。",
+    "出席直接更正曠課透過登入後既有交易action驗證；UI目前需先恢復待點名。",
+    "原session深連結在取消後仍顯示日期明細，已以權威資料核對取消結果。"
+  ]
+}

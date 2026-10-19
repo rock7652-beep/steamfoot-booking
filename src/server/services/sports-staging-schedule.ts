@@ -35,12 +35,18 @@ export async function attachSportsSessionRules(
   actor: CourseActor,
   requestKey: string,
   input: SportsScheduleRule,
+  sessionIds?:string[],
 ) {
   requireSportsStaging(actor.storeId);
   await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
+  if(rule.waitlist?.limit){
+    const {getCourseWaitlistSettings}=await import("./course-waitlist");
+    if(rule.enrollment!=="OPEN"||!(await getCourseWaitlistSettings(actor.storeId,tx)).enabled)throw new AppError("VALIDATION","請先在後台設定啟用候補，或將候補人數設為0");
+  }
+  if(rule.perpetual&&rule.frequency==="SINGLE")throw new AppError("VALIDATION","單次課不建立固定系列");
   const sessions = await tx.courseSession.findMany({
-    where: { storeId: actor.storeId, requestKey },
+    where: { storeId: actor.storeId, requestKey, ...(sessionIds?{id:{in:sessionIds}}:{}) },
     orderBy: { requestIndex: "asc" },
   });
   if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
@@ -61,7 +67,7 @@ export async function attachSportsSessionRules(
     )
   )
     throw new AppError("VALIDATION", "固定頻率與課次日期不符");
-  if (rule.enrollment === "ASSIGNED" && !rule.students.length)
+  if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length)
     throw new AppError("VALIDATION", "請至少指定一位學員");
   if (rule.enrollment === "OPEN" && rule.students.length)
     throw new AppError("VALIDATION", "開放選課不會自動加入指定學員");
@@ -82,8 +88,21 @@ export async function attachSportsSessionRules(
     throw new AppError("VALIDATION", "請選擇適用本課程的收費方式");
   if (sessions[0].isTrial && rule.frequency !== "SINGLE")
     throw new AppError("VALIDATION", "體驗僅建立單次課程");
+  const compensation=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId:actor.storeId,templateId:sessions[0].templateId,staffId:""}}});
   for (const session of sessions) {
+    if(compensation){
+      const {sportsCompensation}=await import("@/lib/sports-staging-types");
+      const fee=sportsCompensation.parse((compensation.rules as unknown[])[0]);
+      const captured={...fee,calculationVersion:3,source:"SPORTS_FEE",durationMinutes:Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000)};
+      await tx.courseCompensationSnapshot.upsert({where:{sessionId:session.id},create:{sessionId:session.id,storeId:actor.storeId,staffId:session.coachId,rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes},update:{rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes}});
+    }
     await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
+  }
+  if(rule.perpetual){
+    const {addSportsFixedLearners,persistSportsSeries}=await import("./sports-permanent-series");
+    if(!sessionIds)await persistSportsSeries(tx,actor,requestKey,rule);
+    for(const session of sessions)await addSportsFixedLearners(tx,actor,session,rule);
+    return;
   }
   if (rule.students.length) {
     const { reserveCourseInTransaction } = await import("./course-booking");

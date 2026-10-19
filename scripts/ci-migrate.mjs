@@ -1,3 +1,38 @@
+// Review-only branch: reject hosted builds before database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-series-capacity-isolation-20261019")) {
+  throw new Error("Sports series isolation review cannot deploy or execute migrations.");
+}
+
+// Review-only branch: reject hosted builds before database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-permanent-capacity-20261019")) {
+  throw new Error("Sports capacity review cannot deploy or execute migrations.");
+}
+
+// Review-only branch: reject hosted builds before database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-subscription-expansion-20261019")) {
+  throw new Error("Sports subscription review cannot deploy or execute migrations.");
+}
+
+// Review-only branch: never deploy or access a database.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-onboarding-flow-20261019")) {
+  throw new Error("Sports onboarding review cannot deploy or execute migrations.");
+}
+
+// Entry review only: reject hosted builds before any database or migration work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-native-entry-20261019")) {
+  throw new Error("Sports native entry review cannot deploy or execute migrations.");
+}
+
+// Review only: stop before a client or migration subprocess can be constructed.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-formalization-20261019")) {
+  throw new Error("Sports formalization review cannot deploy or execute migrations.");
+}
+
+// Integration review is never a deployment or a database execution path.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-integration-review-20261019")) {
+  throw new Error("Sports integration review cannot deploy or execute migrations.");
+}
+
 // Review implementation only. No deployment or database work.
 if([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("codex/sports-production-enable")){
  throw new Error("Sports enablement review branch deployment is disabled.");

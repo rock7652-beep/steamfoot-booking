@@ -837,5 +837,43 @@
       "J24"
     ],
     "reason": "main #1333 已移除 SPA 模組，原文封存，不列現行分類、題數或待驗；不代表驗收通過"
+  },
+  "scopedProductionAlignment": {
+    "dateTaipei": "2026-10-19",
+    "productionCommit": "8d717d5dc45da6fbd4e2984afea48165140281b3",
+    "productionDeployment": "dpl_FpuXeEUGcMnisJFgDk3oJBsouuyD",
+    "guideBaselineCommit": "0cdfad49eb244c7daafdb570acb43f018d3f9e2b",
+    "contentUpdatedGuideIds": [
+      "A16",
+      "C103",
+      "C109",
+      "C123",
+      "C126",
+      "C171",
+      "C172",
+      "C173"
+    ],
+    "scopeClarifiedGuideIds": [
+      "C102",
+      "C107",
+      "C110",
+      "C111"
+    ],
+    "report": "docs/operation-guide-production-alignment-20261019.md",
+    "evidencePolicy": "Reuse prior guide navigation and feature acceptance only within its recorded scope; no new business transactions.",
+    "guideIdsCleared": [],
+    "interactionStatus": "targeted-content-checks-passed; authenticated-guide-delta-not-yet-verified",
+    "note": "Scoped alignment of 12 articles only; lastInventoriedMainCommit remains the previous full inventory. Preserve the 67 pending IDs and I20 limitation; no production activation inferred.",
+    "validation": {
+      "guideTestFilesPassed": 35,
+      "guideTestsPassed": 195,
+      "articleSearchAndPermissionChecks": 12,
+      "otherArticlesUnchanged": true,
+      "eslint": "passed",
+      "typecheck": "passed",
+      "whitespace": "passed",
+      "authenticatedBrowserAcceptance": "not-run"
+    },
+    "previewAuthorization": "User authorized updating PR 1307 and creating its isolated Preview for the 12-guide read-only acceptance; no production release or customer mutations."
   }
 }

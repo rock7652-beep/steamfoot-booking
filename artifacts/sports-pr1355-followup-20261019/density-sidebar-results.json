@@ -1,0 +1,280 @@
+{
+  "checks": [
+    "collapse survives reload",
+    "collapse survives customer navigation and return",
+    "collapse survives history back/forward",
+    {
+      "viewport": [
+        1366,
+        900
+      ],
+      "overflow": false,
+      "hours": [
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88
+      ],
+      "cards": [
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        }
+      ]
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "overflow": false,
+      "hours": [
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88
+      ],
+      "cards": [
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        }
+      ]
+    },
+    {
+      "viewport": [
+        1024,
+        768
+      ],
+      "overflow": false,
+      "hours": [
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88
+      ],
+      "cards": [
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        }
+      ]
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "overflow": false,
+      "hours": [
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88,
+        88
+      ],
+      "cards": [
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 49
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 48
+        },
+        {
+          "h": 84,
+          "content": 49
+        }
+      ]
+    },
+    "week half-hour click opens correct date/time without submitting",
+    "day/coach/date retained on return",
+    "explicit expansion survives reload"
+  ],
+  "errors": [],
+  "passed": true
+}

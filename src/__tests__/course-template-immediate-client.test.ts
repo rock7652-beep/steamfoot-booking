@@ -40,3 +40,10 @@ it("shows a confirmed course without RSC refresh; retries preserve the same payl
   await act(async()=>root.render(render([{...row,name:"後續更新"}])));expect(host.querySelector("tbody")!.textContent).toContain("後續更新");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn(), previewSportsCourseCancellation: vi.fn(), stopSportsSeries: vi.fn() }));
+vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
+vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));

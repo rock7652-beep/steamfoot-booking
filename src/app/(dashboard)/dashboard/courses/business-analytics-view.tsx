@@ -8,7 +8,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import type { CourseBusinessReport } from "@/server/queries/course-business-analytics";
 type Segment = keyof CourseBusinessReport["counts"];
 const names: Record<Segment,string> = {trial:"體驗人數",newCard:"新卡人數",renewal:"續卡人數",converted:"本期體驗開卡",unconverted:"體驗未開卡",tracked:"過往體驗追蹤開卡",visitors:"不重複來客人數",newVisitors:"新客人數",oldVisitors:"舊客人數",returned:"已回流人數",notReturned:"尚未回流人數"};
-export function BusinessAnalyticsView({data,all,staffId,music=false}:{data:CourseBusinessReport;all:boolean;staffId?:string|null;music?:boolean}) {
+export function BusinessAnalyticsView({data,all,staffId,music=false,periodControls}:{data:CourseBusinessReport;all:boolean;staffId?:string|null;music?:boolean;periodControls?:React.ReactNode}) {
   const router=useRouter(),search=useSearchParams();
   const [pending,start]=useTransition();
   const [segment,setSegment]=useState<Segment|null>(null),[keyword,setKeyword]=useState(""),[page,setPage]=useState(1);
@@ -39,6 +39,7 @@ export function BusinessAnalyticsView({data,all,staffId,music=false}:{data:Cours
   const metricCard=(key:Segment)=><button key={key} type="button" disabled={!data.segments||pending} aria-expanded={segment===key} onClick={()=>show(key)} className="min-h-20 rounded-xl border border-earth-200 bg-white p-3 text-left enabled:hover:border-primary-500"><span className="text-sm text-earth-600">{names[key]}</span><strong className="mt-1 block text-xl text-primary-900">{data.counts[key]} <span className="text-sm font-normal">人</span></strong>{(key==="trial"||key==="newCard"||key==="renewal")&&change(data.counts[key],data.comparison?.[key])}{data.segments&&<span className="mt-1 block text-xs text-primary-700">查看名單</span>}</button>;
   return <div className={`${styles.workspace} space-y-3`} aria-busy={pending}>
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="分析對象">
+      {periodControls}
       {([['store','店家'],['manager','所屬店長'],['coach',courseDisplayText("教練", music)]] as const).filter(([v])=>(all||v!=="store")&&(!music||v!=="manager")).map(([v,label])=><button key={v} disabled={pending} aria-pressed={data.scope.view===v} onClick={()=>navigate(v,all?"all":staffId!)} className={`min-h-11 rounded-lg border px-4 text-sm ${data.scope.view===v?"bg-primary-700 text-white":"bg-white text-earth-700"}`}>{music&&v==="coach"?"老師":label}</button>)}
       {data.scope.view!=="store"&&<select aria-label={coach?courseDisplayText("選擇教練", music):"選擇所屬店長"} disabled={pending} value={data.scope.person} onChange={e=>navigate(data.scope.view,e.target.value)} className="h-11 max-w-full appearance-none rounded-lg border border-earth-200 bg-white py-2 pl-3 pr-9 text-sm text-earth-700" style={{backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"}}>
         {all&&<option value="all">{coach?courseDisplayText("全部教練", music):"全部所屬店長"}</option>}{people.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}{all&&!coach&&<option value="unassigned">未歸屬</option>}

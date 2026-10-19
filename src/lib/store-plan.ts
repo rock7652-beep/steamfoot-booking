@@ -5,6 +5,8 @@
  * 供 server component / server action 使用。
  */
 
+import {cache} from "react";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireStaffSession } from "@/lib/session";
@@ -119,6 +121,8 @@ export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
  * 不能走 getCurrentStoreForPlan（內含 requireStaffSession 會拒絕顧客）。
  * 改由呼叫端從 session/customer 拿到 storeId 後傳入此 helper。
  */
+const readPreviewPlan=cache((storeId:string)=>prisma.store.findUnique({where:{id:storeId},select:STORE_PLAN_SELECT}));
+
 export async function getStoreForPlanByStoreId(
   storeId: string,
   client: Pick<Prisma.TransactionClient, "store"> = prisma,
@@ -136,7 +140,7 @@ export async function getStoreForPlanByStoreId(
       maxStoresOverride: null,
     };
   }
-  const store = await client.store.findUnique({
+  const store = client===prisma&&sportsNativePreview(storeId)?await readPreviewPlan(storeId):await client.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
   });

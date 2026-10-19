@@ -1,0 +1,116 @@
+[
+  {
+    "name": "missing table blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "non owner readiness passes",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "runtime search_path readiness passes",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "ungranted LOGIN blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "disabled RLS blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "disabled RLS rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "changed default blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "changed default rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "changed constraint blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "changed constraint rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "changed policy blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "changed policy rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "browser grant blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "browser grant rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "missing app grant blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "missing app grant rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "missing unique key blocks activation",
+    "expected": false,
+    "accepted": false,
+    "passed": true
+  },
+  {
+    "name": "missing unique key rollback restores readiness",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  },
+  {
+    "name": "retained data remains usable after controlled stop",
+    "expected": true,
+    "accepted": true,
+    "passed": true
+  }
+]

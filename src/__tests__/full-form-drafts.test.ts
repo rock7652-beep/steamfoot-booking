@@ -54,3 +54,6 @@ it("keeps course selections and an empty numeric input through a remount",async(
  await mount();await input("price","");await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"][value="t"]')!.click());
  await act(async()=>root.unmount());root=createRoot(host);await mount();expect(host.querySelector<HTMLInputElement>('[name="price"]')!.value).toBe("");expect(host.querySelector<HTMLInputElement>('input[type="checkbox"][value="t"]')!.checked).toBe(true);expect(m.plan).not.toHaveBeenCalled();
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));

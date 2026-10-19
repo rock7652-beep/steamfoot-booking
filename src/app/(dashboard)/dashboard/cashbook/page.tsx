@@ -1,5 +1,7 @@
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
+import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { CashbookEditor } from "./cashbook-editor";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
@@ -381,10 +383,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       {isViewMode ? (
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
-                        <div className="flex items-center gap-3">
-                          <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
+                        <CashbookActionsMenu compact={sportsNativePreview(cashbookStoreId??undefined)}>
+                          <OperationHistoryButton portal={sportsNativePreview(cashbookStoreId??undefined)} targetType="CashbookEntry" targetId={e.id} />
                           {e.id.startsWith("inventory:") ? <Link href={`/dashboard/inventory?reference=${encodeURIComponent(e.id.split(":")[1])}`} className="text-sm text-primary-700 hover:underline">進銷存連動・查看原單</Link> : <>
-                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} inMenu={sportsNativePreview(cashbookStoreId??undefined)} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >
@@ -392,7 +394,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                           </Link>}
                           {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
                           </>}
-                        </div>
+                        </CashbookActionsMenu>
                       )}
                     </td>
                   </tr>
@@ -441,3 +443,5 @@ function CashDrawerInlineLockedState() {
     />
   );
 }
+
+function CashbookActionsMenu({compact,children}:{compact:boolean;children:React.ReactNode}){return compact?<ExclusiveMenu quiet triggerText="⋯" label="記帳操作"><div className="flex flex-col items-stretch [&_button]:min-h-11 [&_button]:text-left">{children}</div></ExclusiveMenu>:<div className="flex items-center gap-3">{children}</div>;}

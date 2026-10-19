@@ -2,7 +2,7 @@
 import styles from "./booking-layout.module.css";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
-import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
+import { readBookingDetail, updateBookingStatus, markBookingNoShow } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
@@ -17,10 +17,11 @@ import { useBookingMonthNavigation } from "./booking-month-context";
 import { BookingMonthLink } from "./booking-month-link";
 import { readBookingSlots } from "@/lib/booking-client-transport";
 import {
-  markCompletedBatch,
+  markCompletedBatch, cancelBooking,
 } from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
 import { BookingCalendarDesktop } from "./booking-calendar-desktop";
+import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { DayDetailPanel, type DayBooking } from "./day-detail-panel";
 import {
   BookingDetailDrawer,
@@ -248,6 +249,7 @@ function BookingsManagerContent({
     () => new Set(),
   );
   const saves = useResponsiveAction();
+  const [trialNoShowId, setTrialNoShowId] = useState<string | null>(null);
   const actingIds = new Set(Object.entries(saves.states).filter(([, state]) => state.phase === "saving" || state.phase === "checking" || state.phase === "unknown").map(([id]) => id));
   const [batchActing, setBatchActing] = useState(false);
   const [batchResult, setBatchResult] = useState("");
@@ -693,6 +695,38 @@ function BookingsManagerContent({
     };
   }
 
+  function trialActionCandidate(id: string) {
+    const booking = monthData.flatMap(day => day.bookings ?? []).find(row => row.id === id);
+    return !readOnly && canEditBookingNote && !batchSending.current && !saves.isBlocked(id) && booking?.bookingType === "FIRST_TRIAL" &&
+      !booking.participantSummary && COMPLETABLE_STATUSES.has(booking.bookingStatus) ? booking : null;
+  }
+
+  async function resolveTrialFromRoster(id: string, status: "NO_SHOW" | "CANCELLED", choice?: NoShowChoice) {
+    if (!trialActionCandidate(id)) return;
+    const confirmed = () => {
+      handleBookingUpdated(id, status);
+      setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
+      setTrialNoShowId(current => current === id ? null : current);
+    };
+    const outcome = await saves.run(id,
+      () => status === "NO_SHOW" ? markBookingNoShow(id, choice) : cancelBooking(id), {
+        // Keep the existing row until the server confirms; an ambiguous network
+        // response is reconciled by reading and never replays a financial action.
+        apply: () => {}, rollback: () => {}, confirmed, recovered: confirmed,
+        reconcile: async signal => {
+          const payload = await readBookingDetail(id, storeId);
+          return !signal.aborted && bookingMatchesExpectation(payload.booking, id, status === "NO_SHOW" ? { status, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" } : { status });
+        },
+      });
+    if (outcome === "saved") toast.success(status === "NO_SHOW" ? "已標記未到" : "預約已取消");
+    if (outcome === "unknown") setTrialNoShowId(current => current === id ? null : current);
+  }
+
+  function cancelTrialFromRoster(id: string) {
+    if (!trialActionCandidate(id) || !confirm("確定取消這筆預約？")) return;
+    void resolveTrialFromRoster(id, "CANCELLED");
+  }
+
   async function completeSingle(id: string) {
     if (readOnly || batchSending.current) return;
     const outcome = await saves.run(id, () => updateBookingStatus(id, "complete"), completionCallbacks(id));
@@ -902,6 +936,8 @@ function BookingsManagerContent({
             onCompleteBatch={readOnly ? undefined : completeBatch}
             onCompleteSingle={readOnly ? undefined : completeSingle}
             onRevertSingle={readOnly ? undefined : revertSingle}
+            onNoShowTrial={readOnly || !canEditBookingNote ? undefined : id => { if (trialActionCandidate(id)) setTrialNoShowId(id); }}
+            onCancelTrial={readOnly || !canEditBookingNote ? undefined : cancelTrialFromRoster}
             actionStates={saves.states}
             onCheckAction={id => { void saves.check(id); }}
             actingIds={readOnly ? undefined : actingIds}
@@ -910,6 +946,9 @@ function BookingsManagerContent({
         </div>
       </RightSheet>
 
+      <NoShowModal open={trialNoShowId !== null} onClose={() => setTrialNoShowId(null)}
+        loading={trialNoShowId !== null && actingIds.has(trialNoShowId)}
+        onConfirm={choice => { if (trialNoShowId) void resolveTrialFromRoster(trialNoShowId, "NO_SHOW", choice); }} />
       <BookingDetailDrawer
         sharedActions={saves}
         operationGuidePreview={operationGuidePreview}

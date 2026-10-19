@@ -3,10 +3,10 @@ import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {renderToString} from "react-dom/server";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn(),income:vi.fn()}));
+const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn(),income:vi.fn(),setupQuery:""}));
 vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:async()=>({inheritStoreHours:true,weekly:[],exceptions:[]}),saveCourseStaffAvailabilityException:vi.fn(),saveCourseStaffWeeklyAvailability:vi.fn()}));
 vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,loadCourseCustomerSearchIndex:async()=>({success:true,rows:[]})}));
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff",useSearchParams:()=>new URLSearchParams()}));
+vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff",useSearchParams:()=>new URLSearchParams(m.setupQuery)}));
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
 vi.mock("@/lib/course-work-permission-client",()=>({saveCourseOwnIncomeAccess:m.income}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
@@ -17,7 +17,7 @@ vi.mock("@/components/admin/course-display-order",()=>({useCourseDisplayOrder:()
 import {CourseStaffWorkspace} from "@/app/(dashboard)/dashboard/courses/staff-workspace";
 let host:HTMLDivElement,root:Root;
 const staff={updatedAt:"2026-09-21T00:00:00.000Z",id:"t",name:"老師",kind:"coach" as const,coachEnabled:true,qualificationIds:["y"],qualificationsConfirmed:true,coachLoginReady:false,birthday:"",emergencyContactRelation:"家人",assignments:[],email:"",phone:"0900000000",emergencyContactName:"聯絡人",emergencyContactPhone:"0900000001",active:true,memberEnabled:true,permissions:[],customerId:""};
-beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{
+beforeEach(()=>{m.setupQuery="";vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{
  const body=JSON.parse(init.body);const result=await m.save({teachingFees:undefined,musicSettings:undefined,defaultClassFee:undefined,...body.values});
  return {json:async()=>result.success?{success:true,storeId:"s",data:{rows:[{...staff,...body.values,id:body.values.id??"new",name:body.values.name,role:"CUSTOMER",canEdit:true,linkedStaffId:"",linkedStaffName:"",financeTeacherIds:null,contactEmail:"",notificationsEnabled:false,defaultClassFee:"",updatedAt:"2026-09-22T00:00:00.000Z"}]}}:result};
 }));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
@@ -234,4 +234,24 @@ it("collapsing a bound LINE picker keeps its submitted identity and switching ta
  await click("更換綁定");expect(control.getAttribute("aria-expanded")).toBe("true");
  await click("基本資料");await click("LINE 與權限");
  expect(new FormData(document.querySelector('#course-staff-form') as HTMLFormElement).get("customerId")).toBe("member-a");
+});
+it("sports availability opens independently and keeps its unsaved draft across assignment tabs",async()=>{
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{sportsNative:true,previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await click("編輯");await click("授課時間");expect(document.querySelector('[data-staff-tab="schedule"]')).toBeNull();
+ const box=document.querySelector<HTMLInputElement>('[data-staff-tab="availability"] input[type="checkbox"]')!;expect(box.checked).toBe(true);await act(async()=>box.click());expect(box.checked).toBe(false);
+ await click("授課明細");expect(document.querySelector('[data-staff-tab="availability"]')?.hasAttribute('hidden')).toBe(true);await click("授課時間");expect(document.querySelector('[data-staff-tab="availability"] input[type="checkbox"]')).toBe(box);expect(box.checked).toBe(false);expect(m.save).not.toHaveBeenCalled();
+});
+
+it("sports coach onboarding closes a confirmed new coach and updates only its store guide",async()=>{
+ m.setupQuery="setupStep=coach&setupFlow=sports";
+ const {SETTINGS_SAVED}=await import("@/lib/music-subject-save");
+ const progress=vi.fn();window.addEventListener(SETTINGS_SAVED,progress);
+ try{
+  await act(async()=>root.render(createElement(CourseStaffWorkspace,{sportsNative:true,previewStoreId:"s",accountKind:"coach",initialCreate:true,staff:[],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+  m.save.mockResolvedValue({success:true});
+  await inputValue(document.body.querySelector('input[name="name"]') as HTMLInputElement,"引導教練");await click("新增教練");
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  expect(progress).toHaveBeenCalledTimes(1);expect(progress.mock.calls[0][0].detail).toEqual({storeId:"s"});
+  expect(m.refresh).not.toHaveBeenCalled();
+ }finally{window.removeEventListener(SETTINGS_SAVED,progress);}
 });

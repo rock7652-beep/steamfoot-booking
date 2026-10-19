@@ -1,4 +1,6 @@
 import "server-only";
+import {cache} from "react";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
@@ -18,10 +20,12 @@ const MODULE_LABELS: Record<IndustryModuleId, string> = {
  * business authorization; demo flags, slugs and fixed IDs are presentation
  * details and must never replace this check.
  */
+const previewModule=cache((storeId:string)=>prisma.$queryRaw<Array<{industryModule:string}>>`SELECT "industryModule"::text AS "industryModule" FROM "Store" WHERE id=${storeId} LIMIT 1`);
+
 export async function getStoreIndustryModule(
   storeId: string,
 ): Promise<IndustryModuleId> {
-  const stores = await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  const stores = sportsNativePreview(storeId)?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}

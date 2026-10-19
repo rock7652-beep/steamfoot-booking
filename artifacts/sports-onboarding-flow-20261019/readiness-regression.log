@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-onboarding-fix-20261019
+
+
+ Test Files  9 passed (9)
+      Tests  74 passed (74)
+   Start at  09:54:16
+   Duration  3.41s (transform 989ms, setup 0ms, import 1.68s, tests 2.35s, environment 1.94s)
+

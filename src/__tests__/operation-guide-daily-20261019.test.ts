@@ -18,7 +18,7 @@ describe("2026-10-19 backend guide audit", () => {
     expect(text("C171")).toContain("超過 500 筆會明確拒絕載入");
     expect(text("C172")).toContain("不回算已售卡片");
     expect(text("C173")).toContain("開放選課不自動加人");
-    expect(text("C173")).toContain("整批拒絕");
+    expect(text("C173")).toContain("容量或撞期不符時拒絕本次建立");
     expect(text("C109")).toContain("舊課表");
     expect(text("C110")).toContain("不能再建立重複固定系列");
   });

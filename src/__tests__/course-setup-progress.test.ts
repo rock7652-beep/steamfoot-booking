@@ -51,3 +51,27 @@ it("tracks only matching guide routes and drops setup markers from completed vie
  expect(currentCourseSetupStep(steps,"/hq/dashboard/courses","?view=rooms&setupStep=unknown")).toBe(-1);
  expect(courseSetupHref(courseSetupSteps({...empty,rooms:1},true)[1])).not.toContain("setupStep=");
 });
+
+it("sports reuses all six steps with subjects and point/session fees, existing data repairs without duplication",()=>{
+ const steps=courseSetupSteps({...empty,subjects:1,openDays:7,rooms:1,existing:{plans:1}},false,true);
+ expect(steps.find(s=>s.id==="course")?.done).toBe(true);
+ expect(steps.find(s=>s.id==="plan")).toMatchObject({label:"啟用收費方式",status:"repair",done:false});
+ expect(steps.find(s=>s.id==="plan")?.href).not.toContain("action=create");
+ expect(courseSetupSteps({...empty,subjects:1,openDays:7,rooms:1,plans:1,coaches:1,qualifiedCoaches:1,sessions:1},false,true).every(s=>s.done)).toBe(true);
+ expect(courseSetupSteps({...empty,subjects:1,templates:0},false).find(s=>s.id==="course")?.done).toBe(false);
+});
+
+it("sports creates a coach before fees and requires fee-linked qualifications before scheduling",()=>{
+ const base={...empty,openDays:7,rooms:1,subjects:1};
+ const steps=courseSetupSteps(base,false,true);
+ expect(steps.map(s=>s.id)).toEqual(["hours","room","course","coach","plan","schedule"]);
+ expect(steps.find(s=>!s.done)?.id).toBe("coach");
+ const coachReady={...base,coaches:1};
+ expect(courseSetupSteps(coachReady,false,true).filter(s=>s.done)).toHaveLength(4);
+ expect(courseSetupSteps(coachReady,false,true).find(s=>!s.done)?.id).toBe("plan");
+ expect(courseSetupSteps({...coachReady,plans:1},false,true).find(s=>!s.done)?.label).toBe("補齊收費方式的授課教練");
+ expect(courseSetupSteps({...coachReady,plans:1,qualifiedCoaches:1},false,true).find(s=>!s.done)?.id).toBe("schedule");
+ expect(courseSetupSteps({...coachReady,plans:1,qualifiedCoaches:1,sessions:1},false,true).every(s=>s.done)).toBe(true);
+ expect(courseSetupHref(steps[3])).toContain("setupFlow=sports");
+ expect(courseSetupSteps(empty,true).map(s=>s.id)).toEqual(["hours","room","course","plan","coach","schedule"]);
+});

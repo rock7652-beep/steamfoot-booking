@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createDevicePreviewUrl,
+  getDashboardRoutePrefix,
+  isPreviewableDashboardPath,
   DEFAULT_DEVICE_PRESET,
   DEFAULT_DEVICE_PREVIEW_PAGE,
   getDevicePreviewPage,
@@ -19,7 +21,7 @@ import type { IndustryModuleId } from "@/lib/industry-modules";
 import { DeviceFrame } from "./device-frame";
 import { DeviceToolbar } from "./device-toolbar";
 
-export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false }: { moduleId?: IndustryModuleId; canViewAudit?: boolean }) {
+export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false, sportsPreview = false }: { moduleId?: IndustryModuleId; canViewAudit?: boolean; sportsPreview?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -34,6 +36,7 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false }: 
     ? requestedDevice
     : requestedDevice === "tabletPortrait" || moduleId === "course" ? "tablet" : DEFAULT_DEVICE_PRESET;
 
+  const pendingPage = useRef<DevicePreviewPageId | null>(page);
   const initialPage = getDevicePreviewPage(page, moduleId);
   const [framePath, setFramePath] = useState<string>(() =>
     resolveDashboardPreviewPath(initialPage.path, pathname),
@@ -43,20 +46,65 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false }: 
   );
   const quickPage = getDevicePreviewPageForPath(framePath, moduleId)?.id ?? page;
 
-  const updateUrl = useCallback((nextPage: DevicePreviewPageId, nextDevice: DevicePresetId) => {
+  const updateUrl = useCallback((nextPage: DevicePreviewPageId, nextDevice: DevicePresetId, replace = false) => {
     const params = new URLSearchParams();
     params.set("page", nextPage);
     params.set("device", nextDevice);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router]);
+    const next = `${pathname}?${params.toString()}`;
+    if (sportsPreview) {
+      if (`${window.location.pathname}${window.location.search}` !== next) {
+        window.history[replace ? "replaceState" : "pushState"](null, "", next);
+      }
+      return;
+    }
+    router.replace(next, { scroll: false });
+  }, [pathname, router, sportsPreview]);
+
+  // Native history changes only the studio controls; it must not reload the iframe.
+  useEffect(() => {
+    if (!sportsPreview) return;
+    const restore = () => {
+      const requested = new URLSearchParams(window.location.search).get("page");
+      const nextPage = isDevicePreviewPageId(requested, moduleId) && (requested !== "operation-audits" || canViewAudit)
+        ? requested : DEFAULT_DEVICE_PREVIEW_PAGE;
+      const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage, moduleId).path, pathname);
+      pendingPage.current = nextPage;
+      setFramePath(nextPath);
+      setFrameSrc(createDevicePreviewUrl(nextPath));
+      // Inner navigation can differ from the original src prop; history must load its actual target.
+      setRefreshKey(key => key + 1);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [sportsPreview, moduleId, canViewAudit, pathname]);
+
+  const handleRouteChange = useCallback((path: string) => {
+    if (!sportsPreview) { setFramePath(path); return; }
+    const destination = new URL(path, window.location.origin);
+    if (destination.origin !== window.location.origin ||
+        getDashboardRoutePrefix(destination.pathname) !== getDashboardRoutePrefix(pathname) ||
+        !isPreviewableDashboardPath(destination.pathname)) return;
+    const nextPage = getDevicePreviewPageForPath(path, moduleId);
+    if (!nextPage || (nextPage.id === "operation-audits" && !canViewAudit)) return;
+    if (pendingPage.current && pendingPage.current !== nextPage.id) return;
+    pendingPage.current = null;
+    setFramePath(path);
+    // The frame already navigated. Update history without changing frameSrc/key.
+    const currentPage = new URLSearchParams(window.location.search).get("page") ?? DEFAULT_DEVICE_PREVIEW_PAGE;
+    if (currentPage !== nextPage.id) updateUrl(nextPage.id, device);
+  }, [sportsPreview, pathname, moduleId, canViewAudit, updateUrl, device, pendingPage]);
 
   const handlePageChange = (nextPage: DevicePreviewPageId) => {
+    pendingPage.current = nextPage;
     const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage, moduleId).path, pathname);
     setFramePath(nextPath);
     setFrameSrc(createDevicePreviewUrl(nextPath));
     updateUrl(nextPage, device);
   };
-  const handleDeviceChange = (nextDevice: DevicePresetId) => updateUrl(quickPage, nextDevice);
+  const handleDeviceChange = (nextDevice: DevicePresetId) => {
+    if (sportsPreview && nextDevice === device) return;
+    updateUrl(quickPage, nextDevice, true);
+  };
 
   return (
     <div className="min-h-dvh bg-earth-50">
@@ -101,7 +149,8 @@ export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false }: 
           device={device}
           src={frameSrc}
           refreshKey={refreshKey}
-          onRouteChange={setFramePath}
+          resilientLoading={sportsPreview}
+          onRouteChange={handleRouteChange}
         />
       </div>
     </div>

@@ -69,3 +69,10 @@ it("edits a confirmed room without refresh and preserves it through stale props"
   await act(async()=>root.render(render([{...changed,name:"之後修改"}])));expect(host.querySelector("tbody")!.textContent).toContain("之後修改");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn(), previewSportsCourseCancellation: vi.fn(), stopSportsSeries: vi.fn() }));
+vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
+vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));

@@ -119,6 +119,8 @@ interface DayDetailPanelProps {
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
   onRevertSingle?: (id: string) => void;
+  onNoShowTrial?: (id: string) => void;
+  onCancelTrial?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
   actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
   onCheckAction?: (id: string) => void;
@@ -153,6 +155,8 @@ export function DayDetailPanel({
   onCompleteBatch,
   onCompleteSingle,
   onRevertSingle,
+  onNoShowTrial,
+  onCancelTrial,
   actionStates,
   onCheckAction,
   actingIds,
@@ -307,6 +311,8 @@ export function DayDetailPanel({
                     }
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     onRevertSingle={readOnly ? undefined : onRevertSingle}
+                    onNoShowTrial={readOnly ? undefined : onNoShowTrial}
+                    onCancelTrial={readOnly ? undefined : onCancelTrial}
                     isActing={isActing}
                   />
                   <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
@@ -356,6 +362,8 @@ function TimelineItem({
   onToggleSelect,
   onCompleteSingle,
   onRevertSingle,
+  onNoShowTrial,
+  onCancelTrial,
   isActing,
 }: {
   booking: DayBooking;
@@ -370,6 +378,8 @@ function TimelineItem({
   onToggleSelect?: (id: string) => void;
   onCompleteSingle?: (id: string) => void;
   onRevertSingle?: (id: string) => void;
+  onNoShowTrial?: (id: string) => void;
+  onCancelTrial?: (id: string) => void;
   isActing: boolean;
 }) {
   const needsCollection = booking.participantNeedsCollection ?? (!booking.collected && (booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE"));
@@ -565,6 +575,7 @@ function TimelineItem({
             {expiry && <span title={expiry.detail} className={`w-full min-w-0 [overflow-wrap:anywhere] ${expiry.className}`}>{expiry.compact}</span>}
           </span>
         ) : null}
+
         </div>
         <div className={styles.noteCell}>
           <RosterReminders customerId={booking.customer.id} name={booking.customer.name} canEdit={!readOnly}
@@ -585,7 +596,10 @@ function TimelineItem({
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
-        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
+        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={actionable && !readOnly && booking.bookingType === "FIRST_TRIAL" && !booking.participantSummary ? [
+          ...(onNoShowTrial ? [{ label: "未到", onSelect: () => onNoShowTrial(booking.id) }] : []),
+          ...(onCancelTrial ? [{ label: "取消預約", danger: true, onSelect: () => onCancelTrial(booking.id) }] : []),
+        ] : []} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
       </div>
     </div>
   );

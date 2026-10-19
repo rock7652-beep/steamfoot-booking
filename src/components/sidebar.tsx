@@ -11,7 +11,7 @@ import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
-import { useState, useEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -640,6 +640,8 @@ interface DashboardShellProps {
   courseNoticeStoreId?: string | null;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
+  sportsNative?:boolean;
+  initialSidebarCollapsed?: boolean;
   operationGuidePreview?: boolean;
   /** True only for the server-authorized, unselected HQ scope. */
   hqOperationGuide?: boolean;
@@ -680,6 +682,8 @@ export default function DashboardShell({
   courseNoticeStoreId,
   cashDrawerStoreId,
   musicEnabled=false,
+  sportsNative=false,
+  initialSidebarCollapsed,
   operationGuidePreview = false,
   hqOperationGuide = false,
   industryModule = "steamfoot",
@@ -712,7 +716,7 @@ export default function DashboardShell({
     () => false,
   );
   const isIframePreview = isDevicePreviewMode || isEmbeddedPreview;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(sportsNative ? initialSidebarCollapsed ?? false : false);
   const [readingPage, setReadingPage] = useState<string | null>(null);
   useEffect(() => {
     const reset = () => setReadingPage(null);
@@ -747,9 +751,19 @@ export default function DashboardShell({
     && !["analytics", "customers", "plans", "settings", "operations", "catalog", "rooms"].includes(searchParams.get("view") ?? "schedule");
 
   // Give the fitness timetable room on tablet widths; an explicit toggle wins.
-  const sidebarPreference = useRef<boolean | null>(null);
+  const sidebarPreference = useRef<boolean | null>(sportsNative ? initialSidebarCollapsed ?? null : null);
   const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
   const compactHqTablet = !!storeOptions?.length;
+  // A prefetched route may carry older server props. Restore before paint on remount.
+  useLayoutEffect(() => {
+    if (!sportsNative) return;
+    const saved = document.cookie.split("; ").find(value => value.startsWith("sports-sidebar-collapsed-v1="))?.split("=")[1];
+    if (saved !== "0" && saved !== "1") return;
+    sidebarPreference.current = saved === "1";
+    // Restore external cookie state before paint so cached RSC props cannot flash the sidebar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(saved === "1");
+  }, [sportsNative]);
   useEffect(() => {
     const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
     const portrait = window.matchMedia("(min-width: 768px) and (max-width: 1023px)");
@@ -817,11 +831,11 @@ export default function DashboardShell({
     ];
     const management: NavItem[] = [
       { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: musicEnabled ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
@@ -850,7 +864,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);
@@ -1153,7 +1167,12 @@ export default function DashboardShell({
           )}
           <button
             type="button"
-            onClick={() => { sidebarPreference.current = !collapsed; setCollapsed(!collapsed); }}
+            onClick={() => {
+              const next = !collapsed;
+              sidebarPreference.current = next;
+              setCollapsed(next);
+              if (sportsNative) document.cookie = `sports-sidebar-collapsed-v1=${next ? "1" : "0"}; Path=${dashboardPrefix || "/"}; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+            }}
             className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 shrink-0 ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
           >

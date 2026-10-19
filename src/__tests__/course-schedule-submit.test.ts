@@ -104,3 +104,10 @@ it("keeps selected dates after a failed batch and confirms all dates after a suc
     expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
+
+// Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn(), previewSportsCourseCancellation: vi.fn(), stopSportsSeries: vi.fn() }));
+vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
+vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));

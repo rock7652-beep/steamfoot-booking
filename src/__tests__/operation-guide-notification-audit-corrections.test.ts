@@ -86,7 +86,7 @@ describe("merged notification and HQ audit guide corrections", () => {
   it("matches the six current course setup milestones", () => {
     const steps = courseSetupSteps({ coaches: 0, rooms: 0, templates: 0, plans: 0, sessions: 0, qualifiedCoaches: 0 });
     expect(steps).toHaveLength(6);
-    expect(contents("C123")).not.toContain("四步");
+    expect(contents("C123")).toContain("六步引導");
     for (const label of ["設定營業時間與公休", "建立課程", "授課課程", "新增空間", "建立方案", "排第一堂課"]) expect(contents("C123")).toContain(label);
   });
 

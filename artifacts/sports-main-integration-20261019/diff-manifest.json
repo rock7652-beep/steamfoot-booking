@@ -1,0 +1,704 @@
+{
+  "mainBase": "4f52264fc042d92d35e1e1b58003ab6d4b6f71e0",
+  "testedSportsSource": "6b99007a",
+  "syncCodeEvidence": "70123688",
+  "schemaOrAutomaticMigrationChanges": false,
+  "protectedMainFilesUnchanged": [
+    "src/server/services/liff-login-recovery.ts",
+    "src/server/services/liff-login-rebind.ts",
+    "src/server/services/store-member-connection.ts",
+    "src/content/editorial-guides.json"
+  ],
+  "counts": {
+    "build_guard_and_isolated_sql": 3,
+    "domain_and_clients": 17,
+    "evidence": 28,
+    "server": 22,
+    "tests": 46,
+    "ui_and_routes": 53
+  },
+  "files": [
+    {
+      "path": "artifacts/sports-fast-sync-20261019/attendance-sync.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-fast-sync-20261019/calendar-sync.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-fast-sync-20261019/evidence.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-fast-sync-20261019/ipad-draft.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-fast-sync-20261019/tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/diff-manifest.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/released-slot-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/review-fixes-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-main-integration-20261019/targeted-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/calendar-state-return.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/core-preview-summary.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-interactions.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-sidebar-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-week-1024.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/device-preview-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/device-staff-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/failure-visible.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/integration-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/mobile-work-orders.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/slow-wait.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/staff-denied.png",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/evidence/sports-density-sidebar-preview-20261019.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/evidence/sports-device-preview-recovery-20261019.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/qa/sports-fast-calendar-20261018.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/qa/sports-fast-sync-20261019.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/qa/sports-final-round-20261018.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/qa/sports-main-integration-20261019.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/qa/sports-roster-density-20261018.md",
+      "category": "evidence"
+    },
+    {
+      "path": "scripts/ci-migrate.mjs",
+      "category": "build_guard_and_isolated_sql"
+    },
+    {
+      "path": "scripts/sql/sports-preview-permanent-series.sql",
+      "category": "build_guard_and_isolated_sql"
+    },
+    {
+      "path": "src/__tests__/course-customer-workspace-ui.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-dense-schedule.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-room-workspace.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-roster-operation-feedback.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-schedule-background-refresh.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-schedule-submit.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-setup-flow.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-setup-progress.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-staff-teaching-ui.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-template-immediate-client.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-workspace-responsive.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/fitness-plan-form.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/full-form-drafts.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/health-record-form-mobile-date-layout.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/operation-history-entrypoints.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/operation-return-position.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/quick-cashbook-panel-loading.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-attendance-correction-makeup.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-attendance-evidence.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-background-sync.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-calendar-presentation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-calendar-read-route.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-calendar-read.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-calendar-state.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-cashbook-menu.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-compact-timetable.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-course-cancellation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-customer-actions.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-device-frame-loading.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-device-preview-navigation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-fee-compensation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-integration-review-guard.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-move-confirm.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-move-eligibility.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-move-patch.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-native-compensation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-no-show-release.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-note-route.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-permanent-series.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-refinement-policy.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-schedule-allocation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-schedule-compensation-access.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-schedule-native-ui.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-series-move-reservation.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-session-detail-route.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-setup-readiness.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/app/(customer)/book/course-portal.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(customer)/health/new/health-record-form.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-shortcut.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cashbook/cashbook-editor.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cashbook/page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/analytics-page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/calendar-read/route.ts",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/card-browser.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-bookings.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-health.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-list.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-purchases.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/history-list.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/member-page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/notes/route.ts",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/session-detail/route.ts",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/shared-hub.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-attendance-panel.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-booking-layout.module.css",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-cancel-course.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-fee-layout.module.css",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-move-confirm.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-schedule-fields.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-series-panel.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/staff-page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/staff-workspace.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/customers/_components/customers-table.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/device-preview/page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-revenue.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/admin/course-option-select.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/admin/course-setup-guide.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/admin/store-member-connection-panel.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/admin/use-sports-calendar-state.ts",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/course-health-workspace.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/dashboard-layout.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/device-preview/device-frame.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/device-preview/device-preview.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/operation-history-button.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/operations/return-position.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/report-date-range.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/lib/course-rental.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/course-series.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/course-setup-progress.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/feature-gate.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/industry-module-server.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-background-sync.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-calendar-client.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-calendar-presentation.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-move-feedback.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-move-patch.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-move-policy.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-native-preview.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-session-detail-client.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-staging-types.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/sports-teacher-fee.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/store-plan.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/lib/teacher-fee-types.ts",
+      "category": "domain_and_clients"
+    },
+    {
+      "path": "src/server/actions/course-batch.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/course-customer-note.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/course-members.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/course-rental.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/course.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/sports-attendance-evidence.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/sports-calendar.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/sports-series.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/actions/sports-staging.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/queries/course-members.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/queries/course-setup.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/course-booking.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/course-captured-teacher-fee.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/course-rental.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/course-teacher-fee.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/course-waitlist.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/music-subject-save.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/sports-move-eligibility.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/sports-permanent-series.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/sports-session-waitlist.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/sports-staging-fee.ts",
+      "category": "server"
+    },
+    {
+      "path": "src/server/services/sports-staging-schedule.ts",
+      "category": "server"
+    },
+    {
+      "path": "vercel.json",
+      "category": "build_guard_and_isolated_sql"
+    }
+  ],
+  "latestMainChecked": "7085cf92965ecb751593e35d75d410b5f80b4580",
+  "followupPreviewApplicationSha": "27eda702ed448b263249e4f4923daaaca40b19d4",
+  "followupPreviewConfigurationExcluded": [
+    "scripts/sports-redesign-preview-scope.mjs",
+    "vercel.json"
+  ]
+}

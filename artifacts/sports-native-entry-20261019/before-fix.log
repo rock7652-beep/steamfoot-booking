@@ -1,0 +1,172 @@
+
+ RUN  v4.1.4 /workspace/sports-native-entry-20261019
+
+ ❯ src/__tests__/sports-production-child-view.test.ts (12 tests | 6 failed) 28ms
+   × routes enabled own-store store-ido-xinzhuang to the original schedule with native forms 6ms
+   × routes enabled own-store store-ido-banqiao to the original schedule with native forms 1ms
+   × keeps admin on the original schedule with native forms 1ms
+   × preserves explicit read-only view mode even when store IDs match 1ms
+   × routes store-ido-xinzhuang catalog to the existing teaching-item list 1ms
+   × routes store-ido-banqiao catalog to the existing teaching-item list 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > routes enabled own-store store-ido-xinzhuang to the original schedule with native forms
+AssertionError: expected undefined to match object { Object (storeId, sportsNative, ...) }
+
+- Expected:
+{
+  "canCreate": true,
+  "canEdit": true,
+  "sportsData": {
+    "lessons": [],
+  },
+  "sportsNative": true,
+  "storeId": "store-ido-xinzhuang",
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:61:27
+     59|  const page=await CoursesPage({searchParams:Promise.resolve({})});
+     60|  const workspace=find(page,'legacy-workspace');
+     61|  expect(workspace?.props).toMatchObject({storeId,sportsNative:true,spo…
+       |                           ^
+     62|  expect(find(page,'sports-workspace')).toBeUndefined();
+     63|  expect(m.load).toHaveBeenCalledWith(true);expect(m.ensure).toHaveBeen…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > routes enabled own-store store-ido-banqiao to the original schedule with native forms
+AssertionError: expected undefined to match object { storeId: 'store-ido-banqiao', …(4) }
+
+- Expected:
+{
+  "canCreate": true,
+  "canEdit": true,
+  "sportsData": {
+    "lessons": [],
+  },
+  "sportsNative": true,
+  "storeId": "store-ido-banqiao",
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:61:27
+     59|  const page=await CoursesPage({searchParams:Promise.resolve({})});
+     60|  const workspace=find(page,'legacy-workspace');
+     61|  expect(workspace?.props).toMatchObject({storeId,sportsNative:true,spo…
+       |                           ^
+     62|  expect(find(page,'sports-workspace')).toBeUndefined();
+     63|  expect(m.load).toHaveBeenCalledWith(true);expect(m.ensure).toHaveBeen…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > keeps admin on the original schedule with native forms
+AssertionError: expected undefined to match object { sportsNative: true, …(2) }
+
+- Expected:
+{
+  "canCreate": true,
+  "canEdit": true,
+  "sportsNative": true,
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:69:47
+     67|  m.user.mockResolvedValue({id:'admin',role:'ADMIN',staffId:null,storeI…
+     68|  const page=await CoursesPage({searchParams:Promise.resolve({})});
+     69|  expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNat…
+       |                                               ^
+     70|  expect(find(page,'sports-workspace')).toBeUndefined();
+     71| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > preserves explicit read-only view mode even when store IDs match
+AssertionError: expected undefined to match object { canCreate: false, …(3) }
+
+- Expected:
+{
+  "canCreate": false,
+  "canDelete": false,
+  "canEdit": false,
+  "rentalPermissions": {
+    "collect": false,
+    "correct": false,
+    "customerCreate": false,
+    "edit": false,
+  },
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:81:47
+     79|  m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',sto…
+     80|  const page=await CoursesPage({searchParams:Promise.resolve({})});
+     81|  expect(find(page,'legacy-workspace')?.props).toMatchObject({canCreate…
+       |                                               ^
+     82|  expect(m.load).not.toHaveBeenCalled();expect(m.ensure).not.toHaveBeen…
+     83| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > routes store-ido-xinzhuang catalog to the existing teaching-item list
+AssertionError: expected undefined to match object { Object (storeId, sportsNative, ...) }
+
+- Expected:
+{
+  "canCreate": true,
+  "canEdit": true,
+  "sportsNative": true,
+  "storeId": "store-ido-xinzhuang",
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:87:38
+     85|  m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',sto…
+     86|  const page=await CoursesPage({searchParams:Promise.resolve({view:'cat…
+     87|  expect(find(page,'catalog')?.props).toMatchObject({storeId,sportsNati…
+       |                                      ^
+     88|  expect(m.load).not.toHaveBeenCalled();expect(m.ensure).not.toHaveBeen…
+     89| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/__tests__/sports-production-child-view.test.ts > routes store-ido-banqiao catalog to the existing teaching-item list
+AssertionError: expected undefined to match object { storeId: 'store-ido-banqiao', …(3) }
+
+- Expected:
+{
+  "canCreate": true,
+  "canEdit": true,
+  "sportsNative": true,
+  "storeId": "store-ido-banqiao",
+}
+
++ Received:
+undefined
+
+ ❯ src/__tests__/sports-production-child-view.test.ts:87:38
+     85|  m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',sto…
+     86|  const page=await CoursesPage({searchParams:Promise.resolve({view:'cat…
+     87|  expect(find(page,'catalog')?.props).toMatchObject({storeId,sportsNati…
+       |                                      ^
+     88|  expect(m.load).not.toHaveBeenCalled();expect(m.ensure).not.toHaveBeen…
+     89| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 6 passed (12)
+   Start at  06:04:22
+   Duration  387ms (transform 150ms, setup 0ms, import 210ms, tests 28ms, environment 0ms)

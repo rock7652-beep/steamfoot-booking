@@ -1,4 +1,8 @@
 "use server";
+import {sportsSeriesTable} from "@/lib/sports-series-storage";
+import type {SportsMovePatch} from "@/lib/sports-move-patch";
+import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sameSportsScheduleRule} from "@/lib/sports-staging-types";
 import {requireSportsStaging,sportsStagingEnabled} from "@/lib/sports-staging";
@@ -27,7 +31,7 @@ import {
   courseScheduleInput,
   courseTemplateInput,
 } from "@/lib/course-scheduling";
-import { formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
+import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 export async function scheduleTeacherMakeup(input: unknown) {
   try {
@@ -438,7 +442,7 @@ export async function createCourseSchedule(input: unknown) {
     if(data.sportsStaging){
       requireSportsStaging(storeId);
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
-      if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用運動測試店');
+      if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用已授權運動店');
       if(data.isTrial){
         await courseManager('trial.create');
         const {getTrialSettings,clampTrialTotal}=await import('@/lib/shop-config');
@@ -456,6 +460,7 @@ export async function createCourseSchedule(input: unknown) {
         error instanceof Error ? error.message : "排課日期不正確",
       );
     }
+    if(data.sportsStaging?.perpetual&&occurrences.length!==1)throw new AppError("VALIDATION","持續固定課只需選開始日期，不指定結束堂數");
     const result = await coursePrisma.$transaction(
       async (tx) => {
         // Serialize this store's batches; a retried request returns its original
@@ -465,10 +470,11 @@ export async function createCourseSchedule(input: unknown) {
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
-        const existing = await tx.courseSession.findMany({
+        let existing = await tx.courseSession.findMany({
           where: { storeId, requestKey: data.requestKey },
           orderBy: { requestIndex: "asc" },
         });
+        if(data.sportsStaging?.perpetual)existing=existing.filter(session=>session.requestIndex===0);
         if (existing.length) {
           if (
             existing.length !== occurrences.length ||
@@ -522,6 +528,8 @@ export async function createCourseSchedule(input: unknown) {
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
         if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
+        const {assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
+        await assertSportsSeriesFree(tx,storeId,occurrences,data,data.requestKey,data.sportsStaging?.perpetual?data.sportsStaging.frequency:undefined);
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -587,13 +595,14 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
+        const sportsPlanName=data.sportsStaging?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? template.name,
+            nameSnapshot: source?.nameSnapshot ?? sportsPlanName?.name ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
@@ -629,11 +638,15 @@ export async function moveCourseSessions(input: unknown) {
       scope: z.enum(["SINGLE", "WEEKS", "FUTURE"]),
       weeks: z.number().int().min(2).max(12).optional(),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      time: z.string().regex(/^([01]\d|2[0-3]):(?:00|30)$/),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      durationMinutes:z.number().int().min(5).max(480).optional(),
+      expectedStartsAt:z.string().datetime().optional(),
       roomId: z.string().min(1),
       coachId: z.string().min(1),
       restore: z.boolean().optional(),
     }).parse(input);
+    const native=sportsNativePreview(storeId);
+    if(!native&&(d.durationMinutes!==undefined||!/(?:00|30)$/.test(d.time)))throw new AppError("VALIDATION","請選擇原有時段");
     if (d.scope === "WEEKS" && !d.weeks)
       throw new AppError("VALIDATION", "請選擇週數");
 
@@ -651,6 +664,8 @@ export async function moveCourseSessions(input: unknown) {
         },
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+      if(native&&d.expectedStartsAt&&source.startsAt.toISOString()!==d.expectedStartsAt)throw new AppError("CONFLICT","原課已異動，請重新開啟後再調課");
+      if(native){const reason=await sportsMoveBlockedReason(tx,storeId,source);if(reason)throw new AppError("CONFLICT",reason);}
       const original = source.rescheduledFromStartsAt
         ? formatTWDateTime(source.rescheduledFromStartsAt)
         : null;
@@ -687,7 +702,9 @@ export async function moveCourseSessions(input: unknown) {
         : candidates;
       if (!sessions.length) throw new AppError("NOT_FOUND", "沒有可調整的課程");
 
-      const duration = source.endsAt.getTime() - source.startsAt.getTime();
+      const duration = native&&d.restore&&source.rescheduledFromStartsAt&&source.rescheduledFromEndsAt
+        ?source.rescheduledFromEndsAt.getTime()-source.rescheduledFromStartsAt.getTime()
+        :native&&d.durationMinutes!==undefined?d.durationMinutes*60000:source.endsAt.getTime() - source.startsAt.getTime();
       const shift = targetStart.getTime() - source.startsAt.getTime();
       const changes = sessions.map((session) => ({
         session,
@@ -707,6 +724,7 @@ export async function moveCourseSessions(input: unknown) {
         throw new AppError("VALIDATION", "請選擇可用的老師與教室");
 
       for (const change of changes) {
+        if(native&&change.session.id!==source.id){const reason=await sportsMoveBlockedReason(tx,storeId,change.session);if(reason)throw new AppError("CONFLICT",reason);}
         await assertCourseResources(
           tx,
           storeId,
@@ -718,6 +736,10 @@ export async function moveCourseSessions(input: unknown) {
           },
           change.session,
         );
+        if(native){
+          const learnerIds=change.session.bookings.flatMap(b=>b.customerId?[b.customerId]:[]);
+          if(learnerIds.length&&await tx.courseBooking.findFirst({where:{storeId,customerId:{in:learnerIds},status:{not:"CANCELLED"},sessionId:{notIn:selectedIds},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:change.endsAt},endsAt:{gt:change.startsAt}}}}))throw new AppError("CONFLICT","學員在新時段已有課程，尚未調課");
+        }
         if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
           throw new AppError("CONFLICT", "已完成的課程不可調整");
         if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
@@ -741,6 +763,9 @@ export async function moveCourseSessions(input: unknown) {
             : `${formatTWDateTime(change.startsAt)} ${conflict.roomId === d.roomId ? "教室" : "老師"}已有課`);
       }
 
+      const {readSportsSeries,assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
+      const permanent=(await readSportsSeries(tx,storeId)).find(r=>r.requestKey===source.requestKey);
+      await assertSportsSeriesFree(tx,storeId,changes,{roomId:d.roomId,coachId:d.coachId},source.requestKey,d.scope==="FUTURE"?permanent?.frequency:undefined,d.scope!=="FUTURE"?sessions.map(s=>toLocalDateStr(s.rescheduledFromStartsAt??s.startsAt)):undefined);
       if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
@@ -752,6 +777,7 @@ export async function moveCourseSessions(input: unknown) {
       });
 
       const movedAt = new Date();
+      const moved:SportsMovePatch[]=[];
       for (const change of changes) {
         // FUTURE changes the permanent fixed slot. Only temporary moves keep
         // an original-slot reservation (the DB permits SINGLE / WEEKS here).
@@ -772,7 +798,11 @@ export async function moveCourseSessions(input: unknown) {
             actorUserId: user.id,
           },
         });
-        await tx.courseSession.update({
+        if(native){
+          const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
+          if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
+        }
+        const committed=await tx.courseSession.update({
           where: { id: change.session.id },
           data: {
             startsAt: change.startsAt,
@@ -797,17 +827,21 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+        if(native)moved.push({id:committed.id,startsAt:committed.startsAt.toISOString(),endsAt:committed.endsAt.toISOString(),roomId:committed.roomId,coachId:committed.coachId,rescheduledFromStartsAt:committed.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:committed.rescheduledFromEndsAt?.toISOString()??null,rescheduledFromRoomId:committed.rescheduledFromRoomId,rescheduledFromCoachId:committed.rescheduledFromCoachId,rescheduleKind:committed.rescheduleKind,rescheduledAt:committed.rescheduledAt?.toISOString()??null,releasedAt:committed.releasedAt?.toISOString()??null});
+      }
+      if(permanent&&d.scope==="FUTURE"){
+        const startsAt=new Date(permanent.startsAt.getTime()+shift),endsAt=new Date(startsAt.getTime()+duration);
+        await tx.$executeRaw`UPDATE ${sportsSeriesTable(storeId)} SET "startsAt"=${startsAt},"endsAt"=${endsAt},"roomId"=${d.roomId},"coachId"=${d.coachId},"updatedAt"=NOW() WHERE id=${permanent.id} AND "storeId"=${storeId}`;
       }
       for(const change of changes){
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
         if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:"MOVE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
       }
-      return { count: changes.length };
+      return { count: changes.length, ...(native?{moved}:{}) };
     });
 
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
-    revalidatePath("/book");
+    kickCoachNotifications(storeId);
+    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(storeId)){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/book");}
     return { success: true as const, data: result };
   } catch (error) {
     return handleCourseActionError(error);
@@ -1093,3 +1127,24 @@ export async function batchCourseTemplates(input: unknown) {
     return {success:true as const};
   } catch(e){return handleCourseActionError(e);}
 }
+
+/** Read-only preflight; the write repeats every guard under the store lock. */
+export async function checkSportsCourseMove(sessionId:string) {
+  try {
+    const {storeId}=await courseManager("booking.update");
+    if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
+    const session=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true}});
+    if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
+    const reason=await sportsMoveBlockedReason(coursePrisma,storeId,session);
+    return reason?{success:false as const,error:reason}:{success:true as const};
+  }catch(error){return handleCourseActionError(error);}
+}
+
+/** Read-only recovery when a paste response is lost. Never retries the write. */
+export async function readSportsMoveResult(sessionId:string){try{
+ const {storeId}=await courseManager("booking.read");
+ if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
+ const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true,endsAt:true,roomId:true,coachId:true,rescheduledFromStartsAt:true,rescheduledFromEndsAt:true,rescheduledFromRoomId:true,rescheduledFromCoachId:true,rescheduleKind:true,rescheduledAt:true,releasedAt:true}});
+ if(!row)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
+ return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),rescheduledFromStartsAt:row.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:row.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:row.rescheduledAt?.toISOString()??null,releasedAt:row.releasedAt?.toISOString()??null}};
+ }catch(e){return handleCourseActionError(e);}}

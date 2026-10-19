@@ -1,3 +1,5 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
+import {sportsScheduleRule} from "@/lib/sports-staging-types";
 import {assertSportsProductionReady,sportsRulesAvailable} from "@/server/services/sports-production-readiness";
 import {sportsStagingEnabled} from '@/lib/sports-staging';
 import { courseCardPublicMembers } from "@/lib/course-card-public-members";
@@ -115,7 +117,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     },
   } as const;
   if (sportsStagingEnabled(storeId)) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
-  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number}>>`SELECT "sessionId",enrollment,"trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number;payload?:unknown}>>`SELECT "sessionId",enrollment,"trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  const sportsWaitlist=new Map(sportsNativePreview(storeId)?sportsRules.flatMap(row=>{const parsed=sportsScheduleRule.safeParse(row.payload);return parsed.success&&parsed.data.waitlist?[[row.sessionId,{enabled:parsed.data.enrollment==="OPEN"&&parsed.data.waitlist.limit>0,limit:parsed.data.waitlist.limit}] as const]:[];}):[]);
   const assignedSportsIds=sportsRules.filter(row=>row.enrollment==='ASSIGNED').map(row=>row.sessionId);
   const [
     sessions,
@@ -388,10 +391,10 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       capacity: s.capacity,
       occupied: s._count.bookings,
       precautions: s.template.precautions,
-      waitlistAllowed: waitlistEnabled && s.template.waitlistEnabled,
+      waitlistAllowed: waitlistEnabled && (sportsWaitlist.get(s.id)?.enabled??s.template.waitlistEnabled),
       waitlistCount: waitlistMeta.get(s.id)?.count ?? 0,
       waitlistPosition: waitlistMeta.get(s.id)?.ownPosition ?? null,
-      waitlistRemaining: Math.max(0, (s.template.waitlistLimit || waitlistSetting?.defaultLimit || 5) - (waitlistMeta.get(s.id)?.count ?? 0)),
+      waitlistRemaining: Math.max(0, (sportsWaitlist.get(s.id)?.limit??(s.template.waitlistLimit || waitlistSetting?.defaultLimit || 5)) - (waitlistMeta.get(s.id)?.count ?? 0)),
     })),
     bookings: bookings.map((b) => ({
       id: b.id,
