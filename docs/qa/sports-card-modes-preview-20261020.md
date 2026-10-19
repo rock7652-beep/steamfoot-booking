@@ -31,6 +31,24 @@
 
 新增精確分支 allowlist，沿用既有 sports Preview 守衛：只允許 Vercel preview、正確 repository、隔離 DATABASE_URL／DIRECT_URL 與明確兩個 sports opt-in；正式目標或錯誤連線立即拒絕。自動 migration 仍跳過，對外通知沿用 Preview 阻擋。守衛相關 4 檔 89 項測試通過。
 
-部署 URL、READY 狀態及提交 SHA 待實際建立後補記。目前重新搜尋可用工具，仍沒有 Browser `js` 或 CUA 瀏覽器工具；沒有宣稱已連接或登入。
+部署已 READY，ID `dpl_FCrcD93wr5ikxA9rpiGjNgr8u9mc`，target 為 Preview（API target=null），框架 Next.js 16.2.2，建置約 3 分 37 秒。
+
+- 提交：`ad43c5d8e42ff00890c4275296308491ca9b3e09`，與遠端功能分支一致。
+- Preview：`https://steamfoot-booking-pbgx080h8-rock7652-2111s-projects.vercel.app`。
+- 後台：`/hq/login?store=sports-live-flow`；會員：`/s/sports-live-flow/book`。
+- 建置日誌確認 `[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true`，編譯與建置型別檢查成功。
+- 隔離 migration history 版本：`20261019234358`；未補跑其他 migration。
+- 只為本分支新增 Preview 範圍的 SPORTS_REDESIGN_STAGING=1、SPORTS_REDESIGN_PREVIEW=1、AUTH_TRUST_HOST=true；未讀出、替換或變更正式憑證。
+- Draft PR：`https://github.com/rock7652-beep/steamfoot-booking/pull/1366`，未合併。
+
+READY 後兩個入口的只讀 HTTP 檢查皆為 302 至 `vercel.com/sso-api`。此前建置期間的 200 是 Vercel 建置占位頁，未列為應用程式健康或登入證據。SSO 保護沒有停用，亦未索取 bypass secret。
+
+目前重新搜尋可用工具，仍沒有 Browser `js` 或 CUA 瀏覽器工具；沒有宣稱已連接或登入。已詢問是否能在具備瀏覽器的工作階段接續，部署與資料庫工作不因此停止。
 
 待驗後台 1440×900、iPad 1024×768／768×1024、會員手機 390×844 與面板 360px。依需求基準只補項目規則、兩種方案、無方案選單排課、報名、固定課點名、扣還點、更正及角色顯示。登入／尺寸驗收未完成，不以先前 238 項本機測試或本次 migration 成功代稱完整交付。
+
+最小補驗順序：合成老闆登入 → 同項目建立兩種指定方案及通用卡 → 設定兩個項目的教練與開放課扣點 → 指定課不選方案排課、點名依各自購入規則扣抵 → 合成會員以同卡報名兩項開放課 → 阻擋兩種權益混用 → 取消／更正與重送核對原數量 → 檢查三種尺寸的操作、返回與角色顯示。只新增本輪合成測試資料，不重設既有驗收資料。
+
+## CI 補充
+
+首次完整 CI 的 25 個失敗集中於兩份既有測試的課卡欄位及查詢 mock 缺漏；補齊 unit、templateIds、requestKey、到期日及教學項目查詢後，兩檔 57 項回歸均通過。此次只修測試資料，不變更已部署的業務程式。完整 CI 待後續提交確認。
