@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-capacity-fix-20261019
+
+
+ Test Files  5 passed (5)
+      Tests  43 passed (43)
+   Start at  12:04:01
+   Duration  633ms (transform 492ms, setup 0ms, import 828ms, tests 85ms, environment 0ms)
+

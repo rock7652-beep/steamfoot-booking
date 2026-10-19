@@ -55,9 +55,16 @@ export async function persistSportsSeries(tx:Tx,actor:CourseActor,requestKey:str
  const id=`sports-series:${createHash("sha256").update(actor.storeId+":"+requestKey).digest("hex").slice(0,32)}`;
  await tx.$executeRaw`INSERT INTO ${sportsSeriesTable(actor.storeId)} (id,"storeId","requestKey","templateId","nameSnapshot","roomId","coachId","startsAt","endsAt","pointCost",capacity,frequency,"enrollmentMode","learnerSnapshot","generatedThrough","createdById","updatedAt") VALUES (${id},${actor.storeId},${requestKey},${s.templateId},${s.nameSnapshot},${s.roomId},${s.coachId},${s.startsAt},${s.endsAt},${s.pointCost},${s.capacity},${rule.frequency},${rule.enrollment},${JSON.stringify(rule.students)}::jsonb,${toLocalDateStr(s.startsAt)}::date,${actor.userId},NOW()) ON CONFLICT ("storeId","requestKey") DO NOTHING`;
 }
+function assertSportsFixedCapacity(capacity:number,learners:number){
+ if(!Number.isSafeInteger(capacity)||capacity<1||learners>capacity)throw new AppError("VALIDATION","固定課指定學員超過人數上限，請先調整容量或名單");
+}
 /** No card is reserved for an ongoing assigned place. Attendance resolves the current paid card. */
 export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id:string;templateId:string;startsAt:Date;endsAt:Date;pointCost:number;capacity:number},rule:SportsScheduleRule){
  if(!sportsNativePreview(actor.storeId)||!rule.perpetual)throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
+ assertSportsFixedCapacity(session.capacity,rule.students.length);
+ if(!rule.students.length)return;
+ const occupied=await tx.courseBooking.count({where:{storeId:actor.storeId,sessionId:session.id,status:{not:"CANCELLED"}}});
+ assertSportsFixedCapacity(session.capacity,occupied+rule.students.length);
  for(const learner of rule.students){
   const customer=await tx.$queryRaw<Array<{name:string}>>`SELECT name FROM "Customer" WHERE id=${learner.customerId} AND "storeId"=${actor.storeId} AND "mergedIntoCustomerId" IS NULL`;
   if(!customer.length)throw new AppError("VALIDATION","學員不屬於本店");
@@ -82,13 +89,15 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
    const range=fixedSeriesOccurrenceOnDate(series,date);if(!range)continue;
    const index=Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7);
    if(await tx.courseSession.findUnique({where:{storeId_requestKey_requestIndex:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:index}}}))continue;
+   const students=learners.filter(l=>!l.stopDate||date<l.stopDate).map(l=>({customerId:l.customerId,cardId:null}));
+   assertSportsFixedCapacity(series.capacity,students.length);
    await assertSportsSeriesFree(tx,actor.storeId,[range],series,series.requestKey);
    const conflict=await tx.courseSession.findFirst({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{lt:range.endsAt},endsAt:{gt:range.startsAt},OR:[{roomId:series.roomId},{coachId:series.coachId}]}});
    const rental=await tx.courseRental.findFirst({where:{storeId:actor.storeId,roomId:series.roomId,cancelledAt:null,occupiedStartsAt:{lt:range.endsAt},occupiedEndsAt:{gt:range.startsAt}}});
    if(conflict||rental)throw new AppError("CONFLICT",`${date} 固定課時段有衝突，請先處理`);
    const s=await tx.courseSession.create({data:{...range,storeId:actor.storeId,templateId:series.templateId,nameSnapshot:series.nameSnapshot,roomId:series.roomId,coachId:series.coachId,pointCost:series.pointCost,capacity:series.capacity,requestKey:series.requestKey,requestIndex:index,createdById:series.createdById}});
    const {attachSportsSessionRules}=await import("./sports-staging-schedule");
-   await attachSportsSessionRules(tx,actor,series.requestKey,{...original,students:learners.filter(l=>!l.stopDate||date<l.stopDate).map(l=>({customerId:l.customerId,cardId:null}))},[s.id]);
+   await attachSportsSessionRules(tx,actor,series.requestKey,{...original,students},[s.id]);
   }
  }
 }
