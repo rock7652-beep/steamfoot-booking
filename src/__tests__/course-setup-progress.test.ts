@@ -51,3 +51,12 @@ it("tracks only matching guide routes and drops setup markers from completed vie
  expect(currentCourseSetupStep(steps,"/hq/dashboard/courses","?view=rooms&setupStep=unknown")).toBe(-1);
  expect(courseSetupHref(courseSetupSteps({...empty,rooms:1},true)[1])).not.toContain("setupStep=");
 });
+
+it("sports reuses all six steps with subjects and point/session fees, existing data repairs without duplication",()=>{
+ const steps=courseSetupSteps({...empty,subjects:1,openDays:7,rooms:1,existing:{plans:1}},false,true);
+ expect(steps.find(s=>s.id==="course")?.done).toBe(true);
+ expect(steps.find(s=>s.id==="plan")).toMatchObject({label:"啟用收費方式",status:"repair",done:false});
+ expect(steps.find(s=>s.id==="plan")?.href).not.toContain("action=create");
+ expect(courseSetupSteps({...empty,subjects:1,openDays:7,rooms:1,plans:1,coaches:1,qualifiedCoaches:1,sessions:1},false,true).every(s=>s.done)).toBe(true);
+ expect(courseSetupSteps({...empty,subjects:1,templates:0},false).find(s=>s.id==="course")?.done).toBe(false);
+});

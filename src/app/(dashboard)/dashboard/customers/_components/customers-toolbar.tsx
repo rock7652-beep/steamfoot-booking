@@ -31,6 +31,7 @@ interface Props {
   musicMode?: boolean;
   instantStoreId?: string;
   trailing?: React.ReactNode;
+  labelsInMore?: boolean;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -62,7 +63,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing, labelsInMore = false }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -177,7 +178,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
       <div className="space-y-2 border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
         <div className="flex flex-wrap items-center gap-2">
-          <CustomerLabelFilter />
+          {!labelsInMore && <CustomerLabelFilter />}
           <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
             <input
               name="search"
@@ -218,7 +219,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
 
         {filtersOpen ? (
           <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{labelsInMore&&<CustomerLabelFilter/>}
               <label className="space-y-1 text-sm text-earth-600">
                 <span>顧客狀態</span>
                 <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">

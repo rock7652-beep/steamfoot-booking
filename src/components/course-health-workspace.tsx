@@ -9,7 +9,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import type { SaveCustomerHealthRecordState } from "@/server/actions/customer-health-record";
 
 type Data = Extract<Awaited<ReturnType<typeof loadCourseHealth>>, { success: true }>['data'];
-type Props = ({ member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean }) & { onDirtyChange?: (value: boolean) => void; onPending?: (value: boolean) => void };
+type Props = ({ member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean }) & { compact?:boolean; onDirtyChange?: (value: boolean) => void; onPending?: (value: boolean) => void };
 
 /** Mature measurement form + assessment/history/trend, with explicit scoped adapters. */
 export function CourseHealthWorkspace(props: Props) {
@@ -64,7 +64,7 @@ export function CourseHealthWorkspace(props: Props) {
     {notice && <p role="status" className="text-sm text-primary-700">{notice}</p>}
     {error ? <div role="alert"><p>{error}</p><button type="button" className="min-h-11 px-3" onClick={refresh}>重新讀取</button></div> : edit !== undefined ? <>
       <button type="button" className="min-h-11 px-3 text-primary-700" disabled={saving} onClick={returnToRecords}>返回量測紀錄</button>
-      <div onChangeCapture={() => markDirty(true)}><HealthRecordForm requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder="例如：上課前量測" /></div>
+      <div onChangeCapture={() => markDirty(true)}><HealthRecordForm compact={props.compact} requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder="例如：上課前量測" /></div>
     </> : !data ? <p role="status">讀取健康紀錄…</p> : <>
       {canEdit && <button type="button" className="min-h-11 rounded-lg bg-primary-700 px-4 text-white" onClick={() => { setEdit(null); setRequestId(crypto.randomUUID()); setNotice(""); }}>新增量測</button>}
       {data.summary.latest ? <HealthAssessmentCard summary={data.summary} compact={!member} /> : <p>尚無量測紀錄，可新增第一筆量測。</p>}

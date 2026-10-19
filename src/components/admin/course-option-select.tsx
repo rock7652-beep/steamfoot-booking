@@ -1,9 +1,9 @@
 "use client";
 import { useId, useRef, useState } from "react";
 /** Small lists stay native. Larger lists expose searchable, keyboard-operable options. */
-export function CourseOptionSelect({options,value,onChange,name,placeholder="請選擇",required=false,label}: {
+export function CourseOptionSelect({options,value,onChange,name,placeholder="請選擇",required=false,label,searchable=false}: {
   options:{id:string;label:string}[];value:string;onChange:(value:string)=>void;name?:string;
-  placeholder?:string;required?:boolean;label:string;
+  placeholder?:string;required?:boolean;label:string;searchable?:boolean;
 }) {
   const id=useId();
   const input=useRef<HTMLInputElement>(null);
@@ -15,7 +15,7 @@ export function CourseOptionSelect({options,value,onChange,name,placeholder="請
   const rows=matches.slice(0,20);
   function choose(next:string){onChange(next);setOpen(false);setQuery("");input.current?.focus();}
   const field="min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
-  if(options.length<=10)return <select className={field} aria-label={label} name={name} value={value} required={required} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select>;
+  if(!searchable&&options.length<=10)return <select className={field} aria-label={label} name={name} value={value} required={required} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select>;
   return <div className="relative" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setOpen(false);}}>
     {name && <input type="hidden" name={name} value={value}/>}
     <input ref={input} role="combobox" aria-label={label} aria-expanded={open} aria-controls={id} aria-autocomplete="list" aria-activedescendant={open && rows[active] ? `${id}-${active}`:undefined}

@@ -1,4 +1,5 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsFeeSetup} from "@/lib/sports-staging-types";
 import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
@@ -161,6 +162,7 @@ export async function saveCoursePointPlan(input: unknown) {
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true,sportsSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId,user } = await courseManager("plans.edit");
     if(sportsSetup){
+      if(sportsSetup.compensation){await courseManager("teacher.compensation.manage");if(user.role!=="OWNER"&&user.role!=="ADMIN")throw new AppError("FORBIDDEN","僅店長可設定運動計酬");}
       const {requireSportsStaging}=await import('@/lib/sports-staging');requireSportsStaging(storeId);
       await courseManager('booking.create');await courseManager('staff.manage');
       if(!receipt)throw new AppError('VALIDATION','缺少收費設定請求');
@@ -472,6 +474,7 @@ export async function updateCourseBookingStatus(input: unknown) {
       return settled.sessionId;
     }, async (auditResult, tx) => { await enqueueOperationAudit({
       actorUserId: actor.userId,
+      ...(sportsNativePreview(actor.storeId)?{actorNameSnapshot:actor.name}:{}),
       storeId: actor.storeId,
       module: "COURSE",
       targetType: "CourseBooking",
@@ -486,8 +489,10 @@ export async function updateCourseBookingStatus(input: unknown) {
       });
 
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
-    if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
-    else refresh();
+    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(actor.storeId)){
+      if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
+      else refresh();
+    }
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -644,32 +649,32 @@ export async function stopFutureCourseLessons(input: unknown) {
   }
 }
 
-export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false) {
+export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false, trialOnly = false) {
   try {
     const { user, storeId } = await courseManager("booking.read");
     id.parse(sessionId);
     const { getCourseRoster, getCourseCards } =
       await import("@/server/queries/course-members");
     const { checkPermission } = await import("@/lib/permissions");
-    const canReadCards = await checkPermission(
-      user.role,
-      user.staffId,
-      "wallet.read",
-    );
-    const canCreate = await checkPermission(
-      user.role,
-      user.staffId,
-      "booking.create",
-    );
-    const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}} } });
+    const trialSettingsPromise=import("@/lib/shop-config").then(m=>m.getTrialSettings(storeId));
+    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,session,musicStore,waitlistSetting] = await Promise.all([
+      ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
+    ]).then(async permissions=>{
+      const [session,music,setting]=await Promise.all([
+       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
+       isMusicCourseStoreFromEntitlements(prisma,storeId),
+       coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
+      ]);
+      return [...permissions,session,music,setting] as [boolean,boolean,boolean,boolean,boolean,boolean,boolean,typeof session,boolean,typeof setting];
+    });
+    const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-    const musicStore = await isMusicCourseStoreFromEntitlements(prisma, storeId);
-    const waitlistSetting = await coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}});
+    const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
+    const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly ? getCourseCards(storeId) : [],
-      canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,sportsNativePreview(storeId)?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}}]},entries:false}:undefined) : [],
+      canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
       }).then(async leaves => {
@@ -703,13 +708,13 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           };
         }),
         trial: {
-          settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
-          canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
-          canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
-          canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
-          customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
+          settings: await trialSettingsPromise,
+          canCreate: canCreate && canTrial,
+          canCollect: canCollectTrial,
+          canCorrect: canCorrectTrial,
+          customers: !rosterOnly && canCreate && canTrial && (!sportsNativePreview(storeId)||trialOnly) ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && session.template.waitlistEnabled, waitlistStopMinutes: session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -730,7 +735,7 @@ export async function loadCourseRosterQuick(sessionId: string) {
     const { storeId } = await courseManager("booking.read");
     authMs = Date.now() - startedAt;
     id.parse(sessionId);
-    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true,waitlistEnabled:true}}}});
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}}});
     sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
@@ -782,10 +787,10 @@ export async function saveCourseRosterNote(input: unknown) {
       if(data.expectedNote === undefined) refresh();
       return {success:true as const};
     } else {
-      const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null},data:{teacherNote:data.note}});
-      if(!result.count)throw new AppError("NOT_FOUND","找不到本店課程");
+      const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
+      if(!result.count){const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});if(!current)throw new AppError("NOT_FOUND","找不到本店課程");if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};}
     }
-    refresh();return {success:true as const};
+    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(storeId))refresh();return {success:true as const};
   } catch(error) {return handleActionError(error);}
 }
 
@@ -852,8 +857,10 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
     const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const skip = z.number().int().min(0).max(1000000).parse(offset);
-    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
-    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
+    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true, coachId:true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
+    const native=sportsNativePreview(storeId);
+    const coaches=native?await prisma.staff.findMany({where:{storeId,id:{in:bookings.map(b=>b.session.coachId)}},select:{id:true,displayName:true}}):[];
+    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, absenceKind:b.absenceKind, coachName:coaches.find(c=>c.id===b.session.coachId)?.displayName, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? (native&&b.bookingKind!=="TRIAL"?"點名時核對方案":"體驗（不使用方案）"), expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
   } catch (e) { const failure=handleActionError(e);return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
 }
 
@@ -895,7 +902,7 @@ export async function updateCourseRosterBatch(input: unknown) {
       writeMs = Date.now() - writeStartedAt;
     }, async (auditResult, tx) => { for (const booking of data.bookings) {
       await enqueueOperationAudit({
-        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        actorUserId: user.id, ...(sportsNativePreview(storeId)?{actorNameSnapshot:user.name??"門市人員"}:{}), storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ CHECKED_IN: "課程報到", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到", RESERVED: "恢復待點名" } as const)[data.target],
       }, tx);
@@ -940,7 +947,7 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
       }
     }, async (auditResult, tx) => { for (const booking of data.bookings) {
       await enqueueOperationAudit({
-        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        actorUserId: user.id, ...(sportsNativePreview(storeId)?{actorNameSnapshot:user.name??"門市人員"}:{}), storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ RESERVED: "恢復待點名", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到" } as const)[data.target],
       }, tx);

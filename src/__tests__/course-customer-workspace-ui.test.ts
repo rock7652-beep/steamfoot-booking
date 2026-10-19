@@ -24,6 +24,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCus
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-list",()=>({CourseCustomerList:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-health",()=>({CourseCustomerHealth:()=>null}));
+vi.mock("@/server/actions/sports-staging",()=>({saveSportsFee:vi.fn()}));
 import {CourseMemberWorkspace} from "@/app/(dashboard)/dashboard/courses/member-workspace";
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};

@@ -66,6 +66,7 @@ interface Props {
   buildViewHref: (row: CustomerRow) => string;
   /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
   quickAssignLabel?: string;
+  quickAssignInMenu?:boolean;
   onQuickAssign?: (row: CustomerRow) => void;
   /**
    * 啟用批次選取模式（顯示 checkbox 欄）。只在 canAssign=true 時開啟。
@@ -114,6 +115,7 @@ export function CustomersTable({
   onPrefetch,
   buildViewHref,
   onQuickAssign,
+  quickAssignInMenu=false,
   quickAssignLabel = "＋指派",
   selectionEnabled = false,
   selectedIds,
@@ -297,7 +299,7 @@ export function CustomersTable({
         }
         return (
           <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-            {onQuickAssign ? (
+            {onQuickAssign&&!quickAssignInMenu ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -310,7 +312,7 @@ export function CustomersTable({
                 {quickAssignLabel}
               </button>
             ) : null}
-            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet>{quickAssignInMenu&&onQuickAssign&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onQuickAssign(c)}>{quickAssignLabel}</button>}<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
           </div>
         );
       },

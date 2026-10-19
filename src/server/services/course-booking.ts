@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { isMusicCourseStore, readCourseBusinessProfile } from "./course-business-profile";
 import { courseDebitPolicy, courseBookingWasDebited, correctedCourseBookingWillDebit } from "@/lib/course-debit-policy";
 import { assertCourseSelfBookingEnabled, assertCourseSelfLeaveEnabled, assertCourseSelfRescheduleEnabled } from "./course-self-booking";
@@ -26,9 +27,10 @@ export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
 export async function syncCourseRelease(tx: Prisma.TransactionClient, storeId: string, sessionId: string) {
   const session = await tx.courseSession.findFirst({ where: { id: sessionId, storeId, cancelledAt: null }, select: { teacherAttendance: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true } });
   if (!session) return;
+  const sports = sportsNativePreview(storeId);
   const [active, leave] = await Promise.all([
-    tx.courseBooking.count({ where: { storeId, sessionId, status: { not: "CANCELLED" } } }),
-    tx.courseBooking.count({ where: { storeId, sessionId, status: "CANCELLED", absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"] } } }),
+    tx.courseBooking.count({ where: { storeId, sessionId, status: sports ? { notIn: ["CANCELLED", "NO_SHOW"] } : { not: "CANCELLED" } } }),
+    tx.courseBooking.count({ where: { storeId, sessionId, OR: [{ status: "CANCELLED", absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"] } }, ...(sports ? [{status: "NO_SHOW"}] : [])] } }),
   ]);
   const shouldRelease = active === 0 && (["LEAVE", "NO_SHOW"].includes(session.teacherAttendance) || leave > 0);
   if (shouldRelease !== Boolean(session.releasedAt)) {
@@ -368,11 +370,19 @@ export async function settleCourseBooking(
   noShowChoice: CourseNoShowChoice = "DEDUCTED",
   options: { memberReschedule?: boolean; suppressNotice?: boolean } = {},
 ) {
-  const booking = await tx.courseBooking.findFirst({
+  let booking = await tx.courseBooking.findFirst({
     where: { id: bookingId, storeId: actor.storeId },
     include: { session: true, card: { include: { members: true } } },
   });
   if (!booking) return fail("找不到本店預約");
+  if(sportsNativePreview(actor.storeId)&&booking.bookingKind==="UNPAID"&&(target==="ATTENDED"||target==="NO_SHOW")&&(booking.requestKey.startsWith("sports-fixed:")||booking.requestKey.startsWith("sports-makeup:"))){
+    const {bindSportsAttendanceCard}=await import("./sports-permanent-series");
+    await bindSportsAttendanceCard(tx,actor,bookingId);
+    booking=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true,card:{include:{members:true}}}});
+    if(!booking?.cardId) return fail("學員尚未有可扣抵方案");
+  }
+
+  if(sportsNativePreview(actor.storeId)&&booking.requestKey?.startsWith("sports-fixed:")&&target==="NO_SHOW")noShowChoice="DEDUCTED_WITH_MAKEUP";
   // A member's cancellation cannot choose a different music debit policy.
   // Rescheduling transfers the reservation atomically and is not a leave.
   if (actor.customerId && booking.cardId && target === "CANCELLED" && !options.memberReschedule &&
@@ -439,7 +449,7 @@ export async function settleCourseBooking(
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
   if(!options.suppressNotice && (target === "STUDENT_LEAVE" || target === "CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:target==="STUDENT_LEAVE"?"LEAVE":"CANCEL",customerName:booking.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt,details:{absenceKind:target==="STUDENT_LEAVE"?(musicGroupLeave?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"):null}});
-  if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
+  if (sportsNativePreview(actor.storeId) || target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
   if (!booking.cardId && booking.bookingKind === "TRIAL" && target === "ATTENDED") {
     await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${`course-trial-care-completed:${actor.storeId}:${booking.id}`},${actor.userId},${actor.storeId},'COURSE','完成體驗課程，供啟用後關懷判斷','CourseBooking',${booking.id},'COURSE_TRIAL_CARE_COMPLETED',NOW()) ON CONFLICT (id) DO NOTHING`;
   }
@@ -462,13 +472,16 @@ export async function settleCourseBooking(
     !booking.card?.termSessionIds?.length &&
     booking.card
   ) {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
-    const makeupCard = await tx.coursePointCard.create({
+    const sportsFixed=sportsNativePreview(actor.storeId)&&(booking.requestKey?.startsWith("sports-fixed:")??false);
+    const expiresAt = sportsFixed?dayRange("2099-12-31").end:new Date();
+    if(!sportsFixed)expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
+    const recalled = sportsNativePreview(actor.storeId) ? await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${booking.id}`}}}) : null;
+    if(recalled && (!recalled.closedAt || recalled.remaining!==0))return fail("原缺課補課資格尚未完成撤銷，請先核對");
+    const makeupCard = recalled ? await tx.coursePointCard.update({where:{id:recalled.id},data:{closedAt:null,remaining:booking.pointCost,expiresAt}}) : await tx.coursePointCard.create({
       data: {
         storeId: actor.storeId,
         planId: booking.card.planId,
-        nameSnapshot: `補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
+        nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
         unit: booking.card.unit,
         templateIds: [booking.session.templateId],
         termSessionIds: [],
@@ -477,7 +490,7 @@ export async function settleCourseBooking(
         requestKey: `no-show-makeup:${booking.id}`,
       },
     });
-    await tx.courseCardMember.create({
+    if(!recalled)await tx.courseCardMember.create({
       data: {
         storeId: actor.storeId,
         cardId: makeupCard.id,
@@ -504,6 +517,7 @@ export async function correctCourseAttendance(
   options:{suppressNotice?:boolean}={},
 ) {
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: true } });
+  if(sportsNativePreview(actor.storeId)&&b?.status==="RESERVED"&&b.status===expectedStatus&&(target==="ATTENDED"||target==="NO_SHOW")&&b.requestKey?.startsWith("sports-fixed:"))return settleCourseBooking(tx,actor,bookingId,target);
   const restoringLeave = b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && target === "RESERVED" && expectedStatus === "CANCELLED";
   const cancellingLeave = target === "CANCELLED" && b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(b.absenceKind ?? "");
   if (!b || (b.status === "CANCELLED" && !restoringLeave && !cancellingLeave) || b.session.cancelledAt) return fail("此預約無法更正");
@@ -511,16 +525,17 @@ export async function correctCourseAttendance(
   if (b.status === target && !cancellingLeave) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
-  if (target === "CANCELLED" && b.status === "NO_SHOW") {
+  if ((target === "CANCELLED" || sportsNativePreview(actor.storeId)&&target === "RESERVED") && b.status === "NO_SHOW") {
     const coupon=await tx.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`no-show-makeup:${b.id}`}},select:{id:true,remaining:true,closedAt:true}});
     if(coupon && !coupon.closedAt) {
       const used=await tx.courseBooking.count({where:{storeId:actor.storeId,cardId:coupon.id,status:{not:"CANCELLED"}}});
       if(used || coupon.remaining < b.pointCost)return fail("此缺席的補課券已使用或預約，請先處理補課再取消原堂");
       await tx.coursePointCard.update({where:{id:coupon.id},data:{remaining:0,closedAt:new Date()}});
-      await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId:coupon.id,actorUserId:actor.userId,kind:`CANCEL_SOURCE:${b.id}`,points:coupon.remaining}});
+      await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId:coupon.id,actorUserId:actor.userId,kind:sportsNativePreview(actor.storeId)?"VOID":`CANCEL_SOURCE:${b.id}`,points:coupon.remaining}});
     }
   }
   if (restoringLeave) {
+    if(sportsNativePreview(actor.storeId)&&b.requestKey?.startsWith("sports-fixed:")&&await tx.courseBooking.findFirst({where:{storeId:actor.storeId,requestKey:{startsWith:`sports-makeup:${b.id}:`},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}}))return fail("此請假已安排補課，請先取消補課再恢復原堂");
     if (["STUDENT_LEAVE", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
     const [occupied, duplicate] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
@@ -531,7 +546,7 @@ export async function correctCourseAttendance(
     if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
   if (b.absenceKind === "TEACHER_ABSENT") await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','恢復授課：學員回到待點名，未重扣','CourseBooking',${b.id},'COURSE_TEACHER_ABSENCE_RESTORE',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,pointsUsed:0})}::jsonb,NOW())`;
-  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
+  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (sportsNativePreview(actor.storeId) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=courseBookingWasDebited(b);
   const willDebit=correctedCourseBookingWillDebit(target);
@@ -551,9 +566,10 @@ export async function correctCourseAttendance(
   }
   if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
-  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  const deferred=sportsNativePreview(actor.storeId)&&target==="RESERVED"&&(b.requestKey?.startsWith("sports-fixed:")||b.requestKey?.startsWith("sports-makeup:"))&&b.bookingKind!=="TRIAL";
+  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target,...(deferred?{cardId:null,bookingKind:"UNPAID",pointCost:0,makeupForBookingId:null}:{}), absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
   if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});
-  if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
+  if (sportsNativePreview(actor.storeId) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
   return updated;
 }
 

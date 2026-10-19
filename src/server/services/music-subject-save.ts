@@ -1,4 +1,5 @@
 import "server-only";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { createHash } from "node:crypto";
 import { musicSubjectSaveInput } from "@/lib/music-subject-save";
 import { prisma } from "@/lib/db";
@@ -12,7 +13,7 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     const { id, expectedUpdatedAt, expectedStoreId, requestKey, ...values } = musicSubjectSaveInput.parse(input);
     const { storeId, user } = await courseManager(id ? "booking.update" : "booking.create");
     if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "店舖已切換，請回原店確認後再操作。");
-    if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
+    if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:sportsNativePreview(storeId)?"business.fitness":"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("FORBIDDEN", "此功能僅適用音樂教室");
     const receiptId = id ?? `subject_${createHash("sha256").update(JSON.stringify([storeId, user.id, requestKey])).digest("hex")}`;
     const row = await courseTransaction(storeId, async tx => {

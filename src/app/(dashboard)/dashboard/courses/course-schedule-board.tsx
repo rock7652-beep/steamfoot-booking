@@ -1,4 +1,6 @@
 "use client";
+import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {sportsCalendarPresentation} from "@/lib/sports-calendar-presentation";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -43,6 +45,7 @@ type Session = {
   pointCost: number;
   teacherAttendance?: string;
   requestKey?: string;
+  sportsPalette?:boolean;
   isFixed?: boolean;
   isBiweekly?: boolean;
   rescheduledFromStartsAt?: string | null;
@@ -88,6 +91,7 @@ type Template = {
 };
 
 export type CourseMoveClipboard = {
+  startsAt?:string;
   sessionId: string;
   templateId: string;
   coachId: string;
@@ -99,6 +103,7 @@ export type CourseMoveClipboard = {
 };
 
 type Props = {
+  sportsNative?:boolean;
   businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
   selectedDate: string;
@@ -120,9 +125,9 @@ type Props = {
   storePeriods: {openTime:string;closeTime:string}[];
   staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
-  onOpenEmpty: (value:{date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
+  onOpenEmpty: (value:{single?:boolean;date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
   moveClipboard?: CourseMoveClipboard | null;
-  onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
+  onPasteMove?: (value:{date?:string;time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
   readOnly?: boolean;
@@ -148,6 +153,7 @@ function sessionDurationMinutes(session: Session) {
 }
 
 function originalPlace(session: Session): Session | null {
+  if(session.sportsPalette&&!session.isFixed)return null;
   if (!session.rescheduledFromStartsAt || !session.rescheduledFromEndsAt || !session.rescheduledFromRoomId || !session.rescheduledFromCoachId) return null;
   return {
     ...session,
@@ -273,7 +279,7 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
-  const presentation = courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
+  const presentation = session.sportsPalette?sportsCalendarPresentation(session):courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
@@ -305,15 +311,17 @@ function SessionCard({
     <button
       type="button"
       onClick={onOpen}
+      tabIndex={session.sportsPalette&&session.previewFaded?-1:undefined}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 border-earth-300 bg-white ${session.previewFaded ? "border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.sportsPalette?sportsCalendarPresentation(session).card:"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
-      {(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
+      {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
@@ -369,7 +377,8 @@ function SessionCard({
             {session.isBiweekly ? "隔週固定" : "每週固定"}
           </span>
         )}
-        {fixed && businessProfile !== "MUSIC" && (
+        {session.sportsPalette && <span className="text-[10px] font-medium">{presentation.label}</span>}
+        {fixed && businessProfile !== "MUSIC" && !session.sportsPalette && (
           <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">{session.isBiweekly ? "隔週" : "固定"}</span>
         )}
         {businessProfile === "MUSIC" && !fixed && (
@@ -411,6 +420,7 @@ function SessionCard({
 }
 
 export function CourseScheduleBoard({
+  sportsNative=false,
   legend,
   assignedFiltered = false,
   businessProfile,
@@ -440,6 +450,15 @@ export function CourseScheduleBoard({
   readOnly = false,
   replica = false,
 }: Props) {
+  function releasedSeed(date:string,time:string,resourceId:string,view:ResourceView) {
+    if(!sportsNative)return {};
+    const source=sessions.map(s=>s.previewFaded?s:originalPlace(s)).find(s=>s&&(view==="room"?s.roomId:s.coachId)===resourceId&&sessionDate(s)===date&&minuteOfDay(time)>=minuteOfDay(hhmm(s.startsAt))&&minuteOfDay(time)<minuteOfDay(hhmm(s.endsAt)));
+    return source?{roomId:source.roomId,coachId:source.coachId}:{};
+  }
+  function openCard(session:Session,date:string) {
+    if(sportsNative&&session.previewFaded){if(canCreate&&!pending&&!readOnly)onOpenEmpty({date,time:hhmm(session.startsAt),roomId:session.roomId,coachId:session.coachId,durationMinutes:Math.round((new Date(session.endsAt).getTime()-new Date(session.startsAt).getTime())/60000),single:true});return;}
+    onOpenSession(session.id,date);
+  }
   const activeRooms = rooms.filter((room) => room.isActive || sessions.some(session => session.roomId === room.id));
   const knownRooms = new Set(activeRooms.map(room => room.id));
   for (const session of sessions) if (!knownRooms.has(session.roomId)) { activeRooms.push({id:session.roomId,name:"未建檔教室",isActive:false}); knownRooms.add(session.roomId); }
@@ -448,16 +467,18 @@ export function CourseScheduleBoard({
   );
   const knownCoaches = new Set(activeCoaches.map(coach=>coach.id));
   for(const session of sessions) if(!knownCoaches.has(session.coachId)) { activeCoaches.push({id:session.coachId,displayName:"未建檔老師",status:"INACTIVE",courseCoachEnabled:false}); knownCoaches.add(session.coachId); }
-  const [resourceView, updateResourceView] = React.useState<ResourceView>(initialResourceView ?? (businessProfile === "MUSIC" && !replica ? "coach" : "room"));
-  const [weekRoomId, setWeekRoomId] = React.useState(initialWeekRoomId ?? activeRooms[0]?.id ?? "");
+  const [resourceView, updateResourceView] = useSportsCalendarState<ResourceView>(sportsNative,"resourceView",initialResourceView ?? (businessProfile === "MUSIC" && !replica ? "coach" : "room"),calendarResource);
+  const [weekRoomId, setWeekRoomId] = useSportsCalendarState(sportsNative,`resourceId:${resourceView}`,initialWeekRoomId ?? activeRooms[0]?.id ?? "",calendarString);
+  React.useEffect(()=>{if(sportsNative&&initialResourceView)updateResourceView(initialResourceView);},[sportsNative,initialResourceView,updateResourceView]);
+  React.useEffect(()=>{if(sportsNative&&initialWeekRoomId)setWeekRoomId(initialWeekRoomId);},[sportsNative,initialWeekRoomId,setWeekRoomId]);
   function setResourceView(view:ResourceView) { updateResourceView(view); onResourceChange?.(view); }
-  const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
-  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(businessProfile === "MUSIC" ? 60 : 30);
+  const [quickFilter, setQuickFilter] = useSportsCalendarState<QuickFilter>(sportsNative,"quickFilter","all",(v):v is QuickFilter=>v==="all"||v==="trial"||v==="near-full"||v==="full"||v==="pending");
+  const [availabilityDuration, setAvailabilityDuration] = useSportsCalendarState<30 | 60 | 90 | 120>(sportsNative,"availabilityDuration",businessProfile === "MUSIC" ? 60 : 30,(v):v is 30|60|90|120=>v===30||v===60||v===90||v===120);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
   React.useEffect(() => {
-    if (businessProfile !== "MUSIC" || mode !== "day" || !moveClipboard) {
+    if (sportsNative || businessProfile !== "MUSIC" || mode !== "day" || !moveClipboard) {
       setMatchedSlots(null);
       setTeacherChoice(null);
       return;
@@ -479,7 +500,7 @@ export function CourseScheduleBoard({
       else setMatchError(result.error ?? "空位暫時無法讀取");
     }).catch(() => { if (current) setMatchError("空位暫時無法讀取，請重試"); });
     return () => { current = false; };
-  }, [businessProfile, mode, selectedDate, moveClipboard]);
+  }, [businessProfile, sportsNative, mode, selectedDate, moveClipboard]);
   const boardRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     const board = boardRef.current;
@@ -506,6 +527,9 @@ export function CourseScheduleBoard({
     return () => { window.removeEventListener("scroll", schedule, true); board.removeEventListener("scroll", schedule, true); window.removeEventListener("resize", schedule); observer?.disconnect(); window.cancelAnimationFrame(frame); };
   }, [mode, selectedDate, weekRoomId, resourceView, sessions]);
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
+  const weekScrollRef=React.useRef<HTMLDivElement>(null);
+  useSportsCalendarScroll(sportsNative&&mode==="week",`week:${resourceView}`,weekScrollRef);
+  useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
   const hourHeight = 96;
@@ -523,7 +547,7 @@ export function CourseScheduleBoard({
     const matchesResource = (session:Session) => (resourceView === "room" ? session.roomId : session.coachId) === roomId;
     const weekSessions = sessions.filter((session) => matchesResource(session) && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
-    const weekLanes = scheduleLanes(weekSessions,resourceView === "room" ? "roomId" : "coachId");
+    const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
     const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
     const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
@@ -538,7 +562,7 @@ export function CourseScheduleBoard({
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
-        <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
+        <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
@@ -570,7 +594,7 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:30})} className={`group relative min-h-11 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? sportsNative&&moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${sportsNative&&moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{sportsNative&&moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -578,8 +602,8 @@ export function CourseScheduleBoard({
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
-                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
+                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;
               })}
@@ -630,7 +654,7 @@ export function CourseScheduleBoard({
                           fixed={session.isFixed}
                           leaveCount={leaveCounts[session.id] ?? 0}
                           readOnly={readOnly}
-                          onOpen={() => onOpenSession(session.id, date)}
+                          onOpen={() => openCard(session, date)}
                         />
                       ))
                     ) : (
@@ -897,7 +921,7 @@ export function CourseScheduleBoard({
                         <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
-                             const duration=moveClipboard?.durationMinutes ?? availabilityDuration;
+                             const duration=moveClipboard?.durationMinutes ?? (sportsNative?30:availabilityDuration);
                              const targetRoomId=moveClipboard
                                ? resourceView==="room" ? resource.id : moveClipboard.roomId
                                : resourceView==="room" ? resource.id : "";
@@ -922,7 +946,7 @@ export function CourseScheduleBoard({
                                : null;
                              const enabled = resourceView === "room" ? rooms.some(room=>room.id===resource.id && room.isActive) : coaches.some(coach=>coach.id===resource.id && coach.status==="ACTIVE" && coach.courseCoachEnabled);
                              const available=moveClipboard
-                               ? Boolean(serverMatch) && !matchError
+                               ? sportsNative ? enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict : Boolean(serverMatch) && !matchError
                                : enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict;
                              const origin = movedShadows.find((session) => {
                                const starts = session.rescheduledFromStartsAt;
@@ -943,9 +967,9 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly||!canCreate}
-                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
-                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
-                                 onClick={()=>available&&(moveClipboard&&onPasteMove
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${sportsNative?"貼上課程":choiceLabel}`:`${startTime} 可排 ${sportsNative?60:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${sportsNative?"貼上課程":choiceLabel}`:`${startTime} 可排 ${sportsNative?60:availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
+                                 onClick={()=>available&&(sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date:selectedDate,time:startTime,roomId:resourceView==="room"?resource.id:moveClipboard.roomId,coachId:resourceView==="coach"?resource.id:moveClipboard.coachId}):moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
                                          ? onPasteMove({time:startTime,roomId:resource.id,coachId:coachIds[0]})
@@ -953,8 +977,8 @@ export function CourseScheduleBoard({
                                        : matches.length === 1
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
-                                   : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
-                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
+                                   : onOpenEmpty({time:startTime,durationMinutes:sportsNative?60:availabilityDuration,...(sportsNative?{single:true}:{}),...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id}),...releasedSeed(selectedDate,startTime,resource.id,resourceView)}))}
+                                 className={`group relative ${sportsNative?"hover:z-20 focus-visible:z-20":""} touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}
                                  {!readOnly&&<span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>}
@@ -974,7 +998,7 @@ export function CourseScheduleBoard({
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={timelineDense ? `absolute left-1 right-1 z-10 pointer-events-auto` : "pointer-events-auto"}
+                            className={timelineDense ? `absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":"pointer-events-auto"}` : "pointer-events-auto"}
                             style={timelineDense ? {
                               left: `calc(${(dayLanes.get(session.id)?.lane ?? 0) * 100 / (dayLanes.get(session.id)?.count ?? 1)}% + 4px)`,
                               right: "auto",
@@ -995,7 +1019,7 @@ export function CourseScheduleBoard({
                               wide={resourceCount === 1 && (dayLanes.get(session.id)?.count ?? 1) === 1}
                               dense={timelineDense}
                               resourceView={resourceView}
-                              onOpen={() => onOpenSession(session.id, selectedDate)}
+                              onOpen={() => openCard(session, selectedDate)}
                             />
                           </div>
                         ))}

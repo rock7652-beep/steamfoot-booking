@@ -1,4 +1,8 @@
 "use client";
+import bookingLayout from "./sports-booking-layout.module.css";
+import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
+import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { RosterReminders as SharedRosterReminders } from "@/components/admin/roster-reminders";
@@ -90,6 +94,8 @@ function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof ge
 }
 
 export function CourseRoster({
+  sportsNative=false,
+  onBusyChange,refreshVersion=0,
   sessionId,
   capacity,
   canEdit,
@@ -97,6 +103,7 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onCommitted,
   onAttendanceOptimistic,
   onTeacherAttendanceOptimistic,
   onCreateCustomer,
@@ -115,9 +122,13 @@ export function CourseRoster({
   capacity: number;
   canCreate: boolean;
   canEdit: boolean;
+  sportsNative?:boolean;
+  refreshVersion?:number;
+  onBusyChange?:(busy:boolean)=>void;
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onCommitted?: () => void;
   onAttendanceOptimistic?: (bookingId: string, status: "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED" | null, leave?:boolean) => void;
   onTeacherAttendanceOptimistic?: (status: "SCHEDULED" | "LEAVE" | "NO_SHOW" | null) => void;
   onCreateCustomer?: () => void;
@@ -133,6 +144,7 @@ export function CourseRoster({
   initialAssignedCoach?: string;
 }) {
   const router = useRouter();
+  const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
   const noteEditorTitleId = useId();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
@@ -155,6 +167,7 @@ export function CourseRoster({
   const uncertain = operationScope.current.uncertain;
   const pending = transitionPending || uncertain;
   const bulkPending = pending || savingBookingIds.length > 0;
+  useEffect(()=>{onBusyChange?.(bulkPending);return()=>onBusyChange?.(false);},[bulkPending,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -207,6 +220,7 @@ export function CourseRoster({
     name: string;
     trial: boolean;
     term: boolean;
+    fixed?:boolean;
   } | null>(null);
   const [cancelBooking, setCancelBooking] = useState<{
     id: string;
@@ -241,6 +255,7 @@ export function CourseRoster({
   const [futureStopError, setFutureStopError] = useState("");
   const [futureStopPending, setFutureStopPending] = useState(false);
   const [requestKey, setRequestKey] = useState("");
+  const [noteError,setNoteError]=useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
   const infoGuard = useCustomerPanelGuard();
@@ -289,6 +304,7 @@ export function CourseRoster({
   }
 
   async function load(reportError = true): Promise<"loaded" | "failed" | "stale"> {
+    if(sportsNative)sportsDetailReader.clear();
     const scope = operationScope.current;
     const version = ++readVersion.current;
     const isCurrent = () => rosterMounted.current && scope === operationScope.current && version === readVersion.current;
@@ -314,14 +330,16 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
+    let readInFlight = false;
 
     const refresh = () => {
-      if (operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve();
+      if ((sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
+      readInFlight = true;
       const version = ++readVersion.current;
-      return loadCourseSessionDetail(sessionId, view === "roster")
+      return (sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
 
         .then((result) => {
-          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
+          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return null;
           if (result.success) {
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -333,13 +351,16 @@ export function CourseRoster({
             setCanPurchase(result.data.canPurchase);
             setLoaded(true);
             setRequestKey((current) => current || crypto.randomUUID());
+            return true;
           } else {
             setMessage(result.error);
+            return false;
           }
         })
         .catch(() => {
           if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
-        });
+          return false;
+        }).finally(() => { readInFlight = false; });
     };
     void refresh();
     const refreshVisibleRoster = () => {
@@ -347,6 +368,10 @@ export function CourseRoster({
         void refresh();
       }
     };
+    if (sportsNative && view === "roster") {
+      const stop = startSportsBackgroundSync(refresh, () => operationScope.current.locked || operationScope.current.uncertain || operationScope.current.inFlight.size > 0);
+      return () => { active = false; stop(); };
+    }
     const timer =
       view === "roster"
         ? window.setInterval(refreshVisibleRoster, 60_000)
@@ -359,7 +384,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view]);
+  }, [sessionId, view, sportsNative, sportsDetailReader,refreshVersion]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -467,6 +492,7 @@ export function CourseRoster({
           }
         }
         applyConfirmed();
+        if(sportsNative)onCommitted?.();
         feedback({ phase: "saved", message: "" });
         if (sequence === scope.sequence && !scope.uncertain) setMessage(successMessage);
         if (!bookingId) {
@@ -487,7 +513,7 @@ export function CourseRoster({
             }
           }
           if (!bookingId && isCurrent()) {
-            router.refresh();
+            if(!sportsNative)router.refresh();
             if (outcome === "saved" && !scope.uncertain && view !== "roster") onDone?.();
           }
         }
@@ -720,7 +746,7 @@ export function CourseRoster({
     return (
       <form
         id="course-member-booking-form"
-        className="space-y-3"
+        className={sportsNative?bookingLayout.member:"space-y-3"}
         onSubmit={(event) => {
           event.preventDefault();
           if (!customerId || !cardId) {
@@ -751,7 +777,7 @@ export function CourseRoster({
         }}
       >
         {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
-        <div>
+        <div data-member-search>
           <label htmlFor="course-member-search" className="mb-1 block text-sm font-medium">
             先找學員
           </label>
@@ -771,7 +797,7 @@ export function CourseRoster({
             <p className="mt-2 text-sm text-earth-500">輸入關鍵字後才會顯示符合的學員。</p>
           )}
           {normalizedMemberQuery && (
-            <div className="mt-2 max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200 bg-white">
+            <div data-search-results className="mt-2 max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200 bg-white">
               {filteredLearners.length ? (
                 filteredLearners.map((member) => {
                   const memberCards = eligibleCardsFor(member.id);
@@ -826,7 +852,7 @@ export function CourseRoster({
               ＋ 直接建立新顧客
             </button>
           )}
-          {allowTrialActions && onCreateCustomer && (
+          {!sportsNative&&allowTrialActions && onCreateCustomer && (
             <p className="mt-2 text-xs text-earth-500">
               新顧客可直接建檔並以體驗預約加入本堂，不必先前往顧客管理。
             </p>
@@ -845,8 +871,8 @@ export function CourseRoster({
         </fieldset>}
         {enrollmentLoading && <p role="status" className="text-xs text-earth-500">確認後續堂次中…</p>}
         {customerId && (
-          <div className="space-y-3 rounded-xl border border-earth-200 bg-earth-50 p-3">
-            <p className="text-sm text-earth-600">已選學員</p>
+          <div data-member-selected className="space-y-3 rounded-xl border border-earth-200 bg-earth-50 p-3">
+            {!sportsNative&&<p className="text-sm text-earth-600">已選學員</p>}
             <p className="font-medium">
               {learners.find((member) => member.id === customerId)?.name}
             </p>
@@ -895,7 +921,7 @@ export function CourseRoster({
             )}
             <label className="block text-sm font-medium">
               本次備註
-              <textarea className={`${field} mt-1 min-h-20`} name="notes" maxLength={1000} />
+              <textarea rows={sportsNative?1:undefined} className={`${field} mt-1 ${sportsNative?"min-h-11":"min-h-20"}`} name="notes" maxLength={1000} />
             </label>
           </div>
         )}
@@ -923,17 +949,18 @@ export function CourseRoster({
       </label>
     );
     const noteField = (
-      <label className="block text-sm font-medium">
+      <label data-booking-notes className="block text-sm font-medium">
         本次備註
         <textarea
           name="notes"
+          rows={sportsNative?1:undefined}
           maxLength={1000}
           className={`${field} mt-1 min-h-20`}
         />
       </label>
     );
     return (
-      <section className="space-y-4">
+      <section className={sportsNative?"space-y-2":"space-y-4"}>
 
       {message && (
           <p role="status" className="text-sm text-primary-700">
@@ -960,7 +987,7 @@ export function CourseRoster({
         {trialMode === "existing" ? (
           <form
             id="course-trial-booking-form"
-            className="space-y-4"
+            className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
               const allowOverCapacity = occupiedCount >= capacity;
@@ -978,7 +1005,7 @@ export function CourseRoster({
               );
             }}
           >
-            <div>
+            <div data-trial-search>
               <label
                 htmlFor="course-trial-search"
                 className="mb-1 block text-sm font-medium"
@@ -1000,7 +1027,7 @@ export function CourseRoster({
               )}
             </div>
             {normalizedTrialQuery && (
-              <div className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
+              <div data-trial-results className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
                 {filteredTrialCustomers.length ? (
                   filteredTrialCustomers.map((customer) => (
                     <label
@@ -1028,14 +1055,14 @@ export function CourseRoster({
             )}
             {priceField}
             {noteField}
-            <p className="text-sm text-earth-600">
+            {!sportsNative&&<p className="text-sm text-earth-600">
               先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
-            </p>
+            </p>}
           </form>
         ) : (
           <form
             id="course-trial-booking-form"
-            className="space-y-4"
+            className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
               const allowOverCapacity = occupiedCount >= capacity;
@@ -1058,7 +1085,7 @@ export function CourseRoster({
               });
             }}
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div data-trial-identity className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm font-medium">
                 姓名
                 <input
@@ -1081,14 +1108,14 @@ export function CourseRoster({
                 />
               </label>
             </div>
-            <p className="text-sm text-earth-500">
+            {!sportsNative&&<p className="text-sm text-earth-500">
               若手機已存在，請改用「選擇既有顧客」，避免重複建檔。
-            </p>
+            </p>}
             {priceField}
             {noteField}
-            <p className="text-sm text-earth-600">
+            {!sportsNative&&<p className="text-sm text-earth-600">
               建立顧客後會直接加入本堂，並先保留一位名額。
-            </p>
+            </p>}
           </form>
         )}
       </section>
@@ -1101,7 +1128,7 @@ export function CourseRoster({
       <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? "老師" : "授課教練"}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
-        {canEdit ? <button className="min-h-11 max-w-64 truncate text-xs text-earth-600" title={session?.teacherNote || "教師備註"} onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote || "備註 ✎"}</button> : session?.teacherNote && <span className="max-w-64 truncate text-xs">{session.teacherNote}</span>}
+        {canEdit ? <button className="min-h-11 max-w-64 truncate text-xs text-earth-600" title={session?.teacherNote || "教師備註"} onClick={() => {setNoteError("");setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote || "備註 ✎"}</button> : session?.teacherNote && <span className="max-w-64 truncate text-xs">{session.teacherNote}</span>}
         {canEdit && <select aria-label="教師出勤狀態" className={`${button} ml-auto bg-white`} disabled={pending || savingBookingIds.length > 0} value={session?.teacherAttendance ?? "SCHEDULED"} onChange={event => {setTeacherDialog(event.target.value as "SCHEDULED" | "LEAVE" | "NO_SHOW");setTeacherReason("");}}><option value="SCHEDULED">正常授課</option><option value="LEAVE">{musicLayout ? "老師" : "教練"}請假</option><option value="NO_SHOW">{musicLayout ? "老師" : "教練"}曠課</option></select>}
         {musicLayout && canEdit && session?.teacherAttendance === "NO_SHOW" && <button className={button} disabled={pending} onClick={() => {setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
         {session?.teacherAttendanceReason && <span className="w-full text-xs text-earth-600">{session.teacherAttendanceReason}</span>}
@@ -1183,7 +1210,7 @@ export function CourseRoster({
           <label className="text-xs font-medium text-earth-700">預約類型<select aria-label="預約類型篩選" className={rosterFilterClass(kindFilter)} value={kindFilter} onChange={event => {setKindFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="CARD">一般</option><option value="TRIAL">體驗</option><option value="TEACHER_MAKEUP">免費券</option></select></label>
         </div>
         {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && activeRows.length > 1 && <button type="button" className={`${button} self-start`} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
-        {canEdit && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
+        {canEdit && !sportsNative && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
       </RosterToolbar>}
 
       {rosterFiltered && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" role="status"><strong>符合 {scopedRows.filter(row => matchesStatus(row,statusFilter)).length}／全班 {activeRows.length} 位</strong>{activeFilterLabels.map(label => <button type="button" key={label} aria-label={`移除${label}`} className="min-h-11 rounded px-2 text-primary-800" onClick={() => {if(label.startsWith("搜尋：")) setMemberQuery(""); else if(label.startsWith("點名：")) setStatusFilter("all"); else if(label.startsWith("收款：")) setPaymentFilter("all"); else if(label.startsWith("類型：")) setKindFilter("all"); else setAssignedFilter("all"); resetFilterSelection();}}>{label} ×</button>)}<button type="button" className="min-h-11 rounded px-2 font-medium text-primary-800 underline" onClick={clearRosterFilters}>清除篩選</button>{searchedRows.some(row => !matchesStatus(row,statusFilter)) && <span>已操作學員暫留，方便更正</span>}</div>}
@@ -1335,7 +1362,7 @@ export function CourseRoster({
                 </div>
               </div>
               <span className={`${sportsRoster.ownerColumn} text-xs text-earth-600`}>{booking.assignedCoachName || ""}</span>
-              <span className={`${sportsRoster.pointColumn} text-center tabular-nums`}>{booking.bookingKind === "TRIAL" ? "" : booking.bookingKind === "TEACHER_MAKEUP" ? "免費券" : <>{booking.pointCost}{booking.unit === "SESSION" && <span className="ml-1 text-xs">堂</span>}</>}</span>
+              <span className={`${sportsRoster.pointColumn} text-center tabular-nums`}>{booking.bookingKind === "TRIAL" ? "" : booking.bookingKind === "UNPAID"?"點名時扣":booking.bookingKind === "TEACHER_MAKEUP" ? "免費券" : <>{booking.pointCost}{booking.unit === "SESSION" && <span className="ml-1 text-xs">堂</span>}</>}</span>
               <span className={`${sportsRoster.balanceColumn} text-center tabular-nums ${after != null && after <= 0 ? "text-amber-700" : ""}`} title={postClassBalanceDescription}>{after == null ? "" : after < 0 ? "不足" : after}</span>
               <SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit && booking.status !== "CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)} />
               {canEdit && <button type="button" className={`${sportsRoster.more} min-h-11 min-w-11 rounded text-earth-600 hover:bg-earth-100`} aria-label={`${booking.customerName} 更多操作`} aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event => toggleRosterMenu(event.currentTarget,booking.id)}>⋯</button>}
@@ -1343,7 +1370,7 @@ export function CourseRoster({
           })}
           {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">{rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"}</li>}
         </ul>
-        {activeRows.length > 0 && <p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>}
+        {!sportsNative && activeRows.length > 0 && <p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>}
       </div>}
 
 
@@ -1422,7 +1449,7 @@ export function CourseRoster({
               </button>
             </div>
             <div className="mt-5 grid gap-3">
-              <button
+              {!noShowBooking.fixed&&<button
                 type="button"
                 className={`${button} w-full text-left`}
                 disabled={pending}
@@ -1452,6 +1479,7 @@ export function CourseRoster({
                     : "扣除本次方案額度，不發補課券。"}
                 </span>
               </button>
+              }
               {!noShowBooking.trial && !noShowBooking.term && (
                 <button
                   type="button"
@@ -1467,14 +1495,14 @@ export function CourseRoster({
                           status: "NO_SHOW",
                           noShowChoice: "DEDUCTED_WITH_MAKEUP",
                         }),
-                      `已將 ${booking.name} 標記未到，並發放 7 日補課券`,
+                      booking.fixed?`已將 ${booking.name} 標記未到，並保留待補課`:`已將 ${booking.name} 標記未到，並發放 7 日補課券`,
                       {bookingId:booking.id,status:"NO_SHOW"},
                     );
                   }}
                 >
-                  <strong className="block">未到扣堂＋發補課券</strong>
+                  <strong className="block">{noShowBooking.fixed?"未到扣堂＋保留待補課":"未到扣堂＋發補課券"}</strong>
                   <span className="text-xs text-earth-600">
-                    扣除本次方案額度，補課券 7 日內有效。
+                    {noShowBooking.fixed?"完成本次扣抵，缺課紀錄與補課資格於停課後仍保留。":"扣除本次方案額度，補課券 7 日內有效。"}
                   </span>
                 </button>
               )}
@@ -1542,7 +1570,9 @@ export function CourseRoster({
       )}
 
       {editingNote && <ModalPanel open onClose={() => setEditingNote(null)} labelledById={noteEditorTitleId} width={512}>
-        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>{
+        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
+          if(sportsNative){setNoteError("");start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存");}catch{setNoteError("連線失敗，輸入已保留");setMessage("連線失敗，輸入已保留");}});return;}
+          run(()=>{
           if(target.bookingId) {
             // A newer save through the existing details editor also supersedes
             // delayed inline responses for this booking; teacher notes are separate.
@@ -1551,6 +1581,7 @@ export function CourseRoster({
           }
           return saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft});
         },"備註已儲存");setEditingNote(null);}}>
+          {noteError&&<p role="alert" className="mb-2 text-red-700">{noteError}</p>}
           <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
           <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
           <div className="mt-4 flex justify-end gap-2"><button type="button" className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
@@ -1656,7 +1687,7 @@ export function CourseRoster({
         <div data-roster-action-menu className="fixed z-[141] flex w-48 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
           {actionBooking ? <>
             {canEdit && !musicLayout && actionBooking.status !== "CANCELLED" && (actionBooking.companionIndex || (canCreate && sharedCardState === "ENABLED" && actionBooking.canAddCompanion)) && <button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null); setCompanionEditor({bookingId: actionBooking.id, add: !actionBooking.companionIndex});}}>{actionBooking.companionIndex ? "變更使用方式" : "新增同行"}</button>}
-            {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName});}}>缺席・不扣堂</button></>}
+            {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0,fixed:actionBooking.sportsFixed});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName});}}>缺席・不扣堂</button></>}
             {canEdit && !musicLayout && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);run(() => updateCourseRosterBatch({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}
             <button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>標籤與備註</button>
             <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setInfoBookingId(actionBooking.id);setInfoView("history");}}>預約紀錄</button>{canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={actionBooking.id} />}

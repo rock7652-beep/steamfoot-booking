@@ -1,0 +1,15 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),scope:vi.fn(),read:vi.fn()}));
+vi.mock("@/lib/session",()=>({getCurrentUser:m.user}));
+vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.store}));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
+vi.mock("@/server/actions/sports-calendar",()=>({loadSportsCalendar:m.read}));
+import {POST} from "@/app/(dashboard)/dashboard/courses/calendar-read/route";
+const req=(body=JSON.stringify({date:"2026-11-12"}),origin="https://qa.test")=>new Request("https://qa.test/s/sports-live-flow/admin/dashboard/courses/calendar-read",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body});
+beforeEach(()=>{vi.resetAllMocks();m.user.mockResolvedValue({id:"owner"});m.store.mockResolvedValue("sports-live-flow-store");m.scope.mockReturnValue(true);m.read.mockResolvedValue({success:true,data:{sessions:[]}});});
+it("rejects cross-origin reads before loading identity",async()=>{expect((await POST(req(undefined,"https://other.test"))).status).toBe(403);expect(m.user).not.toHaveBeenCalled();expect(m.read).not.toHaveBeenCalled();});
+it("requires a login",async()=>{m.user.mockResolvedValue(null);expect((await POST(req())).status).toBe(401);expect(m.read).not.toHaveBeenCalled();});
+it("refuses production and unrelated stores",async()=>{m.scope.mockReturnValue(false);expect((await POST(req())).status).toBe(403);expect(m.read).not.toHaveBeenCalled();});
+it.each(["null","not-json",JSON.stringify({date:"2026"}),"a".repeat(201)])("rejects malformed or oversized input %s",async body=>{expect((await POST(req(body))).status).toBe(400);expect(m.read).not.toHaveBeenCalled();});
+it("delegates to the existing authorized read and never caches account data",async()=>{const r=await POST(req());expect(m.read).toHaveBeenCalledExactlyOnceWith("2026-11-12");expect(await r.json()).toEqual({success:true,data:{sessions:[]}});expect(r.headers.get("Cache-Control")).toBe("private, no-store");});
+it("preserves the reader's booking permission rejection",async()=>{m.read.mockResolvedValue({success:false,error:"無權限"});expect(await (await POST(req())).json()).toEqual({success:false,error:"無權限"});});

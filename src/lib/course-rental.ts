@@ -12,3 +12,6 @@ export function rentalOccupation(startsAt:Date,endsAt:Date,buffer:number) {
   return {occupiedStartsAt:new Date(startsAt.getTime()-buffer*60000),occupiedEndsAt:new Date(endsAt.getTime()+buffer*60000)};
 }
 export type RentalDetail = {id:string;roomId:string;customerId:string|null;customerName:string;customerPhone:string;startsAt:string;endsAt:string;amount:number;note:string;revision:number;cancelledAt:string|null;hourlyRateSnapshot:number;payment:{id:string;amount:number;paymentMethod:string}|null};
+
+/** Preview sports accepts precise times without changing legacy rental rules. */
+export const sportsRentalInput=rentalInput.extend({time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(5).max(480)});

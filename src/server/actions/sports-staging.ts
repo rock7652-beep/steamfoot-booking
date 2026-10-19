@@ -1,5 +1,7 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { z } from "zod";
+import { sportsCompensation } from "@/lib/sports-staging-types";
 import { createHash } from "node:crypto";
 import { requireSportsStaging } from "@/lib/sports-staging";
 import type { SportsSnapshot, SportsLesson } from "@/lib/sports-staging-types";
@@ -60,15 +62,12 @@ async function result<T extends { success: boolean; error?: string }>(
   if (!r.success) throw new AppError("VALIDATION", r.error ?? "操作失敗");
   return r;
 }
-export async function loadSportsStaging(): Promise<
+export async function loadSportsStaging(formOnly = false): Promise<
   { success: true; data: SportsSnapshot } | { success: false; error: string }
 > {
   try {
     const { storeId } = await actor("booking.read");
-    await courseManager("plans.edit");
-    await courseManager("customer.read");
-    await courseManager("wallet.read");
-    await courseManager("transaction.read");
+    await Promise.all(["plans.edit", "customer.read", "wallet.read", "transaction.read", "teacher.compensation.read"].map(p=>courseManager(p as Parameters<typeof courseManager>[0])));
     const [
       subjects,
       plans,
@@ -90,7 +89,7 @@ export async function loadSportsStaging(): Promise<
         orderBy: { name: "asc" },
       }),
       coursePrisma.courseTemplate.findMany({ where: { storeId } }),
-      coursePrisma.courseSession.findMany({
+      formOnly ? [] : coursePrisma.courseSession.findMany({
         where: { storeId, cancelledAt: null },
         include: {
           bookings: {
@@ -100,7 +99,7 @@ export async function loadSportsStaging(): Promise<
         orderBy: { startsAt: "asc" },
         take: 501,
       }),
-      coursePrisma.courseRental.findMany({
+      formOnly ? [] : coursePrisma.courseRental.findMany({
         where: { storeId, cancelledAt: null },
         include: { payments: { where: { status: "SUCCESS" } } },
         orderBy: { startsAt: "asc" },
@@ -123,8 +122,8 @@ export async function loadSportsStaging(): Promise<
           courseQualifiedTemplateIds: true,
         },
       }),
-      coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true } }),
-      coursePrisma.$queryRaw<
+      coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true },orderBy:{name:"asc"} }),
+      formOnly ? [] : coursePrisma.$queryRaw<
         Array<{
           sessionId: string;
           frequency: string;
@@ -136,6 +135,7 @@ export async function loadSportsStaging(): Promise<
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
+    const compensationRows = await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""}});
     const fees = plans.map((p) => {
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {
@@ -150,6 +150,7 @@ export async function loadSportsStaging(): Promise<
         shared: p.allowShared,
         templateId: t?.id ?? "",
         snapshot: JSON.stringify(coursePlanValues.parse(p)),
+        compensation: (()=>{const parsed=sportsCompensation.safeParse((compensationRows.find(r=>r.templateId===t?.id)?.rules as unknown[])?.[0]);return parsed.success?parsed.data:undefined;})(),
       };
     });
     const lessons: SportsLesson[] = sessions.map((s) => {
@@ -357,6 +358,10 @@ export async function saveSportsFee(input: unknown) {
   try {
     const d = z
       .object({
+        active:z.boolean().optional(),
+        customerPurchasable:z.boolean().optional(),
+        compensation: sportsCompensation.optional(),
+        expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
         subject: id,
         name: z.string().trim().min(1).max(80),
@@ -387,9 +392,12 @@ export async function saveSportsFee(input: unknown) {
       validDays: d.days,
       storeCost: 0,
       allowShared: d.shared,
-      isActive: base.isActive ?? true,
+      isActive: d.active ?? base.isActive ?? true,
+      customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
       templateIds: [],
       sportsSetup: {
+        compensation: d.compensation,
+        expectedCompensation: d.expectedCompensation,
         subject: d.subject,
         cost: d.cost,
         coachIds: d.coachIds,
@@ -432,13 +440,16 @@ export async function sportsStagingCommand(input: unknown) {
           mode: z.enum(["指定學員", "開放選課"]),
           date: z.string(),
           time: z.string(),
-          duration: z.number().int().min(30).max(120),
+          duration: z.number().int().min(5).max(480),
+          waitlistLimit:z.number().int().min(0).max(100).optional(),
+          waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
           count: z.number().int().min(1).max(24),
           coach: z.string(),
           room: z.string(),
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
           price: z.number().int().min(0).max(1000000),
+          customerId: z.string().min(1).nullable().optional(),
           customer: z.string().default(""),
           phone: z.string().default(""),
           requestKey: z.string().uuid(),
@@ -452,6 +463,7 @@ export async function sportsStagingCommand(input: unknown) {
         return await result(
           saveCourseRental({
             roomId: room.id,
+            customerId: d.customerId??null,
             customerName: d.customer,
             customerPhone: d.phone,
             date: d.date,
@@ -486,7 +498,8 @@ export async function sportsStagingCommand(input: unknown) {
           : d.kind === "隔週固定"
             ? "BIWEEKLY"
             : "SINGLE";
-      const count = frequency === "SINGLE" ? 1 : d.count;
+      const perpetual=sportsNativePreview(storeId)&&frequency!=="SINGLE";
+      const count=frequency==="SINGLE"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
       const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
@@ -510,7 +523,9 @@ export async function sportsStagingCommand(input: unknown) {
           ),
           requestKey: d.requestKey,
           sportsStaging: {
+            perpetual:perpetual?true:undefined,
             frequency,
+            ...(sportsNativePreview(storeId)&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan.id,
             students,

@@ -5,7 +5,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 type Result = Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>, { success: true; canConfirm: boolean }>;
-export function StoreMemberConnectionPanel({ customerId }: { customerId: string }) {
+export function StoreMemberConnectionPanel({ customerId, compact=false }: { customerId: string;compact?:boolean }) {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +48,7 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
     } catch { if (key === sequence.current) setError("目前無法確認，請稍後再試"); }
     finally { submitting.current = false; if (key === sequence.current) setBusy(false); }
   }
-  return <section className="min-w-0 space-y-2 rounded-lg border border-earth-200 p-3 text-sm" aria-label="本店會員與 LINE" aria-busy={busy}>
+  return <section className={compact?"flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-earth-100 py-2 text-sm":"min-w-0 space-y-2 rounded-lg border border-earth-200 p-3 text-sm"} aria-label="本店會員與 LINE" aria-busy={busy}>
     <p className="font-semibold">本店會員與 LINE</p>
     {result ? <>
       <p>會員資料：{result.data.membership}</p>

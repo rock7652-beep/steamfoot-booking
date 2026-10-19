@@ -1,4 +1,17 @@
 "use client";
+import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {applySportsMovePatches} from "@/lib/sports-move-patch";
+import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
+import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
+import {readSportsCalendar} from "@/lib/sports-calendar-client";
+import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
+import {SportsAttendancePanel} from "./sports-attendance-panel";
+import {checkSportsCourseMove} from "@/server/actions/course";
+import {SportsCancelCourse} from "./sports-cancel-course";
+import {SportsMoveConfirm} from "./sports-move-confirm";
+import {SportsScheduleFields} from "./sports-schedule-fields";
+import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -86,6 +99,7 @@ type Template = Omit<Room, "capacity"> & {
   waitlistStopMinutes?: number | null;
 };
 type Session = {
+  sportsPalette?:boolean;
   rentalId?:string;rentalCancelled?:boolean;isTrial?:boolean;
   bookings: {
     id: string;
@@ -144,6 +158,8 @@ type Props = {
   canDelete?: boolean;
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
+  sportsNative?:boolean;
+  sportsData?:SportsSnapshot;
   businessProfile: "FITNESS" | "MUSIC";
   waitlistEnabled?: boolean;
   waitlistDefaultLimit?: number;
@@ -226,23 +242,25 @@ export function CourseWorkspace({
   selectedDate: loadedDate,
   today,
   nowIso,
-  calendarDays,
+  calendarDays:sourceCalendarDays,
   rooms: sourceRooms,
   templates: sourceTemplates,
-  sessions,
-  cancelledBookings,
+  sessions:sourceSessions,
+  cancelledBookings:sourceCancelledBookings,
   coaches: allCoaches,
   canCreate,
   canEdit,
   rentalCustomers=[],
   rentalPermissions={customerRead:false,customerCreate:false,collect:false,correct:false,edit:false},
   cashbookShortcut,
+  sportsNative=false,
+  sportsData,
   businessProfile,
   waitlistEnabled = false,
   waitlistDefaultLimit = 5,
   waitlistDefaultStopMinutes = 240,
   staffAvailability,
-  staffAvailabilityExceptions,
+  staffAvailabilityExceptions:sourceStaffAvailabilityExceptions,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -269,18 +287,53 @@ export function CourseWorkspace({
     if (result.success) { confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id); }
     return result;
   }
-  const requestedDate = params.get("date");
+  const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
+  useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
+  const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
+  const [nativeCalendar,setNativeCalendar]=useState<{month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
+  const sportsCalendarReader=usePanelReader("sports-calendar",readSportsCalendar,storeId??"",0);
+  const calendarRequest=useRef(0);
+  const calendarReadsInFlight=useRef(0);
+  const calendarTargetMonth=useRef(loadedDate.slice(0,7));
+  const [calendarReading,setCalendarReading]=useState(false);
+  const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
+  const sessions:Session[]=nativeCalendar?.sessions??sourceSessions;
+  const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
+  const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
+  const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
+  const refreshNativeCalendar=useCallback(async(date:string,ensure=false,background=false)=>{
+    calendarTargetMonth.current=date.slice(0,7);
+    const request=++calendarRequest.current;
+    calendarReadsInFlight.current++;
+    if(!background)setCalendarReading(true);
+    try{
+      if(ensure&&sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}
+      if(!background)sportsCalendarReader.clear();
+      const result=await sportsCalendarReader.read(date);
+      if(request!==calendarRequest.current)return null;
+      if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
+      setError(result.error);return false;
+    }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
+    finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
+  },[sportsNative,canCreate,sportsCalendarReader]);
+  useEffect(()=>{if(sportsNative&&nativeDate.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7))&&calendarTargetMonth.current!==nativeDate.slice(0,7))void refreshNativeCalendar(nativeDate,true);},[sportsNative,nativeDate,nativeCalendar?.month,loadedDate,refreshNativeCalendar]);
+  useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,!calendarReading);
+  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
+  const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
-  const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
+  const [scheduleMode, setScheduleMode] = useSportsCalendarState<CourseScheduleMode>(sportsNative,"mode",
     requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
       ? requestedScheduleMode
       : businessProfile === "MUSIC"
         ? "day"
-        : "month",
+        : "month",calendarMode,
   );
+  const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
+  useEffect(()=>{if(!sportsNative)return;if(explicitDate&&calendarDate(explicitDate))setNativeDate(explicitDate);if(explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitDate,explicitMode,setNativeDate,setScheduleMode]);
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
+    if(sportsNative)return;
     const next = new URLSearchParams(params.toString());
     next.set("scheduleView", nextMode);
     window.history.replaceState(null, "", `${pathname}?${next}`);
@@ -293,6 +346,14 @@ export function CourseWorkspace({
       ? { sessionId: params.get("session")!, kind: "roster" }
       : null,
   );
+  const [rosterRevision,setRosterRevision]=useState(0);
+  const [inlineBusy,setInlineBusy]=useState(false);
+  const inlineDirty=useRef(false);
+  function changeBooking(kind:"roster"|"member-booking"|"trial-booking",sessionId:string){
+    if(inlineBusy)return;
+    if(sportsNative&&inlineDirty.current&&!window.confirm("放棄尚未送出的新增內容？"))return;
+    inlineDirty.current=false;setCourseDialog({sessionId,kind});
+  }
   const [memberBookingReady, setMemberBookingReady] = useState(false);
   const roomCreate = useCourseRoomCreate(storeId, (room, warning) => {
     confirmedRooms.confirm({ ...room, uses: [] });
@@ -343,11 +404,17 @@ export function CourseWorkspace({
     // Keep the calendar current even with the day sheet closed. Nested roster
     // dialogs own their reads; never refresh their parent during a transaction.
     if (view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
+    if (sportsNative) {
+      return startSportsBackgroundSync(
+        () => refreshNativeCalendar(nativeDateRef.current,false,true),
+        () => calendarReadsInFlight.current > 0,
+      );
+    }
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
       startTransition(() => {
-        router.refresh();
+        refreshWorkspace();
         setLastUpdated(new Date());
       });
     };
@@ -361,10 +428,11 @@ export function CourseWorkspace({
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition]);
-  useCourseDraftGuard(dirty,!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
+  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
+  useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
-  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
+  const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
+  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};if(sportsNative)setSportsScheduleBusy(pending);},[sportsNative]);
   const restoreScrollY = useRef<number | null>(null);
   useEffect(() => {
     if (restoreScrollY.current === null) return;
@@ -376,25 +444,25 @@ export function CourseWorkspace({
   const rentalGuard=useRef({pending:false,dirty:false});
   const updateRentalGuard=useCallback((pending:boolean,dirty:boolean)=>{rentalGuard.current={pending,dirty};},[]);
   const [roomRentalHistory,setRoomRentalHistory]=useState(false);
-  function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
+  function closeRentalDialog(){if(inlineBusy)return;if(sportsNative&&inlineDirty.current&&!window.confirm("放棄尚未送出的新增內容？"))return;inlineDirty.current=false;if(rentalGuard.current.pending)return;if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
   function closePanel() {
     if(musicScheduleGuard.current.pending)return;
-    if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
+    if(!sportsNative&&musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
-    if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
-    if (roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain || pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
+    if (roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain || pending || (!sportsNative && dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
     setPanel(null);
   }
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
-  const [roomFilter, setRoomFilter] = useState(params.get("room") ?? "all");
+  const [roomFilter, setRoomFilter] = useSportsCalendarState(sportsNative,"roomFilter",params.get("room") ?? "all",calendarString);
   const [rentalFilter, setRentalFilter] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [coachFilter, setCoachFilter] = useState("all");
-  const [assignedCoachFilter, setAssignedCoachFilter] = useState("all");
-  const [scheduleQuery, setScheduleQuery] = useState("");
+  const [classFilter, setClassFilter] = useSportsCalendarState(sportsNative,"classFilter","all",calendarString);
+  const [coachFilter, setCoachFilter] = useSportsCalendarState(sportsNative,"coachFilter","all",calendarString);
+  const [assignedCoachFilter, setAssignedCoachFilter] = useSportsCalendarState(sportsNative,"assignedCoachFilter","all",calendarString);
+  const [scheduleQuery, setScheduleQuery] = useSportsCalendarState(sportsNative,"scheduleQuery","",calendarString);
   const [hideTestData,setHideTestData]=useState(false);
   const [showInactive,setShowInactive]=useState(false);
   const catalogItems = view === "rooms" ? allRooms : allTemplates;
@@ -443,7 +511,7 @@ export function CourseWorkspace({
           return;
         }
         setNotice("狀態已更新，既有預約與歷史保留。");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("連線失敗，請重試。");
       }
@@ -478,7 +546,7 @@ export function CourseWorkspace({
       !s.rentalCancelled &&
       (roomFilter === "all" || s.roomId === roomFilter) &&
       (coachFilter === "all" || s.coachId === coachFilter) &&
-      (businessProfile === "MUSIC" ? category === "all" || allTemplates.find((t) => t.id === s.templateId)?.category === category : courseClassMatches(classFilter, allTemplates.find(t => t.id === s.templateId)?.classType, !!(s.isTrial || allTemplates.find(t => t.id === s.templateId)?.musicTrialMode), !!s.rentalId || /租借|RENTAL/i.test(allTemplates.find(t => t.id === s.templateId)?.category ?? ""))) &&
+      (sportsNative ? sportsCalendarMatches(s,classFilter) : businessProfile === "MUSIC" ? category === "all" || allTemplates.find((t) => t.id === s.templateId)?.category === category : courseClassMatches(classFilter, allTemplates.find(t => t.id === s.templateId)?.classType, !!(s.isTrial || allTemplates.find(t => t.id === s.templateId)?.musicTrialMode), !!s.rentalId || /租借|RENTAL/i.test(allTemplates.find(t => t.id === s.templateId)?.category ?? ""))) &&
       (businessProfile === "MUSIC" || assignedCoachFilter === "all" || scheduleAssignedBookings(s.bookings, assignedCoachFilter).length > 0) &&
       (!scheduleQuery.trim() || [s.nameSnapshot, ...s.bookings.map(booking => booking.customerName)].some(text => text.toLocaleLowerCase().includes(scheduleQuery.trim().toLocaleLowerCase()))),
   ).map((session) => ({
@@ -508,6 +576,7 @@ export function CourseWorkspace({
     const session = dailySessions.find((item) => item.id === booking.sessionId);
     return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];
   });
+  const [sportsAttendanceOpen,setSportsAttendanceOpen]=useState(false);
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions.map(withPendingAttendance)) {
@@ -516,6 +585,7 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
+    if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
@@ -570,18 +640,31 @@ export function CourseWorkspace({
 
   const [arrangement,setArrangement]=useState<"choose"|"class"|"trial"|"rental">("class");
   const [scheduleDate, setScheduleDate] = useState(selectedDate);
-  const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
-  function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
-    const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+
+  const [scheduleSeed,setScheduleSeed]=useState<{single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  const [moveTarget,setMoveTarget]=useState<{date:string;time:string;roomId:string;coachId:string}|null>(null);
+  const movePreflight=useRef(false);
+  const [checkingMove,setCheckingMove]=useState(false);
+  async function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
+    if(sportsNative){
+      if(movePreflight.current)return;
+      if(moveClipboard?.sessionId!==session.id&&moveClipboard&&!window.confirm(`改為剪下「${session.nameSnapshot}」？原本待貼上的課程不會變動。`))return;
+      movePreflight.current=true;setCheckingMove(true);
+      try{const result=await checkSportsCourseMove(session.id);if(!result.success){setError(result.error??"暫時無法調課");return;}}
+      catch{setError("無法核對調課條件，請重試");return;}
+      finally{movePreflight.current=false;setCheckingMove(false);}
+    }
+    const durationMinutes = Math.max(sportsNative?5:30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
       sessionId: session.id,
+      startsAt:session.startsAt,
       templateId: session.templateId,
       coachId: session.coachId,
       roomId: session.roomId,
       durationMinutes,
       scope,
       weeks,
-      label: session.bookings[0]?.customerName || session.nameSnapshot,
+      label: sportsNative ? session.nameSnapshot : session.bookings[0]?.customerName || session.nameSnapshot,
     });
     setMoveChoice(null);
     setMoveWeeksOpen(false);
@@ -590,7 +673,8 @@ export function CourseWorkspace({
     setNotice("");
     setError("");
   }
-  function pasteMove(value: {time:string;roomId:string;coachId:string}) {
+  function pasteMove(value: {date?:string;time:string;roomId:string;coachId:string}) {
+    if(sportsNative&&moveClipboard){setMoveTarget({date:value.date??selectedDate,time:value.time,roomId:value.roomId,coachId:value.coachId});return;}
     if (!moveClipboard || pending) return;
     setError("");
     setNotice("");
@@ -611,7 +695,7 @@ export function CourseWorkspace({
         }
         setMoveClipboard(null);
         setNotice("已調課");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("調課失敗，原課程保留。");
       }
@@ -639,7 +723,7 @@ export function CourseWorkspace({
         }
         setCourseDialog(null);
         setNotice("已恢復原時段");
-        router.refresh();
+        refreshWorkspace();
       } catch {
         setError("恢復失敗，課程保留在目前時段。");
       }
@@ -681,7 +765,11 @@ export function CourseWorkspace({
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
-  function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
+  const scheduleOpenIntent=useRef(false);
+  useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
+  function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
+    if(pending||scheduleOpenIntent.current)return;
+    scheduleOpenIntent.current=true;
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleSeed(seed);
@@ -733,14 +821,14 @@ export function CourseWorkspace({
         if (panel === "catalog") setPanel(null);
         // Setting actions already revalidate this route. Keep the refresh for
         // operational actions, whose authoritative schedule may need reconciling.
-        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
+        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) refreshWorkspace();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
       } finally {submitLock.current=false;}
     });
   }
   const template = templates.find((t) => t.id === chosen);
-  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
+  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(sportsNative?sportsScheduleKinds.map(item=>[item.label,item.dot]):[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
   const repeatControl = (
     <label className="min-w-0 flex-1">
       重複
@@ -759,6 +847,9 @@ export function CourseWorkspace({
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
+      {sportsNative&&<span hidden data-operation-background-refresh/>}
+      {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
+      {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -869,6 +960,7 @@ export function CourseWorkspace({
             {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex shrink-0 gap-2">
                 {cashbookShortcut}
+                {sportsNative&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
@@ -928,7 +1020,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
+            </label> : sportsNative ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700">排課類型<select aria-label="排課類型篩選" className={`${button} min-h-11 bg-white py-1`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部排課類型</option>{sportsScheduleKinds.map(item=><option key={item.kind} value={item.kind}>{item.label}</option>)}</select></label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
             <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
             {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || classFilter !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
@@ -947,6 +1039,13 @@ export function CourseWorkspace({
             )}
           </div>}
           {businessProfile === "MUSIC" && scheduleLegend}
+            {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                <strong>✂ {moveClipboard.label} · {moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)):""} · {moveClipboard.durationMinutes}分</strong>
+                <span className="text-xs text-indigo-700">選白格貼上</span>
+                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+              </div>
+            )}
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (
@@ -1000,7 +1099,7 @@ export function CourseWorkspace({
                             : "bg-white text-earth-400"
                     }`}
                   >
-                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className="absolute inset-x-0 top-0 h-11 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
+                    <button type="button" disabled={pending} aria-label={sportsNative&&moveClipboard?`${date} 貼上課程`:`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className={`${sportsNative?"absolute inset-0":"absolute inset-x-0 top-0 h-11"} focus-visible:ring-2 focus-visible:ring-primary-500`} onClick={() => {go(date);if(sportsNative&&moveClipboard){pasteMove({date,time:moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)).slice(11,16):"09:00",roomId:moveClipboard.roomId,coachId:moveClipboard.coachId});return;}open("day");}} />
                     <span className={`pointer-events-none shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
@@ -1013,10 +1112,11 @@ export function CourseWorkspace({
                     {businessProfile === "MUSIC" ? (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span> : (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none block w-full whitespace-nowrap text-[11px] font-semibold leading-4 tabular-nums text-primary-900">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
                     {list.slice(0,visibleCount).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
+                      const sportsColor=sportsNative?sportsCalendarPresentation(session):null;
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
-                      const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500`}><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
+                      const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)}${sportsNative?`–${formatTWDateTime(new Date(session.endsAt)).slice(11)}`:""} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
+                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
@@ -1029,26 +1129,19 @@ export function CourseWorkspace({
             </>
           ) : (
             <>
-            {businessProfile === "MUSIC" && moveClipboard && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
-                <span className="text-xs text-indigo-700">選白格貼上</span>
-                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
-              </div>
-            )}
             {businessProfile === "MUSIC" && <details name="course-workspace-details" className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
-            <CourseScheduleBoard
+            <CourseScheduleBoard sportsNative={sportsNative}
               legend={businessProfile !== "MUSIC" ? scheduleLegend : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
               initialWeekRoomId={params.get("resourceId") ?? undefined}
-              onResourceChange={(view,resourceId)=>{ const next=new URLSearchParams(window.location.search);next.set("resourceView",view);if(resourceId) next.set("resourceId",resourceId);else next.delete("resourceId");window.history.replaceState(null,"",`${pathname}?${next}`); }}
+              onResourceChange={(view,resourceId)=>{ if(sportsNative)return;const next=new URLSearchParams(window.location.search);next.set("resourceView",view);if(resourceId) next.set("resourceId",resourceId);else next.delete("resourceId");window.history.replaceState(null,"",`${pathname}?${next}`); }}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
@@ -1072,7 +1165,7 @@ export function CourseWorkspace({
               canCreate={canCreate}
               calendarDays={calendarDays}
               occupiedSessions={sessions}
-              onOpenEmpty={({date,time,roomId,coachId,durationMinutes})=>openSchedule({date,time,roomId,coachId:coachId ?? (coachFilter !== "all" ? coachFilter : undefined),durationMinutes})}
+              onOpenEmpty={({date,time,roomId,coachId,durationMinutes,single})=>openSchedule({single,date,time,roomId,coachId:coachId ?? (coachFilter !== "all" ? coachFilter : undefined),durationMinutes})}
               moveClipboard={moveClipboard}
               onPasteMove={pasteMove}
               onSelectDate={go}
@@ -1374,7 +1467,7 @@ export function CourseWorkspace({
             {
               <button
                 className={button}
-                disabled={pending || templateSave.uncertain || roomSave.uncertain}
+                disabled={pending || templateSave.uncertain || roomSave.uncertain || (sportsNative&&panel==="schedule"&&sportsScheduleBusy)}
                 onClick={closePanel}
               >
                 關閉
@@ -1429,7 +1522,7 @@ export function CourseWorkspace({
                         type="button"
                         className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-earth-700"
                         onClick={() => {
-                          router.refresh();
+                          refreshWorkspace();
                           setLastUpdated(new Date());
                         }}
                       >
@@ -2010,11 +2103,12 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
                 onGuard={updateMusicScheduleGuard}
-                onRefresh={()=>router.refresh()}
+                onRefresh={()=>refreshWorkspace()}
                 templates={templates}
                 rooms={rooms}
                 coaches={coaches}
@@ -2027,7 +2121,7 @@ export function CourseWorkspace({
                   setPanel(null);
                   go(date);
                   setCourseDialog({sessionId,kind:"roster"});
-                  router.refresh();
+                  refreshWorkspace();
                 }}
               />
             )}
@@ -2037,12 +2131,12 @@ export function CourseWorkspace({
               <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">{scheduleCreated.map(date => <span key={date} className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-900">{date}</span>)}</div>
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
-            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && <>
-              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
+            {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && <>
+              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(!sportsNative&&rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
-            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
+            {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
               <>
                 {!templates.length ? (
                   <>
@@ -2117,7 +2211,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>router.refresh()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>refreshWorkspace()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
                     </label>
                     <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
@@ -2260,8 +2354,8 @@ export function CourseWorkspace({
                 </button>
               </footer>
             )}
-          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
-          {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
+          {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");refreshWorkspace();});}}>刪除</button>}</footer>}
+          {panel === "schedule" && !sportsNative && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
             <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
               <button
@@ -2280,7 +2374,7 @@ export function CourseWorkspace({
                 className={button}
                 disabled={pending || templateSave.uncertain || roomSave.uncertain}
                 onClick={() => {
-                  if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
+                  if (!sportsNative && dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
                   open(editing.kind === "session" ? "day" : null);
                   setEditing(null);
                 }}
@@ -2319,6 +2413,7 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
+      {sportsNative&&sportsAttendanceOpen&&<SportsAttendancePanel date={selectedDate} sessions={dailySessions} leaves={cancelledBookings} canEdit={canEdit} onClose={()=>setSportsAttendanceOpen(false)} onChanged={async()=>{await refreshNativeCalendar(selectedDate);}}/>}
       {courseDialog &&
         sessions.find((session) => session.id === courseDialog.sessionId) &&
         (() => {
@@ -2326,25 +2421,54 @@ export function CourseWorkspace({
             (session) => session.id === courseDialog.sessionId,
           )!;
           const rentalDialog = dialogSession.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===dialogSession.templateId)?.category ?? "");
-          const sportsRosterDialog = !rentalDialog && courseDialog.kind === "roster" && businessProfile !== "MUSIC";
+          const sportsRosterDialog = !rentalDialog && (courseDialog.kind === "roster"||sportsNative) && businessProfile !== "MUSIC";
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
             && dialogSession.capacity === 1
             && allTemplates.find(template => template.id === dialogSession.templateId)?.classType === "PRIVATE";
-          const dialogTitle = rentalDialog ? "租借資訊" :
+          const dialogTitle = sportsNative&&!rentalDialog?"上課名單":rentalDialog ? "租借資訊" :
             courseDialog.kind === "roster"
               ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
+          const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster
+                  sportsNative={sportsNative}
+                  key={`${dialogSession.id}-${kind}`}
+                  sessionId={dialogSession.id}
+                  capacity={dialogSession.capacity}
+                  canCreate={canCreate}
+                  canEdit={canEdit}
+                  view={kind}
+                  initialAssignedCoach={businessProfile === "MUSIC" ? "all" : assignedCoachFilter}
+                  musicLayout={businessProfile === "MUSIC"}
+                  classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
+                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
+                  teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
+                  coachId={dialogSession.coachId}
+                  roomId={dialogSession.roomId}
+                  roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
+                  courseName={dialogSession.nameSnapshot}
+                  onDone={() => {setRosterRevision(v=>v+1);inlineDirty.current=false;setCourseDialog({sessionId:dialogSession.id,kind:"roster"});}}
+                  refreshVersion={sportsNative&&kind==="roster"?rosterRevision:0}
+                  onBusyChange={sportsNative&&kind!=="roster"?setInlineBusy:undefined}
+
+                  onCommitted={sportsNative?refreshWorkspace:undefined}
+                  onAttendanceOptimistic={showPendingAttendance}
+                  onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
+                  onMemberBookingReadyChange={setMemberBookingReady}
+                  onCreateCustomer={() =>
+                    changeBooking("trial-booking",dialogSession.id)
+                  }
+                />);
           return (
             <RightSheet
               className={scheduleControls.panel}
               open
               presentation="centered"
-              fitContent={rentalDialog ? businessProfile !== "MUSIC" && !dialogSession.rentalId : (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}
+              fitContent={rentalDialog ? businessProfile !== "MUSIC" && !dialogSession.rentalId : (oneToOneMusicDialog || ((courseDialog.kind === "roster"||sportsNative) && businessProfile !== "MUSIC"))}
               onClose={closeRentalDialog}
               maxHeight={rentalDialog ? businessProfile === "MUSIC" ? 680 : 400 : 900}
-              width={rentalDialog ? businessProfile === "MUSIC" ? 760 : 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
+              width={rentalDialog ? businessProfile === "MUSIC" ? 760 : 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster"||sportsNative ? 1200 : 560}
               labelledById="course-operation-title"
             >
               <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : sportsRosterDialog ? "items-start bg-primary-50 py-2" : "items-start bg-primary-50 py-3"}`}>
@@ -2363,23 +2487,24 @@ export function CourseWorkspace({
                   </p>}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
-                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {sportsNative&&!rentalDialog&&canEdit&&<SportsCancelCourse key={dialogSession.id} sessionId={dialogSession.id} name={dialogSession.nameSnapshot} onChanged={()=>{setCourseDialog(null);refreshWorkspace();}}/>}
+                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && dialogSession.rescheduledFromStartsAt && (
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
                   )}
-                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
-                    <button type="button" className={primary} onClick={() => {
-                      if (dialogSession.isFixed) {
+                  {!rentalDialog && courseDialog.kind === "roster" && (businessProfile === "MUSIC"||sportsNative) && canEdit && (!moveClipboard||sportsNative) && (
+                    <button type="button" className={sportsNative?button:primary} disabled={sportsNative&&checkingMove} onClick={() => {
+                      if (dialogSession.isFixed&&!sportsNative) {
                         setMoveChoice(dialogSession);
                         setMoveWeeksOpen(false);
                       } else {
                         beginMove(dialogSession, "SINGLE");
                       }
                     }}>
-                      ✂ 調課
+                      {sportsNative?(checkingMove?"核對中…":"✂ 剪下"):"✂ 調課"}
                     </button>
                   )}
-                  {!rentalDialog && courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋加入學員</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
+                  {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
                 </div>
 
@@ -2401,40 +2526,18 @@ export function CourseWorkspace({
               )}
               <div
                 className={`min-h-0 flex-1 overscroll-contain ${sportsRosterDialog ? "p-3" : "p-3 sm:p-4"} ${
-                  courseDialog.kind === "roster"
+                  sportsNative&&!rentalDialog?"flex flex-col overflow-y-auto":courseDialog.kind === "roster"
                     ? rentalDialog?"flex flex-col overflow-hidden":oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
-                {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
-                  key={`${dialogSession.id}-${courseDialog.kind}`}
-                  sessionId={dialogSession.id}
-                  capacity={dialogSession.capacity}
-                  canCreate={canCreate}
-                  canEdit={canEdit}
-                  view={courseDialog.kind}
-                  initialAssignedCoach={businessProfile === "MUSIC" ? "all" : assignedCoachFilter}
-                  musicLayout={businessProfile === "MUSIC"}
-                  classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
-                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
-                  teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
-                  coachId={dialogSession.coachId}
-                  roomId={dialogSession.roomId}
-                  roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
-                  courseName={dialogSession.nameSnapshot}
-                  onDone={() => setCourseDialog({sessionId:dialogSession.id,kind:"roster"})}
-                  onAttendanceOptimistic={showPendingAttendance}
-                  onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
-                  onMemberBookingReadyChange={setMemberBookingReady}
-                  onCreateCustomer={() =>
-                    setCourseDialog({
-                      sessionId: dialogSession.id,
-                      kind: "trial-booking",
-                    })
-                  }
-                />}
+                {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <>{sportsNative&&courseDialog.kind!=="roster"&&<section aria-label="新增預約" className="@container mb-2 rounded-lg border border-primary-200 p-2" onChangeCapture={()=>{inlineDirty.current=true;}}>
+                  <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">{courseDialog.kind==="member-booking"?"新增學員":"新增體驗客"}</h3><button type="button" className={button} disabled={inlineBusy} onClick={()=>changeBooking("roster",dialogSession.id)}>收起</button></div>
+                  {rosterContent(courseDialog.kind)}
+                  <button type="submit" form={courseDialog.kind==="member-booking"?"course-member-booking-form":"course-trial-booking-form"} disabled={inlineBusy||(courseDialog.kind==="member-booking"&&!memberBookingReady)} className={`${primary} mt-3`}>{inlineBusy?"處理中…":"確認新增"}</button>
+                </section>}<div className={sportsNative?"min-h-64 shrink-0":"contents"} inert={sportsNative&&inlineBusy}>{rosterContent(sportsNative?"roster":courseDialog.kind)}</div></>}
               </div>
-              {!rentalDialog && courseDialog.kind !== "roster" && (
+              {!sportsNative && !rentalDialog && courseDialog.kind !== "roster" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button
                     type="submit"

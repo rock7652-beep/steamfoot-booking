@@ -5,6 +5,8 @@ import { AppError } from "@/lib/errors";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 export async function rentalConflict(tx:Prisma.TransactionClient,storeId:string,roomId:string,start:Date,end:Date,exclude?:string) {
+  const {assertSportsSeriesFree}=await import("./sports-permanent-series");
+  await assertSportsSeriesFree(tx,storeId,[{startsAt:start,endsAt:end}],{roomId,coachId:""});
   const [course,rental]=await Promise.all([
     tx.courseSession.findFirst({where:{storeId,roomId,cancelledAt:null,releasedAt:null,startsAt:{lt:end},endsAt:{gt:start}}}),
     tx.courseRental.findFirst({where:{storeId,roomId,cancelledAt:null,...(exclude?{id:{not:exclude}}:{}),occupiedStartsAt:{lt:end},occupiedEndsAt:{gt:start}}}),

@@ -4,7 +4,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn() }));
+const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
+vi.mock("@/lib/sports-session-detail-client",()=>({readSportsSessionDetail:m.native}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn() }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: vi.fn() }));
@@ -42,14 +43,14 @@ beforeEach(() => {
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(window, "confirm").mockReturnValue(true);
-  m.load.mockResolvedValue(data()); m.save.mockResolvedValue({ success: true });
+  m.native.mockResolvedValue(data()); m.load.mockResolvedValue(data()); m.save.mockResolvedValue({ success: true });
   m.quick.mockImplementation(() => new Promise(() => {}));
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-async function render(musicLayout = false, sessionId = "session-a", store = "store-a", canEdit = true) {
+async function render(musicLayout = false, sessionId = "session-a", store = "store-a", canEdit = true, sportsNative = false) {
   await act(async () => root.render(createElement(OperationScope, { key: store, scope: `account:${store}:course:editable` },
-    createElement(CourseRoster, { sessionId, capacity: 10, canCreate: false, canEdit, musicLayout, classType: "GROUP", teacherName: "老師", onAttendanceOptimistic: m.confirmed }))));
+    createElement(CourseRoster, { sessionId, sportsNative, capacity: 10, canCreate: false, canEdit, musicLayout, classType: "GROUP", teacherName: "老師", onAttendanceOptimistic: m.confirmed }))));
 }
 
 const row = (name = "甲同學") => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 更多操作"]`)!.closest("li")!;
@@ -162,4 +163,25 @@ it("batch rejection is local to selected rows and does not become unknown after 
   expect(m.batch).toHaveBeenCalledOnce(); expect(row().querySelector('[role="alert"]')?.textContent).toBe("批次狀態已變更");
   expect(row("乙同學").querySelector('[role="alert"]')?.textContent).toBe("批次狀態已變更");
   expect(host.textContent).not.toContain("結果待確認"); expect(host.textContent).not.toContain("已儲存"); expect(m.confirmed).not.toHaveBeenCalled();
+});
+
+
+it("native sports refreshes the idle roster without resetting the mounted row",async()=>{
+ vi.useFakeTimers();vi.spyOn(document,"visibilityState","get").mockReturnValue("visible");
+ try {
+  await render(false,"session-a","sports",true,true);const original=row();
+  const updated=data();updated.data.roster[0].status="ATTENDED";m.native.mockResolvedValue(updated);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(3000);});
+  expect(m.native).toHaveBeenCalledTimes(2);expect(row()).toBe(original);expect(attendance().getAttribute("aria-label")).toBe("甲同學：已出席");expect(m.refresh).not.toHaveBeenCalled();
+ } finally {vi.useRealTimers();}
+});
+it("native background reads pause during an unconfirmed write and cannot paint a stale result",async()=>{
+ vi.useFakeTimers();vi.spyOn(document,"visibilityState","get").mockReturnValue("visible");
+ try {
+  const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
+  await render(false,"session-a","sports",true,true);await clickAttendance();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(9000);});
+  expect(m.native).toHaveBeenCalledOnce();expect(attendance().getAttribute("aria-label")).not.toContain("已出席");expect(m.status).toHaveBeenCalledOnce();
+  await act(async()=>write.resolve({success:true}));expect(attendance().getAttribute("aria-label")).toBe("甲同學：已出席");
+ } finally {vi.useRealTimers();}
 });

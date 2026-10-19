@@ -6,8 +6,8 @@ import { calculateTeacherFee, originalMusicUnitPrice, type TeacherFeeSeat } from
 export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$queryRaw">, storeId: string, sessionIds: string[]) {
   const grouped = new Map<string, TeacherFeeSeat[]>();
   if (!sessionIds.length) return grouped;
-  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & {sessionId:string;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null}>>`
-    SELECT b.id,b."sessionId",b."customerName",b.status,b."bookingKind",b."absenceKind",b."cardId",b."trialPrice",
+  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & {sessionId:string;cardId:string|null;trialPrice:number|null;pointCost:number;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null}>>`
+    SELECT b.id,b."sessionId",b."customerName",b.status,b."bookingKind",b."absenceKind",b."cardId",b."trialPrice",b."pointCost",
       p.count AS "purchaseCount",p."listPrice",p.points,p."musicBonusLessons"
     FROM "CourseBooking" b
     LEFT JOIN LATERAL (
@@ -19,7 +19,8 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     const originalUnitPrice = row.bookingKind === "TRIAL" ? row.trialPrice : Number(row.purchaseCount) === 1 && row.points !== null
       ? originalMusicUnitPrice({listPrice:row.listPrice,points:row.points,musicBonusLessons:row.musicBonusLessons??0}) : null;
     const seats = grouped.get(row.sessionId) ?? [];
-    seats.push({...row,originalUnitPrice}); grouped.set(row.sessionId,seats);
+    const sportsCharge=row.bookingKind==="TRIAL"?row.trialPrice:Number(row.purchaseCount)===1&&row.listPrice!==null&&row.points!==null&&row.points>0&&row.pointCost>=0 ? row.listPrice*row.pointCost/row.points : null;
+    seats.push({...row,originalUnitPrice,sportsCharge}); grouped.set(row.sessionId,seats);
   }
   return grouped;
 }

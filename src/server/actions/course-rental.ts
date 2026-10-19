@@ -1,11 +1,12 @@
 "use server";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError } from "@/lib/errors";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
-import { rentalInput,rentalOccupation } from "@/lib/course-rental";
+import { rentalInput,sportsRentalInput,rentalOccupation } from "@/lib/course-rental";
 import { courseManager,courseManagerRead,courseTransaction } from "@/server/services/course-access";
 import { handleCourseActionError } from "@/server/services/course-resources";
 import { rentalConflict,rentalCash,rentalAudit } from "@/server/services/course-rental";
@@ -34,12 +35,13 @@ export async function createRentalCustomer(input:unknown) {
       const created=await tx.customer.create({data:{storeId,...data},select:{id:true,name:true,phone:true}});
       await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"COURSE",summary:"租借新增顧客",targetType:"Customer",targetId:created.id,action:"CREATE_RENTAL_CUSTOMER",afterJson:{storeId,...created}}});
       return {...created,existing:false};
-    });refresh();return {success:true as const,customer};
+    });if(!sportsNativePreview(storeId))refresh();return {success:true as const,customer};
   }catch(error){return {success:false as const,error:handleCourseActionError(error).error??"操作失敗"};}
 }
 export async function saveCourseRental(input:unknown) {
   try {
-    const d=rentalInput.extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
+    const {storeId,user}=await courseManager((input as {id?:string})?.id?"booking.update":"booking.create");
+    const d=(sportsNativePreview(storeId)?sportsRentalInput:rentalInput).extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);
     if(d.payment){
       if(d.id)throw new AppError("VALIDATION","已建立租借請使用收款或更正功能");
       await courseManager("cashbook.create");

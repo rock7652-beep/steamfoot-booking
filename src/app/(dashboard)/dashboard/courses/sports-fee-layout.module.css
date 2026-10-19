@@ -1,0 +1,31 @@
+/* Only the guarded sports Preview opts into this layout. Keep normal type and 44px controls. */
+.form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 8px 12px;
+}
+.form > div,
+.form > p,
+.form > fieldset > :is(div, fieldset, details, p) {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.form > div:empty { display: none; }
+.form > fieldset > label { min-width: 0; grid-column: auto; }
+.form > fieldset > label:first-of-type { grid-column: 1 / -1; }
+.form > fieldset > div:has(> label > input[name="points"]) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+@container (min-width: 760px) {
+  .form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .form > fieldset > label:first-of-type { grid-column: span 2; }
+  .form > fieldset > label:has(select[aria-label="教學項目"]) { grid-column: span 2; }
+  .form > fieldset > fieldset[data-fee-coaches] { grid-column: span 3; }
+}
+@container (max-width: 460px) {
+  .form { grid-template-columns: minmax(0, 1fr); }
+  .form > fieldset > div:has(> label > input[name="points"]) { grid-template-columns: minmax(0, 1fr); }
+}
