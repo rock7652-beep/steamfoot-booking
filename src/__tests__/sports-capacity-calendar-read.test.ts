@@ -11,7 +11,7 @@ const actor={storeId:"sports-live-flow-store",userId:"owner",name:"Owner"};
 const series={id:"series",storeId:actor.storeId,requestKey:"weekly",templateId:"template",roomId:"room",coachId:"coach",startsAt:new Date("2026-11-02T02:00Z"),endsAt:new Date("2026-11-02T03:00Z"),capacity:1,frequency:"WEEKLY",untilDate:null,excludedDates:[],cancelledAt:null,learnerSnapshot:[{customerId:"one"},{customerId:"two"}]};
 const rule={perpetual:true,frequency:"WEEKLY",enrollment:"ASSIGNED",planId:"p",students:[],trialPrice:0};
 beforeEach(()=>{vi.clearAllMocks();m.query.mockResolvedValue([series]);m.count.mockResolvedValue(0);m.transaction.mockImplementation(async(_store,callback)=>callback({$queryRaw:vi.fn().mockResolvedValueOnce([series]).mockResolvedValueOnce([{payload:rule}]),courseSession:{findUnique:async()=>null,create:m.create}}));});
-it("returns a nonblocking warning only after the oversized expansion is rejected",async()=>{
+it("returns a nonblocking warning when the oversized series is skipped",async()=>{
  await expect(ensureSportsMonth(actor,"2026-11-09","2026-11-09")).resolves.toMatch("既有課表仍可查看");
  expect(m.transaction).toHaveBeenCalledOnce();expect(m.create).not.toHaveBeenCalled();
 });

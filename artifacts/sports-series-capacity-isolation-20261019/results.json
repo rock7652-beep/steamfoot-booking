@@ -1,0 +1,495 @@
+{
+  "completed": true,
+  "checks": [
+    {
+      "name": "normal-last",
+      "queryOrder": [
+        "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+        "338616fe-b072-4e69-926b-a351801af44d"
+      ],
+      "normalKey": "338616fe-b072-4e69-926b-a351801af44d",
+      "legacyKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+      "normalBefore": [
+        {
+          "id": "cmvfbdmmw0000my4xsnfgx43u",
+          "capacity": 1,
+          "startsAt": "2026-11-03T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmth0002my4xowovxw88",
+          "capacity": 1,
+          "startsAt": "2026-11-10T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmtx0004my4x7ychlonp",
+          "capacity": 1,
+          "startsAt": "2026-11-17T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmuc0006my4xwb7gae41",
+          "capacity": 1,
+          "startsAt": "2026-11-24T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmup0008my4xa0dykd1u",
+          "capacity": 1,
+          "startsAt": "2026-12-01T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        }
+      ],
+      "normalAfter": [
+        {
+          "id": "cmvfbdmmw0000my4xsnfgx43u",
+          "capacity": 1,
+          "startsAt": "2026-11-03T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmth0002my4xowovxw88",
+          "capacity": 1,
+          "startsAt": "2026-11-10T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmtx0004my4x7ychlonp",
+          "capacity": 1,
+          "startsAt": "2026-11-17T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmuc0006my4xwb7gae41",
+          "capacity": 1,
+          "startsAt": "2026-11-24T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbdmup0008my4xa0dykd1u",
+          "capacity": 1,
+          "startsAt": "2026-12-01T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf2u4000tmy4xy7y47iuv",
+          "capacity": 1,
+          "startsAt": "2027-02-23T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf2vs000vmy4xk18jj1h1",
+          "capacity": 1,
+          "startsAt": "2027-03-02T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf2xu000xmy4xn8nnbs24",
+          "capacity": 1,
+          "startsAt": "2027-03-09T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf2z3000zmy4xxolu7sxj",
+          "capacity": 1,
+          "startsAt": "2027-03-16T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf3120011my4xdj0b1xss",
+          "capacity": 1,
+          "startsAt": "2027-03-23T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf3310013my4xlljlng50",
+          "capacity": 1,
+          "startsAt": "2027-03-30T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf3430015my4x0hpt2qe1",
+          "capacity": 1,
+          "startsAt": "2027-04-06T02:00:00+00:00",
+          "requestKey": "338616fe-b072-4e69-926b-a351801af44d",
+          "occupied": 0
+        }
+      ],
+      "legacyBefore": [
+        {
+          "id": "cmvfbdn430009my4xrj014403",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdna5000dmy4xeim38gza",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnaq000hmy4xd93hvy9j",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnba000lmy4xdjz2w8pp",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnbv000pmy4xhphtmy7n",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        }
+      ],
+      "legacyAfter": [
+        {
+          "id": "cmvfbdn430009my4xrj014403",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdna5000dmy4xeim38gza",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnaq000hmy4xd93hvy9j",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnba000lmy4xdjz2w8pp",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbdnbv000pmy4xhphtmy7n",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "f3c017ca-ed8b-4d45-b7cc-9a6db75430b8",
+          "occupied": 1
+        }
+      ],
+      "targetMonth": "2027-03",
+      "normalTargetCount": 5,
+      "legacyUnchanged": true,
+      "originalNormalUnchanged": true,
+      "balanceBefore": "120",
+      "balanceAfter": "120",
+      "warning": true,
+      "calendarReadable": true
+    },
+    {
+      "name": "normal-last-repeat",
+      "noDuplicateSessions": true,
+      "legacyUnchanged": true,
+      "balanceUnchanged": true
+    },
+    {
+      "name": "normal-first",
+      "queryOrder": [
+        "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+        "2bd9fa92-94c5-4ef9-a386-41b41eb9608c"
+      ],
+      "normalKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+      "legacyKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+      "normalBefore": [
+        {
+          "id": "cmvfbf6xa0016my4xx7c7x733",
+          "capacity": 1,
+          "startsAt": "2026-11-04T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf73e0018my4xval9yl68",
+          "capacity": 1,
+          "startsAt": "2027-02-24T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf73u001amy4xizab2805",
+          "capacity": 1,
+          "startsAt": "2027-03-03T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf74h001cmy4x6arg1n8i",
+          "capacity": 1,
+          "startsAt": "2027-03-10T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf74y001emy4xmplw1evz",
+          "capacity": 1,
+          "startsAt": "2027-03-17T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf75e001gmy4x2t6rgu0w",
+          "capacity": 1,
+          "startsAt": "2027-03-24T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf75v001imy4xfq32x8kf",
+          "capacity": 1,
+          "startsAt": "2027-03-31T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        }
+      ],
+      "normalAfter": [
+        {
+          "id": "cmvfbf6xa0016my4xx7c7x733",
+          "capacity": 1,
+          "startsAt": "2026-11-04T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf73e0018my4xval9yl68",
+          "capacity": 1,
+          "startsAt": "2027-02-24T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf73u001amy4xizab2805",
+          "capacity": 1,
+          "startsAt": "2027-03-03T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf74h001cmy4x6arg1n8i",
+          "capacity": 1,
+          "startsAt": "2027-03-10T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf74y001emy4xmplw1evz",
+          "capacity": 1,
+          "startsAt": "2027-03-17T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf75e001gmy4x2t6rgu0w",
+          "capacity": 1,
+          "startsAt": "2027-03-24T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf75v001imy4xfq32x8kf",
+          "capacity": 1,
+          "startsAt": "2027-03-31T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8s0002bmy4xkmbrgqn5",
+          "capacity": 1,
+          "startsAt": "2027-04-28T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8te002dmy4xxuupitrg",
+          "capacity": 1,
+          "startsAt": "2027-05-05T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8uq002fmy4xtczpzwxt",
+          "capacity": 1,
+          "startsAt": "2027-05-12T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8w5002hmy4x7ve8rctj",
+          "capacity": 1,
+          "startsAt": "2027-05-19T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8xh002jmy4xtajwh2l1",
+          "capacity": 1,
+          "startsAt": "2027-05-26T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        },
+        {
+          "id": "cmvfbf8zm002lmy4xvr9sakhg",
+          "capacity": 1,
+          "startsAt": "2027-06-02T02:00:00+00:00",
+          "requestKey": "7ed0490f-3ee4-4f6e-8157-e25353f306b0",
+          "occupied": 0
+        }
+      ],
+      "legacyBefore": [
+        {
+          "id": "cmvfbf7hv001jmy4x49xxj6lv",
+          "capacity": 1,
+          "startsAt": "2026-11-05T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7ou001nmy4xeu3pz6xi",
+          "capacity": 1,
+          "startsAt": "2027-02-25T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7pl001rmy4x7vfqjura",
+          "capacity": 1,
+          "startsAt": "2027-03-04T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7q9001vmy4xjg1rwo5q",
+          "capacity": 1,
+          "startsAt": "2027-03-11T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7qu001zmy4xfmnr499a",
+          "capacity": 1,
+          "startsAt": "2027-03-18T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7rk0023my4xu3z3low5",
+          "capacity": 1,
+          "startsAt": "2027-03-25T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7s90027my4xj017obfy",
+          "capacity": 1,
+          "startsAt": "2027-04-01T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        }
+      ],
+      "legacyAfter": [
+        {
+          "id": "cmvfbf7hv001jmy4x49xxj6lv",
+          "capacity": 1,
+          "startsAt": "2026-11-05T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7ou001nmy4xeu3pz6xi",
+          "capacity": 1,
+          "startsAt": "2027-02-25T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7pl001rmy4x7vfqjura",
+          "capacity": 1,
+          "startsAt": "2027-03-04T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7q9001vmy4xjg1rwo5q",
+          "capacity": 1,
+          "startsAt": "2027-03-11T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7qu001zmy4xfmnr499a",
+          "capacity": 1,
+          "startsAt": "2027-03-18T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7rk0023my4xu3z3low5",
+          "capacity": 1,
+          "startsAt": "2027-03-25T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        },
+        {
+          "id": "cmvfbf7s90027my4xj017obfy",
+          "capacity": 1,
+          "startsAt": "2027-04-01T02:00:00+00:00",
+          "requestKey": "2bd9fa92-94c5-4ef9-a386-41b41eb9608c",
+          "occupied": 1
+        }
+      ],
+      "targetMonth": "2027-05",
+      "normalTargetCount": 4,
+      "legacyUnchanged": true,
+      "originalNormalUnchanged": true,
+      "balanceBefore": "120",
+      "balanceAfter": "120",
+      "warning": true,
+      "calendarReadable": true
+    },
+    {
+      "name": "normal-first-repeat",
+      "noDuplicateSessions": true,
+      "legacyUnchanged": true,
+      "balanceUnchanged": true
+    }
+  ],
+  "pageErrors": []
+}

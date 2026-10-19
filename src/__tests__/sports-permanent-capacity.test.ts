@@ -21,9 +21,9 @@ it("allows the final place without pre-deducting or binding a card",async()=>{
 it("keeps open enrollment empty",async()=>{
  const tx=fixture();await addSportsFixedLearners(tx as unknown as Prisma.TransactionClient,actor,session,{...rule,enrollment:"OPEN",students:[]});expect(tx.courseBooking.count).not.toHaveBeenCalled();expect(tx.courseBooking.create).not.toHaveBeenCalled();
 });
-it("rejects a legacy oversized series before creating a future session",async()=>{
+it("skips a legacy oversized series before creating a future session",async()=>{
  const series={...session,id:"series",storeId:actor.storeId,requestKey:"weekly",roomId:"room",coachId:"coach",frequency:"WEEKLY",untilDate:null,excludedDates:[],cancelledAt:null,learnerSnapshot:[{customerId:"one"},{customerId:"two"}]};
  const create=vi.fn(),query=vi.fn().mockResolvedValueOnce([series]).mockResolvedValueOnce([{payload:rule}]);
  const tx={$queryRaw:query,courseSession:{findUnique:vi.fn().mockResolvedValue(null),create}};
- await expect(materializeSportsMonth(tx as unknown as Prisma.TransactionClient,actor,"2026-11-09","2026-11-09")).rejects.toThrow("超過人數上限");expect(create).not.toHaveBeenCalled();
+ await expect(materializeSportsMonth(tx as unknown as Prisma.TransactionClient,actor,"2026-11-09","2026-11-09")).resolves.toMatch("已略過異常系列");expect(create).not.toHaveBeenCalled();
 });
