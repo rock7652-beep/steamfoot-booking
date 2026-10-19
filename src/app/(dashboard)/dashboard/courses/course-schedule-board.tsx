@@ -323,16 +323,16 @@ function SessionCard({
       <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
-        <div className="space-y-0.5">
+        <div className={session.sportsPalette ? "space-y-0" : "space-y-0.5"}>
           <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
             <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
             <span>{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>
           </div>
-          <div className="flex min-w-0 items-center gap-1 text-sm leading-5">
+          <div className={`flex min-w-0 items-center gap-1 text-sm ${session.sportsPalette ? "leading-4" : "leading-5"}`}>
             <strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong>
             {brief && progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
           </div>
-          {!brief && <div className="flex min-w-0 items-center gap-1 text-[13px] leading-5">
+          {!brief && <div className={`flex min-w-0 items-center gap-1 text-[13px] ${session.sportsPalette ? "leading-4" : "leading-5"}`}>
             <span className="min-w-0 flex-1 truncate" title={teacherState || resourceLabel}>{teacherState || resourceLabel}</span>
             {progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
           </div>}
@@ -532,7 +532,8 @@ export function CourseScheduleBoard({
   useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  const hourHeight = 96;
+  // A half-hour remains a 44px touch target; music keeps its existing scale.
+  const hourHeight = sportsNative ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -573,7 +574,7 @@ export function CourseScheduleBoard({
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
-              <div className="sticky left-0 z-20 h-[96px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
+              <div className="sticky left-0 z-20 border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600" style={{height:hourHeight}}>
                 {String(hour).padStart(2, "0")}:00
               </div>
               {dates.map((date) => {
@@ -582,7 +583,7 @@ export function CourseScheduleBoard({
                   (resourceView === "room" ? session.rescheduledFromRoomId : session.rescheduledFromCoachId) === roomId &&
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
-                return <div key={`${date}:${hour}`} className="relative h-[96px] border-b border-r border-earth-100 bg-white">
+                return <div key={`${date}:${hour}`} className="relative border-b border-r border-earth-100 bg-white" style={{height:hourHeight}}>
                   <div className="absolute inset-0 grid grid-rows-2">{["00","30"].map(minute => {
                     const time = `${String(hour).padStart(2,"0")}:${minute}`;
                     const day = calendarDays?.[date];
@@ -598,11 +599,11 @@ export function CourseScheduleBoard({
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;

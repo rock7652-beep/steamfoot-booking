@@ -641,6 +641,7 @@ interface DashboardShellProps {
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   sportsNative?:boolean;
+  initialSidebarCollapsed?: boolean;
   operationGuidePreview?: boolean;
   /** True only for the server-authorized, unselected HQ scope. */
   hqOperationGuide?: boolean;
@@ -682,6 +683,7 @@ export default function DashboardShell({
   cashDrawerStoreId,
   musicEnabled=false,
   sportsNative=false,
+  initialSidebarCollapsed,
   operationGuidePreview = false,
   hqOperationGuide = false,
   industryModule = "steamfoot",
@@ -714,7 +716,7 @@ export default function DashboardShell({
     () => false,
   );
   const isIframePreview = isDevicePreviewMode || isEmbeddedPreview;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(sportsNative ? initialSidebarCollapsed ?? false : false);
   const [readingPage, setReadingPage] = useState<string | null>(null);
   useEffect(() => {
     const reset = () => setReadingPage(null);
@@ -749,7 +751,7 @@ export default function DashboardShell({
     && !["analytics", "customers", "plans", "settings", "operations", "catalog", "rooms"].includes(searchParams.get("view") ?? "schedule");
 
   // Give the fitness timetable room on tablet widths; an explicit toggle wins.
-  const sidebarPreference = useRef<boolean | null>(null);
+  const sidebarPreference = useRef<boolean | null>(sportsNative ? initialSidebarCollapsed ?? null : null);
   const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
   const compactHqTablet = !!storeOptions?.length;
   useEffect(() => {
@@ -1155,7 +1157,12 @@ export default function DashboardShell({
           )}
           <button
             type="button"
-            onClick={() => { sidebarPreference.current = !collapsed; setCollapsed(!collapsed); }}
+            onClick={() => {
+              const next = !collapsed;
+              sidebarPreference.current = next;
+              setCollapsed(next);
+              if (sportsNative) document.cookie = `sports-sidebar-collapsed-v1=${next ? "1" : "0"}; Path=${dashboardPrefix || "/"}; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+            }}
             className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 shrink-0 ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
           >

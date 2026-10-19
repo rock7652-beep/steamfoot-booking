@@ -251,6 +251,7 @@ export default async function DashboardLayout({
       pricingPlan={pricingPlan}
       effectiveFeatures={effectiveFeatures}
       featureStates={featureStates}
+      initialSidebarCollapsed={sportsNativePreview(effectiveStoreId??undefined) && ["0", "1"].includes(ckStore.get("sports-sidebar-collapsed-v1")?.value ?? "") ? ckStore.get("sports-sidebar-collapsed-v1")?.value === "1" : undefined}
       sportsNative={sportsNativePreview(effectiveStoreId??undefined)}
       musicEnabled={industryModule==="course" && !!effectiveStoreId && !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:effectiveStoreId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}})}
       userName={user.name ?? ""}
