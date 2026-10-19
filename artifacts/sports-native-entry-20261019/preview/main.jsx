@@ -1,0 +1,14 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {CourseWorkspace} from '@/app/(dashboard)/dashboard/courses/workspace';
+import '@/app/globals.css';
+const query=new URLSearchParams(location.search),child=query.get('readonly')==='1';
+const storeId=query.get('store')??'store-ido-xinzhuang';
+const name=storeId==='store-ido-banqiao'?'IDO板橋館':'IDO新莊館';
+const room={id:'room',name:'驗收空間',category:'教室',isActive:true,capacity:8,details:'',equipment:'',location:'',uses:[]};
+const coach={id:'coach',displayName:'驗收教練',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]};
+const session={id:'fixture-session',templateId:'template',nameSnapshot:'固定每週瑜珈',startsAt:'2026-10-19T09:00:00Z',endsAt:'2026-10-19T10:00:00Z',coachId:'coach',roomId:'room',capacity:8,pointCost:1,requestKey:'fixture-key',bookings:[],sportsPalette:true,isFixed:true,isBiweekly:false};
+const calendarDays=Object.fromEntries(Array.from({length:31},(_,i)=>['2026-10-'+String(i+1).padStart(2,'0'),{status:'OPEN',periods:[{openTime:'09:00',closeTime:'22:00'}]}]));
+const props={storeId,selectedDate:'2026-10-19',today:'2026-10-19',nowIso:'2026-10-19T01:00:00Z',calendarDays,rooms:[room],templates:[{id:'template',name:'瑜珈',category:'運動',classType:'GROUP',isActive:true,visibility:'PUBLIC',durationMinutes:60,capacity:8,pointCost:1,defaultRoomId:'room',musicSubjectId:'subject',musicSubject:{id:'subject',name:'瑜珈',isActive:true},hasSessions:true}],sessions:[session],cancelledBookings:[],coaches:[coach],canCreate:!child,canEdit:!child,canDelete:!child,sportsNative:true,businessProfile:'FITNESS',view:'schedule',staffAvailability:[],staffAvailabilityExceptions:[],rentalCustomers:[],rentalPermissions:{customerRead:!child,customerCreate:!child,collect:!child,correct:!child,edit:!child},sportsData:child?undefined:{storeId,date:'2026-10-19',subjects:[{id:'subject',name:'瑜珈',category:'運動',active:true}],fees:[],lessons:[],students:[],customers:[],coaches:[{id:'coach',name:'驗收教練'}],rooms:[{id:'room',name:'驗收空間'}]}};
+window.fixtureCalendar={month:'2026-10',sessions:[session],rentals:[],calendarDays,cancelledBookings:[]};
+createRoot(document.getElementById('root')).render(<main style={{padding:12}}><h1 style={{fontSize:18,fontWeight:700,marginBottom:8}}>{name} · {child?'子店唯讀':'可操作'} · 本機合成資料預覽</h1><CourseWorkspace {...props}/></main>);

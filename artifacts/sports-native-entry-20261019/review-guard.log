@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-native-entry-20261019
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  06:09:20
+   Duration  283ms (transform 17ms, setup 0ms, import 29ms, tests 131ms, environment 0ms)
+

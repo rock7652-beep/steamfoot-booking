@@ -1,0 +1,128 @@
+[
+  {
+    "store": "store-ido-xinzhuang",
+    "readonly": false,
+    "viewport": [
+      1440,
+      900
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-xinzhuang-owner-1440x900.png"
+  },
+  {
+    "store": "store-ido-xinzhuang",
+    "readonly": false,
+    "viewport": [
+      1024,
+      1366
+    ],
+    "touch": true,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-xinzhuang-owner-1024x1366.png"
+  },
+  {
+    "store": "store-ido-xinzhuang",
+    "readonly": false,
+    "viewport": [
+      1366,
+      1024
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-xinzhuang-owner-1366x1024.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": false,
+    "viewport": [
+      1440,
+      900
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-owner-1440x900.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": false,
+    "viewport": [
+      1024,
+      1366
+    ],
+    "touch": true,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-owner-1024x1366.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": false,
+    "viewport": [
+      1366,
+      1024
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": true,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-owner-1366x1024.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": true,
+    "viewport": [
+      1440,
+      900
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": false,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-readonly-1440x900.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": true,
+    "viewport": [
+      1024,
+      1366
+    ],
+    "touch": true,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": false,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-readonly-1024x1366.png"
+  },
+  {
+    "store": "store-ido-banqiao",
+    "readonly": true,
+    "viewport": [
+      1366,
+      1024
+    ],
+    "touch": false,
+    "monthWeekDaySwitch": true,
+    "nativeFormOpened": false,
+    "globalOverflow": false,
+    "pageErrors": [],
+    "screenshot": "store-ido-banqiao-readonly-1366x1024.png"
+  }
+]
