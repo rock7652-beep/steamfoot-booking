@@ -575,10 +575,7 @@ function TimelineItem({
             {expiry && <span title={expiry.detail} className={`w-full min-w-0 [overflow-wrap:anywhere] ${expiry.className}`}>{expiry.compact}</span>}
           </span>
         ) : null}
-        {actionable && booking.bookingType === "FIRST_TRIAL" && !booking.participantSummary && (onNoShowTrial || onCancelTrial) && <div className="flex w-full flex-wrap gap-1">
-          {onNoShowTrial && <button type="button" disabled={isActing} onClick={() => onNoShowTrial(booking.id)} className="min-h-11 rounded-md px-2 text-sm text-amber-800 hover:bg-amber-50 disabled:opacity-50" aria-label={`標記 ${booking.customer.name} 未到`}>未到</button>}
-          {onCancelTrial && <button type="button" disabled={isActing} onClick={() => onCancelTrial(booking.id)} className="min-h-11 rounded-md px-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" aria-label={`取消 ${booking.customer.name} 的預約`}>取消預約</button>}
-        </div>}
+
         </div>
         <div className={styles.noteCell}>
           <RosterReminders customerId={booking.customer.id} name={booking.customer.name} canEdit={!readOnly}
@@ -599,7 +596,10 @@ function TimelineItem({
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
-        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
+        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={actionable && !readOnly && booking.bookingType === "FIRST_TRIAL" && !booking.participantSummary ? [
+          ...(onNoShowTrial ? [{ label: "未到", onSelect: () => onNoShowTrial(booking.id) }] : []),
+          ...(onCancelTrial ? [{ label: "取消預約", danger: true, onSelect: () => onCancelTrial(booking.id) }] : []),
+        ] : []} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
       </div>
     </div>
   );
