@@ -99,7 +99,9 @@
       "fix/course-plan-teaching-clarity-20261012": false,
       "feat/teacher-own-session-20261012": false,
       "feat/customer-retention-clarity-20261012": false,
-      "content/paid-members-attendance-drop-follow-up": false
+      "content/paid-members-attendance-drop-follow-up": false,
+      "codex/sports-sync-review-base-20261019": false,
+      "codex/sports-sync-review-20261019": false
     }
   }
 }
