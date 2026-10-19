@@ -1,3 +1,8 @@
+// Entry review only: reject hosted builds before any database or migration work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-native-entry-20261019")) {
+  throw new Error("Sports native entry review cannot deploy or execute migrations.");
+}
+
 // Review only: stop before a client or migration subprocess can be constructed.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("codex/sports-formalization-20261019")) {
   throw new Error("Sports formalization review cannot deploy or execute migrations.");

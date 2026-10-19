@@ -1,7 +1,5 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
-import {sportsProductionEnabled} from "@/lib/sports-staging";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
-import {SportsStagingWorkspace} from "@/components/admin/sports-staging-workspace";
 import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
@@ -69,18 +67,10 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
-  // The new workspace loads through write-scoped courseManager. Keep the
-  // existing read-only schedule for owners inspecting a child store.
-  const sportsAccess = (user.role === "ADMIN" || user.storeId === storeId) &&
-    sportsProductionEnabled(storeId) &&
-    (await Promise.all((["plans.edit", "customer.read", "wallet.read", "transaction.read"] as const)
-      .map(permission => checkPermission(user.role, user.staffId, permission)))).every(Boolean);
-  if(sportsAccess){
-    const result=await loadSportsStaging();
-    if(!result.success)return <p role="alert">{result.error}</p>;
-    const store=await prisma.store.findUnique({where:{id:storeId},select:{name:true}});
-    return <SportsStagingWorkspace initial={result.data} production storeName={store?.name??"運動教室"}/>;
-  }
+  // Native sports uses the existing schedule, catalog and fee interfaces.
+  // View-only store contexts must never load writable forms or expand series.
+  const viewContext = await resolveStoreViewContextFromCookie(user);
+  const writableStore = !viewContext?.isViewMode && (user.role === "ADMIN" || user.storeId === storeId);
   if (query.showcase === "music-types" && process.env.VERCEL_ENV === "preview") {
     const date = query.date && parseTaipeiDateTime(query.date, "00:00")
       ? query.date
@@ -126,17 +116,17 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
     ]);
-    const writable = user.role === "ADMIN" || user.storeId === storeId;
+    const writable = writableStore;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
-  const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&(user.role==="ADMIN"||user.storeId===storeId)?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
+  const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&writableStore?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
       ? requested
       : toLocalDateStr();
   const firstOfMonth = `${selected.slice(0, 7)}-01`;
-  if(sportsNative&&(user.role==="ADMIN"||user.storeId===storeId)&&await checkPermission(user.role,user.staffId,"booking.create")){
+  if(sportsNative&&writableStore&&await checkPermission(user.role,user.staffId,"booking.create")){
     const {ensureSportsMonth}=await import("@/server/services/sports-permanent-series");
     await ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY"));
   }
@@ -339,8 +329,7 @@ export default async function CoursesPage({
     redirect("/dashboard/courses/hours?tab=weekly&setup=1");
   }
   const writable =
-    canCreate && (user.role === "ADMIN" || user.storeId === storeId);
-  const viewContext = await resolveStoreViewContextFromCookie(user);
+    canCreate && writableStore;
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
@@ -377,7 +366,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
-      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
+      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&writableStore}
         storeId={storeId}
         key={`${storeId}:${view}`}
         view={view}
@@ -392,10 +381,10 @@ export default async function CoursesPage({
         templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}
-        canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        canEdit={canEdit && writableStore}
         rentalCustomers={rentalCustomers}
-        rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
-        cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
+        rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && writableStore}}
+        cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
         sportsNative={sportsNative}
         sportsData={await sportsFormPromise}
         businessProfile={businessProfile}
