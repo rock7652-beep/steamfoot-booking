@@ -14,7 +14,7 @@ export async function loadSportsCalendar(input:unknown){try{
  const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(input);
  if(!parseTaipeiDateTime(date,"00:00"))throw new AppError("VALIDATION","日期不正確");
  const {storeId}=await courseManagerRead("booking.read");
- if(!sportsNativePreview(storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此入口僅適用運動測試店");
+ if(!sportsNativePreview(storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
  await requireStoreFeature(storeId,FEATURES.BASIC_BOOKING);
  const first=date.slice(0,7)+"-01",start=dayRange(addTaiwanDuration(first,-6,"DAY")).start,end=dayRange(addTaiwanDuration(addTaiwanDuration(first,1,"MONTH"),5,"DAY")).end;
  const [sessions,rentals,rules,hours,special,exceptions]=await Promise.all([

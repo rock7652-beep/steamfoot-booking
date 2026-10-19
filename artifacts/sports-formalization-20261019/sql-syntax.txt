@@ -1,0 +1,4 @@
+Offline PostgreSQL parse only (pglast). Candidate: 12 statements. Readiness: 1 SELECT statement.
+No database connection, SQL execution, migration history update, deployment or flag modification.
+Both PL/pgSQL DO blocks also passed offline parse.
+Offline parse is not a substitute for an approved isolated database rehearsal.

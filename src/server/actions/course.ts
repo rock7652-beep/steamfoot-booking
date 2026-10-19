@@ -1,4 +1,5 @@
 "use server";
+import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -441,7 +442,7 @@ export async function createCourseSchedule(input: unknown) {
     if(data.sportsStaging){
       requireSportsStaging(storeId);
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
-      if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用運動測試店');
+      if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用已授權運動店');
       if(data.isTrial){
         await courseManager('trial.create');
         const {getTrialSettings,clampTrialTotal}=await import('@/lib/shop-config');
@@ -830,7 +831,7 @@ export async function moveCourseSessions(input: unknown) {
       }
       if(permanent&&d.scope==="FUTURE"){
         const startsAt=new Date(permanent.startsAt.getTime()+shift),endsAt=new Date(startsAt.getTime()+duration);
-        await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "startsAt"=${startsAt},"endsAt"=${endsAt},"roomId"=${d.roomId},"coachId"=${d.coachId},"updatedAt"=NOW() WHERE id=${permanent.id} AND "storeId"=${storeId}`;
+        await tx.$executeRaw`UPDATE ${sportsSeriesTable(storeId)} SET "startsAt"=${startsAt},"endsAt"=${endsAt},"roomId"=${d.roomId},"coachId"=${d.coachId},"updatedAt"=NOW() WHERE id=${permanent.id} AND "storeId"=${storeId}`;
       }
       for(const change of changes){
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
@@ -1131,7 +1132,7 @@ export async function batchCourseTemplates(input: unknown) {
 export async function checkSportsCourseMove(sessionId:string) {
   try {
     const {storeId}=await courseManager("booking.update");
-    if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此入口僅供運動測試站使用");
+    if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
     const session=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true}});
     if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
     const reason=await sportsMoveBlockedReason(coursePrisma,storeId,session);
@@ -1142,7 +1143,7 @@ export async function checkSportsCourseMove(sessionId:string) {
 /** Read-only recovery when a paste response is lost. Never retries the write. */
 export async function readSportsMoveResult(sessionId:string){try{
  const {storeId}=await courseManager("booking.read");
- if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此入口僅供運動測試站使用");
+ if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
  const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true,endsAt:true,roomId:true,coachId:true,rescheduledFromStartsAt:true,rescheduledFromEndsAt:true,rescheduledFromRoomId:true,rescheduledFromCoachId:true,rescheduleKind:true,rescheduledAt:true,releasedAt:true}});
  if(!row)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
  return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),rescheduledFromStartsAt:row.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:row.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:row.rescheduledAt?.toISOString()??null,releasedAt:row.releasedAt?.toISOString()??null}};

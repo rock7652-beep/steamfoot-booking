@@ -1,3 +1,6 @@
+import {sportsProductionEnabled} from "../../../scripts/sports-production-scope.mjs";
+import {verifySportsPermanentReadiness} from "../../../scripts/sports-permanent-readiness.mjs";
+import {sportsSeriesTable,assertSportsPermanentCreationAllowed} from "@/lib/sports-series-storage";
 import "server-only";
 import {createHash} from "node:crypto";
 import {z} from "zod";
@@ -11,9 +14,10 @@ import type {CourseActor} from "./course-booking";
 type Tx=Prisma.TransactionClient;
 export const sportsLearners=z.array(z.object({customerId:z.string(),cardId:z.string().nullable().optional(),stopDate:z.string().optional()}));
 export type SportsSeries=FixedCourseSeries&{id:string;storeId:string;templateId:string;nameSnapshot:string;capacity:number;pointCost:number;createdById:string;enrollmentMode:string;learnerSnapshot:unknown;generatedThrough:Date};
-export async function readSportsSeries(tx:Pick<Tx,"$queryRaw">,storeId:string){
+export async function readSportsSeries(tx:Pick<Tx,"$queryRaw"|"$queryRawUnsafe">,storeId:string){
  if(!sportsNativePreview(storeId))return [];
- return tx.$queryRaw<SportsSeries[]>`SELECT * FROM "SportsPreviewScheduleSeries" WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`;
+ if(sportsProductionEnabled(storeId))await verifySportsPermanentReadiness(sql=>tx.$queryRawUnsafe<Array<Record<string,unknown>>>(sql));
+ return tx.$queryRaw<SportsSeries[]>`SELECT * FROM ${sportsSeriesTable(storeId)} WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`;
 }
 export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{startsAt:Date;endsAt:Date}>,resources:{roomId:string;coachId:string},requestKey?:string,frequency?:string,excludedOwnDates?:string[]){
  if(!sportsNativePreview(storeId))return;
@@ -45,14 +49,15 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
 }
 export async function persistSportsSeries(tx:Tx,actor:CourseActor,requestKey:string,rule:SportsScheduleRule){
  if(!sportsNativePreview(actor.storeId)||!rule.perpetual)return;
+ assertSportsPermanentCreationAllowed(actor.storeId);
  const s=await tx.courseSession.findFirst({where:{storeId:actor.storeId,requestKey},orderBy:{requestIndex:"asc"}});
  if(!s)throw new AppError("NOT_FOUND","固定課不存在");
  const id=`sports-series:${createHash("sha256").update(actor.storeId+":"+requestKey).digest("hex").slice(0,32)}`;
- await tx.$executeRaw`INSERT INTO "SportsPreviewScheduleSeries" (id,"storeId","requestKey","templateId","nameSnapshot","roomId","coachId","startsAt","endsAt","pointCost",capacity,frequency,"enrollmentMode","learnerSnapshot","generatedThrough","createdById","updatedAt") VALUES (${id},${actor.storeId},${requestKey},${s.templateId},${s.nameSnapshot},${s.roomId},${s.coachId},${s.startsAt},${s.endsAt},${s.pointCost},${s.capacity},${rule.frequency},${rule.enrollment},${JSON.stringify(rule.students)}::jsonb,${toLocalDateStr(s.startsAt)}::date,${actor.userId},NOW()) ON CONFLICT ("storeId","requestKey") DO NOTHING`;
+ await tx.$executeRaw`INSERT INTO ${sportsSeriesTable(actor.storeId)} (id,"storeId","requestKey","templateId","nameSnapshot","roomId","coachId","startsAt","endsAt","pointCost",capacity,frequency,"enrollmentMode","learnerSnapshot","generatedThrough","createdById","updatedAt") VALUES (${id},${actor.storeId},${requestKey},${s.templateId},${s.nameSnapshot},${s.roomId},${s.coachId},${s.startsAt},${s.endsAt},${s.pointCost},${s.capacity},${rule.frequency},${rule.enrollment},${JSON.stringify(rule.students)}::jsonb,${toLocalDateStr(s.startsAt)}::date,${actor.userId},NOW()) ON CONFLICT ("storeId","requestKey") DO NOTHING`;
 }
 /** No card is reserved for an ongoing assigned place. Attendance resolves the current paid card. */
 export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id:string;templateId:string;startsAt:Date;endsAt:Date;pointCost:number;capacity:number},rule:SportsScheduleRule){
- if(!sportsNativePreview(actor.storeId)||!rule.perpetual)throw new AppError("FORBIDDEN","此功能限運動測試店");
+ if(!sportsNativePreview(actor.storeId)||!rule.perpetual)throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
  for(const learner of rule.students){
   const customer=await tx.$queryRaw<Array<{name:string}>>`SELECT name FROM "Customer" WHERE id=${learner.customerId} AND "storeId"=${actor.storeId} AND "mergedIntoCustomerId" IS NULL`;
   if(!customer.length)throw new AppError("VALIDATION","學員不屬於本店");
