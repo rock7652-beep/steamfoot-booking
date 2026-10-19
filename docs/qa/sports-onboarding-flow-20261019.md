@@ -33,3 +33,5 @@
 這是全新本機隔離服務的真實UI→action/API→PostgreSQL驗收，不是已部署Preview。僅本機測試工作樹加嚴格localhost QA入口adapter及Turbopack工作樹根目錄，實際引導／表單／儲存／排課檔案與修正分支逐檔hash一致。adapter、測試密碼、登入工作階段、任何正式連線都不納入修正分支。
 
 本機schema以Prisma空表加既有raw SQL結構初始化，不代表重跑正式migration；沒有正式資料庫、線上設定、部署、既有運動／音樂測試店、真實顧客或試用日期異動。沒有合併或部署。效能數字不代表Vercel正式站。
+
+審查分支fix/sports-onboarding-flow-20261019在vercel.json明確停用Git部署；next.config.ts及ci-migrate.mjs在資料庫工作前拒絕三種hosted分支metadata。main部署停用設定保持。
