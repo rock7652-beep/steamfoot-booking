@@ -1,0 +1,107 @@
+{
+  "deployedCodeSha": "70123688047a9a2b3a20e145467044730a792bb7",
+  "deploymentId": "dpl_E9VsptoiSiEa8snqKtyp5hPB142f",
+  "previewUrl": "https://steamfoot-booking-trez7ib23-rock7652-2111s-projects.vercel.app",
+  "completed": true,
+  "checks": [
+    {
+      "check": "新增固定課→另一登入課表",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.005
+      }
+    },
+    {
+      "check": "加入學員→另一登入名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.006
+      }
+    },
+    {
+      "check": "出席→另一登入名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 0.143
+      }
+    },
+    {
+      "check": "出席5次連點只扣2點，6→4",
+      "data": null
+    },
+    {
+      "check": "撤銷→另一登入名單（含未儲存草稿）",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 3.973
+      }
+    },
+    {
+      "check": "撤銷後4→6，背景同步未清空體驗客草稿",
+      "data": null
+    },
+    {
+      "check": "iPad橫直向草稿保持、無整頁水平溢出，沒有新增體驗客",
+      "data": null
+    },
+    {
+      "check": "調課→另一登入課表",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 3.951
+      }
+    },
+    {
+      "check": "快速同步仍保留舊剪貼簿衝突拒絕",
+      "data": null
+    },
+    {
+      "check": "停課→另一登入取消名單",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 3.456
+      }
+    },
+    {
+      "check": "停課→另一登入課表釋放",
+      "data": {
+        "idleSecondsAfterLocalConfirmation": 4.314
+      }
+    },
+    {
+      "check": "測試系列已停止、點數與預留回到原值，不留永久佔位",
+      "data": null
+    },
+    {
+      "check": "主要另一登入頁面全程沒有document重整或未處理錯誤",
+      "data": null
+    }
+  ],
+  "timingsAfterLocalSuccessSeconds": {
+    "新增固定課→另一登入課表": 0.005,
+    "加入學員→另一登入名單": 0.006,
+    "出席→另一登入名單": 0.143,
+    "撤銷→另一登入名單（含未儲存草稿）": 3.973,
+    "調課→另一登入課表": 3.951,
+    "停課→另一登入取消名單": 3.456,
+    "停課→另一登入課表釋放": 4.314
+  },
+  "pageErrors": [],
+  "case": {
+    "date": "2026-11-17",
+    "movedTo": "2026-11-18",
+    "timeTaipei": "12:15",
+    "durationMinutes": 45,
+    "bookingCount": 1,
+    "remainingPoints": {
+      "before": 6,
+      "reserved": 6,
+      "attended": 4,
+      "restored": 6,
+      "afterStop": 6
+    },
+    "heldPointsAfterStop": 4,
+    "seriesStopped": true
+  },
+  "limitations": [
+    "One sample per transition; measured after local UI success, not commit-to-render or p95.",
+    "Two independent Chromium contexts; third observer tab shares second login context.",
+    "No physical iPad/Safari or load test.",
+    "Visible-page polling adds read traffic; isolated QA store only."
+  ],
+  "source": "Original full results and scripts retained outside repository; auth/share files and customer/card snapshots excluded."
+}
