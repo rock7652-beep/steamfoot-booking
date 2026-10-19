@@ -32,7 +32,7 @@ describe("運動持續固定課",()=>{
   const update=vi.fn(),tx={$queryRaw:vi.fn().mockResolvedValue([{planId:"plan"}]),courseBooking:{findFirst:vi.fn().mockResolvedValue({id:"b",bookingKind:"UNPAID",requestKey:"sports-fixed:s:p",cardId:null,customerId:"p",sessionId:"s",session:{pointCost:2,templateId:"t",startsAt:series.startsAt}}),update},coursePointCard:{findMany:vi.fn().mockResolvedValue([{unit:"POINT",remaining:2,bookings:[{pointCost:1}]}])}};
   await expect(bindSportsAttendanceCard(tx as unknown as Prisma.TransactionClient,actor,"b")).rejects.toThrow("足額");expect(update).not.toHaveBeenCalled();
  });
- it("非運動測試店拒絕寫入",async()=>{
-  m.enabled=false;await expect(addSportsFixedLearners({} as Prisma.TransactionClient,actor,{id:"s",templateId:"t",startsAt:series.startsAt,endsAt:series.endsAt,pointCost:2,capacity:1},{perpetual:true,frequency:"WEEKLY",enrollment:"OPEN",planId:"p",students:[],trialPrice:0})).rejects.toThrow("限運動測試店");
+ it("未開放運動固定課的店家拒絕寫入",async()=>{
+  m.enabled=false;await expect(addSportsFixedLearners({} as Prisma.TransactionClient,actor,{id:"s",templateId:"t",startsAt:series.startsAt,endsAt:series.endsAt,pointCost:2,capacity:1},{perpetual:true,frequency:"WEEKLY",enrollment:"OPEN",planId:"p",students:[],trialPrice:0})).rejects.toThrow("尚未開放運動固定課");
  });
 });

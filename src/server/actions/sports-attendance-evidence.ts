@@ -10,7 +10,7 @@ export async function loadSportsAttendanceEvidence(input:unknown){try{
  const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(input);
  if(!parseTaipeiDateTime(day,"00:00"))throw new AppError("VALIDATION","日期不正確");
  const {storeId}=await courseManagerRead("booking.read");
- if(!sportsNativePreview(storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此入口僅適用運動測試店");
+ if(!sportsNativePreview(storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
  const range=dayRange(day);
  const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,session:{startsAt:{gte:range.start,lte:range.end}},OR:[{status:"NO_SHOW"},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]},select:{id:true,status:true,pointCost:true,card:{select:{unit:true}}},take:1000});
  if(!bookings.length)return {success:true as const,data:[]};

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-formalization-20261019
+
+
+ Test Files  12 passed (12)
+      Tests  100 passed (100)
+   Start at  05:14:21
+   Duration  1.50s (transform 838ms, setup 0ms, import 1.58s, tests 563ms, environment 393ms)
+

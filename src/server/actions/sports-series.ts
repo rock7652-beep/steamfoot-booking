@@ -1,4 +1,5 @@
 "use server";
+import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import {z} from "zod";
 import {courseManager,courseTransaction} from "@/server/services/course-access";
 import {coursePrisma} from "@/lib/course-db";
@@ -11,7 +12,8 @@ import {cancelCourseWaitlistForSession} from "@/server/services/course-waitlist"
 import {reserveCourseInTransaction,settleCourseBooking} from "@/server/services/course-booking";
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(d=>!!parseTaipeiDateTime(d,"00:00"));
 async function actor(permission:Parameters<typeof courseManager>[0]){
- const a=await courseManager(permission);if(!sportsNativePreview(a.storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","僅限運動測試店");
+ const a=await courseManager(permission);if(!sportsNativePreview(a.storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
+ if(process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId)));
  return {storeId:a.storeId,userId:a.user.id,name:a.user.name??"門市人員"};
 }
 export async function syncSportsPermanentCalendar(input:unknown){try{
@@ -47,7 +49,7 @@ export async function stopSportsLearner(input:unknown){try{
   if(deferred.length)await tx.courseBooking.updateMany({where:{storeId:a.storeId,id:{in:deferred.map(b=>b.id)},status:"RESERVED"},data:{status:"CANCELLED",absenceKind:null}});
   for(const b of bookings.filter(b=>!deferred.some(d=>d.id===b.id)))await settleCourseBooking(tx,a,b.id,"CANCELLED");
   learner.stopDate=d.effectiveDate;
-  await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "learnerSnapshot"=${JSON.stringify(learners)}::jsonb,"updatedAt"=NOW() WHERE id=${series.id} AND "storeId"=${a.storeId}`;
+  await tx.$executeRaw`UPDATE ${sportsSeriesTable(a.storeId)} SET "learnerSnapshot"=${JSON.stringify(learners)}::jsonb,"updatedAt"=NOW() WHERE id=${series.id} AND "storeId"=${a.storeId}`;
   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${crypto.randomUUID()},${a.userId},${a.storeId},'COURSE','固定課學員停課，保留歷史缺課及補課','CourseScheduleSeries',${series.id},'SPORTS_LEARNER_STOP',NOW())`;
  });return {success:true as const};
  }catch(e){return handleActionError(e);}}
@@ -79,7 +81,7 @@ export async function stopSportsSeries(input:unknown){try{
   if(d.expectedSessionIds&&(sessions.map(s=>s.id).sort().join(",")!==[...d.expectedSessionIds].sort().join(",")||sessions.flatMap(s=>s.bookings.map(b=>b.id)).sort().join(",")!==[...(d.expectedBookingIds??[])].sort().join(",")))throw new AppError("CONFLICT","課程或名單已變動，請重新核對取消範圍");
   if(sessions.some(s=>s.bookings.some(b=>b.status!=="RESERVED")))throw new AppError("CONFLICT","結束日期後已有點名，請先核對");
   for(const s of sessions){for(const b of s.bookings)await settleCourseBooking(tx,a,b.id,"CANCELLED");await tx.courseSession.update({where:{id:s.id},data:{cancelledAt:new Date()}});await cancelCourseWaitlistForSession(tx,a.storeId,s.id);}
-  await tx.$executeRaw`UPDATE "SportsPreviewScheduleSeries" SET "untilDate"=${addTaiwanDuration(d.effectiveDate,-1,"DAY")}::date,"updatedAt"=NOW() WHERE id=${s.id} AND "storeId"=${a.storeId}`;
+  await tx.$executeRaw`UPDATE ${sportsSeriesTable(a.storeId)} SET "untilDate"=${addTaiwanDuration(d.effectiveDate,-1,"DAY")}::date,"updatedAt"=NOW() WHERE id=${s.id} AND "storeId"=${a.storeId}`;
  });return {success:true as const};
  }catch(e){return handleActionError(e);}}
 
