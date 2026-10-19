@@ -19,7 +19,7 @@ async function actor(permission:Parameters<typeof courseManager>[0]){
 export async function syncSportsPermanentCalendar(input:unknown){try{
  const day=date.parse(input),a=await actor("booking.create");
  const first=addTaiwanDuration(day.slice(0,7)+"-01",-6,"DAY"),last=addTaiwanDuration(addTaiwanDuration(day.slice(0,7)+"-01",1,"MONTH"),5,"DAY");
- await ensureSportsMonth(a,first,last);return {success:true as const};
+ const warning=await ensureSportsMonth(a,first,last);return {success:true as const,warning:warning??null};
  }catch(e){return handleActionError(e);}}
 export async function loadSportsSeriesPanel(sessionId:string){try{
  z.string().min(1).max(100).parse(sessionId);const a=await actor("booking.read");

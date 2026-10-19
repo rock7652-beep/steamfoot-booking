@@ -158,6 +158,7 @@ type Props = {
   canDelete?: boolean;
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
+  initialSportsCalendarWarning?:string;
   sportsNative?:boolean;
   sportsData?:SportsSnapshot;
   businessProfile: "FITNESS" | "MUSIC";
@@ -253,6 +254,7 @@ export function CourseWorkspace({
   rentalCustomers=[],
   rentalPermissions={customerRead:false,customerCreate:false,collect:false,correct:false,edit:false},
   cashbookShortcut,
+  initialSportsCalendarWarning,
   sportsNative=false,
   sportsData,
   businessProfile,
@@ -290,6 +292,7 @@ export function CourseWorkspace({
   const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
   const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
+  const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
   const [nativeCalendar,setNativeCalendar]=useState<{month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader("sports-calendar",readSportsCalendar,storeId??"",0);
   const calendarRequest=useRef(0);
@@ -307,11 +310,13 @@ export function CourseWorkspace({
     calendarReadsInFlight.current++;
     if(!background)setCalendarReading(true);
     try{
-      if(ensure&&sportsNative&&canCreate){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);}
+      let warning:string|undefined;
+      const ensured=ensure&&sportsNative&&canCreate;
+      if(ensured){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);warning="warning" in sync?sync.warning??undefined:undefined;}
       if(!background)sportsCalendarReader.clear();
       const result=await sportsCalendarReader.read(date);
       if(request!==calendarRequest.current)return null;
-      if(result.success){setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
+      if(result.success){if(ensured)setNativeCalendarWarning(warning);setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
       setError(result.error);return false;
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
@@ -852,6 +857,7 @@ export function CourseWorkspace({
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
+          {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 shrink-0">

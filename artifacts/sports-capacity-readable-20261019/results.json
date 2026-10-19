@@ -1,0 +1,538 @@
+{
+  "completed": true,
+  "checks": [
+    {
+      "name": "assigned-create",
+      "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+      "response": [
+        {
+          "status": 200,
+          "success": true,
+          "error": null
+        }
+      ],
+      "sessions": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ]
+    },
+    {
+      "name": "assigned-full-reject",
+      "response": [
+        {
+          "status": 200,
+          "success": false,
+          "error": "0:{\"a\":\"$@1\",\"f\":\"\",\"q\":\"?date=2026-11-01\",\"i\":true,\"b\":\"development\"}\n1:D\"$2\"\n1:{\"success\":false,\"error\":\"本堂課已滿班，請由店長確認加人\"}\n"
+        }
+      ],
+      "sessions": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ]
+    },
+    {
+      "name": "assigned-future-expanded",
+      "sessions": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hns0000kmy3wrn51ybz2",
+          "capacity": 1,
+          "startsAt": "2026-12-28T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnvv000omy3wa8mviix1",
+          "capacity": 1,
+          "startsAt": "2027-01-04T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnzj000smy3ww2dj87fq",
+          "capacity": 1,
+          "startsAt": "2027-01-11T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho2g000wmy3wtjv4a2u3",
+          "capacity": 1,
+          "startsAt": "2027-01-18T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho4h0010my3w44vl8pow",
+          "capacity": 1,
+          "startsAt": "2027-01-25T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho7i0014my3wf06sqzd6",
+          "capacity": 1,
+          "startsAt": "2027-02-01T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ]
+    },
+    {
+      "name": "assigned-future-full-reject",
+      "response": [
+        {
+          "status": 200,
+          "success": false,
+          "error": "0:{\"a\":\"$@1\",\"f\":\"\",\"q\":\"?date=2027-01-01\",\"i\":true,\"b\":\"development\"}\n1:D\"$2\"\n1:{\"success\":false,\"error\":\"本堂課已滿班，請由店長確認加人\"}\n"
+        }
+      ],
+      "sessions": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hns0000kmy3wrn51ybz2",
+          "capacity": 1,
+          "startsAt": "2026-12-28T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnvv000omy3wa8mviix1",
+          "capacity": 1,
+          "startsAt": "2027-01-04T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnzj000smy3ww2dj87fq",
+          "capacity": 1,
+          "startsAt": "2027-01-11T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho2g000wmy3wtjv4a2u3",
+          "capacity": 1,
+          "startsAt": "2027-01-18T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho4h0010my3w44vl8pow",
+          "capacity": 1,
+          "startsAt": "2027-01-25T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho7i0014my3wf06sqzd6",
+          "capacity": 1,
+          "startsAt": "2027-02-01T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ]
+    },
+    {
+      "name": "open-create",
+      "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+      "response": [
+        {
+          "status": 200,
+          "success": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "name": "open-future-last-place-concurrent",
+      "response": [
+        {
+          "status": 200,
+          "success": true,
+          "error": null
+        },
+        {
+          "status": 200,
+          "success": false,
+          "error": "0:{\"a\":\"$@1\",\"f\":\"\",\"q\":\"?date=2027-01-01\",\"i\":true,\"b\":\"development\"}\n1:D\"$2\"\n1:{\"success\":false,\"error\":\"本堂課已滿班，請由店長確認加人\"}\n"
+        }
+      ],
+      "sessions": [
+        {
+          "id": "cmvf8hqs80017my3w25gdhzn4",
+          "capacity": 1,
+          "startsAt": "2026-11-03T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        },
+        {
+          "id": "cmvf8hqzx0019my3w9w9ikw8o",
+          "capacity": 1,
+          "startsAt": "2026-12-29T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        },
+        {
+          "id": "cmvf8hr0q001bmy3wiprcxwr2",
+          "capacity": 1,
+          "startsAt": "2027-01-05T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hr1m001dmy3wo64p1i1i",
+          "capacity": 1,
+          "startsAt": "2027-01-12T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        },
+        {
+          "id": "cmvf8hr27001fmy3w3nezl9t1",
+          "capacity": 1,
+          "startsAt": "2027-01-19T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        },
+        {
+          "id": "cmvf8hr37001hmy3wgle34ugq",
+          "capacity": 1,
+          "startsAt": "2027-01-26T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        },
+        {
+          "id": "cmvf8hr4x001jmy3wdz39ykkb",
+          "capacity": 1,
+          "startsAt": "2027-02-02T02:00:00+00:00",
+          "requestKey": "5bf17764-e71a-4b20-939b-230ad7e25450",
+          "occupied": 0
+        }
+      ]
+    },
+    {
+      "name": "assigned-two-with-capacity-one",
+      "requestKey": "dd899054-f1c4-49de-94a8-7b736d7108aa",
+      "response": [
+        {
+          "status": 200,
+          "success": false,
+          "error": "0:{\"a\":\"$@1\",\"f\":\"\",\"q\":\"?date=2027-01-01\",\"i\":true,\"b\":\"development\"}\n1:D\"$2\"\n1:{\"success\":false,\"error\":\"固定課指定學員超過人數上限，請先調整容量或名單\"}\n"
+        }
+      ],
+      "sessions": []
+    },
+    {
+      "name": "legacy-oversized-initial-readable",
+      "before": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hns0000kmy3wrn51ybz2",
+          "capacity": 1,
+          "startsAt": "2026-12-28T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnvv000omy3wa8mviix1",
+          "capacity": 1,
+          "startsAt": "2027-01-04T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnzj000smy3ww2dj87fq",
+          "capacity": 1,
+          "startsAt": "2027-01-11T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho2g000wmy3wtjv4a2u3",
+          "capacity": 1,
+          "startsAt": "2027-01-18T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho4h0010my3w44vl8pow",
+          "capacity": 1,
+          "startsAt": "2027-01-25T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho7i0014my3wf06sqzd6",
+          "capacity": 1,
+          "startsAt": "2027-02-01T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ],
+      "after": [
+        {
+          "id": "cmvf8hmqd0000my3w6pvqbi85",
+          "capacity": 1,
+          "startsAt": "2026-11-02T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmxc0004my3w3t2ikph2",
+          "capacity": 1,
+          "startsAt": "2026-11-09T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmy50008my3w0uob580e",
+          "capacity": 1,
+          "startsAt": "2026-11-16T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmyt000cmy3w2rgvinq2",
+          "capacity": 1,
+          "startsAt": "2026-11-23T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hmzf000gmy3w0k5fqg55",
+          "capacity": 1,
+          "startsAt": "2026-11-30T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hns0000kmy3wrn51ybz2",
+          "capacity": 1,
+          "startsAt": "2026-12-28T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnvv000omy3wa8mviix1",
+          "capacity": 1,
+          "startsAt": "2027-01-04T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8hnzj000smy3ww2dj87fq",
+          "capacity": 1,
+          "startsAt": "2027-01-11T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho2g000wmy3wtjv4a2u3",
+          "capacity": 1,
+          "startsAt": "2027-01-18T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho4h0010my3w44vl8pow",
+          "capacity": 1,
+          "startsAt": "2027-01-25T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        },
+        {
+          "id": "cmvf8ho7i0014my3wf06sqzd6",
+          "capacity": 1,
+          "startsAt": "2027-02-01T02:00:00+00:00",
+          "requestKey": "ebeb249e-3d59-4056-b024-7b2bbb4c0b07",
+          "occupied": 1
+        }
+      ],
+      "errorPage": false,
+      "warning": true
+    },
+    {
+      "name": "legacy-client-month-readable",
+      "warning": true,
+      "selectedDate": "2027-04-01",
+      "unchanged": true
+    },
+    {
+      "name": "ipad-landscape",
+      "warningVisible": true
+    },
+    {
+      "name": "ipad-portrait",
+      "warningVisible": true
+    }
+  ],
+  "pageErrors": []
+}

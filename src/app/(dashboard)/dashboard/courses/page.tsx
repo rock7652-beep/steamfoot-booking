@@ -126,9 +126,10 @@ export default async function CoursesPage({
       ? requested
       : toLocalDateStr();
   const firstOfMonth = `${selected.slice(0, 7)}-01`;
+  let sportsCalendarWarning:string|undefined;
   if(sportsNative&&writableStore&&await checkPermission(user.role,user.staffId,"booking.create")){
     const {ensureSportsMonth}=await import("@/server/services/sports-permanent-series");
-    await ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY"));
+    sportsCalendarWarning=await ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY"));
   }
 
   const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
@@ -370,6 +371,7 @@ export default async function CoursesPage({
         storeId={storeId}
         key={`${storeId}:${view}`}
         view={view}
+        initialSportsCalendarWarning={sportsCalendarWarning}
         selectedDate={selected}
         today={toLocalDateStr()}
         nowIso={new Date().toISOString()}

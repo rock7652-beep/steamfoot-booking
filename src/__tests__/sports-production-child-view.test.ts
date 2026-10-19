@@ -105,3 +105,11 @@ it('blocks enabled production reads if readiness fails',async()=>{
  vi.stubEnv('VERCEL_ENV','production');m.ready.mockRejectedValueOnce(new Error('not ready'));
  try{await expect(CoursesPage({searchParams:Promise.resolve({})})).rejects.toThrow('not ready');expect(m.sessions).not.toHaveBeenCalled();expect(m.load).not.toHaveBeenCalled();}finally{vi.unstubAllEnvs();}
 });
+
+it('retains historical schedule reads and passes a capacity warning to the workspace',async()=>{
+ m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',storeId:'child'});m.context.mockResolvedValue(null);
+ m.ensure.mockResolvedValue('固定課名單超過人數上限；既有課表仍可查看');
+ const page=await CoursesPage({searchParams:Promise.resolve({date:'2027-03-01'})});
+ expect(m.sessions).toHaveBeenCalled();
+ expect(find(page,'legacy-workspace')?.props).toMatchObject({initialSportsCalendarWarning:'固定課名單超過人數上限；既有課表仍可查看'});
+});

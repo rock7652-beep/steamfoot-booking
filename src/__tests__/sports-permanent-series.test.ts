@@ -19,7 +19,7 @@ describe("運動持續固定課",()=>{
   expect(fixedSeriesOccurrenceOnDate({...series,untilDate:new Date("2026-11-08T00:00:00Z")},"2026-11-09")).toBeNull();
  });
  it("指定學員建立零額度占用名單，不查課卡、不新增保留或扣抵明細",async()=>{
-  const create=vi.fn(),tx={$queryRaw:vi.fn().mockResolvedValue([{name:"學員"}]),courseBooking:{findFirst:vi.fn().mockResolvedValue(null),create}};
+  const create=vi.fn(),tx={$queryRaw:vi.fn().mockResolvedValue([{name:"學員"}]),courseBooking:{count:vi.fn().mockResolvedValue(0),findFirst:vi.fn().mockResolvedValue(null),create}};
   await addSportsFixedLearners(tx as unknown as Prisma.TransactionClient,actor,{id:"session",templateId:"template",startsAt:series.startsAt,endsAt:series.endsAt,pointCost:2,capacity:1},{perpetual:true,frequency:"WEEKLY",enrollment:"ASSIGNED",planId:"plan",students:[{customerId:"student",cardId:null}],trialPrice:0});
   expect(create).toHaveBeenCalledWith({data:expect.objectContaining({bookingKind:"UNPAID",cardId:null,pointCost:0,customerId:"student"})});
  });
