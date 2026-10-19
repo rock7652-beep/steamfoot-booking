@@ -8,9 +8,9 @@ vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
 import {SportsScheduleFields} from "@/app/(dashboard)/dashboard/courses/sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 const data:SportsSnapshot={storeId:"sports-live-flow-store",date:"2026-10-18",subjects:[{id:"subject",name:"瑜伽",category:"運動",active:true,updatedAt:"v1"}],fees:[],lessons:[],students:[],customers:[{id:"student",name:"學員",phone:"0900000000"}],coaches:[{id:"coach",name:"王教練",templates:[]}],rooms:[{id:"first",name:"第一空間",capacity:10,rental:true},{id:"selected",name:"指定空間",capacity:5,rental:true}]};
-async function mount(seed:{roomId?:string;coachId?:string;time?:string}={}){
+async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={}){
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
- await act(async()=>root.render(createElement(SportsScheduleFields,{initial:data,date:"2026-10-18",seed,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
+ await act(async()=>root.render(createElement(SportsScheduleFields,{initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
  return {host,close:async()=>{await act(async()=>root.unmount());host.remove();}};
 }
 it("從空間格子排課即帶入空間及時間，指定學員無人數上限或堂數欄",async()=>{
@@ -42,4 +42,16 @@ it("學員姓名／電話即時篩選，切換開放選課仍保留已選草稿"
  const radios=Array.from(m.host.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
  await act(async()=>radios[1].click());await act(async()=>radios[0].click());expect(m.host.textContent).toContain('已選 1 人');expect((m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
  await m.close();
+});
+
+it("disabled waitlist starts at zero; enabled waitlist keeps the store default",async()=>{
+ for(const enabled of [false,true]){
+  const m=await mount({}, {waitlistEnabled:enabled,waitlistDefaultLimit:3});
+  const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==="開放選課") as HTMLInputElement;
+  await act(async()=>radio.click());
+  const input=m.host.querySelector('[aria-label="候補人數"]') as HTMLInputElement;
+  expect(input.value).toBe(enabled?"3":"0");expect(input.disabled).toBe(!enabled);
+  expect(m.host.textContent?.includes("候補未啟用")).toBe(!enabled);
+  await m.close();
+ }
 });

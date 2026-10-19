@@ -374,7 +374,7 @@ export async function saveSportsFee(input: unknown) {
         days: z.number().int().min(1).max(3650),
         cost: z.number().int().min(1).max(10000),
         shared: z.boolean(),
-        coachIds: z.array(id).min(1),
+        coachIds: z.array(id).min(1, "請選擇至少一位可授課教練"),
         requestKey: z.string().uuid(),
         snapshot: z.string().optional(),
       })
