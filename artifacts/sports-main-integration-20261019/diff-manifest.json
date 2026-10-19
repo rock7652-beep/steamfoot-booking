@@ -12,10 +12,10 @@
   "counts": {
     "build_guard_and_isolated_sql": 3,
     "domain_and_clients": 17,
-    "evidence": 13,
+    "evidence": 27,
     "server": 22,
-    "tests": 43,
-    "ui_and_routes": 50
+    "tests": 46,
+    "ui_and_routes": 53
   },
   "files": [
     {
@@ -48,6 +48,62 @@
     },
     {
       "path": "artifacts/sports-main-integration-20261019/targeted-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/calendar-state-return.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/core-preview-summary.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-interactions.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-sidebar-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/density-week-1024.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/device-preview-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/device-staff-results.json",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/failure-visible.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/integration-tests.log",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/mobile-work-orders.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/slow-wait.png",
+      "category": "evidence"
+    },
+    {
+      "path": "artifacts/sports-pr1355-followup-20261019/staff-denied.png",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/evidence/sports-density-sidebar-preview-20261019.md",
+      "category": "evidence"
+    },
+    {
+      "path": "docs/evidence/sports-device-preview-recovery-20261019.md",
       "category": "evidence"
     },
     {
@@ -179,11 +235,23 @@
       "category": "tests"
     },
     {
+      "path": "src/__tests__/sports-compact-timetable.test.ts",
+      "category": "tests"
+    },
+    {
       "path": "src/__tests__/sports-course-cancellation.test.ts",
       "category": "tests"
     },
     {
       "path": "src/__tests__/sports-customer-actions.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-device-frame-loading.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/sports-device-preview-navigation.test.ts",
       "category": "tests"
     },
     {
@@ -403,6 +471,10 @@
       "category": "ui_and_routes"
     },
     {
+      "path": "src/app/(dashboard)/dashboard/device-preview/page.tsx",
+      "category": "ui_and_routes"
+    },
+    {
       "path": "src/app/(dashboard)/dashboard/revenue/_components/course-revenue.tsx",
       "category": "ui_and_routes"
     },
@@ -432,6 +504,14 @@
     },
     {
       "path": "src/components/dashboard-layout.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/device-preview/device-frame.tsx",
+      "category": "ui_and_routes"
+    },
+    {
+      "path": "src/components/device-preview/device-preview.tsx",
       "category": "ui_and_routes"
     },
     {
@@ -610,5 +690,11 @@
       "path": "vercel.json",
       "category": "build_guard_and_isolated_sql"
     }
+  ],
+  "latestMainChecked": "7085cf92965ecb751593e35d75d410b5f80b4580",
+  "followupPreviewApplicationSha": "27eda702ed448b263249e4f4923daaaca40b19d4",
+  "followupPreviewConfigurationExcluded": [
+    "scripts/sports-redesign-preview-scope.mjs",
+    "vercel.json"
   ]
 }

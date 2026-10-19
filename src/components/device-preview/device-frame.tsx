@@ -6,15 +6,16 @@ import { DEVICE_PRESETS, isPreviewableDashboardPath } from "@/lib/device-preview
 import { PREVIEW_NAVIGATION_MESSAGE } from "./preview-navigation-reporter";
 
 interface DeviceFrameProps {
+  resilientLoading?: boolean;
   device: DevicePresetId;
   src: string;
   refreshKey: number;
   onRouteChange: (path: string) => void;
 }
 
-type FrameState = "loading" | "ready" | "error" | "session-expired";
+type FrameState = "loading" | "slow" | "ready" | "error" | "session-expired";
 
-export function DeviceFrame({ device, src, refreshKey, onRouteChange }: DeviceFrameProps) {
+export function DeviceFrame({ device, src, refreshKey, onRouteChange, resilientLoading = false }: DeviceFrameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
@@ -37,10 +38,10 @@ export function DeviceFrame({ device, src, refreshKey, onRouteChange }: DeviceFr
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      setFrameState((current) => (current === "loading" ? "error" : current));
+      setFrameState((current) => (current === "loading" ? resilientLoading ? "slow" : "error" : current));
     }, 20_000);
     return () => window.clearTimeout(timeout);
-  }, []);
+  }, [resilientLoading]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<unknown>) => {
@@ -55,6 +56,14 @@ export function DeviceFrame({ device, src, refreshKey, onRouteChange }: DeviceFr
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [onRouteChange]);
+
+  useEffect(() => {
+    if (!resilientLoading) return;
+    const frame = iframeRef.current;
+    const failed = () => setFrameState("error");
+    frame?.addEventListener("error", failed);
+    return () => frame?.removeEventListener("error", failed);
+  }, [resilientLoading]);
 
   const handleLoad = () => {
     try {
@@ -102,6 +111,8 @@ export function DeviceFrame({ device, src, refreshKey, onRouteChange }: DeviceFr
             <div className="absolute inset-0 flex items-center justify-center bg-white/95 p-5 text-center">
               {frameState === "session-expired" ? (
                 <p className="max-w-sm text-sm font-medium text-earth-700">登入狀態已失效，請重新登入蒸管家。</p>
+              ) : frameState === "slow" ? (
+                <p role="status" className="max-w-sm text-sm font-medium text-earth-600">載入較慢，仍在讀取…</p>
               ) : frameState === "error" ? (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-earth-700">預覽載入失敗</p>
