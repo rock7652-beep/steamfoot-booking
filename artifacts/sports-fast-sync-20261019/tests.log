@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/sports-navigation-preview
+
+
+ Test Files  13 passed (13)
+      Tests  96 passed (96)
+   Start at  00:13:34
+   Duration  3.50s (transform 1.29s, setup 0ms, import 2.38s, tests 2.57s, environment 2.83s)
+
