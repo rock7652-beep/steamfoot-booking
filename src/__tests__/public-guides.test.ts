@@ -159,7 +159,7 @@ describe("public editorial guides", () => {
     const slug = "sports-studio-business-metrics";
     const guide = findPublicGuide(slug)!;
     if (guide.format !== "article") throw new Error("Expected article");
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? []), ...(section.link ? [section.link.label] : []), ...(section.trailingParagraphs ?? [])]), guide.callToAction.text, guide.callToAction.label];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText), ...(section.bullets ?? []), ...(section.link ? [section.link.label] : []), ...(section.trailingParagraphs ?? [])]), guide.callToAction.text, guide.callToAction.label];
     expect(createHash("sha256").update(ordered.join("\n")).digest("hex")).toBe("a8ea94338e51fb15df33f4f152d226953805cff44370f62a66d937347155ac98");
     const html = renderToStaticMarkup(await GuideArticle(props(slug)));
     let last = -1;
@@ -420,7 +420,7 @@ describe("public editorial guides", () => {
       const html = renderToStaticMarkup(await GuideArticle(props(guide.id)));
       const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
       expect(article).toMatch(/<\/h1><p class="mt-3 text-sm leading-6 text-\[#4C6259\]">以下情境取材自門市常見困擾，人物與對話為示意，非特定店家的個案紀錄。<\/p>/);
-      const ordered = [guide.title, guide.disclosure!, ...(guide.showSummary === false ? [] : [guide.summary]), ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? [])]), ...(guide.conclusion ? [guide.conclusion] : []), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
+      const ordered = [guide.title, guide.disclosure!, ...(guide.showSummary === false ? [] : [guide.summary]), ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText), ...(section.bullets ?? [])]), ...(guide.conclusion ? [guide.conclusion] : []), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
       let cursor = 0;
       for (const text of ordered) {
         const position = article.indexOf(text, cursor);
@@ -569,7 +569,7 @@ describe("public editorial guides", () => {
     const guide = findPublicGuide(teacherFeeSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? []), ...(section.trailingParagraphs ?? [])]), guide.callToAction.heading!, guide.callToAction.text, `${guide.callToAction.termsText}${guide.callToAction.termsLinkLabel}。`, guide.callToAction.label!];
+    const ordered = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs.map(paragraphText), ...(section.bullets ?? []), ...(section.trailingParagraphs ?? [])]), guide.callToAction.heading!, guide.callToAction.text, `${guide.callToAction.termsText}${guide.callToAction.termsLinkLabel}。`, guide.callToAction.label!];
     expect(createHash("sha256").update(ordered.join("\n\n") + "\n").digest("hex")).toBe("e04a79912d61cb329807616d499927177ca522070a6790353541fb70861c1319");
     const html = renderToStaticMarkup(await GuideArticle(props(teacherFeeSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
