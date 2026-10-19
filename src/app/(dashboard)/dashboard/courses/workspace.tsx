@@ -768,7 +768,7 @@ export function CourseWorkspace({
   const scheduleOpenIntent=useRef(false);
   useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
   function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
-    if(pending||scheduleOpenIntent.current)return;
+    if(pending||(scheduleOpenIntent.current&&!scheduleCreated))return;
     scheduleOpenIntent.current=true;
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");

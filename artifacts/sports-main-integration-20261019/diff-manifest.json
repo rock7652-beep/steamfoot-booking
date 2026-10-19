@@ -14,7 +14,7 @@
     "domain_and_clients": 17,
     "evidence": 12,
     "server": 22,
-    "tests": 33,
+    "tests": 40,
     "ui_and_routes": 50
   },
   "files": [
@@ -79,7 +79,23 @@
       "category": "tests"
     },
     {
+      "path": "src/__tests__/course-dense-schedule.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-room-workspace.test.ts",
+      "category": "tests"
+    },
+    {
       "path": "src/__tests__/course-roster-operation-feedback.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-schedule-background-refresh.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/course-schedule-submit.test.ts",
       "category": "tests"
     },
     {
@@ -95,7 +111,19 @@
       "category": "tests"
     },
     {
+      "path": "src/__tests__/course-template-immediate-client.test.ts",
+      "category": "tests"
+    },
+    {
       "path": "src/__tests__/course-workspace-responsive.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/fitness-plan-form.test.ts",
+      "category": "tests"
+    },
+    {
+      "path": "src/__tests__/full-form-drafts.test.ts",
       "category": "tests"
     },
     {
