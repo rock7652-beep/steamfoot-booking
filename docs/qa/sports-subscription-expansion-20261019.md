@@ -20,3 +20,5 @@
 證據 artifacts/sports-subscription-expansion-20261019/before.json、after.json、regression.log。完整本機截圖及執行紀錄 /workspace/sports-subscription-fixed-20261019。沿用前輪嚴格 localhost QA adapter，實際服務檔案與此分支一致；本機fixture以SQL建立，UI採正常登入讀取，非正式環境/真機驗收。不將首次harness缺啟用旗標回滾當作修正前通過。
 
 未更動音樂測試站或正式站，沒有合併、部署或執行正式migration。本輪未處理其他四項疑點。既有訂閱查詢失敗時的全域政策沿用，未擴大調整。
+
+審查分支已於 vercel.json 停用 Git 部署，next.config.ts 與 ci-migrate.mjs 在 Vercel/Workers/Pages 的本分支 metadata 下先拒絕；三項 migration 入口拒絕檢查通過。main 自動部署停用設定保持。
