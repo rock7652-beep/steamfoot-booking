@@ -1,0 +1,16 @@
+{
+  "completed": true,
+  "checks": [
+    {
+      "name": "existing-lessons-readable",
+      "sessions": 11,
+      "calendarVisible": true
+    },
+    {
+      "name": "corrected-fixture-resumes-expansion",
+      "warningCleared": true,
+      "allWithinCapacity": true
+    }
+  ],
+  "pageErrors": []
+}

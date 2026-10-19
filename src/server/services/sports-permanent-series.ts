@@ -55,8 +55,9 @@ export async function persistSportsSeries(tx:Tx,actor:CourseActor,requestKey:str
  const id=`sports-series:${createHash("sha256").update(actor.storeId+":"+requestKey).digest("hex").slice(0,32)}`;
  await tx.$executeRaw`INSERT INTO ${sportsSeriesTable(actor.storeId)} (id,"storeId","requestKey","templateId","nameSnapshot","roomId","coachId","startsAt","endsAt","pointCost",capacity,frequency,"enrollmentMode","learnerSnapshot","generatedThrough","createdById","updatedAt") VALUES (${id},${actor.storeId},${requestKey},${s.templateId},${s.nameSnapshot},${s.roomId},${s.coachId},${s.startsAt},${s.endsAt},${s.pointCost},${s.capacity},${rule.frequency},${rule.enrollment},${JSON.stringify(rule.students)}::jsonb,${toLocalDateStr(s.startsAt)}::date,${actor.userId},NOW()) ON CONFLICT ("storeId","requestKey") DO NOTHING`;
 }
+class SportsFixedCapacityError extends AppError {}
 function assertSportsFixedCapacity(capacity:number,learners:number){
- if(!Number.isSafeInteger(capacity)||capacity<1||learners>capacity)throw new AppError("VALIDATION","固定課指定學員超過人數上限，請先調整容量或名單");
+ if(!Number.isSafeInteger(capacity)||capacity<1||learners>capacity)throw new SportsFixedCapacityError("VALIDATION","固定課指定學員超過人數上限，請先調整容量或名單");
 }
 /** No card is reserved for an ongoing assigned place. Attendance resolves the current paid card. */
 export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id:string;templateId:string;startsAt:Date;endsAt:Date;pointCost:number;capacity:number},rule:SportsScheduleRule){
@@ -129,5 +130,14 @@ export async function ensureSportsMonth(actor:CourseActor,first:string,last:stri
   for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
   if(indexes.length&&await coursePrisma.courseSession.count({where:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:{in:indexes}}})!==indexes.length){missing=true;break;}
  }
- if(missing){const {courseTransaction}=await import("./course-access");await courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));}
+ if(missing){
+  const {courseTransaction}=await import("./course-access");
+  try{await courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));}
+  catch(error){
+   // The transaction has rolled back. Only this known capacity problem is
+   // non-blocking for historical reads; auth, conflicts and DB failures propagate.
+   if(!(error instanceof SportsFixedCapacityError))throw error;
+   return "固定課名單超過人數上限，本次展課已暫停；既有課表仍可查看，請核對容量與名單。";
+  }
+ }
 }

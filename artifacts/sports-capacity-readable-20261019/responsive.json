@@ -1,0 +1,21 @@
+{
+  "completed": true,
+  "checks": [
+    {
+      "name": "desktop",
+      "warningVisibleWithoutScroll": true,
+      "noPageHorizontalOverflow": true
+    },
+    {
+      "name": "ipad-landscape",
+      "warningVisibleWithoutScroll": true,
+      "noPageHorizontalOverflow": true
+    },
+    {
+      "name": "ipad-portrait",
+      "warningVisibleWithoutScroll": true,
+      "noPageHorizontalOverflow": true
+    }
+  ],
+  "pageErrors": []
+}
