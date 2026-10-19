@@ -11,7 +11,7 @@ import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
-import { useState, useEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -754,6 +754,14 @@ export default function DashboardShell({
   const sidebarPreference = useRef<boolean | null>(sportsNative ? initialSidebarCollapsed ?? null : null);
   const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
   const compactHqTablet = !!storeOptions?.length;
+  // A prefetched route may carry older server props. Restore before paint on remount.
+  useLayoutEffect(() => {
+    if (!sportsNative) return;
+    const saved = document.cookie.split("; ").find(value => value.startsWith("sports-sidebar-collapsed-v1="))?.split("=")[1];
+    if (saved !== "0" && saved !== "1") return;
+    sidebarPreference.current = saved === "1";
+    setCollapsed(saved === "1");
+  }, [sportsNative]);
   useEffect(() => {
     const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
     const portrait = window.matchMedia("(min-width: 768px) and (max-width: 1023px)");
