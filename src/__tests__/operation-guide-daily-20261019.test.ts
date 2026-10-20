@@ -11,7 +11,7 @@ describe("2026-10-19 backend guide audit", () => {
     for (const id of ["C171", "C172", "C173"]) {
       expect(text(id)).toContain("啟用");
       expect(findOperationGuides("新版運動", access).map(g => g.id)).toContain(id);
-      expect(availableGuides({...access, permissions: ["booking.read"]}).some(g => g.id === id)).toBe(false);
+      expect(availableGuides({...access, permissions: ["booking.read"]}).some(g => g.id === id)).toBe(id === "C171");
       expect(findOperationGuides("新版運動", {...access, module: "steamfoot"}).some(g => g.id === id)).toBe(false);
     }
     expect(text("C171")).toContain("不代表正式站已上線");
@@ -34,16 +34,16 @@ describe("2026-10-19 backend guide audit", () => {
   });
   it("persists the exact main and only backend pending topics", () => {
     const s = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
-    expect(s.auditDateTaipei).toBe("2026-10-19");
-    expect(s.lastInventoriedMainCommit).toBe("4f52264fc042d92d35e1e1b58003ab6d4b6f71e0");
-    expect(s.newGuideIds).toEqual(["C171", "C172", "C173"]);
-    expect(s.updatedGuideIds).toHaveLength(9);
-    expect(s.cumulativeDraftNewGuideIds).toHaveLength(6);
-    expect(s.cumulativeDraftUpdatedGuideIds).toHaveLength(60);
-    expect(s.backendInteractionPendingCount).toBe(67);
+    expect(s.previousCompleteAudit.dateTaipei).toBe("2026-10-19");
+    expect(s.previousCompleteAudit.mainCommit).toBe("4f52264fc042d92d35e1e1b58003ab6d4b6f71e0");
+    expect(s.previousCompleteAudit.newGuideIds).toEqual(["C171", "C172", "C173"]);
+    expect(s.previousCompleteAudit.updatedGuideIds).toHaveLength(9);
+    expect(s.cumulativeDraftNewGuideIds).toHaveLength(9);
+    expect(s.cumulativeDraftUpdatedGuideIds).toHaveLength(67);
+    expect(s.backendInteractionPendingCount).toBe(77);
     expect(s.frontendInteractionPendingGuideIds).toEqual([]);
     expect(s.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(operationGuides).toHaveLength(190);
+    expect(operationGuides).toHaveLength(193);
     expect(guideCategories).toHaveLength(15);
   });
 });

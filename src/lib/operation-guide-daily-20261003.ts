@@ -42,17 +42,42 @@ export const dailyOperationGuides20261003: OperationGuide[] = [
     ]
   },
   {
-    id: "C161", category: "booking", title: "如何新增空間租借、收款或取消？",
-    summary: "先選教室、租借人與起訖時間；租金依 30 分鐘比例計算，也可建立後再收款。",
-    answer: "租借只占用教室，不加入上課名單、不扣方案也不產生出席；取消會釋出空間，但原收款會保留供後續退款或作廢。",
-    path: "課表排程 → 空白時段／新增 → 空間租借",
-    keywords: "空間租借 教室 租金 30分鐘 緩衝 先收款 取消 更正 作廢 其他收入",
-    steps: ["從課表空白時段新增租借，搜尋既有顧客；找不到且有權限時再新增顧客。", "選可租借教室、起訖時間，核對前後緩衝、按 30 分鐘比例計算的應收金額；需要時勾選先收款並選付款方式。", "儲存後在課表與租借紀錄核對；取消時確認空間已釋出，若已收款另走更正、作廢或退款流程。"],
-    important: "課程與租借共用教室衝突檢查。取消租借不會自動退款；不能因租借取消就重做一筆收款。",
-    success: "課表顯示租借與正確教室、時間及收款狀態，營運現金列入其他收入，沒有方案扣點或出席紀錄。",
-    details: ["教室要先開放租借並設定每小時租金；前後緩衝也會占用教室。", "先收款需收款權限；更正或作廢需對應權限與原因。取消後仍可查看原付款。", "租借人電話可撥打；搜尋與新增顧客仍受本店範圍與顧客權限限制。"],
-    modules: ["course"], permission: "booking.create", additionalPermissions: ["booking.read", "customer.read"], feature: null, kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/rental-panel.tsx", "src/lib/course-rental.ts", "src/server/actions/course-rental.ts"],
+    "id": "C161",
+    "category": "booking",
+    "title": "如何新增空間租借、收款或取消？",
+    "summary": "先選教室、租借人與起訖時間；租金依 30 分鐘比例計算，也可建立後再收款。",
+    "answer": "租借只占用教室，不加入上課名單、不扣方案也不產生出席；取消會釋出空間，但原收款會保留供後續退款或作廢。",
+    "path": "課表排程 → 空白時段／新增 → 空間租借",
+    "keywords": "空間租借 教室 租金 30分鐘 緩衝 先收款 取消 更正 作廢 其他收入 新版運動 分鐘 精細時間 永久固定時段",
+    "steps": [
+      "從課表空白時段新增租借，搜尋既有顧客；找不到且有權限時再新增顧客。",
+      "選可租借空間與起訖，核對前後緩衝及應收金額；原流程以 30 分鐘單位，新版運動可填更精細分鐘數按時租比例核對。需要先收款時另核對付款選項，不把填租金當成已收款。",
+      "儲存後在課表與租借紀錄核對；取消時確認空間已釋出，若已收款另走更正、作廢或退款流程。"
+    ],
+    "important": "課程與租借共用教室衝突檢查。取消租借不會自動退款；不能因租借取消就重做一筆收款。",
+    "success": "課表顯示租借與正確教室、時間及收款狀態，營運現金列入其他收入，沒有方案扣點或出席紀錄。",
+    "details": [
+      "教室要先開放租借並設定每小時租金；前後緩衝也會占用教室。",
+      "先收款需收款權限；更正或作廢需對應權限與原因。取消後仍可查看原付款。",
+      "租借人電話可撥打；搜尋與新增顧客仍受本店範圍與顧客權限限制。",
+      "已啟用新版運動的租借允許至少 5、最多 480 分鐘，開始時間可精確到分鐘，按時租比例核對；原音樂／舊流程的 30 分鐘單位不變。仍檢查實際占用與永久固定時段，釋放當次不等於整系列可占用。填租金不代表已收款。"
+    ],
+    "modules": [
+      "course"
+    ],
+    "permission": "booking.create",
+    "additionalPermissions": [
+      "booking.read",
+      "customer.read"
+    ],
+    "feature": null,
+    "kind": "howto",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+      "src/lib/course-rental.ts",
+      "src/server/actions/course-rental.ts"
+    ]
   },
   {
     id: "C162", category: "booking", title: "教師或教練請假、曠課後，學員權益怎麼返還？",

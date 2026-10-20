@@ -1,27 +1,32 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-19",
+  "auditDateTaipei": "2026-10-20",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "4f52264fc042d92d35e1e1b58003ab6d4b6f71e0",
-  "previousSuccessfulAuditCommit": "e115fd315fb8bb4fbc10950958a67fa71f658476",
+  "lastInventoriedMainCommit": "8d717d5dc45da6fbd4e2984afea48165140281b3",
+  "previousSuccessfulAuditCommit": "4f52264fc042d92d35e1e1b58003ab6d4b6f71e0",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261012",
   "newGuideIds": [
-    "C171",
-    "C172",
-    "C173"
+    "C174",
+    "C175",
+    "C176"
   ],
   "updatedGuideIds": [
-    "C07",
-    "C08",
-    "F04",
-    "C102",
+    "C129",
+    "C134",
     "C103",
-    "C107",
-    "C109",
+    "C105",
+    "C108",
     "C110",
-    "C111"
+    "C114",
+    "C122",
+    "E08",
+    "F04",
+    "I08",
+    "C161",
+    "C171",
+    "C172"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -29,7 +34,10 @@
     "I22",
     "C171",
     "C172",
-    "C173"
+    "C173",
+    "C174",
+    "C175",
+    "C176"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -91,7 +99,14 @@
     "C102",
     "C107",
     "C110",
-    "C111"
+    "C111",
+    "C129",
+    "C134",
+    "C108",
+    "C122",
+    "E08",
+    "I08",
+    "C161"
   ],
   "interactionPendingGuideIds": [
     "I20",
@@ -160,9 +175,19 @@
     "C102",
     "C107",
     "C110",
-    "C111"
+    "C111",
+    "C174",
+    "C175",
+    "C176",
+    "C129",
+    "C134",
+    "C108",
+    "C122",
+    "E08",
+    "I08",
+    "C161"
   ],
-  "articleCount": 190,
+  "articleCount": 193,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -443,12 +468,22 @@
     1350,
     1351,
     1352,
-    1353
+    1353,
+    1356,
+    1357,
+    1358,
+    1355,
+    1359,
+    1360,
+    1361,
+    1362,
+    1363,
+    1364
   ],
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-19 從 main e115fd31 比對至 4f52264f，共 8 筆提交。新增 C171～C173、更新 C07／C08／F04／C102／C103／C107／C109／C110／C111；190 題／15 類，67 題待隔離登入驗收。新版運動指南明列逐店啟用、權限及 schema readiness，不把程式合併當成正式發布；精確已核對登入授權有效到使用或撤銷。沒有執行 migration、GRANT、旗標變更、營運寫入或正式部署。",
+  "continuation": "2026-10-20 完整核對 main 4f52264f..8d717d5d 共10筆提交，保留昨天限定對齊12題，不重複計入本輪。新增C174～C176、更新14題；193題／15類，77題待隔離登入驗收。固定學員／待補課面板未接可見入口，列介面待辦，不寫虛構流程。前台及SPA維持封存，不改業務、旗標、白名單、migration或正式部署。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -480,9 +515,9 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 67,
-  "totalInteractionPendingCount": 67,
-  "reviewedMainCommitCount": 8,
+  "backendInteractionPendingCount": 77,
+  "totalInteractionPendingCount": 77,
+  "reviewedMainCommitCount": 10,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -585,19 +620,19 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "4f52264fc042d92d35e1e1b58003ab6d4b6f71e0",
+    "sourceCommit": "8d717d5dc45da6fbd4e2984afea48165140281b3",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
-    "isolation": "本次可用雲端瀏覽器，但未確認本版已登入且隔離的測試工作階段",
+    "isolation": "尚未取得本版已登入且確認資料隔離、通知封鎖的工作階段",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "前批 60 題保留，新增三題及 C102／C107／C110／C111 去重後 67 題；main 功能 PR 測試與截圖不抵扣本輪指南驗收。",
+    "note": "沿用67題未完成，加本輪3新題及7題首次修訂去重為77題；12題限定對齊及功能PR證據不抵扣本版指南操作。",
     "blockers": [
       "本版已登入且確認資料隔離、通知封鎖的測試工作階段待確認",
       "I20 仍需具 store_operation_audit 的隔離 OWNER 身分"
     ],
     "nonBlockingFollowups": [
-      "桌機與 iPad 唯讀核對指南搜尋、展開返回、已核對登入持續有效／撤銷入口及原課表與新版運動的邊界。指南 Preview 不開運動正式旗標；新版流程需獲准的運動隔離測試站，不能為驗收變更白名單或操作營運資料。"
+      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回及角色可見性；新版運動另需獲准隔離運動店，不為驗收擴旗標或白名單。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"
@@ -875,5 +910,53 @@
       "authenticatedBrowserAcceptance": "not-run"
     },
     "previewAuthorization": "User authorized updating PR 1307 and creating its isolated Preview for the 12-guide read-only acceptance; no production release or customer mutations."
+  },
+  "previousCompleteAudit": {
+    "dateTaipei": "2026-10-19",
+    "mainCommit": "4f52264fc042d92d35e1e1b58003ab6d4b6f71e0",
+    "newGuideIds": [
+      "C171",
+      "C172",
+      "C173"
+    ],
+    "updatedGuideIds": [
+      "C07",
+      "C08",
+      "F04",
+      "C102",
+      "C103",
+      "C107",
+      "C109",
+      "C110",
+      "C111"
+    ],
+    "backendInteractionPendingCount": 67
+  },
+  "backendInterfaceFollowups": [
+    {
+      "id": "sports-series-panel-entry",
+      "sourceMainCommit": "8d717d5dc45da6fbd4e2984afea48165140281b3",
+      "status": "not-connected-to-visible-entry",
+      "source": "src/app/(dashboard)/dashboard/courses/sports-series-panel.tsx",
+      "note": "SportsSeriesPanel有固定學員停課及待補課操作，但src內沒有import或render呼叫。保留權益與服務來源，不發布可點此面板的虛構步驟；屬後台介面待確認，不是前台教學。"
+    }
+  ],
+  "currentAuditReuse": {
+    "sourceDraftCommit": "1e516c6c4c5cce09eaff2e31205d0cb1430dbae9",
+    "guideIds": [
+      "A16",
+      "C103",
+      "C109",
+      "C123",
+      "C126",
+      "C171",
+      "C172",
+      "C173",
+      "C102",
+      "C107",
+      "C110",
+      "C111"
+    ],
+    "note": "保留12題限定對齊，不把前輪改文重算。本輪其中4題另補新缺漏，實際修改IDs以updatedGuideIds為準。"
   }
 }

@@ -44,14 +44,42 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/courses/roster.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C103", category: "booking", title: "報到、完成與未到，額度有什麼差別？",
-    summary: "報到只留下到場時間；出席、缺席扣堂及請假依課型與所選方式結算。", answer: "先確認是運動自由預約、固定期課或音樂課，再核對上課者與可操作的出席狀態。",
-    keywords: "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假 團體請假扣堂 自行取消 課表更新 跨裝置同步 原紀錄核對", path: "課表排程／音樂課表 → 課程名單 → 點名",
-    steps: ["開啟課程名單，核對姓名與目前狀態。", "在後台依實際情況選出席、未到或適用的請假；若使用報到，報到只留下到場時間，不扣額度。", "誤操作時使用更正，回到待點名後再依實際結果處理。"],
-    important: "報到不扣點。固定期課未到會扣堂；音樂課出席／曠課扣堂，個別／自組班請假不扣堂，團體班請假仍扣 1 堂。不要為了更正另建重複預約。",
-    success: "後端確認成功後，原列才顯示新狀態且額度紀錄一致；重送不應再次扣點。課表及相關營運資料會重新取得；另一裝置未即時反映時，先重新開啟原課次、核對原紀錄，不再點一次出席或更正來刷新畫面。已啟用新版運動的原課表與名單在安全閱讀時，前次讀取完成後約 3 秒安排下次更新；隱藏分頁、編輯、提交或結果未明時暫停，失敗會延長重試間隔，恢復後再回到約 3 秒。這是輪詢，不是即時推播或送達時限；舊課表仍依原 60 秒節奏。",
-    details: ["新版運動永久固定課先保留指定學員的位置，不保留或預扣課卡額度；出席時核對當時有效且適用的已付款方案。不要把它與原固定期課未到扣堂規則混用，固定排課與停課另見 C173。", "點名送出後原列先顯示處理中並鎖定重複操作；只有後端成功才更新狀態。失敗會保留原狀態並顯示原因，請修正或重新整理後再試，不要連點。", "運動自由預約的缺席可依畫面選扣堂或不扣堂；選扣堂不會釋放本次額度，有補課券選項時須另行核對，不能把未到一律當成不扣堂。固定期課依指定課次扣堂，未到不提供補課券，更正才返還。", "音樂課沒有補課券：出席與曠課各扣 1 堂；個別／自組班請假不扣堂，可在期限內另約；團體班請假仍扣 1 堂。學員自行取消有方案的音樂預約也按請假課型處理，不會因按鈕叫取消就變成免扣堂；改期另依同交易轉移流程核對。詳細操作另搜尋音樂點名。", "教練僅能處理被授權的自身課程，操作受上課時間限制；卡片已退款等狀態不能任意回補額度。"],
-    permission: "booking.update", feature: null, sources: ["src/lib/course-debit-policy.ts", "src/server/services/course-booking.ts", "src/server/actions/course-portal.ts", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/app/(dashboard)/dashboard/courses/workspace.tsx"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
+    "id": "C103",
+    "category": "booking",
+    "title": "報到、完成與未到，額度有什麼差別？",
+    "summary": "報到只留下到場時間；出席、缺席扣堂及請假依課型與所選方式結算。",
+    "answer": "先確認是運動自由預約、固定期課或音樂課，再核對上課者與可操作的出席狀態。",
+    "keywords": "報到 出席 完成 扣點 未到 點名 更正 固定期課 音樂課 曠課 請假 團體請假扣堂 自行取消 課表更新 跨裝置同步 原紀錄核對 永久固定未到 待補課 出席狀況",
+    "path": "課表排程／音樂課表 → 課程名單 → 點名",
+    "steps": [
+      "開啟課程名單，核對姓名與目前狀態。",
+      "在後台依實際情況選出席、未到或適用的請假；若使用報到，報到只留下到場時間，不扣額度。",
+      "誤操作時使用更正，回到待點名後再依實際結果處理。"
+    ],
+    "important": "報到不扣點。固定期課未到會扣堂；音樂課出席／曠課扣堂，個別／自組班請假不扣堂，團體班請假仍扣 1 堂。不要為了更正另建重複預約。",
+    "success": "後端確認成功後，原列才顯示新狀態且額度紀錄一致；重送不應再次扣點。課表及相關營運資料會重新取得；另一裝置未即時反映時，先重新開啟原課次、核對原紀錄，不再點一次出席或更正來刷新畫面。已啟用新版運動的原課表與名單在安全閱讀時，前次讀取完成後約 3 秒安排下次更新；隱藏分頁、編輯、提交或結果未明時暫停，失敗會延長重試間隔，恢復後再回到約 3 秒。這是輪詢，不是即時推播或送達時限；舊課表仍依原 60 秒節奏。",
+    "details": [
+      "新版運動永久固定課先保留指定學員的位置，不保留或預扣課卡額度；出席時核對當時有效且適用的已付款方案。不要把它與原固定期課未到扣堂規則混用，固定排課與停課另見 C173。",
+      "點名送出後原列先顯示處理中並鎖定重複操作；只有後端成功才更新狀態。失敗會保留原狀態並顯示原因，請修正或重新整理後再試，不要連點。",
+      "運動自由預約的缺席可依畫面選扣堂或不扣堂；選扣堂不會釋放本次額度，有補課券選項時須另行核對，不能把未到一律當成不扣堂。固定期課依指定課次扣堂，未到不提供補課券，更正才返還。",
+      "音樂課沒有補課券：出席與曠課各扣 1 堂；個別／自組班請假不扣堂，可在期限內另約；團體班請假仍扣 1 堂。學員自行取消有方案的音樂預約也按請假課型處理，不會因按鈕叫取消就變成免扣堂；改期另依同交易轉移流程核對。詳細操作另搜尋音樂點名。",
+      "教練僅能處理被授權的自身課程，操作受上課時間限制；卡片已退款等狀態不能任意回補額度。",
+      "新版永久固定課未到也會核對有效適用方案、扣抵並保留待補課，不是一般 7 日補課券，也不是原固定期課的無補課券規則。錯誤標記取消與更正見 C174；無足額方案時拒絕且尚未扣堂。"
+    ],
+    "permission": "booking.update",
+    "feature": null,
+    "sources": [
+      "src/lib/course-debit-policy.ts",
+      "src/server/services/course-booking.ts",
+      "src/server/actions/course-portal.ts",
+      "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "src/app/(dashboard)/dashboard/courses/workspace.tsx"
+    ],
+    "kind": "explanation",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C104", category: "hours", title: "公休或縮短可預約日期，為什麼不能儲存？",
@@ -64,14 +92,42 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "business_hours.manage", feature: null, sources: ["src/server/actions/course-business-hours.ts", "src/server/actions/course-booking-window.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C105", category: "money", title: "課程方案如何登錄協商退款？",
-    summary: "核對實付、已退款、剩餘與占用，再輸入協商金額。", answer: "有退款權限的店長可登錄實際退款金額，累計不得超過原實付。",
-    keywords: "退款 實付 退費 作廢誤建交易 原交易明細 退款試算 選用 停用方案 交易更新 現金抽屜 背景同步", path: "營運 → 購買明細 → 登錄退款",
-    steps: ["找到原核帳購買，核對已退款及尚可退款；需要查原資料時展開「原交易明細」。", "先處理預約占用，再填退款金額、方式及原因；「退款試算（選用）」不會自動帶入金額。", "核對收回全部剩餘額度的提示，點「登錄退款並停用方案」，再查看原交易與退款紀錄；系統不會自動退刷或轉帳。"],
-    important: "累計退款不得超過實付。系統記錄退款不代表銀行已自動匯款，實際退款需另行核對。",
-    success: "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。退款、更正或作廢成功會讓交易、營收及現金頁重新取得資料；其他已開頁面若尚未反映，先重開原紀錄核對，不重做退款或另補負數交易。",
-    details: ["贈送額度不折算現金。參考金額不強制限制協商結果，但累計退款上限仍是實付。", "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。", "建錯或重複交易才用「作廢誤建交易」，須無預約及額度異動，填原因後「確認作廢」；另需作廢權限。實際退還款項不能用作廢冒充退款。"],
-    permission: "transaction.refund", additionalPermissions: ["transaction.read"], feature: null, sources: ["src/server/services/course-refund.ts", "src/server/actions/course-refund.ts", "src/server/actions/course-purchase-correction.ts", "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    "id": "C105",
+    "category": "money",
+    "title": "課程方案如何登錄協商退款？",
+    "summary": "核對實付、已退款、剩餘與占用，再輸入協商金額。",
+    "answer": "有退款權限的店長可登錄實際退款金額，累計不得超過原實付。",
+    "keywords": "退款 實付 退費 作廢誤建交易 原交易明細 退款試算 選用 停用方案 交易更新 現金抽屜 背景同步 新版運動 實收 淨收款 待核帳 更多工具",
+    "path": "營運 → 購買明細 → 登錄退款",
+    "steps": [
+      "找到原核帳購買，核對已退款及尚可退款；需要查原資料時展開「原交易明細」。",
+      "先處理預約占用，再填退款金額、方式及原因；「退款試算（選用）」不會自動帶入金額。",
+      "核對收回全部剩餘額度的提示，點「登錄退款並停用方案」，再查看原交易與退款紀錄；系統不會自動退刷或轉帳。"
+    ],
+    "important": "累計退款不得超過實付。系統記錄退款不代表銀行已自動匯款，實際退款需另行核對。",
+    "success": "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。退款、更正或作廢成功會讓交易、營收及現金頁重新取得資料；其他已開頁面若尚未反映，先重開原紀錄核對，不重做退款或另補負數交易。",
+    "details": [
+      "贈送額度不折算現金。參考金額不強制限制協商結果，但累計退款上限仍是實付。",
+      "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。",
+      "建錯或重複交易才用「作廢誤建交易」，須無預約及額度異動，填原因後「確認作廢」；另需作廢權限。實際退還款項不能用作廢冒充退款。",
+      "新版運動營運摘要集中顯示實收、退款、淨收款及待核帳筆數，日期口徑從 ⓘ 查看，工具移到「更多工具」。摘要依核帳／收款及退款發生日，清單仍按購買日期，不能用清單總額替代淨收款；交易入口與權限不變。"
+    ],
+    "permission": "transaction.refund",
+    "additionalPermissions": [
+      "transaction.read"
+    ],
+    "feature": null,
+    "sources": [
+      "src/server/services/course-refund.ts",
+      "src/server/actions/course-refund.ts",
+      "src/server/actions/course-purchase-correction.ts",
+      "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"
+    ],
+    "kind": "howto",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C106", category: "care", title: "課程提醒會寄給誰？怎麼確認有沒有送達？",
@@ -94,14 +150,42 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "booking.create", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/lib/course-scheduling.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C108", category: "booking", title: "如何新增空間並設定容納人數？",
-    summary: "建立空間名稱、位置與容量後會原地加入清單，不必等待整個課表工作台重新載入。", answer: "空間容量是排課警示；租借另設定每小時租金與前後緩衝，不會自動增加課程名額。",
-    keywords: "新增教室 教室管理 新增空間 空間管理 空間 剛新增 查看新空間 儲存失敗 重試 場地 容量 設備 位置 停用 批次 刪除", path: "店務管理 → 空間管理 → ＋ 新增空間",
-    steps: ["輸入空間名稱、分類與容納人數，可補位置、設備及備註。", "只送出一次；成功後新空間會原地標示「剛新增」，即使目前篩選不符也可按「查看新空間」，不用清空搜尋。", "重新進入空間清單確認啟用，再到排課選單核對可選用及該堂課的人數上限。"],
-    important: "空間已有未結束課次時，不能直接停用；縮小容量也不能低於仍在使用的排課需求。",
-    success: "空間出現在空間管理與排課選單，名稱、容量及狀態正確。",
-    details: ["同一空間的課程與租借時段會互相檢查；空間容量較小時系統會提示，但課程本身的人數上限仍需另行設定。", "儲存期間欄位與關閉會受保護；失敗保留草稿，結果不明先重開清單核對，再用原畫面重試。相同請求不會重複建立，同名空間仍會拒絕。", "開放租借時可設定每小時租金及前後緩衝；費用依 30 分鐘比例計算，租借操作另見 C161。", "可勾選多筆批次啟用／停用；只有店長可刪除完全未使用的空間，使用中或有歷史關聯時整批不刪除。"],
-    permission: "booking.create", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/rooms-page.tsx", "src/components/admin/use-course-room-create.ts", "src/server/actions/course.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    "id": "C108",
+    "category": "booking",
+    "title": "如何新增空間並設定容納人數？",
+    "summary": "建立空間名稱、位置與容量後會原地加入清單，不必等待整個課表工作台重新載入。",
+    "answer": "空間容量是排課警示；租借另設定每小時租金與前後緩衝，不會自動增加課程名額。",
+    "keywords": "新增教室 教室管理 新增空間 空間管理 空間 剛新增 查看新空間 儲存失敗 重試 場地 容量 設備 位置 停用 批次 刪除 新版運動 分鐘租借",
+    "path": "店務管理 → 空間管理 → ＋ 新增空間",
+    "steps": [
+      "輸入空間名稱、分類與容納人數，可補位置、設備及備註。",
+      "只送出一次；成功後新空間會原地標示「剛新增」，即使目前篩選不符也可按「查看新空間」，不用清空搜尋。",
+      "重新進入空間清單確認啟用，再到排課選單核對可選用及該堂課的人數上限。"
+    ],
+    "important": "空間已有未結束課次時，不能直接停用；縮小容量也不能低於仍在使用的排課需求。",
+    "success": "空間出現在空間管理與排課選單，名稱、容量及狀態正確。",
+    "details": [
+      "同一空間的課程與租借時段會互相檢查；空間容量較小時系統會提示，但課程本身的人數上限仍需另行設定。",
+      "儲存期間欄位與關閉會受保護；失敗保留草稿，結果不明先重開清單核對，再用原畫面重試。相同請求不會重複建立，同名空間仍會拒絕。",
+      "開放租借可設定每小時租金及前後緩衝；原租借以 30 分鐘單位，新版運動可依更精細分鐘數按時租比例核對，操作見 C161，不因此增加課程名額。",
+      "可勾選多筆批次啟用／停用；只有店長可刪除完全未使用的空間，使用中或有歷史關聯時整批不刪除。"
+    ],
+    "permission": "booking.create",
+    "additionalPermissions": [
+      "booking.read"
+    ],
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "src/app/(dashboard)/dashboard/courses/rooms-page.tsx",
+      "src/components/admin/use-course-room-create.ts",
+      "src/server/actions/course.ts"
+    ],
+    "kind": "howto",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C109", category: "booking", title: "怎麼一次排單堂、每週或多個指定日期？",
@@ -114,14 +198,42 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "booking.create", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/server/actions/course.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C110", category: "booking", title: "排好的課程要改時間、容量或取消，先看什麼？",
-    summary: "先看有效預約與點名狀態，再決定修改單堂、後續系列或取消。", answer: "已有預約或完成點名時，部分欄位會被保護，不能直接覆蓋歷史。",
-    keywords: "修改排課 改時間 改教練 改教室 容量 取消課程 系列 後續課次", path: "課表排程 → 選課程 → 編輯／取消",
-    steps: ["打開課次，核對日期、學員數、點名狀態及它是否屬於系列。", "依畫面選修改單堂或後續系列，重新核對教練、教室、容量與時間。", "預覽並儲存；若要取消，先確認有效預約會如何處理，再查看課表與學員紀錄。"],
-    important: "已完成點名的課次保留歷史不可修改；有預約時不能把容量調到低於人數，也不能改每人點數或課程種類。",
-    success: "指定範圍的課次更新或取消，其他課次不受影響，原預約與額度紀錄一致。",
-    details: ["適用範圍：原課程系列與新版運動永久固定課分開判斷。新版移動本堂不改其他固定課；本堂停課與本堂及後續停課的範圍不同，核對確認內容及日期。原位淡化不代表系列已刪除，也不可另建重複固定系列；詳見 C173。", "改期若超過學員方案期限會被阻擋；教練、教室、營業時間與值班會重新檢查。新增課次或變更日期、時間、教練時，運動課也會檢查教練每週可授課時段。", "只改名稱、備註等資料不重查原時段；縮短教練每週時段也不會自動取消已排課，請依畫面清單逐堂處理。", "取消整堂課與只取消一位學員不同；取消也不等於退款。新版運動固定／隔週課只移動本堂時，其他課次維持原安排，原位置淡化且可排單次，但不能再建立重複固定系列；單次、體驗、出租不因此留下固定課淡化位置。"],
-    permission: "booking.update", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/server/actions/course.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
+    "id": "C110",
+    "category": "booking",
+    "title": "排好的課程要改時間、容量或取消，先看什麼？",
+    "summary": "先看有效預約與點名狀態，再決定修改單堂、後續系列或取消。",
+    "answer": "已有預約或完成點名時，部分欄位會被保護，不能直接覆蓋歷史。",
+    "keywords": "修改排課 改時間 改教練 改教室 容量 取消課程 系列 後續課次 核對取消範圍 僅取消本堂 本堂及後續停課 剪下貼上",
+    "path": "課表排程 → 選課程 → 編輯／取消",
+    "steps": [
+      "打開課次，核對日期、學員數、點名狀態及它是否屬於系列。",
+      "依畫面選修改單堂或後續系列，重新核對教練、教室、容量與時間。",
+      "預覽並儲存；若要取消，先確認有效預約會如何處理，再查看課表與學員紀錄。"
+    ],
+    "important": "已完成點名的課次保留歷史不可修改；有預約時不能把容量調到低於人數，也不能改每人點數或課程種類。",
+    "success": "指定範圍的課次更新或取消，其他課次不受影響，原預約與額度紀錄一致。",
+    "details": [
+      "適用範圍：原課程系列與新版運動永久固定課分開判斷。新版移動本堂不改其他固定課；本堂停課與本堂及後續停課的範圍不同，核對確認內容及日期。原位淡化不代表系列已刪除，也不可另建重複固定系列；詳見 C173。",
+      "改期若超過學員方案期限會被阻擋；教練、教室、營業時間與值班會重新檢查。新增課次或變更日期、時間、教練時，運動課也會檢查教練每週可授課時段。",
+      "只改名稱、備註等資料不重查原時段；縮短教練每週時段也不會自動取消已排課，請依畫面清單逐堂處理。",
+      "取消整堂課與只取消一位學員不同；取消也不等於退款。新版運動固定／隔週課只移動本堂時，其他課次維持原安排，原位置淡化且可排單次，但不能再建立重複固定系列；單次、體驗、出租不因此留下固定課淡化位置。",
+      "新版運動「取消課程」先讀取範圍：僅取消本堂顯示人數；本堂及後續停課另列生效日、已排堂數及預約數，也結束尚未展開的後續時段。有出席或缺課紀錄會阻擋；名單已變動時重新核對，不以舊確認送出。已收款不自動退款。",
+      "新版剪下貼上的結果核對與原紀錄保護見 C175；剪下不代表課程已移動。"
+    ],
+    "permission": "booking.update",
+    "additionalPermissions": [
+      "booking.read"
+    ],
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "src/server/actions/course.ts"
+    ],
+    "kind": "troubleshooting",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C111", category: "plans", title: "如何建立點數或堂數方案？",
@@ -154,15 +266,50 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "wallet.create", additionalPermissions: ["wallet.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/purchase-review.tsx", "src/server/actions/course-portal.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C114", category: "staff", title: "新增教練或教師後，為什麼還不能排課？",
-    summary: "後台人員帳號與授課身分分開；在統一人員工作區建立教練／教師後，還要完成授課設定。", answer: "在人員管理的教練／教師分頁完成授課資格；運動設定每堂固定費，音樂的一般、教師彈性及指定課程拆帳詳見「音樂教師如何設定可教課程、拆帳比例及 LINE 權限？」。LINE 與工作權限另行設定。",
-    keywords: "新增教練 新增老師 統一人員工作區 教師管理 人員管理 身分分離 授課資格 可教授課程 目前課程 其他項目 停用 未販售 每堂固定費 拆帳 LINE 權限 工作權限 店長兼教練 同一人連結 資料已更新 費率衝突", path: "人員管理 → 教練／教師 → 新增／編輯 → 基本資料／授課設定／LINE 與權限／課表與時間",
-    steps: ["到人員管理的教練／教師分頁新增授課身分，在「基本資料」填必要欄位；生日與緊急聯絡等選填內容收在更多資料，不要用後台人員帳號代替授課身分。", "切到「授課設定」勾選可教授課程；運動課設定每堂授課費，音樂課依授權使用一般拆帳，或為特定教師設定彈性拆帳／固定鐘點。", "到「LINE 與權限」核對帳號，依需要開啟查看本人薪酬、代學員請假或替學員改期；再從「課表與時間」查看已排課次與可授課時間，儲存後回課表確認能選到該授課人員。"],
-    important: "授課身分不會自動取得店長後台權限；店長與教練是兩筆獨立身分，同一人可選擇連結，但登入、權限與歷史仍分開。",
-    success: "排課可選到該教練／教師，課程資格與費率正確；LINE 綁定與權限狀態依後台設定顯示。",
-    details: ["授課設定預設只列目前課程；已選的舊項目仍保留，其他停用或未販售項目可從「其他項目」展開。顯示名稱簡化不會改課程 ID、方案或財務規則。", "停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。", "每週可授課時段儲存後，既有課次會保留並列出超出新範圍者；單日請假仍須另外處理。通知是否發送由提醒管理的三個獨立開關控制。", "只有店主且具人員管理權限可管理此頁。運動教練設定 0 元表示不另領固定授課費；音樂老師依拆帳規則另行計算，完整後台操作見「音樂教師如何設定可教課程、拆帳比例及 LINE 權限？」。", "若調整費率時顯示資料已更新，代表別人已先修改；重新開啟核對後再存，系統不會用舊頁覆蓋新費率。新增或編輯成功後留在原視窗並更新清單，失敗時保留草稿，不要重複建立。", "舊資料若顯示店長兼任，請先另建授課身分並核對同一人連結與交接；系統不會自動合併或刪除舊身分。後台設定對教師工作功能的影響可在此說明，但前台操作指南已退役。"],
-    references: [{ guideId: "C169", label: "音樂教師如何設定可教課程、拆帳比例及 LINE 權限？" }],
-    permission: "staff.manage", additionalPermissions: ["staff.view"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/staff-workspace.tsx", "src/server/actions/course-staff.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
+    "id": "C114",
+    "category": "staff",
+    "title": "新增教練或教師後，為什麼還不能排課？",
+    "summary": "後台人員帳號與授課身分分開；在統一人員工作區建立教練／教師後，還要完成授課設定。",
+    "answer": "先完成授課身分及資格，再核對費率與工作權限；新版運動計酬在收費方式設定，原運動每堂固定費保留。音樂流程詳見「音樂教師如何設定可教課程、拆帳比例及 LINE 權限？」。",
+    "keywords": "新增教練 新增老師 統一人員工作區 教師管理 人員管理 身分分離 授課資格 可教授課程 目前課程 其他項目 停用 未販售 每堂固定費 拆帳 LINE 權限 工作權限 店長兼教練 同一人連結 資料已更新 費率衝突 授課明細 授課時間 新版運動 固定鐘點",
+    "path": "人員管理 → 教練／教師 → 新增／編輯 → 基本資料／授課設定／LINE 與權限／課表與時間",
+    "steps": [
+      "到人員管理的教練／教師分頁新增授課身分，在「基本資料」填必要欄位；生日與緊急聯絡等選填內容收在更多資料，不要用後台人員帳號代替授課身分。",
+      "切到「授課設定」核對可教授課程；新版運動先完成教練基本資料，再於收費方式完成資格及計酬（C172、C176），原運動與音樂保留各自費率流程。",
+      "到「LINE 與權限」核對帳號，依需要開啟查看本人薪酬、代學員請假或替學員改期；再從「課表與時間」查看已排課次與可授課時間，儲存後回課表確認能選到該授課人員。"
+    ],
+    "important": "授課身分不會自動取得店長後台權限；店長與教練是兩筆獨立身分，同一人可選擇連結，但登入、權限與歷史仍分開。",
+    "success": "排課可選到該教練／教師，課程資格與費率正確；LINE 綁定與權限狀態依後台設定顯示。",
+    "details": [
+      "授課設定預設只列目前課程；已選的舊項目仍保留，其他停用或未販售項目可從「其他項目」展開。顯示名稱簡化不會改課程 ID、方案或財務規則。",
+      "停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。",
+      "每週可授課時段儲存後，既有課次會保留並列出超出新範圍者；單日請假仍須另外處理。通知是否發送由提醒管理的三個獨立開關控制。",
+      "只有店主且具人員管理權限可管理此頁。原運動每堂固定費設定 0 元表示不另領固定授課費；音樂老師依拆帳規則另行計算，完整後台操作見「音樂教師如何設定可教課程、拆帳比例及 LINE 權限？」。",
+      "若調整費率時顯示資料已更新，代表別人已先修改；重新開啟核對後再存，系統不會用舊頁覆蓋新費率。新增或編輯成功後留在原視窗並更新清單，失敗時保留草稿，不要重複建立。",
+      "舊資料若顯示店長兼任，請先另建授課身分並核對同一人連結與交接；系統不會自動合併或刪除舊身分。後台設定對教師工作功能的影響可在此說明，但前台操作指南已退役。",
+      "新版運動先完成教練基本資料，再到收費方式完成對應授課資格及拆帳／固定鐘點（C172、C176）；原運動每堂固定費與音樂拆帳仍按原流程，不混用。",
+      "新版運動的「授課明細」查看已排課，「授課時間」修改可授課時段；音樂及舊版仍可能顯示「課表與時間」。修改時段不會自動取消舊課。"
+    ],
+    "references": [
+      {
+        "guideId": "C169",
+        "label": "音樂教師如何設定可教課程、拆帳比例及 LINE 權限？"
+      }
+    ],
+    "permission": "staff.manage",
+    "additionalPermissions": [
+      "staff.view"
+    ],
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/staff-workspace.tsx",
+      "src/server/actions/course-staff.ts"
+    ],
+    "kind": "troubleshooting",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C115", category: "analysis", title: "課程分析的上課、收款與回流數字怎麼看？",
@@ -235,14 +382,41 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "customer.read", additionalPermissions: ["wallet.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/unassigned-plans/page.tsx", "src/server/queries/course-unassigned-plans.ts", "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C122", category: "money", title: "教練每堂授課費如何登錄已付或更正？",
-    summary: "在收入總覽依期間展開授課費，核對已結束課次後登錄。", answer: "授課費按課次快照每堂固定一次；登錄已付只留帳，不會自動匯款。",
-    keywords: "授課費 教練費 每堂固定 待付 已付 登錄已付 更正誤登 支出", path: "營運 → 收入總覽 → 授課費 → 展開明細",
-    steps: ["選日期範圍並展開授課費，核對課次、教練、固定費與付款狀態。", "在待付課次點登錄已付，選現金或非現金並填付款備註後確認。", "若只是誤登，點更正誤登並填原因；另行確認實際匯款或款項收回。"],
-    important: "登錄或更正都不是銀行付款／退款。現金付款需今日抽屜已開啟；連線中斷先重新整理查結果。",
-    success: "付款狀態與備註正確，現金帳有對應支出；更正保留原付款及反向沖回紀錄。",
-    details: ["運動課依每堂固定費；只有已結束、未取消、費率為正且教練與快照一致的課次可登錄，0 元表示不另領。音樂老師另依老師／科目／方案的拆帳或固定費快照計算。", "舊課次缺費率或金額無法證明時會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "新版每月收入結算不再提供新增利潤付款入口；授課費付款仍從營運處理。音樂授課費可分次登錄，但每次不得超過未付餘額；月結與營運共用同一付款紀錄，不要重複新增支出。"],
-    permission: "cashbook.read", additionalPermissions: ["cashbook.create"], feature: null, sources: ["src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx", "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx", "src/server/services/course-fee-payment.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    "id": "C122",
+    "category": "money",
+    "title": "教練每堂授課費如何登錄已付或更正？",
+    "summary": "在收入總覽依期間展開授課費，核對已結束課次後登錄。",
+    "answer": "授課費依課次保存的計酬版本核對；原每堂固定費、新版運動拆帳／鐘點與音樂規則分開，登錄已付不是自動匯款。",
+    "keywords": "授課費 教練費 每堂固定 待付 已付 登錄已付 更正誤登 支出 新版運動 拆帳 固定鐘點 版本快照",
+    "path": "營運 → 收入總覽 → 授課費 → 展開明細",
+    "steps": [
+      "選日期範圍展開授課費，核對課次、教練、計酬版本及付款狀態。",
+      "在待付課次點登錄已付，選現金或非現金並填付款備註後確認。",
+      "若只是誤登，點更正誤登並填原因；另行確認實際匯款或款項收回。"
+    ],
+    "important": "登錄或更正都不是銀行付款／退款。現金付款需今日抽屜已開啟；連線中斷先重新整理查結果。",
+    "success": "付款狀態與備註正確，現金帳有對應支出；更正保留原付款及反向沖回紀錄。",
+    "details": [
+      "原運動課依每堂固定費；只有已結束、未取消、費率為正且教練與快照一致的課次可登錄，0 元表示不另領。音樂老師另依老師／科目／方案的拆帳或固定費快照計算。",
+      "舊課次缺費率或金額無法證明時會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。",
+      "新版每月收入結算不再提供新增利潤付款入口；授課費付款仍從營運處理。音樂授課費可分次登錄，但每次不得超過未付餘額；月結與營運共用同一付款紀錄，不要重複新增支出。",
+      "已啟用新版運動可依收費方式保存拆帳或每小時鐘點，詳細核對見 C176；不能把所有運動課都當成每堂固定費。可登錄仍受課程結束、取消、應付金額及快照限制，不回算舊課。"
+    ],
+    "permission": "cashbook.read",
+    "additionalPermissions": [
+      "cashbook.create"
+    ],
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx",
+      "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx",
+      "src/server/services/course-fee-payment.ts"
+    ],
+    "kind": "howto",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C123", category: "settings", title: "課程店的設定入口怎麼找？未儲存草稿會消失嗎？",
