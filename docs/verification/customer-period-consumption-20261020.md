@@ -77,3 +77,7 @@ npx vitest run src/__tests__/customer-consumption*.test.ts src/__tests__/custome
 重現時使用空白的專用本機資料庫：先執行既有 `node scripts/qa/image-announcements-live.mjs seed` 建立隔離 schema／合成帳號，再以同程序 `dev` 啟動，最後執行新 live 腳本。此腳本拒絕覆蓋已存在的本次方案；`--resume` 僅可接續尚未完成課程還原的同一組專用測試資料。
 
 限制：已驗真實 Next 登入、API 與 PostgreSQL 流程，但資料為合成紀錄；尚未核對 Youngsky 正式帳務、線上部署或實體 iPad Safari。是否合併仍取決於遠端 CI 與明確的 GitHub 推送授權，不能把本機驗收寫成已發布。
+
+### 遠端全套回歸修正
+
+首次 PR CI 的全套測試發現新增 CG01 後，8 個指南測試檔仍使用舊篇數（9 項斷言失敗）。已同步總篇數 204、課程可用篇數 116，以及指南盤點中的新文章／待互動驗收清單；CG01 仍標示 source-reviewed，未冒稱人工驗收。針對這 8 檔重跑共 47 項全數通過，並通過 ESLint 與 diff check。遠端全套結果以 PR 最新提交的 CI 為準。

@@ -11,7 +11,8 @@
     "A15",
     "A16",
     "I21",
-    "C169"
+    "C169",
+    "CG01"
   ],
   "updatedGuideIds": [
     "A05",
@@ -33,7 +34,8 @@
     "A15",
     "A16",
     "I21",
-    "C169"
+    "C169",
+    "CG01"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -86,9 +88,10 @@
     "C108",
     "C111",
     "C114",
-    "IMG01"
+    "IMG01",
+    "CG01"
   ],
-  "articleCount": 203,
+  "articleCount": 204,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -348,8 +351,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 28,
-  "totalInteractionPendingCount": 28,
+  "backendInteractionPendingCount": 29,
+  "totalInteractionPendingCount": 29,
   "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
