@@ -25,13 +25,14 @@ export async function saveServiceHours(input:unknown){
   const open=d.status==="open"||d.status==="custom",periods=[...d.periods].map(p=>({...p,slotInterval:p.slotInterval??60,defaultCapacity:p.defaultCapacity??6})).sort((a,b)=>a.openTime.localeCompare(b.openTime));
   if(!["slots","undo"].includes(d.mode)&&open&&(d.status==="custom"||d.mode!=="day")){
    const validation=validateBusinessPeriods(periods);if(!validation.valid)throw new AppError("VALIDATION",validation.error!);
-   if(periods.some(p=>!(industry==="spa"?[15,30]:[30,60,90,120]).includes(p.slotInterval)))throw new AppError("VALIDATION","預約單位不符合門市模組");
+   if(periods.some(p=>!(["spa","beauty"].includes(industry)?[15,30]:[30,60,90,120]).includes(p.slotInterval)))throw new AppError("VALIDATION","預約單位不符合門市模組");
   }
   if(d.mode==="copy"&&d.weeks>52||d.mode==="template"&&d.weeks<1)throw new AppError("VALIDATION","套用週數超出範圍");
   if(d.mode==="dates"&&(!d.targetDates.length||d.targetDates.includes(d.date)||d.targetDates.some(date=>date<toLocalDateStr())))throw new AppError("VALIDATION","請選擇未來的目標日期，且不可包含來源日");
   if(d.mode==="slots"&&(!d.changes.length||new Set(d.changes.map(c=>c.startTime)).size!==d.changes.length))throw new AppError("VALIDATION","時段資料不正確或重複");
   const key=`service-hours-receipt:${storeId}:${receipt.requestKey}`;
   const work=async(tx:Tx)=>{
+   if(industry==="beauty") await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`business-hours:${storeId}`},0))`;
    if(industry==="spa")await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
    const [logged]=await tx.$queryRaw<Array<{actorUserId:string;afterJson:{count:number;skipped:Array<{date:string;reason:string}>;operationId:string|null;date:string}}>>`SELECT "actorUserId","afterJson" FROM "AuditLog" WHERE id=${key} AND "targetId"=${storeId}`;

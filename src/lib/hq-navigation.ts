@@ -32,6 +32,8 @@ export function isNavigationItemActive(href: string, pathname: string, search: s
     if (["/dashboard/cashbook", "/dashboard/reconciliation", "/dashboard/transactions", "/dashboard/store-revenue", "/dashboard/coach-revenue"].some(route => pathname === route || pathname.startsWith(`${route}/`))) return true;
   }
   if (path === "/dashboard") return pathname === path || pathname === "/dashboard/brand-overview";
+  if (path === "/dashboard/beauty") return pathname === path &&
+    (new URLSearchParams(query).get("tab") ?? "首頁") === (new URLSearchParams(search).get("tab") ?? "首頁");
   if (path === "/dashboard/courses") {
     return pathname === path &&
       (new URLSearchParams(query).get("view") ?? "schedule") ===

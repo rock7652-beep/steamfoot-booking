@@ -42,6 +42,8 @@ export async function createStoreAction(
   await requireAdminSession();
   await requirePermission("staff.manage");
 
+  if (input.industryModule === "BEAUTY" && process.env.BEAUTY_MODULE_ENABLED !== "1") return {success:false,error:"美業模組尚未開放"};
+
   // ── 輸入驗證 ──
   const errors = validateCreateStoreInput(input);
   if (errors.length > 0) {
@@ -224,7 +226,7 @@ export async function createStoreAction(
             isOpen: true,
             openTime: musicHours ? "09:00" : "10:00",
             closeTime: musicHours ? "22:00" : "21:00",
-            slotInterval: musicHours ? 30 : 60,
+            slotInterval: industryModule === "BEAUTY" ? 15 : musicHours ? 30 : 60,
             defaultCapacity: 6,
             segments: musicHours
               ? [{ openTime: "09:00", closeTime: "22:00", slotInterval: 30, defaultCapacity: 6 }]
@@ -690,6 +692,8 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
         : "請由店長設定教練、教室及課程後完成首次排課",
       status: "skip",
     });
+  } else if(store.industryModule === "BEAUTY") {
+    items.push({key:"beauty-setup",label:"美業獨立服務預約；請設定位置、服務與技師後驗收三端入口，不建立預設方案",status:"skip"});
   } else {
     items.push({
       key: "booking-slots",
@@ -719,8 +723,8 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!input.slug?.trim()) errors.push("slug 不可為空");
   if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
-  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "COURSE") {
-    errors.push("僅支援時段（蒸足）、運動教室與音樂教室模組");
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "COURSE" && input.industryModule !== "BEAUTY") {
+    errors.push("僅支援時段（蒸足）、運動、音樂與美業模組");
   }
 
   if (input.industryModule !== "COURSE" && input.businessProfile) {

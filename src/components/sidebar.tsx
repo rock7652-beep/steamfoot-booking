@@ -813,6 +813,14 @@ export default function DashboardShell({
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqPlatformView || (isAdmin && !isStoreAdminRoute && !isHqStoreView)) return NAV_GROUPS;
     const entry = (href: string) => STORE_ADMIN_NAV.find(item => item.href === href)!;
+    if (industryModuleId === "beauty") {
+      const beautyItem = (label:string, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({...STORE_ADMIN_NAV[0],label,href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
+      return [
+        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),beautyItem("營運","transaction.read",FEATURES.TRANSACTION_MANAGEMENT),beautyItem("分析","report.read",FEATURES.BASIC_REPORTS)]},
+        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
+      ];
+    }
+
     const course = industryModuleId === "course";
     const spa = industryModule === "spa";
     const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };

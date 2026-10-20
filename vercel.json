@@ -42,6 +42,10 @@
     {
       "path": "/api/cron/audit-retention",
       "schedule": "40 17 * * *"
+    },
+    {
+      "path": "/api/cron/beauty-notifications",
+      "schedule": "*/5 * * * *"
     }
   ],
   "git": {
@@ -107,7 +111,8 @@
       "fix/sports-onboarding-flow-20261019": false,
       "fix/sports-subscription-expansion-20261019": false,
       "fix/sports-permanent-capacity-20261019": false,
-      "fix/sports-series-capacity-isolation-20261019": false
+      "fix/sports-series-capacity-isolation-20261019": false,
+      "feat/beauty-module-20261020": false
     }
   }
 }

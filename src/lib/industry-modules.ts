@@ -1,6 +1,6 @@
 // SPA identifiers remain only for reading archived records; runtime access is retired.
-export type IndustryModuleId = "steamfoot" | "spa" | "course";
-export type PersistedIndustryModule = "STEAMFOOT" | "SPA" | "COURSE";
+export type IndustryModuleId = "steamfoot" | "spa" | "course" | "beauty";
+export type PersistedIndustryModule = "STEAMFOOT" | "SPA" | "COURSE" | "BEAUTY";
 
 export type IndustryFeatureSet = {
   packages: boolean;
@@ -225,8 +225,17 @@ export const COURSE_INDUSTRY_MODULE: IndustryModule = {
   theme: { accent: "#355b46", accentSoft: "#e8efe8", surface: "#faf8f5" },
 };
 
+export const BEAUTY_INDUSTRY_MODULE: IndustryModule = {
+  ...COURSE_INDUSTRY_MODULE, id:"beauty", displayName:"美業模組", storeTypeLabel:"美業店家",
+  roles:{owner:"店長",provider:"技師",providerPlural:"技師"},
+  customer:{memberCenterLabel:"會員專區",summaryTitle:"方案摘要",sessionUnit:"次",makeupLabel:"",walletLabel:"我的方案",buyLabel:"購買方案"},
+  manager:{dashboardLabel:"首頁",bookingLabel:"班表",customerLabel:"顧客管理",planLabel:"收費方式",staffLabel:"技師管理"},
+  booking:{...COURSE_INDUSTRY_MODULE.booking,resourceModel:"provider_availability",defaultCapacity:1,slotIntervalMinutes:15},
+  features:{packages:true,makeupCredits:false,healthAssessment:false,referralShare:false,storedValue:false},
+};
 const INDUSTRY_MODULES: Record<Exclude<IndustryModuleId, "spa">, IndustryModule> = {
   steamfoot: STEAMFOOT_INDUSTRY_MODULE,
+  beauty: BEAUTY_INDUSTRY_MODULE,
   course: COURSE_INDUSTRY_MODULE,
 };
 
@@ -236,6 +245,7 @@ export function getIndustryModule(id: IndustryModuleId): IndustryModule {
 }
 
 export function resolveIndustryModuleId(value: string | null | undefined): IndustryModuleId {
+  if (value === "beauty" || value === "BEAUTY") return "beauty";
   if (value === "course" || value === "COURSE") return "course";
   return value === "spa" || value === "SPA" ? "spa" : "steamfoot";
 }
@@ -244,7 +254,7 @@ export function toPersistedIndustryModule(
   value: IndustryModuleId,
 ): PersistedIndustryModule {
   if (value === "spa") throw new Error("SPA 模組已移除");
-  return value === "course" ? "COURSE" : "STEAMFOOT";
+  return value === "beauty" ? "BEAUTY" : value === "course" ? "COURSE" : "STEAMFOOT";
 }
 
 export function getIndustryService(

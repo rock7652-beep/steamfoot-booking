@@ -342,7 +342,7 @@ describe("產業模組隔離", () => {
       owner: { name: "Owner", email: "spa-owner@example.com", password: "123456" },
     });
 
-    expect(result).toEqual({ success: false, error: "僅支援時段（蒸足）、運動教室與音樂教室模組" });
+    expect(result).toEqual({ success: false, error: "僅支援時段（蒸足）、運動、音樂與美業模組" });
     expect(prisma.store.create).not.toHaveBeenCalled();
     expect(prisma.user.create).not.toHaveBeenCalled();
     expect(prisma.bookingSlot.createMany).not.toHaveBeenCalled();

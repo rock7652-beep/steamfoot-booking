@@ -69,6 +69,7 @@ export default async function CustomerHomePage({ searchParams }: { searchParams:
     ? await getStoreIndustryModule(storeId)
     : "steamfoot";
 
+  if (industryModule === "beauty") redirect(`${prefix}/beauty`);
   if (industryModule === "course") return <CoursePortal {...await searchParams} />;
 
   if (industryModule === "spa") {

@@ -11,6 +11,7 @@ import {
 
 const MODULE_LABELS: Record<IndustryModuleId, string> = {
   steamfoot: "蒸足",
+  beauty: "美業",
   spa: "SPA",
   course: "課程",
 };
@@ -35,7 +36,7 @@ export async function getStoreIndustryModule(
   if (stores[0].industryModule === "SPA") {
     throw new AppError("FORBIDDEN", "SPA 模組已移除");
   }
-  if (!["STEAMFOOT", "COURSE"].includes(stores[0].industryModule)) {
+  if (!["STEAMFOOT", "COURSE", "BEAUTY"].includes(stores[0].industryModule)) {
     throw new AppError("FORBIDDEN", "店舖模組設定無效");
   }
   return resolveIndustryModuleId(stores[0].industryModule);
