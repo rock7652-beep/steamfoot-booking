@@ -41,3 +41,5 @@
 
 
 重現：`node scripts/qa/image-announcements-browser.mjs`（需要 Playwright 與 Chromium；可設定 `QA_PLAYWRIGHT_MODULE`，預設目前雲端工具路徑）。
+
+**跨模組補驗**：運動／音樂各自的真實登入、上傳與會員首頁公告流程共 10 項通過，並修正課程後台路由限制。詳見 [跨模組補驗報告](verification/image-announcements-modules-20261020.md)。真實 LINE App 仍缺測試部署與裝置，未標記通過。
