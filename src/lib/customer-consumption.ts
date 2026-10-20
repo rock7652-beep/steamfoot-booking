@@ -14,7 +14,7 @@ export type ConsumptionFilters = {
   ranges: Partial<Record<ConsumptionMetric, { min?: number; max?: number }>>;
 };
 export type ConsumptionRow = {
-  id: string; name: string; phone: string; count: number; sessions: number; grids: number;
+  id: string; name: string; phone: string; assignedStaffName: string | null; count: number; sessions: number; grids: number;
   points: number; amount: number; paid: number; balances: string;
 };
 export type ConsumptionOption = { id: string; name: string; unit: string; units?: string[] };
@@ -98,8 +98,8 @@ export function consumptionCsv(rows: ConsumptionRow[], filters: ConsumptionFilte
     ["曠課／請假扣除", filters.includeAbsent ? "包含" : "不包含"],
     ["搜尋", filters.q], ["數值條件（全部符合）", conditions || "不限"],
     ["排序", CONSUMPTION_METRICS[filters.sort], filters.direction === "asc" ? "由少到多" : "由多到少", filters.top ? `前 ${filters.top} 名` : "全部"],
-    ["姓名", "電話", ...metrics.map(metric => CONSUMPTION_METRICS[metric]), "目前方案餘額（非期間末餘額）"],
-    ...rows.map(row => [row.name, row.phone, ...metrics.map(metric => row[metric]), row.balances]),
+    ["姓名", "電話", "所屬店長", ...metrics.map(metric => CONSUMPTION_METRICS[metric]), "目前方案餘額（非期間末餘額）"],
+    ...rows.map(row => [row.name, row.phone, row.assignedStaffName || "未指派", ...metrics.map(metric => row[metric]), row.balances]),
   ];
   return "\uFEFF" + data.map(row => row.map(value => {
     const text = String(value);

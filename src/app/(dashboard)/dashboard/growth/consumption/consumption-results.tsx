@@ -17,6 +17,7 @@ export function ConsumptionResults({ rows, total, matched, page, filters, metric
   const columns: Column<ConsumptionRow>[] = [
     { key: "name", header: "顧客", width: "min-w-40", accessor: row =>
       <CustomerPageLink href={courseMode ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(row.id)}` : `/dashboard/customers/${encodeURIComponent(row.id)}`} className="flex min-h-11 flex-col justify-center break-words text-primary-800"><span className="font-medium">{row.name}</span><span className="text-sm text-earth-500">{row.phone || "未提供電話"}</span></CustomerPageLink> },
+    { key: "assignedStaff", header: "所屬店長", width: "min-w-28", priority: "secondary", accessor: row => <span className="break-words">{row.assignedStaffName || "未指派"}</span> },
     ...metrics.map(metric => {
       const params = new URLSearchParams(query);
       params.set("sort", metric);

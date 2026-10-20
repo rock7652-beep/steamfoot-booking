@@ -8,6 +8,7 @@ const db = new PGlite();
 beforeAll(async () => {
   await db.exec(`
     CREATE TABLE "User" (id text PRIMARY KEY,status text);
+    CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text);
     CREATE TABLE "Customer" (id text PRIMARY KEY,"userId" text,"storeId" text,name text,phone text,"mergedIntoCustomerId" text,"assignedStaffId" text,"createdAt" timestamptz DEFAULT '2026-01-01');
     CREATE TABLE "CourseSession" (id text PRIMARY KEY,"storeId" text,"startsAt" timestamptz,"cancelledAt" timestamptz);
     CREATE TABLE "CoursePointCard" (id text PRIMARY KEY,"storeId" text,"planId" text,"nameSnapshot" text,unit text,remaining int,"closedAt" timestamptz,"expiresAt" timestamptz DEFAULT '2027-01-01');
@@ -31,6 +32,7 @@ beforeEach(async () => {
   for (const { tablename } of tables.rows) await db.exec(`TRUNCATE "${tablename}"`);
   await db.exec(`
     INSERT INTO "User" VALUES ('suspended-user','SUSPENDED');
+    INSERT INTO "Staff" VALUES ('staff-a','store','林店長'),('staff-b','store','陳店長'),('foreign-staff','foreign','外店店長');
     INSERT INTO "Customer" (id,"storeId",name,phone,"assignedStaffId") VALUES
       ('a','store','Alice','0900','staff-a'),('b','store','Bob','0901','staff-b'),('zero','store','Zero','0902','staff-a'),('other','foreign','外店','0903','staff-a');
     INSERT INTO "Customer" (id,"storeId",name,"userId","mergedIntoCustomerId") VALUES ('suspended','store','停用','suspended-user',NULL),('merged','store','合併',NULL,'a');
@@ -65,6 +67,13 @@ async function seedCourse() {
 
 describe("course consumption SQL on embedded PostgreSQL", () => {
   beforeEach(seedCourse);
+  it("shows current assigned manager while excluding a mismatched store's staff name", async () => {
+    expect((await report("course")).rows.find(row => row.id === "a")?.assignedStaffName).toBe("林店長");
+    await db.exec(`UPDATE "Customer" SET "assignedStaffId"='staff-b' WHERE id='a'; UPDATE "Customer" SET "assignedStaffId"='foreign-staff' WHERE id='zero'`);
+    const { rows } = await report("course");
+    expect(rows.find(row => row.id === "a")?.assignedStaffName).toBe("陳店長");
+    expect(rows.find(row => row.id === "zero")?.assignedStaffName).toBeNull();
+  });
   it("counts actual debit including no-show and forfeited leave, separates units, receipts and current shared balance", async () => {
     const data = await report("course");
     expect(data.total).toBe(3);

@@ -143,7 +143,9 @@ export function customerConsumptionSql(storeId: string, module: "course" | "stea
   const direction = filters.direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   return Prisma.sql`
     WITH customers AS (
-      SELECT c.id,c.name,c.phone FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
+      SELECT c.id,c.name,c.phone,s."displayName" AS "assignedStaffName"
+      FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
+      LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId"
       WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
         AND c."createdAt"<=${end} ${staffScope ? Prisma.sql`AND c."assignedStaffId"=${staffScope}` : Prisma.empty}
         AND (${filters.q}='' OR strpos(lower(c.name),lower(${filters.q}))>0 OR strpos(c.phone,${filters.q})>0)

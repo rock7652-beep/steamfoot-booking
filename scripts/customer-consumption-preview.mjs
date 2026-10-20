@@ -33,7 +33,7 @@ const entry = `
   import {CustomerGrowthTabLink} from './src/components/customer-growth-tab-link';
   import {parseConsumptionFilters,consumptionMetrics} from './src/lib/customer-consumption';
   const options=[{id:'session',name:'團體課程十堂卡・含贈課與延長效期的長名稱收費方式',unit:'SESSION'},{id:'point',name:'自由選課點數',unit:'POINT'},{id:'grid',name:'格數方案',unit:'GRID'}];
-  const base=Array.from({length:50},(_,i)=>({id:'fixture-'+i,name:i===0?'王小姐・長名稱測試・共享方案顧客':('測試顧客 '+String(i).padStart(2,'0')),phone:'090000'+String(i).padStart(4,'0'),count:i%7,sessions:i%7,grids:i%3,points:i%12,amount:i*100,paid:i*500,balances:'團體課程十堂卡（共卡）：剩餘 8 堂／到期 2027-01-01；自由選課點數：剩餘 15 點／到期 2027-03-01'}));
+  const base=Array.from({length:50},(_,i)=>({id:'fixture-'+i,name:i===0?'王小姐・長名稱測試・共享方案顧客':('測試顧客 '+String(i).padStart(2,'0')),phone:'090000'+String(i).padStart(4,'0'),assignedStaffName:i%3===0?null:i%2===0?'林店長':'陳店長',count:i%7,sessions:i%7,grids:i%3,points:i%12,amount:i*100,paid:i*500,balances:'團體課程十堂卡（共卡）：剩餘 8 堂／到期 2027-01-01；自由選課點數：剩餘 15 點／到期 2027-03-01'}));
   function App(){
     const search=useFixtureQuery(),params=Object.fromEntries(new URLSearchParams(search));
     let filters,error;try{filters=parseConsumptionFilters(params,'2026-10-20')}catch(e){filters=parseConsumptionFilters({},'2026-10-20');error=e.message}
@@ -78,6 +78,7 @@ if (process.argv.includes("--check")) {
     for (const [width, height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[600,900],[390,844]]) {
       await page.setViewportSize({ width, height }); await page.goto(url);
       await page.getByRole("button", { name: "查詢", exact: true }).waitFor();
+      await page.getByRole("columnheader", { name: "所屬店長", exact: true }).waitFor();
       await page.getByRole("button", { name: /^篩選/ }).click();
       await page.getByRole("spinbutton", { name: "消耗次數最低值", exact: true }).fill("2");
       await page.getByRole("button", { name: "套用篩選", exact: true }).click();

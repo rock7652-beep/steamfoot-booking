@@ -33,11 +33,13 @@ describe("customer consumption filters and export", () => {
   });
   it("exports context and safely quotes multiline names and spreadsheet formulas", () => {
     const filters = parseConsumptionFilters({ count_min: "0", top: "2", direction: "asc" }, "2026-10-20");
-    const csv = consumptionCsv([{ id: "a", name: '=HYPERLINK("bad")\n王', phone: "+886900000000", count: 1, sessions: 2, grids: 0, points: 0, amount: 0, paid: 100, balances: "方案：剩餘 3 堂" }], filters, "全部收費方式", ["count", "sessions", "amount", "paid"]);
+    const csv = consumptionCsv([{ id: "a", name: '=HYPERLINK("bad")\n王', phone: "+886900000000", assignedStaffName: "林店長", count: 1, sessions: 2, grids: 0, points: 0, amount: 0, paid: 100, balances: "方案：剩餘 3 堂" }], filters, "全部收費方式", ["count", "sessions", "amount", "paid"]);
     expect(csv).toContain('"\'=HYPERLINK(""bad"")\n王"');
     expect(csv).toContain('"\'+886900000000"');
     expect(csv).toContain('"消耗次數 0～不限"');
     expect(csv).toContain("目前方案餘額（非期間末餘額）");
+    expect(csv).toContain('"姓名","電話","所屬店長"');
+    expect(csv).toContain('"林店長"');
     expect(csv).not.toContain("消耗點數");
   });
   it("offers the backend guide at the new entrance and respects its data permissions", () => {
