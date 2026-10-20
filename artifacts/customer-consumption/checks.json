@@ -1,0 +1,55 @@
+{
+  "scope": "Synthetic component preview; Next navigation shim; no auth/database",
+  "evidence": [
+    {
+      "width": 1366,
+      "height": 900,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 600,
+      "height": 900,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    }
+  ],
+  "resizePreservesDraft": true,
+  "inlineError": true,
+  "emptyState": true,
+  "exportHiddenWithoutPermission": true,
+  "keyboardSubmit": true,
+  "storePrefix": true,
+  "topN": true,
+  "consoleErrors": []
+}
