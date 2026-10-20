@@ -44,17 +44,27 @@ export const getCustomerConsumptionOptions = cache(async (access: Awaited<Return
       UNION ALL SELECT '__unassigned__','未指定收費方式','MONEY' ORDER BY name,id`);
 });
 
+export const getCustomerConsumptionStaffOptions = cache(async (access: Awaited<ReturnType<typeof getCustomerConsumptionAccess>>) => {
+  const staff = await prisma.staff.findMany({
+    where: { storeId: access.storeId, ...(access.staffScope ? { id: access.staffScope } : {}) },
+    select: { id: true, displayName: true }, orderBy: [{ displayName: "asc" }, { id: "asc" }],
+  });
+  return staff.map(person => ({ id: person.id, name: person.displayName }));
+});
+
 export async function getCustomerConsumption(params: ConsumptionParams, exporting = false) {
   const access = await getCustomerConsumptionAccess(exporting);
   const filters = parseConsumptionFilters(params);
-  const options = await getCustomerConsumptionOptions(access);
+  const [options, staffOptions] = await Promise.all([getCustomerConsumptionOptions(access), getCustomerConsumptionStaffOptions(access)]);
   if (filters.planId && !options.some(option => option.id === filters.planId))
     throw new AppError("VALIDATION", "所選收費方式不屬於目前店家");
+  if (filters.staffId && filters.staffId !== "__unassigned__" && !staffOptions.some(option => option.id === filters.staffId))
+    throw new AppError("VALIDATION", "所選店長不屬於目前可查看範圍");
   const metrics = consumptionMetrics(options);
   if (!metrics.includes(filters.sort) || Object.keys(filters.ranges).some(key => !metrics.includes(key as typeof metrics[number])))
     throw new AppError("VALIDATION", "目前店家未使用所選消耗單位");
   const [result] = await prisma.$queryRaw<ConsumptionResult[]>(customerConsumptionSql(access.storeId, access.module, access.staffScope, filters, exporting));
   if (exporting && result.total > CONSUMPTION_EXPORT_LIMIT)
     throw new AppError("VALIDATION", `符合名單超過 ${CONSUMPTION_EXPORT_LIMIT.toLocaleString()} 人，請縮小篩選條件後匯出`);
-  return { ...result, filters, options, metrics, module: access.module };
+  return { ...result, filters, options, staffOptions, metrics, module: access.module };
 }

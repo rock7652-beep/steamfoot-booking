@@ -19,7 +19,7 @@ describe("customer consumption filters and export", () => {
     expect(() => parseConsumptionFilters(params, "2026-10-20")).toThrow();
   });
   it("keeps the exact period, zeros, AND ranges, absent choice, sort and top in export/pagination links", () => {
-    const filters = parseConsumptionFilters({ preset: "90", planId: "plan-1", q: "王", count_min: "0", points_max: "20", includeAbsent: "0", sort: "points", direction: "asc", top: "20", page: "2" }, "2026-10-20");
+    const filters = parseConsumptionFilters({ preset: "90", planId: "plan-1", staffId: "staff-a", q: "王", count_min: "0", points_max: "20", includeAbsent: "0", sort: "points", direction: "asc", top: "20", page: "2" }, "2026-10-20");
     const query = consumptionSearchParams(filters);
     expect(parseConsumptionFilters(Object.fromEntries(query), "2026-12-01")).toEqual({ ...filters, preset: "custom", page: 1 });
   });

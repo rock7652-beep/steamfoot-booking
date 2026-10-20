@@ -5,7 +5,7 @@ import { AppError } from "@/lib/app-error";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { consumptionMetrics, parseConsumptionFilters, type ConsumptionParams } from "@/lib/customer-consumption";
-import { getCustomerConsumption, getCustomerConsumptionAccess, getCustomerConsumptionOptions } from "@/server/queries/customer-consumption";
+import { getCustomerConsumption, getCustomerConsumptionAccess, getCustomerConsumptionOptions, getCustomerConsumptionStaffOptions } from "@/server/queries/customer-consumption";
 import { ConsumptionFiltersForm } from "./consumption-filters";
 import { ConsumptionResults } from "./consumption-results";
 
@@ -21,7 +21,7 @@ export default async function CustomerConsumptionPage({ searchParams }: { search
     if (!(error instanceof AppError)) throw error;
     return <PageShell compact><PageHeader title="期間消耗統計" /><p role="status" className="p-4 text-earth-700">{error.message}</p></PageShell>;
   }
-  const options = await getCustomerConsumptionOptions(access);
+  const [options, staffOptions] = await Promise.all([getCustomerConsumptionOptions(access), getCustomerConsumptionStaffOptions(access)]);
   const [exportPermission, exportFeature] = await Promise.all([
     checkPermission(user.role, user.staffId, "customer.export"), hasDataExportFeature(access.storeId),
   ]);
@@ -35,7 +35,7 @@ export default async function CustomerConsumptionPage({ searchParams }: { search
   const metrics = data?.metrics ?? consumptionMetrics(options);
   return <PageShell compact>
     <PageHeader compact title="期間消耗統計" />
-    <ConsumptionFiltersForm key={JSON.stringify(params)} params={params} filters={filters} options={options} metrics={metrics} error={errorMessage} />
+    <ConsumptionFiltersForm key={JSON.stringify(params)} params={params} filters={filters} options={options} staffOptions={staffOptions} metrics={metrics} error={errorMessage} />
     {data && <ConsumptionResults {...data} courseMode={data.module === "course"} canExport={exportPermission && exportFeature} />}
     <details className="rounded-lg border border-earth-200 px-3 text-sm text-earth-600">
       <summary className="flex min-h-11 cursor-pointer items-center">統計口徑與餘額說明</summary>

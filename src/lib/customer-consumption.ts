@@ -8,7 +8,7 @@ export const CONSUMPTION_METRICS = {
 export type ConsumptionMetric = keyof typeof CONSUMPTION_METRICS;
 export type ConsumptionParams = Record<string, string | string[] | undefined>;
 export type ConsumptionFilters = {
-  startDate: string; endDate: string; preset: string; planId: string; q: string;
+  startDate: string; endDate: string; preset: string; planId: string; staffId: string; q: string;
   includeAbsent: boolean; sort: ConsumptionMetric; direction: "asc" | "desc";
   top: number | null; page: number;
   ranges: Partial<Record<ConsumptionMetric, { min?: number; max?: number }>>;
@@ -18,6 +18,7 @@ export type ConsumptionRow = {
   points: number; amount: number; paid: number; balances: string;
 };
 export type ConsumptionOption = { id: string; name: string; unit: string; units?: string[] };
+export type ConsumptionStaffOption = { id: string; name: string };
 export const CONSUMPTION_PAGE_SIZE = 50;
 export const CONSUMPTION_EXPORT_LIMIT = 10000;
 export const CONSUMPTION_PATH = "/dashboard/growth/consumption";
@@ -66,7 +67,7 @@ export function parseConsumptionFilters(params: ConsumptionParams, today = toLoc
     throw new AppError("VALIDATION", `前 N 名須介於 1～${CONSUMPTION_EXPORT_LIMIT}`);
   const page = Number(get("page") || 1);
   if (!Number.isSafeInteger(page) || page < 1 || page > 1000000) throw new AppError("VALIDATION", "頁碼不正確");
-  return { startDate, endDate, preset, planId: get("planId"), q: get("q").slice(0, 100),
+  return { startDate, endDate, preset, planId: get("planId"), staffId: get("staffId"), q: get("q").slice(0, 100),
     includeAbsent: get("includeAbsent") !== "0", sort: sort as ConsumptionMetric, direction, top, page, ranges };
 }
 
@@ -75,6 +76,7 @@ export function consumptionSearchParams(filters: ConsumptionFilters) {
   const params = new URLSearchParams({ preset: "custom", startDate: filters.startDate, endDate: filters.endDate,
     includeAbsent: filters.includeAbsent ? "1" : "0", sort: filters.sort, direction: filters.direction });
   if (filters.planId) params.set("planId", filters.planId);
+  if (filters.staffId) params.set("staffId", filters.staffId);
   if (filters.q) params.set("q", filters.q);
   if (filters.top) params.set("top", String(filters.top));
   for (const [metric, range] of Object.entries(filters.ranges)) {
@@ -90,11 +92,12 @@ export function consumptionMetrics(options: ConsumptionOption[]): ConsumptionMet
     ...(units.has("GRID") ? ["grids" as const] : []), ...(units.has("POINT") ? ["points" as const] : []), "amount", "paid"];
 }
 
-export function consumptionCsv(rows: ConsumptionRow[], filters: ConsumptionFilters, planName: string, metrics: ConsumptionMetric[]) {
+export function consumptionCsv(rows: ConsumptionRow[], filters: ConsumptionFilters, planName: string, metrics: ConsumptionMetric[], staffName = "全部店長") {
   const conditions = Object.entries(filters.ranges).map(([metric, range]) =>
     `${CONSUMPTION_METRICS[metric as ConsumptionMetric]} ${range.min ?? "不限"}～${range.max ?? "不限"}`).join("；");
   const data: Array<Array<string | number>> = [
     ["統計期間", filters.startDate, filters.endDate], ["收費方式", planName],
+    ["所屬店長條件", staffName],
     ["曠課／請假扣除", filters.includeAbsent ? "包含" : "不包含"],
     ["搜尋", filters.q], ["數值條件（全部符合）", conditions || "不限"],
     ["排序", CONSUMPTION_METRICS[filters.sort], filters.direction === "asc" ? "由少到多" : "由多到少", filters.top ? `前 ${filters.top} 名` : "全部"],

@@ -4,7 +4,7 @@ import { useId, useState, useTransition, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { DashboardLink, resolveDashboardHref } from "@/components/dashboard-link";
-import { CONSUMPTION_METRICS, CONSUMPTION_PATH, consumptionSearchParams, firstConsumptionParam, type ConsumptionFilters, type ConsumptionMetric, type ConsumptionOption, type ConsumptionParams } from "@/lib/customer-consumption";
+import { CONSUMPTION_METRICS, CONSUMPTION_PATH, consumptionSearchParams, firstConsumptionParam, type ConsumptionFilters, type ConsumptionMetric, type ConsumptionOption, type ConsumptionStaffOption, type ConsumptionParams } from "@/lib/customer-consumption";
 
 const control = "min-h-11 min-w-0 rounded-lg border border-earth-300 bg-white px-3 text-sm text-earth-900";
 type RangeDraft = { metric: ConsumptionMetric; min: string; max: string };
@@ -22,8 +22,8 @@ export function ConsumptionSortSelect({ filters, metrics }: { filters: Consumpti
   </select>;
 }
 
-export function ConsumptionFiltersForm({ filters, params, options, metrics, error }: {
-  filters: ConsumptionFilters; params: ConsumptionParams; options: ConsumptionOption[]; metrics: ConsumptionMetric[]; error?: string;
+export function ConsumptionFiltersForm({ filters, params, options, staffOptions, metrics, error }: {
+  filters: ConsumptionFilters; params: ConsumptionParams; options: ConsumptionOption[]; staffOptions: ConsumptionStaffOption[]; metrics: ConsumptionMetric[]; error?: string;
 }) {
   const router = useRouter(), pathname = usePathname(), formId = useId(), titleId = useId();
   const value = (key: string, fallback = "") => firstConsumptionParam(params[key]) ?? fallback;
@@ -33,6 +33,7 @@ export function ConsumptionFiltersForm({ filters, params, options, metrics, erro
   const [open, setOpen] = useState(false);
   const [includeAbsent, setIncludeAbsent] = useState(value("includeAbsent", filters.includeAbsent ? "1" : "0"));
   const [top, setTop] = useState(value("top", String(filters.top ?? "")));
+  const [staffId, setStaffId] = useState(value("staffId", filters.staffId));
   const [ranges, setRanges] = useState<RangeDraft[]>(() => {
     const initial = metrics.flatMap(metric => {
       const min = value(`${metric}_min`), max = value(`${metric}_max`);
@@ -41,7 +42,7 @@ export function ConsumptionFiltersForm({ filters, params, options, metrics, erro
     return initial.length ? initial : [{ metric: "count", min: "", max: "" }];
   });
   const [pending, startTransition] = useTransition();
-  const appliedCount = Object.keys(filters.ranges).length + (filters.includeAbsent ? 0 : 1) + (filters.top ? 1 : 0);
+  const appliedCount = Object.keys(filters.ranges).length + (filters.includeAbsent ? 0 : 1) + (filters.top ? 1 : 0) + (filters.staffId ? 1 : 0);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = new URLSearchParams();
@@ -51,6 +52,7 @@ export function ConsumptionFiltersForm({ filters, params, options, metrics, erro
     query.set("sort", filters.sort); query.set("direction", filters.direction);
     if (preset === "custom") { query.set("startDate", startDate); query.set("endDate", endDate); }
     query.set("includeAbsent", includeAbsent);
+    if (staffId) query.set("staffId", staffId);
     if (top) query.set("top", top);
     for (const range of ranges) {
       if (range.min.trim()) query.set(`${range.metric}_min`, range.min.trim());
@@ -102,6 +104,7 @@ export function ConsumptionFiltersForm({ filters, params, options, metrics, erro
           {ranges.length > 1 && <p className="text-sm text-earth-500">全部條件須同時符合。</p>}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">所屬店長<select value={staffId} onChange={event => setStaffId(event.target.value)} className={control}><option value="">全部店長</option><option value="__unassigned__">未指派</option>{staffOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">曠課／請假扣除<select value={includeAbsent} onChange={event => setIncludeAbsent(event.target.value)} className={control}><option value="1">包含扣除紀錄</option><option value="0">不包含曠課／請假扣除</option></select></label>
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">取前 N 名<input form={formId} type="number" min="1" max="10000" step="1" placeholder="全部顧客" value={top} onChange={event => setTop(event.target.value)} className={control} /></label>
         </div>

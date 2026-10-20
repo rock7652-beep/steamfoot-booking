@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { AppError } from "@/lib/app-error";
 
 const mocks = vi.hoisted(() => ({
-  permission: vi.fn(), activeStore: vi.fn(), view: vi.fn(), feature: vi.fn(), industry: vi.fn(), scope: vi.fn(), query: vi.fn(),
+  permission: vi.fn(), activeStore: vi.fn(), view: vi.fn(), feature: vi.fn(), industry: vi.fn(), scope: vi.fn(), query: vi.fn(), staff: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: mocks.activeStore }));
@@ -15,17 +15,18 @@ vi.mock("@/lib/store-view-context-server", () => ({
 vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: mocks.feature }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.industry }));
 vi.mock("@/lib/manager-visibility", () => ({ getManagerCustomerWhere: mocks.scope }));
-vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: mocks.query } }));
+vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: mocks.query, staff: { findMany: mocks.staff } } }));
 import { getCustomerConsumption, getCustomerConsumptionAccess } from "@/server/queries/customer-consumption";
 import { GET } from "@/app/api/export/customer-consumption-summary/route";
 
 const options = [{ id: "plan", name: "堂數卡", unit: "SESSION" }];
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mocks.permission.mockResolvedValue({ role: "STAFF", staffId: "staff", storeId: "own-store" });
   mocks.activeStore.mockResolvedValue("own-store"); mocks.view.mockResolvedValue(null);
   mocks.feature.mockResolvedValue(undefined); mocks.industry.mockResolvedValue("course");
   mocks.scope.mockReturnValue({ assignedStaffId: "staff" });
+  mocks.staff.mockResolvedValue([{ id: "staff", displayName: "林店長" }]);
   mocks.query.mockResolvedValueOnce(options).mockResolvedValue([{ total: 0, matched: 0, page: 1, rows: [] }]);
 });
 
@@ -65,6 +66,16 @@ describe("consumption read and export authorization", () => {
     });
     const response = await GET(new NextRequest("http://localhost/api/export/customer-consumption-summary"));
     expect(response.status).toBe(403); expect(mocks.query).not.toHaveBeenCalled();
+  });
+  it("rejects a foreign or invisible manager before querying the consumption report", async () => {
+    await expect(getCustomerConsumption({ staffId: "foreign-staff" })).rejects.toThrow("所選店長不屬於目前可查看範圍");
+    expect(mocks.staff).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own-store", id: "staff" } }));
+    expect(mocks.query).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the selected manager in exported filter context", async () => {
+    const response = await GET(new NextRequest("http://localhost/api/export/customer-consumption-summary?staffId=staff"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('"所屬店長條件","林店長"');
   });
   it("requires the viewed store's data-export entitlement", async () => {
     mocks.feature.mockImplementation(async (_store, key) => { if (key === "data_export") throw new AppError("FORBIDDEN", "未開通匯出"); });

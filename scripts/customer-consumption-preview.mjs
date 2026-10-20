@@ -33,15 +33,15 @@ const entry = `
   import {CustomerGrowthTabLink} from './src/components/customer-growth-tab-link';
   import {parseConsumptionFilters,consumptionMetrics} from './src/lib/customer-consumption';
   const options=[{id:'session',name:'團體課程十堂卡・含贈課與延長效期的長名稱收費方式',unit:'SESSION'},{id:'point',name:'自由選課點數',unit:'POINT'},{id:'grid',name:'格數方案',unit:'GRID'}];
-  const base=Array.from({length:50},(_,i)=>({id:'fixture-'+i,name:i===0?'王小姐・長名稱測試・共享方案顧客':('測試顧客 '+String(i).padStart(2,'0')),phone:'090000'+String(i).padStart(4,'0'),assignedStaffName:i%3===0?null:i%2===0?'林店長':'陳店長',count:i%7,sessions:i%7,grids:i%3,points:i%12,amount:i*100,paid:i*500,balances:'團體課程十堂卡（共卡）：剩餘 8 堂／到期 2027-01-01；自由選課點數：剩餘 15 點／到期 2027-03-01'}));
+  const base=Array.from({length:50},(_,i)=>({id:'fixture-'+i,name:i===0?'王小姐・長名稱測試・共享方案顧客':('測試顧客 '+String(i).padStart(2,'0')),phone:'090000'+String(i).padStart(4,'0'),assignedStaffId:i%3===0?null:i%2===0?'staff-a':'staff-b',assignedStaffName:i%3===0?null:i%2===0?'林店長':'陳店長',count:i%7,sessions:i%7,grids:i%3,points:i%12,amount:i*100,paid:i*500,balances:'團體課程十堂卡（共卡）：剩餘 8 堂／到期 2027-01-01；自由選課點數：剩餘 15 點／到期 2027-03-01'}));
   function App(){
     const search=useFixtureQuery(),params=Object.fromEntries(new URLSearchParams(search));
     let filters,error;try{filters=parseConsumptionFilters(params,'2026-10-20')}catch(e){filters=parseConsumptionFilters({},'2026-10-20');error=e.message}
-    let rows=base.filter(row=>(!filters.q||row.name.includes(filters.q)||row.phone.includes(filters.q))&&Object.entries(filters.ranges).every(([key,range])=>(range.min===undefined||row[key]>=range.min)&&(range.max===undefined||row[key]<=range.max)));
+    let rows=base.filter(row=>(!filters.staffId||(filters.staffId==='__unassigned__'?!row.assignedStaffId:row.assignedStaffId===filters.staffId))&&(!filters.q||row.name.includes(filters.q)||row.phone.includes(filters.q))&&Object.entries(filters.ranges).every(([key,range])=>(range.min===undefined||row[key]>=range.min)&&(range.max===undefined||row[key]<=range.max)));
     rows.sort((a,b)=>(a[filters.sort]-b[filters.sort])*(filters.direction==='asc'?1:-1)||a.name.localeCompare(b.name));
     const matched=rows.length;if(filters.top)rows=rows.slice(0,filters.top);
     const metrics=consumptionMetrics(options);
-    return <div className="flex min-h-screen bg-earth-50 text-earth-900"><aside className="hidden w-60 shrink-0 border-r border-earth-200 bg-white p-4 lg:block"><strong>蒸管家</strong><p className="mt-8 rounded-lg bg-primary-100 p-3 text-sm">顧客經營</p></aside><main className="min-w-0 flex-1 p-3 sm:p-6"><p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">元件預覽・合成資料・未連接登入與資料庫</p><nav className="flex flex-wrap gap-1 border-b border-earth-200" aria-label="顧客經營分類">{[['care','顧客關懷','/dashboard/growth'],['consumption','期間消耗統計','/dashboard/growth/consumption'],['leads','數位管家名單','/dashboard/digital-butler/leads']].map(([id,label,href])=><CustomerGrowthTabLink key={id} id={id} href={href} label={label} active="care" />)}</nav><PageShell compact><PageHeader compact title="期間消耗統計"/><ConsumptionFiltersForm key={search} filters={filters} params={params} options={options} metrics={metrics} error={error}/>{!error&&<ConsumptionResults rows={rows} total={rows.length} matched={matched} page={1} filters={filters} metrics={metrics} canExport={!params.noExport} courseMode/>}</PageShell></main></div>
+    return <div className="flex min-h-screen bg-earth-50 text-earth-900"><aside className="hidden w-60 shrink-0 border-r border-earth-200 bg-white p-4 lg:block"><strong>蒸管家</strong><p className="mt-8 rounded-lg bg-primary-100 p-3 text-sm">顧客經營</p></aside><main className="min-w-0 flex-1 p-3 sm:p-6"><p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">元件預覽・合成資料・未連接登入與資料庫</p><nav className="flex flex-wrap gap-1 border-b border-earth-200" aria-label="顧客經營分類">{[['care','顧客關懷','/dashboard/growth'],['consumption','期間消耗統計','/dashboard/growth/consumption'],['leads','數位管家名單','/dashboard/digital-butler/leads']].map(([id,label,href])=><CustomerGrowthTabLink key={id} id={id} href={href} label={label} active="care" />)}</nav><PageShell compact><PageHeader compact title="期間消耗統計"/><ConsumptionFiltersForm key={search} filters={filters} params={params} options={options} staffOptions={[{id:"staff-a",name:"林店長"},{id:"staff-b",name:"陳店長"}]} metrics={metrics} error={error}/>{!error&&<ConsumptionResults rows={rows} total={rows.length} matched={matched} page={1} filters={filters} metrics={metrics} canExport={!params.noExport} courseMode/>}</PageShell></main></div>
   }createRoot(document.getElementById('root')).render(<App/>);
 `;
 const bundle = await build({ stdin: { contents: entry, resolveDir: root, loader: "tsx" }, bundle: true, write: false,
@@ -121,6 +121,7 @@ if (process.argv.includes("--check")) {
     await page.getByRole("button", { name: /^篩選/ }).click();
     await page.getByRole("combobox", { name: "篩選項目 1", exact: true }).selectOption("points");
     await page.getByRole("spinbutton", { name: "消耗點數最低值", exact: true }).fill("2");
+    await page.getByRole("combobox", { name: "所屬店長", exact: true }).selectOption("staff-a");
     await page.getByRole("button", { name: "＋新增條件", exact: true }).click();
     await page.getByRole("spinbutton", { name: "消耗次數最高值", exact: true }).fill("4");
     await page.setViewportSize({ width: 390, height: 844 });
@@ -136,6 +137,10 @@ if (process.argv.includes("--check")) {
     await page.waitForURL(/points_min=2/);
     if (!page.url().includes("count_max=4")) throw new Error("Dropdown conditions lost AND range");
     if (await page.getByRole("dialog").count()) throw new Error("Applied filters still obscure list");
+    if (!page.url().includes("staffId=staff-a")) throw new Error("Manager filter lost");
+    const managerCells = await page.locator("tbody tr td:nth-child(2)").allTextContents();
+    if (!managerCells.length || managerCells.some(name => name !== "林店長")) throw new Error("Manager filter did not narrow rows");
+    if (!(await page.getByRole("link", {name:"匯出名單 CSV"}).getAttribute("href")).includes("staffId=staff-a")) throw new Error("Export lost manager filter");
     if (errors.length) throw new Error(errors.join("\n"));
     await writeFile(path.join(output, "checks.json"), JSON.stringify({ scope: "Synthetic component preview; Next navigation shim; no auth/database", evidence, resizePreservesDraft: true, inlineError: true, emptyState: true, exportHiddenWithoutPermission: true, keyboardSubmit: true, storePrefix: true, topN: true, modalDraftPreserved: true, metricDropdownAndRanges: true, applyReturnsToList: true, consoleErrors: errors }, null, 2));
     console.log("Component checks passed; evidence in artifacts/customer-consumption/checks.json");

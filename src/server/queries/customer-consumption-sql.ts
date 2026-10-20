@@ -148,6 +148,7 @@ export function customerConsumptionSql(storeId: string, module: "course" | "stea
       LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId"
       WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
         AND c."createdAt"<=${end} ${staffScope ? Prisma.sql`AND c."assignedStaffId"=${staffScope}` : Prisma.empty}
+        AND (${filters.staffId}='' OR (${filters.staffId}='__unassigned__' AND s.id IS NULL) OR s.id=${filters.staffId})
         AND (${filters.q}='' OR strpos(lower(c.name),lower(${filters.q}))>0 OR strpos(c.phone,${filters.q})>0)
     ), ${source}, summary AS (
       SELECT x.*,COALESCE(u.count,0)::int count, COALESCE(u.sessions,0)::float8 sessions,

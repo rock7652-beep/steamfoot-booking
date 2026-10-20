@@ -74,6 +74,13 @@ describe("course consumption SQL on embedded PostgreSQL", () => {
     expect(rows.find(row => row.id === "a")?.assignedStaffName).toBe("陳店長");
     expect(rows.find(row => row.id === "zero")?.assignedStaffName).toBeNull();
   });
+  it("filters current assigned manager and never expands SELF_ONLY visibility", async () => {
+    expect((await report("course", { staffId: "staff-a" })).rows.map(row => row.id)).toEqual(["a", "zero"]);
+    expect((await report("course", { staffId: "staff-a" }, "staff-b")).rows).toEqual([]);
+    await db.exec(`UPDATE "Customer" SET "assignedStaffId"=NULL WHERE id='zero'`);
+    expect((await report("course", { staffId: "__unassigned__" })).rows.map(row => row.id)).toEqual(["zero"]);
+    expect((await report("course", { staffId: "staff-b", count_min: "1" })).rows.map(row => row.id)).toEqual(["b"]);
+  });
   it("counts actual debit including no-show and forfeited leave, separates units, receipts and current shared balance", async () => {
     const data = await report("course");
     expect(data.total).toBe(3);
