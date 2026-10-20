@@ -56,7 +56,22 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
         </div>
         <div className="min-h-0 overflow-auto overscroll-contain" {...swipe}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={`公告圖片 ${index % active.length + 1}`} style={zoom ? { width: "200%", maxWidth: "none" } : { width: "50%", maxHeight: "50dvh", maxWidth: "50%", margin: "0 auto", objectFit: "contain" }} />
+          <img
+            src={src}
+            alt={`公告圖片 ${index % active.length + 1}`}
+            role="button"
+            tabIndex={0}
+            aria-label={zoom ? "縮小公告圖片" : "放大公告圖片"}
+            className={zoom ? "cursor-zoom-out" : "cursor-zoom-in"}
+            onClick={() => setZoom(value => !value)}
+            onKeyDown={event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setZoom(value => !value);
+              }
+            }}
+            style={zoom ? { width: "100%", maxWidth: "100%", margin: "0 auto" } : { width: "50%", maxHeight: "50dvh", maxWidth: "50%", margin: "0 auto", objectFit: "contain" }}
+          />
         </div>
         {active.length > 1 && <div className="flex shrink-0 items-center justify-between"><button type="button" aria-label="上一張圖片" className="h-11 w-11" onClick={() => move(-1)}>‹</button>{dots}<button type="button" aria-label="下一張圖片" className="h-11 w-11" onClick={() => move(1)}>›</button></div>}
       </div>
