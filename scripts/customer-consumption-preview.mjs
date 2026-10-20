@@ -41,23 +41,25 @@ const entry = `
     rows.sort((a,b)=>(a[filters.sort]-b[filters.sort])*(filters.direction==='asc'?1:-1)||a.name.localeCompare(b.name));
     const matched=rows.length;if(filters.top)rows=rows.slice(0,filters.top);
     const metrics=consumptionMetrics(options);
-    return <div className="flex min-h-screen bg-earth-50 text-earth-900"><aside className="hidden w-60 shrink-0 border-r border-earth-200 bg-white p-4 lg:block"><strong>蒸管家</strong><p className="mt-8 rounded-lg bg-primary-100 p-3 text-sm">顧客經營</p></aside><main className="min-w-0 flex-1 p-3 sm:p-6"><p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">元件預覽・合成資料・未連接登入與資料庫</p><nav className="flex flex-wrap gap-1 border-b border-earth-200" aria-label="顧客經營分類">{[['care','顧客關懷','/dashboard/growth'],['consumption','期間消耗統計','/dashboard/growth/consumption'],['leads','數位管家名單','/dashboard/digital-butler/leads']].map(([id,label,href])=><CustomerGrowthTabLink key={id} id={id} href={href} label={label} active="care" />)}</nav><PageShell compact><PageHeader compact title="期間消耗統計" subtitle="依期間與收費方式找出顧客名單。"/><ConsumptionFiltersForm key={search} filters={filters} params={params} options={options} metrics={metrics} error={error}/><p className="text-sm leading-6 text-earth-600">有扣堂、扣格、扣點或服務扣款即納入；同一筆服務只計一次。購買方案不計消耗次數。包含曠課／請假扣除。</p>{!error&&<ConsumptionResults rows={rows} total={rows.length} matched={matched} page={1} filters={filters} metrics={metrics} canExport={!params.noExport} courseMode/>}</PageShell></main></div>
+    return <div className="flex min-h-screen bg-earth-50 text-earth-900"><aside className="hidden w-60 shrink-0 border-r border-earth-200 bg-white p-4 lg:block"><strong>蒸管家</strong><p className="mt-8 rounded-lg bg-primary-100 p-3 text-sm">顧客經營</p></aside><main className="min-w-0 flex-1 p-3 sm:p-6"><p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">元件預覽・合成資料・未連接登入與資料庫</p><nav className="flex flex-wrap gap-1 border-b border-earth-200" aria-label="顧客經營分類">{[['care','顧客關懷','/dashboard/growth'],['consumption','期間消耗統計','/dashboard/growth/consumption'],['leads','數位管家名單','/dashboard/digital-butler/leads']].map(([id,label,href])=><CustomerGrowthTabLink key={id} id={id} href={href} label={label} active="care" />)}</nav><PageShell compact><PageHeader compact title="期間消耗統計"/><ConsumptionFiltersForm key={search} filters={filters} params={params} options={options} metrics={metrics} error={error}/>{!error&&<ConsumptionResults rows={rows} total={rows.length} matched={matched} page={1} filters={filters} metrics={metrics} canExport={!params.noExport} courseMode/>}</PageShell></main></div>
   }createRoot(document.getElementById('root')).render(<App/>);
 `;
 const bundle = await build({ stdin: { contents: entry, resolveDir: root, loader: "tsx" }, bundle: true, write: false,
-  format: "iife", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' },
+  outfile: path.join(output, "preview.js"), format: "iife", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' },
   plugins: [{ name: "synthetic-next-navigation", setup(builder) {
     builder.onResolve({ filter: /^next\/(navigation|link)$/ }, args => ({ path: args.path, namespace: "fixture" }));
     builder.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "next/link" ? link : navigation, loader: "js", resolveDir: root }));
   } }],
 });
 const css = await postcss([tailwind({ base: root })]).process(await readFile(path.join(root, "src/app/globals.css"), "utf8"), { from: path.join(root, "src/app/globals.css") });
+const jsContent = bundle.outputFiles.find(file => file.path.endsWith(".js")).contents;
+const cssContent = css.css + "\n" + (bundle.outputFiles.find(file => file.path.endsWith(".css"))?.text ?? "");
 const html = '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>期間消耗統計・合成資料預覽</title><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>';
-await Promise.all([writeFile(path.join(output, "preview.html"), html), writeFile(path.join(output, "preview.css"), css.css), writeFile(path.join(output, "preview.js"), bundle.outputFiles[0].contents)]);
+await Promise.all([writeFile(path.join(output, "preview.html"), html), writeFile(path.join(output, "preview.css"), cssContent), writeFile(path.join(output, "preview.js"), jsContent)]);
 const server = createServer((request, response) => {
   const file = request.url?.split("?")[0];
-  if (file === "/preview.css") { response.setHeader("Content-Type", "text/css"); response.end(css.css); }
-  else if (file === "/preview.js") { response.setHeader("Content-Type", "application/javascript"); response.end(bundle.outputFiles[0].contents); }
+  if (file === "/preview.css") { response.setHeader("Content-Type", "text/css"); response.end(cssContent); }
+  else if (file === "/preview.js") { response.setHeader("Content-Type", "application/javascript"); response.end(jsContent); }
   else { response.setHeader("Content-Type", "text/html; charset=utf-8"); response.end(html); }
 });
 await new Promise(resolve => server.listen(4305, "127.0.0.1", resolve));
@@ -76,21 +78,24 @@ if (process.argv.includes("--check")) {
     for (const [width, height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[600,900],[390,844]]) {
       await page.setViewportSize({ width, height }); await page.goto(url);
       await page.getByRole("button", { name: "查詢", exact: true }).waitFor();
-      await page.locator('summary').filter({ hasText: '數值篩選' }).click();
+      await page.getByRole("button", { name: /^篩選/ }).click();
       await page.getByRole("spinbutton", { name: "消耗次數最低值", exact: true }).fill("2");
-      await page.getByRole("combobox", { name: "排序方向", exact: true }).selectOption("asc");
-      await page.getByRole("button", { name: "查詢", exact: true }).click();
+      await page.getByRole("button", { name: "套用篩選", exact: true }).click();
       await page.waitForURL(/count_min=2/);
+      await page.getByRole("combobox", { name: "排序方式", exact: true }).selectOption("count:asc");
+      await page.getByRole("button", { name: "查詢", exact: true }).click();
+      await page.waitForURL(/direction=asc/);
+      const layout = await page.evaluate(() => {const top=document.querySelector("[data-page-shell]").getBoundingClientRect().top;const tableTop=document.querySelector("table").getBoundingClientRect().top;return {tableTop, listFraction:(innerHeight-tableTop)/(innerHeight-top)};});
+      if (width>=768 && layout.listFraction<2/3) throw new Error(`List occupies only ${layout.listFraction} at ${width}`);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       if (overflow) throw new Error(`Page overflow at ${width}`);
       const exportUrl = await page.getByRole("link", { name: "匯出名單 CSV" }).getAttribute("href");
       if (!exportUrl.includes("count_min=2") || !exportUrl.includes("direction=asc")) throw new Error("Export lost filters");
       const selected = await page.locator('nav[aria-label="顧客經營分類"] [aria-current="page"]').textContent();
       if (selected !== "期間消耗統計") throw new Error("Wrong active navigation");
-      await page.locator('summary').filter({ hasText: '查看目前餘額' }).first().click();
       await page.locator('table').evaluate(table => { table.parentElement.scrollLeft = 0; });
       await page.screenshot({ path: path.join(output, `${width}x${height}.png`), fullPage: false });
-      evidence.push({ width, height, pageOverflow: overflow, exportPreservesFilters: true, activeNavigation: selected });
+      evidence.push({ width, height, ...layout, pageOverflow: overflow, exportPreservesFilters: true, activeNavigation: selected });
     }
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.getByRole("textbox", { name: "搜尋顧客", exact: true }).fill("未送出的草稿");
@@ -107,12 +112,31 @@ if (process.argv.includes("--check")) {
     await page.getByLabel("結束日期", { exact: true }).fill("2026-10-20");
     await page.getByRole("combobox", { name: "曠課／請假扣除", exact: true }).selectOption("0");
     await page.getByRole("spinbutton", { name: "取前 N 名", exact: true }).fill("5");
-    await page.getByRole("button", { name: "查詢", exact: true }).focus(); await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "套用篩選", exact: true }).focus(); await page.keyboard.press("Enter");
     await page.waitForURL(/top=5/);
     if (await page.locator('tbody tr').count() !== 5) throw new Error("Top N did not apply");
     if (!page.url().includes("/s/fixture/admin/dashboard/growth/consumption")) throw new Error("Store route prefix lost");
+    await page.goto(url);
+    await page.getByRole("button", { name: /^篩選/ }).click();
+    await page.getByRole("combobox", { name: "篩選項目 1", exact: true }).selectOption("points");
+    await page.getByRole("spinbutton", { name: "消耗點數最低值", exact: true }).fill("2");
+    await page.getByRole("button", { name: "＋新增條件", exact: true }).click();
+    await page.getByRole("spinbutton", { name: "消耗次數最高值", exact: true }).fill("4");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(output, "filters-390x844.png"), fullPage: false });
+    await page.setViewportSize({ width: 1024, height: 768 });
+    if (await page.getByRole("spinbutton", { name: "消耗點數最低值", exact: true }).inputValue() !== "2") throw new Error("Modal resize lost draft");
+    await page.screenshot({ path: path.join(output, "filters-1024x768.png"), fullPage: false });
+    await page.keyboard.press("Escape");
+    if (await page.getByRole("dialog").count()) throw new Error("Escape did not close filters");
+    await page.getByRole("button", { name: /^篩選/ }).click();
+    if (await page.getByRole("spinbutton", { name: "消耗點數最低值", exact: true }).inputValue() !== "2") throw new Error("Closing filters lost draft");
+    await page.getByRole("button", { name: "套用篩選", exact: true }).click();
+    await page.waitForURL(/points_min=2/);
+    if (!page.url().includes("count_max=4")) throw new Error("Dropdown conditions lost AND range");
+    if (await page.getByRole("dialog").count()) throw new Error("Applied filters still obscure list");
     if (errors.length) throw new Error(errors.join("\n"));
-    await writeFile(path.join(output, "checks.json"), JSON.stringify({ scope: "Synthetic component preview; Next navigation shim; no auth/database", evidence, resizePreservesDraft: true, inlineError: true, emptyState: true, exportHiddenWithoutPermission: true, keyboardSubmit: true, storePrefix: true, topN: true, consoleErrors: errors }, null, 2));
+    await writeFile(path.join(output, "checks.json"), JSON.stringify({ scope: "Synthetic component preview; Next navigation shim; no auth/database", evidence, resizePreservesDraft: true, inlineError: true, emptyState: true, exportHiddenWithoutPermission: true, keyboardSubmit: true, storePrefix: true, topN: true, modalDraftPreserved: true, metricDropdownAndRanges: true, applyReturnsToList: true, consoleErrors: errors }, null, 2));
     console.log("Component checks passed; evidence in artifacts/customer-consumption/checks.json");
   } finally { await browser.close(); server.close(); }
 }
