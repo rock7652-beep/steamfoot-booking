@@ -455,6 +455,7 @@ export async function sportsStagingCommand(input: unknown) {
           waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
           count: z.number().int().min(1).max(24),
           coach: z.string(),
+          coachId: id.optional(),
           room: z.string(),
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
@@ -496,10 +497,16 @@ export async function sportsStagingCommand(input: unknown) {
         },
       });
       if (!template) throw new AppError("VALIDATION", "請先在教學項目設定授課教練與課程規則");
-      const coach = await prisma.staff.findFirst({
-        where: { storeId, displayName: d.coach, status: "ACTIVE" },
+      const coaches = await prisma.staff.findMany({
+        where: {
+          storeId, status: "ACTIVE", courseCoachEnabled: true,
+          courseQualificationsConfirmed: true,
+          courseQualifiedTemplateIds: { has: template.id },
+          ...(d.coachId ? { id: d.coachId } : { displayName: d.coach }),
+        },
       });
-      if (!coach) throw new AppError("VALIDATION", "請選有效教練");
+      if (coaches.length !== 1) throw new AppError("VALIDATION", "請重新選擇具本課程授課資格的教練；同名教練請重新整理後選擇。");
+      const coach = coaches[0];
       if (room.capacity !== null && d.capacity > room.capacity)
         throw new AppError("VALIDATION", "人數超過空間容量");
       const frequency =
