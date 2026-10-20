@@ -255,3 +255,18 @@ it("sports coach onboarding closes a confirmed new coach and updates only its st
   expect(m.refresh).not.toHaveBeenCalled();
  }finally{window.removeEventListener(SETTINGS_SAVED,progress);}
 });
+
+it("運動教練載入個別鐘點、改拆帳及清除恢復沿用，保存正確值與修訂",async()=>{
+ m.read.mockResolvedValue({success:true,version:staff.updatedAt,qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"HOUR",value:800}],revision:4}],defaults:[{templateId:"y",rules:[{mode:"SHARE",value:60}]}]});
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{sportsNative:true,previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"}],customers:[],canManage:true,feeEnabled:true,permissionGroups:[]})));
+ await click("授課設定");
+ const select=()=>document.body.querySelector('[aria-label="瑜珈計酬方式"]') as HTMLSelectElement;
+ expect(select().value).toBe("HOUR");expect((document.body.querySelector('[aria-label="瑜珈計酬數值"]') as HTMLInputElement).value).toBe("800");
+ expect(document.body.querySelector('input[name="defaultClassFee"]')).toBeNull();
+ await act(async()=>{select().value="SHARE";select().dispatchEvent(new Event("change",{bubbles:true}));});
+ await inputValue(document.body.querySelector('[aria-label="瑜珈計酬數值"]') as HTMLInputElement,"70");
+ await click("儲存");expect(m.save).toHaveBeenLastCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:{mode:"SHARE",value:70},revision:4}],defaultClassFee:undefined}));
+ await act(async()=>{select().value="INHERIT";select().dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(document.body.textContent).toContain("拆帳 60%");expect(document.body.querySelector('[aria-label="瑜珈計酬數值"]')).toBeNull();
+ await click("儲存");expect(m.save).toHaveBeenLastCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:null,revision:4}]}));
+});

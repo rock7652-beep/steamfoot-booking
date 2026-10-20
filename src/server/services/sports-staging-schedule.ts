@@ -94,14 +94,9 @@ export async function attachSportsSessionRules(
   }
   if (sessions[0].isTrial && rule.frequency !== "SINGLE")
     throw new AppError("VALIDATION", "體驗僅建立單次課程");
-  const compensation=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId:actor.storeId,templateId:sessions[0].templateId,staffId:""}}});
+  const { captureSportsCoachCompensation } = await import("./sports-coach-compensation");
   for (const session of sessions) {
-    if(compensation){
-      const {sportsCompensation}=await import("@/lib/sports-staging-types");
-      const fee=sportsCompensation.parse((compensation.rules as unknown[])[0]);
-      const captured={...fee,calculationVersion:3,source:"SPORTS_FEE",durationMinutes:Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000)};
-      await tx.courseCompensationSnapshot.upsert({where:{sessionId:session.id},create:{sessionId:session.id,storeId:actor.storeId,staffId:session.coachId,rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes},update:{rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes}});
-    }
+    await captureSportsCoachCompensation(tx, actor.storeId, session);
     await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
   }
   if(rule.perpetual){

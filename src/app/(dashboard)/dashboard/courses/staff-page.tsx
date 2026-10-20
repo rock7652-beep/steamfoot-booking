@@ -56,7 +56,9 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
   const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}});
-  const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
+  const nativeSports=sportsNativePreview(storeId);
+  const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
+  const sportsDefaultFees=nativeSports&&canReadFees?await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""},select:{templateId:true,rules:true}}):[];
   const presentedTemplates=presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
@@ -69,7 +71,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
       <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
-      <CourseStaffWorkspace sportsNative={sportsNativePreview(storeId)} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+      <CourseStaffWorkspace sportsNative={nativeSports} sportsDefaultFees={sportsDefaultFees} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))}
         canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}
         personalIncomeEnabled={settlementSettings.personalIncomeEnabled}
         financeScope={financeScope}

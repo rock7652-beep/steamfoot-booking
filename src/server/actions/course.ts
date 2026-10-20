@@ -330,6 +330,11 @@ export async function updateCourseSession(input: unknown) {
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
           await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
+        const refreshSportsFee=sportsNativePreview(storeId) && (data.coachId !== session.coachId || (data.templateId ?? session.templateId) !== session.templateId || +range.endsAt - +range.startsAt !== +session.endsAt - +session.startsAt);
+        if (refreshSportsFee) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,session);
+          if(reason)throw new AppError("CONFLICT",reason);
+        }
         await tx.courseSession.update({
           where: { id: session.id, storeId },
           data: {
@@ -342,6 +347,11 @@ export async function updateCourseSession(input: unknown) {
             pointCost: data.pointCost,
           },
         });
+        // The session trigger must finish before the sports snapshot is saved.
+        if(refreshSportsFee){
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...session,...range,coachId:data.coachId,templateId:data.templateId??session.templateId},session.coachId,session.templateId);
+        }
         if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"MOVE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
         return data.capacity > session.capacity ? session.id : null;
       },
@@ -801,10 +811,6 @@ export async function moveCourseSessions(input: unknown) {
             actorUserId: user.id,
           },
         });
-        if(native){
-          const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
-          if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
-        }
         const committed=await tx.courseSession.update({
           where: { id: change.session.id },
           data: {
@@ -830,6 +836,10 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+        if(native){
+          const { moveSportsCoachCompensation } = await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx, storeId, { ...change.session, coachId: d.coachId, startsAt: change.startsAt, endsAt: change.endsAt }, change.session.coachId);
+        }
         if(native)moved.push({id:committed.id,startsAt:committed.startsAt.toISOString(),endsAt:committed.endsAt.toISOString(),roomId:committed.roomId,coachId:committed.coachId,rescheduledFromStartsAt:committed.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:committed.rescheduledFromEndsAt?.toISOString()??null,rescheduledFromRoomId:committed.rescheduledFromRoomId,rescheduledFromCoachId:committed.rescheduledFromCoachId,rescheduleKind:committed.rescheduleKind,rescheduledAt:committed.rescheduledAt?.toISOString()??null,releasedAt:committed.releasedAt?.toISOString()??null});
       }
       if(permanent&&d.scope==="FUTURE"){
@@ -1086,7 +1096,12 @@ export async function updateCourseSeries(input: unknown) {
         where: { storeId, id: { in: sessions.map((s) => s.id) } },
         data: { cancelledAt: new Date() },
       });
-      for (const c of changes)
+      for (const c of changes) {
+        const refreshSportsFee=sportsNativePreview(storeId) && (d.coachId !== c.session.coachId || (d.templateId ?? c.session.templateId) !== c.session.templateId || +c.endsAt - +c.startsAt !== +c.session.endsAt - +c.session.startsAt);
+        if (refreshSportsFee) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,c.session);
+          if(reason)throw new AppError("CONFLICT",reason);
+        }
         await tx.courseSession.update({
           where: { id: c.session.id },
           data: {
@@ -1101,6 +1116,11 @@ export async function updateCourseSeries(input: unknown) {
             cancelledAt: null,
           },
         });
+        if(refreshSportsFee){
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...c.session,startsAt:c.startsAt,endsAt:c.endsAt,coachId:d.coachId,templateId:d.templateId??c.session.templateId},c.session.coachId,c.session.templateId);
+        }
+      }
       return changes
         .filter(change => d.capacity > change.session.capacity)
         .map(change => change.session.id);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH } from '../../scripts/sports-redesign-preview-scope.mjs';
+import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH } from '../../scripts/sports-redesign-preview-scope.mjs';
 import { assertReviewedReleaseEnvironment } from '../../scripts/consultation-preview-scope.mjs';
 const url='postgresql://postgres.ttworfzgwejdeolegkxl:test@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
 const safe={SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1',VERCEL:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:SPORTS_REDESIGN_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:url,DIRECT_URL:url};
@@ -31,4 +31,10 @@ it('opening-guide Preview requires explicit opt-in, isolated connections and Ver
   ['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],
   ['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],
  ]) expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
+});
+
+it('coach compensation Preview keeps the isolated database and explicit opt-in boundary',()=>{
+ const env={...safe,VERCEL_GIT_COMMIT_REF:SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
+ for(const [key,value] of [['VERCEL_ENV','production'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_GIT_COMMIT_REF','other'],['WORKERS_CI_BRANCH','main'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
 });
