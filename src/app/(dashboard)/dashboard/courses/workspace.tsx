@@ -542,6 +542,7 @@ export function CourseWorkspace({
     | { kind: "session"; value: Session }
     | null
   >(null);
+  const compactSessionEdit = sportsNative && panel === "edit" && editing?.kind === "session";
   const month = selectedDate.slice(0, 7),
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
@@ -1430,6 +1431,7 @@ export function CourseWorkspace({
       {panel && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC" && view !== "rooms"}
+          fitContent={compactSessionEdit}
           fixedHeight={view === "rooms"}
           maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
           open
@@ -1483,13 +1485,13 @@ export function CourseWorkspace({
           </div>
           <div
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form") && !(panel === "schedule" && arrangement === "rental") && !roomRentalHistory) setDirty(true); }}
-            className={
+            className={`${compactSessionEdit ? styles.sessionEditBody : ""} ${
               panel === "schedule" && arrangement === "rental" || roomRentalHistory
                 ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3"
                 : view === "schedule"
                 ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:appearance-none"
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input:not([type=checkbox]):not([type=radio])]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
-            }
+            }`}
           >
             {((view === "rooms" && panel === "catalog" ? roomCreate.error : "") || error) && (
               <p role="alert" className="text-sm text-red-700">
@@ -1813,7 +1815,7 @@ export function CourseWorkspace({
                 id="course-edit-form"
                         onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
                 key={`${editing.kind}-${editing.value.id}`}
-                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:grid-cols-6":editing.kind==="room"?"sm:grid-cols-[2fr_1fr_1fr]":""):""}`}
+                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:grid-cols-6":editing.kind==="room"?"sm:grid-cols-[2fr_1fr_1fr]":""):""} ${compactSessionEdit ? styles.sessionEditForm : ""}`}
                 onSubmit={(event) =>
                   submit(
                     event,

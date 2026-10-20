@@ -2,6 +2,43 @@
   container: course-schedule / inline-size;
 }
 
+/* Fit the normal session editor without reducing text or touch targets.
+   Warnings and short/narrow viewports retain the sheet's inner scroll owner. */
+.sessionEditBody {
+  container: session-editor / inline-size;
+}
+
+.sessionEditForm {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 8px;
+}
+
+.sessionEditForm > fieldset > label {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.sessionEditForm > fieldset > details > summary {
+  display: list-item;
+  min-height: 44px;
+  padding-block: 10px;
+}
+
+@container session-editor (min-width: 560px) {
+  .sessionEditForm {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .sessionEditForm > fieldset > label {
+    grid-column: span 3;
+  }
+
+  .sessionEditForm > fieldset > label:has([name="scope"], [name="date"], [name="time"], [name="coachId"], [name="duration"], [name="capacity"]) {
+    grid-column: span 2;
+  }
+}
+
 /* Keep the desktop calendar density; use the actual workspace width in HQ
    and device previews, rather than the browser width. */
 @container course-schedule (max-width: 64rem) {
