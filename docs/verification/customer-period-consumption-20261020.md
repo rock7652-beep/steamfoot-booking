@@ -63,4 +63,17 @@ npx vitest run src/__tests__/customer-consumption*.test.ts src/__tests__/custome
 
 同時驗證篩選及匯出連結保留條件、當前導航、餘額展開、旋轉尺寸保留草稿、錯誤／空狀態、無權限隱藏匯出、鍵盤送出與店家路由前綴。截圖與結果見 `artifacts/customer-consumption/`。
 
-限制：未完成真實店家登入、完整 Next → API → 真實資料庫驗收、線上部署、正式資料核對或實體 iPad Safari 驗收；合成元件預覽與模擬授權測試不等於上述驗收。下一階段應在隔離店家資料庫核對 Youngsky 實際收費方式及已扣除紀錄後，再安排發布。
+## 發布前完整流程驗收
+
+使用專用本機 PostgreSQL 容器與既有隔離驗收程序，執行 `scripts/qa/customer-consumption-live.mjs`，沒有讀寫正式店家資料，也沒有模擬 Next 路由或 API。結果及截圖見 `artifacts/customer-consumption-live/results.json`。
+
+- 真實帳密登入蒸足驗收店，從新網址讀取資料庫：同筆服務扣 2 堂，消耗次數為 1、堂數為 2；消耗金額與實付皆為 200。
+- 店長篩選後剩 1 位顧客，CSV 與名單一致且附店長條件；指定外店店長回應 400，不讀出外店資料。
+- 真實登入課程驗收店，曠課扣 3 點顯示 1 次／3 點；排除曠課後為 0，還原待點名後重新查詢也為 0。
+- 發現並修正課程店 dashboard 路由白名單只允許 `/dashboard/growth`、導致新子頁被導回課表的問題；僅新增明確的 `/dashboard/growth/consumption` 允許路徑。修正後完整流程通過。
+- 額外回歸模組隔離：9 檔 118 項測試通過。
+- 正式模式 Next build 通過，包含 TypeScript、靜態頁產生、新報表及 CSV 路由。使用隔離驗收程序直接執行 Next build，沒有執行正式環境 migration 或部署；摘要見 `artifacts/customer-consumption-live/build-summary.json`。
+
+重現時使用空白的專用本機資料庫：先執行既有 `node scripts/qa/image-announcements-live.mjs seed` 建立隔離 schema／合成帳號，再以同程序 `dev` 啟動，最後執行新 live 腳本。此腳本拒絕覆蓋已存在的本次方案；`--resume` 僅可接續尚未完成課程還原的同一組專用測試資料。
+
+限制：已驗真實 Next 登入、API 與 PostgreSQL 流程，但資料為合成紀錄；尚未核對 Youngsky 正式帳務、線上部署或實體 iPad Safari。是否合併仍取決於遠端 CI 與明確的 GitHub 推送授權，不能把本機驗收寫成已發布。

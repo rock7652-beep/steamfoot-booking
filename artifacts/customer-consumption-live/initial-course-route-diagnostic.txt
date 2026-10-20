@@ -1,0 +1,5 @@
+TimeoutError: locator.waitFor: Timeout 90000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('columnheader', { name: '所屬店長', exact: true }) to be visible[22m
+[2m    - waiting for "http://localhost:3169/dashboard/courses" navigation to finish...[22m
+[2m    - navigated to "http://localhost:3169/s/image-qa-b/admin/dashboard/courses"[22m

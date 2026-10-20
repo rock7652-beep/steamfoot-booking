@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "scope": "real credentials login -> Next server -> disposable PostgreSQL -> rendered table and CSV",
+  "results": [
+    {
+      "name": "seed-disposable-stores",
+      "passed": true,
+      "loopbackOnly": true,
+      "realStoresTouched": false
+    },
+    {
+      "name": "steamfoot-real-login-query-and-csv",
+      "passed": true,
+      "rows": 3,
+      "oneServiceTwoSlots": true,
+      "consumed": 200,
+      "paid": 200,
+      "csvStatus": 200,
+      "crossStoreExcluded": true
+    },
+    {
+      "name": "manager-filter-real-response",
+      "passed": true,
+      "rows": 1,
+      "selectedManagerCsv": true,
+      "foreignManagerStatus": 400
+    },
+    {
+      "name": "course-charged-no-show-and-reversal",
+      "passed": true,
+      "chargedNoShowCount": 1,
+      "chargedPoints": 3,
+      "excludeNoShowCount": 0,
+      "reversalCount": 0
+    }
+  ],
+  "limitations": [
+    "Synthetic records, not Youngsky production records",
+    "Physical iPad/Safari and production deployment not verified"
+  ]
+}
