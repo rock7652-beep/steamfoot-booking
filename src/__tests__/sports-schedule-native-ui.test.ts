@@ -65,6 +65,19 @@ it("submits assigned scheduling without choosing a sales package",async()=>{
  await act(async()=>m.host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
  const request=vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0] as {payload:Record<string,unknown>};
- expect(request.payload).toMatchObject({subject:"subject",coach:"王教練",mode:"指定學員",students:["student"]});
+ expect(request.payload).toMatchObject({subject:"subject",coach:"王教練",coachId:"coach",mode:"指定學員",students:["student"]});
  expect(request.payload).not.toHaveProperty("fee");await m.close();
+});
+
+it("same-name coaches submit the selected staff identity",async()=>{
+ data.coaches.push({id:"second-coach",name:"王教練",templates:["item-template"]});
+ vi.mocked(sportsStagingCommand).mockResolvedValue({success:true});
+ const m=await mount({coachId:"second-coach"});
+ try {
+  const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==="開放選課") as HTMLInputElement;
+  await act(async()=>radio.click());
+  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  const request=vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0] as {payload:Record<string,unknown>};
+  expect(request.payload).toMatchObject({coach:"王教練",coachId:"second-coach",mode:"開放選課"});
+ } finally {await m.close();data.coaches.pop();}
 });
