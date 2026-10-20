@@ -1,4 +1,5 @@
 "use server";
+import { sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
@@ -602,7 +603,7 @@ export async function createCourseSchedule(input: unknown) {
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? sportsPlanName?.name ?? template.name,
+            nameSnapshot: sportsCourseName(source?.nameSnapshot ?? sportsPlanName?.name ?? template.name, template.id),
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
@@ -941,7 +942,7 @@ export async function previewCourseSchedule(input: unknown) {
       endsAt: item.releasedAt ? item.endsAt : item.rescheduledFromEndsAt!,
       roomId: item.releasedAt ? item.roomId : item.rescheduledFromRoomId!,
       coachId: item.releasedAt ? item.coachId : item.rescheduledFromCoachId!,
-      nameSnapshot: `${item.nameSnapshot}（原固定課保留；僅可排單次）`,
+      nameSnapshot: `${courseDisplayName(item.nameSnapshot)}（原固定課保留；僅可排單次）`,
     }))];
     return {
       success: true as const,
@@ -952,7 +953,7 @@ export async function previewCourseSchedule(input: unknown) {
             (c) => c.startsAt < r.endsAt && c.endsAt > r.startsAt,
           ),
           conflicts: allConflicts.filter(c => c.startsAt < r.endsAt && c.endsAt > r.startsAt).map(c => ({
-            name: c.nameSnapshot,
+            name: courseDisplayName(c.nameSnapshot),
             startsAt: c.startsAt.toISOString(),
             endsAt: c.endsAt.toISOString(),
             resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "授課人員" : ""].filter(Boolean).join("及"),

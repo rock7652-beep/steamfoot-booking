@@ -1,6 +1,6 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
-import { presentCourseTemplates } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -117,7 +117,10 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
     ]);
     const writable = writableStore;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    const canManageSportsRules=sportsNative&&writable&&["OWNER","ADMIN"].includes(user.role)&&(await Promise.all((["staff.view","staff.manage","teacher.compensation.manage","teacher.compensation.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean);
+    const sportsCoaches=canManageSportsRules?await prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true},select:{id:true,displayName:true}}):undefined;
+    const enrichedSubjects=canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRule}=await import("@/server/services/sports-teaching-rule");return Promise.all(subjects.map(async s=>({...s,sportsRule:await readSportsTeachingRule(tx,storeId,s.id)})));}):subjects;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog sportsNative={sportsNative} sportsCoaches={sportsCoaches?.map(c=>({id:c.id,name:c.displayName}))} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={enrichedSubjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&writableStore?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
   const requested = query.date;
@@ -378,7 +381,7 @@ export default async function CoursesPage({
         calendarDays={calendarDays}
         rooms={rooms.map(({ sessions: uses, ...room }) => ({
           ...room,
-          uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
+          uses: uses.map((u) => ({ ...u, nameSnapshot: courseDisplayName(u.nameSnapshot), startsAt: u.startsAt.toISOString() })),
         }))}
         templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
@@ -397,6 +400,7 @@ export default async function CoursesPage({
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={[...sessions.map((s) => ({
           ...s,
+          nameSnapshot: sportsCourseName(s.nameSnapshot, s.templateId),
           sportsPalette:sportsNative,
           isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):biweeklyKeys.has(s.requestKey),

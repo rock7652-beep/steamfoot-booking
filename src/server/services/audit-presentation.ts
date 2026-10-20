@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
@@ -42,12 +43,12 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
       found.forEach(r => set("SpaBooking",r.id,r.storeId,`${names.get(`${r.storeId}:${r.customerId}`) ?? "顧客姓名未記錄"} · ${r.serviceNameSnapshot} · ${r.bookingDate.toISOString().slice(0,10)} ${r.startTime}`)); })(),
     (async () => { const OR = groups(["CourseBooking"]); if (!OR.length) return;
       const found = await coursePrisma.courseBooking.findMany({ where: { OR }, select: { id: true, storeId: true, customerName: true, session: { select: { nameSnapshot: true, startsAt: true } } } });
-      found.forEach(r => set("CourseBooking",r.id,r.storeId,`${r.customerName} · ${r.session.nameSnapshot} · ${r.session.startsAt.toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`)); })(),
+      found.forEach(r => set("CourseBooking",r.id,r.storeId,`${r.customerName} · ${courseDisplayName(r.session.nameSnapshot)} · ${r.session.startsAt.toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`)); })(),
     (async () => { const OR = groups(["CourseSession"]); if (!OR.length) return;
       const found = await coursePrisma.courseSession.findMany({ where: { OR }, select: { id: true, storeId: true, nameSnapshot: true, startsAt: true } });
-      found.forEach(r => set("CourseSession",r.id,r.storeId,`${r.nameSnapshot} · ${r.startsAt.toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`)); })(),
+      found.forEach(r => set("CourseSession",r.id,r.storeId,`${courseDisplayName(r.nameSnapshot)} · ${r.startsAt.toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`)); })(),
     (async () => { const OR = groups(["CourseTemplate"]); if (!OR.length) return;
-      const found = await coursePrisma.courseTemplate.findMany({ where: { OR }, select: { id: true, storeId: true, name: true } }); found.forEach(r => set("CourseTemplate",r.id,r.storeId,r.name)); })(),
+      const found = await coursePrisma.courseTemplate.findMany({ where: { OR }, select: { id: true, storeId: true, name: true } }); found.forEach(r => set("CourseTemplate",r.id,r.storeId,courseDisplayName(r.name))); })(),
     ...(["InventoryProduct","InventorySupplier"] as const).map(async type => { const OR = groups([type]); if (!OR.length) return;
       const found = type === "InventoryProduct" ? await prisma.inventoryProduct.findMany({where:{OR},select:{id:true,storeId:true,name:true}}) : await prisma.inventorySupplier.findMany({where:{OR},select:{id:true,storeId:true,name:true}});
       found.forEach(r=>set(type,r.id,r.storeId,r.name)); }),

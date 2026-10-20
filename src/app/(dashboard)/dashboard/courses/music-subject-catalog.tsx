@@ -1,4 +1,5 @@
 "use client";
+import type { SportsTeachingRule } from "@/lib/sports-teaching-rule";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
@@ -14,10 +15,10 @@ import { savedMusicSubject, SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { DashboardLink } from "@/components/dashboard-link";
-export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
+export type MusicSubjectView={sportsRule?:SportsTeachingRule;id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-export function MusicSubjectCatalog({sportsNative=false,storeId,displayOrder,subjects:sourceSubjects,canCreate,canEdit,initialCreate=false}:{sportsNative?:boolean;storeId:string;displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean;initialCreate?:boolean}){
+export function MusicSubjectCatalog({sportsCoaches,sportsNative=false,storeId,displayOrder,subjects:sourceSubjects,canCreate,canEdit,initialCreate=false}:{sportsCoaches?:{id:string;name:string}[];sportsNative?:boolean;storeId:string;displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean;initialCreate?:boolean}){
  const [receipts,setReceipts]=useState<MusicSubjectView[]>([]);
  const [lastSavedId,setLastSavedId]=useState<string|null>(null);
  const [snapshot,setSnapshot]=useState(sourceSubjects);
@@ -74,6 +75,7 @@ export function MusicSubjectCatalog({sportsNative=false,storeId,displayOrder,sub
          if (!window.confirm(message)) return;
        }
        const result = await mutation.save({
+         ...(sportsNative&&sportsCoaches?{sportsRule:{pointCost:Number(d.get("sportsPointCost")),coachIds:d.getAll("sportsCoachIds"),expectedCoachIds:editing?.sportsRule?.coachIds??[],compensation:{mode:d.get("sportsCompensationMode"),value:Number(d.get("sportsCompensationValue"))},expectedCompensation:editing?.sportsRule?.expectedCompensation??null}}:{}),
          id: editing?.id,
          expectedUpdatedAt: editing?.updatedAt,
          name: d.get("name"),
@@ -102,6 +104,7 @@ export function MusicSubjectCatalog({sportsNative=false,storeId,displayOrder,sub
  <fieldset disabled={pending||mutation.uncertain} className="grid gap-3 sm:grid-cols-2"><label className="sm:col-span-2">教學項目名稱（必填）<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
  <label>分類（選填）<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
+ {sportsNative&&sportsCoaches&&<fieldset className="grid gap-3 sm:col-span-2 sm:grid-cols-2"><legend className="py-2 font-medium">授課與開放選課設定</legend><label>開放選課每堂扣點<input aria-label="開放選課每堂扣點" className={field} name="sportsPointCost" type="number" min="1" max="10000" required defaultValue={editing?.sportsRule?.pointCost??1}/></label><p className="self-center text-sm text-earth-600">指定學員依學員購入方案扣抵；堂數卡每次扣 1 堂。</p><fieldset className="sm:col-span-2"><legend>可授課教練（兩種選課模式共用）</legend><div className="flex flex-wrap gap-3">{sportsCoaches.map(c=><label key={c.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="sportsCoachIds" value={c.id} defaultChecked={editing?.sportsRule?.coachIds.includes(c.id)??false}/>{c.name}</label>)}</div></fieldset><label>教師計酬方式<select className={field} name="sportsCompensationMode" defaultValue={editing?.sportsRule?.compensation.mode??"SHARE"}><option value="SHARE">拆帳</option><option value="HOUR">固定鐘點</option></select></label><label>拆帳百分比／每小時金額<input className={field} name="sportsCompensationValue" type="number" min="0" max="1000000" step="0.01" required defaultValue={editing?.sportsRule?.compensation.value??60}/></label></fieldset>}
  <details className="sm:col-span-2"><summary className="cursor-pointer py-2">教學項目介紹（選填）</summary><textarea aria-label="教學項目介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
  {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}</fieldset>
  </form>}

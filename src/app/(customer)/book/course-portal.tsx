@@ -1,3 +1,4 @@
+import { sportsCourseName } from "@/lib/course-template-presentation";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsScheduleRule} from "@/lib/sports-staging-types";
 import {assertSportsProductionReady,sportsRulesAvailable} from "@/server/services/sports-production-readiness";
@@ -101,7 +102,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const planHistory = await getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now);
   const sessionInclude = {
     room: { select: { name: true } },
-    template: { select: { classType: true, precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
+    template: { select: { musicSubjectId:true,classType: true, precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
     _count: {
       select: { bookings: { where: { status: { not: "CANCELLED" } } } },
     },
@@ -117,7 +118,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     },
   } as const;
   if (sportsStagingEnabled(storeId)) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
-  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;trialPrice:number;payload?:unknown}>>`SELECT "sessionId",enrollment,"trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;planId:string|null;trialPrice:number;payload?:unknown}>>`SELECT "sessionId",enrollment,"planId","trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
   const sportsWaitlist=new Map(sportsNativePreview(storeId)?sportsRules.flatMap(row=>{const parsed=sportsScheduleRule.safeParse(row.payload);return parsed.success&&parsed.data.waitlist?[[row.sessionId,{enabled:parsed.data.enrollment==="OPEN"&&parsed.data.waitlist.limit>0,limit:parsed.data.waitlist.limit}] as const]:[];}):[]);
   const assignedSportsIds=sportsRules.filter(row=>row.enrollment==='ASSIGNED').map(row=>row.sessionId);
   const [
@@ -157,7 +158,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
             session: {
               select: {
-                nameSnapshot: true,
+                nameSnapshot: true, templateId: true,
                 template: { select: { classType: true } },
                 startsAt: true,
                 coachId: true,
@@ -227,7 +228,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           include: {
             session: {
               select: {
-                nameSnapshot: true,
+                nameSnapshot: true, templateId: true,
                 startsAt: true,
                 coachId: true,
                 room: { select: { name: true } },
@@ -247,7 +248,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           },
           select: {
             id: true,
-            nameSnapshot: true,
+            nameSnapshot: true, templateId: true,
             startsAt: true,
             room: { select: { name: true } },
           },
@@ -350,7 +351,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, createdAt: order.createdAt.toISOString(), status: order.status })),
     })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
-    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
+    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,...({sportsMode:p.sportsMode,sportsSubjectId:p.sportsSubjectId,sportsCost:p.sportsCost} as Partial<{sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null}>),templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,
     hours,
     special: special.map((s) => ({
@@ -359,7 +360,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     nextBooking: nextBooking
       ? {
-          name: nextBooking.session.nameSnapshot,
+          name: sportsCourseName(nextBooking.session.nameSnapshot,nextBooking.session.templateId),
           startsAt: nextBooking.session.startsAt.toISOString(),
           coach: coachNames.get(nextBooking.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
           room: nextBooking.session.room.name,
@@ -372,17 +373,18 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     nextWork: nextWork
       ? {
           id: nextWork.id,
-          name: nextWork.nameSnapshot,
+          name: sportsCourseName(nextWork.nameSnapshot,nextWork.templateId),
           startsAt: nextWork.startsAt.toISOString(),
           room: nextWork.room.name,
         }
       : null,
     sessions: sessions.map((s) => ({
+      ...({sportsEnrollment:sportsRules.find(r=>r.sessionId===s.id)?.enrollment??null,sportsPlanId:sportsRules.find(r=>r.sessionId===s.id)?.planId??null,sportsSubjectId:s.template.musicSubjectId} as Partial<{sportsEnrollment:string|null;sportsPlanId:string|null;sportsSubjectId:string|null}>),
       sportsTrialPrice:s.isTrial?sportsRules.find(r=>r.sessionId===s.id)?.trialPrice??null:null,
       id: s.id,
       templateId: s.templateId,
       classType: s.template.classType,
-      name: s.nameSnapshot,
+      name: sportsCourseName(s.nameSnapshot,s.templateId),
       startsAt: s.startsAt.toISOString(),
       coachId: s.coachId,
       coach: coachNames.get(s.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
@@ -400,7 +402,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       id: b.id,
       sessionId: b.sessionId,
       classType: b.session.template.classType,
-      name: b.session.nameSnapshot,
+      name: sportsCourseName(b.session.nameSnapshot,b.session.templateId),
       startsAt: b.session.startsAt.toISOString(),
       coach: coachNames.get(b.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
       room: b.session.room.name,
@@ -420,7 +422,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     work: work.map((s) => ({
       teacherAttendance:s.teacherAttendance,
       id: s.id,
-      name: s.nameSnapshot,
+      name: sportsCourseName(s.nameSnapshot,s.templateId),
       cost: s.pointCost,
       startsAt: s.startsAt.toISOString(),
       endsAt: s.endsAt.toISOString(),

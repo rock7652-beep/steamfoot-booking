@@ -11,12 +11,14 @@ type Candidate = Parameters<typeof prepareCourseReminderEvent>[0];
 const candidate = {
   store:{id:"store-a",slug:"music-a",name:"教室"},date:"2026-10-15",
   customer:{id:"learner",name:"學員",lineUserId:"unverified-line-id"},
-  booking:{id:"booking-a",bookingKind:"TRIAL",session:{startsAt:new Date("2026-10-15T02:00:00Z"),endsAt:new Date("2026-10-15T03:00:00Z"),nameSnapshot:"課程"}},
+  booking:{id:"booking-a",bookingKind:"TRIAL",session:{startsAt:new Date("2026-10-15T02:00:00Z"),endsAt:new Date("2026-10-15T03:00:00Z"),nameSnapshot:"課程 · 83f866"}},
 } as Candidate;
 const now = new Date("2026-10-13T16:30:00Z");
 
 it("prepares local-date content and trial actions without selecting an external recipient", () => {
   const event = prepareCourseReminderEvent(candidate,"提醒內容",now,{address:"地址",mapUrl:"https://maps.example.test"});
+  expect(event.body).not.toContain("83f866");
+  expect(event.messageInput.serviceName).toBe("課程");
   expect(event.triggerAt).toEqual(new Date("2026-10-14T10:00:00Z"));
   expect(event.messageInput).toMatchObject({bookingTime:"10:00",serviceDuration:"60 分鐘",reminderText:"提醒內容",courseActions:{confirm:expect.stringContaining("action=confirm")}});
   expect(event.body).toContain("提醒內容\nhttps://example.test/s/music-a?date=2026-10-15");

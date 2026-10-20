@@ -21,8 +21,9 @@ it("keeps purchase dates separate from refund dates and applies manager visibili
   expect(m.refunds).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", createdAt: period, purchase: { status: "REFUNDED", revenueStaffId: "manager" } } }));
 });
 it("exports actual learner, operator and class-date filter without counting booking rows as people", async () => {
-  m.bookings.mockResolvedValue([{ customerId: "b", operatorCustomerId: "a", customerName: "B", operatorName: "A", pointCost: 3, status: "RESERVED", checkedInAt: now, session: { startsAt: now, nameSnapshot: "核心", cancelledAt: null }, card: { nameSnapshot: "十點", expiresAt: now, unit: "POINT" } }]);
+  m.bookings.mockResolvedValue([{ customerId: "b", operatorCustomerId: "a", customerName: "B", operatorName: "A", pointCost: 3, status: "RESERVED", checkedInAt: now, session: { startsAt: now, nameSnapshot: "核心 · 83f866", cancelledAt: null }, card: { nameSnapshot: "十點", expiresAt: now, unit: "POINT" } }]);
   const [sheet] = await getCourseDataExport("own", "bookings", period, "RESERVED", 100);
+  expect(sheet.rows[0][1]).toBe("核心");
   expect(sheet.rows[0].slice(2, 6)).toEqual(["B", "A", "代約", "十點"]);
   expect(sheet.rows[0][9]).toBe("待上課／已報到");
   expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", session: { startsAt: period }, status: "RESERVED" } }));

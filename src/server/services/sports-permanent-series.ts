@@ -1,3 +1,4 @@
+import { findSportsCard } from "./sports-card-selection";
 import {sportsProductionEnabled} from "../../../scripts/sports-production-scope.mjs";
 import {verifySportsPermanentReadiness} from "../../../scripts/sports-permanent-readiness.mjs";
 import {sportsSeriesTable,assertSportsPermanentCreationAllowed} from "@/lib/sports-series-storage";
@@ -119,11 +120,11 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
  const b=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true}});
  if(!b||b.cardId||!(b.bookingKind==="UNPAID"&&(b.requestKey.startsWith("sports-fixed:")||b.requestKey.startsWith("sports-makeup:"))))return;
  if(!sportsNativePreview(actor.storeId)||actor.customerId)throw new AppError("FORBIDDEN","固定課點名僅限本店授權人員");
- const [rule]=await tx.$queryRaw<Array<{planId:string|null}>>`SELECT "planId" FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
- const cards=await tx.coursePointCard.findMany({where:{storeId:actor.storeId,...(rule?.planId?{planId:rule.planId}:{}),closedAt:null,expiresAt:{gte:b.session.startsAt},members:{some:{customerId:b.customerId!}},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:b.session.templateId}}]},include:{bookings:{where:{status:"RESERVED"},select:{pointCost:true}}},orderBy:[{expiresAt:"asc"},{id:"asc"}]});
- const card=cards.find(c=>c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0)>=(c.unit==="SESSION"?1:b.session.pointCost));
- if(!card)throw new AppError("VALIDATION","學員沒有適用且足額的有效方案；尚未扣堂，請先購買或續課");
- await tx.courseBooking.update({where:{id:b.id},data:{cardId:card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:card.unit==="SESSION"?1:b.session.pointCost}});
+ const [rule]=await tx.$queryRaw<Array<{planId:string|null;enrollment:string}>>`SELECT "planId",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
+ if(!rule)throw new AppError("VALIDATION","找不到固定課權益規則，尚未扣抵");
+ const picked=await findSportsCard(tx,actor.storeId,b.customerId!,[b.session],rule);
+ if(!picked)throw new AppError("VALIDATION","學員沒有適用且足額的有效方案；尚未扣堂，請先購買或續課");
+ await tx.courseBooking.update({where:{id:b.id},data:{cardId:picked.card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:picked.cost}});
 }
 
 /** Existing/cancelled/moved occurrences count as generated; never resurrect an exception. */

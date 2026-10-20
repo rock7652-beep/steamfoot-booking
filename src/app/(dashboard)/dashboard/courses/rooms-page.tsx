@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -39,7 +40,7 @@ export async function CourseRoomsPage({ storeId, user }: { storeId: string; user
     <CourseWorkspace key={`${storeId}:rooms`} storeId={storeId} view="rooms"
       selectedDate={toLocalDateStr()} today={toLocalDateStr()} nowIso={new Date().toISOString()}
       calendarDays={{}} staffAvailability={[]} staffAvailabilityExceptions={[]}
-      rooms={rooms.map(({ sessions, ...room }) => ({ ...room, uses: sessions.map(item => ({ ...item, startsAt: item.startsAt.toISOString() })) }))}
+      rooms={rooms.map(({ sessions, ...room }) => ({ ...room, uses: sessions.map(item => ({ ...item, nameSnapshot: courseDisplayName(item.nameSnapshot), startsAt: item.startsAt.toISOString() })) }))}
       templates={[]} sessions={[]} coaches={[]} cancelledBookings={[]}
       displayOrder={orders.room} canCreate={canCreate && writable} canEdit={canEdit && writable}
       canDelete={user.role === "OWNER" && !viewContext?.isViewMode} businessProfile={businessProfile} />

@@ -26,17 +26,29 @@ export async function previewCourseEnrollment(input:unknown) {
 }
 export async function enrollCourseSeries(input:unknown) {
   try {
-    const data=z.object({sessionId:id,customerId:id,cardId:id,requestKey:z.string().uuid(),notes:z.string().trim().max(1000).default(""),sessionIds:z.array(id).min(1).max(100),allowOverCapacity:z.boolean().default(false)}).parse(input);
+    const data=z.object({sessionId:id,customerId:id,cardId:id.optional(),autoCard:z.boolean().optional(),requestKey:z.string().uuid(),notes:z.string().trim().max(1000).default(""),sessionIds:z.array(id).min(1).max(100),allowOverCapacity:z.boolean().default(false)}).refine(d=>!!d.cardId||d.autoCard===true).parse(input);
     const {storeId,user}=await courseManager("booking.create");
     const limits=await getStoreLimitsByStoreId(storeId);
     const count=await courseTransaction(storeId,async tx=>{
+      if(data.autoCard){const {sportsNativePreview}=await import("@/lib/sports-native-preview");if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","自動選卡僅適用運動店");}
       const sessions=await enrollmentScope(tx,storeId,data.sessionId,data.customerId);
       const previous=await tx.courseBooking.findMany({where:{storeId,operatorUserId:user.id,customerId:data.customerId,cardId:data.cardId,requestKey:{in:data.sessionIds.map(sessionId=>`${data.requestKey}:${sessionId}`)}},select:{sessionId:true}});
       // A complete replay is idempotent; partial or changed scopes require another preview.
       if(previous.length===data.sessionIds.length)return previous.length;
       if(sessions.map(session=>session.id).join("|")!==data.sessionIds.join("|"))throw new AppError("CONFLICT","後續課程或名單已變更，請重新確認日期");
       const actor={storeId,userId:user.id,name:user.name??"店長"};
-      for(const session of sessions)await reserveCourseInTransaction(tx,actor,{...data,sessionId:session.id,requestKey:`${data.requestKey}:${session.id}`},limits.maxMonthlyBookings);
+      let cardId=data.cardId;
+      if(data.autoCard){
+        const full=await tx.courseSession.findMany({where:{storeId,id:{in:data.sessionIds}},orderBy:[{startsAt:"asc"},{id:"asc"}]});
+        const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");const rule=await readSportsSessionRule(tx,storeId,data.sessionId);
+        if(!rule)throw new AppError("VALIDATION","請選擇有效的運動課程");
+        const {findSportsCard}=await import("@/server/services/sports-card-selection");
+        const picked=await findSportsCard(tx,storeId,data.customerId,full,rule);
+        if(!picked)throw new AppError("VALIDATION","學員沒有可支付整批課程的有效方案");
+        cardId=picked.card.id;
+      }
+      if(!cardId)throw new AppError("VALIDATION","請選擇有效方案");
+      for(const session of sessions)await reserveCourseInTransaction(tx,actor,{...data,cardId,sessionId:session.id,requestKey:`${data.requestKey}:${session.id}`},limits.maxMonthlyBookings);
       return sessions.length;
     }, async (auditResult, tx) => { await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseSession",targetId:data.sessionId,action:"ENROLL_SERIES",summary:`加入學員至 ${auditResult} 堂課程`,after:{customerId:data.customerId,sessionIds:data.sessionIds}}, tx, data.requestKey); });
 

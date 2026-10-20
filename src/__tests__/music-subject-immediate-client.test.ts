@@ -42,3 +42,14 @@ it("does not display a response for another store",async()=>{
  expect(host.querySelector("tbody")!.textContent).not.toContain("吉他");
  expect(host.textContent).toContain("尚未確認儲存結果");
 });
+
+it("sports teaching-item form sends course cost and the same coach qualification IDs",async()=>{
+ await act(async()=>root.render(createElement(MusicSubjectCatalog,{...props,sportsNative:true,sportsCoaches:[{id:"coach",name:"王教練"}]})));
+ expect(host.querySelector('[aria-label="開放選課每堂扣點"]')).not.toBeNull();
+ const coach=host.querySelector<HTMLInputElement>('input[name="sportsCoachIds"]')!;
+ await act(async()=>coach.click());
+ m.fetch.mockResolvedValue({json:async()=>({success:false,error:"保留輸入"})});
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(JSON.parse(m.fetch.mock.calls[0][1].body).sportsRule).toMatchObject({pointCost:1,coachIds:["coach"],expectedCoachIds:[],compensation:{mode:"SHARE",value:60}});
+ expect(coach.checked).toBe(true);
+});

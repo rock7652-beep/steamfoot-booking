@@ -36,6 +36,7 @@ const sessions = Array.from({ length: 8 }, (_, i) => ({
 const tx = {
   $executeRaw: m.execute,
   courseSession: { findMany: m.sessions },
+  courseTemplate:{findFirst:async()=>({musicSubjectId:"subject"})},
   courseCompensation:{findUnique:m.compensation},
   courseCompensationSnapshot:{upsert:m.snapshot},
   coursePointPlan: {
@@ -56,12 +57,13 @@ beforeEach(() => {
   m.compensation.mockResolvedValue(null);
   m.cards.mockResolvedValue([
     {
-      id: "used",
+      planId:"plan",templateIds:["template"],requestKey:"old",
+      id: "used",expiresAt:new Date("2099-11-01"),
       unit: "SESSION",
       remaining: 10,
       bookings: [{ pointCost: 3 }],
     },
-    { id: "available", unit: "SESSION", remaining: 10, bookings: [] },
+    { id: "available",expiresAt:new Date("2099-12-31"),planId:"plan",templateIds:["template"],requestKey:"old", unit: "SESSION", remaining: 10, bookings: [] },
   ]);
   m.card.mockResolvedValue({ id: "available", planId: "plan" });
   m.reserve.mockResolvedValue({ id: "booking" });
@@ -74,7 +76,6 @@ it("allocates one sufficient card for the full batch while preserving automatic 
     expect(call[2].cardId).toBe("available");
   expect(m.cards.mock.calls[0][0].where).toMatchObject({
     storeId: "store",
-    planId: "plan",
     expiresAt: { gte: sessions[7].startsAt },
     members: { some: { customerId: "member" } },
   });
@@ -83,17 +84,19 @@ it("allocates one sufficient card for the full batch while preserving automatic 
   expect(rule.students[0].cardId).toBe(null);
 });
 it("keeps an explicit existing card selection without reallocating it", async () => {
+  m.cards.mockResolvedValue([{id:"original",expiresAt:new Date("2099-12-31"),planId:"plan",templateIds:["template"],requestKey:"old",unit:"SESSION",remaining:10,bookings:[]}]);
   await attachSportsSessionRules(tx, actor, "request", {
     ...rule,
     students: [{ customerId: "member", cardId: "original" }],
   });
-  expect(m.cards).not.toHaveBeenCalled();
+  expect(m.cards.mock.calls[0][0].where).toMatchObject({id:"original",storeId:"store"});
   expect(m.reserve.mock.calls[0][2].cardId).toBe("original");
 });
 it("rejects a batch with no sufficient card before creating any reservation", async () => {
   m.cards.mockResolvedValue([
     {
-      id: "held",
+      planId:"plan",templateIds:["template"],requestKey:"old",
+      id: "held",expiresAt:new Date("2099-12-31"),
       unit: "SESSION",
       remaining: 10,
       bookings: [{ pointCost: 8 }],

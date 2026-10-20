@@ -36,6 +36,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
     const expired = c.expiresAt.getTime() < Date.now();
     return {
+      ...({planId:c.planId,sportsMode:c.sportsMode,sportsSubjectId:c.sportsSubjectId,sportsCost:c.sportsCost,templateRestricted:c.requestKey?.startsWith("no-show-makeup:")??false} as Partial<{planId:string;sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null;templateRestricted:boolean}>),
       id: c.id,
       name: c.nameSnapshot,
       unit: c.unit,

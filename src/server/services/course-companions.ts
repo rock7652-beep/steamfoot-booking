@@ -1,3 +1,5 @@
+import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
+import { readSportsSessionRule } from "./sports-staging-schedule";
 import { isMusicCourseStore } from "./course-business-profile";
 import "server-only";
 import { isDeepStrictEqual } from "node:util";
@@ -41,14 +43,18 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (input.mode === "MEMBER" && (!customerId || !cardId)) return fail("請選擇學員與本人方案");
   const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true}}) : null;
   if (input.mode !== "TRIAL") {
-    if (!card || card.closedAt || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length || (card.templateIds.length && !card.templateIds.includes(booking.session.templateId)))
+    if (!card || card.closedAt || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length)
       return fail("此方案無法使用本堂課");
     // This corrects an existing seat. Its original reserver authorization survives
     // later changes to the shared-card feature or the plan's new-sharing setting.
     if (input.mode === "RESERVER" ? !card.members.some(m => m.customerId === booking.reserverCustomerId) : !card.members.some(m => m.customerId === customerId))
       return fail("無權使用此方案");
   }
-  const pointCost = card ? card.unit === "SESSION" ? 1 : booking.session.pointCost : 0;
+  const sportsRule=await readSportsSessionRule(tx,actor.storeId,booking.sessionId);
+  if(sportsRule?.enrollment==="ASSIGNED")return fail("指定學員課程不使用同行預約");
+  const rights=card?resolveSportsEntitlement({...card,templateRestricted:card.requestKey?.startsWith("no-show-makeup:")??false},{templateId:booking.session.templateId,subjectId:null,pointCost:booking.session.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null}):null;
+  if(rights&&!rights.eligible)return fail(rights.reason);
+  const pointCost = card ? card.id===booking.cardId?booking.pointCost:rights?.eligible?rights.cost:0 : 0;
   const trialPrice = input.mode === "TRIAL" ? input.trialPrice ?? 0 : null;
   if (trialPrice !== null && (!Number.isSafeInteger(trialPrice) || trialPrice < 0 || trialPrice > 1000000)) return fail("體驗金額不正確");
   if (booking.trialPayments.length && (cardId !== booking.cardId || trialPrice !== booking.trialPrice)) return fail("體驗已收款，請先處理原收款");

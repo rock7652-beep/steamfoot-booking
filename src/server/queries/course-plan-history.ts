@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 
@@ -27,7 +28,7 @@ export async function getCoursePlanHistory(storeId: string, customerId: string, 
     count: card._count.bookings,
     lessons: card.bookings.map(booking => ({
       id: booking.id,
-      name: booking.session.nameSnapshot,
+      name: courseDisplayName(booking.session.nameSnapshot),
       startsAt: booking.session.startsAt.toISOString(),
       customerName: booking.customerName,
       customerId: booking.customerId,

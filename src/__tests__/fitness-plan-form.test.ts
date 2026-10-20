@@ -4,7 +4,7 @@ import {createRoot} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {OperationScope} from "@/components/operations/operation-scope";
 import {CoursePlanDraftForm} from "@/app/(dashboard)/dashboard/courses/course-profile-forms";
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
+const m=vi.hoisted(()=>({sportsSave:vi.fn(),save:vi.fn(),refresh:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:vi.fn(),saveCoursePointPlan:m.save}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -61,4 +61,27 @@ it("delivers the committed plan and retains the original payload after an ambigu
 });
 
 // Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
-vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: m.sportsSave, sportsStagingCommand: vi.fn() }));
+
+
+const sportsData={storeId:"store",subjects:[{id:"subject",name:"瑜珈",category:"",active:true,updatedAt:"v1",templateId:"t"}],fees:[],lessons:[],students:[],customers:[],coaches:[{id:"coach",name:"教練",templates:["t"]}],rooms:[],date:"2026-10-19"};
+it("new assigned plans require only the subject and purchase rule, without repeating coach setup",async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
+ await mount({sportsData,subjects:[{id:"subject",name:"瑜珈",category:"",isActive:true}]});
+ expect(host.querySelector('[aria-label="方案適用方式"]')).not.toBeNull();
+ expect(host.querySelector('[data-fee-coaches]')).toBeNull();
+ expect(host.querySelector('[aria-label="教師計酬方式"]')).toBeNull();
+ const cost=host.querySelector<HTMLInputElement>('[aria-label="每堂使用額度"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(cost,"2");cost.dispatchEvent(new Event("input",{bubbles:true}));});
+ await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"ASSIGNED",subject:"subject",cost:2,coachIds:[]});
+});
+it("universal-card setup removes subject, course cost and coach requirements",async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
+ await mount({sportsData,subjects:[]});
+ const mode=host.querySelector<HTMLSelectElement>('[aria-label="方案適用方式"]')!;
+ await act(async()=>{mode.value="OPEN";mode.dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(host.querySelector('[aria-label="教學項目"]')).toBeNull();
+ expect(host.querySelector('[aria-label="每堂使用額度"]')).toBeNull();
+ expect(host.querySelector('[data-fee-coaches]')).toBeNull();
+ await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"OPEN",subject:undefined});
+});

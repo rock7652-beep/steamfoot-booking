@@ -1,3 +1,5 @@
+import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
+import { readSportsSessionRule } from "./sports-staging-schedule";
 import {sessionWaitlistPolicy} from "./sports-session-waitlist";
 import { isMusicCourseStore } from "./course-business-profile";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
@@ -107,8 +109,10 @@ export async function joinCourseWaitlist(
     if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
     if (activeCard.closedAt) fail("方案已退款或結清，不能候補");
     if (activeCard.expiresAt < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
-    if (activeCard.templateIds.length && !activeCard.templateIds.includes(activeSession.templateId))
-      fail("此方案不適用本堂課");
+    const sportsRule=await readSportsSessionRule(tx,actor.storeId,activeSession.id);
+    if(sportsRule?.enrollment==="ASSIGNED")fail("指定學員課程不開放候補");
+    const rights=resolveSportsEntitlement({...activeCard,templateRestricted:activeCard.requestKey?.startsWith("no-show-makeup:")??false},{templateId:activeSession.templateId,subjectId:activeSession.template.musicSubjectId??null,pointCost:activeSession.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
+    if(!rights.eligible)fail(rights.reason);
     if (activeCard.termSessionIds.length && !activeCard.termSessionIds.includes(activeSession.id))
       fail("此方案僅能使用指定課次");
     if (!customerIds.every(customerId => activeCard.members.some(member => member.customerId === customerId)))
@@ -135,7 +139,7 @@ export async function joinCourseWaitlist(
         fail("此課程尚未開放會員候補");
     }
 
-    const bookingCost = activeCard.unit === "SESSION" ? 1 : activeSession.pointCost;
+    const bookingCost = rights.eligible?rights.cost:0;
     const [occupied, waitingCount, existingBookings, existingWaitlist, held] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: { not: "CANCELLED" } } }),
       tx.courseWaitlistEntry.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: "WAITING" } }),

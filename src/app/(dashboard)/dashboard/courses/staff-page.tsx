@@ -1,5 +1,5 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
-import { presentCourseTemplates } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import {readCourseOrders} from "@/server/services/course-display-order";
@@ -113,7 +113,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
           updatedAt:s.updatedAt.toISOString(),
           birthday:s.courseBirthday?.toISOString().slice(0,10) ?? "",
           emergencyContactRelation:s.emergencyContactRelation,
-          assignments:handover.filter(h=>h.coachId===s.id).map(h=>({id:h.id,name:h.nameSnapshot,startsAt:h.startsAt.toISOString(),endsAt:h.endsAt.toISOString(),capacity:h.capacity,bookedCount:h._count.bookings})),
+          assignments:handover.filter(h=>h.coachId===s.id).map(h=>({id:h.id,name:courseDisplayName(h.nameSnapshot),startsAt:h.startsAt.toISOString(),endsAt:h.endsAt.toISOString(),capacity:h.capacity,bookedCount:h._count.bookings})),
           emergencyContactName: s.emergencyContactName,
           emergencyContactPhone: s.emergencyContactPhone,
           kind: s.user.role === "CUSTOMER" ? "coach" : "manager",

@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -47,7 +48,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
   for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId,refund.method);
   for (const receipt of trialReceipts) {
-    const order={id:receipt.id,customerId:receipt.booking.customerId,customerName:receipt.booking.customerName,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${receipt.booking.session.nameSnapshot}`,unit:"TRIAL"};
+    const order={id:receipt.id,customerId:receipt.booking.customerId,customerName:receipt.booking.customerName,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${courseDisplayName(receipt.booking.session.nameSnapshot)}`,unit:"TRIAL"};
     const splits=Array.isArray(receipt.paymentSplits)?receipt.paymentSplits as PaymentSplitInput[]:[];
     if(receipt.createdAt>=range.gte && receipt.createdAt<=range.lte) add(order,receipt.amount,receipt.createdAt,receipt.id,receipt.note,false,receipt.actorUserId,receipt.paymentMethod,splits);
     if(receipt.voidedAt && receipt.voidedAt>=range.gte && receipt.voidedAt<=range.lte) add(order,-receipt.amount,receipt.voidedAt,`${receipt.id}:void`,receipt.voidReason??"體驗收款更正沖銷",true,receipt.actorUserId,receipt.paymentMethod,splits.map(s=>({...s,amount:-s.amount})));

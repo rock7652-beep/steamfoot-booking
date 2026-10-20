@@ -1,4 +1,5 @@
 "use server";
+import { sportsEntitlementSnapshot } from "@/lib/sports-entitlement";
 import {musicPurchaseTerms} from "@/lib/music-course-products";
 import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import { assertCoursePurchaseUnit } from "@/server/services/course-purchase-rules";
@@ -153,6 +154,7 @@ export async function purchaseCoursePlan(input: unknown) {
         data: {
           ...data,
           ...allocation,
+          ...sportsEntitlementSnapshot(plan),
           termSessionIds,
           storeId,
           customerId: customer.id,
@@ -203,6 +205,7 @@ export async function confirmCoursePurchase(input: unknown) {
         data: {
           storeId,
           planId: order.planId,
+          ...sportsEntitlementSnapshot(order),
           termSessionIds:order.termSessionIds,
           nameSnapshot: order.name,
           unit: order.unit,

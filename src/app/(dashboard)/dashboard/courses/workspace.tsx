@@ -11,8 +11,9 @@ import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleFields} from "./sports-schedule-fields";
+import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
-import { courseTemplateLabel } from "@/lib/course-template-presentation";
+import { courseTemplateLabel, courseDisplayName } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
@@ -542,6 +543,7 @@ export function CourseWorkspace({
     | { kind: "session"; value: Session }
     | null
   >(null);
+  const compactSessionEdit = sportsNative && panel === "edit" && editing?.kind === "session";
   const month = selectedDate.slice(0, 7),
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
@@ -1374,7 +1376,7 @@ export function CourseWorkspace({
                         <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
 
                           {canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
-                          {canEdit && (template ? <>{[...["PUBLIC","HIDDEN","OFF"]].filter(v=>v!==(template.visibility??"PUBLIC")).map(v=><button type="button" key={v} className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>changeStatus(item,v)}>{v==="PUBLIC"?"上架":v==="HIDDEN"?"隱藏":"下架"}</button>)}{canCreate&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製</button>}</> : <><CourseStatusButton quiet kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>)}
+                          {canEdit && (template ? <>{[...["PUBLIC","HIDDEN","OFF"]].filter(v=>v!==(template.visibility??"PUBLIC")).map(v=><button type="button" key={v} className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>changeStatus(item,v)}>{v==="PUBLIC"?"上架":v==="HIDDEN"?"隱藏":"下架"}</button>)}{canCreate&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:courseDisplayName(template.name)+"（複製）"}});open("edit");}}>複製</button>}</> : <><CourseStatusButton quiet kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>)}
                         </ExclusiveMenu></div>
 </> : <>
                         <div className="flex items-center gap-1">
@@ -1398,7 +1400,7 @@ export function CourseWorkspace({
                               {template ? <>
                                 {businessProfile === "MUSIC" && !template.musicTrialMode && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>router.push(`${pathname}?view=plans&templateId=${encodeURIComponent(template.id)}`)}>收費方案</button>}
                                 <select className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" aria-label={`${item.name} 狀態`} value={template.visibility ?? "PUBLIC"} disabled={pending} onChange={e=>changeStatus(item,e.target.value)}><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select>
-                                {canCreate && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製</button>}
+                                {canCreate && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:courseDisplayName(template.name)+"（複製）"}});open("edit");}}>複製</button>}
                               </> : <><CourseStatusButton kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/><button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>}
                             </>
                           )}
@@ -1430,6 +1432,7 @@ export function CourseWorkspace({
       {panel && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC" && view !== "rooms"}
+          fitContent={compactSessionEdit}
           fixedHeight={view === "rooms"}
           maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
           open
@@ -1483,13 +1486,13 @@ export function CourseWorkspace({
           </div>
           <div
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form") && !(panel === "schedule" && arrangement === "rental") && !roomRentalHistory) setDirty(true); }}
-            className={
+            className={`${compactSessionEdit ? styles.sessionEditBody : ""} ${
               panel === "schedule" && arrangement === "rental" || roomRentalHistory
                 ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3"
                 : view === "schedule"
                 ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:appearance-none"
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input:not([type=checkbox]):not([type=radio])]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
-            }
+            }`}
           >
             {((view === "rooms" && panel === "catalog" ? roomCreate.error : "") || error) && (
               <p role="alert" className="text-sm text-red-700">
@@ -1799,7 +1802,7 @@ export function CourseWorkspace({
             )}
             {panel === "inspect" && editing && editing.kind !== "session" && <section className="space-y-3">
               <dl className="divide-y divide-earth-100">{[
-                ["名稱",editing.value.name],...(businessProfile === "MUSIC" || editing.kind === "room" ? [["分類",editing.value.category || (businessProfile === "MUSIC" ? "未分類" : "—")]] : []),
+                ["名稱",editing.kind === "template" ? courseDisplayName(editing.value.name) : editing.value.name],...(businessProfile === "MUSIC" || editing.kind === "room" ? [["分類",editing.value.category || (businessProfile === "MUSIC" ? "未分類" : "—")]] : []),
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
                 ...(editing.kind === "template" ? [[businessProfile === "MUSIC" ? "課型":"班別",editing.value.classType === "PRIVATE" ? "個別課" : editing.value.classType === "SELF_ORGANIZED" ? "自組課" : editing.value.classType === "GROUP" ? "團體課":businessProfile === "MUSIC" ? "待補設定" : "未設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設空間",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
@@ -1813,7 +1816,7 @@ export function CourseWorkspace({
                 id="course-edit-form"
                         onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
                 key={`${editing.kind}-${editing.value.id}`}
-                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:grid-cols-6":editing.kind==="room"?"sm:grid-cols-[2fr_1fr_1fr]":""):""}`}
+                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:grid-cols-6":editing.kind==="room"?"sm:grid-cols-[2fr_1fr_1fr]":""):""} ${compactSessionEdit ? styles.sessionEditForm : ""}`}
                 onSubmit={(event) =>
                   submit(
                     event,
@@ -1895,8 +1898,12 @@ export function CourseWorkspace({
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
-                {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
-                <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
+                {editing.kind==="session" && <label className="col-span-full">{sportsNative ? "教學項目" : "課程項目"}<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
+                {compactSessionEdit && editing.kind === "session" ? <SportsSessionNameField
+                  defaultName={editing.value.nameSnapshot}
+                  originalTemplateName={courseTemplateLabel(allTemplates.find(t => t.id === editing.value.templateId) ?? {name: editing.value.nameSnapshot})}
+                  templateName={courseTemplateLabel(allTemplates.find(t => t.id === (editTemplateId || editing.value.templateId)) ?? {name: editing.value.nameSnapshot})}
+                /> : <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
                   {editing.kind === "room" ? "空間名稱" : "課程名稱"}{businessProfile!=="MUSIC"&&" *"}
                   <input
                     className={field}
@@ -1906,10 +1913,10 @@ export function CourseWorkspace({
                     defaultValue={
                       editing.kind === "session"
                         ? editing.value.nameSnapshot
-                        : editing.value.name
+                        : editing.kind === "template" ? courseDisplayName(editing.value.name) : editing.value.name
                     }
                   />
-                </label>
+                </label>}
                 {editing.kind === "template" && (businessProfile === "MUSIC" ? <ClassType value={editing.value.classType} required={copyTemplate}/> : <FitnessClassField classType={editing.value.classType} trialMode={editing.value.musicTrialMode} locked={!copyTemplate && editing.value.hasSessions}/>)}
                 {editing.kind === "template" && businessProfile === "MUSIC" && <MusicCourseFields value={editing.value}/>}
                 {editing.kind !== "session" && businessProfile === "MUSIC" && (
