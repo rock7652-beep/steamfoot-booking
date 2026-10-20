@@ -1,0 +1,1036 @@
+{
+  "deployment": "dpl_6Duz7dq2bT41KwLzy5piak8avLG9",
+  "sha": "be74e732ea607222ade3874da2a75270d4744aa4",
+  "database": "ttworfzgwejdeolegkxl",
+  "storeId": "sports-live-flow-store",
+  "evidenceType": "authenticated HTTP Server Actions and scoped read-only database verification; no browser/device certification",
+  "crossReserved": [
+    {
+      "id": "cmvfzyf3m0001l6087462b42p",
+      "sportsMode": "OPEN",
+      "remaining": 10,
+      "reserved": 5,
+      "debits": 0,
+      "bookings": [
+        {
+          "id": "cmvg074ow0001l607l23017er",
+          "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+          "status": "RESERVED",
+          "cost": 3
+        },
+        {
+          "id": "cmvg0qrsg0002jk08vcflmxnb",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "RESERVED",
+          "cost": 2
+        }
+      ]
+    }
+  ],
+  "cancelledA": [
+    {
+      "id": "cmvfzyf3m0001l6087462b42p",
+      "sportsMode": "OPEN",
+      "remaining": 10,
+      "reserved": 3,
+      "debits": 0,
+      "bookings": [
+        {
+          "id": "cmvg074ow0001l607l23017er",
+          "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+          "status": "RESERVED",
+          "cost": 3
+        },
+        {
+          "id": "cmvg0qrsg0002jk08vcflmxnb",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "CANCELLED",
+          "cost": 2
+        }
+      ]
+    }
+  ],
+  "attendedOpen": [
+    {
+      "id": "cmvfzyf3m0001l6087462b42p",
+      "sportsMode": "OPEN",
+      "remaining": 5,
+      "reserved": 0,
+      "debits": 2,
+      "bookings": [
+        {
+          "id": "cmvg0qrsg0002jk08vcflmxnb",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "CANCELLED",
+          "cost": 2
+        },
+        {
+          "id": "cmvg0sfb60008jk08r3wvsf73",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "ATTENDED",
+          "cost": 2
+        },
+        {
+          "id": "cmvg074ow0001l607l23017er",
+          "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+          "status": "ATTENDED",
+          "cost": 3
+        }
+      ]
+    }
+  ],
+  "restoredOpen": [
+    {
+      "id": "cmvfzyf3m0001l6087462b42p",
+      "sportsMode": "OPEN",
+      "remaining": 10,
+      "reserved": 5,
+      "debits": 2,
+      "bookings": [
+        {
+          "id": "cmvg0qrsg0002jk08vcflmxnb",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "CANCELLED",
+          "cost": 2
+        },
+        {
+          "id": "cmvg0sfb60008jk08r3wvsf73",
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+          "status": "RESERVED",
+          "cost": 2
+        },
+        {
+          "id": "cmvg074ow0001l607l23017er",
+          "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+          "status": "RESERVED",
+          "cost": 3
+        }
+      ]
+    }
+  ],
+  "fixedBeforeAttendance": [
+    {
+      "id": "cmvg0v6gd000tjk08eaxtv8ov",
+      "sessionId": "cmvg0v6dm000rjk08p2sqnqar",
+      "customerId": "sports-live-customer",
+      "cardId": null,
+      "bookingKind": "UNPAID",
+      "pointCost": 0,
+      "status": "RESERVED"
+    },
+    {
+      "id": "cmvg0v6h4000vjk08mvusr2b7",
+      "sessionId": "cmvg0v6dm000rjk08p2sqnqar",
+      "customerId": "sports-live-trial-customer",
+      "cardId": null,
+      "bookingKind": "UNPAID",
+      "pointCost": 0,
+      "status": "RESERVED"
+    }
+  ],
+  "fixedAttendedCards": [
+    {
+      "id": "cmvg0v1fk000ojk08tpg1et4i",
+      "nameSnapshot": "QA-指定A-堂數-API1020",
+      "unit": "SESSION",
+      "sportsMode": "ASSIGNED",
+      "sportsCost": 1,
+      "remaining": 9,
+      "current_plan_cost": 1,
+      "members": [
+        "sports-live-trial-customer"
+      ],
+      "entries": 2
+    },
+    {
+      "id": "cmvg0uwyn000kjk08gxz6vxhk",
+      "nameSnapshot": "QA-指定A-點數-API1020",
+      "unit": "POINT",
+      "sportsMode": "ASSIGNED",
+      "sportsCost": 2,
+      "remaining": 8,
+      "current_plan_cost": 4,
+      "members": [
+        "sports-live-customer"
+      ],
+      "entries": 2
+    }
+  ],
+  "fixedAttendedBookings": [
+    {
+      "id": "cmvg0v6gd000tjk08eaxtv8ov",
+      "customerId": "sports-live-customer",
+      "cardId": "cmvg0uwyn000kjk08gxz6vxhk",
+      "bookingKind": "CARD",
+      "pointCost": 2,
+      "status": "ATTENDED",
+      "debit_count": 1
+    },
+    {
+      "id": "cmvg0v6h4000vjk08mvusr2b7",
+      "customerId": "sports-live-trial-customer",
+      "cardId": "cmvg0v1fk000ojk08tpg1et4i",
+      "bookingKind": "CARD",
+      "pointCost": 1,
+      "status": "ATTENDED",
+      "debit_count": 1
+    }
+  ],
+  "finalLedger": [
+    {
+      "fixed_final": [
+        {
+          "id": "cmvg0v6gd000tjk08eaxtv8ov",
+          "customerId": "sports-live-customer",
+          "cardId": null,
+          "kind": "UNPAID",
+          "cost": 0,
+          "status": "RESERVED"
+        },
+        {
+          "id": "cmvg0v6h4000vjk08mvusr2b7",
+          "customerId": "sports-live-trial-customer",
+          "cardId": null,
+          "kind": "UNPAID",
+          "cost": 0,
+          "status": "RESERVED"
+        }
+      ],
+      "ledger": [
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg074ow0001l607l23017er",
+          "kind": "RESERVE",
+          "points": 3
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg0qrsg0002jk08vcflmxnb",
+          "kind": "RESERVE",
+          "points": 2
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg0qrsg0002jk08vcflmxnb",
+          "kind": "RELEASE",
+          "points": 2
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg0sfb60008jk08r3wvsf73",
+          "kind": "RESERVE",
+          "points": 2
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg0sfb60008jk08r3wvsf73",
+          "kind": "DEBIT",
+          "points": 2
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg074ow0001l607l23017er",
+          "kind": "DEBIT",
+          "points": 3
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg0sfb60008jk08r3wvsf73",
+          "kind": "CORRECT:ATTENDED:RESERVED:4817cf45-94cc-449e-89ef-9bfc14e32751",
+          "points": 2
+        },
+        {
+          "cardId": "cmvfzyf3m0001l6087462b42p",
+          "bookingId": "cmvg074ow0001l607l23017er",
+          "kind": "CORRECT:ATTENDED:RESERVED:65d8c423-d368-43e3-bc95-2c337b55d037",
+          "points": 3
+        },
+        {
+          "cardId": "cmvg0uwyn000kjk08gxz6vxhk",
+          "bookingId": "cmvg0v6gd000tjk08eaxtv8ov",
+          "kind": "DEBIT",
+          "points": 2
+        },
+        {
+          "cardId": "cmvg0uwyn000kjk08gxz6vxhk",
+          "bookingId": "cmvg0v6gd000tjk08eaxtv8ov",
+          "kind": "CORRECT:ATTENDED:RESERVED:c706b71c-f503-41b6-b692-cec5cbf90a19",
+          "points": 2
+        },
+        {
+          "cardId": "cmvg0v1fk000ojk08tpg1et4i",
+          "bookingId": "cmvg0v6h4000vjk08mvusr2b7",
+          "kind": "DEBIT",
+          "points": 1
+        },
+        {
+          "cardId": "cmvg0v1fk000ojk08tpg1et4i",
+          "bookingId": "cmvg0v6h4000vjk08mvusr2b7",
+          "kind": "CORRECT:ATTENDED:RESERVED:1166bfce-ac0b-4fdb-bdeb-facd927ebf75",
+          "points": 1
+        }
+      ],
+      "new_a_session_count": 1
+    }
+  ],
+  "finalCards": [
+    {
+      "id": "cmvfzyf3m0001l6087462b42p",
+      "nameSnapshot": "QA-通用卡-1020",
+      "unit": "POINT",
+      "sportsMode": "OPEN",
+      "sportsCost": null,
+      "remaining": 10,
+      "reserved": 5,
+      "current_plan_cost": null,
+      "purchases": [
+        {
+          "id": "cmvfzyf4k0003l608ijoaxtpf",
+          "cost": null,
+          "mode": "OPEN",
+          "status": "CONFIRMED"
+        }
+      ]
+    },
+    {
+      "id": "cmvg0uwyn000kjk08gxz6vxhk",
+      "nameSnapshot": "QA-指定A-點數-API1020",
+      "unit": "POINT",
+      "sportsMode": "ASSIGNED",
+      "sportsCost": 2,
+      "remaining": 10,
+      "reserved": 0,
+      "current_plan_cost": 4,
+      "purchases": [
+        {
+          "id": "cmvg0uwzj000mjk08vt9rm053",
+          "cost": 2,
+          "mode": "ASSIGNED",
+          "status": "CONFIRMED"
+        }
+      ]
+    },
+    {
+      "id": "cmvg0v1fk000ojk08tpg1et4i",
+      "nameSnapshot": "QA-指定A-堂數-API1020",
+      "unit": "SESSION",
+      "sportsMode": "ASSIGNED",
+      "sportsCost": 1,
+      "remaining": 10,
+      "reserved": 0,
+      "current_plan_cost": 1,
+      "purchases": [
+        {
+          "id": "cmvg0v1ge000qjk086vgfpuj3",
+          "cost": 1,
+          "mode": "ASSIGNED",
+          "status": "CONFIRMED"
+        }
+      ]
+    }
+  ],
+  "httpActions": [
+    {
+      "actor": "owner",
+      "action": "sportsStagingCommand",
+      "payload": {
+        "operation": "schedule",
+        "payload": {
+          "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "kind": "單次",
+          "mode": "開放選課",
+          "date": "2026-10-21",
+          "time": "11:00",
+          "duration": 60,
+          "count": 1,
+          "coach": "驗收老闆",
+          "room": "運動驗收空間",
+          "capacity": 8,
+          "students": [],
+          "price": 0,
+          "requestKey": "0ff3e8fb-03e8-42e6-9e74-49c274c5c740"
+        }
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b"
+        }
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "sportsStagingCommand",
+      "payload": {
+        "operation": "schedule",
+        "payload": {
+          "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "kind": "單次",
+          "mode": "開放選課",
+          "date": "2026-10-21",
+          "time": "11:00",
+          "duration": 60,
+          "count": 1,
+          "coach": "驗收老闆",
+          "room": "運動驗收空間",
+          "capacity": 8,
+          "students": [],
+          "price": 0,
+          "requestKey": "0ff3e8fb-03e8-42e6-9e74-49c274c5c740"
+        }
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvg0q9wq0000jk08g1my3s3b"
+        }
+      }
+    },
+    {
+      "actor": "member",
+      "action": "createMemberCourseBooking",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "cardId": "cmvfzyf3m0001l6087462b42p",
+        "customerIds": [
+          "sports-live-customer"
+        ],
+        "requestKey": "b63f8e77-afb4-44d9-9b1c-c3a4502b50a3"
+      },
+      "result": {
+        "success": true,
+        "bookingUpdates": [
+          {
+            "confirmedAt": 1792460570456,
+            "id": "cmvg0qrsg0002jk08vcflmxnb",
+            "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+            "cardId": "cmvfzyf3m0001l6087462b42p",
+            "customerId": "sports-live-customer",
+            "customerName": "運動驗收學員",
+            "operatorName": "運動驗收學員",
+            "reserverCustomerId": "sports-live-customer",
+            "status": "RESERVED",
+            "cost": 2
+          }
+        ]
+      }
+    },
+    {
+      "actor": "member",
+      "action": "createMemberCourseBooking",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "cardId": "cmvfzyf3m0001l6087462b42p",
+        "customerIds": [
+          "sports-live-customer"
+        ],
+        "requestKey": "b63f8e77-afb4-44d9-9b1c-c3a4502b50a3"
+      },
+      "result": {
+        "success": true,
+        "bookingUpdates": [
+          {
+            "confirmedAt": 1792460572792,
+            "id": "cmvg0qrsg0002jk08vcflmxnb",
+            "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+            "cardId": "cmvfzyf3m0001l6087462b42p",
+            "customerId": "sports-live-customer",
+            "customerName": "運動驗收學員",
+            "operatorName": "運動驗收學員",
+            "reserverCustomerId": "sports-live-customer",
+            "status": "RESERVED",
+            "cost": 2
+          }
+        ]
+      }
+    },
+    {
+      "actor": "member",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg074ow0001l607l23017er",
+        "status": "ATTENDED",
+        "member": true
+      },
+      "result": {
+        "success": false,
+        "error": "會員不能操作點名"
+      }
+    },
+    {
+      "actor": "member",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg074ow0001l607l23017er",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": false,
+        "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+      }
+    },
+    {
+      "actor": "member",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0qrsg0002jk08vcflmxnb",
+        "status": "CANCELLED",
+        "member": true
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "member",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0qrsg0002jk08vcflmxnb",
+        "status": "CANCELLED",
+        "member": true
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "member",
+      "action": "createMemberCourseBooking",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "cardId": "cmvfzyf3m0001l6087462b42p",
+        "customerIds": [
+          "sports-live-customer"
+        ],
+        "requestKey": "18daebb0-a6a7-44f1-af3f-b8b70db04ad3"
+      },
+      "result": {
+        "success": true,
+        "bookingUpdates": [
+          {
+            "confirmedAt": 1792460647594,
+            "id": "cmvg0sfb60008jk08r3wvsf73",
+            "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+            "cardId": "cmvfzyf3m0001l6087462b42p",
+            "customerId": "sports-live-customer",
+            "customerName": "運動驗收學員",
+            "operatorName": "運動驗收學員",
+            "reserverCustomerId": "sports-live-customer",
+            "status": "RESERVED",
+            "cost": 2
+          }
+        ]
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0sfb60008jk08r3wvsf73",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0sfb60008jk08r3wvsf73",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg074ow0001l607l23017er",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg074ow0001l607l23017er",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg0sfb60008jk08r3wvsf73",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg0sfb60008jk08r3wvsf73",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg074ow0001l607l23017er",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvfxpe0l0001jq086qfp6pkt",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg074ow0001l607l23017er",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "saveSportsFee",
+      "payload": {
+        "sportsMode": "ASSIGNED",
+        "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+        "name": "QA-指定A-點數-API1020",
+        "unit": "點數",
+        "amount": 10,
+        "price": 0,
+        "days": 90,
+        "cost": 2,
+        "shared": false,
+        "requestKey": "4a92639d-adef-4a90-9b59-81023713c5e7"
+      },
+      "result": {
+        "success": true,
+        "storeId": "sports-live-flow-store",
+        "data": {
+          "id": "plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8",
+          "sportsMode": "ASSIGNED",
+          "sportsSubjectId": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "sportsCost": 2,
+          "name": "QA-指定A-點數-API1020",
+          "points": 10,
+          "price": 0,
+          "storeCost": 0,
+          "termSessionIds": [],
+          "customerPurchasable": true,
+          "allowShared": false,
+          "validDays": 90,
+          "isActive": true,
+          "unit": "POINT",
+          "musicBonusLessons": 0,
+          "musicTermSizes": [],
+          "musicTerms": null,
+          "templateIds": [
+            "sports_item_595e25cc27c71c39440f1514274790f81379d83b0213d9b4c622cd90027bd42a"
+          ],
+          "lowBalanceEnabled": false,
+          "lowBalanceThreshold": null
+        },
+        "syncWarning": false
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "assignCoursePointCard",
+      "payload": {
+        "planId": "plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8",
+        "customerId": "sports-live-customer",
+        "expiresDate": "2027-01-17",
+        "requestKey": "a215b2fd-07d7-43fa-85b4-9251bd921667",
+        "revenueStaffId": "sports-live-flow-staff",
+        "expectedStoreCost": 0,
+        "discountKind": "AMOUNT",
+        "discountValue": 0,
+        "paymentMethod": "CASH",
+        "expectedListPrice": 0
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "assignCoursePointCard",
+      "payload": {
+        "planId": "plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8",
+        "customerId": "sports-live-customer",
+        "expiresDate": "2027-01-17",
+        "requestKey": "a215b2fd-07d7-43fa-85b4-9251bd921667",
+        "revenueStaffId": "sports-live-flow-staff",
+        "expectedStoreCost": 0,
+        "discountKind": "AMOUNT",
+        "discountValue": 0,
+        "paymentMethod": "CASH",
+        "expectedListPrice": 0
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "saveSportsFee",
+      "payload": {
+        "sportsMode": "ASSIGNED",
+        "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+        "name": "QA-指定A-堂數-API1020",
+        "unit": "堂數",
+        "amount": 10,
+        "price": 0,
+        "days": 90,
+        "cost": 2,
+        "shared": false,
+        "requestKey": "6710c2bc-5ce6-4292-b70b-95cbe265a459"
+      },
+      "result": {
+        "success": true,
+        "storeId": "sports-live-flow-store",
+        "data": {
+          "id": "plan_bdb9d05132b650bed0c1bc127d3823e686eb1a2d18731dd9b022142c0041959f",
+          "sportsMode": "ASSIGNED",
+          "sportsSubjectId": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "sportsCost": 1,
+          "name": "QA-指定A-堂數-API1020",
+          "points": 10,
+          "price": 0,
+          "storeCost": 0,
+          "termSessionIds": [],
+          "customerPurchasable": true,
+          "allowShared": false,
+          "validDays": 90,
+          "isActive": true,
+          "unit": "SESSION",
+          "musicBonusLessons": 0,
+          "musicTermSizes": [],
+          "musicTerms": null,
+          "templateIds": [
+            "sports_item_595e25cc27c71c39440f1514274790f81379d83b0213d9b4c622cd90027bd42a"
+          ],
+          "lowBalanceEnabled": false,
+          "lowBalanceThreshold": null
+        },
+        "syncWarning": false
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "assignCoursePointCard",
+      "payload": {
+        "planId": "plan_bdb9d05132b650bed0c1bc127d3823e686eb1a2d18731dd9b022142c0041959f",
+        "customerId": "sports-live-trial-customer",
+        "expiresDate": "2027-01-17",
+        "requestKey": "6235071c-249a-431e-942e-07dbf275ca72",
+        "revenueStaffId": "sports-live-flow-staff",
+        "expectedStoreCost": 0,
+        "discountKind": "AMOUNT",
+        "discountValue": 0,
+        "paymentMethod": "CASH",
+        "expectedListPrice": 0
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "assignCoursePointCard",
+      "payload": {
+        "planId": "plan_bdb9d05132b650bed0c1bc127d3823e686eb1a2d18731dd9b022142c0041959f",
+        "customerId": "sports-live-trial-customer",
+        "expiresDate": "2027-01-17",
+        "requestKey": "6235071c-249a-431e-942e-07dbf275ca72",
+        "revenueStaffId": "sports-live-flow-staff",
+        "expectedStoreCost": 0,
+        "discountKind": "AMOUNT",
+        "discountValue": 0,
+        "paymentMethod": "CASH",
+        "expectedListPrice": 0
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "saveSportsFee",
+      "payload": {
+        "id": "plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8",
+        "snapshot": "{\"id\": \"plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8\", \"sportsMode\": \"ASSIGNED\", \"sportsSubjectId\": \"subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c\", \"sportsCost\": 2, \"name\": \"QA-\\u6307\\u5b9aA-\\u9ede\\u6578-API1020\", \"points\": 10, \"price\": 0, \"storeCost\": 0, \"termSessionIds\": [], \"customerPurchasable\": true, \"allowShared\": false, \"validDays\": 90, \"isActive\": true, \"unit\": \"POINT\", \"musicBonusLessons\": 0, \"musicTermSizes\": [], \"musicTerms\": null, \"templateIds\": [\"sports_item_595e25cc27c71c39440f1514274790f81379d83b0213d9b4c622cd90027bd42a\"], \"lowBalanceEnabled\": false, \"lowBalanceThreshold\": null}",
+        "sportsMode": "ASSIGNED",
+        "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+        "name": "QA-指定A-點數-API1020",
+        "unit": "點數",
+        "amount": 10,
+        "price": 0,
+        "days": 90,
+        "cost": 4,
+        "shared": false,
+        "requestKey": "84e1af52-58c0-44cc-bd07-ce66ef394132"
+      },
+      "result": {
+        "success": true,
+        "storeId": "sports-live-flow-store",
+        "data": {
+          "id": "plan_91b397c25bec3637099267436421d3eb83c2a5e2e6e9de9b74ac224ea8d0f5b8",
+          "sportsMode": "ASSIGNED",
+          "sportsSubjectId": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "sportsCost": 4,
+          "name": "QA-指定A-點數-API1020",
+          "points": 10,
+          "price": 0,
+          "storeCost": 0,
+          "termSessionIds": [],
+          "customerPurchasable": true,
+          "allowShared": false,
+          "validDays": 90,
+          "isActive": true,
+          "unit": "POINT",
+          "musicBonusLessons": 0,
+          "musicTermSizes": [],
+          "musicTerms": null,
+          "templateIds": [
+            "sports_item_595e25cc27c71c39440f1514274790f81379d83b0213d9b4c622cd90027bd42a"
+          ],
+          "lowBalanceEnabled": false,
+          "lowBalanceThreshold": null
+        },
+        "syncWarning": false
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "sportsStagingCommand",
+      "payload": {
+        "operation": "schedule",
+        "payload": {
+          "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "kind": "每週固定",
+          "mode": "指定學員",
+          "date": "2026-10-22",
+          "time": "11:00",
+          "duration": 60,
+          "count": 1,
+          "coach": "驗收老闆",
+          "room": "運動驗收空間",
+          "capacity": 8,
+          "students": [
+            "sports-live-customer",
+            "sports-live-trial-customer"
+          ],
+          "price": 0,
+          "requestKey": "ddf92337-3394-4981-ad80-c20b1eacb8b8"
+        }
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvg0v6dm000rjk08p2sqnqar"
+        }
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "sportsStagingCommand",
+      "payload": {
+        "operation": "schedule",
+        "payload": {
+          "subject": "subject_5e8b52a44be7ed83ac9c0beea42387abb354b6d8c8fa2f39884ba1b0c8b2121c",
+          "kind": "每週固定",
+          "mode": "指定學員",
+          "date": "2026-10-22",
+          "time": "11:00",
+          "duration": 60,
+          "count": 1,
+          "coach": "驗收老闆",
+          "room": "運動驗收空間",
+          "capacity": 8,
+          "students": [
+            "sports-live-customer",
+            "sports-live-trial-customer"
+          ],
+          "price": 0,
+          "requestKey": "ddf92337-3394-4981-ad80-c20b1eacb8b8"
+        }
+      },
+      "result": {
+        "success": true,
+        "data": {
+          "count": 1,
+          "sessionId": "cmvg0v6dm000rjk08p2sqnqar"
+        }
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0v6gd000tjk08eaxtv8ov",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0v6gd000tjk08eaxtv8ov",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0v6h4000vjk08mvusr2b7",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseBookingStatus",
+      "payload": {
+        "bookingId": "cmvg0v6h4000vjk08mvusr2b7",
+        "status": "ATTENDED"
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "createCourseBooking",
+      "payload": {
+        "sessionId": "cmvg0q9wq0000jk08g1my3s3b",
+        "cardId": "cmvg0uwyn000kjk08gxz6vxhk",
+        "customerId": "sports-live-customer",
+        "requestKey": "98a1b895-3c35-435f-abf5-812bdb8a1bc4"
+      },
+      "result": {
+        "success": false,
+        "error": "請使用本教學項目的指定學員方案"
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "createCourseBooking",
+      "payload": {
+        "sessionId": "cmvg0v6dm000rjk08p2sqnqar",
+        "cardId": "cmvfzyf3m0001l6087462b42p",
+        "customerId": "sports-live-customer",
+        "requestKey": "15be0873-00cd-4443-8940-fb769d06dde0"
+      },
+      "result": {
+        "success": false,
+        "error": "通用卡僅適用開放選課"
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvg0v6dm000rjk08p2sqnqar",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg0v6gd000tjk08eaxtv8ov",
+            "status": "ATTENDED"
+          },
+          {
+            "id": "cmvg0v6h4000vjk08mvusr2b7",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    },
+    {
+      "actor": "owner",
+      "action": "updateCourseRosterBatch",
+      "payload": {
+        "sessionId": "cmvg0v6dm000rjk08p2sqnqar",
+        "target": "RESERVED",
+        "bookings": [
+          {
+            "id": "cmvg0v6gd000tjk08eaxtv8ov",
+            "status": "ATTENDED"
+          },
+          {
+            "id": "cmvg0v6h4000vjk08mvusr2b7",
+            "status": "ATTENDED"
+          }
+        ]
+      },
+      "result": {
+        "success": true
+      }
+    }
+  ],
+  "httpSummary": {
+    "calls": 34,
+    "successfulReceipts": 30,
+    "expectedRejections": 4
+  }
+}
