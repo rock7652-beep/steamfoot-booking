@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
-import { ANNOUNCEMENT_MODULES, announcementImageUrl, announcementStatus, type AnnouncementModule, type AnnouncementSnapshot, type ImageAnnouncement } from "@/lib/image-announcements";
+import { announcementImageUrl, announcementStatus, type AnnouncementSnapshot, type ImageAnnouncement } from "@/lib/image-announcements";
 
 type Draft = ImageAnnouncement & { file?: File; url: string; notice?: string };
 const button = "min-h-11 min-w-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-40";
@@ -30,7 +30,7 @@ async function prepareImage(file: File): Promise<{ file: File; notice: string }>
     throw Error("圖片壓縮失敗，請縮小圖片後重試");
   } finally { bitmap.close(); }
 }
-export function ImageAnnouncementManager({ initial, storeId, storeSlug, defaultModule, canManage }: { initial: AnnouncementSnapshot; storeId: string; storeSlug: string; defaultModule: AnnouncementModule; canManage: boolean }) {
+export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManage }: { initial: AnnouncementSnapshot; storeId: string; storeSlug: string; canManage: boolean }) {
   const fromSnapshot = (snapshot: AnnouncementSnapshot): Draft[] => snapshot.items.map(item => ({ ...item, url: announcementImageUrl(storeSlug, item.id, true) }));
   const [saved, setSaved] = useState(initial);
   const [items, setItems] = useState<Draft[]>(() => fromSnapshot(initial));
@@ -63,7 +63,7 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, defaultM
         const prepared = await prepareImage(original);
         const url = URL.createObjectURL(prepared.file); urls.current.add(url);
         const old = items.find(item => item.id === replacing);
-        added.push({ id: crypto.randomUUID(), modules: old?.modules ?? [defaultModule], enabled: old?.enabled ?? true, startsOn: old?.startsOn ?? "", endsOn: old?.endsOn ?? "", ...prepared, url });
+        added.push({ id: crypto.randomUUID(), enabled: old?.enabled ?? true, startsOn: old?.startsOn ?? "", endsOn: old?.endsOn ?? "", ...prepared, url });
       }
       changed(replacing ? items.map(item => item.id === replacing ? added[0] : item) : [...items, ...added]);
       if (replacing) setEditing(added[0].id);
@@ -75,7 +75,7 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, defaultM
     try {
       const body = new FormData();
       body.set("storeId", storeId); body.set("revision", String(saved.revision));
-      body.set("items", JSON.stringify(items.map(({ id, modules, startsOn, endsOn, enabled }) => ({ id, modules, startsOn, endsOn, enabled }))));
+      body.set("items", JSON.stringify(items.map(({ id, startsOn, endsOn, enabled }) => ({ id, startsOn, endsOn, enabled }))));
       items.forEach(item => { if (item.file) body.set(item.id, item.file); });
       const response = await fetch("/api/image-announcements", { method: "POST", body });
       const result = await response.json();
@@ -104,7 +104,6 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, defaultM
         <img src={item.url} alt={`公告圖片 ${position + 1}`} className="h-48 w-full bg-earth-50 object-contain" />
         <div className="space-y-2 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-earth-700">{announcementStatus(item)}</span>{canManage && <button type="button" disabled={pending} className={button} onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "收合" : "編輯"}</button>}</div>
-          <p className="text-sm text-earth-500">{item.modules.map(module => ANNOUNCEMENT_MODULES[module]).join("・")}</p>
           {item.notice && <p className="text-sm text-amber-700">{item.notice}</p>}
           {canManage && <div className="flex gap-1">
             <button type="button" aria-label={`拖曳第 ${position + 1} 張圖片`} draggable={!pending} disabled={pending} className={`${button} touch-none cursor-grab`} onDragStart={() => { drag.current = item.id; }} onPointerDown={event => { if (event.pointerType !== "mouse") { drag.current = item.id; event.currentTarget.setPointerCapture(event.pointerId); } }} onPointerUp={event => { if (event.pointerType !== "mouse") { const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-image-id]")?.getAttribute("data-image-id"); if (target && drag.current) reorder(drag.current, target); drag.current = null; } }}>⠿</button>
@@ -113,12 +112,11 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, defaultM
           </div>}
           {editing === item.id && <fieldset disabled={pending} className="min-w-0 space-y-3 border-t border-earth-100 pt-3">
             <button type="button" className={`${button} w-full`} onClick={() => { replacement.current = item.id; input.current?.click(); }}>更換圖片</button>
-            <div><p className="mb-1 text-sm font-medium">顯示模組</p><div className="flex flex-wrap gap-2">{Object.entries(ANNOUNCEMENT_MODULES).map(([key, label]) => <label key={key} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={item.modules.includes(key as AnnouncementModule)} onChange={event => patch(item.id, { modules: event.target.checked ? [...item.modules, key as AnnouncementModule] : item.modules.filter(module => module !== key) })} />{label}</label>)}</div>{!item.modules.length && <p className="text-sm text-red-700">請選擇顯示模組</p>}</div>
             <label className="block text-sm">上架日期 {!item.startsOn && <span className="text-earth-500">（立即）</span>}<input aria-label={`第 ${position + 1} 張上架日期`} type="date" value={item.startsOn} onChange={event => patch(item.id, { startsOn: event.target.value })} className="mt-1 block min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-2" /></label>
             <label className="block text-sm">下架日期 {!item.endsOn && <span className="text-earth-500">（不限）</span>}<input aria-label={`第 ${position + 1} 張下架日期`} type="date" min={item.startsOn} value={item.endsOn} onChange={event => patch(item.id, { endsOn: event.target.value })} className="mt-1 block min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-2" /></label>
             {item.startsOn && item.endsOn && item.endsOn < item.startsOn && <p className="text-sm text-red-700">下架日期不可早於上架日期</p>}
             <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={item.enabled} onChange={event => patch(item.id, { enabled: event.target.checked })} />啟用</label>
-            <button type="button" className={`${button} text-red-700`} onClick={() => { if (confirm(`刪除此圖片？將從${item.modules.map(module => ANNOUNCEMENT_MODULES[module]).join("、")}移除，儲存後無法復原。`)) { changed(items.filter(row => row.id !== item.id)); setEditing(null); } }}>刪除圖片</button>
+            <button type="button" className={`${button} text-red-700`} onClick={() => { if (confirm("刪除此圖片？儲存後將從本店首頁移除，無法復原。")) { changed(items.filter(row => row.id !== item.id)); setEditing(null); } }}>刪除圖片</button>
           </fieldset>}
         </div>
       </article>)}

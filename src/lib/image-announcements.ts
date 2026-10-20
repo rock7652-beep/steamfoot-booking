@@ -1,12 +1,9 @@
 import { z } from "zod";
 import { toLocalDateStr } from "@/lib/date-utils";
 
-export const ANNOUNCEMENT_MODULES = { steamfoot: "蒸足", sports: "運動", music: "音樂" } as const;
-export type AnnouncementModule = keyof typeof ANNOUNCEMENT_MODULES;
 const date = z.string().refine(value => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value), "日期格式有誤");
 export const announcementSchema = z.object({
   id: z.string().uuid(),
-  modules: z.array(z.enum(["steamfoot", "sports", "music"])).min(1, "請選擇顯示模組").max(3),
   startsOn: date,
   endsOn: date,
   enabled: z.boolean(),
@@ -20,8 +17,8 @@ export function announcementStatus(item: ImageAnnouncement, today = toLocalDateS
   if (item.startsOn && item.startsOn > today) return "排程中";
   return "顯示中";
 }
-export function activeAnnouncements(items: ImageAnnouncement[], module: AnnouncementModule, today = toLocalDateStr()) {
-  return items.filter(item => item.modules.includes(module) && announcementStatus(item, today) === "顯示中");
+export function activeAnnouncements(items: ImageAnnouncement[], today = toLocalDateStr()) {
+  return items.filter(item => announcementStatus(item, today) === "顯示中");
 }
 export function announcementImageUrl(storeSlug: string, id: string, preview = false) {
   return `/api/image-announcements/${id}?store=${encodeURIComponent(storeSlug)}${preview ? "&preview=1" : ""}`;

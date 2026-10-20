@@ -105,5 +105,7 @@
   "manualPause": true,
   "touchPause": true,
   "swipe": true,
+  "emptySectionHidden": true,
+  "inactiveSectionHidden": true,
   "limitation": "Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance."
 }

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { validateStoreAccess } from "@/lib/store";
 import { activeAnnouncements } from "@/lib/image-announcements";
-import { readAnnouncements, announcementModule } from "@/server/services/image-announcements";
+import { readAnnouncements } from "@/server/services/image-announcements";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -19,8 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     try { await validateStoreAccess(user, store.id, "read"); preview = true; } catch { return missing(); }
   }
   const snapshot = await readAnnouncements(store.id);
-  const activeModule = await announcementModule(store.id);
-  const items = preview ? snapshot.items : activeAnnouncements(snapshot.items, activeModule);
+  const items = preview ? snapshot.items : activeAnnouncements(snapshot.items);
   if (id === "list" && !preview) return Response.json({ items }, { headers: { "Cache-Control": "no-store" } });
   if (!items.some(item => item.id === id)) return missing();
   const asset = await prisma.imageAnnouncementAsset.findFirst({ where: { id, storeId: store.id } });

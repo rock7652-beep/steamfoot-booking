@@ -40,6 +40,7 @@ try {
     const page = await browser.newPage({ viewport: { width, height } }), errors = []; page.on('pageerror', e => errors.push(e.message));
     page.on('dialog', dialog => dialog.accept());
     await page.goto(base); await page.getByRole('button', { name: '編輯', exact: true }).first().click();
+    if (await page.getByText('顯示模組', { exact: true }).count()) throw Error('Module selection must not appear');
     await page.getByLabel('第 1 張上架日期').fill('2026-11-01'); await page.getByLabel('第 1 張下架日期').fill('2026-11-30');
     await page.getByRole('button', { name: '下移第 1 張圖片' }).click();
     await page.getByRole('button', { name: '儲存', exact: true }).click(); await page.getByRole('status').filter({ hasText: '已儲存' }).waitFor();
@@ -117,6 +118,14 @@ try {
   if (await page.getByRole('dialog').count()) throw Error('Swipe ghost click unexpectedly opened image');
   await touchTarget.click(); await page.getByRole('dialog').waitFor();
   await page.getByRole('button', { name: '關閉圖片' }).click();
-  writeFileSync(path.join(out, 'results.json'), JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, touchPause: true, swipe: true, limitation: 'Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance.' }, null, 2));
+  for (const state of ['empty', 'inactive']) {
+    await page.goto(base + '/?front&' + state);
+    await page.getByRole('heading', { name: '已預約清單', exact: true }).waitFor();
+    if (await page.locator('[data-image-announcements]').count()) throw Error('Empty or inactive announcements left an empty section');
+    await page.getByRole('navigation', { name: '底部功能' }).getByRole('button', { name: '預約', exact: true }).click();
+    await page.getByRole('heading', { name: '預約功能', exact: true }).waitFor();
+    if (state === 'empty') await page.screenshot({ path: path.join(out, 'front-empty.png') });
+  }
+  writeFileSync(path.join(out, 'results.json'), JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, touchPause: true, swipe: true, emptySectionHidden: true, inactiveSectionHidden: true, limitation: 'Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance.' }, null, 2));
   console.log(JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, touchPause: true, swipe: true }));
 } finally { await browser?.close(); await server.close(); }
