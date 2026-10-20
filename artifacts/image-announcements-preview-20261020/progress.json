@@ -1,0 +1,143 @@
+[
+  {
+    "step": "a-prepare-preview-entitlements",
+    "passed": true,
+    "storeId": "image-qa-a",
+    "profile": "STEAMFOOT"
+  },
+  {
+    "step": "a-real-owner-upload-and-preview-selector",
+    "passed": true,
+    "selectedActualCustomer": true,
+    "uploadViaUI": true,
+    "desktop": 1366
+  },
+  {
+    "step": "a-iframe-autoplay-mixed-ratio-zoom-and-readonly",
+    "passed": true,
+    "autoRotate6s": true,
+    "mixedRatioStable": true,
+    "manualPause": true,
+    "zoom": true,
+    "focusAndScrollRestored": true,
+    "readonlyWrite403": true,
+    "width": 396,
+    "height": 604.046875,
+    "viewport": 428,
+    "overflow": false
+  },
+  {
+    "step": "a-preview-navigation-and-device-wrapper",
+    "passed": true,
+    "actualBottomNavigation": true,
+    "nestedDeviceIframe": true,
+    "deviceWidths": [
+      1024,
+      1440
+    ]
+  },
+  {
+    "step": "a-narrow-preview-empty-and-crossstore",
+    "passed": true,
+    "widths": [
+      360,
+      390
+    ],
+    "crossStoreDenied": true,
+    "emptyNoFrame": true
+  },
+  {
+    "step": "fitness-preview-prepare-preview-entitlements",
+    "passed": true,
+    "storeId": "image-qa-fitness-preview",
+    "profile": "FITNESS"
+  },
+  {
+    "step": "fitness-preview-real-owner-upload-and-preview-selector",
+    "passed": true,
+    "selectedActualCustomer": true,
+    "uploadViaUI": true,
+    "desktop": 1366
+  },
+  {
+    "step": "fitness-preview-iframe-autoplay-mixed-ratio-zoom-and-readonly",
+    "passed": true,
+    "autoRotate6s": true,
+    "mixedRatioStable": true,
+    "manualPause": true,
+    "zoom": true,
+    "focusAndScrollRestored": true,
+    "readonlyWrite403": true,
+    "width": 396,
+    "height": 604.046875,
+    "viewport": 428,
+    "overflow": false
+  },
+  {
+    "step": "fitness-preview-preview-navigation-and-device-wrapper",
+    "passed": true,
+    "actualBottomNavigation": true,
+    "nestedDeviceIframe": true,
+    "deviceWidths": [
+      1024,
+      1440
+    ]
+  },
+  {
+    "step": "fitness-preview-narrow-preview-empty-and-crossstore",
+    "passed": true,
+    "widths": [
+      360,
+      390
+    ],
+    "crossStoreDenied": true,
+    "emptyNoFrame": true
+  },
+  {
+    "step": "music-preview-prepare-preview-entitlements",
+    "passed": true,
+    "storeId": "image-qa-music-preview",
+    "profile": "MUSIC"
+  },
+  {
+    "step": "music-preview-real-owner-upload-and-preview-selector",
+    "passed": true,
+    "selectedActualCustomer": true,
+    "uploadViaUI": true,
+    "desktop": 1366
+  },
+  {
+    "step": "music-preview-iframe-autoplay-mixed-ratio-zoom-and-readonly",
+    "passed": true,
+    "autoRotate6s": true,
+    "mixedRatioStable": true,
+    "manualPause": true,
+    "zoom": true,
+    "focusAndScrollRestored": true,
+    "readonlyWrite403": true,
+    "width": 396,
+    "height": 604.046875,
+    "viewport": 428,
+    "overflow": false
+  },
+  {
+    "step": "music-preview-preview-navigation-and-device-wrapper",
+    "passed": true,
+    "actualBottomNavigation": true,
+    "nestedDeviceIframe": true,
+    "deviceWidths": [
+      1024,
+      1440
+    ]
+  },
+  {
+    "step": "music-preview-narrow-preview-empty-and-crossstore",
+    "passed": true,
+    "widths": [
+      360,
+      390
+    ],
+    "crossStoreDenied": true,
+    "emptyNoFrame": true
+  }
+]

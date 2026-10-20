@@ -8,8 +8,8 @@ if (['build','start'].includes(process.argv[2])) Object.assign(env, { NODE_ENV:'
 assertImageAnnouncementsAcceptance(env);
 for (const name of ['.env','.env.local','.env.development','.env.development.local']) if (existsSync(name)) throw Error('Local acceptance refuses ambient env files');
 const mode = process.argv[2];
-const commands = { modules:['scripts/qa/image-announcements-modules-browser.mjs'], roles:['scripts/qa/image-announcements-live-browser.mjs','--roles-only'], start:['node_modules/next/dist/bin/next','start','--hostname','localhost','--port','3169'], build:['node_modules/next/dist/bin/next','build'], seed:['node_modules/tsx/dist/cli.mjs','scripts/qa/image-announcements-live-seed.ts'], dev:['node_modules/next/dist/bin/next','dev','--hostname','localhost','--port','3169'], browser:['scripts/qa/image-announcements-live-browser.mjs'] };
-if (!commands[mode]) throw Error('Expected seed, dev, build, start, browser, roles or modules');
+const commands = { preview:['scripts/qa/image-announcements-preview-browser.mjs'], modules:['scripts/qa/image-announcements-modules-browser.mjs'], roles:['scripts/qa/image-announcements-live-browser.mjs','--roles-only'], start:['node_modules/next/dist/bin/next','start','--hostname','localhost','--port','3169'], build:['node_modules/next/dist/bin/next','build'], seed:['node_modules/tsx/dist/cli.mjs','scripts/qa/image-announcements-live-seed.ts'], dev:['node_modules/next/dist/bin/next','dev','--hostname','localhost','--port','3169'], browser:['scripts/qa/image-announcements-live-browser.mjs'] };
+if (!commands[mode]) throw Error('Expected seed, dev, build, start, browser, roles, modules or preview');
 const child=spawn(process.execPath,commands[mode],{env,stdio:'inherit'});
 child.on('exit',code=>process.exitCode=code??1);
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>child.kill(signal));
