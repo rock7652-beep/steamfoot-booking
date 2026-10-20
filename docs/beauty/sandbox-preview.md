@@ -56,6 +56,8 @@ Next 啟動：`node node_modules/next/dist/bin/next dev --hostname 0.0.0.0 --por
 
 ## 尚未完成與最重要下一步
 
+LINE 申請期間另已補完 [帳務與家人共用方案瀏覽器驗收](commerce-acceptance.md)：8項實際操作與資料庫核對通過，並補上月結服務時間／顧客辨識；這不代表 LINE 已啟用或全部帳務情境已驗收。
+
 **真實 LINE 登入及通知送達：尚未實測。** 任務環境沒有綁定本次核准的測試通道／收件人。既有 Vercel 的 LINE 變數同時涉及既有門市與正式用途，不能因為有變數就認定是美業測試帳號；本輪只讀取變數名稱與 target metadata，未將其值複製到 VM。
 
 下一步需指定測試用官方帳號、相同 Provider 下的 Login／Messaging channel、允許的測試收件人，並透過環境設定綁定憑證。測試 LINE Login callback 為 `https://sb-5xmothc5nvzv.vercel.run/api/auth/callback/line`；正式既有 callback／webhook 不改。取得測試設定後，才能安排真人授權登入、核對已驗證 LINE 身分，並建立僅限本店及指定收件人的送達驗收。現在的全域／店家通知與共用外發 guard 仍封鎖，不能把 SKIPPED、事件建立或合成 entry 說成已送達。

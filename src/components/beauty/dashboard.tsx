@@ -641,6 +641,7 @@ export function BeautyDashboard({
                 >
                   <span>
                     {data.techs.find((t) => t.id === l.technicianId)?.name}｜
+                    {formatTWDateTime(new Date(l.date))}｜{l.personName}｜
                     {l.serviceName}｜應付{l.fee}／已付{l.paid}
                   </span>
                   {!readOnly && data.manage.feePay && (

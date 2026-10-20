@@ -265,6 +265,7 @@ export async function settlement(tx: Tx, storeId: string, month: string) {
   const lines = rows.map((r) => ({
     id: r.id,
     technicianId: r.technicianId,
+    personName: r.personName,
     serviceName: r.serviceName,
     date: r.startsAt.toISOString(),
     fee: r.fee,

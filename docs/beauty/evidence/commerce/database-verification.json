@@ -1,0 +1,27 @@
+{
+  "synthetic": true,
+  "runId": "b5927b65",
+  "card": {
+    "sessions": 1,
+    "remaining": 0,
+    "debits": 1,
+    "sharedWithNamedFamily": true
+  },
+  "sharedService": {
+    "fee": 500,
+    "technicianId": "beauty-1374-female"
+  },
+  "singleService": {
+    "feeBeforeCancellation": 400,
+    "status": "CANCELLED",
+    "paymentKinds": [
+      "FEE",
+      "FEE_VOID",
+      "REFUND",
+      "SALE"
+    ],
+    "cashbookEntries": 4,
+    "net": 0
+  },
+  "pendingNotifications": 0
+}

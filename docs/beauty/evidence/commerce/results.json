@@ -1,0 +1,50 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "synthetic": true,
+  "runId": "b5927b65",
+  "stage": "refund single",
+  "passed": true,
+  "results": [
+    {
+      "case": "真實後台售出具名家人共用方案；桌機／iPad／手機表單無整頁溢出",
+      "passed": true
+    },
+    {
+      "case": "家人可使用同一方案，預約先預留且顯示可用0次、不提前扣次",
+      "passed": true
+    },
+    {
+      "case": "取消不扣次：預留釋放、餘額保留、沒有錯誤扣次帳本",
+      "passed": true
+    },
+    {
+      "case": "實際技師完成家人服務，只扣1次；方案百分比拆帳500元歸屬實際技師",
+      "passed": true
+    },
+    {
+      "case": "單次服務實收800元，完成後依實收50%產生400元拆帳",
+      "passed": true
+    },
+    {
+      "case": "月結確認後登錄部分拆帳付款300元，技師與原服務連結正確",
+      "passed": true
+    },
+    {
+      "case": "拆帳收回追加反向紀錄，保留原付款與原技師",
+      "passed": true
+    },
+    {
+      "case": "取消服務後退款800元；收款、拆帳付款、收回與退款4筆原始紀錄及共用收支帳淨額均為0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "No real LINE login or delivery",
+    "Bank transfer registration only; no real transfer",
+    "No physical Safari device",
+    "No cash-drawer UI in this run"
+  ],
+  "month": "2026-10",
+  "executionMonth": "2026-10"
+}
