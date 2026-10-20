@@ -1,3 +1,4 @@
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 import { CoursePortal } from "./course-portal";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
@@ -187,6 +188,7 @@ export default async function CustomerHomePage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-2.5">
+      <StoreImageAnnouncements storeSlug={storeSlug} />
       {/* ═══ 1. Hero（預約 — 主 CTA）═══ */}
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <p className="text-lg font-bold leading-snug text-earth-900">

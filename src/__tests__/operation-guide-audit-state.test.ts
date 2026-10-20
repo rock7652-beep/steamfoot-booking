@@ -16,7 +16,7 @@ describe("incremental guide audit accounting", () => {
     expect(frontendPending.size).toBe(state.frontendInteractionPendingGuideIds.length);
     expect(state.backendInteractionPendingCount).toBe(pending.size);
     expect(state.totalInteractionPendingCount).toBe(pending.size + frontendPending.size);
-    expect(state.totalInteractionPendingCount).toBe(27);
+    expect(state.totalInteractionPendingCount).toBe(28);
     expect(state.maintenanceScope).toBe("backend-only");
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
     expect(state.frontendGuideRetirement.status).toBe("retired-not-verified");

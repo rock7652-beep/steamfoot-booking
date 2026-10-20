@@ -1,5 +1,6 @@
 "use client";
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 import {bookSportsTrial} from "@/server/actions/sports-staging";
 import { courseLeaveDebitMessage } from "@/lib/course-leave-message";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -996,6 +997,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           {page === "home" && (
             <>
               {heading(coach ? "今日工作" : "會員首頁")}
+              {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} />}
               {!coach && <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>

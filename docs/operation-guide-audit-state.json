@@ -85,9 +85,10 @@
     "I18",
     "C108",
     "C111",
-    "C114"
+    "C114",
+    "IMG01"
   ],
-  "articleCount": 202,
+  "articleCount": 203,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -347,8 +348,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 27,
-  "totalInteractionPendingCount": 27,
+  "backendInteractionPendingCount": 28,
+  "totalInteractionPendingCount": 28,
   "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -668,5 +669,13 @@
     ],
     "backendCountCleared": 147,
     "note": "PR #1250 發布紀錄記載使用者確認其他角色與177題已驗收；本次未逐題親測。前台因退役移出，不標通過。"
+  },
+  "imageAnnouncementReview": {
+    "dateTaipei": "2026-10-20",
+    "newGuideIds": [
+      "IMG01"
+    ],
+    "verification": "source-reviewed; synthetic component Preview only; authenticated acceptance pending",
+    "scope": "Store backend image announcements; no frontend tutorial added"
   }
 }

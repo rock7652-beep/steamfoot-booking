@@ -1,0 +1,95 @@
+{
+  "passed": true,
+  "compiledProduction": true,
+  "realPostgres": true,
+  "realCredentials": true,
+  "results": [
+    {
+      "step": "fitness-isolated-store-setup",
+      "passed": true,
+      "industryModule": "COURSE",
+      "profile": "business.fitness"
+    },
+    {
+      "step": "fitness-owner-login-upload",
+      "passed": true,
+      "images": 2,
+      "revision": 1
+    },
+    {
+      "step": "fitness-real-member-login-home",
+      "passed": true,
+      "credentialsUI": true,
+      "realCoursePortal": true,
+      "widths": [
+        360,
+        390
+      ],
+      "noOverflow": true
+    },
+    {
+      "step": "fitness-six-second-swipe-zoom-return-navigation",
+      "passed": true,
+      "autoRotate6s": true,
+      "cdpTouchSwipe": true,
+      "manualPause": true,
+      "zoom": true,
+      "restoredFocus": true,
+      "bottomNavigation": true,
+      "lineApp": false
+    },
+    {
+      "step": "fitness-store-isolation-and-empty-home",
+      "passed": true,
+      "crossStoreImage": 404,
+      "emptyFrame": false,
+      "navigationUsable": true
+    },
+    {
+      "step": "music-isolated-store-setup",
+      "passed": true,
+      "industryModule": "COURSE",
+      "profile": "business.music"
+    },
+    {
+      "step": "music-owner-login-upload",
+      "passed": true,
+      "images": 2,
+      "revision": 1
+    },
+    {
+      "step": "music-real-member-login-home",
+      "passed": true,
+      "credentialsUI": true,
+      "realCoursePortal": true,
+      "widths": [
+        360,
+        390
+      ],
+      "noOverflow": true
+    },
+    {
+      "step": "music-six-second-swipe-zoom-return-navigation",
+      "passed": true,
+      "autoRotate6s": true,
+      "cdpTouchSwipe": true,
+      "manualPause": true,
+      "zoom": true,
+      "restoredFocus": true,
+      "bottomNavigation": true,
+      "lineApp": false
+    },
+    {
+      "step": "music-store-isolation-and-empty-home",
+      "passed": true,
+      "crossStoreImage": 404,
+      "emptyFrame": false,
+      "navigationUsable": true
+    }
+  ],
+  "lineApp": {
+    "passed": false,
+    "status": "blocked",
+    "reason": "No test deployment, LINE device/session, or test account available; user confirmed none."
+  }
+}

@@ -148,6 +148,7 @@ describe("Production migration recovery guard", () => {
 
   it("allows only one exact repository-pinned migration target into the guarded flow", () => {
     expect(APPROVED_PRODUCTION_MIGRATION_TARGETS).toEqual([
+      "20261020100000_image_announcements",
       PAYMENT_SPLIT_MIGRATION,
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
