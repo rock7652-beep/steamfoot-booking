@@ -20,9 +20,10 @@
 }
 .image {
   display: block;
-  width: 100%;
+  width: 50%;
   height: auto;
   max-width: 100%;
+  margin-inline: auto;
 }
 .dots button.dotButton,
 .dots button.dotButton[aria-current] {

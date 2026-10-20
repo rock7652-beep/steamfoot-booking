@@ -56,7 +56,7 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
         </div>
         <div className="min-h-0 overflow-auto overscroll-contain" {...swipe}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={`公告圖片 ${index % active.length + 1}`} style={zoom ? { width: "200%", maxWidth: "none" } : { maxHeight: "65dvh", maxWidth: "100%", margin: "auto", objectFit: "contain" }} />
+          <img src={src} alt={`公告圖片 ${index % active.length + 1}`} style={zoom ? { width: "200%", maxWidth: "none" } : { width: "50%", maxHeight: "50dvh", maxWidth: "50%", margin: "0 auto", objectFit: "contain" }} />
         </div>
         {active.length > 1 && <div className="flex shrink-0 items-center justify-between"><button type="button" aria-label="上一張圖片" className="h-11 w-11" onClick={() => move(-1)}>‹</button>{dots}<button type="button" aria-label="下一張圖片" className="h-11 w-11" onClick={() => move(1)}>›</button></div>}
       </div>
@@ -65,7 +65,7 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
 }
 
 /** Public image-only data. No member data or shared authenticated read cache. */
-export function StoreImageAnnouncements({ storeSlug }: { storeSlug: string }) {
+export function StoreImageAnnouncements({ storeSlug, preview = false }: { storeSlug: string; preview?: boolean }) {
   const [data, setData] = useState<{ slug: string; items: ImageAnnouncement[] } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -73,7 +73,7 @@ export function StoreImageAnnouncements({ storeSlug }: { storeSlug: string }) {
     async function load() {
       const request = ++sequence;
       try {
-        const response = await fetch(announcementImageUrl(storeSlug, "list"), { cache: "no-store", signal: controller.signal });
+        const response = await fetch(announcementImageUrl(storeSlug, "list", preview), { cache: "no-store", signal: controller.signal });
         if (response.ok) {
           const result = await response.json();
           if (!controller.signal.aborted && request === sequence) setData({ slug: storeSlug, items: result.items });
@@ -85,6 +85,6 @@ export function StoreImageAnnouncements({ storeSlug }: { storeSlug: string }) {
     const refresh = () => { if (!document.hidden) void load(); };
     document.addEventListener("visibilitychange", refresh);
     return () => { controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
-  }, [storeSlug]);
-  return data?.slug === storeSlug ? <ImageAnnouncementCarousel key={storeSlug} items={data.items} storeSlug={storeSlug} /> : null;
+  }, [storeSlug, preview]);
+  return data?.slug === storeSlug ? <ImageAnnouncementCarousel key={`${storeSlug}:${preview}`} items={data.items} storeSlug={storeSlug} preview={preview} /> : null;
 }
