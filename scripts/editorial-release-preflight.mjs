@@ -5,25 +5,6 @@ import { parseEditorialGuides } from "./editorial-content.mjs";
 import { EDITORIAL_PREVIEW_BRANCH, EDITORIAL_REPOSITORY } from "./editorial-preview-scope.mjs";
 
 const contentPath = "src/content/editorial-guides.json";
-const bootstrapBase = "7ddfeed6b8b0611b1669df067c4580e5b9481323";
-const bootstrapFiles = new Set([
-  contentPath, "src/lib/public-guides.ts", "src/app/pricing/guides/[slug]/page.tsx",
-  "scripts/editorial-content.mjs", "scripts/editorial-content.d.mts",
-  "scripts/editorial-preview-scope.mjs", "scripts/editorial-preview-scope.d.mts",
-  "scripts/editorial-release-preflight.mjs", "scripts/guide-ui-preview-scope.mjs",
-  "src/__tests__/public-guides.test.ts", "src/__tests__/guide-ui-preview-isolation.test.ts",
-  "src/__tests__/editorial-release.test.ts", ".github/workflows/editorial-review.yml",
-  "docs/editorial-release.md", "vercel.json",
-]);
-// Explicit one-time renderer/schema maintenance review; ordinary article scope stays JSON-only.
-const inlineLinksBase = "8d717d5dc45da6fbd4e2984afea48165140281b3";
-const inlineLinksSlug = "fitness-studio-member-referral-handoff";
-const inlineLinksFiles = new Set([
-  contentPath, "src/lib/public-guides.ts", "src/app/pricing/guides/[slug]/page.tsx",
-  "scripts/editorial-content.mjs", "scripts/editorial-release-preflight.mjs",
-  "src/__tests__/editorial-release.test.ts", "src/__tests__/public-guides.test.ts",
-  ".github/workflows/editorial-review.yml", ".github/workflows/ci.yml", "docs/editorial-release.md",
-]);
 const sha = /^[0-9a-f]{40}$/;
 function reject(reason) { throw new Error(`Editorial preflight rejected: ${reason}`); }
 
@@ -31,17 +12,15 @@ export function validateEditorialChange({ base, head, repository, branch, slug, 
   if (repository !== EDITORIAL_REPOSITORY || branch !== EDITORIAL_PREVIEW_BRANCH || !sha.test(base) || !sha.test(head) || base === head)
     reject("exact repository, branch and distinct commit pair required");
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug ?? "")) reject("one reviewed article slug required");
-  if (bootstrap && base !== bootstrapBase) reject("bootstrap is restricted to the original reviewed base");
-  if (inlineLinksReview && (bootstrap || base !== inlineLinksBase || slug !== inlineLinksSlug))
-    reject("inline links review is restricted to its fixed base and article");
-  if (!files.length || !files.includes(contentPath) || files.some(path => inlineLinksReview ? !inlineLinksFiles.has(path) : bootstrap ? !bootstrapFiles.has(path) : path !== contentPath))
+  if (bootstrap || inlineLinksReview) reject("retired review exceptions are not supported");
+  if (!files.length || !files.includes(contentPath) || files.some(path => path !== contentPath))
     reject("changes outside the article data scope");
   parseEditorialGuides(before); parseEditorialGuides(after);
   if (JSON.stringify(before.filter(item => item.id !== slug)) !== JSON.stringify(after.filter(item => item.id !== slug)))
     reject("unrelated article changed or removed");
   const article = after.find(item => item.id === slug);
   if (!article || JSON.stringify(before.find(item => item.id === slug)) === JSON.stringify(article)) reject("reviewed article is missing or unchanged");
-  return { repository, branch, base, head, slug, mode: inlineLinksReview ? "one-time-inline-links-review" : bootstrap ? "one-time-bootstrap-review" : "article-only", files,
+  return { repository, branch, base, head, slug, mode: "article-only", files,
     articleSha256: createHash("sha256").update(JSON.stringify(article)).digest("hex") };
 }
 
@@ -53,7 +32,7 @@ export function verifyEditorialGit({ base, head, repository, branch, slug, boots
   const files = git("diff", "--name-only", "--no-renames", base, head).split("\n").filter(Boolean);
   for (const path of files) if (!git("ls-tree", head, "--", path).startsWith("100644 blob ")) reject("deletions, symlinks and executable files are not content");
   const read = ref => JSON.parse(git("show", `${ref}:${contentPath}`));
-  const before = bootstrap ? [] : read(base);
+  const before = read(base);
   const after = read(head);
   const result = validateEditorialChange({ base, head, repository, branch, slug, files, before, after, bootstrap, inlineLinksReview });
   // Legacy content remains outside the JSON lane; reject collisions without
@@ -69,9 +48,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const options = {};
     for (let i = 2; i < process.argv.length; i++) {
       const key = process.argv[i];
-      if (key === "--inline-links-review") options.inlineLinksReview = true;
-      else if (key === "--bootstrap") options.bootstrap = true;
-      else if (["--base", "--head", "--repository", "--branch", "--slug"].includes(key) && process.argv[i + 1]) options[key.slice(2)] = process.argv[++i];
+      if (["--base", "--head", "--repository", "--branch", "--slug"].includes(key) && process.argv[i + 1]) options[key.slice(2)] = process.argv[++i];
       else reject("unknown argument");
     }
     console.log(JSON.stringify(verifyEditorialGit(options), null, 2));

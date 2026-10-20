@@ -35,35 +35,25 @@ jobs:
         run: |
           set -euo pipefail
           policy_dir=$(mktemp -d)
-          bootstrap_args=()
-          if [[ "$BASE_SHA" == 8d717d5dc45da6fbd4e2984afea48165140281b3 && "$HEAD_REPOSITORY" == rock7652-beep/steamfoot-booking ]]; then
-            # Explicit one-time code/schema review, NOT an ordinary content-only approval.
-            # Fixed base, slug and file allowlist are enforced by this reviewed preflight.
-            # Candidate policy runs without secrets, writes or deployment permissions.
-            cp scripts/editorial-{release-preflight,content,preview-scope}.mjs "$policy_dir/"
-            bootstrap_args=(--inline-links-review)
-          elif git cat-file -e "$BASE_SHA:scripts/editorial-release-preflight.mjs" 2>/dev/null; then
-            for file in editorial-release-preflight.mjs editorial-content.mjs editorial-preview-scope.mjs; do
-              git show "$BASE_SHA:scripts/$file" > "$policy_dir/$file"
-            done
-          else
-            test "$BASE_SHA" = 7ddfeed6b8b0611b1669df067c4580e5b9481323
-            # One-time setup requires review of these policy files themselves.
-            # No secrets, writes, deployment or approval pins are available here.
-            cp scripts/editorial-{release-preflight,content,preview-scope}.mjs "$policy_dir/"
-            bootstrap_args=(--bootstrap)
-          fi
+          policy_dir=$(cd "$policy_dir" && pwd -P)
+          trap 'rm -rf "$policy_dir"' EXIT
+          # Load the entire local import closure from the trusted PR base.
+          # Missing policy files fail closed; never execute candidate policy.
+          for file in editorial-release-preflight.mjs editorial-content.mjs editorial-preview-scope.mjs; do
+            git show "$BASE_SHA:scripts/$file" > "$policy_dir/$file"
+          done
           # Infer the one changed JSON record without importing candidate code.
-          git show "$BASE_SHA:src/content/editorial-guides.json" > /tmp/editorial-before.json 2>/dev/null || printf '[]' > /tmp/editorial-before.json
-          slug=$(node --input-type=module -e '
+          git show "$BASE_SHA:src/content/editorial-guides.json" > "$policy_dir/before.json"
+          slug=$(POLICY_DIR="$policy_dir" node --input-type=module -e '
             import fs from "node:fs";
-            const before=JSON.parse(fs.readFileSync("/tmp/editorial-before.json","utf8"));
+            const before=JSON.parse(fs.readFileSync(`${process.env.POLICY_DIR}/before.json`,"utf8"));
             const after=JSON.parse(fs.readFileSync("src/content/editorial-guides.json","utf8"));
             const changed=after.filter(a=>JSON.stringify(a)!==JSON.stringify(before.find(b=>b.id===a.id)));
             if(changed.length!==1)throw Error("Exactly one reviewed article required");
             console.log(changed[0].id);
           ')
-          node "$policy_dir/editorial-release-preflight.mjs" --base "$BASE_SHA" --head "$HEAD_SHA" --repository "$HEAD_REPOSITORY" --branch "$HEAD_BRANCH" --slug "$slug" "${bootstrap_args[@]}" > editorial-scope.json
+          node "$policy_dir/editorial-release-preflight.mjs" --base "$BASE_SHA" --head "$HEAD_SHA" --repository "$HEAD_REPOSITORY" --branch "$HEAD_BRANCH" --slug "$slug" > editorial-scope.json
+          test -s editorial-scope.json
           cat editorial-scope.json
       - uses: actions/upload-artifact@v4
         with:
