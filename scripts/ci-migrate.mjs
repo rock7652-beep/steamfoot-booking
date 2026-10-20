@@ -169,6 +169,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { IMAGE_ANNOUNCEMENTS_MIGRATION, IMAGE_ANNOUNCEMENTS_MIGRATION_FILE, IMAGE_ANNOUNCEMENTS_CHECKSUM, runImageAnnouncementsMigration } from "./image-announcements-production-migration.mjs";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 import { buildAuditPreviewMigrationSql } from "./audit-preview-migrations.mjs";
 
@@ -326,6 +327,7 @@ export const SPA_MEMBER_STAFF_RELEASE_TARGET =
   "spa_member_staff_release_20260914";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
+  IMAGE_ANNOUNCEMENTS_MIGRATION,
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
@@ -524,6 +526,7 @@ function assertApprovedMigrationTarget(value) {
     abort("migration_target_rejected");
   }
   const targetFiles = {
+    [IMAGE_ANNOUNCEMENTS_MIGRATION]: [IMAGE_ANNOUNCEMENTS_MIGRATION_FILE, IMAGE_ANNOUNCEMENTS_CHECKSUM],
     [PAYMENT_SPLIT_MIGRATION]: [PAYMENT_SPLIT_MIGRATION_FILE, PAYMENT_SPLIT_CHECKSUM],
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
@@ -1231,6 +1234,15 @@ async function main() {
     datasources: { db: { url: process.env.DIRECT_URL } },
   });
   try {
+    if (target === IMAGE_ANNOUNCEMENTS_MIGRATION) {
+      try {
+        await runImageAnnouncementsMigration(prisma, runPrisma, log);
+      } catch (error) {
+        if (error instanceof Error && /^image_announcements_[a-z_]+$/.test(error.message)) abort(error.message);
+        throw error;
+      }
+      return;
+    }
     if (target === HUMAN_SUPPORT_SUMMARY_MIGRATION) {
       await runHumanSupportSummaryMigration(prisma);
       return;

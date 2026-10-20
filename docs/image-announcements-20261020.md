@@ -45,3 +45,5 @@
 **跨模組補驗**：運動／音樂各自的真實登入、上傳與會員首頁公告流程共 10 項通過，並修正課程後台路由限制。詳見 [跨模組補驗報告](verification/image-announcements-modules-20261020.md)。真實 LINE App 仍缺測試部署與裝置，未標記通過。
 
 **既有預覽補驗**：蒸足共用 LIFF 首頁、運動及音樂 CoursePortal，經既有前台／裝置預覽完成 15 個實際流程及 41 項回歸測試；不需新增 LIFF 即可驗證公告呈現與操作。詳見 [預覽驗收報告](verification/image-announcements-preview-20261020.md)。此結果仍不涵蓋 LINE SDK 登入及 LINE App 裝置實測。
+
+**正式遷移流程已補齊**：既有 production migration target 新增 `20261020100000_image_announcements`，具備精確 pending／checksum、併發鎖、schema／RLS／ledger 驗證與安全重跑。新版候選 SQL 加上交易及 PUBLIC 撤權。9 項 PostgreSQL／真實 Prisma CLI 演練與 51 項相關回歸通過；正式環境的連線與歷史尚未操作。發布與回退順序見 [正式遷移發布文件](verification/image-announcements-production-release-20261020.md)。

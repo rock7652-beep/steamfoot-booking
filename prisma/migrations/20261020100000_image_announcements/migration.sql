@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE "ImageAnnouncementSet" (
   "storeId" TEXT PRIMARY KEY REFERENCES "Store"("id") ON DELETE CASCADE,
   "revision" INTEGER NOT NULL DEFAULT 0,
@@ -15,6 +17,7 @@ CREATE INDEX "ImageAnnouncementAsset_storeId_idx" ON "ImageAnnouncementAsset"("s
 -- schedules. Public delivery must go through the schedule-aware application API.
 ALTER TABLE "ImageAnnouncementSet" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "ImageAnnouncementAsset" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE "ImageAnnouncementSet", "ImageAnnouncementAsset" FROM PUBLIC;
 DO $$
 DECLARE role_name text;
 BEGIN
@@ -24,3 +27,5 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+COMMIT;
