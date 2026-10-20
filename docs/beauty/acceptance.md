@@ -2,6 +2,8 @@
 
 基準 main：`c90f82df778da7c52e8716f8a6f3b6d0bb238593`。支線 `feat/beauty-module-20261020`，工作目錄 `/workspace/steamfoot-beauty`；原工作目錄 `/workspace/steamfoot-booking` 未改檔案／支線。沒有 cherry-pick 或更新其他任務的 PR。
 
+以下原始紀錄屬於 `3433cf1` 的首輪交付。2026-10-20 後續已依使用者授權完成專用真實 PostgreSQL 與實際 Next 三端驗收，見 [隔離整合驗收](live-acceptance.md)。這些新證據補足部分舊缺口，不代表正式啟用、正式 schema 相容、真實 LINE OAuth／通知送達或全部上線前驗收完成。
+
 ## 已有程式與本機證據
 
 - **三端入口**：店長 `/s/{slug}/admin/dashboard/beauty`、會員 `/s/{slug}/beauty`、技師 `/s/{slug}/beauty?work=1`、公開體驗 `/beauty-trial/{slug}`。HQ 可選 BEAUTY，實際建立仍受環境開關與既有 HQ 權限限制。
