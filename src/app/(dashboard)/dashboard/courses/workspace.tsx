@@ -11,6 +11,7 @@ import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleFields} from "./sports-schedule-fields";
+import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
@@ -1897,8 +1898,12 @@ export function CourseWorkspace({
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
-                {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
-                <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
+                {editing.kind==="session" && <label className="col-span-full">{sportsNative ? "教學項目" : "課程項目"}<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
+                {compactSessionEdit && editing.kind === "session" ? <SportsSessionNameField
+                  defaultName={editing.value.nameSnapshot}
+                  originalTemplateName={courseTemplateLabel(allTemplates.find(t => t.id === editing.value.templateId) ?? {name: editing.value.nameSnapshot})}
+                  templateName={courseTemplateLabel(allTemplates.find(t => t.id === (editTemplateId || editing.value.templateId)) ?? {name: editing.value.nameSnapshot})}
+                /> : <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
                   {editing.kind === "room" ? "空間名稱" : "課程名稱"}{businessProfile!=="MUSIC"&&" *"}
                   <input
                     className={field}
@@ -1911,7 +1916,7 @@ export function CourseWorkspace({
                         : editing.value.name
                     }
                   />
-                </label>
+                </label>}
                 {editing.kind === "template" && (businessProfile === "MUSIC" ? <ClassType value={editing.value.classType} required={copyTemplate}/> : <FitnessClassField classType={editing.value.classType} trialMode={editing.value.musicTrialMode} locked={!copyTemplate && editing.value.hasSessions}/>)}
                 {editing.kind === "template" && businessProfile === "MUSIC" && <MusicCourseFields value={editing.value}/>}
                 {editing.kind !== "session" && businessProfile === "MUSIC" && (

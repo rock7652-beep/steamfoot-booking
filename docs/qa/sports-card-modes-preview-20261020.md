@@ -68,3 +68,17 @@ QA-課程 A、B 已出現在教學項目與 2026-10-20 課表，教練為驗收�
 `QA-課程A-1020 · 7bd42a` 的尾碼來自內部 sports_item／sports_rule 模板 ID，用於內部同名區分。新增共用呈現函式：只有當模板 ID 符合運動自動模板格式，且課名最後六碼與該 ID 完全相符時才隱藏尾碼。既有課表初次載入、背景刷新、編輯入口、會員選課／預約及授課頁共用判斷；新建立或複製排課也使用乾淨快照。保留模板 ID、模板內部名稱、既有歷史快照與財務欄位，不執行批次改名或 migration。非運動課、自訂名稱、不相符的十六進位尾碼與名稱中段內容保留。
 
 密度版本 8563ab5c 的 CI 39347837669 與隔離 Preview cx77udu03 已通過建置；新增尾碼修正後將另建兩項合併的隔離 Preview。尾碼修正 TypeScript、ESLint 及 6 檔 37 項相關回歸通過。React 檢查：不新增請求或逐筆查詢，不引入 client state／effect，不更動業務授權與傳輸範圍。實際登入畫面與觸控仍待補驗。
+
+### 密度與課名合併版部署結果
+
+- 提交：`fcbd486e5ffae1853316e8e156b501b7959ea64e`。
+- Preview READY：`https://steamfoot-booking-3mtg3ixg6-rock7652-2111s-projects.vercel.app`，部署 ID `dpl_Axj6FjSWhXFHGVrmQ8yA9E9v3TZU`。API target=null（Preview），來源 SHA 已核對。
+- 建置日誌確認 `isolated_database=true migrations_skipped=true notifications_blocked=true`；編譯與建置通過，未改動資料庫或正式站。
+- [完整 CI 39348365607](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/39348365607)：1133 檔、11139 項通過；18 檔、141 項跳過。Typecheck、指定測試、ESLint 全通過；運動隔離 PostgreSQL 39348365550 與音樂隔離資料庫 39348365559 通過。
+- 桌機／iPad 實際免捲動、窄容器、會員手機與登入交易仍待補驗；不得沿用舊 Preview 畫面判定本版本視覺通過。舊部署不可變，需開啟新網址核對。
+
+### 自訂課名收合（2026-10-20）
+
+使用者回報尾碼已移除，接續要求把重複課名收合。運動單堂編輯的主要欄位改稱「教學項目」，課名改為預設關閉的「自訂課名（選填）」。沒有自訂值時沿用目前所選教學項目；已有自訂值在摘要顯示並保留，清空恢復自動名稱。切換教學項目不卸載輸入、不清掉自訂草稿。原有後端名稱必填與授權、排課及扣抵規則保留；表單以隱藏欄位提交完整名稱，不新增空白名稱例外。新增運動排課原本即不要求填課名，維持既有流程。
+
+保留同一 RightSheet 與未儲存保護，依實際容器寬度排列選填展開入口，字級與 44px 操作尺寸保留。React 檢查未新增請求／effect；只有自訂草稿使用元件狀態，項目預設名直接由 props 推導。TypeScript、變更 ESLint 及 4 檔 16 項相關測試通過，其中 3 項實際表單測試涵蓋自動沿用／切換項目、既有自訂名保留、清空恢復。這些是 DOM 與提交值證據，非桌機／iPad 視覺或登入交易驗收。新版 Preview 與最新 CI 以 PR 結果為準。

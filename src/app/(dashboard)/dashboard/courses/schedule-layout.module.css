@@ -30,7 +30,8 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
-  .sessionEditForm > fieldset > label {
+  .sessionEditForm > fieldset > label,
+  .sessionEditForm > fieldset > details:has([name="customName"]) {
     grid-column: span 3;
   }
 
