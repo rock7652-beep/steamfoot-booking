@@ -30,3 +30,5 @@
 React 檢查：只共用純字串格式化，沒有新請求、effect、逐筆查詢或 state；字級、44px 操作、容器與 RWD 結構未變。既有桌機／平板／會員版面證據沿用；本輪不重跑購買、報名、點名或還點。最新 Preview、完整 CI 及登入後畫面限制以 Draft PR #1366 記錄為準。
 
 本次完整 TypeScript、全部變更 TS／TSX 的 ESLint 與 git diff --check 通過。
+
+首輪完整 CI 39363630799 的 workflow 總狀態 success，但 Full Vitest baseline 子工作失敗：1 項舊音樂教師費編輯測試要求手動課名保留 a91caf，與使用者全站清理的最新規則衝突；其他 11151 項通過、141 項跳過。已同步該預期並補核對原始 props 名稱未改、手動課程仍按 manual ID 獨立選取；不把 workflow 綠燈當成全套通過。首輪 Preview 3qmho43vz 已 READY，隔離守衛確認；後續只有測試／紀錄變更，應用碼相同，完整 CI 以 PR 最新結果為準。

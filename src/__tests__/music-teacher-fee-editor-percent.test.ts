@@ -66,9 +66,12 @@ it("hides generated course codes while keeping same-name course selection indepe
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
   const labels=Array.from(host.querySelectorAll("label"));
   expect(labels.slice(0,2).map(l=>l.textContent)).toEqual(["吉他 · 個別課 4堂","吉他 · 個別課 4堂"]);
-  expect(labels[2].textContent).toBe("自訂課程 · a91caf");
+  expect(labels[2].textContent).toBe("自訂課程");
+  expect(props.templates[2].name).toBe("自訂課程 · a91caf");
   await act(async()=>labels[1].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
   expect(onQualification).toHaveBeenLastCalledWith("version",true);
+  await act(async()=>labels[2].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  expect(onQualification).toHaveBeenLastCalledWith("manual",true);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it("keeps selected historical qualifications and limits batch selection to the visible current list",async()=>{
