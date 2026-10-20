@@ -55,7 +55,8 @@ it("sports settings category changes do not refresh the server tree; normal guid
 
 it("sports modal badges match the reordered coach and fee steps without changing music",async()=>{
  for(const [step,path,query,label] of [
-  ["coach","/s/sports/admin/dashboard/teachers","setupStep=coach&setupFlow=sports","第 4/6 步"],
+  ["coach","/s/sports/admin/dashboard/teachers","setupStep=coach&setupFlow=sports","第 3/6 步"],
+  ["course","/s/sports/admin/dashboard/courses","view=catalog&setupStep=course&setupFlow=sports","第 4/6 步"],
   ["plan","/s/sports/admin/dashboard/courses","view=plans&setupStep=plan&setupFlow=sports","第 5/6 步"],
   ["plan","/s/music/admin/dashboard/courses","view=plans&setupStep=plan","第 4/6 步"],
  ] as const){
@@ -63,4 +64,19 @@ it("sports modal badges match the reordered coach and fee steps without changing
   await act(async()=>root.render(createElement(CourseSetupStepBadge,{step})));
   expect(host.textContent).toBe(label);
  }
+});
+
+it("continues from a new coach to item qualifications, then to either pricing mode",async()=>{
+ m.pathname="/s/sports/admin/dashboard/teachers";m.search="setupStep=coach&setupFlow=sports";
+ const render=async(coaches:number,subjects:number,qualifiedCoaches:number)=>act(async()=>root.render(createElement(CourseSetupGuide,{steps:courseSetupSteps({...counts,rooms:1,coaches,subjects,qualifiedCoaches},false,true),preference:{mode:"show"},login:"test"})));
+ await render(0,0,0);
+ expect(host.textContent).toContain("第 3/6 步 · 新增教練");
+ await render(1,0,0);
+ expect(host.querySelector<HTMLAnchorElement>('a[href*="view=catalog"]')?.getAttribute("href")).toContain("action=create&setupStep=course&setupFlow=sports");
+ m.pathname="/s/sports/admin/dashboard/courses";m.search="view=catalog&setupStep=course&setupFlow=sports";
+ await render(1,1,0);
+ expect(host.textContent).toContain("設定教學項目的授課教練");
+ expect(host.querySelector<HTMLAnchorElement>('a[href*="view=catalog"]')?.getAttribute("href")).not.toContain("action=create");
+ await render(1,1,1);
+ expect(host.querySelector<HTMLAnchorElement>('a[href*="view=plans"]')?.getAttribute("href")).toContain("action=create&setupStep=plan&setupFlow=sports");
 });

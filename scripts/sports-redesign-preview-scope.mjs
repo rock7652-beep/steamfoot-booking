@@ -1,7 +1,8 @@
 import { isSportsSharedCardIsolatedConnection } from './sports-shared-card-preview-scope.mjs';
 export const SPORTS_REDESIGN_PREVIEW_BRANCH = 'codex/sports-redesign-staging-20261018';
 export const SPORTS_CARD_MODES_PREVIEW_BRANCH = 'fix/sports-item-and-universal-cards-20261020';
-const previewBranches=[SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH];
+export const SPORTS_OPENING_GUIDE_PREVIEW_BRANCH = 'fix/sports-common-opening-guide-20261020';
+const previewBranches=[SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH];
 /** Deployment opt-in is separate from the unchanged localhost QA boundary. */
 export function assertSportsRedesignPreviewEnvironment(env) {
   if (env.SPORTS_REDESIGN_STAGING !== '1' || env.SPORTS_REDESIGN_PREVIEW !== '1' ||
