@@ -115,3 +115,13 @@ it("captures each new hourly class independently without multiplying by pupils",
  expect(m.snapshot).toHaveBeenCalledTimes(8);
  expect(m.snapshot.mock.calls[0][0].create).toMatchObject({storeId:"store",rule:{mode:"HOUR",value:600,calculationVersion:3,durationMinutes:90},revision:2});
 });
+
+it.each(["OPEN","ASSIGNED"] as const)("%s 新課次優先保存個別教練費率，未改共用預設",async enrollment=>{
+ const scheduled={...sessions[0],coachId:"coach",endsAt:new Date(sessions[0].startsAt.getTime()+90*60000)};
+ m.sessions.mockResolvedValue([scheduled]);
+ m.compensation.mockImplementation(async({where})=>({rules:[{mode:"HOUR",value:where.storeId_templateId_staffId.staffId?800:600}],revision:3}));
+ await attachSportsSessionRules(tx,actor,"request",{...rule,enrollment,students:[]},[scheduled.id]);
+ expect(m.snapshot).toHaveBeenCalledOnce();
+ expect(m.snapshot.mock.calls[0][0].create).toMatchObject({staffId:"coach",rule:{mode:"HOUR",value:800,source:"SPORTS_COACH_FEE",calculationVersion:3,durationMinutes:90}});
+ expect(m.reserve).not.toHaveBeenCalled();
+});

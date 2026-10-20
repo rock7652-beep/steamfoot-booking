@@ -330,6 +330,12 @@ export async function updateCourseSession(input: unknown) {
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
           await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
+        if (sportsNativePreview(storeId) && (data.coachId !== session.coachId || (data.templateId ?? session.templateId) !== session.templateId || +range.endsAt - +range.startsAt !== +session.endsAt - +session.startsAt)) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,session);
+          if(reason)throw new AppError("CONFLICT",reason);
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...session,...range,coachId:data.coachId,templateId:data.templateId??session.templateId},session.coachId,session.templateId);
+        }
         await tx.courseSession.update({
           where: { id: session.id, storeId },
           data: {
@@ -800,8 +806,8 @@ export async function moveCourseSessions(input: unknown) {
           },
         });
         if(native){
-          const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
-          if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
+          const { moveSportsCoachCompensation } = await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx, storeId, { ...change.session, coachId: d.coachId, startsAt: change.startsAt, endsAt: change.endsAt }, change.session.coachId);
         }
         const committed=await tx.courseSession.update({
           where: { id: change.session.id },
@@ -1084,7 +1090,13 @@ export async function updateCourseSeries(input: unknown) {
         where: { storeId, id: { in: sessions.map((s) => s.id) } },
         data: { cancelledAt: new Date() },
       });
-      for (const c of changes)
+      for (const c of changes) {
+        if (sportsNativePreview(storeId) && (d.coachId !== c.session.coachId || (d.templateId ?? c.session.templateId) !== c.session.templateId || +c.endsAt - +c.startsAt !== +c.session.endsAt - +c.session.startsAt)) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,c.session);
+          if(reason)throw new AppError("CONFLICT",reason);
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...c.session,startsAt:c.startsAt,endsAt:c.endsAt,coachId:d.coachId,templateId:d.templateId??c.session.templateId},c.session.coachId,c.session.templateId);
+        }
         await tx.courseSession.update({
           where: { id: c.session.id },
           data: {
@@ -1099,6 +1111,7 @@ export async function updateCourseSeries(input: unknown) {
             cancelledAt: null,
           },
         });
+      }
       return changes
         .filter(change => d.capacity > change.session.capacity)
         .map(change => change.session.id);

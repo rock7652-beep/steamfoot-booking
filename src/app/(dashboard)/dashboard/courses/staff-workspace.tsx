@@ -1,4 +1,6 @@
 "use client";
+import { SportsCoachFeeFields } from "@/components/admin/sports-coach-fee-fields";
+import { compensationRule } from "@/lib/course-compensation";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
@@ -71,6 +73,7 @@ const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
   sportsNative=false,
+  sportsDefaultFees:initialSportsDefaultFees=[],
   initialCreate=false,
   previewStoreId,
   counterpartChoices:sourceCounterpartChoices=[],
@@ -94,6 +97,7 @@ export function CourseStaffWorkspace({
 }: {
   initialCreate?:boolean;
   sportsNative?:boolean; previewStoreId?: string;
+  sportsDefaultFees?:{templateId:string;rules:unknown}[];
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
   teacherChoices?:{id:string;name:string}[];
@@ -177,6 +181,7 @@ export function CourseStaffWorkspace({
   const [selectedCustomerId,setSelectedCustomerId]=useState("");
   const [linePickerOpen,setLinePickerOpen]=useState(true);
   const [teachingDirty,setTeachingDirty]=useState(false);
+  const [sportsDefaults,setSportsDefaults]=useState(initialSportsDefaultFees);
   const [fees,setFees]=useState<Record<string,TeacherFeeDraft>>({});
   const [musicSettings,setMusicSettings]=useState<MusicTeacherSettings>({defaultRatio:null,subjectRules:{},revision:0});
   const [teachingVersion,setTeachingVersion]=useState<string>();
@@ -201,11 +206,20 @@ export function CourseStaffWorkspace({
     readTeaching.read(person.id).then(result => {
       if (!active) return;
       if (!result.success) { setFeesError(result.error); return; }
-      const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => [f.templateId, {
-        mode: !f.rules.length ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
-        value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
-        revision: f.revision,
-      }]));
+      const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => {
+        if (sportsNative) {
+          if (!f.rules.length) return [f.templateId,{mode:"INHERIT",value:"",revision:f.revision}];
+          const parsed=compensationRule.safeParse(f.rules.length===1?f.rules[0]:null);
+          if(!parsed.success)throw new Error("教練計酬設定待核對");
+          return [f.templateId,{mode:parsed.data.mode,value:String(parsed.data.value),revision:f.revision}];
+        }
+        return [f.templateId, {
+          mode: !f.rules.length ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
+          value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
+          revision: f.revision,
+        }];
+      }));
+      if(sportsNative)setSportsDefaults(result.defaults??[]);
       const loadedSettings=result.musicSettings??{defaultRatio:null,subjectRules:{},revision:0};
       for(const template of templates){const draft=loadedFees[template.id];const subjectRule=template.musicSubjectId?loadedSettings.subjectRules[template.musicSubjectId]:undefined;if(result.qualificationIds.includes(template.id)&&draft?.mode==="INHERIT"&&subjectRule)loadedFees[template.id]={...draft,mode:subjectRule.mode==="SHARE"?"SHARE":"CLASS",value:String(subjectRule.value)};}
       setFees(loadedFees);
@@ -215,7 +229,7 @@ export function CourseStaffWorkspace({
       setFeesReady(true);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
-  }, [open, tab, feesReady, person, canManage, reloadFees, music, feeEnabled, templates, readTeaching]);
+  }, [open, tab, feesReady, person, canManage, reloadFees, music, sportsNative, feeEnabled, templates, readTeaching]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const order=useCourseDisplayOrder("staff",staff,displayOrder,canManage&&!search&&filter==="all"&&role==="all"&&!hideTestData&&!busyIds.length,p=>p.active);
@@ -251,7 +265,7 @@ export function CourseStaffWorkspace({
     setAvailabilityGuard({dirty:false,pending:false});setScheduleVisited(false);setAvailabilityVisited(false);
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
-    setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");setInvalidTemplateId(undefined);
+    setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setSportsDefaults(initialSportsDefaultFees);setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");setInvalidTemplateId(undefined);
     setSelectedCustomerId(p?.customerId??"");setLinePickerOpen(!p?.customerId);setConfirmDiscard(false);
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage || p?.canEdit === false);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
@@ -447,7 +461,7 @@ export function CourseStaffWorkspace({
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
                       phone: d.get("phone"),
-                      defaultClassFee:!music&&kind==="coach"&&feeEnabled&&canEditFees&&(!person||defaultFeeDirty) ? (d.get("defaultClassFee") ? Number(d.get("defaultClassFee")) : null) : undefined,
+                      defaultClassFee:!music&&!sportsNative&&kind==="coach"&&feeEnabled&&canEditFees&&(!person||defaultFeeDirty) ? (d.get("defaultClassFee") ? Number(d.get("defaultClassFee")) : null) : undefined,
                       contactEmail: kind === "coach" ? d.get("contactEmail") : undefined,
                       emergencyContactName: d.get("emergencyContactName"),
                       emergencyContactPhone: d.get("emergencyContactPhone"),
@@ -511,18 +525,19 @@ export function CourseStaffWorkspace({
 
                   {!music&&<div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium text-primary-900">{feeEnabled?"授課課程／費用":"可教授課程"}</h3><span className="text-sm text-earth-500">僅套用新課次 · 已選 {qualificationIds.length} 門</span></div>}
 
-                  {!music && feeEnabled && canEditFees && <label className="grid items-center gap-x-3 text-sm sm:grid-cols-[12rem_12rem_1fr]">預設授課費（元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""} onChange={()=>{setDefaultFeeDirty(true);setTeachingDirty(true);}}/><span className="text-sm text-earth-500">留空沿用預設；0 不計費。</span></label>}
+                  {!music && !sportsNative && feeEnabled && canEditFees && <label className="grid items-center gap-x-3 text-sm sm:grid-cols-[12rem_12rem_1fr]">預設授課費（元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""} onChange={()=>{setDefaultFeeDirty(true);setTeachingDirty(true);}}/><span className="text-sm text-earth-500">留空沿用預設；0 不計費。</span></label>}
 
+                  {sportsNative && feeEnabled && <p className="text-sm text-earth-600">教練預設沿用教學項目設定；有個別設定時優先套用。修改僅影響新排課，既有課次保留原費率。</p>}
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   {!music&&<div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">目前課程</option><option value="other">包含其他項目</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>}
                   {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} invalidTemplateId={invalidTemplateId} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setInvalidTemplateId(undefined);setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
-                      return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3">
+                      return <div key={t.id} className={sportsNative?"grid grid-cols-1 items-center gap-x-3 px-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)]":"grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3"}>
                         <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{courseTemplateLabel(t)}{t.currentTeaching===false&&<span className="text-earth-500">（{t.isActive===false?"停用":"未販售"}）</span>}</label>
 
-                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+                        {selected && feeEnabled && sportsNative ? <SportsCoachFeeFields name={courseTemplateLabel(t)} draft={fees[t.id]} defaultRules={sportsDefaults.find(f=>f.templateId===t.id)?.rules} disabled={!canEditFees} onChange={value=>setFees(old=>({...old,[t.id]:value}))}/> : selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
                       </div>;
                     })}
