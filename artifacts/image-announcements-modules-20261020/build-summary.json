@@ -1,0 +1,8 @@
+{
+  "exitCode": 0,
+  "runtime": "isolated local production build",
+  "compileSeconds": 53,
+  "staticPages": 230,
+  "applicationChange": "Course dashboard route allowlist admits image-announcements",
+  "warnings": "Existing Prisma dynamic path asset trace warnings"
+}

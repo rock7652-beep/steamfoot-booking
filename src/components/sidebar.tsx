@@ -855,6 +855,7 @@ export default function DashboardShell({
       { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
       { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
     );
+    management.push({ ...entry("/dashboard/settings"), href: "/dashboard/image-announcements", label: "圖片公告", permission: "business_hours.view", requiredFeature: undefined });
     if (!course || canOpenCourseSettings) management.push({
       ...entry("/dashboard/settings"),
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
