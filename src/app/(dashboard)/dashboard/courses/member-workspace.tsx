@@ -348,7 +348,7 @@ export function CourseMemberWorkspace({
         {canAssign && ((view === "customers"&&!sportsNative) || (view === "plans"&&planArea === "cards")) && (
           <button
             className={button}
-            disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
+            disabled={(view === "customers" && !people.length) || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
             購買方案

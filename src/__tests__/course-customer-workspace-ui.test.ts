@@ -10,7 +10,7 @@ vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),cou
 vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));
 vi.mock("@/server/actions/course-customer-note", () => ({ saveCourseCustomerNote: vi.fn() }));
 vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservations:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false,scoped:false})}));
-vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false})}));
+vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),loadCourseCustomerSearchIndex:vi.fn().mockResolvedValue({success:true,rows:[],complete:true})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
 const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
@@ -18,7 +18,7 @@ vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:(
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:vi.fn(),setCourseCardMembers:vi.fn()}));
+vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:vi.fn(),setCourseCardMembers:vi.fn(),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
 vi.mock("@/server/actions/course-staff",()=>({saveCourseStaff:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
@@ -57,6 +57,33 @@ it("separates plan products and held plans into compact views",async()=>{
  expect(host.querySelector('input[placeholder="搜尋方案／共卡成員"]')).not.toBeNull();
  expect([...host.querySelectorAll("button")].map(button=>button.textContent)).toContain("購買方案");
  expect(host.textContent).not.toContain("單位價格");
+});
+
+it.each([false,true])("opens plan checkout without preloaded customers (music=%s)",async music=>{
+ const plans=[{id:"plan",name:"驗收方案",points:10,price:100,validDays:90,isActive:true,unit:music?"SESSION":"POINT",templateIds:[]}];
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",sportsNative:!music,music,people:[],plans})));
+ await click("顧客持有方案");
+ const purchase=[...host.querySelectorAll("button")].find(b=>b.textContent==="購買方案")!;
+ expect(purchase.disabled).toBe(false);
+ await click("購買方案");
+ expect(host.querySelector('input[aria-label="搜尋顧客姓名、電話或 LINE 名稱"]')).not.toBeNull();
+ const form=host.querySelector<HTMLFormElement>('#course-member-form')!;
+ expect(form).not.toBeNull();
+ expect(form.checkValidity()).toBe(false);
+});
+
+it("keeps checkout disabled when there are no active plans",async()=>{
+ const plans=[{id:"plan",name:"下架方案",points:10,price:100,validDays:90,isActive:false,unit:"POINT",templateIds:[]}];
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",sportsNative:true,people:[],plans})));
+ await click("顧客持有方案");
+ expect([...host.querySelectorAll("button")].find(b=>b.textContent==="購買方案")!.disabled).toBe(true);
+});
+
+it("does not expose plan checkout without assignment permission",async()=>{
+ const plans=[{id:"plan",name:"驗收方案",points:10,price:100,validDays:90,isActive:true,unit:"POINT",templateIds:[]}];
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",people:[],plans,canAssign:false})));
+ await click("顧客持有方案");
+ expect([...host.querySelectorAll("button")].some(b=>b.textContent==="購買方案")).toBe(false);
 });
 
 it("keeps the customer shell and navigation stable across internal pages",async()=>{
