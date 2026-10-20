@@ -6,7 +6,11 @@ it("migration preserves stores, isolates binary assets and cascades only the del
   const db = new PGlite();
   try {
     await db.exec('CREATE TABLE "Store" (id TEXT PRIMARY KEY); INSERT INTO "Store" VALUES (\'a\'), (\'b\');');
+    await db.exec('CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO anon, authenticated;');
     await db.exec(readFileSync("prisma/migrations/20261020100000_image_announcements/migration.sql", "utf8"));
+    const access = await db.query<{name:string;rls:boolean;anon:boolean;authenticated:boolean}>(`SELECT relname AS name, relrowsecurity AS rls, has_table_privilege('anon', oid, 'SELECT') AS anon, has_table_privilege('authenticated', oid, 'SELECT') AS authenticated FROM pg_class WHERE relname IN ('ImageAnnouncementSet','ImageAnnouncementAsset')`);
+    expect(access.rows).toHaveLength(2);
+    for (const row of access.rows) { expect(row.rls).toBe(true); expect(row.anon).toBe(false); expect(row.authenticated).toBe(false); }
     await db.query('INSERT INTO "ImageAnnouncementSet" ("storeId", items) VALUES ($1, $2::jsonb)', ['a', JSON.stringify([{ id: 'image-a' }])]);
     await db.query('INSERT INTO "ImageAnnouncementAsset" (id, "storeId", content, "mimeType") VALUES ($1, $2, $3, $4)', ['image-a', 'a', new Uint8Array([1, 2]), 'image/jpeg']);
     await db.query('INSERT INTO "ImageAnnouncementAsset" (id, "storeId", content, "mimeType") VALUES ($1, $2, $3, $4)', ['image-b', 'b', new Uint8Array([3]), 'image/jpeg']);

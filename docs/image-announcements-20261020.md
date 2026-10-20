@@ -22,7 +22,7 @@
 
 ## Migration 與回退
 
-新增 `ImageAnnouncementSet`（門市 JSON 排程與版本）及 `ImageAnnouncementAsset`（JPEG 二進位），外鍵指向 Store 並在刪除該店時 cascade。最多 5 張限制由寫入 API 與門市交易鎖保證；沒有修改既有營業或預約資料。
+新增 `ImageAnnouncementSet`（門市 JSON 排程與版本）及 `ImageAnnouncementAsset`（JPEG 二進位），外鍵指向 Store 並在刪除該店時 cascade。兩表啟用 RLS，並對存在的 anon／authenticated 角色撤權，來源圖片與未發布排程只能由後端讀取。最多 5 張限制由寫入 API 與門市交易鎖保證；沒有修改既有營業或預約資料。
 
 本次**沒有連接正式資料庫，沒有執行正式 migration，沒有部署或合併**。分支 `feat/image-announcements` 在 Next 設定及 migration runner 開頭阻擋 hosted build；建立 PR 不會啟動資料庫遷移。正式發布前須另完成授權環境的登入與資料庫流程驗收，再取得合併授權。
 
@@ -37,6 +37,7 @@
 - 另驗 JPG／PNG 壓縮上傳、最多 5 張、唯讀、每 6 秒切換、手動與碰觸暫停、滑動切換，以及改變尺寸後日期草稿保留。2026-10-20 優化另測滿寬原始比例、不同長寬比例輪播高度穩定，未上傳及全部停用時隱藏整個公告區，以及既有課程底部導覽 CSS 的可見與可點擊狀態（導覽事件為 fixture stub，並非真實頁面切換驗收）。
 - 圖片、結果紀錄位於 `artifacts/image-announcements-20261020/`，fixture 使用合成圖片與假的 API。
 
-**限制**：這是本機隔離元件 Preview，不是完整登入後的業務驗收；未驗實體 iPad、Safari、真實 LINE LIFF、正式資料庫、正式部署及完整 Next production build。API 測試使用授權／資料庫 adapter mocks；migration 另由 PGlite 執行。尚不能宣稱真正顧客預約流程已全部驗收。
+**補充驗收**：已新增本機真實登入、Next API、PostgreSQL 與正式版編譯驗收，細節及剩餘限制見 [獨立驗收報告](verification/image-announcements-live-20261020.md)。共用元件 fixture 仍不能代替真實 LINE App／實體 iPad／Safari 或各模組完整業務驗收；沒有執行正式部署或正式資料庫 migration。
+
 
 重現：`node scripts/qa/image-announcements-browser.mjs`（需要 Playwright 與 Chromium；可設定 `QA_PLAYWRIGHT_MODULE`，預設目前雲端工具路徑）。
