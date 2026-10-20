@@ -1,6 +1,6 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
-import { presentCourseTemplates } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, sportsCourseName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -400,6 +400,7 @@ export default async function CoursesPage({
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={[...sessions.map((s) => ({
           ...s,
+          nameSnapshot: sportsCourseName(s.nameSnapshot, s.templateId),
           sportsPalette:sportsNative,
           isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):biweeklyKeys.has(s.requestKey),

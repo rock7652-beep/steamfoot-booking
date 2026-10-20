@@ -1,4 +1,5 @@
 "use server";
+import { sportsCourseName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
@@ -602,7 +603,7 @@ export async function createCourseSchedule(input: unknown) {
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? sportsPlanName?.name ?? template.name,
+            nameSnapshot: sportsCourseName(source?.nameSnapshot ?? sportsPlanName?.name ?? template.name, template.id),
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
