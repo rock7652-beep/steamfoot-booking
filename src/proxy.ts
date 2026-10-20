@@ -1,4 +1,5 @@
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
+import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
 import { retiredStoreResponse } from "@/lib/retired-store-response";
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
@@ -575,7 +576,7 @@ function storeRewrite(
 ): NextResponse {
   const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
     ? "/cash-drawer-panel" : internalPath;
-  const url = new URL(panelPath, req.url);
+  const url = beautySandboxRewriteUrl(panelPath, req.url, req.headers.get('x-forwarded-proto'), process.env);
   url.search = req.nextUrl.search;
 
   // Forward x-store-slug + x-next-pathname 給 internal request，
@@ -624,7 +625,7 @@ function hqRewrite(
 ): NextResponse {
   const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
     ? "/cash-drawer-panel" : internalPath;
-  const url = new URL(panelPath, req.url);
+  const url = beautySandboxRewriteUrl(panelPath, req.url, req.headers.get('x-forwarded-proto'), process.env);
   url.search = req.nextUrl.search;
   const requestHeaders = nonStoreRequestHeaders(req);
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });

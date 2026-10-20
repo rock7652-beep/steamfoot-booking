@@ -1,12 +1,14 @@
 /** Synthetic accounts only. Refuses remote/shared databases before constructing clients. */
 import { assertBeautyLocalQaEnvironment } from '../beauty-local-qa-scope.mjs';
+import { assertBeautySandboxQaEnvironment } from '../beauty-sandbox-qa-scope.mjs';
 import { PrismaClient } from '@prisma/client';
 import { PrismaClient as BeautyClient } from '../../generated/beauty-client';
 import { PrismaClient as CourseClient } from '../../generated/course-client';
 import { hashSync } from 'bcryptjs';
 import { toLocalDateStr } from '../../src/lib/date-utils';
 async function main() {
-assertBeautyLocalQaEnvironment(process.env);
+if(process.env.BEAUTY_SANDBOX_QA === '1') assertBeautySandboxQaEnvironment(process.env);
+else assertBeautyLocalQaEnvironment(process.env);
 const db = new PrismaClient(), beauty = new BeautyClient(), course = new CourseClient();
 try {
   const [role] = await db.$queryRaw<Array<{safe:boolean}>>`SELECT NOT rolsuper AND NOT rolbypassrls AS safe FROM pg_roles WHERE rolname=current_user`;

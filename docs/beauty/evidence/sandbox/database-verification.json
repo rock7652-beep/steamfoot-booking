@@ -1,0 +1,37 @@
+{
+  "synthetic": true,
+  "runId": "303655",
+  "backend": {
+    "role": "beauty_1374_app",
+    "safe": true,
+    "version": "PostgreSQL 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, 64-bit"
+  },
+  "rlsTables": 13,
+  "items": [
+    {
+      "serviceName": "做臉",
+      "status": "RESERVED",
+      "groupId": "cmvgvjmus0013lcgowfp5b0es",
+      "duration": 60,
+      "buffer": 15,
+      "technicianId": "beauty-1374-female"
+    },
+    {
+      "serviceName": "按摩",
+      "status": "RESERVED",
+      "groupId": "cmvgvjmus0013lcgowfp5b0es",
+      "duration": 90,
+      "buffer": 0,
+      "technicianId": "beauty-1374-male"
+    },
+    {
+      "serviceName": "做臉",
+      "status": "COMPLETED",
+      "groupId": "cmvgvjse3001blcgolshrela5",
+      "duration": 60,
+      "buffer": 15,
+      "technicianId": "beauty-1374-female"
+    }
+  ],
+  "pendingNotifications": 0
+}

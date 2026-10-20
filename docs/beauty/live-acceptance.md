@@ -1,5 +1,7 @@
 # 美業隔離整合驗收（2026-10-20）
 
+本頁記錄當時的本機隔離驗收；後續的對外 HTTPS 入口、時效與真實 LINE 缺項請見 [專用 Sandbox 測試站](sandbox-preview.md)。
+
 草稿 PR：[#1374](https://github.com/rock7652-beep/steamfoot-booking/pull/1374)。本輪接續 `3433cf196e0daee43593c91b5e41739311840028`，仍使用 `feat/beauty-module-20261020` 獨立工作目錄。原工作目錄仍為乾淨的 `work` 支線。
 
 ## 證據與界線
@@ -50,4 +52,4 @@
 - **正式已啟用：否。** 正式 schema 差異、既有 RLS／triggers／backend role、PostgreSQL 17／Supabase pooler 與正式 migration 順序仍需另外驗證。
 - 真實 LINE OAuth／LIFF 登入回傳、通道與配額、實際收件人送達及重試 TTL、台灣18:00明日提醒實機驗收仍未執行。合成加密 entry 只證明應用內連結解析、身分對應與消耗，不等於 LINE Login 成功。
 - 店長收款／核帳／退款／月結等 domain 流程有真實 DB 證據，但這輪未把每個帳務視窗都從瀏覽器逐項點完；所有低權限 action 偽造、子店唯讀、技師撤權、跨店 entry、較大資料量與實體 iOS Safari 仍待補驗。
-- **外部可開啟測試網址：尚未提供。** 現有 preview 是共用庫，本輪沒有把美業 SQL 放進共用庫，亦未建立可公開連線的獨立 hosted DB。localhost 只供本執行環境使用，不能作為店家手機可開啟網址。hosted build 的本支線 migration／部署守衛保留；Cloudflare 自動建置被守衛拒絕，不宣稱全部 CI 綠燈。
+- **本機驗收當時未提供外部網址。** 後續已另外建立專用 Sandbox（見上方連結），沒有把美業 SQL 放入共用 preview；本頁 localhost 仍只供執行環境使用。hosted build 的本支線 migration／部署守衛保留；Cloudflare 自動建置被守衛拒絕，不宣稱全部 CI 綠燈。

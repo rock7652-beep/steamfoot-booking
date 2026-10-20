@@ -1,0 +1,26 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "synthetic": true,
+  "runId": "303655",
+  "results": [
+    {
+      "case": "外部 HTTPS 公開兩人不同服務預約成功",
+      "passed": true
+    },
+    {
+      "case": "真實後台登入、查看外部預約，手機／iPad／桌機無整頁溢出",
+      "passed": true
+    },
+    {
+      "case": "顧客使用真實手機密碼登入並預約",
+      "passed": true
+    },
+    {
+      "case": "技師由會員登入進我的工作、完成本人服務，顧客回讀完成狀態",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "transportErrors": [],
+  "nativeBrowserTls": true
+}

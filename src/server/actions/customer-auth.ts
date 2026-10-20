@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { Prisma } from "@prisma/client";
 import { compareSync, hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
@@ -37,12 +38,15 @@ export async function customerLoginAction(
     return { error: "請輸入手機號碼和密碼" };
   }
 
+  const landing = storeId && await getStoreIndustryModule(storeId) === "beauty"
+    ? "beauty" : "book";
+
   try {
     await signIn("customer-phone", {
       phone,
       password,
       storeId,
-      redirectTo: `/s/${storeSlug}/book`,
+      redirectTo: `/s/${storeSlug}/${landing}`,
     });
   } catch (e) {
     if (e instanceof AuthError) {
