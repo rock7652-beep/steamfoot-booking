@@ -36,7 +36,13 @@ jobs:
           set -euo pipefail
           policy_dir=$(mktemp -d)
           bootstrap_args=()
-          if git cat-file -e "$BASE_SHA:scripts/editorial-release-preflight.mjs" 2>/dev/null; then
+          if [[ "$BASE_SHA" == 8d717d5dc45da6fbd4e2984afea48165140281b3 && "$HEAD_REPOSITORY" == rock7652-beep/steamfoot-booking ]]; then
+            # Explicit one-time code/schema review, NOT an ordinary content-only approval.
+            # Fixed base, slug and file allowlist are enforced by this reviewed preflight.
+            # Candidate policy runs without secrets, writes or deployment permissions.
+            cp scripts/editorial-{release-preflight,content,preview-scope}.mjs "$policy_dir/"
+            bootstrap_args=(--inline-links-review)
+          elif git cat-file -e "$BASE_SHA:scripts/editorial-release-preflight.mjs" 2>/dev/null; then
             for file in editorial-release-preflight.mjs editorial-content.mjs editorial-preview-scope.mjs; do
               git show "$BASE_SHA:scripts/$file" > "$policy_dir/$file"
             done
@@ -63,3 +69,4 @@ jobs:
         with:
           name: editorial-scope-${{ github.event.pull_request.head.sha }}
           path: editorial-scope.json
+

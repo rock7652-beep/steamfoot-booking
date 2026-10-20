@@ -3,7 +3,9 @@ import { parseEditorialGuides } from "../../scripts/editorial-content.mjs";
 
 /** Public editorial content only. Keep authenticated operation manuals separate. */
 export type GuideCategory = "booking" | "customers" | "operations";
-export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[]; link?: { label: string; href: string } };
+export type GuideInlinePart = string | { label: string; href: string };
+export type GuideParagraph = string | { inlineParts: readonly GuideInlinePart[] };
+export type GuideSection = { heading: string; paragraphs: readonly GuideParagraph[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[]; link?: { label: string; href: string } };
 type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; publishedDate?: string; primaryKeyword?: string; featureLinkLabel?: string; featureUrl?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
@@ -1236,3 +1238,4 @@ export function guidePath(guide: Pick<PublicGuide, "id">): `/guides/${string}` {
 }
 
 export const PUBLISHED_GUIDE_PATHS = PUBLIC_GUIDES.filter(guide => guide.status === "published").map(guidePath);
+

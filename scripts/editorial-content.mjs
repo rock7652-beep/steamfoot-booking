@@ -22,6 +22,29 @@ function link(value) {
   text(value.label); href(value.href);
 }
 
+// Body links are data only: site-relative paths or absolute HTTPS URLs.
+// Keep the narrower, existing CTA/feature destination policy unchanged.
+function bodyLink(value) {
+  object(value, ["label", "href"], ["label", "href"]);
+  text(value.label); text(value.href);
+  const address = value.href;
+  if (/[\s\\<>\u0000-\u001f\u007f]/.test(address) || /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(address) ||
+      !(address.startsWith("/") && !address.startsWith("//") || address.startsWith("https://"))) fail();
+  let url;
+  try { url = new URL(address, "https://www.steamfoot.com"); } catch { fail(); }
+  if (url.protocol !== "https:" || !url.hostname || url.username || url.password) fail();
+}
+function paragraphs(value) {
+  if (!Array.isArray(value) || value.length > 100) fail();
+  for (const paragraph of value) {
+    if (typeof paragraph === "string") { text(paragraph); continue; }
+    object(paragraph, ["inlineParts"], ["inlineParts"]);
+    const parts = paragraph.inlineParts;
+    if (!Array.isArray(parts) || !parts.length || parts.length > 30) fail();
+    parts.forEach(part => typeof part === "string" ? text(part) : bodyLink(part));
+  }
+}
+
 // Parsed as JSON, never evaluated. Unknown keys and executable/configuration
 // changes are rejected separately by the trusted release preflight.
 export function parseEditorialGuides(value) {
@@ -44,7 +67,7 @@ export function parseEditorialGuides(value) {
     if (!Array.isArray(guide.sections) || !guide.sections.length || guide.sections.length > 30) fail();
     for (const section of guide.sections) {
       object(section, ["heading", "paragraphs", "bullets", "trailingParagraphs", "link"], ["heading", "paragraphs"]);
-      text(section.heading); texts(section.paragraphs);
+      text(section.heading); paragraphs(section.paragraphs);
       for (const key of ["bullets", "trailingParagraphs"]) if (section[key] !== undefined) texts(section[key]);
       if (section.link !== undefined) link(section.link);
     }
@@ -60,3 +83,4 @@ export function parseEditorialGuides(value) {
   }
   return value;
 }
+
