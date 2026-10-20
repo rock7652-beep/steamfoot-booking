@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsFeeSetup} from "@/lib/sports-staging-types";
 import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
@@ -887,7 +888,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
     const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true, coachId:true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
     const native=sportsNativePreview(storeId);
     const coaches=native?await prisma.staff.findMany({where:{storeId,id:{in:bookings.map(b=>b.session.coachId)}},select:{id:true,displayName:true}}):[];
-    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, absenceKind:b.absenceKind, coachName:coaches.find(c=>c.id===b.session.coachId)?.displayName, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? (native&&b.bookingKind!=="TRIAL"?"點名時核對方案":"體驗（不使用方案）"), expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
+    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, absenceKind:b.absenceKind, coachName:coaches.find(c=>c.id===b.session.coachId)?.displayName, name: courseDisplayName(b.session.nameSnapshot), date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? (native&&b.bookingKind!=="TRIAL"?"點名時核對方案":"體驗（不使用方案）"), expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
   } catch (e) { const failure=handleActionError(e);return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
 }
 

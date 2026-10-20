@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { coursePrisma } from "@/lib/course-db";
@@ -41,7 +42,7 @@ export async function loadCourseTeacherSession(sessionId: string, mode: "leave" 
     if (!s || s.coachId!==actor.staffId) throw new AppError("FORBIDDEN", "只能處理自己的課程");
     assertEditable(s);
     const waiting=await coursePrisma.courseWaitlistEntry.findMany({where:{storeId:actor.storeId,sessionId:s.id,status:"WAITING"},select:{id:true,customerName:true,updatedAt:true,cardId:true},orderBy:{id:"asc"}});
-    return { success:true as const, data:{ name:s.nameSnapshot, startsAt:s.startsAt.toISOString(), endsAt:s.endsAt.toISOString(), room:s.room.name, revision:revision(s,waiting), waiting:waiting.map(w=>({id:w.id,name:w.customerName})), students:s.bookings.filter(b=>b.status!=="CANCELLED" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(b.absenceKind??"")).map(b=>({id:b.id,name:b.customerName})) } };
+    return { success:true as const, data:{ name:courseDisplayName(s.nameSnapshot), startsAt:s.startsAt.toISOString(), endsAt:s.endsAt.toISOString(), room:s.room.name, revision:revision(s,waiting), waiting:waiting.map(w=>({id:w.id,name:w.customerName})), students:s.bookings.filter(b=>b.status!=="CANCELLED" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(b.absenceKind??"")).map(b=>({id:b.id,name:b.customerName})) } };
   } catch(error) { return handleCourseActionError(error); }
 }
 export async function changeCourseTeacherSession(input: unknown) {

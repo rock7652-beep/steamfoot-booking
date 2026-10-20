@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import {z} from "zod";
 import {coursePrisma} from "@/lib/course-db";
 import {prisma} from "@/lib/db";
@@ -19,7 +20,7 @@ export async function loadCourseStoreNotices(input:unknown) {
    coursePrisma.courseStoreNotice.findMany({where:{storeId,handledAt:d.handled?{not:null}:null},orderBy:d.handled?[{handledAt:"desc"},{id:"asc"}]:[{startsAt:"asc"},{createdAt:"asc"},{id:"asc"}],skip:d.offset,take:51}),
    coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}}),
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"booking.update")]);
-  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
+  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
   return {success:true as const,storeId,enabled:true,items,count,canHandle,more:rows.length>50};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
 }
@@ -43,7 +44,7 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
    prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
    coursePrisma.$queryRaw<Array<{displayName:string;phone:string|null}>>`SELECT "displayName",phone FROM "Staff" WHERE id=${session.coachId} AND "storeId"=${storeId}`,
   ]);
-  return {success:true as const,storeId,data:{id:session.id,courseName:session.nameSnapshot,startsAt:session.startsAt.toISOString(),capacity:session.capacity,coachId:session.coachId,roomId:session.roomId,roomName:session.room.name,teacherName:coaches[0]?.displayName??"未指派",teacherPhone:coaches[0]?.phone??"",classType:session.template.classType,musicLayout:!!music,canEdit:canEdit&&!session.cancelledAt,canCreate:canCreate&&!session.cancelledAt}};
+  return {success:true as const,storeId,data:{id:session.id,courseName:courseDisplayName(session.nameSnapshot),startsAt:session.startsAt.toISOString(),capacity:session.capacity,coachId:session.coachId,roomId:session.roomId,roomName:session.room.name,teacherName:coaches[0]?.displayName??"未指派",teacherPhone:coaches[0]?.phone??"",classType:session.template.classType,musicLayout:!!music,canEdit:canEdit&&!session.cancelledAt,canCreate:canCreate&&!session.cancelledAt}};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
 }
 export async function markCourseStoreNotice(input:unknown) {

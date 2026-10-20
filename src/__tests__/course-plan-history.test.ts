@@ -10,7 +10,7 @@ describe("authorized plan lesson history", () => {
     expect(m.findMany).not.toHaveBeenCalled();
   });
   it("scopes history to store and member, keeps lesson time and the existing debit rules", async () => {
-    const row = (status: string, absenceKind: string | null = null) => ({id:status+absenceKind,customerName:"家人",status,absenceKind,pointCost:2,session:{startsAt:new Date("2026-09-18T04:00:00Z"),nameSnapshot:"基礎伸展"}});
+    const row = (status: string, absenceKind: string | null = null) => ({id:status+absenceKind,customerName:"家人",status,absenceKind,pointCost:2,session:{startsAt:new Date("2026-09-18T04:00:00Z"),nameSnapshot:"基礎伸展 · 83f866"}});
     m.findMany.mockResolvedValue([{id:"card",createdAt:new Date("2026-08-01T00:00:00Z"),_count:{bookings:103},bookings:[row("ATTENDED"),row("NO_SHOW"),row("CANCELLED"),row("RESERVED"),row("CANCELLED","STUDENT_LEAVE"),row("CANCELLED","GROUP_LEAVE_FORFEITED"),row("CANCELLED","TEACHER_ABSENT")]}]);
     const now = new Date("2026-10-09T12:00:00Z");
     const [result] = await getCoursePlanHistory("store", "member", ["card"], now);

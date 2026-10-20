@@ -1,6 +1,6 @@
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { loadSportsStaging } from "@/server/actions/sports-staging";
-import { presentCourseTemplates } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -135,7 +135,7 @@ export async function CourseMemberPage({
         canAssignManager={!isViewMode&&await checkPermission(user.role, user.staffId, "customer.assign")}
         canReadCards={canReadCards}
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
-        termSessions={termSessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString()}))}
+        termSessions={termSessions.map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString()}))}
         templates={presentCourseTemplates(templates,plans,music)}
         subjects={subjects}
         view={view}

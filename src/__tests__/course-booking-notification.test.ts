@@ -9,7 +9,7 @@ vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 import {confirmMemberCourseTrial,rescheduleMemberCourseBooking,loadCourseBookingNotification} from "@/server/actions/course-booking-notification";
 const tx={courseBookingRule:{findUnique:m.rules},courseBooking:{findFirst:m.booking,findUnique:m.prior},courseSession:{findFirst:m.target},courseTrialPayment:{updateMany:m.payments},$queryRaw:m.raw,$executeRaw:m.exec};
-const original=()=>({id:"old",storeId:"s",customerId:"member",customerName:"小美",status:"RESERVED",bookingKind:"TRIAL",cardId:null,card:null,trialPrice:500,sessionId:"original",session:{templateId:"t",startsAt:new Date("2099-10-07T15:00:00+08:00"),cancelledAt:null}});
+const original=()=>({id:"old",storeId:"s",customerId:"member",customerName:"小美",status:"RESERVED",bookingKind:"TRIAL",cardId:null,card:null,trialPrice:500,sessionId:"original",session:{nameSnapshot:"課程 · 83f866",templateId:"t",startsAt:new Date("2099-10-07T15:00:00+08:00"),cancelledAt:null}});
 beforeEach(()=>{vi.resetAllMocks();m.member.mockResolvedValue({user:{id:"u"},storeId:"s",customer:{id:"member",name:"小美"}});m.transaction.mockImplementation(async(_s,work)=>work(tx));m.booking.mockResolvedValue(original());m.prior.mockResolvedValue(null);m.target.mockResolvedValue({id:"new-session",startsAt:new Date("2099-10-08T15:00:00+08:00")});m.raw.mockResolvedValue([{bookableUntilDate:new Date("2099-12-31T00:00:00Z"),bookingOpensAt:null,bookingWindowDays:null}]);m.reserve.mockResolvedValue({id:"new",sessionId:"new-session"});m.limits.mockResolvedValue({maxMonthlyBookings:500});});
 it("records intent without attendance, balance or receipt writes",async()=>{
  expect(await confirmMemberCourseTrial("old")).toMatchObject({success:true});
@@ -63,7 +63,7 @@ it("returns an already-committed reschedule receipt after the setting changes", 
 it("loads existing booking details and cancellation cutoff with no reschedule candidates while disabled", async()=>{
  m.rules.mockResolvedValue({selfBookingEnabled:false,cancellationLeadMinutes:120});
  m.config.mockResolvedValue({bookableUntilDate:new Date("2099-12-31"),bookingWindowDays:14});
- expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled:false,booking:{id:"old",active:true,trial:true},sessions:[]});
+ expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled:false,booking:{id:"old",name:"課程",active:true,trial:true},sessions:[]});
  expect(m.sessions).not.toHaveBeenCalled();expect(m.rules).toHaveBeenCalledWith({where:{storeId:"s"}});
  expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{id:"old",storeId:"s"}}));
 });

@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -17,7 +18,7 @@ export async function notifyCourseBookingManagers(storeId:string, bookingIds:str
       const date=toLocalDateStr(booking.session.startsAt);
       if(date!==toLocalDateStr() || date!==toLocalDateStr(booking.createdAt)) continue;
       const url=new URL(`/s/${encodeURIComponent(store.slug)}/admin/dashboard/courses`,deriveBaseUrl());url.searchParams.set("date",date);
-      await deliverManagerNotification({storeId,eventKey:`course-booking-created:${booking.id}`,type:"SAME_DAY_BOOKING_CREATED",messages:[{type:"text",text:["今日新增課程預約",store.name,`${formatTWDateTime(booking.session.startsAt)} ${booking.session.nameSnapshot}`,`上課者：${booking.customerName}`,`預約人：${booking.operatorName}`,`查看課程：${url}`].join("\n")}]});
+      await deliverManagerNotification({storeId,eventKey:`course-booking-created:${booking.id}`,type:"SAME_DAY_BOOKING_CREATED",messages:[{type:"text",text:["今日新增課程預約",store.name,`${formatTWDateTime(booking.session.startsAt)} ${courseDisplayName(booking.session.nameSnapshot)}`,`上課者：${booking.customerName}`,`預約人：${booking.operatorName}`,`查看課程：${url}`].join("\n")}]});
     }
   } catch { console.error("[Course manager notification] booking notification failed",{storeId}); }
 }

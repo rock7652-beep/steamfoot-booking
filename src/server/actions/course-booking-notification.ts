@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { courseLeaveDebitMessage } from "@/lib/course-leave-message";
 import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
@@ -38,7 +39,7 @@ export async function loadCourseBookingNotification(bookingId: string) {
       where:{storeId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},template:{isActive:true,visibility:"PUBLIC"},startsAt:{gt:new Date(Math.max(now.getTime()+(rule?.bookingLeadMinutes??0)*60000,window.opensAt?.getTime()??0)),lte:window.closesAt}},
       include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100,
     }) : [];
-    return {success:true as const,selfBookingEnabled,selfLeaveEnabled,selfRescheduleEnabled,...(booking.cardId ? {leaveMessage:courseLeaveDebitMessage(music,{classType:booking.session.template.classType,unit:booking.card?.unit??"TRIAL",cost:booking.pointCost})} : {}),booking:{id:booking.id,name:booking.session.nameSnapshot,customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),room:s.room.name}))};
+    return {success:true as const,selfBookingEnabled,selfLeaveEnabled,selfRescheduleEnabled,...(booking.cardId ? {leaveMessage:courseLeaveDebitMessage(music,{classType:booking.session.template.classType,unit:booking.card?.unit??"TRIAL",cost:booking.pointCost})} : {}),booking:{id:booking.id,name:courseDisplayName(booking.session.nameSnapshot),customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString(),room:s.room.name}))};
   } catch(e) {const result=handleActionError(e);return {success:false as const,error:result.success?"讀取失敗":result.error};}
 }
 export async function confirmMemberCourseTrial(bookingId: string) {

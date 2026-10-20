@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import "server-only";
 import { Prisma } from "@prisma/client";
@@ -109,5 +110,5 @@ export async function getCourseHomeTodos(storeId: string, access: CourseTodoAcce
   const [result] = await prisma.$queryRaw<Array<{ total: number; items: Array<{id:string;kind:string;label:string;date:string}> }>>(Prisma.sql`
     WITH tasks AS (${union}), page AS (SELECT * FROM tasks ORDER BY date,id LIMIT ${limit} OFFSET ${offset})
     SELECT (SELECT count(*)::int FROM tasks) total, COALESCE((SELECT json_agg(page ORDER BY date,id) FROM page),'[]'::json) items`);
-  return { total: result.total, items: result.items.map(item => ({ ...item, href: item.kind === "payment" ? `/dashboard/revenue?dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}&status=PENDING` : item.kind === "attendance" ? `/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&action=booking&session=${encodeURIComponent(item.id)}` : `/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}` })) };
+  return { total: result.total, items: result.items.map(item => ({ ...item, label: item.kind === "attendance" ? courseDisplayName(item.label) : item.label, href: item.kind === "payment" ? `/dashboard/revenue?dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}&status=PENDING` : item.kind === "attendance" ? `/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&action=booking&session=${encodeURIComponent(item.id)}` : `/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}` })) };
 }

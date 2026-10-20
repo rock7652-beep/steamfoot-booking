@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
-import {presentCourseTemplates,courseTemplateLabel,sportsCourseName} from "@/lib/course-template-presentation";
+import {presentCourseTemplates,courseTemplateLabel,sportsCourseName,courseDisplayName} from "@/lib/course-template-presentation";
 const templates=[{id:"old",name:"吉他 · 個別課 4堂 · abcdef",musicSubjectId:"guitar",musicPricePerLesson:700,isActive:true},{id:"current",name:"吉他 · 個別課 4堂",musicSubjectId:"guitar",musicPricePerLesson:800,isActive:true}];
 it("uses actual plan IDs rather than matching similar names and retains historical identity",()=>{const rows=presentCourseTemplates(templates,[{name:"吉他個別課$800",isActive:true,templateIds:["current"]}],true);expect(rows[0]).toMatchObject({id:"old",name:templates[0].name,currentTeaching:false,displayName:"吉他 · 個別課 4堂・每堂 $700"});expect(courseTemplateLabel(rows[1])).toBe("吉他個別課$800");expect(rows[1].currentTeaching).toBe(true);expect(templates[0].name).toContain("abcdef");});
 it("does not merge different class templates or silently pick one shared plan",()=>{const rows=presentCourseTemplates(templates,[{name:"一對二",isActive:true,templateIds:["current"]},{name:"一對三",isActive:true,templateIds:["old"]}],true);expect(rows.map(courseTemplateLabel)).toEqual(["一對三","一對二"]);expect(rows.map(r=>r.id)).toEqual(["old","current"]);});
@@ -12,10 +12,23 @@ it.each(["item", "rule"])("hides the generated %s suffix while retaining the cou
  expect(snapshot).toBe("QA-課程A-1020 · 7bd42a");
  expect(id).toContain("7bd42a");
 });
-it("keeps custom names, non-sports names, and suffixes that do not match the template",()=>{
+it("removes generated suffixes across legacy templates while keeping meaningful custom text",()=>{
  const id=`sports_item_${"a".repeat(58)}7bd42a`;
  expect(sportsCourseName("週二晚班",id)).toBe("週二晚班");
- expect(sportsCourseName("自訂 · abcdef",id)).toBe("自訂 · abcdef");
- expect(sportsCourseName("音樂 · 7bd42a","manual-template")).toBe("音樂 · 7bd42a");
+ expect(sportsCourseName("自訂 · abcdef",id)).toBe("自訂");
+ expect(sportsCourseName("音樂 · 7bd42a","manual-template")).toBe("音樂");
  expect(sportsCourseName("課程 · 7bd42a（進階）",id)).toBe("課程 · 7bd42a（進階）");
+});
+
+it("cleans legacy names without an available template identity and preserves course distinctions",()=>{
+ const raw="遠端肌力驗收 · 83f866";
+ expect(courseDisplayName(raw)).toBe("遠端肌力驗收");
+ expect(courseDisplayName(courseDisplayName(raw))).toBe("遠端肌力驗收");
+ expect(raw).toBe("遠端肌力驗收 · 83f866");
+ expect(courseDisplayName("課程 · 83F866 · 7bd42a")).toBe("課程");
+ for(const name of ["QA-課程A-1020","進階 · 晚班","課程 83f866","83f866","課程 · 83f866（進階）"])
+  expect(courseDisplayName(name)).toBe(name);
+ const rows=presentCourseTemplates([{id:"legacy",name:raw,isActive:true}],[],false);
+ expect(rows[0]).toMatchObject({id:"legacy",name:raw,displayName:"遠端肌力驗收"});
+ expect(courseTemplateLabel({name:raw,displayName:raw})).toBe("遠端肌力驗收");
 });

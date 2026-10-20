@@ -1,6 +1,6 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
-import { presentCourseTemplates, sportsCourseName } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -381,7 +381,7 @@ export default async function CoursesPage({
         calendarDays={calendarDays}
         rooms={rooms.map(({ sessions: uses, ...room }) => ({
           ...room,
-          uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
+          uses: uses.map((u) => ({ ...u, nameSnapshot: courseDisplayName(u.nameSnapshot), startsAt: u.startsAt.toISOString() })),
         }))}
         templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}

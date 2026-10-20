@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import {z} from "zod";
 import {courseManager,courseTransaction} from "@/server/services/course-access";
@@ -34,7 +35,7 @@ export async function loadSportsSeriesPanel(sessionId:string){try{
  const used=await coursePrisma.courseBooking.findMany({where:{storeId:a.storeId,makeupForBookingId:{in:missing.map(b=>b.id)},status:{not:"CANCELLED"}},select:{makeupForBookingId:true}});
  const deferred=await coursePrisma.courseBooking.findMany({where:{storeId:a.storeId,requestKey:{startsWith:"sports-makeup:"},OR:[{status:{not:"CANCELLED"}},{absenceKind:{in:["STUDENT_LEAVE","TEACHER_ABSENT"]}}]},select:{requestKey:true}});
  // The action guards every write; this reader returns no balances or private card IDs.
- return {success:true as const,data:{series:series?{id:series.id,active:!series.cancelledAt,learners:sportsLearners.parse(series.learnerSnapshot).map(l=>({customerId:l.customerId,name:customers.find(c=>c.id===l.customerId)?.name??"學員",stopDate:l.stopDate})),untilDate:series.untilDate?toLocalDateStr(series.untilDate):null}:null,pending:missing.filter(b=>!used.some(u=>u.makeupForBookingId===b.id)&&!deferred.some(d=>d.requestKey.startsWith(`sports-makeup:${b.id}:`))).map(b=>({id:b.id,name:b.customerName,date:toLocalDateStr(b.session.startsAt),status:b.status})),targets:targets.map(t=>({...t,startsAt:t.startsAt.toISOString()}))}};
+ return {success:true as const,data:{series:series?{id:series.id,active:!series.cancelledAt,learners:sportsLearners.parse(series.learnerSnapshot).map(l=>({customerId:l.customerId,name:customers.find(c=>c.id===l.customerId)?.name??"學員",stopDate:l.stopDate})),untilDate:series.untilDate?toLocalDateStr(series.untilDate):null}:null,pending:missing.filter(b=>!used.some(u=>u.makeupForBookingId===b.id)&&!deferred.some(d=>d.requestKey.startsWith(`sports-makeup:${b.id}:`))).map(b=>({id:b.id,name:b.customerName,date:toLocalDateStr(b.session.startsAt),status:b.status})),targets:targets.map(t=>({...t,nameSnapshot:courseDisplayName(t.nameSnapshot),startsAt:t.startsAt.toISOString()}))}};
  }catch(e){return handleActionError(e);}}
 export async function stopSportsLearner(input:unknown){try{
  const d=z.object({seriesId:z.string().min(1),customerId:z.string().min(1),effectiveDate:date}).parse(input),a=await actor("booking.update");
