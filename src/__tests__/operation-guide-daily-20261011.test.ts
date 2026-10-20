@@ -7,7 +7,7 @@ const features = Object.fromEntries(operationGuides.filter(guide => guide.featur
 
 describe("2026-10-11 backend operation guide audit", () => {
   it("adds four source-reviewed backend guides and excludes retired frontend articles", () => {
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(207);
     for (const id of ["A15", "A16", "I21", "C169"]) {
       const guide = operationGuides.find(item => item.id === id);
       expect(guide?.verification, id).toBe("source-reviewed");

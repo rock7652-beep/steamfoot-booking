@@ -1,0 +1,447 @@
+import "server-only";
+import { beautyPrisma } from "@/lib/beauty-db";
+import { prisma } from "@/lib/db";
+import { checkPermission } from "@/lib/permissions";
+import { getCurrentUser } from "@/lib/session";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
+import {
+  dayRange,
+  toLocalDateStr,
+  toLocalMonthStr,
+  monthRange,
+  addTaiwanDuration,
+} from "@/lib/date-utils";
+import { AppError } from "@/lib/errors";
+import {
+  beautyManager,
+  beautyMember,
+  beautyWorker,
+  requireBeauty,
+} from "./access";
+import { settings, publicReceipt } from "./booking";
+import { settlement } from "./commerce";
+import type { Prisma } from "../../../generated/beauty-client";
+export async function publicBeautyCatalog(slug: string) {
+  const store = await prisma.store.findUnique({
+    where: { slug },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!store) throw new AppError("NOT_FOUND", "找不到店家");
+  await requireBeauty(store.id);
+  const [services, techs] = await Promise.all([
+    beautyPrisma.beautyService.findMany({
+      where: { storeId: store.id, active: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        duration: true,
+        price: true,
+        trialPrice: true,
+        revision: true,
+      },
+    }),
+    beautyPrisma.beautyTechnician.findMany({
+      where: { storeId: store.id, active: true },
+      select: { id: true, name: true, gender: true, serviceIds: true },
+      orderBy: [{ sort: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  const policy = await settings(
+    beautyPrisma as unknown as Prisma.TransactionClient,
+    store.id,
+  );
+  return {
+    store,
+    services,
+    techs,
+    policy: {
+      revision: policy.revision,
+      selfBooking: policy.selfBooking,
+      selfCancel: policy.selfCancel,
+      selfReschedule: policy.selfReschedule,
+      cancelDeduct: policy.cancelDeduct,
+      noShowDeduct: policy.noShowDeduct,
+      cancelLeadMinutes: policy.cancelLeadMinutes,
+    },
+  };
+}
+export async function beautyPortal(work = false) {
+  const a = work ? await beautyWorker() : await beautyMember();
+  await requireStoreFeature(a.storeId, FEATURES.MEMBER_PORTAL);
+  const store = await prisma.store.findUniqueOrThrow({
+    where: { id: a.storeId },
+    select: { id: true, name: true, slug: true },
+  });
+  const catalog = await publicBeautyCatalog(store.slug);
+  const rows = await beautyPrisma.beautyAppointment.findMany({
+    where: {
+      storeId: a.storeId,
+      ...(work
+        ? { technicianId: a.technicianId }
+        : {
+            OR: [
+              { customerId: a.customerId },
+              { group: { customerId: a.customerId } },
+            ],
+          }),
+    },
+    orderBy: { startsAt: "desc" },
+    take: 200,
+  });
+  const cards = work
+    ? []
+    : await beautyPrisma.beautyCard.findMany({
+        where: { storeId: a.storeId, memberIds: { has: a.customerId! } },
+        orderBy: { createdAt: "desc" },
+      });
+  const held = await beautyPrisma.beautyAppointment.groupBy({
+    by: ["cardId"],
+    where: {
+      storeId: a.storeId,
+      cardId: { in: cards.map((c) => c.id) },
+      status: "RESERVED",
+    },
+    _count: { id: true },
+  });
+  const customer = await prisma.customer.findFirst({
+    where: { storeId: a.storeId, id: a.customerId },
+    select: { id: true, name: true, phone: true },
+  });
+  const memberIds = [
+    ...new Set([a.customerId!, ...cards.flatMap((c) => c.memberIds)]),
+  ];
+  const members = work
+    ? []
+    : await prisma.customer.findMany({
+        where: {
+          storeId: a.storeId,
+          id: { in: memberIds },
+          mergedIntoCustomerId: null,
+        },
+        select: { id: true, name: true, phone: true },
+      });
+  const plans = work
+    ? []
+    : await beautyPrisma.beautyPlan.findMany({
+        where: { storeId: a.storeId, active: true, customerPurchasable: true },
+      });
+  const purchases = work
+    ? []
+    : await beautyPrisma.beautyPurchase.findMany({
+        where: { storeId: a.storeId, customerId: a.customerId },
+        orderBy: { createdAt: "desc" },
+      });
+  const bank = await prisma.shopConfig.findUnique({
+    where: { storeId: a.storeId },
+    select: { bankName: true, bankAccountNumber: true },
+  });
+  const income =
+    work && a.grants?.includes("income")
+      ? await beautyPrisma.beautySettlement.findMany({
+          where: { storeId: a.storeId, month: toLocalMonthStr() },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        })
+      : [];
+  const ownFeePayments =
+    work && a.grants?.includes("income")
+      ? await beautyPrisma.beautyPayment.findMany({
+          where: {
+            storeId: a.storeId,
+            technicianId: a.technicianId,
+            kind: { in: ["FEE", "FEE_VOID"] },
+          },
+        })
+      : [];
+  return {
+    ...catalog,
+    canWork:
+      work ||
+      !!(await beautyPrisma.beautyTechnician.findFirst({
+        where: { storeId: a.storeId, userId: a.userId, active: true },
+        select: { id: true },
+      })),
+    work,
+    customer,
+    members,
+    plans,
+    bank,
+    purchases: purchases.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    })),
+    grants: a.grants ?? [],
+    items: rows.map((b) => ({
+      ...publicReceipt(b),
+      revision: b.revision,
+      groupId: b.groupId,
+      technicianId: b.technicianId,
+      notes: b.notes,
+    })),
+    cards: cards.map((c) => ({
+      id: c.id,
+      name: c.name,
+      remaining: c.remaining,
+      held: held.find((h) => h.cardId === c.id)?._count.id ?? 0,
+      expiresAt: c.expiresAt.toISOString(),
+      closed: !!c.closedAt,
+      memberIds: c.memberIds,
+      serviceIds: c.serviceIds,
+    })),
+    income: income.flatMap((s) =>
+      (
+        s.lines as {
+          id: string;
+          technicianId: string;
+          serviceName: string;
+          date: string;
+          fee: number;
+          paid: number;
+        }[]
+      )
+        .filter((l) => l.technicianId === a.technicianId)
+        .map((l) => ({
+          ...l,
+          paid: ownFeePayments
+            .filter((p) => p.appointmentId === l.id)
+            .reduce((n, p) => n + p.amount, 0),
+        })),
+    ),
+  };
+}
+export type BeautyPortalData = Awaited<ReturnType<typeof beautyPortal>>;
+export async function beautyDashboard(
+  date = toLocalDateStr(),
+  month = toLocalMonthStr(),
+  calendar: "day" | "week" | "month" = "day",
+) {
+  const a = await beautyManager("booking.read"),
+    u = await getCurrentUser();
+  const can = async (p: Parameters<typeof checkPermission>[2]) =>
+    !!u && (await checkPermission(u.role, u.staffId, p));
+  const [
+    customerPermission,
+    planPermission,
+    staffPermission,
+    financeAccess,
+    feePermission,
+    settingsAccess,
+    writeAccess,
+  ] = await Promise.all([
+    can("customer.read"),
+    can("wallet.read"),
+    can("staff.view"),
+    can("transaction.read"),
+    can("teacher.compensation.read"),
+    can("business_hours.view"),
+    can("booking.create"),
+  ]);
+  const customerAccess =
+      customerPermission &&
+      (await hasStoreFeature(a.storeId, FEATURES.CUSTOMER_MANAGEMENT)),
+    planAccess =
+      planPermission &&
+      (await hasStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT)),
+    staffAccess =
+      staffPermission &&
+      (await hasStoreFeature(a.storeId, FEATURES.STAFF_MANAGEMENT)),
+    feeAccess =
+      feePermission &&
+      (await hasStoreFeature(a.storeId, FEATURES.SERVICE_FEE_CALCULATOR));
+  const manage = Object.fromEntries(
+    await Promise.all(
+      [
+        ["update", "booking.update"],
+        ["collect", "transaction.create"],
+        ["refund", "transaction.refund"],
+        ["card", "wallet.create"],
+        ["members", "wallet.adjust"],
+        ["customer", "customer.create"],
+        ["customerEdit", "customer.update"],
+        ["plan", "plans.edit"],
+        ["technician", "staff.manage"],
+        ["location", "business_hours.manage"],
+        ["settings", "business_hours.manage"],
+        ["feeConfirm", "teacher.settlement.confirm"],
+        ["feePay", "teacher.settlement.pay"],
+      ].map(async ([key, p]) => [
+        key,
+        await can(p as Parameters<typeof checkPermission>[2]),
+      ]),
+    ),
+  );
+  manage.card = manage.card && manage.collect;
+  manage.technician =
+    manage.technician &&
+    feeAccess &&
+    (await can("teacher.compensation.manage"));
+  const span =
+    calendar === "month"
+      ? monthRange(date.slice(0, 7))
+      : calendar === "week"
+        ? {
+            start: dayRange(date).start,
+            end: dayRange(addTaiwanDuration(date, 6, "DAY")).end,
+          }
+        : dayRange(date);
+  const range = span,
+    financialRange = monthRange(month);
+  const reportAccess = await can("report.read");
+  const analytics = reportAccess
+    ? await beautyPrisma.beautyAppointment.groupBy({
+        by: ["status", "serviceName"],
+        where: {
+          storeId: a.storeId,
+          startsAt: { gte: financialRange.start, lte: financialRange.end },
+        },
+        _count: { id: true },
+        _sum: { price: true },
+      })
+    : [];
+  const [
+    services,
+    techs,
+    locations,
+    plans,
+    customers,
+    cards,
+    items,
+    payments,
+    policy,
+    report,
+  ] = await Promise.all([
+    beautyPrisma.beautyService.findMany({
+      where: { storeId: a.storeId },
+      orderBy: { name: "asc" },
+    }),
+    staffAccess
+      ? beautyPrisma.beautyTechnician.findMany({
+          where: { storeId: a.storeId },
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        })
+      : [],
+    beautyPrisma.$queryRaw<
+      Array<{ id: string; name: string; isActive: boolean }>
+    >`SELECT id,name,"isActive" FROM "CourseRoom" WHERE "storeId"=${a.storeId} ORDER BY name`,
+    planAccess
+      ? beautyPrisma.beautyPlan.findMany({
+          where: { storeId: a.storeId },
+          orderBy: { name: "asc" },
+        })
+      : [],
+    customerAccess
+      ? prisma.customer.findMany({
+          where: { storeId: a.storeId, mergedIntoCustomerId: null },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            userId: true,
+            notes: true,
+          },
+          orderBy: { name: "asc" },
+        })
+      : [],
+    planAccess && customerAccess
+      ? beautyPrisma.beautyCard.findMany({
+          where: { storeId: a.storeId },
+          orderBy: { createdAt: "desc" },
+        })
+      : [],
+    beautyPrisma.beautyAppointment.findMany({
+      where: {
+        storeId: a.storeId,
+        startsAt: { gte: range.start, lte: range.end },
+      },
+      orderBy: { startsAt: "asc" },
+    }),
+    financeAccess
+      ? beautyPrisma.beautyPayment.findMany({
+          where: {
+            storeId: a.storeId,
+            createdAt: { gte: financialRange.start, lte: financialRange.end },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [],
+    settings(beautyPrisma as unknown as Prisma.TransactionClient, a.storeId),
+    feeAccess
+      ? settlement(
+          beautyPrisma as unknown as Prisma.TransactionClient,
+          a.storeId,
+          month,
+        )
+      : null,
+  ]);
+  const purchases = financeAccess
+    ? await beautyPrisma.beautyPurchase.findMany({
+        where: { storeId: a.storeId, status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+  const held = cards.length
+    ? await beautyPrisma.beautyAppointment.groupBy({
+        by: ["cardId"],
+        where: {
+          storeId: a.storeId,
+          cardId: { in: cards.map((c) => c.id) },
+          status: "RESERVED",
+        },
+        _count: { id: true },
+      })
+    : [];
+  return {
+    purchases: purchases.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    })),
+    now: Date.now(),
+    calendar,
+    analytics,
+    manage,
+    date,
+    month,
+    services,
+    techs: techs.map((t) => ({ ...t, rates: feeAccess ? t.rates : {} })),
+    locations,
+    plans,
+    customers,
+    cards: cards.map((c) => ({
+      ...c,
+      expiresAt: c.expiresAt.toISOString(),
+      createdAt: c.createdAt.toISOString(),
+      closedAt: c.closedAt?.toISOString() ?? null,
+      held: held.find((h) => h.cardId === c.id)?._count.id ?? 0,
+    })),
+    items: items.map((b) => ({
+      ...publicReceipt(b),
+      revision: b.revision,
+      groupId: b.groupId,
+      technicianId: b.technicianId,
+      locationId: b.locationId,
+      cardId: planAccess ? b.cardId : null,
+      personPhone: customerAccess ? b.personPhone : "",
+      customerId: customerAccess ? b.customerId : null,
+      notes: customerAccess ? b.notes : "",
+      fee: feeAccess ? b.fee : null,
+    })),
+    payments: payments.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    })),
+    policy,
+    report,
+    access: {
+      customerAccess,
+      planAccess,
+      staffAccess,
+      financeAccess,
+      feeAccess,
+      settingsAccess,
+      writeAccess,
+    },
+  };
+}
+export type BeautyDashboardData = Awaited<ReturnType<typeof beautyDashboard>>;

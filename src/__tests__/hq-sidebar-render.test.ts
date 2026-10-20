@@ -18,7 +18,7 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false) {
+function render(module: "steamfoot" | "course" | "spa" | "beauty", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
@@ -186,4 +186,15 @@ it.each(["steamfoot", "spa", "course"] as const)("shows granted %s store operati
   expect(html).toContain("operation-audits");
   expect(html).toContain("操作紀錄");
   expect(html).not.toContain("操作與登入紀錄");
+});
+
+it("renders the requested beauty menu in order while keeping personnel separate from technicians",()=>{
+ const html=render("beauty","a","/s/store-a/admin/dashboard/beauty");
+ const labels=["首頁","班表","顧客管理","顧客經營","營運","分析","位置管理","服務項目","收費方式","技師管理","人員管理","圖片公告","設定"];
+ const positions=labels.map(label=>html.indexOf(`>${label}</span>`));
+ for(let i=0;i<positions.length;i++){expect(positions[i],labels[i]).toBeGreaterThanOrEqual(0);if(i)expect(positions[i]).toBeGreaterThan(positions[i-1]);}
+ expect(html).toContain('href="/s/store-a/admin/dashboard/staff"');
+ expect(html).toContain('href="/s/store-a/admin/dashboard/image-announcements"');
+ expect(html).not.toContain('href="/s/store-a/admin/dashboard/inventory"');
+ expect(html).not.toContain('href="/s/store-a/admin/dashboard/courses"');
 });

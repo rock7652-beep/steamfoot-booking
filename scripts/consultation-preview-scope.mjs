@@ -1,4 +1,5 @@
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
+import { assertBeautyLocalQaEnvironment } from "./beauty-local-qa-scope.mjs";
 import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
@@ -253,9 +254,13 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"mocked-unit-test" | "production" | "local-beauty-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (env.BEAUTY_LOCAL_QA === "1") {
+    assertBeautyLocalQaEnvironment(env);
+    return "local-beauty-qa";
+  }
   if (env.IMAGE_ANNOUNCEMENTS_ACCEPTANCE === "1") {
     assertImageAnnouncementsAcceptance(env);
     return "local-image-announcements-qa";

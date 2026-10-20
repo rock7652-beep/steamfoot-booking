@@ -233,6 +233,10 @@ export default async function CustomerLayout({
     if (!["/book", "/book/reminders", "/book/income"].includes(pathname)) redirect(`/s/${storeCtx.storeSlug}/book`);
     return <div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div>;
   }
+  if (industryModule === "beauty") {
+    if (!["/beauty", "/profile", "/member-stores", "/member-link"].some(p=>pathname.startsWith(p))) redirect(`/s/${storeCtx.storeSlug}/beauty`);
+    return <div className="min-h-screen bg-earth-50">{children}</div>;
+  }
   const isSpaMemberPortal = industryModule === "spa";
   const healthAssessmentEnabled = await hasStoreFeature(
     storeCtx.storeId,

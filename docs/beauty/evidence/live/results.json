@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "actualNextServer": true,
+  "actualPostgres": true,
+  "results": [
+    {
+      "case": "公開兩人不同服務，性別必選、預設不指定、原子寫入與未授予會員帳號",
+      "passed": true
+    },
+    {
+      "case": "真實店長登入、十三個功能列及同筆分項預約桌機／iPad",
+      "passed": true
+    },
+    {
+      "case": "真實會員登入、查共同時段、Server Action 預約及資料庫核對",
+      "passed": true
+    },
+    {
+      "case": "會員以權威可用時間改期，資料庫保留服務與性別偏好",
+      "passed": true
+    },
+    {
+      "case": "技師僅見本人工作並實際完成服務；顧客前台回讀已完成",
+      "passed": true
+    },
+    {
+      "case": "會員自行取消透過真實 Server Action 寫入並釋放預約",
+      "passed": true
+    },
+    {
+      "case": "一般會員不能取得技師工作資料；受限人員沒有新增技師操作",
+      "passed": true
+    },
+    {
+      "case": "店長改網址不能讀取另一間未授權門市",
+      "passed": true
+    },
+    {
+      "case": "帳號停用後既有店長 session 無法繼續讀取後台",
+      "passed": true
+    },
+    {
+      "case": "合成已驗證 LINE entry 的解密、建預約及一次性消耗；無真實 LINE 登入或發送",
+      "passed": true
+    },
+    {
+      "case": "過期與已消耗 entry 拒絕，既有手機不能被新 LINE 身分接管",
+      "passed": true
+    },
+    {
+      "case": "未建立待發通知；全程未呼叫外部 LINE 或付款服務",
+      "passed": true
+    }
+  ],
+  "pageErrors": []
+}

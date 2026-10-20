@@ -9,6 +9,6 @@ export const imageAnnouncementGuides: OperationGuide[] = [{
   important: "公告只提供圖片資訊，不會變更實際預約時段、課程或名額。圖片只在目前門市使用，不會跨店發布。",
   success: "有效圖片出現在該門市前台首頁，顧客可點擊放大。",
   details: ["上架日期留空代表立即，下架日期留空代表不限；日期依台灣時間計算，下架當日仍可顯示。", "建議 A4 比例；其他比例保留完整內容，不裁切、不拉伸，透明背景會補白。", "JPG／PNG 上傳前自動壓縮；解析度偏低會提醒，儲存前確認文字清晰。", "圖片自動顯示於目前門市首頁，不需選擇模組；更換或刪除圖片，儲存前仍可取消變更。"],
-  modules: ["steamfoot", "course"], permission: "business_hours.view", additionalPermissions: ["business_hours.manage"], feature: null, kind: "howto", verification: "source-reviewed",
+  modules: ["steamfoot", "course", "beauty"], permission: "business_hours.view", additionalPermissions: ["business_hours.manage"], feature: null, kind: "howto", verification: "source-reviewed",
   sources: ["src/app/(dashboard)/dashboard/image-announcements/page.tsx", "src/components/image-announcements/manager.tsx", "src/app/api/image-announcements/route.ts"],
 }];

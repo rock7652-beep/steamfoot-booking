@@ -86,9 +86,13 @@
     "C108",
     "C111",
     "C114",
-    "IMG01"
+    "IMG01",
+    "BEAUTY01",
+    "BEAUTY02",
+    "BEAUTY03",
+    "BEAUTY04"
   ],
-  "articleCount": 203,
+  "articleCount": 207,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -348,8 +352,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 28,
-  "totalInteractionPendingCount": 28,
+  "backendInteractionPendingCount": 32,
+  "totalInteractionPendingCount": 32,
   "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -677,5 +681,17 @@
     ],
     "verification": "source-reviewed; synthetic component Preview only; authenticated acceptance pending",
     "scope": "Store backend image announcements; no frontend tutorial added"
+  },
+  "beautyModuleAddition": {
+    "branch": "feat/beauty-module-20261020",
+    "sourceBaseline": "c90f82df778da7c52e8716f8a6f3b6d0bb238593",
+    "guideIds": [
+      "BEAUTY01",
+      "BEAUTY02",
+      "BEAUTY03",
+      "BEAUTY04"
+    ],
+    "verification": "source-reviewed; authenticated interaction pending",
+    "scope": "backend-only; does not revise prior audit history or other pending guides"
   }
 }

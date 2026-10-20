@@ -1,0 +1,32 @@
+[
+  {
+    "width": 1440,
+    "height": 900,
+    "result": "passed",
+    "scope": "synthetic UI only"
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "result": "passed",
+    "scope": "synthetic UI only"
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "result": "passed",
+    "scope": "synthetic UI only"
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "result": "passed",
+    "scope": "synthetic UI only"
+  },
+  {
+    "width": 360,
+    "height": 740,
+    "result": "passed",
+    "scope": "synthetic UI only"
+  }
+]

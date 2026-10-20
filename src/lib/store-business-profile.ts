@@ -25,9 +25,10 @@ export function resolveCourseBusinessProfile(
 }
 
 export function getStoreBusinessLabel(
-  industryModule: "STEAMFOOT" | "SPA" | "COURSE",
+  industryModule: "STEAMFOOT" | "SPA" | "COURSE" | "BEAUTY",
   featureKeys?: readonly string[] | null,
 ): string {
+  if (industryModule === "BEAUTY") return "美業店家";
   if (industryModule === "STEAMFOOT") return "蒸足門市";
   if (industryModule === "SPA") return "SPA／美容美體";
   return BUSINESS_PROFILE_LABELS[resolveCourseBusinessProfile(featureKeys)];

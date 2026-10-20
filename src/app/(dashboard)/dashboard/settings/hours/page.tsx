@@ -63,8 +63,9 @@ export default async function ScheduleSettingsPage() {
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
   }));
   const isHeadquarters = currentStore?.isDefault ?? false;
-  const isSpaStore =
-    (await getStoreIndustryModule(effectiveStoreId)) === "spa";
+  const hoursIndustry = await getStoreIndustryModule(effectiveStoreId);
+  const isBeautyStore=hoursIndustry === "beauty";
+  const isSpaStore=hoursIndustry === "spa" || isBeautyStore;
 
   return (
     <PageShell>
@@ -82,7 +83,7 @@ export default async function ScheduleSettingsPage() {
       />
 
       {/* 顧客可預約到日期 */}
-      <BookableUntilForm
+      {!isBeautyStore&&<BookableUntilForm
         key={`bookable-until-${effectiveStoreId}`}
         storeId={effectiveStoreId}
         spa={isSpaStore}
@@ -91,7 +92,7 @@ export default async function ScheduleSettingsPage() {
         initialDays={shopConfig?.bookingWindowDays ?? 14}
         today={todayStr}
         canManage={canManage}
-      />
+      />}
 
       <ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
             weeklyHours={weeklyHours.map((h) => ({

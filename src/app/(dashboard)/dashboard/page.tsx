@@ -71,6 +71,7 @@ export default async function DashboardHomePage() {
   if (user.role === "ADMIN" && !activeStoreId && await checkPermission(user.role, user.staffId, "report.read")) {
     return <BrandOverviewContent />;
   }
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "beauty") { const {redirect}=await import("next/navigation"); redirect("/dashboard/beauty"); }
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
     return <CourseHome user={user} storeId={activeStoreId} />;
   }

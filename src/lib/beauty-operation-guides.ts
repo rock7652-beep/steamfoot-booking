@@ -1,0 +1,121 @@
+import type { OperationGuide } from "./operation-guide-types";
+const source = [
+  "src/components/beauty/dashboard.tsx",
+  "src/components/beauty/catalog-editor.tsx",
+  "src/server/actions/beauty.ts",
+  "src/server/beauty/booking.ts",
+];
+export const beautyOperationGuides: OperationGuide[] = [
+  {
+    id: "BEAUTY01",
+    category: "start",
+    title: "美業店開店前要設定什麼？",
+    summary: "依位置、服務、技師、收費與規則設定，不會自動建立5次或10次方案。",
+    answer:
+      "先設定可用位置與服務，再設定技師性別、服務資格及可服務時間；後台帳號另外在人員管理設定。",
+    keywords: "美業 開店 技師 性別 位置 床位 人員 管理",
+    path: "店務管理 → 位置管理／服務項目／技師管理／收費方式／設定",
+    steps: [
+      "新增位置；沿用空間資料，每位同時服務者占用一個位置。",
+      "新增服務的分鐘、單次價、選填整理時間及體驗價；體驗價留空不開放體驗。",
+      "新增技師並必填性別，設定可服務項目、每週時間、休假與拆帳；有需要才連結會員帳號和我的工作權限。",
+      "自行建立次數方案，設定適用服務、期限與是否共用；最後核對營業時間及取消規則。",
+    ],
+    important: "技師不因此取得後台登入權；後台角色及權限在人員管理設定。",
+    success: "新增預約能查到同時滿足技師、位置與完整時長的時間。",
+    details: [
+      "整理時間可留0，同時占用技師及位置；顧客看到的是服務結束時間。",
+      "不指定技師依當日服務分鐘較少者優先，同分按固定排序；已成立預約不自動重排。",
+    ],
+    modules: ["beauty"],
+    permission: "booking.read",
+    feature: null,
+    kind: "howto",
+    verification: "source-reviewed",
+    sources: source,
+  },
+  {
+    id: "BEAUTY02",
+    category: "booking",
+    title: "同行多人可以預約不同服務嗎？",
+    summary: "同筆預約逐位選擇服務與性別，整組同時確認。",
+    answer:
+      "新增預約先選人數，再逐人填資料、服務與必選的技師性別，查詢共同可用時間。",
+    keywords: "美業 同行 人數 多人 不同服務 性別 體驗",
+    path: "日常工作 → 班表 → 新增預約",
+    steps: [
+      "設定人數，逐位選服務、女性／男性／男女皆可；不強迫指定技師。",
+      "選共同日期並查詢可用時間，核對各人服務與付款方式。",
+      "確認預約；所有同行者一起成立，若有衝突請重新選時間。",
+    ],
+    important:
+      "每位服務者有自己的服務狀態、收款與方案紀錄；取消其中一人不會取消其他人。",
+    success: "同組列出各人服務、實際安排技師與不同結束時間。",
+    details: [
+      "每人每項服務限體驗一次；有效預約、完成或未到占資格，取消後釋放。",
+      "無法憑填入的手機取得會員或課卡權限；既有顧客身分應由店家核對後連結。",
+    ],
+    modules: ["beauty"],
+    permission: "booking.create",
+    feature: null,
+    kind: "howto",
+    verification: "source-reviewed",
+    sources: source,
+  },
+  {
+    id: "BEAUTY03",
+    category: "plans",
+    title: "家人共用方案怎麼設定？",
+    summary: "方案先允許共用，再為購入方案選擇具名成員。",
+    answer:
+      "在收費方式勾選允許具名共用，購買時選成員，之後可從顧客資料管理成員。",
+    keywords: "美業 家人 共用 次數 方案 授權 餘額",
+    path: "收費方式 → 允許具名共用；顧客管理 → 顧客資料／服務紀錄／共用成員",
+    steps: [
+      "建立店家自訂次數與價格的方案，選適用服務、有效天數並勾選允許共用。",
+      "登錄購買人、實收與付款方式，選具名家人。",
+      "需要修改時從購買人的顧客資料開啟共用成員；尚有預約的成員須先處理預約才能移除。",
+    ],
+    important:
+      "家人共用同一份餘額；預約先占用，完成扣次。取消與未到依預約成立時的規則處理。",
+    success: "每張方案可分辨剩餘、已預約占用及可用次數。",
+    details: [
+      "未具名的同行者可以單次預約，不能直接使用別人的方案。",
+      "方案退款會結清該張方案並清零剩餘，需先處理所有占用；退款紀錄不等於銀行已退刷。",
+    ],
+    modules: ["beauty"],
+    permission: "wallet.read",
+    feature: null,
+    kind: "howto",
+    verification: "source-reviewed",
+    sources: source,
+  },
+  {
+    id: "BEAUTY04",
+    category: "money",
+    title: "技師拆帳、付款與更正怎麼處理？",
+    summary: "依實際服務技師歸帳，先確認月結再登錄付款。",
+    answer:
+      "技師管理設定每次固定、固定鐘點或百分比；百分比才需選原價或實收基準。",
+    keywords: "美業 技師 拆帳 百分比 固定鐘點 月結 收回 更正",
+    path: "技師管理 → 可服務項目與拆帳；營運 → 技師拆帳月結",
+    steps: [
+      "為每項服務選每次固定金額、固定鐘點或百分比；百分比選原價／實收。",
+      "完成實際服務並核對單次收款或方案購入實收，查看該月拆帳。",
+      "確認本月拆帳後登錄已支付金額；若須更正，先登錄實際收回的拆帳，再更正服務與重新月結。",
+    ],
+    important: "這些是帳務登錄，不會執行轉帳、退刷或向技師收款。",
+    success: "原付款與收回紀錄保留，月結能核對應付及實際已付淨額。",
+    details: [
+      "固定鐘點按服務分鐘／60計算，不含整理時間；每次固定金額不按時長放大。",
+      "方案百分比以方案定價或購入實收除以總次數；單次以該次服務原價或實收。金額取整元。",
+      "取消或未到即使扣次，也不視為已實際服務、不自動計拆帳。",
+    ],
+    modules: ["beauty"],
+    permission: "teacher.compensation.read",
+    feature: null,
+    kind: "howto",
+    verification: "source-reviewed",
+    sources: [...source, "src/server/beauty/commerce.ts"],
+  },
+];
