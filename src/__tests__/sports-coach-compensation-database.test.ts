@@ -45,7 +45,7 @@ const tx = {
     },
   },
 } as unknown as Prisma.TransactionClient;
-const session = { id: "session", templateId: "item", coachId: "coachA", startsAt: new Date("2026-11-01T01:00Z"), endsAt: new Date("2026-11-01T02:30Z") };
+const session = { id: "session", templateId: "item", coachId: "coachA", startsAt: new Date("2099-11-01T01:00Z"), endsAt: new Date("2099-11-01T02:30Z") };
 const seat = { id: "b", customerName: "合成學員", status: "ATTENDED", bookingKind: "STANDARD", absenceKind: null, originalUnitPrice: 100, sportsCharge: 200 };
 
 it("不同教練在同一項目分別沿用、拆帳、鐘點，保存權威快照並可結算", async () => {
@@ -68,7 +68,7 @@ it("只調整同一教練時長保留原費率；換教練則改採新教練費�
   await setFee("coachA", "HOUR", 600); await setFee("coachB", "HOUR", 800);
   await captureSportsCoachCompensation(tx, "store", session);
   await setFee("coachA", "HOUR", 999);
-  await moveSportsCoachCompensation(tx, "store", { ...session, endsAt: new Date("2026-11-01T03:00Z") }, "coachA");
+  await moveSportsCoachCompensation(tx, "store", { ...session, endsAt: new Date("2099-11-01T03:00Z") }, "coachA");
   expect((await snapshot()).rule).toMatchObject({ value: 600, durationMinutes: 120 });
   await moveSportsCoachCompensation(tx, "store", { ...session, coachId: "coachB" }, "coachA");
   expect(await snapshot()).toMatchObject({ staffId: "coachB", rule: { mode: "HOUR", value: 800, durationMinutes: 90 } });
