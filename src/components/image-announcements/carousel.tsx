@@ -12,6 +12,7 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
   const [zoom, setZoom] = useState(false);
   const [now, setNow] = useState(Date.now);
   const touch = useRef<number | null>(null);
+  const swiped = useRef(false);
   const title = useId();
   // Recheck schedules even when a customer leaves this page open overnight.
   const active = preview ? items : items.filter(item => item.enabled && (!item.startsOn || Date.parse(`${item.startsOn}T00:00:00+08:00`) <= now) && (!item.endsOn || Date.parse(`${item.endsOn}T23:59:59.999+08:00`) >= now));
@@ -27,15 +28,23 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
   if (!current) return null;
   const src = announcementImageUrl(storeSlug, current.id, preview);
   const dots = <div className={`${styles.dots} flex justify-center gap-1`} aria-label="圖片切換">{active.map((item, position) => <button key={item.id} type="button" aria-label={`第 ${position + 1} 張圖片`} aria-current={item.id === current.id ? "true" : undefined} className={`${styles.dotButton} flex h-11 w-11 items-center justify-center`} onClick={() => { setPaused(true); setZoom(false); setIndex(position); }}><span className={`h-2 w-2 rounded-full ${item.id === current.id ? "bg-primary-700" : "bg-earth-300"}`} /></button>)}</div>;
-  const swipe = { onTouchStart: (event: React.TouchEvent) => { touch.current = event.touches[0].clientX; }, onTouchEnd: (event: React.TouchEvent) => { if (!zoom && touch.current !== null) { const distance = event.changedTouches[0].clientX - touch.current; if (Math.abs(distance) > 45) move(distance > 0 ? -1 : 1); } touch.current = null; } };
+  const swipe = { onTouchStart: (event: React.TouchEvent) => { setPaused(true); swiped.current = false; touch.current = event.touches[0].clientX; }, onTouchEnd: (event: React.TouchEvent) => { if (!zoom && touch.current !== null) { const distance = event.changedTouches[0].clientX - touch.current; if (Math.abs(distance) > 45) { swiped.current = true; move(distance > 0 ? -1 : 1); } } touch.current = null; } };
   return <>
-    <div className={`${styles.carousel} min-w-0 rounded-xl bg-white ring-1 ring-earth-200`} {...swipe}>
-      <button type="button" aria-label="放大公告圖片" className={`${styles.preview} relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl bg-earth-50 focus-visible:outline-2 focus-visible:outline-primary-600`} onClick={() => { setPaused(true); setOpen(true); }}>
-        {/* Uploaded images have immutable IDs; contain preserves all printed text. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="h-full max-w-full object-contain" />
-        <span aria-hidden="true" className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-earth-800"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5M10 7v6M7 10h6" /></svg></span>
-      </button>
+    <div data-image-announcements className={`${styles.carousel} min-w-0 rounded-xl bg-white ring-1 ring-earth-200`} {...swipe}>
+      <div className={styles.slides} onPointerDown={() => { swiped.current = false; setPaused(true); }} onFocusCapture={() => setPaused(true)}>
+        {active.map(item => {
+          const selected = item.id === current.id;
+          return <button key={item.id} type="button" aria-label="放大公告圖片" aria-hidden={!selected} inert={!selected} tabIndex={selected ? 0 : -1}
+            className={`${styles.preview} ${selected ? styles.current : ""} relative w-full overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-primary-600`}
+            onClick={() => { if (swiped.current) { swiped.current = false; return; } setPaused(true); setOpen(true); }}>
+            {/* All slides share one grid cell. The tallest reserves space so
+                different image proportions do not move the booking list. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={announcementImageUrl(storeSlug, item.id, preview)} alt="" className={styles.image} />
+            <span aria-hidden="true" className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-earth-800"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5M10 7v6M7 10h6" /></svg></span>
+          </button>;
+        })}
+      </div>
       {active.length > 1 && dots}
     </div>
     <ModalPanel open={open} onClose={close} labelledById={title} width={1000}>

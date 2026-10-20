@@ -7,6 +7,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -18,6 +21,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -29,6 +35,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -40,6 +49,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -51,6 +63,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -62,6 +77,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -73,6 +91,9 @@
       "scheduleAndSortSaved": true,
       "errorDraftPreserved": true,
       "front": true,
+      "fullWidthNaturalRatio": true,
+      "mixedRatioStableHeight": true,
+      "bottomNavigation": true,
       "modalZoom": true,
       "scrollRestored": true,
       "overflow": false
@@ -82,5 +103,7 @@
   "readonly": true,
   "autoplay": true,
   "manualPause": true,
+  "touchPause": true,
+  "swipe": true,
   "limitation": "Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance."
 }

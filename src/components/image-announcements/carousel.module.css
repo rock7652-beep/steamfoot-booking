@@ -1,9 +1,28 @@
 /* Isolate controls from module-specific customer portal button defaults. */
 .carousel button.preview {
-  height: 112px;
+  grid-area: 1 / 1;
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  visibility: hidden;
+  pointer-events: none;
   padding: 0;
   border: 0;
   background: var(--color-earth-50, #faf9f6);
+}
+.slides {
+  display: grid;
+  min-width: 0;
+}
+.carousel button.preview.current {
+  visibility: visible;
+  pointer-events: auto;
+}
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
 .dots button.dotButton,
 .dots button.dotButton[aria-current] {

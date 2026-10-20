@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.QA_PLAYWRIGHT_MODULE || '/opt/codex/cua_node/lib/node_modules/playwright');
 const root = process.cwd(), out = process.env.QA_OUTPUT || '/tmp/image-announcements-preview'; mkdirSync(out, { recursive: true });
 const colors = ['#a8c9b0', '#c6b6dc', '#e7cbaa'];
-const images = await Promise.all(colors.map((color, i) => sharp(Buffer.from(`<svg width="840" height="1188" xmlns="http://www.w3.org/2000/svg"><rect width="840" height="1188" fill="${color}"/><text x="60" y="140" font-size="64">Schedule ${i+1}</text><path d="M60 240H780M60 440H780M60 640H780M60 840H780" stroke="white" stroke-width="4"/></svg>`)).jpeg().toBuffer()));
+const images = await Promise.all(colors.map((color, i) => sharp(Buffer.from(`<svg width="840" height="${i === 1 ? 420 : 1188}" xmlns="http://www.w3.org/2000/svg"><rect width="840" height="${i === 1 ? 420 : 1188}" fill="${color}"/><text x="60" y="140" font-size="64">Schedule ${i+1}</text><path d="M60 240H780M60 440H780M60 640H780M60 840H780" stroke="white" stroke-width="4"/></svg>`)).jpeg().toBuffer()));
 let failed = false, saved;
 const server = await createServer({ root, configFile: false, cacheDir: '/tmp/image-announcements-vite', optimizeDeps: { include: ['react', 'react-dom/client', 'zod'] }, plugins: [react(), {
   name: 'announcement-fixture', configureServer(s) { s.middlewares.use((req, res, next) => {
@@ -55,10 +55,27 @@ try {
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error(`Admin overflow ${width}`);
     await page.screenshot({ path: path.join(out, `admin-${width}.png`), fullPage: true });
     await page.goto(base + '/?front');
+    const carousel = page.locator('[data-image-announcements]');
+    await carousel.locator('img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
+    const originalFrame = await carousel.boundingBox();
+    const imageSize = await page.getByRole('button', { name: '放大公告圖片' }).locator('img').boundingBox();
+    if (Math.abs(imageSize.width - originalFrame.width) > 2 || imageSize.height < imageSize.width * 1.4) throw Error('A4 image is not full width at its natural aspect ratio');
+    const nav = page.getByRole('navigation', { name: '底部功能' });
+    const navBox = await nav.boundingBox();
+    if (Math.abs(navBox.y + navBox.height - height) > 1) throw Error('Bottom navigation is not fixed to viewport');
+    await nav.getByRole('button', { name: '預約', exact: true }).click();
+    await page.getByRole('heading', { name: '預約功能', exact: true }).waitFor();
+    await nav.getByRole('button', { name: '首頁', exact: true }).click();
+    await page.getByRole('heading', { name: '已預約清單', exact: true }).waitFor();
     await page.getByRole('button', { name: '第 2 張圖片' }).click();
     if (await page.getByRole('button', { name: '第 2 張圖片' }).getAttribute('aria-current') !== 'true') throw Error('Manual navigation failed');
-    await page.evaluate(() => scrollTo(0, 150)); const before = await page.evaluate(() => scrollY);
-    await page.getByRole('button', { name: '放大公告圖片' }).click(); const dialog = page.getByRole('dialog'); await dialog.waitFor();
+    if (Math.abs((await carousel.boundingBox()).height - originalFrame.height) > 1) throw Error('Mixed image proportions shift page during rotation');
+    await page.evaluate(() => scrollTo(0, 150));
+    const triggerBox = await page.getByRole('button', { name: '放大公告圖片' }).boundingBox();
+    const before = await page.evaluate(() => scrollY);
+    // Click a visible point, avoiding Playwright auto-scrolling a tall A4 button.
+    await page.mouse.click(triggerBox.x + 20, Math.max(0, triggerBox.y) + 20);
+    const dialog = page.getByRole('dialog'); await dialog.waitFor();
     await page.getByRole('button', { name: '放大圖片', exact: true }).click(); await page.getByRole('button', { name: '縮小圖片' }).waitFor();
     await page.getByRole('button', { name: '縮小圖片' }).click(); await page.getByRole('button', { name: '下一張圖片' }).click();
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error(`Front overflow ${width}`);
@@ -66,9 +83,10 @@ try {
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
     if (await page.evaluate(() => scrollY) !== before) throw Error('Scroll position not restored');
     if (await page.getByLabel('原本輸入').inputValue() !== '保留內容') throw Error('Underlying input lost');
+    await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: path.join(out, `front-${width}.png`) });
     if (errors.length) throw Error(errors.join(';'));
-    results.push({ width, height, admin: true, scheduleAndSortSaved: true, errorDraftPreserved: true, front: true, modalZoom: true, scrollRestored: true, overflow: false }); await page.close();
+    results.push({ width, height, admin: true, scheduleAndSortSaved: true, errorDraftPreserved: true, front: true, fullWidthNaturalRatio: true, mixedRatioStableHeight: true, bottomNavigation: true, modalZoom: true, scrollRestored: true, overflow: false }); await page.close();
   }
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.on('dialog', d => d.accept());
   await page.goto(base); await page.locator('input[type=file]').setInputFiles([{ name: 'schedule.png', mimeType: 'image/png', buffer: await sharp(images[0]).png().toBuffer() }, { name: 'wide.jpg', mimeType: 'image/jpeg', buffer: await sharp(images[1]).resize(600, 300).jpeg().toBuffer() }]);
@@ -85,6 +103,20 @@ try {
   if (await page.getByRole('button', { name: '第 2 張圖片' }).getAttribute('aria-current') !== 'true') throw Error('Autoplay failed');
   await page.getByRole('button', { name: '第 3 張圖片' }).click(); await page.waitForTimeout(6500);
   if (await page.getByRole('button', { name: '第 3 張圖片' }).getAttribute('aria-current') !== 'true') throw Error('Manual interaction did not pause autoplay');
-  writeFileSync(path.join(out, 'results.json'), JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, limitation: 'Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance.' }, null, 2));
-  console.log(JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true }));
+  await page.goto(base + '/?front');
+  const touchTarget = page.getByRole('button', { name: '放大公告圖片' });
+  await touchTarget.dispatchEvent('touchstart', { touches: [{ identifier: 1, clientX: 100, clientY: 120 }] });
+  await touchTarget.dispatchEvent('touchend', { changedTouches: [{ identifier: 1, clientX: 100, clientY: 240 }] });
+  await page.waitForTimeout(6500);
+  if (await page.getByRole('button', { name: '第 1 張圖片' }).getAttribute('aria-current') !== 'true') throw Error('Touch scrolling did not pause autoplay');
+  await touchTarget.dispatchEvent('touchstart', { touches: [{ identifier: 1, clientX: 240, clientY: 120 }] });
+  await touchTarget.dispatchEvent('touchend', { changedTouches: [{ identifier: 1, clientX: 100, clientY: 120 }] });
+  if (await page.getByRole('button', { name: '第 2 張圖片' }).getAttribute('aria-current') !== 'true') throw Error('Swipe failed');
+  if (await page.getByRole('dialog').count()) throw Error('Swipe unexpectedly opened image');
+  await touchTarget.dispatchEvent('click');
+  if (await page.getByRole('dialog').count()) throw Error('Swipe ghost click unexpectedly opened image');
+  await touchTarget.click(); await page.getByRole('dialog').waitFor();
+  await page.getByRole('button', { name: '關閉圖片' }).click();
+  writeFileSync(path.join(out, 'results.json'), JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, touchPause: true, swipe: true, limitation: 'Synthetic Chromium fixture; not authenticated application or real iPad/LIFF/Safari acceptance.' }, null, 2));
+  console.log(JSON.stringify({ results, upload: true, readonly: true, autoplay: true, manualPause: true, touchPause: true, swipe: true }));
 } finally { await browser?.close(); await server.close(); }
