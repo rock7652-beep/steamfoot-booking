@@ -1,5 +1,7 @@
 import {createHash} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 export const IMAGE_ANNOUNCEMENTS_MIGRATION='20261020100000_image_announcements';
 export const IMAGE_ANNOUNCEMENTS_MIGRATION_FILE=`prisma/migrations/${IMAGE_ANNOUNCEMENTS_MIGRATION}/migration.sql`;
 export const IMAGE_ANNOUNCEMENTS_CHECKSUM='eae83871df1395a42918bf55b28e1df6f6da11d8580cb4029d435494a5f0246f';
@@ -48,36 +50,53 @@ export function imageAnnouncementsLedgerApplied(s){
  const active=s.ledger.filter(r=>r.rolledBackAt===null);
  return s.failed.length===0&&active.length===1&&active[0].checksum===IMAGE_ANNOUNCEMENTS_CHECKSUM&&active[0].finishedAt!==null&&active[0].steps===1;
 }
-function onlyTargetPending(status){
- const header=status.output.match(/Following migrations? have not yet been applied:/);
- if(status.exitCode!==1||!header)return false;
- const pending=status.output.slice(header.index+header[0].length).split('\n').map(s=>s.trim()).filter(s=>/^\d{14}_[A-Za-z0-9_-]+$/.test(s));
- return pending.length===1&&pending[0]===IMAGE_ANNOUNCEMENTS_MIGRATION;
+/** Give Prisma exactly one migration file. Historical pending migrations are
+ * neither copied, applied nor marked resolved. Uses the guarded DIRECT_URL.
+ */
+export function createImageAnnouncementsMigrationScope(){
+ verifyImageAnnouncementsChecksum();
+ const directory=mkdtempSync(join(tmpdir(),'image-announcements-release-'));
+ try{
+  const migrations=join(directory,'migrations');
+  mkdirSync(join(migrations,IMAGE_ANNOUNCEMENTS_MIGRATION),{recursive:true});
+  const sql=readFileSync(IMAGE_ANNOUNCEMENTS_MIGRATION_FILE);
+  if(createHash('sha256').update(sql).digest('hex')!==IMAGE_ANNOUNCEMENTS_CHECKSUM)reject('checksum_mismatch');
+  writeFileSync(join(migrations,IMAGE_ANNOUNCEMENTS_MIGRATION,'migration.sql'),sql);
+  writeFileSync(join(migrations,'migration_lock.toml'),'provider = "postgresql"\n');
+  const schema=join(directory,'schema.prisma');
+  writeFileSync(schema,'datasource db {\n provider = "postgresql"\n url = env("DIRECT_URL")\n}\n');
+  return{directory,schema,cleanup:()=>rmSync(directory,{recursive:true,force:true})};
+ }catch(error){rmSync(directory,{recursive:true,force:true});throw error;}
 }
-const upToDate=s=>s.exitCode===0&&s.output.includes('Database schema is up to date');
-/** Called only after ci-migrate's exact production environment/project/target guards.
- * Prisma CLI owns migration history; never resolves or repairs failed history.
- * The caller supplies a dedicated direct Prisma connection; no new env bypass.
+async function otherHistoryFingerprint(db){
+ const rows=await db.$queryRawUnsafe(`SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY id),'[]'::jsonb) AS entries FROM public._prisma_migrations m WHERE migration_name<>$1`,IMAGE_ANNOUNCEMENTS_MIGRATION);
+ return createHash('sha256').update(JSON.stringify(rows[0].entries)).digest('hex');
+}
+/** Called only after ci-migrate's production/project/target guards.
+ * The CLI records the real application; never resolves unrelated history.
  */
 export async function runImageAnnouncementsMigration(prisma,runPrisma,log=()=>{}){
  verifyImageAnnouncementsChecksum();
  return prisma.$transaction(async tx=>{
   const lock=await tx.$queryRawUnsafe('SELECT pg_try_advisory_xact_lock(2026102010::bigint) AS locked');
   if(lock[0]?.locked!==true)reject('lock_unavailable');
-  const status=runPrisma(['migrate','status']);
   const before=await readImageAnnouncementsSnapshot(tx);
-  if(upToDate(status)){
+  if(before.failed.length)reject('failed_history_rejected');
+  if(before.ledger.length){
    if(!hasExpectedImageAnnouncementsSchema(before)||!imageAnnouncementsLedgerApplied(before))reject('applied_state_rejected');
    log('image_announcements_already_applied_verified');return 'already-applied';
   }
-  if(!onlyTargetPending(status)||before.failed.length)reject('pending_allowlist_rejected');
-  if(before.relations.length||before.columns.length||before.constraints.length||before.indexes.length||before.ledger.length)reject('preflight_rejected');
-  log('image_announcements_preflight_verified');
-  verifyImageAnnouncementsChecksum();
-  if(runPrisma(['migrate','deploy']).exitCode!==0)reject('deploy_failed');
-  if(!upToDate(runPrisma(['migrate','status'])))reject('final_status_rejected');
-  const after=await readImageAnnouncementsSnapshot(tx);
-  if(!hasExpectedImageAnnouncementsSchema(after)||!imageAnnouncementsLedgerApplied(after))reject('final_schema_rejected');
-  log('image_announcements_final_schema_verified');return 'applied';
+  if(before.relations.length||before.columns.length||before.constraints.length||before.indexes.length)reject('preflight_rejected');
+  const history=await otherHistoryFingerprint(tx);
+  const scope=createImageAnnouncementsMigrationScope();
+  try{
+   log('image_announcements_preflight_verified');
+   if(runPrisma(['migrate','deploy','--schema',scope.schema]).exitCode!==0)reject('deploy_failed');
+   const after=await readImageAnnouncementsSnapshot(tx);
+   if(!hasExpectedImageAnnouncementsSchema(after)||!imageAnnouncementsLedgerApplied(after))reject('final_schema_rejected');
+   if(await otherHistoryFingerprint(tx)!==history)reject('unrelated_history_changed');
+   log('image_announcements_unrelated_history_unchanged');
+   log('image_announcements_final_schema_verified');return 'applied';
+  }finally{scope.cleanup();}
  },{maxWait:5000,timeout:180000,isolationLevel:'ReadCommitted'});
 }

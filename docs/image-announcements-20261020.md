@@ -47,3 +47,5 @@
 **既有預覽補驗**：蒸足共用 LIFF 首頁、運動及音樂 CoursePortal，經既有前台／裝置預覽完成 15 個實際流程及 41 項回歸測試；不需新增 LIFF 即可驗證公告呈現與操作。詳見 [預覽驗收報告](verification/image-announcements-preview-20261020.md)。此結果仍不涵蓋 LINE SDK 登入及 LINE App 裝置實測。
 
 **正式遷移流程已補齊**：既有 production migration target 新增 `20261020100000_image_announcements`，具備精確 pending／checksum、併發鎖、schema／RLS／ledger 驗證與安全重跑。新版候選 SQL 加上交易及 PUBLIC 撤權。9 項 PostgreSQL／真實 Prisma CLI 演練與 51 項相關回歸通過；正式環境的連線與歷史尚未操作。發布與回退順序見 [正式遷移發布文件](verification/image-announcements-production-release-20261020.md)。
+
+**單筆發布修正**：正式唯讀檢查發現 23 筆既有遷移缺少完成紀錄，因此公告改用封閉的單筆 Prisma 目錄發布。PostgreSQL 17 的 10 個情境證明只執行公告、保留 23 筆 pending 與其他完整 ledger，不做歷史修復。現行流程以 [單筆正式發布文件](verification/image-announcements-production-release-20261020.md) 為準，舊版全目錄 status 策略已被取代。

@@ -1,8 +1,9 @@
 import {it,expect} from 'vitest';
 import {PGlite} from '@electric-sql/pglite';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync,existsSync} from 'node:fs';
+import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {IMAGE_ANNOUNCEMENTS_MIGRATION,IMAGE_ANNOUNCEMENTS_CHECKSUM,IMAGE_ANNOUNCEMENTS_MIGRATION_FILE,verifyImageAnnouncementsChecksum,readImageAnnouncementsSnapshot,hasExpectedImageAnnouncementsSchema,imageAnnouncementsLedgerApplied} from '../../scripts/image-announcements-production-migration.mjs';
+import {createImageAnnouncementsMigrationScope,IMAGE_ANNOUNCEMENTS_MIGRATION,IMAGE_ANNOUNCEMENTS_CHECKSUM,IMAGE_ANNOUNCEMENTS_MIGRATION_FILE,verifyImageAnnouncementsChecksum,readImageAnnouncementsSnapshot,hasExpectedImageAnnouncementsSchema,imageAnnouncementsLedgerApplied} from '../../scripts/image-announcements-production-migration.mjs';
 it('pins the exact transactional migration and rejects schema, access and ledger drift',async()=>{
  verifyImageAnnouncementsChecksum();
  const db=new PGlite();
@@ -27,4 +28,15 @@ it('the new production target still requires production environment, approved pr
  for(const VERCEL_ENV of ['preview','development']){const r=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{...env,VERCEL_ENV},encoding:'utf8'});expect(r.status).toBe(0);expect(r.stdout).toContain('recovery_skipped_outside_production');}
  const production=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{...env,VERCEL_ENV:'production'},encoding:'utf8'});expect(production.status).toBe(1);expect(production.stderr).toContain('production_connection_rejected');expect(production.stderr).not.toContain('migration_target_rejected');
  const review=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{...env,VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'feat/image-announcements'},encoding:'utf8'});expect(review.status).toBe(1);expect(review.stderr).toContain('review cannot deploy');
+});
+
+it('creates a closed CLI scope containing only the pinned announcement migration',()=>{
+ const scope=createImageAnnouncementsMigrationScope();
+ try{
+  expect(readdirSync(join(scope.directory,'migrations')).sort()).toEqual([IMAGE_ANNOUNCEMENTS_MIGRATION,'migration_lock.toml'].sort());
+  expect(readFileSync(join(scope.directory,'migrations',IMAGE_ANNOUNCEMENTS_MIGRATION,'migration.sql'),'utf8')).toBe(readFileSync(IMAGE_ANNOUNCEMENTS_MIGRATION_FILE,'utf8'));
+  expect(readFileSync(scope.schema,'utf8')).toContain('url = env("DIRECT_URL")');
+  expect(readFileSync(scope.schema,'utf8')).not.toContain('DATABASE_URL');
+ }finally{scope.cleanup();}
+ expect(existsSync(scope.directory)).toBe(false);
 });
