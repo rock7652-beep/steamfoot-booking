@@ -596,7 +596,9 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
-        const sportsPlanName=data.sportsStaging?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
+        // Open classes are named for the teaching item, independently of the
+        // cards/pricing packages members use to attend them.
+        const sportsPlanName=data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
