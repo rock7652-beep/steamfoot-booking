@@ -1,4 +1,5 @@
 "use client";
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
@@ -542,6 +543,8 @@ export function WelcomeBack({
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
+
+      <StoreImageAnnouncements storeSlug={storeSlug} />
 
       <section className="rounded-2xl bg-primary-800 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>

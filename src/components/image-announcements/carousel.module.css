@@ -1,0 +1,17 @@
+/* Isolate controls from module-specific customer portal button defaults. */
+.carousel button.preview {
+  height: 112px;
+  padding: 0;
+  border: 0;
+  background: var(--color-earth-50, #faf9f6);
+}
+.dots button.dotButton,
+.dots button.dotButton[aria-current] {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+}

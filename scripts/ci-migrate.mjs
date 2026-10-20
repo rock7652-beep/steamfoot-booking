@@ -1,3 +1,8 @@
+// Isolated feature review: hosted builds must stop before migrations or deployment.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
+  throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");
+}
+
 // Review-only branch: reject hosted builds before database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-series-capacity-isolation-20261019")) {
   throw new Error("Sports series isolation review cannot deploy or execute migrations.");

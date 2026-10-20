@@ -21,7 +21,8 @@ export const guideCategories: GuideCategory[] = [
     "label": "營業與時段",
     "routes": [
       "/dashboard/settings/hours",
-      "/dashboard/settings/duty"
+      "/dashboard/settings/duty",
+      "/dashboard/image-announcements"
     ]
   },
   {
