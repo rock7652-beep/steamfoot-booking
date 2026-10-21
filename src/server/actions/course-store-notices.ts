@@ -15,7 +15,7 @@ export async function loadCourseStoreNotices(input:unknown) {
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const rule=await coursePrisma.courseBookingRule.findUnique({where:{storeId}});
-  if(!rule?.backendNoticesEnabled)return {success:true as const,storeId,enabled:false,items:[] as CourseNoticeItem[],count:0,canHandle:false,more:false};
+  if(rule?.backendNoticesEnabled===false)return {success:true as const,storeId,enabled:false,items:[] as CourseNoticeItem[],count:0,canHandle:false,more:false};
   const [rows,count,canHandle]=await Promise.all([
    coursePrisma.courseStoreNotice.findMany({where:{storeId,handledAt:d.handled?{not:null}:null},orderBy:d.handled?[{handledAt:"desc"},{id:"asc"}]:[{startsAt:"asc"},{createdAt:"asc"},{id:"asc"}],skip:d.offset,take:51}),
    coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}}),
@@ -30,7 +30,7 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
   const d=z.object({storeId:store,id:store}).parse(input);
   const {storeId,user}=await courseManager("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  if(!(await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled)throw new AppError("FORBIDDEN","後台異動通知已關閉");
+  if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
   const notice=await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
   if(!notice)throw new AppError("NOT_FOUND","找不到通知");
   let sessionId:string|undefined;
@@ -53,7 +53,7 @@ export async function markCourseStoreNotice(input:unknown) {
   const {storeId,user}=await courseManager("booking.update");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const saved=await courseTransaction(storeId,async tx=>{
-   if(!(await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled)throw new AppError("FORBIDDEN","後台異動通知已關閉");
+   if((await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
    const n=await tx.courseStoreNotice.findFirst({where:{id:d.id,storeId}});
    if(!n)throw new AppError("NOT_FOUND","找不到通知");
    if(n.revision!==d.revision)throw new AppError("CONFLICT","通知已更新，請重新確認");
@@ -72,7 +72,7 @@ export async function saveCourseOperationSwitch(input:unknown) {
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const data=await courseTransaction(storeId,async tx=>{
    const before=await tx.courseBookingRule.findUnique({where:{storeId}});
-   const current=before?.[d.key]??(d.key==="backendNoticesEnabled"?false:d.key==="selfRescheduleEnabled"?before?.selfBookingEnabled??true:true);
+   const current=before?.[d.key]??(d.key==="selfRescheduleEnabled"?before?.selfBookingEnabled??true:true);
    if(current===d.enabled)return {key:d.key,enabled:current};
    if(current!==d.previous)throw new AppError("CONFLICT","設定已更新，請重新開啟核對");
    await tx.courseBookingRule.upsert({where:{storeId},create:{storeId,[d.key]:d.enabled},update:{[d.key]:d.enabled}});
