@@ -1,4 +1,5 @@
 "use client";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 
 import { courseDisplayText } from "@/lib/course-display-text";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
@@ -81,8 +82,7 @@ export function CourseSelfBookingSettings({
           revision: receipt.revision,
         });
         setSaved(true);
-        if(result.syncWarning)setError("已儲存；其他頁面更新失敗，請重新整理核對。");
-        onClose();
+        if (canCloseConfirmedSettingsSave(result, setError)) onClose();
       } catch {
         setError("連線失敗，修改內容已保留，請重試");
       } finally {

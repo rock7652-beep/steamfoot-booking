@@ -1,4 +1,5 @@
 "use client";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import feeLayout from "./sports-fee-layout.module.css";
 import { saveSportsFee } from "@/server/actions/sports-staging";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
@@ -36,31 +37,33 @@ export type Plan = {
 
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-type Callbacks={onPending:(value:boolean)=>void;onSaved:(row?:Plan)=>void;onUncertain?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void};
+type Callbacks={onPending:(value:boolean)=>void;onSaved:(row?:Plan,syncWarning?:boolean)=>void;onUncertain?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void};
 function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear"|"dirty">, {onPending,onSaved,onDirtyChange}:Callbacks){
  useEffect(()=>{onDirtyChange?.(draft.dirty);},[draft.dirty,onDirtyChange]);
  const router=useRouter();const [error,setError]=useState("");const [pending,setPending]=useState(false);
- async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string;uncertain?:boolean;data?:unknown;confirmedPlan?:Plan}>){
-  event.preventDefault();if(draft.busy.current||draft.stale)return;
+ const [committedWarning,setCommittedWarning]=useState(false);
+ async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string;uncertain?:boolean;data?:unknown;confirmedPlan?:Plan;syncWarning?:boolean}>){
+  event.preventDefault();if(draft.busy.current||draft.stale||committedWarning)return;
   const data=new FormData(event.currentTarget);draft.busy.current=true;setPending(true);onPending(true);setError("");
   try{const result=await save(data);if(!draft.mounted.current)return;
    if(!result.success){setError(result.error??"儲存失敗，輸入已保留");if(!result.uncertain)router.refresh();return;}
+   if (!canCloseConfirmedSettingsSave(result, setError)) {setCommittedWarning(true);onSaved(result.confirmedPlan,true);return;}
    draft.clear();onSaved(result.confirmedPlan);
   }catch{if(draft.mounted.current)setError("連線中斷，輸入已保留，請稍後重試。");}
   finally{draft.busy.current=false;if(draft.mounted.current){setPending(false);onPending(false);}}
  }
- return {submit,error,pending};
+ return {submit,error,pending,committedWarning};
 }
 export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...callbacks}:Callbacks&{person:Person|null;canEdit:boolean;canCreate:boolean;hidden:boolean}){
  const [year="1970",month="",day=""]=(person?.birthday??"").split("-");
  const draft=useFormDraft(`course-customer:${person?.id??"new"}`,{name:person?.name??"",phone:person?.phone??"",email:person?.email??"",gender:person?.gender??"",serviceNote:person?.serviceNote??"",address:person?.address??"",emergencyContactName:person?.emergencyContactName??"",emergencyContactPhone:person?.emergencyContactPhone??"",birthYear:year||"1970",birthMonth:month,birthDay:day},person?.updatedAt??null);
- const {submit,error,pending}=useSaveForm(draft,callbacks);
+ const {submit,error,pending,committedWarning}=useSaveForm(draft,callbacks);
  return <form id="course-member-form" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${hidden?"hidden":""}`} onSubmit={e=>{
   if(person?!canEdit:!canCreate){e.preventDefault();return;}
   void submit(e,d=>saveCourseCustomer({id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
  }}>
- <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
- <fieldset disabled={pending} className="contents">
+ <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty&&!committedWarning} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
+ <fieldset disabled={pending||committedWarning} className="contents">
                 <label className="block">
                   姓名
                   <input
@@ -107,7 +110,7 @@ export function CoursePlanDraftForm({sportsData,storeId,plan,templates,subjects=
  const savedPeriod=plan?.musicTermSizes?.[0]??(plan&&paidLessons%(plan.musicTerms??1)===0?paidLessons/(plan.musicTerms??1):null);
  const initialSubject=plan?.sportsSubjectId??initialRule?.musicSubjectId??(subjects.some(s=>s.id===initialTemplateId)?initialTemplateId:!plan&&subjects.filter(s=>s.isActive).length===1?subjects.find(s=>s.isActive)?.id:"");
  const draft=useFormDraft<Record<string,string>>(`course-plan:${plan?.id??`new:${initialTemplateId??"all"}`}`,{sportsMode:plan?.sportsMode??(sportsData?(plan?"LEGACY":"ASSIGNED"):"LEGACY"),sportsCost:String(plan?.sportsCost??initialSportsFee?.cost??1),sportsCoaches:JSON.stringify(sportsData?.coaches.filter(c=>c.templates.includes(initialSportsFee?.templateId??"")).map(c=>c.id)??[]),sportsCompensationMode:initialSportsFee?.compensation?.mode??"SHARE",sportsCompensationValue:String(initialSportsFee?.compensation?.value??60),subjectId:initialSubject??"",classType:initialRule?.classType??"PRIVATE",musicTeacherShare:String(initialRule?.musicTeacherShare??0.6),musicPricePerLesson:String(plan&&paidLessons>0?plan.price/paidLessons:initialRule?.musicPricePerLesson??800),musicTermLessons:String(savedPeriod??initialRule?.musicTermLessons??4),musicValidityDaysPerTerm:String(plan?plan.validDays/(plan.musicTerms??1):initialRule?.musicValidityDaysPerTerm??35),musicScheduleMode:initialRule?.musicScheduleMode??"FIXED",name:plan?.name??"",kind:plan?.termSessionIds?.length?"TERM":plan?.unit??"POINT",scope:plan?.templateIds.length||initialTemplateId?"selected":"all",unit:music?"SESSION":plan?.unit??"POINT",active:plan?.isActive===false?"no":"yes",points:String(plan?.points??10),price:String(plan?.price??0),storeCost:String(plan?.storeCost??0),days:String(plan?.validDays??90),musicTerms:String(plan?.musicTerms??1),musicBonusLessons:String(plan?.musicBonusLessons??0),purchaseMode:plan?.customerPurchasable===false?"backend":"customer",allowShared:plan?.allowShared?"yes":"no",templates:JSON.stringify(plan?.templateIds??(initialTemplateId?[initialTemplateId]:[])),terms:JSON.stringify(plan?.termSessionIds??[])},plan?JSON.stringify({...coursePlanSnapshot(plan),musicTerms:plan.musicTerms}):null);
- const {submit,error,pending}=useSaveForm(draft,callbacks);
+ const {submit,error,pending,committedWarning}=useSaveForm(draft,callbacks);
  const [templateSearch,setTemplateSearch]=useState("");
  const planKind=draft.values.kind,courseScope=draft.values.scope;
  const [selectionError,setSelectionError]=useState("");
@@ -122,9 +125,9 @@ export function CoursePlanDraftForm({sportsData,storeId,plan,templates,subjects=
  const unitPrice=music?Number(draft.values.musicPricePerLesson):Math.round(Number(draft.values.price)/Math.max(1,Number(draft.values.points)));
  const estimatedProfit=(music?musicQuote?.price??0:Number(draft.values.price))-Number(draft.values.storeCost);
  return <form id="course-member-form" className={sportsData?feeLayout.form:"grid grid-cols-1 gap-3 sm:grid-cols-2"} onInvalidCapture={e=>{const section=(e.target as HTMLElement).closest("details");if(section)section.open=true;(e.target as HTMLElement).scrollIntoView?.({block:"nearest"});}} onSubmit={e=>{if(!music&&!sportsData&&((courseScope==="selected"&&!selectedTemplateIds.length)||(planKind==="TERM"&&selectedTerms.length!==Number(draft.values.points)))){e.preventDefault();const section=e.currentTarget.querySelector<HTMLDetailsElement>(courseScope==="selected"&&!selectedTemplateIds.length?'[data-plan-section="courses"]':'[data-plan-section="dates"]');if(section){section.open=true;section.scrollIntoView?.({block:"nearest"});}setSelectionError(courseScope==="selected"&&!selectedTemplateIds.length?"請選至少一門適用課程，或改為全部課程。":"上課日期數須與整期堂數一致。");return;}setSelectionError("");void submit(e,d=>savePlanInput({id:plan?.id,...(music?{musicSetup:{musicTeacherShare:Number(draft.values.musicTeacherShare),subjectId:draft.values.subjectId,classType:draft.values.classType,musicPricePerLesson:Number(draft.values.musicPricePerLesson),musicTermLessons:Number(draft.values.musicTermLessons),musicValidityDaysPerTerm:Number(draft.values.musicValidityDaysPerTerm),musicScheduleMode:draft.values.musicScheduleMode}}:{}),expectedSnapshot:draft.expectedRevision??undefined,name:d.get("name"),points:music?musicQuote?.lessons??0:Number(d.get("points")),price:music?musicQuote?.price??0:Number(d.get("price")),storeCost:music?0:profitEnabled?Number(d.get("storeCost")):(plan?.storeCost??0),termSessionIds:music||planKind==="TERM"?d.getAll("termSessionIds"):[],customerPurchasable:d.get("purchaseMode")==="customer",allowShared:!music&&sharedCardState!=="ENABLED"?!!plan?.allowShared:!music&&planKind==="TERM"?false:d.get("allowShared")==="yes",validDays:music?musicQuote?.validDays??0:Number(d.get("days")),musicTerms:music?1:null,musicBonusLessons:0,isActive:d.get("active")==="yes",unit:music?"SESSION":d.get("unit"),templateIds:music||courseScope==="selected"?d.getAll("templateIds"):[]}));}}>
- <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty&&(!sportsData||draft.stale)} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
+ <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty&&!committedWarning&&(!sportsData||draft.stale)} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  {selectionError&&<p role="alert" className="sm:col-span-2 text-sm text-red-700">{selectionError}</p>}
- <fieldset disabled={pending || mutation.uncertain} className="contents">
+ <fieldset disabled={pending || mutation.uncertain || committedWarning} className="contents">
                 <label className={music ? "block" : "block sm:col-span-2"}>
                   {music ? "班型名稱（必填）" : "名稱 *"}
                   <input
