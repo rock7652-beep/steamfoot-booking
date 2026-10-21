@@ -59,7 +59,7 @@ function receipt(kind,input) {
   return {id:"qa-staff",updatedAt,userId:"qa-user",role:"STAFF",permissions:[],displayName:input.values.displayName,legalName:"",roleLabel:"員工",email:"qa@example.invalid",phone:null,colorCode:"#224466",status:"ACTIVE",customerCount:0,specialties:"",specialtyKeys:[],emergencyContact:null,weeklyAvailability:[],scheduleExceptions:[],canEdit:true,canResetPassword:false,compensationMode:null,compensationValue:null};
 }
 try {
-for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024]]) {
+for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024]].filter(([width])=>!process.env.QA_WIDTHS||process.env.QA_WIDTHS.split(",").includes(String(width)))) {
  for(const kind of kinds.filter(kind=>!process.env.QA_KIND||process.env.QA_KIND.split(",").includes(kind))) for(const scenario of (width===1366?["success","rejected","uncertain","sync-warning","slow"]:["success"])) {
   console.log(`${width}/${kind}/${scenario}`);
   const page=await browser.newPage({viewport:{width,height}});page.setDefaultTimeout(12000);
@@ -88,6 +88,10 @@ for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024]]) {
   await page.setViewportSize({width:height,height:width});await page.setViewportSize({width,height});
   if((kind==="self"?await field.isChecked():await field.inputValue())!==original)throw Error("Draft lost on resize");
   await field.evaluate(el=>el.setAttribute("data-qa-field","active"));
+  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error("Open editor overflows viewport");
+  await save.scrollIntoViewIfNeeded();
+  const bounds=await save.boundingBox();if(!bounds||bounds.x<0||bounds.x+bounds.width>width+1||bounds.y<0||bounds.y+bounds.height>height+1)throw Error("Save control outside viewport");
+  if(width!==1366)await page.screenshot({path:path.join(output,`${width}-${kind}-open.png`),fullPage:true});
   await save.evaluate(el=>el.setAttribute("data-qa-save","active"));save=page.locator('[data-qa-save="active"]');
   const started=Date.now();await save.click();await page.waitForFunction(()=>document.querySelector('[data-qa-field="active"]'));
   if(scenario==="slow"){await page.waitForTimeout(3000);if(!await field.isVisible()||!await save.isDisabled())throw Error("Slow request closed early");}
