@@ -1,0 +1,31 @@
+{
+  "complete": true,
+  "scope": "real login, real Next API and disposable PostgreSQL; no production data",
+  "developmentBuild": true,
+  "physicalIPad": false,
+  "safari": false,
+  "results": [
+    {
+      "section": "store",
+      "ttfbMs": 751,
+      "documentMs": 5910,
+      "readyMs": 9898,
+      "courseRequests": 2
+    },
+    {
+      "section": "booking",
+      "ttfbMs": 662,
+      "documentMs": 2640,
+      "readyMs": 6453,
+      "courseRequests": 2
+    },
+    {
+      "section": "payment",
+      "ttfbMs": 405,
+      "documentMs": 1721,
+      "readyMs": 5150,
+      "courseRequests": 2
+    }
+  ],
+  "externalRequestsBlocked": 0
+}

@@ -1,0 +1,31 @@
+{
+  "synthetic": true,
+  "note": "修正前僅使用網路請求耗時與未收合結果；初版腳本的 observed 欄位包含等待提示文字的時間，不採計。",
+  "results": [
+    {
+      "setting": "store",
+      "requestMs": 169,
+      "collapsed": false
+    },
+    {
+      "setting": "booking",
+      "requestMs": 166,
+      "collapsed": false
+    },
+    {
+      "setting": "payment",
+      "requestMs": 164,
+      "collapsed": false
+    },
+    {
+      "setting": "waitlist",
+      "requestMs": 166,
+      "collapsed": false
+    },
+    {
+      "setting": "trial",
+      "requestMs": 171,
+      "collapsed": false
+    }
+  ]
+}

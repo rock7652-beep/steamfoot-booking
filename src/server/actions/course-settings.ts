@@ -1,4 +1,5 @@
 "use server";
+import { settingsStep, settingsSyncStep } from "@/server/services/settings-timing";
 import { selfBookingReceipt } from "@/lib/course-self-booking-save";
 import { z } from "zod";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
@@ -58,10 +59,10 @@ export async function saveCourseSettingsSection(input: unknown) {
   try {
     const receipt=z.object({receipt:courseSettingsSectionReceipt.optional()}).parse(input).receipt;
     const d = courseSettingsSectionSchema.parse(input);
-    const { storeId } = await courseManager(d.section === "payment" ? "plans.edit" : "business_hours.manage");
+    const { storeId } = await settingsStep("authorization", () => courseManager(d.section === "payment" ? "plans.edit" : "business_hours.manage"));
     if(receipt&&receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
-    await assertStoreSubscriptionWritable(storeId);
-    const saved=await courseTransaction(storeId, async tx => {
+    await settingsStep("subscription", () => assertStoreSubscriptionWritable(storeId));
+    const saved=await settingsStep("transaction", () => courseTransaction(storeId, async tx => {
       if(receipt){const current=await readCourseSettingsSection(tx,storeId,d.section);if(courseSettingsSectionRevision(current)!==receipt.expectedRevision){if(courseSettingsSectionRevision(current)===courseSettingsSectionRevision(d))return current;throw new AppError("CONFLICT","設定已有更新，輸入已保留。請重新開啟後核對。");}}
       if (d.section === "booking") {
         const rules = { bookingLeadMinutes: d.bookingLeadMinutes, cancellationLeadMinutes: d.cancellationLeadMinutes };
@@ -74,12 +75,14 @@ export async function saveCourseSettingsSection(input: unknown) {
         await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","bankName","bankCode","bankAccountNumber","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.bankName || null},${d.bankCode || null},${d.bankAccountNumber || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "bankName"=EXCLUDED."bankName","bankCode"=EXCLUDED."bankCode","bankAccountNumber"=EXCLUDED."bankAccountNumber","updatedAt"=NOW()`;
       }
       if(receipt)return readCourseSettingsSection(tx,storeId,d.section);
-    });
+    }));
     let syncWarning=false;
     try {
+    settingsSyncStep("cache", () => {
     if(receipt)revalidateShopConfigInRoute();else revalidateShopConfig();
     revalidatePath("/dashboard", "layout");
     revalidatePath("/book");
+    });
     }catch(error){if(!receipt)throw error;syncWarning=true;}
     return { success: true as const,storeId,data:receipt?{values:saved!,revision:courseSettingsSectionRevision(saved)}:undefined,syncWarning };
   } catch (error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }

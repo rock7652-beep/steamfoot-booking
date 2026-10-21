@@ -18,6 +18,6 @@ it("confirms waitlist status locally and preserves the exact uncertain attempt",
   fetch.mockResolvedValueOnce({json:async()=>({success:true,storeId:"store",data:{...initial,enabled:true}})});
   await act(async()=>host.querySelector<HTMLButtonElement>("button")!.click());
   expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);expect(fetch.mock.calls[1][0]).toBe("/s/a/admin/dashboard/settings-save/course/waitlist");
-  expect(onSaved).toHaveBeenCalledWith({...initial,enabled:true});expect(host.textContent).toContain("已儲存");expect(host.querySelector<HTMLButtonElement>("button")!.disabled).toBe(true);
+  expect(onSaved).toHaveBeenCalledWith({...initial,enabled:true},false);expect(host.textContent).toContain("已儲存");expect(host.querySelector<HTMLButtonElement>("button")!.disabled).toBe(true);
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });

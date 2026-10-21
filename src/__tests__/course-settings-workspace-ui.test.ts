@@ -221,3 +221,19 @@ it("keeps customer labels inside the customer settings category rather than abov
   expect(labels.closest('[hidden]')).toBeNull();
   expect(host.querySelector('nav[aria-label="設定分類"]')?.textContent).not.toContain("顧客標籤設定");
 });
+
+it.each(["saved", "rejected", "uncertain", "sync-warning"] as const)("keeps the editor until a confirmed save and handles %s without a route refresh", async outcome => {
+  let finish!: (result: unknown) => void;
+  m.save.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  await render(); await input("name", "確認後的新店名");
+  const field = host.querySelector<HTMLInputElement>('input[name="name"]')!;
+  await submit(); await submit();
+  expect(field.closest("[hidden]")).toBeNull();
+  expect(field.closest("fieldset")?.disabled).toBe(true);
+  expect(m.save).toHaveBeenCalledTimes(1);
+  await act(async () => finish(outcome === "rejected" ? {success:false,error:"驗證失敗"} : outcome === "uncertain" ? {success:false,uncertain:true,error:"結果待確認"} : {success:true,syncWarning:outcome === "sync-warning"}));
+  expect(field.value).toBe("確認後的新店名");
+  expect(!!field.closest("[hidden]")).toBe(outcome === "saved");
+  expect(host.textContent).toContain(outcome === "rejected" ? "驗證失敗" : outcome === "uncertain" ? "尚未確認儲存結果" : outcome === "sync-warning" ? "其他頁面更新失敗" : "確認後的新店名");
+  expect(m.refresh).not.toHaveBeenCalled();
+});

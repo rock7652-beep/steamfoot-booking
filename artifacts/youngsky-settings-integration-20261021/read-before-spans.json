@@ -1,0 +1,339 @@
+[
+  {
+    "operation": "layout",
+    "traceId": "1a1cfa7b-e5b5-4d7d-a618-760fb53887b7",
+    "ok": true,
+    "totalMs": 3178.7,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "4710f617-8ed4-45a7-b45d-55f076ac936f",
+    "ok": true,
+    "totalMs": 2528,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 1.1,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 896.2,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 1256.3,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 38.4,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 91.2,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 93.6,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 31.9,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 109,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "78b22a49-c451-49dd-954f-7476171c0905",
+    "ok": true,
+    "totalMs": 8855,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "b65ce0b0-9cb3-4ae6-a34c-5140840da3b4",
+    "ok": true,
+    "totalMs": 218.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 0.2,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 20.3,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 33.7,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 47,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 54.8,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 15.9,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 65.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "501f34d2-ecf0-4425-b1a3-05cd113489f4",
+    "ok": true,
+    "totalMs": 1638.8,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "1946d74d-b8bc-4845-a0e8-65f2b94d5ddb",
+    "ok": true,
+    "totalMs": 235,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 0.8,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 6.9,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 13.1,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 23.3,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 53.9,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 56.8,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 17,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 70,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "71aa77a6-d7d3-45ef-ae63-475e7b87bd6c",
+    "ok": true,
+    "totalMs": 1412.1,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "8c11e5f2-d220-4ab3-80ef-5cb59cfc041e",
+    "ok": true,
+    "totalMs": 263.5,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 0.6,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 0.2,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 14.2,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 18,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 62.3,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 70.2,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 12,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 118.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "5e530c60-2dea-4452-8cbd-b3a265f10cc5",
+    "ok": true,
+    "totalMs": 1112.3,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "908595a2-9a7b-4ed1-ba07-4001dd09f76c",
+    "ok": true,
+    "totalMs": 222.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 33.1,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 34.7,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 57.6,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 58.1,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 8.1,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 58.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "43f63664-fa72-464b-bca2-562e916bf0ec",
+    "ok": true,
+    "totalMs": 1211.1,
+    "spans": []
+  },
+  {
+    "operation": "hub",
+    "traceId": "170b5b96-ddb3-4951-b9db-f76545253ce4",
+    "ok": true,
+    "totalMs": 448.1,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 0.8,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 0.6,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 15.5,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 44.4,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 168.6,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 170,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 40.1,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 120.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "881d9070-793a-4497-819c-be8a8b5421ec",
+    "ok": true,
+    "totalMs": 1411,
+    "spans": []
+  }
+]

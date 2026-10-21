@@ -80,3 +80,14 @@ it("continues from a new coach to item qualifications, then to either pricing mo
  await render(1,1,1);
  expect(host.querySelector<HTMLAnchorElement>('a[href*="view=plans"]')?.getAttribute("href")).toContain("action=create&setupStep=plan&setupFlow=sports");
 });
+
+it('preserves settings editors on window focus but keeps refresh on other guide pages',async()=>{
+ m.refresh.mockClear();m.search='view=settings&section=booking';
+ const props={steps:courseSetupSteps(counts,false),preference:{mode:'never' as const},login:'test',localSections:true};
+ await act(async()=>root.render(createElement(CourseSetupGuide,props)));
+ await act(async()=>window.dispatchEvent(new Event('focus')));
+ expect(m.refresh).not.toHaveBeenCalled();
+ m.search='view=rooms';await act(async()=>root.render(createElement(CourseSetupGuide,props)));
+ m.refresh.mockClear();await act(async()=>window.dispatchEvent(new Event('focus')));
+ expect(m.refresh).toHaveBeenCalledOnce();
+});
