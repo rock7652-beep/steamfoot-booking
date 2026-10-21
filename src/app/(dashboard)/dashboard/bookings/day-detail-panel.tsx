@@ -596,14 +596,12 @@ function TimelineItem({
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
-        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={!readOnly && canEditBookingNote && !booking.participantSummary ? [
-          ...(booking.bookingType === "FIRST_TRIAL" || (actionable && booking.bookingType === "SINGLE") ? [{ label: "購買方案", onSelect: () => onClick(booking.id, "purchase-plan") }] : []),
-          ...(actionable && booking.bookingType === "PACKAGE_SESSION" ? [{ label: "單次", onSelect: () => onClick(booking.id, "single") }] : []),
-          ...(actionable ? [
-            { label: "改時間", onSelect: () => onClick(booking.id, "reschedule") },
-            { label: "未到", onSelect: () => onClick(booking.id, "no-show") },
-            { label: "取消預約", danger: true, onSelect: () => onClick(booking.id, "cancel") },
-          ] : []),
+        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={!readOnly && !booking.participantSummary ? [
+          ...(canEditBookingNote && (booking.bookingType === "FIRST_TRIAL" || (actionable && booking.bookingType === "SINGLE")) ? [{ label: "購買方案", onSelect: () => onClick(booking.id, "purchase-plan") }] : []),
+          ...(canEditBookingNote && actionable && booking.bookingType === "PACKAGE_SESSION" ? [{ label: "單次", onSelect: () => onClick(booking.id, "single") }] : []),
+          ...(canEditBookingNote && actionable ? [{ label: "改時間", onSelect: () => onClick(booking.id, "reschedule") }] : []),
+          ...(actionable && (canEditBookingNote || !!onNoShowTrial) ? [{ label: "未到", onSelect: () => booking.bookingType === "FIRST_TRIAL" && onNoShowTrial ? onNoShowTrial(booking.id) : onClick(booking.id, "no-show") }] : []),
+          ...(actionable && (canEditBookingNote || !!onCancelTrial) ? [{ label: "取消預約", danger: true, onSelect: () => booking.bookingType === "FIRST_TRIAL" && onCancelTrial ? onCancelTrial(booking.id) : onClick(booking.id, "cancel") }] : []),
         ] : []} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
       </div>
     </div>
