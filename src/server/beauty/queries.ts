@@ -398,9 +398,10 @@ export async function beautyDashboard(
         _count: { id: true },
       })
     : [];
-  const [calendarHours,calendarSpecials]=await Promise.all([
+  const [calendarHours,calendarSpecials,customerVisits]=await Promise.all([
     prisma.businessHours.findMany({where:{storeId:a.storeId}}),
     prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
+    customerAccess&&customers.length?beautyPrisma.beautyAppointment.groupBy({by:["customerId"],where:{storeId:a.storeId,customerId:{in:customers.map(c=>c.id)},status:"COMPLETED",startsAt:{lte:new Date()}},_max:{startsAt:true}}):[],
   ]);
   const calendarDates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
   const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
@@ -420,7 +421,7 @@ export async function beautyDashboard(
     techs: techs.map((t) => ({ ...t, rates: feeAccess ? t.rates : {} })),
     locations,
     plans,
-    customers,
+    customers:customers.map(c=>({...c,lastVisitAt:customerVisits.find(v=>v.customerId===c.id)?._max.startsAt??null})),
     cards: cards.map((c) => ({
       ...c,
       expiresAt: c.expiresAt.toISOString(),
