@@ -1,0 +1,139 @@
+{
+  "complete": true,
+  "scope": "isolated hosted Vercel Preview; temporary synthetic owner; not production",
+  "deployment": "dpl_Aeu84Pf2tehBfWWYUW3p8PLaPNgs",
+  "results": [
+    {
+      "setting": "payment",
+      "label": "edit",
+      "submitToCollapseMs": 944,
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "payment",
+        "bankName": "隔離銀行 Playwright QA1021",
+        "bankCode": "",
+        "bankAccountNumber": ""
+      },
+      "clickToVerifiedMs": 1316,
+      "pageErrors": 0
+    },
+    {
+      "setting": "payment",
+      "label": "restore",
+      "submitToCollapseMs": 958,
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "payment",
+        "bankName": "",
+        "bankCode": "",
+        "bankAccountNumber": ""
+      },
+      "clickToVerifiedMs": 1366,
+      "pageErrors": 0
+    },
+    {
+      "setting": "booking",
+      "label": "edit",
+      "submitToCollapseMs": 817,
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "booking",
+        "bookingLeadMinutes": 60,
+        "cancellationLeadMinutes": 0
+      },
+      "clickToVerifiedMs": 1182,
+      "pageErrors": 0
+    },
+    {
+      "setting": "booking",
+      "label": "restore",
+      "submitToCollapseMs": 1015,
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "booking",
+        "bookingLeadMinutes": 0,
+        "cancellationLeadMinutes": 0
+      },
+      "clickToVerifiedMs": 1440,
+      "pageErrors": 0
+    }
+  ],
+  "screens": [
+    {
+      "width": 1366,
+      "height": 900,
+      "scrollWidth": 1366,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "scrollWidth": 1920,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "scrollWidth": 1024,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    }
+  ],
+  "errors": [],
+  "network": [
+    {
+      "setting": "payment",
+      "label": "edit",
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": 924,
+      "serverTiming": "handler;dur=229.4, authorization;dur=107.7, subscription;dur=16.1, db_lock;dur=8.6, db_work;dur=26.2, transaction;dur=105.2, cache;dur=0.1",
+      "traceId": "81ba32f8-0e92-42b3-9b47-667492ee19e4"
+    },
+    {
+      "setting": "payment",
+      "label": "restore",
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": 941,
+      "serverTiming": "handler;dur=188.6, authorization;dur=98.5, subscription;dur=15.6, db_lock;dur=8.3, db_work;dur=27.0, transaction;dur=74.3, cache;dur=0.1",
+      "traceId": "5a720c9f-48f9-4c7c-a218-f1e5632ed631"
+    },
+    {
+      "setting": "booking",
+      "label": "edit",
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": 803,
+      "serverTiming": "handler;dur=166.1, authorization;dur=72.8, subscription;dur=15.9, db_lock;dur=8.5, db_work;dur=27.6, transaction;dur=77.1, cache;dur=0.1",
+      "traceId": "f5db181b-ee4d-4309-8869-95630b9503a9"
+    },
+    {
+      "setting": "booking",
+      "label": "restore",
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": 972,
+      "serverTiming": "handler;dur=159.6, authorization;dur=70.1, subscription;dur=15.1, db_lock;dur=8.6, db_work;dur=27.3, transaction;dur=74.0, cache;dur=0.1",
+      "traceId": "423942b1-f22f-4c18-98ac-c34c59bbfbeb"
+    }
+  ],
+  "httpTimingUsable": true
+}
