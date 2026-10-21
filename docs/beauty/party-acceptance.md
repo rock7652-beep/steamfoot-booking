@@ -1,5 +1,7 @@
 # 多人不同服務：分項改期、部分取消及合併收款
 
+> 本頁保留當輪驗收範圍與當時下一步；現行店家試用請見[三端試用清單](store-trial-checklist.md)，正式啟用狀態及後續補驗請以[啟用前證據總表](release-readiness.md)為準，不把歷史待辦重算為仍未完成。
+
 2026-10-21；基準 `34ffc48d`，美業獨立支線與既有專用 Sandbox。最終執行 `1cc22348`，**11組通過、page error 0、待發通知0**。[瀏覽器結果](evidence/party/results.json)、[資料庫核對摘要](evidence/party/database-verification.json)。本輪沒有發現需修改產品程式的問題，只新增驗收工具與紀錄；正式站及 LINE 未變動。
 
 ## 實際三端流程

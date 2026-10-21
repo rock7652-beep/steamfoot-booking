@@ -1,5 +1,7 @@
 # 美業第一版驗證紀錄與啟用界線
 
+> 本頁保留當輪驗收範圍與當時下一步；現行店家試用請見[三端試用清單](store-trial-checklist.md)，正式啟用狀態及後續補驗請以[啟用前證據總表](release-readiness.md)為準，不把歷史待辦重算為仍未完成。
+
 基準 main：`c90f82df778da7c52e8716f8a6f3b6d0bb238593`。支線 `feat/beauty-module-20261020`，工作目錄 `/workspace/steamfoot-beauty`；原工作目錄 `/workspace/steamfoot-booking` 未改檔案／支線。沒有 cherry-pick 或更新其他任務的 PR。
 
 以下原始紀錄屬於 `3433cf1` 的首輪交付。2026-10-20 後續已依使用者授權完成專用真實 PostgreSQL 與實際 Next 三端驗收，見 [隔離整合驗收](live-acceptance.md)。這些新證據補足部分舊缺口，不代表正式啟用、正式 schema 相容、真實 LINE OAuth／通知送達或全部上線前驗收完成。

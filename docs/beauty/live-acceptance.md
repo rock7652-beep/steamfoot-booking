@@ -1,5 +1,7 @@
 # 美業隔離整合驗收（2026-10-20）
 
+> 本頁保留當輪驗收範圍與當時下一步；現行店家試用請見[三端試用清單](store-trial-checklist.md)，正式啟用狀態及後續補驗請以[啟用前證據總表](release-readiness.md)為準，不把歷史待辦重算為仍未完成。
+
 本頁記錄當時的本機隔離驗收；後續的對外 HTTPS 入口、時效與真實 LINE 缺項請見 [專用 Sandbox 測試站](sandbox-preview.md)。
 
 草稿 PR：[#1374](https://github.com/rock7652-beep/steamfoot-booking/pull/1374)。本輪接續 `3433cf196e0daee43593c91b5e41739311840028`，仍使用 `feat/beauty-module-20261020` 獨立工作目錄。原工作目錄仍為乾淨的 `work` 支線。

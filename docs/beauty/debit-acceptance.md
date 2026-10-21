@@ -1,5 +1,7 @@
 # 取消／未到扣次、恢復與更正補驗
 
+> 本頁保留當輪驗收範圍與當時下一步；現行店家試用請見[三端試用清單](store-trial-checklist.md)，正式啟用狀態及後續補驗請以[啟用前證據總表](release-readiness.md)為準，不把歷史待辦重算為仍未完成。
+
 2026-10-21；基準 `b6885e9d`，沿用美業獨立支線與任務專用 Sandbox。正式站及 LINE 未變動。這輪只新增 QA 工具與驗收紀錄，沒有發現需修改產品程式的扣次問題。
 
 最終執行 `24d3ee99`：**10組、61個檢查點通過**，[機器結果](evidence/debits/results.json)。真正 Auth.js 登入、公開 HTTPS Server Actions、三端真正 RSC 與受限 PostgreSQL 核對；沒有直接改餘額、帳本或預約狀態來製造測試結果。

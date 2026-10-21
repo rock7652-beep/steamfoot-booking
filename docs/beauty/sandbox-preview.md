@@ -6,6 +6,8 @@
 
 入口：`https://sb-5xmothc5nvzv.vercel.run`。
 
+**店家現在從這裡開始：[三端試用清單](store-trial-checklist.md)**；正式啟用前的證據與缺項集中於[啟用前清單](release-readiness.md)。所有店家實機勾選尚待本人回報，不由代理測試代簽收。
+
 | 身分 | 網址 | 測試帳號 |
 |---|---|---|
 | 店長 | [/hq/login?store=beauty-1374-qa](https://sb-5xmothc5nvzv.vercel.run/hq/login?store=beauty-1374-qa) | `owner@beauty-1374.invalid` |
