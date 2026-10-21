@@ -85,7 +85,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     if (!result.success || !("bookingId" in result)) throw new Error("Missing rescheduled booking ID");
     expect(await rescheduleMemberCourseBooking(input)).toEqual(result);
     expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([
-      expect.objectContaining({subjectKey:`booking:${result.bookingId}`,kind:"MOVE",customerName:"驗收學員",coachName:"驗收教師",startsAt:f.sessions[1].startsAt,previousStartsAt:f.sessions[0].startsAt,handledAt:null,revision:0}),
+      expect.objectContaining({subjectKey:`booking:${result.bookingId}`,kind:"MOVE",customerName:"驗收學員",coachName:"驗收教師",startsAt:f.sessions[1].startsAt,previousStartsAt:f.sessions[0].startsAt,handledAt:null,revision:1}),
     ]);
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "CANCELLED" });
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId, status: "RESERVED" } })).toBe(1);
@@ -101,7 +101,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "RESERVED" });
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { bookingId: f.original.id, kind: "RELEASE" } })).toBe(0);
-    expect(await db!.courseStoreNotice.count({where:{storeId:f.storeId}})).toBe(0);
+    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([expect.objectContaining({subjectKey:`booking:${f.original.id}`,kind:"BOOKING",revision:0})]);
   });
   it("an uncovered lesson date rolls back cancellation and all ledger writes", async () => {
     const f = await fixture();
@@ -112,7 +112,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId } })).toBe(1);
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { storeId: f.storeId } })).toBe(1);
-    expect(await db!.courseStoreNotice.count({where:{storeId:f.storeId}})).toBe(0);
+    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([expect.objectContaining({subjectKey:`booking:${f.original.id}`,kind:"BOOKING",revision:0})]);
   });
   it("trial confirmation changes no attendance or receipt; rescheduling moves the same receipt", async () => {
     const f = await fixture(true);

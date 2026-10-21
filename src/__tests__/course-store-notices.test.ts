@@ -29,9 +29,19 @@ describe("independent course controls",()=>{
  });
 });
 describe("transactional store notices",()=>{
- it("does not write while disabled or for legacy stores",async()=>{
+ it("does not write while explicitly disabled",async()=>{
   m.rule.mockResolvedValue({backendNoticesEnabled:false});await recordCourseStoreNotice(tx as never,actor,event);
   expect(m.upsert).not.toHaveBeenCalled();expect(m.raw).not.toHaveBeenCalled();
+ });
+ it("records notices by default when a store has no rule",async()=>{
+  m.rule.mockResolvedValue(null);
+  await recordCourseStoreNotice(tx as never,actor,event);
+  expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({storeId:"s",handledAt:null})}));
+ });
+ it("allows a store without a rule to disable the default-on setting",async()=>{
+  m.rule.mockResolvedValue(null);
+  expect(await saveCourseOperationSwitch({storeId:"s",key:"backendNoticesEnabled",enabled:false,previous:true})).toMatchObject({success:true,data:{enabled:false}});
+  expect(m.upsert).toHaveBeenCalledWith({where:{storeId:"s"},create:{storeId:"s",backendNoticesEnabled:false},update:{backendNoticesEnabled:false}});
  });
  it("records student changes as pending and ordinary bookings as informational",async()=>{
   await recordCourseStoreNotice(tx as never,actor,event);
