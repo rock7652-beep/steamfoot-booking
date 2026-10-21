@@ -1,3 +1,4 @@
+import {resolvedCourseHours} from "@/lib/course-business-hours";
 import "server-only";
 import { beautyPrisma } from "@/lib/beauty-db";
 import { prisma } from "@/lib/db";
@@ -175,6 +176,7 @@ export async function beautyPortal(work = false) {
     grants: a.grants ?? [],
     items: rows.map((b) => ({
       ...publicReceipt(b),
+      customerId:b.customerId,
       revision: b.revision,
       groupId: b.groupId,
       technicianId: b.technicianId,
@@ -340,6 +342,10 @@ export async function beautyDashboard(
             phone: true,
             userId: true,
             notes: true,
+            lineName: true, lineUserId: true, customerStage: true, lineLinkStatus: true,
+            lastVisitAt: true, birthday:true, createdAt: true, totalPoints: true, _count:{select:{sponsoredCustomers:true}},
+            sponsor: {select:{id:true,name:true}}, assignedStaff:{select:{id:true,displayName:true,colorCode:true}},
+            user:{select:{status:true}},
           },
           orderBy: { name: "asc" },
         })
@@ -392,11 +398,18 @@ export async function beautyDashboard(
         _count: { id: true },
       })
     : [];
+  const [calendarHours,calendarSpecials]=await Promise.all([
+    prisma.businessHours.findMany({where:{storeId:a.storeId}}),
+    prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
+  ]);
+  const calendarDates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
+  const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
   return {
     purchases: purchases.map((p) => ({
       ...p,
       createdAt: p.createdAt.toISOString(),
     })),
+    calendarDays,
     now: Date.now(),
     calendar,
     analytics,
@@ -417,6 +430,7 @@ export async function beautyDashboard(
     })),
     items: items.map((b) => ({
       ...publicReceipt(b),
+      serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),
       revision: b.revision,
       groupId: b.groupId,
       technicianId: b.technicianId,

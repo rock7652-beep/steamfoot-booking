@@ -34,6 +34,7 @@ type Booking = {
 };
 
 type Session = {
+  service?: {personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -103,6 +104,7 @@ export type CourseMoveClipboard = {
 };
 
 type Props = {
+  serviceMode?:boolean;
   sportsNative?:boolean;
   businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
@@ -199,6 +201,7 @@ function isNearFull(session: Session) {
 }
 
 function filterSession(session: Session, filter: QuickFilter) {
+ if(session.service)return filter==='all'||(filter==='trial'&&session.bookings.some(b=>b.bookingKind==='TRIAL'))||(filter==='pending'&&session.service.status==='RESERVED');
   if (filter === "trial") return isTrial(session);
   if (filter === "near-full") return isNearFull(session);
   if (filter === "full") return isFull(session);
@@ -320,7 +323,11 @@ function SessionCard({
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
-      <span className="sr-only">{presentation.label}</span>
+      {session.service ? <div className="space-y-0.5 text-sm leading-5">
+        <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
+        <strong className="block truncate">{session.nameSnapshot}</strong><span className="block truncate">{session.service.personName} · {copy.coach}</span>
+        {session.service.buffer>0&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
+      </div> : <>      <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
         <div className={session.sportsPalette ? "space-y-0" : "space-y-0.5"}>
@@ -414,12 +421,14 @@ function SessionCard({
       </div>
       </>
       )}
+      </>}
       </div>
     </button>
   );
 }
 
 export function CourseScheduleBoard({
+  serviceMode=false,
   sportsNative=false,
   legend,
   assignedFiltered = false,
@@ -553,10 +562,10 @@ export function CourseScheduleBoard({
     const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
-      <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
+      <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"服務週班表":"教室週課表"}>
         <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
-          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
-          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "老師" : courseDisplayText("教練", businessProfile)}</label>
+          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
+          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? "老師" : courseDisplayText("教練", businessProfile)}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
@@ -743,7 +752,7 @@ export function CourseScheduleBoard({
     0,
   );
 
-  const filters: Array<{ id: QuickFilter; label: string; value: number }> = [
+  const filters: Array<{ id: QuickFilter; label: string; value: number }> = serviceMode?[{id:"all",label:"今日安排",value:visibleDaySessions.length},{id:"trial",label:"體驗",value:trials},{id:"pending",label:"待服務",value:visibleDaySessions.filter(s=>s.service?.status==="RESERVED").length}]:[
     { id: "all", label: "今日安排", value: visibleDaySessions.length },
     { id: "trial", label: "體驗客", value: trials },
     { id: "near-full", label: "快滿", value: nearFull },
@@ -758,20 +767,20 @@ export function CourseScheduleBoard({
             className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("room")}
           >
-            教室視角
+            {serviceMode?"位置視角":"教室視角"}
           </button>
           <button
             type="button"
             className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
-            {businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}
+            {serviceMode ? "技師視角" : businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}
           </button>
         </div>
   );
 
   return (
-    <section ref={boardRef} className="space-y-1" aria-label="日課表">
+    <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"日班表":"日課表"}>
 
       <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
         {!musicDense && resourceViewControls}
@@ -798,7 +807,7 @@ export function CourseScheduleBoard({
           </span></>}
         </div>}
 
-        {!moveClipboard && !replica && (
+        {!serviceMode && !moveClipboard && !replica && (
           <label className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
@@ -820,7 +829,7 @@ export function CourseScheduleBoard({
         {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>
 
-      {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? "目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>查看全部課程（含已點名）</button></div>}
+      {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? serviceMode?"目前只顯示待服務預約。":"目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>{serviceMode?"查看全部服務":"查看全部課程（含已點名）"}</button></div>}
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
           此篩選目前沒有課程

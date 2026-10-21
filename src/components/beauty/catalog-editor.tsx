@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import {fitnessEditorFooter,fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   saveBeautyCatalog,
@@ -34,15 +35,17 @@ type Draft = {
   customerPurchasable?: boolean;
 };
 const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2 text-base";
+  "min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2 text-sm";
 export function BeautyCatalogEditor({
   kind,
   data,
   draft = {},
   onClose,
   onSaved,
+  readOnly=false,
 }: {
   kind: EditorKind;
+  readOnly?:boolean;
   data: BeautyDashboardData;
   draft?: Draft;
   onClose: () => void;
@@ -92,15 +95,16 @@ export function BeautyCatalogEditor({
   return (
     <RightSheet
       open
+      className="fitness-management-editor"
       presentation="centered"
       width={900}
       onClose={close}
       labelledById="beauty-editor-title"
       closeOnEscape={!pending}
     >
-      <header className="flex items-center justify-between border-b p-4">
+      <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
         <h2 id="beauty-editor-title">
-          {draft.id ? "編輯" : "新增"}
+          {readOnly ? "查看" : draft.id ? "編輯" : "新增"}
           {title}
         </h2>
         <button
@@ -116,7 +120,7 @@ export function BeautyCatalogEditor({
         onChange={() => setDirty(true)}
         onSubmit={(e) => {
           e.preventDefault();
-          if (pending) return;
+          if (pending||readOnly) return;
           const f = new FormData(e.currentTarget),
             str = (k: string) => String(f.get(k) ?? ""),
             num = (k: string) => Number(f.get(k)),
@@ -226,7 +230,7 @@ export function BeautyCatalogEditor({
           });
         }}
       >
-        <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
+        <fieldset disabled={pending||readOnly} className="grid gap-4 sm:grid-cols-2">
           {kind !== "settings" && (
             <>
               <label>
@@ -734,14 +738,14 @@ export function BeautyCatalogEditor({
               ))}
             </>
           )}
-          <div className="sticky bottom-0 flex gap-3 bg-white py-3 sm:col-span-2">
-            <button className={field + " bg-primary-700 text-white"}>
+          {!readOnly&&<div className={fitnessEditorFooter+" sticky bottom-0 flex justify-end gap-3 sm:col-span-2"}>
+            <button className={fitnessEditorSave+" bg-primary-700 text-white"}>
               {pending ? "儲存中…" : "儲存"}
             </button>
-            <button type="button" className={field} onClick={close}>
+            <button type="button" className={fitnessEditorSave+" border border-earth-200"} onClick={close}>
               取消
             </button>
-          </div>
+          </div>}
         </fieldset>
         {error && (
           <p role="alert" className="text-red-700">

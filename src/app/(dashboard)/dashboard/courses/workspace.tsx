@@ -1,4 +1,6 @@
 "use client";
+import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
+
 import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
@@ -1066,25 +1068,7 @@ export function CourseWorkspace({
                 </span>
                 <div className="ml-auto [&>div]:flex-nowrap">{scheduleLegend}</div>
               </CourseScheduleToolbar>}
-              <div
-            className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-earth-200 bg-white"
-            aria-busy={pending}
-          >
-            <div className="grid min-w-[700px] grid-cols-7">
-              {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
-                <div
-                  key={day}
-                  className="py-2 text-center text-sm text-earth-600"
-                >
-                  {day}
-                </div>
-              ))}
-              {Array.from(
-                { length: parseLocalDate(first).getDay() },
-                (_, i) => (
-                  <div key={`blank-${i}`} />
-                ),
-              )}
+              <ScheduleMonthGrid offset={parseLocalDate(first).getDay()} pending={pending}>
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
                   list = byDate.get(date) ?? [],
@@ -1131,8 +1115,7 @@ export function CourseWorkspace({
                   </div>
                 );
               })}
-            </div>
-          </div>
+              </ScheduleMonthGrid>
 
             </>
           ) : (

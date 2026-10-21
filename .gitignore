@@ -69,3 +69,5 @@ tsconfig.beauty-production-qa.json
 
 .next-beauty-release-qa
 tsconfig.beauty-release-qa.json
+
+/generated

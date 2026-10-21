@@ -1,3 +1,5 @@
+import {BeautyCare} from "@/components/beauty/care";
+import {RevenueTabs} from "../revenue/_components/revenue-tabs";
 import { redirect } from "next/navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { BeautyDashboard } from "@/components/beauty/dashboard";
@@ -21,6 +23,8 @@ export default async function BeautyPage({
     date?: string;
     month?: string;
     calendar?: string;
+    customerId?:string;
+    action?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -31,6 +35,8 @@ export default async function BeautyPage({
   const q = await searchParams,
     tab = tabs.find((t) => t === q.tab) ?? "首頁",
     a = await beautyManager("booking.read");
+  if(tab==="人員管理")redirect("/dashboard/staff");
+  if(tab==="圖片公告")redirect("/dashboard/image-announcements");
   const permission =
     tab === "顧客管理" || tab === "顧客經營"
       ? "customer.read"
@@ -78,12 +84,16 @@ export default async function BeautyPage({
     resolveStoreViewContextFromCookie(u),
   ]);
   return (
-    <PageShell>
-      <PageHeader title={tab} />
+    <PageShell compact className="course-workspace min-w-0">
+      <PageHeader compact title={tab} />
       <BeautyDashboard
-        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}`}
+        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.action??""}`}
         data={data}
         tab={tab}
+        initialCustomerId={q.customerId}
+        initialBooking={q.action==='booking'}
+        careContent={tab==='顧客經營'?<BeautyCare data={data} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
+        operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />

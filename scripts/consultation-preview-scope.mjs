@@ -76,7 +76,7 @@ export const BEAUTY_HOSTED_PREVIEW_BRANCH = 'preview/beauty-hosted-20261021';
 export function assertBeautyHostedPreviewEnvironment(env) {
   if (env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview' ||
       env.BEAUTY_HOSTED_PREVIEW !== '1' ||
-      env.VERCEL_GIT_COMMIT_REF !== BEAUTY_HOSTED_PREVIEW_BRANCH ||
+      ![BEAUTY_HOSTED_PREVIEW_BRANCH,'preview/beauty-ui-alignment-20261021'].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
       env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
       env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
       env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||

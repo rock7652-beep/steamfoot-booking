@@ -1,4 +1,6 @@
 "use client";
+import {BusinessMetric as Summary} from "@/components/admin/business-metric";
+
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "@/components/admin/management-layout.module.css";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -94,7 +96,7 @@ export function BusinessAnalyticsView({data,all,staffId,music=false,periodContro
     <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">統計方式與歸屬</summary><div className="space-y-2 pb-3"><p>來客人次按實際出席累計：兩人各上一堂算 2 人次，同一人上兩堂也算 2 人次；取消與未到不計。不重複來客人數則每人只算一次。新客為首次在本店出席落在本期，舊客為先前已出席者。</p><p>近六個月與近一年以所選區間的結束月份為終點，未來日期截至今日；各月體驗、新卡、續卡按月去重，本期每日人數不可直接相加為整期人數。</p><p>體驗依完成出席計算並按人去重；新卡為首次付費方案，續卡為後續付費方案。免費指派、共卡加入與全額退款不算成交。新卡與續卡可能是同一人，本期人數不可直接相加。</p><p>體驗開卡率只計同批首次購買前的體驗者；追蹤開卡歸實際購買月份，另列過往體驗。沒有體驗者時顯示 —。</p><p>{music ? "老師依課次授課紀錄統計，與全店數字不可重複加總。" : courseDisplayText("所屬店長的體驗與上課依顧客目前歸屬；成交依購買時快照，未指定列未歸屬，不使用核帳人代替。教練依課次授課紀錄。角色數字不可重複加總。", music)}</p><p>收款包含方案及體驗收款，扣除當期退款／沖銷；不重複加總現金帳。方案利潤依成交快照，部分退款或缺少快照列待核對。授課費依每堂固定費率，缺少費率另列待核對。</p></div></details>
   </div>;
 }
-function Summary({label,value,note,action}:{label:string;value:string;note?:string;action?:React.ReactNode}) {return <div className="min-h-20 rounded-xl border border-earth-200 bg-white p-3"><p className="text-sm text-earth-600">{label}</p><strong className="mt-1 block text-xl text-primary-900">{value}</strong>{note&&<p className="mt-1 text-xs text-earth-500">{note}</p>}{action}</div>;}
+
 
 function moneyValue(value:number|null,known:number,missing:number) {
   if(value===null)return "無檢視權限";

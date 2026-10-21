@@ -28,7 +28,7 @@ export type BeautyBookingCatalog = {
   techs: { id: string; name: string; gender: string; serviceIds: string[] }[];
 };
 const control =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
+  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm";
 const button =
   "min-h-11 rounded-lg border border-primary-300 px-4 py-2 text-base disabled:opacity-50";
 export function BeautyBookingForm({

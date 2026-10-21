@@ -3,7 +3,7 @@ import { assertBeautyProductionQaEnvironment } from '../../scripts/beauty-produc
 import { assertReviewedReleaseEnvironment } from '../../scripts/consultation-preview-scope.mjs';
 import { spawnSync } from 'node:child_process';
 const url='postgresql://beauty_1374_prodapp:synthetic@127.0.0.1:32769/beauty_1374_prodqa';
-const env={BEAUTY_PRODUCTION_QA:'1',NODE_ENV:'production',AUTH_URL:'http://localhost:3115',NEXTAUTH_URL:'http://localhost:3115',AUTH_SECRET:'synthetic',BEAUTY_MODULE_ENABLED:'0',BEAUTY_NOTIFICATIONS_ENABLED:'0',DATABASE_URL:url,DIRECT_URL:url};
+const env={BEAUTY_PRODUCTION_QA:'1',NODE_ENV:'production' as const,AUTH_URL:'http://localhost:3115',NEXTAUTH_URL:'http://localhost:3115',AUTH_SECRET:'synthetic',BEAUTY_MODULE_ENABLED:'0',BEAUTY_NOTIFICATIONS_ENABLED:'0',DATABASE_URL:url,DIRECT_URL:url};
 it('accepts only the separate local production runtime with the beauty module closed',()=>{expect(()=>assertBeautyProductionQaEnvironment(env)).not.toThrow();expect(assertReviewedReleaseEnvironment(env)).toBe('beauty-production-qa');});
 it('the actual local build migration step exits before constructing migration clients',()=>{const r=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{PATH:process.env.PATH,...env},encoding:'utf8'});expect(r.status,r.stderr).toBe(0);expect(r.stderr).not.toContain('Prisma');});
 it('the actual review branch hosted migration guard still stops before any exception',()=>{const r=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{PATH:process.env.PATH,...env,VERCEL_GIT_COMMIT_REF:'feat/beauty-module-20261020'},encoding:'utf8'});expect(r.status).not.toBe(0);expect(r.stderr).toContain('Beauty review cannot deploy or execute migrations');});

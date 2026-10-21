@@ -68,20 +68,23 @@ export function BeautyCustomerPanel({
       }
     });
   }
+  const [dirty,setDirty]=useState(false);
+  const close=()=>{if(!pending&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
   const customer = detail?.success ? detail.data.customer : null;
   return (
     <RightSheet
       open
+      className="fitness-management-editor"
       presentation="centered"
       width={850}
-      onClose={() => !pending && onClose()}
+      onClose={close}
       closeOnEscape={!pending}
       labelledById="beauty-customer-detail"
     >
-      <div className="min-h-0 space-y-4 overflow-y-auto p-4">
+      <div className="min-h-0 space-y-4 overflow-y-auto p-4" onChangeCapture={()=>setDirty(true)}>
         <header className="flex items-center justify-between">
           <h2 id="beauty-customer-detail">顧客資料與服務紀錄</h2>
-          <button className={field + " !w-auto"} onClick={onClose}>
+          <button className={field + " !w-auto"} onClick={close}>
             關閉
           </button>
         </header>

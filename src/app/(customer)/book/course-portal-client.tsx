@@ -1,4 +1,7 @@
 "use client";
+import {CoursePortalCalendar} from "@/components/course-portal-calendar";
+import {CoursePortalBrand,CoursePortalNavigation,type PortalIconName} from "@/components/course-portal-navigation";
+
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 import {bookSportsTrial} from "@/server/actions/sports-staging";
@@ -22,7 +25,6 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
 import {
@@ -81,18 +83,7 @@ const statusName = (s: string) =>
 const unit = (s: string) => (s === "SESSION" ? "堂" : "點");
 const time = (s: string) =>
   formatTWDateTime(new Date(s)).split(" ").slice(-1)[0];
-type PortalIconName = "home" | "calendar" | "bookings" | "account" | "records" | "health";
-function PortalIcon({ name }: { name: PortalIconName }) {
-  const paths: Record<PortalIconName, ReactNode> = {
-    home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
-    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
-    bookings: <><path d="M8 6h13M8 12h13M8 18h13"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></>,
-    health: <><path d="M3 3v18h18M6 15l4-5 4 3 6-8"/></>,
-    account: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
-    records: <><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
-  };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
-}
+
 function Sheet({
   title,
   close,
@@ -601,80 +592,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     const weekday = new Date(d + "T12:00:00+08:00").getUTCDay();
     return p.hours.some((h) => h.dayOfWeek === weekday && !h.isOpen);
   }
-  const calendar = (
-    <section className="cp-card cp-calendar">
-      {monthPicker}
-      <div className="cp-context">
-        <span>{coach ? "我的授課" : "店家課表"}</span>
-        <button
-          onClick={() => {
-            if (!leaveNote()) return;
-            setDate(today);
-            if (!today.startsWith(p.month)) month(today.slice(0, 7), today);
-          }}
-        >
-          今天
-        </button>
-      </div>
-      <div className="cp-week">
-        {"日一二三四五六".split("").map((d) => (
-          <span key={d}>{d}</span>
-        ))}
-      </div>
-      <div className="cp-days">
-        {Array.from({ length: courseMonthDays(p.month).offset }, (_, i) => (
-          <span key={"blank" + i} />
-        ))}
-        {courseMonthDays(p.month).dates.map((d) => {
-          const sessions = (coach ? work : p.sessions).filter(
-              (s) => courseDate(s.startsAt) === d,
-            ),
-            marks = courseMemberMarkers(
-              p.bookings.filter((b) => courseDate(b.startsAt) === d),
-              p.customerId,
-            );
-          return (
-            <button
-              key={d}
-              className={`${closed(d) ? "closed" : ""} ${selected === d ? "selected" : ""}`}
-              aria-pressed={selected === d}
-              aria-label={`${d}${closed(d) ? " 公休" : ""} ${sessions.length}堂`}
-              onClick={() => {
-                if (!leaveNote()) return;
-                setDate(d);
-                setRoster(null);
-                requestAnimationFrame(() =>
-                  daily.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  }),
-                );
-              }}
-            >
-              <span>{Number(d.slice(-2))}</span>
-              {closed(d) && <small>公休</small>}
-              {sessions.length > 0 && (
-                <small>
-                  {sessions.length}堂
-
-                </small>
-              )}
-              {!coach && (
-                <span className="cp-dots">
-                  {marks.self && <i className="self" aria-label="本人預約" />}
-                  {marks.shared && <i className="shared" aria-label="代約／共卡預約" />}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <p className="cp-legend">
-        {coach ? "授課堂數" : <><span className="cp-legend-self">● 本人</span>　<span className="cp-legend-shared">◆ 代約／共卡</span></>}
-        　淡色為公休
-      </p>
-    </section>
-  );
+  const calendar=<CoursePortalCalendar month={p.month} selected={selected} monthPicker={monthPicker} context={<><span>{coach?"我的授課":"店家課表"}</span><button onClick={()=>{if(!leaveNote())return;setDate(today);if(!today.startsWith(p.month))month(today.slice(0,7),today);}}>今天</button></>} days={courseMonthDays(p.month).dates.map(d=>{const sessions=(coach?work:p.sessions).filter(s=>courseDate(s.startsAt)===d),marks=courseMemberMarkers(p.bookings.filter(b=>courseDate(b.startsAt)===d),p.customerId);return {date:d,count:sessions.length,closed:closed(d),...marks};})} markers={!coach} legend={<>{coach?"授課堂數":<><span className="cp-legend-self">● 本人</span>　<span className="cp-legend-shared">◆ 代約／共卡</span></>}　淡色為公休</>} onSelect={d=>{if(!leaveNote())return;setDate(d);setRoster(null);requestAnimationFrame(()=>daily.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>;
   const notOpenYet = (s: Session) => new Date(s.startsAt).getTime() > new Date(p.bookingWindow.closesAt).getTime() || (!!p.bookingWindow.opensAt && now < new Date(p.bookingWindow.opensAt).getTime());
   function lessonCostLabel(s: Session) {
     const units = Array.from(new Set(eligible(s).map(c => c.unit)));
@@ -955,7 +873,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     <div className="course-portal">
       <div inert={modal}>
         <header className="cp-top">
-          <div className="cp-brand"><SteamButlerLogo className="w-28" /><small>{p.storeName}</small></div>
+          <CoursePortalBrand storeName={p.storeName}/>
           {p.hasWork && p.memberEnabled ? (
             <div className="cp-role-switch" role="group" aria-label="身分切換">
               <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
@@ -966,18 +884,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
           {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{p.incomeAvailable && <a className="cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
-        <nav className="cp-nav" aria-label="主要功能">
-          {nav.map(([v, label, icon]) => (
-            <button
-              key={v}
-              aria-current={page === v ? "page" : undefined}
-              onClick={() => go(v as Page)}
-            >
-              <PortalIcon name={icon as PortalIconName} />
-              {label}
-            </button>
-          ))}
-        </nav>
+        <CoursePortalNavigation items={nav.map(([id,label,icon])=>({id,label,icon:icon as PortalIconName}))} current={page} onSelect={id=>go(id as Page)}/>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           {p.incomeAvailable && !coach && !p.hasWork && page === "account" && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}
           {!coach && !selfBookingEnabled && ["home", "schedule", "bookings"].includes(page) && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}

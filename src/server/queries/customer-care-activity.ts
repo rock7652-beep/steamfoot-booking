@@ -29,7 +29,11 @@ export async function getCustomerCareActivity(storeId: string, module: IndustryM
     latest.set(key, { id: row.id, reason, year: row.careYear, result: row.result, note: row.note, date: formatTWTime(row.createdAt), createdAt: row.createdAt.toISOString(), by: row.createdBy.name, nextDate: row.nextFollowUpDate?.toISOString().slice(0, 10) ?? null });
   }
   const nextBookings = new Map<string, string>();
-  if (module === "course") {
+  if(module === "beauty") {
+    const {beautyPrisma}=await import('@/lib/beauty-db');
+    const bookings=await beautyPrisma.beautyAppointment.findMany({where:{storeId,customerId:{in:ids},status:'RESERVED',startsAt:{gte:now}},select:{customerId:true,startsAt:true},orderBy:{startsAt:'asc'}});
+    for(const b of bookings)if(b.customerId&&!nextBookings.has(b.customerId))nextBookings.set(b.customerId,formatTWTime(b.startsAt));
+  } else if (module === "course") {
     const bookings = await coursePrisma.courseBooking.findMany({
       where: { storeId, customerId: { in: ids }, status: "RESERVED", session: { storeId, cancelledAt: null, startsAt: { gt: now } } },
       select: { customerId: true, session: { select: { startsAt: true } } }, orderBy: { session: { startsAt: "asc" } },

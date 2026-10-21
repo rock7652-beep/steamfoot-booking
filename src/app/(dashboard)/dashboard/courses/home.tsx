@@ -1,3 +1,4 @@
+import { ModuleHomePanel } from "@/components/admin/module-home-panel";
 import { prisma } from "@/lib/db";
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
@@ -32,10 +33,7 @@ export function StatisticInfo({ id, title }: { id: string; title: string }) {
 }
 function Panel({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   const key = id?.replace(/-loading$/, "");
-  return <section data-home-section={id} className="relative min-w-0 rounded-xl border border-earth-200 bg-white px-4 py-2">
-    {key !== "today" && <div className="flex min-h-9 flex-wrap items-center gap-x-1"><h2 className="text-sm font-semibold text-primary-900">{title}</h2>{key && descriptions[key] && <StatisticInfo id={key} title={title}/>}</div>}
-    {key === "today" && <h2 className="sr-only">{title}</h2>}{children}
-  </section>;
+  return <ModuleHomePanel title={title} section={id} hideTitle={key === "today"} info={key && descriptions[key] ? <StatisticInfo id={key} title={title}/> : undefined}>{children}</ModuleHomePanel>;
 }
 async function Region({ title, id, load, footer }: {
     title: string;

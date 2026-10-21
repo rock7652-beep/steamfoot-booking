@@ -1,4 +1,6 @@
 "use client";
+import {DashboardLink} from "@/components/dashboard-link";
+
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ModalPanel } from "@/components/admin/modal-panel";
@@ -35,6 +37,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
     finally { if (current === version.current) setLoading(false); }
   }
   function done() { reader.invalidate(item.customerId); dirty.current = false; setOpen(false); router.refresh(); }
+  if(item.module === 'beauty')return <DashboardLink className={button} href={`/dashboard/beauty?tab=${encodeURIComponent('班表')}&action=booking&customerId=${encodeURIComponent(item.customerId)}`}>預約</DashboardLink>;
   if (!item.module || item.module === "steamfoot") return <SteamBookingDrawer date={toLocalDateStr()} triggerLabel="預約" triggerClassName={button} defaultCustomerId={item.customerId} defaultCustomerLabel={item.name} onCreated={() => router.refresh()}/>;
   const course = options?.module === "course" ? options : null;
   return <>
