@@ -1,5 +1,5 @@
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
-import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
+import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH, YOUNGSKY_SETTINGS_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
@@ -94,7 +94,7 @@ export const ROOM_PERFORMANCE_PREVIEW_BRANCH = "fix/course-room-save-performance
 export const MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH = "fix/music-teacher-editor-simplify-20261011";
 export const CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH = "feat/customer-unified-detail-20261012";
 export const CUSTOMER_NOTE_PREVIEW_BRANCH = "fix/customer-note-pending-preview-20261012";
-export const YOUNGSKY_SETTINGS_PREVIEW_BRANCH = "fix/youngsky-settings-confirmed-collapse";
+export { YOUNGSKY_SETTINGS_PREVIEW_BRANCH };
 export const COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH = "fix/course-settings-three-state-20261012";
 export const SPA_CUSTOMER_HEADER_PREVIEW_BRANCH = "fix/spa-customer-drawer-header-offset-20261012";
 export const NOTE_REMINDER_PREVIEW_BRANCH = "fix/note-reminder-feedback-20261011";
@@ -261,8 +261,9 @@ export function assertReviewedReleaseEnvironment(env) {
     assertImageAnnouncementsAcceptance(env);
     return "local-image-announcements-qa";
   }
-  if (env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
+  if (env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
     assertSportsRedesignPreviewEnvironment(env);
+    if (env.VERCEL_GIT_COMMIT_REF === YOUNGSKY_SETTINGS_PREVIEW_BRANCH) assertModuleRosterPreviewEnvironment(env);
     return "sports-redesign-preview";
   }
   if (env.SPORTS_LIVE_FLOW_QA === "1") {

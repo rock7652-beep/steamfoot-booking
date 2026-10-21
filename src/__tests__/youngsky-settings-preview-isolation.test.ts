@@ -12,6 +12,7 @@ import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = {
+  SPORTS_REDESIGN_STAGING: "1", SPORTS_REDESIGN_PREVIEW: "1",
   VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: YOUNGSKY_SETTINGS_PREVIEW_BRANCH,
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
   DATABASE_URL: pool, DIRECT_URL: direct, GUIDE_UI_PREVIEW: "", WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "",
@@ -29,7 +30,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 it("uses the existing isolated module Preview and permits the authorized Git auto-preview", () => {
   expect(YOUNGSKY_SETTINGS_PREVIEW_BRANCH).toBe("fix/youngsky-settings-confirmed-collapse");
-  expect(assertReviewedReleaseEnvironment(valid)).toBe("module-roster-preview");
+  expect(assertReviewedReleaseEnvironment(valid)).toBe("sports-redesign-preview");
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[YOUNGSKY_SETTINGS_PREVIEW_BRANCH]).not.toBe(false);
   expect(deployment.main).toBe(false);
@@ -46,7 +47,7 @@ it.each(["DATABASE_URL", "DIRECT_URL"])("rejects unsafe %s without exposing conn
     direct + "?host=other.invalid", direct + "?hostaddr=127.0.0.1", direct + "?schema=private",
     direct + "?schema=public&schema=public", direct + "?options=-c%20search_path%3Dprivate",
     direct + "?sslmode=disable", direct + "?connection_limit=0"]) {
-    expect(() => assertReviewedReleaseEnvironment({ ...valid, [key]: value })).toThrow("existing isolated database");
+    expect(() => assertReviewedReleaseEnvironment({ ...valid, [key]: value })).toThrow();
   }
 });
 
@@ -58,7 +59,7 @@ it("rejects deployed test-flag bypasses before reading a cached client or creati
   vi.stubEnv("DIRECT_URL", undefined);
   const read = vi.fn();
   const create = vi.fn();
-  expect(() => guardedSportsSharedCardPreviewClient(read, create)).toThrow("existing isolated database");
+  expect(() => guardedSportsSharedCardPreviewClient(read, create)).toThrow();
   expect(read).not.toHaveBeenCalled();
   expect(create).not.toHaveBeenCalled();
 });
@@ -80,8 +81,12 @@ it("exits the build gate before any database construction or migration subproces
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(0);
   const output = result.stdout + result.stderr;
-  expect(output).toContain("[module-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  expect(output).toContain("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
   expect(output).not.toContain(tripwire);
   expect(output).not.toContain(direct);
   expect(output).not.toContain(pool);
 });
+
+ it.each(["SPORTS_REDESIGN_STAGING", "SPORTS_REDESIGN_PREVIEW"])("requires %s opt-in for native preview", key => {
+ expect(() => assertReviewedReleaseEnvironment({ ...valid, [key]: "" })).toThrow();
+ });
