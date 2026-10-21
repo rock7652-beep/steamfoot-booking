@@ -1,0 +1,114 @@
+{
+  "stage": "公開體驗多人不同服務與性別欄位",
+  "results": [
+    {
+      "case": "首頁捷徑進入班表",
+      "passed": true
+    },
+    {
+      "case": "位置管理搜尋、狀態篩選、編輯返回",
+      "passed": true
+    },
+    {
+      "case": "服務項目搜尋、狀態篩選、編輯返回",
+      "passed": true
+    },
+    {
+      "case": "收費方式搜尋、狀態篩選、編輯返回",
+      "passed": true
+    },
+    {
+      "case": "技師管理搜尋、狀態篩選、編輯返回",
+      "passed": true
+    },
+    {
+      "case": "顧客搜尋與返回保留",
+      "passed": true
+    },
+    {
+      "case": "營運月份切換",
+      "passed": true
+    },
+    {
+      "case": "分析月份切換",
+      "passed": true
+    },
+    {
+      "case": "設定 booking共用入口",
+      "passed": true
+    },
+    {
+      "case": "設定 commerce共用入口",
+      "passed": true
+    },
+    {
+      "case": "設定 notifications共用入口",
+      "passed": true
+    },
+    {
+      "case": "人員管理側欄入口",
+      "passed": true
+    },
+    {
+      "case": "圖片公告側欄入口",
+      "passed": true
+    },
+    {
+      "case": "顧客待服務／歷史切換",
+      "passed": true
+    },
+    {
+      "case": "顧客方案核帳使用系統輸入框",
+      "passed": true
+    },
+    {
+      "case": "技師班表選日期與返回",
+      "passed": true
+    },
+    {
+      "case": "公開體驗多人不同服務與性別欄位",
+      "passed": true
+    }
+  ],
+  "findings": [
+    {
+      "case": "班表日期帶入新增預約",
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ '2026-10-21'\n- '2026-10-27'\n            ^\n"
+    },
+    {
+      "case": "服務搜尋跨頁返回保留",
+      "error": "Expected values to be strictly equal:\n\n'' !== '做臉'\n"
+    },
+    {
+      "case": "顧客經營已安排分類",
+      "error": "locator.click: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /已處理／已安排/ })\u001b[22m\n"
+    },
+    {
+      "case": "顧客預約草稿跨頁保留",
+      "error": "Expected values to be strictly equal:\n\n'' !== '僅檢查草稿，不送出'\n"
+    }
+  ],
+  "errors": [],
+  "sourceCommit": "f8eb20910a95d461708d275bb4f12cb481c01df4",
+  "deploymentId": "dpl_5Ym14GWDR8YuR2pezaXx2FddXPKh",
+  "productionChanged": false,
+  "lineTested": false,
+  "businessWrites": false,
+  "testCorrections": [
+    {
+      "case": "顧客經營已安排分類",
+      "cause": "初版探查使用button；實際共用元件ARIA角色為tab。改以tab補驗成功，不列為產品缺陷。",
+      "recheck": {
+        "results": [
+          {
+            "case": "顧客經營已處理分類正確角色tab實測",
+            "passed": true
+          }
+        ],
+        "errors": [],
+        "passed": true
+      }
+    }
+  ],
+  "interpretation": "passed 僅代表該次操作探查符合該斷言，不代表頁面完全符合運動操作；服務搜尋跨頁重置也見於運動清單本機state，不列為美業獨有退步。"
+}
