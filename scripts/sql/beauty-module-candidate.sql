@@ -2,6 +2,40 @@
 -- Requires existing Store, Customer, User, CourseRoom and btree_gist.
 -- Set beauty_migration.app_role to the confirmed backend non-superuser LOGIN role before execution.
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
+SET LOCAL search_path = pg_catalog;
+-- Abort before DDL for missing prerequisites, unsafe roles or any previous
+-- installation. Never paper over a partial schema with CREATE IF NOT EXISTS.
+DO $$
+DECLARE app_role text := current_setting('beauty_migration.app_role',true);
+        extension_schema text;
+BEGIN
+ IF to_regclass('public."Store"') IS NULL OR to_regclass('public."Customer"') IS NULL OR to_regclass('public."CourseRoom"') IS NULL OR to_regtype('public."IndustryModule"') IS NULL THEN
+  RAISE EXCEPTION 'Beauty prerequisites missing: public Store, Customer, CourseRoom, IndustryModule';
+ END IF;
+ SELECT n.nspname INTO extension_schema FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='btree_gist';
+ IF extension_schema IS NULL THEN RAISE EXCEPTION 'Install approved btree_gist extension before beauty candidate'; END IF;
+ IF app_role IS NULL OR app_role IN ('anon','authenticated','service_role') OR NOT EXISTS(SELECT FROM pg_roles WHERE rolname=app_role AND rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT rolcreatedb) THEN
+  RAISE EXCEPTION 'Set beauty_migration.app_role to a confirmed restricted backend LOGIN role';
+ END IF;
+ IF pg_has_role(app_role,current_user,'MEMBER') OR
+    EXISTS(SELECT FROM pg_roles r WHERE (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb) AND pg_has_role(app_role,r.oid,'MEMBER')) OR
+    EXISTS(SELECT FROM pg_namespace n WHERE n.nspname='public' AND pg_has_role(app_role,n.nspowner,'MEMBER')) THEN
+  RAISE EXCEPTION 'Beauty backend must not inherit migration/schema owner or privileged roles';
+ END IF;
+ IF EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname LIKE 'Beauty%') OR
+    EXISTS(SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='beauty_immutable_ledger') THEN
+  RAISE EXCEPTION 'Beauty objects already exist: stop and compare release/schema; do not rerun or drop data';
+ END IF;
+ IF EXISTS(SELECT FROM unnest(ARRAY['anon','authenticated','service_role']) AS r(name) WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname=r.name)) THEN
+  RAISE EXCEPTION 'Expected browser/service roles missing; verify target role model';
+ END IF;
+ -- Supabase may install btree_gist into extensions rather than public. Keep all
+ -- new application objects in public while resolving its GiST operator classes.
+ -- Leave pg_catalog implicit so built-ins resolve before writable schemas.
+ PERFORM set_config('search_path',format('public, %I',extension_schema),true);
+END $$;
 ALTER TYPE "IndustryModule" ADD VALUE IF NOT EXISTS 'BEAUTY';
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";

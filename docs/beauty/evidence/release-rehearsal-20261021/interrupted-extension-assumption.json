@@ -1,0 +1,48 @@
+{
+  "runId": "bdc73678",
+  "container": "steamfoot-beauty-release-bdc73678",
+  "image": "postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24",
+  "postgresVersion": "17.11",
+  "candidateSha256": "563c9f25878f3d1d5afcafc4862ae5eab630f961f440fefab2a14a68fb3947bc",
+  "baselineMainSha256": "1850008ce4ea23167a9502fce1574b2a914cfc1d85f4c1ab8d9d17a178ecb3fa",
+  "baselineCourseSha256": "7a0ec0081bd42309bfb89ccb896ab9f271e13456d34cc72946dcb1b172447da3",
+  "synthetic": true,
+  "network": "none",
+  "publishedPorts": false,
+  "hostMounts": false,
+  "passed": false,
+  "stage": "extension namespace",
+  "results": [
+    {
+      "case": "專用無網路PG17容器，完整main/course Prisma空白基準及舊資料／RLS／trigger哨兵；備份未含正式資料",
+      "passed": true
+    },
+    {
+      "case": "缺extension、缺app_role、superuser及繼承管理角色皆在DDL前拒絕，整庫dump一致",
+      "passed": true
+    },
+    {
+      "case": "部分安裝狀態安全停止，保留未知Beauty物件及原資料，不猜測修補或刪除",
+      "passed": true
+    },
+    {
+      "case": "缺共用複合唯一鍵造成中段FK安裝失敗，新增enum／表／約束全數回滾，整庫dump一致",
+      "passed": true
+    },
+    {
+      "case": "RLS與GRANT完成後、COMMIT前注入失敗，表／enum／函式／policy／ACL全數回滾",
+      "passed": true
+    },
+    {
+      "case": "COMMIT前真正終止安裝連線，確認完整回滾；再用原SQL可成功安裝",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Generated full main/course schema, not production migration history or hosted custom objects",
+    "No production connection or Supabase pooler/extension privilege proof",
+    "LOGIN/ACL verified via isolated trust auth; not production credential authentication",
+    "Private backup/restore into fresh database, not hosted PITR or overwrite of business data",
+    "Application deployment, feature activation, LINE and real money not exercised"
+  ]
+}

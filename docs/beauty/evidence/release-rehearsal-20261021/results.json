@@ -1,0 +1,77 @@
+{
+  "runId": "8145bb9c",
+  "container": "steamfoot-beauty-release-8145bb9c",
+  "image": "postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24",
+  "postgresVersion": "17.11",
+  "candidateSha256": "d274d8bb0e964129c72a7e6f27f1a58454276c519a691d24419f95b91067aaec",
+  "baselineMainSha256": "1850008ce4ea23167a9502fce1574b2a914cfc1d85f4c1ab8d9d17a178ecb3fa",
+  "baselineCourseSha256": "7a0ec0081bd42309bfb89ccb896ab9f271e13456d34cc72946dcb1b172447da3",
+  "synthetic": true,
+  "network": "none",
+  "publishedPorts": false,
+  "hostMounts": false,
+  "passed": true,
+  "stage": "complete",
+  "results": [
+    {
+      "case": "專用無網路PG17容器，完整main/course Prisma空白基準及舊資料／RLS／trigger哨兵；備份未含正式資料",
+      "passed": true
+    },
+    {
+      "case": "缺extension、缺app_role、superuser及繼承管理角色皆在DDL前拒絕，整庫dump一致",
+      "passed": true
+    },
+    {
+      "case": "部分安裝狀態安全停止，保留未知Beauty物件及原資料，不猜測修補或刪除",
+      "passed": true
+    },
+    {
+      "case": "缺共用複合唯一鍵造成中段FK安裝失敗，新增enum／表／約束全數回滾，整庫dump一致",
+      "passed": true
+    },
+    {
+      "case": "RLS與GRANT完成後、COMMIT前注入失敗，表／enum／函式／policy／ACL全數回滾",
+      "passed": true
+    },
+    {
+      "case": "COMMIT前真正終止安裝連線，確認完整回滾；再用原SQL可成功安裝",
+      "passed": true
+    },
+    {
+      "case": "原候選及修正版均可在btree_gist位於extensions時成功安裝；不移動extension，13表仍在public",
+      "passed": true
+    },
+    {
+      "case": "原候選會隨search_path誤建13表到shadow；修正版釘選public後13表／policy／trigger位置正確",
+      "passed": true
+    },
+    {
+      "case": "成功安裝13表、13RLS及限定backend policy、3不可變trigger、3排他約束；既有哨兵資料／RLS／trigger不變",
+      "passed": true
+    },
+    {
+      "case": "真正restricted LOGIN可合法寫入；anon／authenticated／service_role／無關LOGIN均拒讀，三種財務表UPDATE及DELETE拒絕",
+      "passed": true
+    },
+    {
+      "case": "已成功且已有帳務時重跑安全拒絕；完整schema／ACL／資料dump不變，無重複表或刪帳",
+      "passed": true
+    },
+    {
+      "case": "安裝前備份可還原到新庫再安裝；含不可變財務資料的安裝後備份可完整還原，資料／policy／ACL／trigger一致",
+      "passed": true
+    },
+    {
+      "case": "共用Store遭排他鎖時約5秒安全失敗，候選不無限等待；解鎖後無部分表／enum或原資料變動",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Generated full main/course schema, not production migration history or hosted custom objects",
+    "No production connection or Supabase pooler/extension privilege proof",
+    "LOGIN/ACL verified via isolated trust auth; not production credential authentication",
+    "Private backup/restore into fresh database, not hosted PITR or overwrite of business data",
+    "Dump comparisons normalize randomized psql restrict guards and one equivalent associative AND grouping in the duration check",
+    "Application deployment, feature activation, LINE and real money not exercised"
+  ]
+}
