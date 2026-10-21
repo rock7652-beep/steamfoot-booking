@@ -1,3 +1,5 @@
+import { loadCoursePrismaRuntime } from "@/lib/generated-prisma-runtime";
+const courseClientRuntime = loadCoursePrismaRuntime();
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { readSportsSessionRule } from "./sports-staging-schedule";
 import {sessionWaitlistPolicy} from "./sports-session-waitlist";
@@ -16,7 +18,7 @@ import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
-import { Prisma } from "../../../generated/course-client";
+import type { Prisma } from "../../../generated/course-client";
 import { waitlistGroups, withinAutoPromoteWindow } from "@/lib/course-waitlist";
 
 export type CourseWaitlistSettings = {
@@ -91,7 +93,7 @@ export async function joinCourseWaitlist(
       }),
       tx.$queryRaw<Array<{ id: string; name: string }>>`
         SELECT id,name FROM "Customer"
-        WHERE "storeId"=${actor.storeId} AND id IN (${Prisma.join(customerIds)})
+        WHERE "storeId"=${actor.storeId} AND id IN (${courseClientRuntime.Prisma.join(customerIds)})
           AND "mergedIntoCustomerId" IS NULL
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),

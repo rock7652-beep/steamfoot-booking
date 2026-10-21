@@ -1,5 +1,6 @@
 import "server-only";
-import { Prisma } from "../../../generated/spa-client";
+import { loadSpaPrismaRuntime } from "@/lib/generated-prisma-runtime";
+const spaClientRuntime = loadSpaPrismaRuntime();
 
 import { spaPrisma } from "@/lib/spa-db";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
@@ -80,10 +81,10 @@ export async function getSpaScheduleForDay(
   const refunded = new Map(refunds.map((r) => [r.receiptId, r]));
   const receiptIds = rows.flatMap((r) => (r.receipt ? [r.receipt.id] : []));
   const voids = receiptIds.length
-    ? await spaPrisma.$queryRaw<{ sourceId: string }[]>(Prisma.sql`
+    ? await spaPrisma.$queryRaw<{ sourceId: string }[]>(spaClientRuntime.Prisma.sql`
     SELECT "sourceId" FROM "SpaPaymentRevision"
     WHERE "storeId"=${storeId} AND kind='RECEIPT' AND action='VOID'
-      AND "sourceId" IN (${Prisma.join(receiptIds)})
+      AND "sourceId" IN (${spaClientRuntime.Prisma.join(receiptIds)})
   `)
     : [];
   const voided = new Set(voids.map((r) => r.sourceId));

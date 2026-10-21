@@ -1,0 +1,40 @@
+[
+  {
+    "run": "9f95d659",
+    "passed": false,
+    "stage": "reopen and close",
+    "completedCases": 12,
+    "financialHistoryRetained": true
+  },
+  {
+    "run": "fe116962",
+    "passed": false,
+    "stage": "close via UI",
+    "completedCases": 1,
+    "financialHistoryRetained": true
+  },
+  {
+    "run": "b19effd7",
+    "passed": false,
+    "stage": "noncash closed supplement",
+    "completedCases": 8,
+    "financialHistoryRetained": true
+  },
+  {
+    "run": "adcfb561",
+    "passed": false,
+    "stage": "close via UI",
+    "completedCases": 2,
+    "financialHistoryRetained": true
+  },
+  {
+    "run": "intermediate-build",
+    "passed": false,
+    "reason": "Undefined session identifier caught by TypeScript; final build uses existing sessionId"
+  },
+  {
+    "run": "initial-domain",
+    "passed": false,
+    "reason": "Cash drawer was CLOSED after interrupted UI; authorized reopen then all ten tests passed"
+  }
+]

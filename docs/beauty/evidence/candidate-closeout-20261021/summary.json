@@ -1,0 +1,38 @@
+{
+  "passed": true,
+  "date": "2026-10-21",
+  "main": "5aebaa69e305caee08e8392de920b46d0599a161",
+  "localMerge": "de48a3a5",
+  "buildId": "XBpjgg-XVxOd_4g-r77Hw",
+  "checks": {
+    "closed-month.json": 15,
+    "settlement.json": 12,
+    "customer-guards.json": 7,
+    "domain.json": 10,
+    "closed-regression.json": 20,
+    "package.json": 0,
+    "build.json": 0,
+    "secret-scan.json": 0
+  },
+  "unit": {
+    "passed": true,
+    "files": 44,
+    "tests": 576,
+    "scope": "Beauty, shared cash/day/merge and integrated main preview/settings guards",
+    "liveDomainTests": 10
+  },
+  "dedicatedAclUnchanged": true,
+  "dataRoleCandidateSha256": "ac7e1801c14b212f1a641e53d2ea4c6164708b6d93887da7abe31c5152a69257",
+  "cleanSourceFiles": 120,
+  "productionApplied": false,
+  "hostedVerified": false,
+  "realPoolerVerified": false,
+  "lineVerified": false,
+  "storeSignoff": false,
+  "remaining": [
+    "Environment integration including installation role, TLS/pooler, hosted artifacts, backup/restore and stable URLs",
+    "LINE identity and separately scoped notification worker",
+    "Physical store acceptance, including explicit review of unsupported manual customer merge"
+  ],
+  "finalReleaseApprovalRequired": true
+}

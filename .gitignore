@@ -62,3 +62,10 @@ wallet-review-*.csv
 .env.course-preview
 
 /supabase/.temp/
+
+/generated/beauty-client
+.next-beauty-production-qa/
+tsconfig.beauty-production-qa.json
+
+.next-beauty-release-qa
+tsconfig.beauty-release-qa.json

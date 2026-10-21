@@ -1,0 +1,528 @@
+"use client";
+import { useRef, useState, useTransition } from "react";
+import {
+  bookBeautyParty,
+  submitBeautyTrial,
+  readBeautySlots,
+} from "@/server/actions/beauty";
+import { toLocalDateStr } from "@/lib/date-utils";
+import type { PartyInput } from "@/lib/beauty/contracts";
+export type BeautyBookingCatalog = {
+  policy?: {
+    revision: number;
+    selfBooking: boolean;
+    selfCancel: boolean;
+    selfReschedule: boolean;
+    cancelDeduct: boolean;
+    noShowDeduct: boolean;
+    cancelLeadMinutes: number;
+  };
+  services: {
+    id: string;
+    name: string;
+    duration: number;
+    price: number;
+    trialPrice: number | null;
+    revision?: number;
+  }[];
+  techs: { id: string; name: string; gender: string; serviceIds: string[] }[];
+};
+const control =
+  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
+const button =
+  "min-h-11 rounded-lg border border-primary-300 px-4 py-2 text-base disabled:opacity-50";
+export function BeautyBookingForm({
+  catalog,
+  mode,
+  slug,
+  entry,
+  customer,
+  cards = [],
+  members = [],
+  onBooked,
+}: {
+  catalog: BeautyBookingCatalog;
+  mode: "manager" | "member" | "public";
+  slug: string;
+  entry?: string;
+  customer?: { id: string; name: string; phone: string } | null;
+  cards?: {
+    id: string;
+    name: string;
+    remaining: number;
+    held: number;
+    expiresAt: string;
+    closed: boolean;
+    memberIds: string[];
+    serviceIds: string[];
+  }[];
+  members?: { id: string; name: string; phone: string }[];
+  onBooked?: () => void;
+}) {
+  const [trial, setTrial] = useState(mode === "public"),
+    [date, setDate] = useState(toLocalDateStr),
+    [time, setTime] = useState(""),
+    [slots, setSlots] = useState<string[]>([]),
+    [error, setError] = useState(""),
+    [receipt, setReceipt] = useState<{ groupId: string; ids: string[] } | null>(
+      null,
+    ),
+    [pending, start] = useTransition();
+  const blank = (): PartyInput["people"][number] => ({
+    name: "",
+    phone: "",
+    customerId: null,
+    serviceId:
+      (mode === "public"
+        ? catalog.services.find((s) => s.trialPrice !== null)
+        : catalog.services[0]
+      )?.id ?? "",
+    serviceRevision: 0,
+    preference: "" as PartyInput["people"][number]["preference"],
+    specifiedTechnicianId: null,
+    cardId: null,
+    notes: "",
+  });
+  const [people, setPeople] = useState<PartyInput["people"]>([
+    {
+      ...blank(),
+      name: customer?.name ?? "",
+      phone: customer?.phone ?? "",
+      customerId: customer?.id ?? null,
+    },
+  ]);
+  const [contactName, setContactName] = useState(customer?.name ?? ""),
+    [phone, setPhone] = useState(customer?.phone ?? "");
+  const request = useRef(crypto.randomUUID()),
+    generation = useRef(0),
+    lock = useRef(false);
+  function invalidate() {
+    generation.current++;
+    setSlots([]);
+    setTime("");
+    setError("");
+    request.current = crypto.randomUUID();
+  }
+  function change(index: number, patch: Partial<PartyInput["people"][number]>) {
+    invalidate();
+    setPeople((p) =>
+      p.map((person, i) => (i === index ? { ...person, ...patch } : person)),
+    );
+  }
+  function data(): PartyInput {
+    return {
+      requestKey: request.current,
+      date,
+      time: time || "00:00",
+      contactName,
+      phone,
+      isTrial: trial,
+      policyRevision: catalog.policy?.revision ?? 0,
+      people: people.map((p) => ({
+        ...p,
+        serviceRevision:
+          catalog.services.find((s) => s.id === p.serviceId)?.revision ?? 0,
+      })),
+    };
+  }
+  function validate() {
+    return (
+      people.every(
+        (p) =>
+          p.serviceId &&
+          p.preference &&
+          p.name.trim() &&
+          /^09\d{8}$/.test(p.phone),
+      ) &&
+      contactName.trim() &&
+      /^09\d{8}$/.test(phone)
+    );
+  }
+  function readSlots() {
+    if (!validate()) {
+      setError("請填姓名、手機，並逐人選擇服務與技師性別");
+      return;
+    }
+    const version = ++generation.current;
+    start(async () => {
+      const r = await readBeautySlots(mode, slug, data());
+      if (version !== generation.current) return;
+      if (r.success) {
+        setSlots(r.data.slots);
+        setError(
+          r.data.slots.length ? "" : "當日沒有可安排全部同行者的時間，請換日期",
+        );
+      } else setError(r.error);
+    });
+  }
+  if (mode !== "manager" && catalog.policy?.selfBooking === false)
+    return <p>店家暫未開放自行預約，請聯絡店家安排。</p>;
+  if (receipt)
+    return (
+      <section
+        role="status"
+        className="space-y-3 rounded-xl border border-primary-200 bg-primary-50 p-4"
+      >
+        <h2 className="font-semibold">預約成功</h2>
+        <p>
+          {date} {time}｜共{people.length}位
+        </p>
+        {people.map((p, i) => (
+          <p key={i}>
+            {p.name}：{catalog.services.find((s) => s.id === p.serviceId)?.name}
+          </p>
+        ))}
+        <p>付款與服務狀態請向店家核對。</p>
+        <button
+          className={button}
+          onClick={() => {
+            setReceipt(null);
+            invalidate();
+          }}
+        >
+          再預約一筆
+        </button>
+      </section>
+    );
+  return (
+    <form
+      className="min-w-0 space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (lock.current || !time || !validate()) return;
+        lock.current = true;
+        start(async () => {
+          try {
+            const r =
+              mode === "public"
+                ? await submitBeautyTrial(slug, data(), entry)
+                : await bookBeautyParty(mode, data());
+            if (r.success) {
+              setReceipt(r.data);
+              onBooked?.();
+            } else setError(r.error);
+          } catch {
+            setError("連線失敗，請保留資料重試");
+          } finally {
+            lock.current = false;
+          }
+        });
+      }}
+    >
+      <fieldset disabled={pending} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label>
+            預約人數
+            <select
+              className={control}
+              value={people.length}
+              onChange={(e) => {
+                const count = Number(e.target.value);
+                invalidate();
+                setPeople((p) =>
+                  Array.from(
+                    { length: count },
+                    (_, i) => p[i] ?? { ...blank(), serviceId: p[0].serviceId },
+                  ),
+                );
+              }}
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i + 1}>
+                  {i + 1}人
+                </option>
+              ))}
+            </select>
+          </label>
+          {mode !== "public" && (
+            <label>
+              預約類型
+              <select
+                className={control}
+                value={trial ? "trial" : "regular"}
+                onChange={(e) => {
+                  setTrial(e.target.value === "trial");
+                  invalidate();
+                  setPeople((p) =>
+                    p.map((person) => ({
+                      ...person,
+                      cardId: null,
+                      specifiedTechnicianId: null,
+                      serviceId:
+                        (e.target.value === "trial"
+                          ? catalog.services.find((s) => s.trialPrice !== null)
+                          : catalog.services[0]
+                        )?.id ?? "",
+                    })),
+                  );
+                }}
+              >
+                <option value="regular">一般服務</option>
+                <option value="trial">體驗服務</option>
+              </select>
+            </label>
+          )}
+        </div>
+        {people.map((p, i) => (
+          <section
+            key={i}
+            className="space-y-3 rounded-xl border border-earth-200 p-3"
+          >
+            <h3 className="font-semibold">第{i + 1}位</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {members.length > 0 && (
+                <label>
+                  服務者
+                  <select
+                    className={control}
+                    value={p.customerId ?? ""}
+                    onChange={(e) => {
+                      const m = members.find((m) => m.id === e.target.value);
+                      change(i, {
+                        customerId: m?.id ?? null,
+                        name: m?.name ?? "",
+                        phone: m?.phone ?? "",
+                        cardId: null,
+                      });
+                    }}
+                  >
+                    <option value="">其他同行者</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label>
+                姓名
+                <input
+                  required
+                  className={control}
+                  value={p.name}
+                  onChange={(e) => change(i, { name: e.target.value })}
+                />
+              </label>
+              <label>
+                手機
+                <input
+                  required
+                  type="tel"
+                  inputMode="tel"
+                  pattern="09[0-9]{8}"
+                  className={control}
+                  value={p.phone}
+                  onChange={(e) => change(i, { phone: e.target.value })}
+                />
+              </label>
+              <label>
+                服務項目
+                <select
+                  required
+                  className={control}
+                  value={p.serviceId}
+                  onChange={(e) =>
+                    change(i, {
+                      serviceId: e.target.value,
+                      specifiedTechnicianId: null,
+                      cardId: null,
+                    })
+                  }
+                >
+                  {catalog.services
+                    .filter((s) => !trial || s.trialPrice !== null)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}｜{s.duration}分鐘｜NT$
+                        {trial ? s.trialPrice : s.price}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                技師性別（必選）
+                <select
+                  required
+                  className={control}
+                  value={p.preference}
+                  onChange={(e) =>
+                    change(i, {
+                      preference: e.target.value as typeof p.preference,
+                      specifiedTechnicianId: null,
+                    })
+                  }
+                >
+                  <option value="" disabled>
+                    請選擇
+                  </option>
+                  <option value="FEMALE">女性技師</option>
+                  <option value="MALE">男性技師</option>
+                  <option value="ANY">男女皆可</option>
+                </select>
+              </label>
+              <label>
+                指定技師（選填）
+                <select
+                  className={control}
+                  value={p.specifiedTechnicianId ?? ""}
+                  onChange={(e) =>
+                    change(i, { specifiedTechnicianId: e.target.value || null })
+                  }
+                >
+                  <option value="">不指定技師</option>
+                  {catalog.techs
+                    .filter(
+                      (t) =>
+                        t.serviceIds.includes(p.serviceId) &&
+                        (p.preference === "ANY" || p.preference === t.gender),
+                    )
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}（{t.gender === "FEMALE" ? "女" : "男"}）
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {!trial && cards.length > 0 && (
+                <label>
+                  付款／方案
+                  <select
+                    className={control}
+                    value={p.cardId ?? ""}
+                    onChange={(e) => {
+                      const card = cards.find((c) => c.id === e.target.value);
+                      change(i, {
+                        cardId: card?.id ?? null,
+                        customerId: p.customerId,
+                      });
+                    }}
+                  >
+                    <option value="">單次付款</option>
+                    {cards
+                      .filter(
+                        (c) =>
+                          !c.closed &&
+                          c.remaining - c.held > 0 &&
+                          c.serviceIds.includes(p.serviceId) &&
+                          c.memberIds.includes(p.customerId ?? "") &&
+                          new Date(c.expiresAt) > new Date(),
+                      )
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}｜可用{c.remaining - c.held}次
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              <label className="sm:col-span-2">
+                本次備註（選填）
+                <input
+                  className={control}
+                  value={p.notes}
+                  maxLength={1000}
+                  onChange={(e) => change(i, { notes: e.target.value })}
+                />
+              </label>
+            </div>
+          </section>
+        ))}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label>
+            聯絡人姓名
+            <input
+              required
+              className={control}
+              value={contactName}
+              onChange={(e) => {
+                setContactName(e.target.value);
+                invalidate();
+              }}
+            />
+          </label>
+          <label>
+            聯絡人手機
+            <input
+              required
+              className={control}
+              type="tel"
+              pattern="09[0-9]{8}"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                invalidate();
+              }}
+            />
+          </label>
+          <label>
+            共同日期
+            <input
+              required
+              type="date"
+              min={toLocalDateStr()}
+              className={control}
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                invalidate();
+              }}
+            />
+          </label>
+          <button type="button" className={button} onClick={readSlots}>
+            查詢共同可用時間
+          </button>
+        </div>
+        {!!slots.length && (
+          <label>
+            共同開始時間
+            <select
+              className={control}
+              required
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            >
+              <option value="">請選擇時間</option>
+              {slots.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p>
+          共{people.length}位，{trial ? "體驗" : "一般"}原價合計 NT$
+          {people.reduce((sum, p) => {
+            const s = catalog.services.find((s) => s.id === p.serviceId);
+            return sum + (s ? (trial ? (s.trialPrice ?? 0) : s.price) : 0);
+          }, 0)}
+          。方案使用者依授權預留次數，服務完成後扣除；各人結束時間依服務時長不同。
+        </p>
+        {catalog.policy && (
+          <p>
+            取消{catalog.policy.cancelDeduct ? "扣1次" : "不扣次"}；未到
+            {catalog.policy.noShowDeduct ? "扣1次" : "不扣次"}。
+            {catalog.policy.selfCancel
+              ? `自行取消須在服務前${catalog.policy.cancelLeadMinutes}分鐘完成。`
+              : "取消請聯絡店家。"}
+          </p>
+        )}
+        {trial && (
+          <p>
+            每人每項服務限體驗一次；有效預約、完成或未到占用資格，取消後可重新預約。
+          </p>
+        )}
+        <button
+          className={`${button} bg-primary-700 text-white`}
+          disabled={!time || !catalog.services.length}
+        >
+          {pending ? "處理中…" : "確認預約"}
+        </button>
+      </fieldset>
+      {error && (
+        <p role="alert" className="text-red-700">
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}

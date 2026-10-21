@@ -1,6 +1,7 @@
 import "server-only";
 import { spaPrisma } from "@/lib/spa-db";
-import { Prisma } from "../../../generated/spa-client";
+import { loadSpaPrismaRuntime } from "@/lib/generated-prisma-runtime";
+const spaClientRuntime = loadSpaPrismaRuntime();
 import { toLocalDateStr } from "@/lib/date-utils";
 
 export type SpaCustomerSummary = {
@@ -37,11 +38,11 @@ export async function spaCustomerSummaries(
             lastVisit: string | null;
             nextVisit: string | null;
           }[]
-        >(Prisma.sql`
+        >(spaClientRuntime.Prisma.sql`
       SELECT "customerId",
         MAX(CASE WHEN status='COMPLETED' THEN "bookingDate"::text || ' ' || "startTime" END) AS "lastVisit",
         MIN(CASE WHEN status IN ('PENDING','CONFIRMED') AND ("bookingDate">${today}::date OR ("bookingDate"=${today}::date AND "startTime">=${now})) THEN "bookingDate"::text || ' ' || "startTime" END) AS "nextVisit"
-      FROM "SpaBooking" WHERE "storeId"=${storeId} AND "customerId" IN (${Prisma.join(ids)}) GROUP BY "customerId"
+      FROM "SpaBooking" WHERE "storeId"=${storeId} AND "customerId" IN (${spaClientRuntime.Prisma.join(ids)}) GROUP BY "customerId"
     `)
       : [],
     canReadAccounts
@@ -52,11 +53,11 @@ export async function spaCustomerSummaries(
             available: number;
             expiry: string | null;
           }[]
-        >(Prisma.sql`
+        >(spaClientRuntime.Prisma.sql`
       SELECT e."customerId", e."nameSnapshot" AS name,
         GREATEST(0,e."remainingUses"-COALESCE((SELECT SUM(u.uses)::int FROM "SpaEntitlementUse" u WHERE u."storeId"=e."storeId" AND u."entitlementId"=e.id AND u.status='RESERVED'),0))::int AS available,
         e."expiryDate"::text AS expiry
-      FROM "SpaEntitlement" e WHERE e."storeId"=${storeId} AND e."customerId" IN (${Prisma.join(ids)})
+      FROM "SpaEntitlement" e WHERE e."storeId"=${storeId} AND e."customerId" IN (${spaClientRuntime.Prisma.join(ids)})
         AND e.status='ACTIVE' AND e."remainingUses">0 AND e."startDate"<=${today}::date AND (e."expiryDate" IS NULL OR e."expiryDate">=${today}::date)
       ORDER BY e."expiryDate" ASC NULLS LAST,e."createdAt" ASC
     `)

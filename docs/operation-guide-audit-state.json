@@ -91,9 +91,13 @@
     "C114",
     "IMG01",
     "CG01",
-    "A17"
+    "A17",
+    "BEAUTY01",
+    "BEAUTY02",
+    "BEAUTY03",
+    "BEAUTY04"
   ],
-  "articleCount": 205,
+  "articleCount": 209,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -353,8 +357,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 30,
-  "totalInteractionPendingCount": 30,
+  "backendInteractionPendingCount": 34,
+  "totalInteractionPendingCount": 34,
   "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -688,5 +692,17 @@
     "status": "source-reviewed",
     "authenticatedAcceptance": "pending",
     "note": "新增蒸足後台異動通知操作說明；合成預覽不視為真實登入驗收。"
+  },
+  "beautyModuleAddition": {
+    "branch": "feat/beauty-module-20261020",
+    "sourceBaseline": "c90f82df778da7c52e8716f8a6f3b6d0bb238593",
+    "guideIds": [
+      "BEAUTY01",
+      "BEAUTY02",
+      "BEAUTY03",
+      "BEAUTY04"
+    ],
+    "verification": "source-reviewed; authenticated interaction pending",
+    "scope": "backend-only; does not revise prior audit history or other pending guides"
   }
 }

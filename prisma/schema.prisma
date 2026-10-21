@@ -367,6 +367,7 @@ enum StoreOperatingStatus {
 // Store-level module firewall. Business actions must authorize against this
 // persisted value; isDemo and hard-coded store IDs are not module boundaries.
 enum IndustryModule {
+  BEAUTY
   STEAMFOOT
   SPA
   COURSE

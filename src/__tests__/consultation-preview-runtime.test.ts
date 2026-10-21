@@ -8,14 +8,10 @@ vi.mock("@prisma/client", () => ({ PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("main", options); }
 } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class {
-  $queryRaw = mocks.query;
-  constructor(options: unknown) { mocks.construct("spa", options); }
-} }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class {
-  $queryRaw = mocks.query;
-  constructor(options: unknown) { mocks.construct("course", options); }
-} }));
+vi.mock("@/lib/generated-prisma-runtime", () => ({
+  loadCoursePrismaRuntime: () => ({ PrismaClient: class { $queryRaw = mocks.query; constructor(options: unknown) { mocks.construct("course", options); } } }),
+  loadSpaPrismaRuntime: () => ({ PrismaClient: class { $queryRaw = mocks.query; constructor(options: unknown) { mocks.construct("spa", options); } } }),
+}));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";

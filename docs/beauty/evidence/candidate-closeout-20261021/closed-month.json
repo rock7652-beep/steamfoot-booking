@@ -1,0 +1,151 @@
+{
+  "origin": "http://localhost:3116",
+  "runId": "73397be9",
+  "storeId": "beauty-prodqa-beauty",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "responsive",
+  "results": [
+    {
+      "case": "於既有合成美業店新增唯一服務／空間與月界帳目；收款時間只在建立fixture時指定，既有帳本與DB時鐘不改",
+      "passed": true
+    },
+    {
+      "case": "真正UI關帳，逐筆獨立計算既有現金並核對快照與零差額",
+      "passed": true
+    },
+    {
+      "case": "已關帳現金補登未勾確認，真正表單驗證阻擋送出",
+      "passed": true
+    },
+    {
+      "case": "確認後補登125元及專用稽核各一筆；原關帳金額與所有快照欄位完全不變",
+      "passed": true
+    },
+    {
+      "case": "真正HTTP重送相同補登，帳本與稽核不重複",
+      "passed": true
+    },
+    {
+      "case": "真正HTTP繞過前端移除確認仍被後端拒絕，帳本、快照及稽核皆不變",
+      "passed": true
+    },
+    {
+      "case": "同請求改金額重送被拒，不覆蓋或增加補登",
+      "passed": true
+    },
+    {
+      "case": "非現金補登33元可不勾現金確認；不改抽屜快照",
+      "passed": true
+    },
+    {
+      "case": "九／十／十一月實際分析畫面逐月對照DB，月末最後毫秒與次月第一毫秒歸屬正確，拆帳80及收回30不列營收",
+      "passed": true
+    },
+    {
+      "case": "九月原款由真正UI於十月退300元：退款時間由DB產生、共用支出記當日、原收款不改、關帳現金不受轉帳退款影響",
+      "passed": true
+    },
+    {
+      "case": "跨月退款HTTP重送只保留一筆；超過剩餘700元退款拒絕且無任何帳務副作用",
+      "passed": true
+    },
+    {
+      "case": "跨月退款後九月仍1000、十月800降至500、十一月仍負250；手動補登158元不誤列美業收入，服務人次口徑不變",
+      "passed": true
+    },
+    {
+      "case": "明確撤銷閉店後才按原帳本按全部既有現金與新增125元重算，再關帳、差額0；非現金不混入抽屜",
+      "passed": true
+    },
+    {
+      "case": "保留全部合成歷史並明確撤銷最後關帳，讓隔離店繼續可試用",
+      "passed": true
+    },
+    {
+      "case": "1024／768／1366／1920現金表單與分析無整頁溢出；頁面錯誤、待送通知0",
+      "passed": true
+    }
+  ],
+  "reports": [
+    {
+      "month": "2026-09",
+      "net": 6000,
+      "paymentCount": 8,
+      "feeExcluded": 2,
+      "servicePeople": 6
+    },
+    {
+      "month": "2026-10",
+      "net": 114000,
+      "paymentCount": 87,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    },
+    {
+      "month": "2026-11",
+      "net": -1500,
+      "paymentCount": 6,
+      "feeExcluded": 0,
+      "servicePeople": 6
+    },
+    {
+      "month": "2026-09",
+      "net": 6000,
+      "paymentCount": 8,
+      "feeExcluded": 2,
+      "servicePeople": 6
+    },
+    {
+      "month": "2026-10",
+      "net": 113700,
+      "paymentCount": 88,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    },
+    {
+      "month": "2026-11",
+      "net": -1500,
+      "paymentCount": 6,
+      "feeExcluded": 0,
+      "servicePeople": 6
+    },
+    {
+      "month": "2026-10",
+      "net": 113700,
+      "paymentCount": 88,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    },
+    {
+      "month": "2026-10",
+      "net": 113700,
+      "paymentCount": 88,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    },
+    {
+      "month": "2026-10",
+      "net": 113700,
+      "paymentCount": 88,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    },
+    {
+      "month": "2026-10",
+      "net": 113700,
+      "paymentCount": 88,
+      "feeExcluded": 32,
+      "servicePeople": 49
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Existing five-store isolated DB; fixtures use dedicated role; shared cash/auth uses separate restricted main role; financial history retained",
+    "Boundary payments created with explicit fixture timestamps; no DB/server clock changes, no existing receipt updates",
+    "September original refunded in actual October UI, DB-generated refund time",
+    "No real money movement, LINE, physical device or production activation proof",
+    "UI supplements and real refund checked; not a full audit of all cashbook edit routes or legacy mixed transactions"
+  ]
+}

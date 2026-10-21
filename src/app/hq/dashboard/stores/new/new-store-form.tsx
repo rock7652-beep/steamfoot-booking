@@ -21,7 +21,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
   >("GROWTH");
   const [isDemo, setIsDemo] = useState(false);
   const [industryModule, setIndustryModule] = useState<
-    "STEAMFOOT" | "COURSE" | ""
+    "STEAMFOOT" | "COURSE" | "BEAUTY" | ""
   >("");
   const [businessProfile, setBusinessProfile] = useState<"FITNESS" | "MUSIC" | null>(null);
   const [domain, setDomain] = useState("");
@@ -98,7 +98,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
                   ? result.store.businessProfile === "MUSIC"
                     ? "音樂教室（COURSE 引擎）"
                     : "運動教室（COURSE 引擎）"
-                  : result.store.industryModule === "SPA"
+                  : result.store.industryModule === "BEAUTY" ? "美業（獨立模組）" : result.store.industryModule === "SPA"
                     ? "SPA／美容美體（已鎖定）"
                     : "蒸足（已鎖定）"
               }
@@ -243,6 +243,9 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
                 description="空間容量、固定時段、方案與補課流程"
                 onSelect={() => { setIndustryModule("STEAMFOOT"); setBusinessProfile(null); }}
               />
+              <ModuleOption checked={industryModule === "BEAUTY"} title="美業"
+                description="服務預約、技師、位置、次數方案與拆帳"
+                onSelect={() => {setIndustryModule("BEAUTY");setBusinessProfile("FITNESS");setDutySchedulingEnabled(false);}} />
               <ModuleOption checked={industryModule === "COURSE" && businessProfile === "FITNESS"} title="運動教室"
                 description="教練／教室排課、共卡與出席；底層使用 COURSE 引擎"
                 onSelect={() => { setIndustryModule("COURSE"); setBusinessProfile("FITNESS"); setPlan("EXPERIENCE"); setDutySchedulingEnabled(false); }} />

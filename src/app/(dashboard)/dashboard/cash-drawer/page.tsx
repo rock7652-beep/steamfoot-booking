@@ -33,6 +33,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 
 import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
@@ -55,8 +56,8 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const [activeStoreId, storeViewContext] = await Promise.all([
     getActiveStoreForRead(user), resolveStoreViewContextFromCookie(user),
   ]);
-  const isViewMode = storeViewContext?.isViewMode ?? false;
   const storeId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const isViewMode = !!storeViewContext?.isViewMode || isReadOnlyStoreTarget(user, storeId);
   if (panel && (!storeId || params.panelStoreId !== storeId)) return panelError("店家已切換，請關閉視窗後重新開啟。");
   if (!storeId) {
     // ADMIN 未選店時 storeId 可能為 null

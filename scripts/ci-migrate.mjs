@@ -1,3 +1,6 @@
+// Independent beauty review never runs hosted migrations or deployments.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/beauty-module-20261020")) throw new Error("Beauty review cannot deploy or execute migrations.");
+
 // Isolated feature review: hosted builds must stop before migrations or deployment.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
   throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");
@@ -97,6 +100,14 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "beauty-release-qa") {
+  console.info("[beauty-release-qa] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
+if (releaseMode === "beauty-production-qa") {
+  console.info("[beauty-production-qa] local_production_runtime=true isolated_database=true migrations_skipped=true module_closed=true notifications_blocked=true");
+  process.exit(0);
+}
 if (releaseMode === "sports-redesign-preview") {
   console.info("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
   process.exit(0);

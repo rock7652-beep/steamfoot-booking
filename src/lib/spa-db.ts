@@ -4,7 +4,9 @@ import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/gui
 import "server-only";
 import { configureSpaPreviewPool } from "./spa-preview-pool";
 
-import { PrismaClient } from "../../generated/spa-client";
+import type { PrismaClient } from "../../generated/spa-client";
+import { loadSpaPrismaRuntime } from "./generated-prisma-runtime";
+const spaClientRuntime = loadSpaPrismaRuntime();
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
@@ -30,7 +32,7 @@ export const spaPrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
   () => globalForSpaPrisma.spaPrisma,
-  () => withAuditDatabaseContext(new PrismaClient({
+  () => withAuditDatabaseContext(new spaClientRuntime.PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   })),

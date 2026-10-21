@@ -1,0 +1,6 @@
+import { expect,it } from 'vitest';
+import { assertReviewedReleaseEnvironment } from '../../scripts/consultation-preview-scope.mjs';
+const url='postgresql://beauty_1374_releaseapp:synthetic@127.0.0.1:32770/beauty_1374_releaseqa';
+const env={BEAUTY_RELEASE_QA:'1',NODE_ENV:'production',AUTH_URL:'http://localhost:3116',NEXTAUTH_URL:'http://localhost:3116',AUTH_SECRET:'synthetic',BEAUTY_MODULE_ENABLED:'0',BEAUTY_NOTIFICATIONS_ENABLED:'0',DATABASE_URL:url,DIRECT_URL:url};
+it.each(['0','1'])('permits local closed/open release rehearsal only (%s)',value=>expect(assertReviewedReleaseEnvironment({...env,BEAUTY_MODULE_ENABLED:value})).toBe('beauty-release-qa'));
+it.each([{VERCEL:'1'},{VERCEL_ENV:'production'},{WORKERS_CI_BRANCH:'main'},{CF_PAGES_BRANCH:'main'},{VERCEL_GIT_COMMIT_REF:'feat/beauty-module-20261020'},{BEAUTY_MODULE_ENABLED:'yes'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{NODE_ENV:'development'},{AUTH_SECRET:''},{AUTH_URL:'https://remote.invalid'},{DATABASE_URL:url.replace('127.0.0.1','db.remote.invalid')},{DIRECT_URL:url.replace('releaseapp','postgres')},{DATABASE_URL:url+'?schema=other'},{BEAUTY_LOCAL_QA:'1'},{BEAUTY_SANDBOX_QA:'1'},{BEAUTY_PRODUCTION_QA:'1'},{LINE_CHANNEL_ACCESS_TOKEN:'blocked'},{WEB_LINE_LOGIN_CHANNEL_SECRET:'blocked'}])('rejects unsafe boundary %j', patch=>expect(()=>assertReviewedReleaseEnvironment({...env,...patch})).toThrow());

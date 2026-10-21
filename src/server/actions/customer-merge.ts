@@ -69,8 +69,12 @@ export async function mergeCustomerAction(
     assertStoreAccess(user, source.storeId);
     assertStoreAccess(user, target.storeId);
 
+    const industry = await getStoreIndustryModule(source.storeId);
+    if (industry === "beauty") {
+      throw new AppError("BUSINESS_RULE", "美業暫不開放顧客合併，請保留兩筆資料並使用顧客資料更正");
+    }
     let courseStoreId: string | undefined;
-    if (await getStoreIndustryModule(source.storeId) === "course") {
+    if (industry === "course") {
       await requireWritablePermission("customer.update");
       const actor = await courseManager("customer.update");
       if (actor.storeId !== source.storeId || actor.storeId !== target.storeId) throw new AppError("FORBIDDEN", "只能合併目前課程店家的顧客");

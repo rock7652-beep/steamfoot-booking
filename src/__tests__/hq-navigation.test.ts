@@ -35,3 +35,14 @@ describe("HQ store navigation", () => {
     expect(isNavigationItemActive("/dashboard/courses", "/dashboard/courses", "", [])).toBe(true);
   });
 });
+
+it("highlights only the selected beauty task instead of every menu sharing the route",()=>{
+ const labels=["首頁","班表","顧客管理","顧客經營","營運","分析","位置管理","服務項目","收費方式","技師管理","設定"];
+ const links=labels.map(label=>`/dashboard/beauty?tab=${encodeURIComponent(label)}`);
+ for(const label of labels)expect(links.filter(href=>isNavigationItemActive(href,"/dashboard/beauty",`tab=${encodeURIComponent(label)}`,links))).toEqual([`/dashboard/beauty?tab=${encodeURIComponent(label)}`]);
+});
+it("defaults the bare beauty route to home without affecting course navigation",()=>{
+ expect(isNavigationItemActive("/dashboard/beauty?tab="+encodeURIComponent("首頁"),"/dashboard/beauty","",[])).toBe(true);
+ expect(isNavigationItemActive("/dashboard/beauty?tab="+encodeURIComponent("班表"),"/dashboard/beauty","",[])).toBe(false);
+ expect(isNavigationItemActive("/dashboard/courses?view=plans","/dashboard/beauty","view=plans",[])).toBe(false);
+});

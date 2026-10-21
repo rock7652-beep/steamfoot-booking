@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "stage": "complete",
+  "synthetic": true,
+  "productionRuntime": true,
+  "packagedArtifact": true,
+  "results": [
+    {
+      "case": "Owner actual shared merge action rejects Beauty and leaves customer identity, cards, appointments, financial receipts and settlements unchanged",
+      "passed": true
+    },
+    {
+      "case": "Dedicated correction action updates customer name/notes without changing phone or login/merge identity",
+      "passed": true
+    },
+    {
+      "case": "Stale correction and foreign-store customer IDs reject without financial or customer side effects",
+      "passed": true
+    },
+    {
+      "case": "All histories retained; authorized reopen action leaves isolated trial drawer OPEN",
+      "passed": true
+    },
+    {
+      "case": "New financial JSON transport rejects foreign or missing Origin before financial work",
+      "passed": true
+    },
+    {
+      "case": "Owner cannot mutate a foreign/missing session or invoke DELETE through the new endpoint; all own ledgers unchanged",
+      "passed": true
+    },
+    {
+      "case": "Customer is rejected at dashboard authentication boundary before the financial JSON action",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "Full customer merge intentionally unsupported for Beauty; correction remains available",
+    "Real owner login plus actual server-action HTTP; no claim that action buttons were all clicked",
+    "OAuth placeholder linking is a separate LINE acceptance gate",
+    "No production mutation or LINE send"
+  ]
+}

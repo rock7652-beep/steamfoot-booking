@@ -534,6 +534,14 @@ export async function mergeCustomerIntoCustomer(
     if (source.storeId !== target.storeId) {
       throw new Error("mergeCustomer: 不允許跨店合併（來源與目標 storeId 不同）");
     }
+    // Beauty ownership, shared cards and once-only trials cannot use the legacy
+    // relocation list. Reject direct callers as well as the dashboard action.
+    const store = await tx.store.findUniqueOrThrow({
+      where: { id: source.storeId }, select: { industryModule: true },
+    });
+    if (store.industryModule === "BEAUTY") {
+      throw new Error("美業暫不開放顧客合併，請保留兩筆資料並使用顧客資料更正");
+    }
     const inventoryAvailable = await lockInventoryCustomerMerge(tx, source.storeId);
     if (inventoryAvailable) {
       [source, target] = await Promise.all([

@@ -71,6 +71,7 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 }
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
+import { beautyOperationGuides } from "./beauty-operation-guides";
 import { courseOperationGuides } from "./course-operation-guides";
 import { courseBasicOperationGuides } from "./course-basic-operation-guides";
 import { dailyOperationGuides20260925 } from "./operation-guide-daily-20260925";
@@ -93,6 +94,7 @@ export { guideCategories };
 const catalogGuides: OperationGuide[] = [
   ...steamfootNoticeGuides,
   ...imageAnnouncementGuides,
+  ...beautyOperationGuides,
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: guide.id === "A03" ? ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/components/admin/inline-roster-note.tsx", "src/server/actions/booking-note.ts"] : ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
   ...courseOperationGuides,

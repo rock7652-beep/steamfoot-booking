@@ -1,0 +1,501 @@
+{
+  "prepared": true,
+  "localOnly": true,
+  "baseline": "5aebaa69e305caee08e8392de920b46d0599a161",
+  "branch": "release/beauty-candidate-20261021",
+  "selectedFiles": 120,
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "ac2ec4541f6dca3ce5fecd7fddca5595054039fef3a0bff014790bbf3ecc8dbb"
+    },
+    {
+      "path": "beauty-prisma/schema.prisma",
+      "sha256": "a0c628f0517ccb0bcd10ad5bba9f6d29d6703c1f4521a99e92c03d56898ef55c"
+    },
+    {
+      "path": "docs/operation-guide-audit-state.json",
+      "sha256": "baf3bad8830bc00aa85bb5f7dcc4e5341fc71b7168f124439a849f72d2eedf75"
+    },
+    {
+      "path": "next.config.ts",
+      "sha256": "73dee58517f792d4a5ff530da2ac740abf0d7621b834ed2e281f516ce88a7d2b"
+    },
+    {
+      "path": "package.json",
+      "sha256": "540ff7e0a62327d371d08e37d53377875256b22067a383a58ccd01b034c600d1"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "sha256": "71c2abcb120f50116a6d39a2cea48a50cf98f43a1ae63a05309cd9c81d483ecd"
+    },
+    {
+      "path": "scripts/beauty-database-scope.mjs",
+      "sha256": "d38a196c7760e943a7a8390da7494d2875c8ce611fa7aab3b778d393d0d8d867"
+    },
+    {
+      "path": "scripts/beauty-local-qa-scope.mjs",
+      "sha256": "80668496a3d0028dd251eb8b71427b83576609d3155aa4b4bcaf26cb20732b7d"
+    },
+    {
+      "path": "scripts/beauty-production-qa-scope.mjs",
+      "sha256": "54bbe1de2315376eb64ccc275f0c087340022c4b01f053ac0d518f27243e265d"
+    },
+    {
+      "path": "scripts/beauty-release-qa-scope.mjs",
+      "sha256": "27a3fb521389d541340994794790478534cbcd05fa08c5214678da7f57f403da"
+    },
+    {
+      "path": "scripts/beauty-sandbox-qa-scope.mjs",
+      "sha256": "b2a15cf937dd3e86adc9a1d7971fdd93a63d2e33f997db8c516abcce71c840fe"
+    },
+    {
+      "path": "scripts/ci-migrate.mjs",
+      "sha256": "b03148a2192c7f9a103594488820ff4e427d30968e35341f4630e6776eab2419"
+    },
+    {
+      "path": "scripts/consultation-preview-scope.mjs",
+      "sha256": "7bb8213eaad7f3012594d855feefbc148368330f2c52cbf86c88cb4d463048f4"
+    },
+    {
+      "path": "scripts/sql/beauty-data-role-candidate.sql",
+      "sha256": "ac7e1801c14b212f1a641e53d2ea4c6164708b6d93887da7abe31c5152a69257"
+    },
+    {
+      "path": "scripts/sql/beauty-module-candidate.sql",
+      "sha256": "d274d8bb0e964129c72a7e6f27f1a58454276c519a691d24419f95b91067aaec"
+    },
+    {
+      "path": "scripts/sql/beauty-module-inspect.sql",
+      "sha256": "6df1c2459f00d5a7f31d50b94331aadd7d4f96e77dca404efde8db3339bf4e28"
+    },
+    {
+      "path": "scripts/sql/beauty-runtime-inspect.sql",
+      "sha256": "62e31528a09bb46ed1de355eb7c867a2575000c58de4a0c7ba3088519f4361a6"
+    },
+    {
+      "path": "src/__tests__/beauty-access.test.ts",
+      "sha256": "40919a1c4ba41ffbddf0b03dfeb04e76c6a4f14680db5432b988dadbb12a1e38"
+    },
+    {
+      "path": "src/__tests__/beauty-allocation.test.ts",
+      "sha256": "5463c8f22859710d4226fb00f1aaba292d1553690192129db424ae5e225d2b70"
+    },
+    {
+      "path": "src/__tests__/beauty-catalog-dispatch.test.ts",
+      "sha256": "4810c1eba5514c26dbfed5b757bdd647d85e3ad2d2c10c50362c95eb713722ba"
+    },
+    {
+      "path": "src/__tests__/beauty-closed-pages.test.ts",
+      "sha256": "9ed3fa57a9991968243fc05a6fbb791b3a140adec9b0528e60e46eed7eb4c35c"
+    },
+    {
+      "path": "src/__tests__/beauty-cron-route.test.ts",
+      "sha256": "11e833496615f2a0bbff5e874432e8c319b1f204e4d68c2cf32c844bb82a85eb"
+    },
+    {
+      "path": "src/__tests__/beauty-customer-login-landing.test.ts",
+      "sha256": "47b88b11f8288ee1f7c6d710e7adbfd8d01cbdc5f4b292e259eedc0b74962d65"
+    },
+    {
+      "path": "src/__tests__/beauty-database-client.test.ts",
+      "sha256": "dfb4e3bf6db75e4bd81ea2c8b8cda48b9bb2072cd1eaaf2458eadc80dccf2e87"
+    },
+    {
+      "path": "src/__tests__/beauty-database-url.test.ts",
+      "sha256": "482f16a071641c4d969fdc82a07cb463e32776ab27d43adfea2b08c3d130f02a"
+    },
+    {
+      "path": "src/__tests__/beauty-local-qa-scope.test.ts",
+      "sha256": "c0a8b61e21224a0481b4186a7252267f62945e998d0d8c0726d8253c81a67b44"
+    },
+    {
+      "path": "src/__tests__/beauty-notifications.test.ts",
+      "sha256": "86ec3d31b3c48a64769aa0fedb2414cd83d47805f98233b9c122fbf9cd15f9cc"
+    },
+    {
+      "path": "src/__tests__/beauty-production-qa-scope.test.ts",
+      "sha256": "4baa7a39dbec14d346e9e2e569f969bab559bd0213d88e6d0e14460eb60eacee"
+    },
+    {
+      "path": "src/__tests__/beauty-release-qa-scope.test.ts",
+      "sha256": "f221f2fea919e505603a58c53a4bbe41ceb7e9d98859b6712f924d594e7d369f"
+    },
+    {
+      "path": "src/__tests__/beauty-sandbox-qa-scope.test.ts",
+      "sha256": "a28b696f66a70f67bcfc54c16ef52b3589627c9901470cd676fa82a1ec3469e9"
+    },
+    {
+      "path": "src/__tests__/beauty-schema.test.ts",
+      "sha256": "f2d3c772585ea89267fc4b93fcd09d51c497b4faef1000e35ca4ec0a5b4f798f"
+    },
+    {
+      "path": "src/__tests__/beauty-settings-save-origin.test.ts",
+      "sha256": "53a42628f19eb7b6c3957c544bb3c4e11df096f33a4b4c9f98096cfbb6c534a9"
+    },
+    {
+      "path": "src/__tests__/beauty-slots.test.ts",
+      "sha256": "4001d6862ada4194a8be6516866f32cc70a02a83d3408ef9a4f667fc2fb0c604"
+    },
+    {
+      "path": "src/__tests__/beauty-transactions.test.ts",
+      "sha256": "2a5506786105904dfc996b8f2a44d78c6ebb58af07de73642d8fa2ccff628167"
+    },
+    {
+      "path": "src/__tests__/cash-drawer-save-route.test.ts",
+      "sha256": "1882fb0e872e49a9894d1a3eb34af564111d48feb2957fb0393b1fbc5f390882"
+    },
+    {
+      "path": "src/__tests__/consultation-preview-runtime.test.ts",
+      "sha256": "83bcf2b80eac00b4c01d5f74cc24a8cebf2956dfa7fe7b2e9cf4704e66bad268"
+    },
+    {
+      "path": "src/__tests__/course-store-onboarding.test.ts",
+      "sha256": "34f8ef345d0a306cf5b75212f14435408e00ddcfaf7f21c83a62f249823f38a6"
+    },
+    {
+      "path": "src/__tests__/customer-merge-into-customer.test.ts",
+      "sha256": "bf6af778f2f8c84b1d75d1c72afb15684886ddb72e59d2cfa4f7a8dcc7d532de"
+    },
+    {
+      "path": "src/__tests__/hq-navigation.test.ts",
+      "sha256": "e678c57111584e92c6dab7a6553bfaf3a1e8a937bbf7964d1e9801558ec577c8"
+    },
+    {
+      "path": "src/__tests__/hq-sidebar-render.test.ts",
+      "sha256": "72ad8e6f9eaced7aa4a8c3843d5a8ee666f9342ee9d3da5c3eeaa5bbc525f2ea"
+    },
+    {
+      "path": "src/__tests__/operation-guide-audit-state.test.ts",
+      "sha256": "0b6a2501f0d788e1fa0317a2c9b7466154b0e0fc427f71ab4d61c05a38230509"
+    },
+    {
+      "path": "src/__tests__/operation-guide-catalog.test.ts",
+      "sha256": "556929a78b242b8ee7ab5b466ab9051c160bcc47990fa7ba1dfbadb135b750ed"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261003.test.ts",
+      "sha256": "1a4ae4306693f81c5626ddb4a77e18a298b3567020464136b98ee6aa0485771d"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261006.test.ts",
+      "sha256": "e866c90643cf09e0013e2e25c60c4b8427e56c2840f43df5b60738832245b378"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261007.test.ts",
+      "sha256": "924648248efb5a8a67c6382ff072dcab37c39d9f2da321e871db3d52a779ce3b"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261008.test.ts",
+      "sha256": "4037ae04c8f70c3c15e17e802822bc8203b42d1604e89771063638e188fd1c37"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261009.test.ts",
+      "sha256": "1d894ec751d27c2a4898bfa3c5ad5609a7d773797e030b821a3117dfd5c99560"
+    },
+    {
+      "path": "src/__tests__/operation-guide-daily-20261011.test.ts",
+      "sha256": "12c258db8937f88522bb2b7fcae45e580ea06fb17ce76cbc1b8d1bbf4dd625b1"
+    },
+    {
+      "path": "src/__tests__/shop-settings-immediate-client.test.ts",
+      "sha256": "5b029efb8e37aea131b0ce335512b2ab591147bf0a2782cc8601c0deef7809d1"
+    },
+    {
+      "path": "src/__tests__/sports-shared-card-preview-runtime.test.ts",
+      "sha256": "52866895fc7baa7629d20931128e1fc00b35814c3ec3c9397c5a509283756044"
+    },
+    {
+      "path": "src/__tests__/store-onboarding.test.ts",
+      "sha256": "0ef03ca5153361df93784469c6cd099640a661f8a5086e0ac570340da473f5d5"
+    },
+    {
+      "path": "src/__tests__/store-read-only-target.test.ts",
+      "sha256": "2f5f9c79654080fdc07c49f0502b75513e2c0aba70e1434ffe6bfd139b813a92"
+    },
+    {
+      "path": "src/app/(customer)/beauty/page.tsx",
+      "sha256": "d92cdf3eb5f3ef2361726e3441e94012eb7e724832a823a8dfe505f93c812307"
+    },
+    {
+      "path": "src/app/(customer)/book/page.tsx",
+      "sha256": "089d960304612ec8a70ef868e03df869263316c02205aedc5e99a1946085613b"
+    },
+    {
+      "path": "src/app/(customer)/layout.tsx",
+      "sha256": "da517dc3a27bd4555b96e6f401698eae4c0ebd5300551f617f8f8cc1e71198a2"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/beauty/page.tsx",
+      "sha256": "789cb0f611e9c4f1b3d48a806026f45601dbd9a7ea5c14476ed283e516465201"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-action-form.tsx",
+      "sha256": "f4cc7e9484abe98d0015efebadab77c258dc1f31b2e664a70880aa30c03a7345"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx",
+      "sha256": "880df4aa0a12aa49f28d682ce8cc6bbc1a815faf203b4cdad9c83a7fc5ad83f3"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/inline-cashbook-form.tsx",
+      "sha256": "02bbe588de761ebdc8c3a6da79fa4ab28496a33bf9c736fc55178b9a06164809"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/page.tsx",
+      "sha256": "e38fb45cf1ad0c1cfa9daa9f7d2650d95ccfe5c9460c5a7d126e22951bf84db1"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/save/route.ts",
+      "sha256": "fce49db845eefce9cc4a19cb20420d1579081b01aafafe0464bc1f1ff8b6b2ad"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cashbook/page.tsx",
+      "sha256": "fc6ece458bf82b3deaec4be8e90a16f31a4ae6217d4d6026a4029d6ffb890b23"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/page.tsx",
+      "sha256": "8dedc319bd749f7003e4e8b2baada2d3b3134006383fffd7b31d82ffdd071aa3"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/settings/hours/page.tsx",
+      "sha256": "8aca0c7cefe703ced074e1bf26e267e6f85c203b5ec512011da014518361c457"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/settings/payment/page.tsx",
+      "sha256": "6a6e912df6ca0e5ed05120b85366de3b6ccd38078939074ad46a0d8040f0d7f9"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/settings/payment/payment-form.tsx",
+      "sha256": "047bead6b40c52f239aa73ad59ede6186d69b58996698d4e727ec4b9b75062ad"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/staff/page.tsx",
+      "sha256": "6f7484a7400a6533ccb8b8af4fb4cb5250044df16649f872d98dcae54ba091d8"
+    },
+    {
+      "path": "src/app/api/cron/beauty-notifications/route.ts",
+      "sha256": "0168a526ee191ac3d93f4ba83d722413b1a44c5b2cc93a9b68a9e1ee17f2cc55"
+    },
+    {
+      "path": "src/app/api/image-announcements/route.ts",
+      "sha256": "d9930734e7c20aca0f88452fa0e7f848b157b256ba0b7bb4eb334915244f6da3"
+    },
+    {
+      "path": "src/app/beauty-trial/[slug]/page.tsx",
+      "sha256": "32f5342bac5481268ad24ef2d6f5b32302af3d03f42b008cdafa10edb049024c"
+    },
+    {
+      "path": "src/app/hq/dashboard/stores/new/new-store-form.tsx",
+      "sha256": "03fce660f019d7a990c2c93d8280286bd7e587545972b3c65e41ef27b03cbfd7"
+    },
+    {
+      "path": "src/components/beauty/booking-form.tsx",
+      "sha256": "4cd4a0ec2c6bcf3ddae039083f37bd9bad20bef8d68fbbfc31e812a33b37f04f"
+    },
+    {
+      "path": "src/components/beauty/catalog-editor.tsx",
+      "sha256": "77e69674979f3b0291a4d3f04802f91d39f7b38712d333abf78cb98bfbd41608"
+    },
+    {
+      "path": "src/components/beauty/closed-notice.tsx",
+      "sha256": "244e06b6733311b40a8c09e09f1c4018c92ff3c14ea460dcd0244f9ab773b696"
+    },
+    {
+      "path": "src/components/beauty/customer-panel.tsx",
+      "sha256": "d7483eaa212a65bad6686928d5b4be0809a0ffd1c95624d090e099fb1634bf9a"
+    },
+    {
+      "path": "src/components/beauty/dashboard.tsx",
+      "sha256": "15141dc3465090f2e487b593cfdb00ffb59a560281214666886a72b8e187c30d"
+    },
+    {
+      "path": "src/components/beauty/portal.tsx",
+      "sha256": "4eecfdfe815c2fd90ce6fc9b9d6107d2ce207494368cd4602438923613decc5c"
+    },
+    {
+      "path": "src/components/beauty/reschedule-panel.tsx",
+      "sha256": "bcfe5571f0f8791112999f3db0b836332e66dd8d12cd464cbc800dd980c05893"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "sha256": "122dd2d80da92a2da5fc985ee9bddc5663fb5dc9ededf1e21ef0e8e00d6dddb5"
+    },
+    {
+      "path": "src/lib/beauty-database-url.ts",
+      "sha256": "c69a7c842a6fd2c3a699ed644e6708c874db43f87d8427f35be6ebfb878c1723"
+    },
+    {
+      "path": "src/lib/beauty-db.ts",
+      "sha256": "cff53497fe86a51e1ab962955a0c427942e975c9e1f1d272b89ae2bfa7523540"
+    },
+    {
+      "path": "src/lib/beauty-operation-guides.ts",
+      "sha256": "c339e9d36f30e3b57af8802149cbf0087c3cf98c3765cf557d57664b02de2215"
+    },
+    {
+      "path": "src/lib/beauty/allocation.ts",
+      "sha256": "5d57ba21b588ce64cea96c8f627012c7d7aee4311d1b6e459cabe11d36ba2b39"
+    },
+    {
+      "path": "src/lib/beauty/contracts.ts",
+      "sha256": "3beecc6c05a966ed2a07693d5eeee321267e013fce58316314701fbc83f9cfaf"
+    },
+    {
+      "path": "src/lib/cash-drawer-form-client.ts",
+      "sha256": "66779ef56495a7f1c948cd5ad29d1a60a09da1035d7c6bcc58507460026f852c"
+    },
+    {
+      "path": "src/lib/course-db.ts",
+      "sha256": "dc2a9fb00e710a002504f3c40cdc0dee5ce3609782fa100d9e290c39525178e4"
+    },
+    {
+      "path": "src/lib/database-url.ts",
+      "sha256": "1cf7835f02e353cac93a79c5d8777ebb43bd291ea05c8798066c47baf6dcbec3"
+    },
+    {
+      "path": "src/lib/generated-prisma-runtime.ts",
+      "sha256": "6a80763985a4e127dd7fff5a36c34624598abb4080ad6635bd722c8fdaf09499"
+    },
+    {
+      "path": "src/lib/hq-navigation.ts",
+      "sha256": "40793a702615f35cec9d44c4638c813e584cd20242411e830e21f78e007b552b"
+    },
+    {
+      "path": "src/lib/industry-dashboard-routes.ts",
+      "sha256": "8be0bbf267e77c8c62a4906865729c4c8f8112ed99d792a4801235bbfcc5c856"
+    },
+    {
+      "path": "src/lib/industry-module-server.ts",
+      "sha256": "903aaf0ef7a44fdcddec6fc673de1be0484771f4a9a4a546ff6fcee1747811d3"
+    },
+    {
+      "path": "src/lib/industry-modules.ts",
+      "sha256": "f0625aeeb0abfe7a7b4176cdaf078f6ca303eaca76813230add9d929cb8a7df7"
+    },
+    {
+      "path": "src/lib/operation-guide-image-announcements.ts",
+      "sha256": "5a4327e3fa6c396da423c4bd3c6e140ad29cdd5c1775d50a5d0d133c51665db9"
+    },
+    {
+      "path": "src/lib/operation-guide-types.ts",
+      "sha256": "d6e89f4aa48b9d1a8c0ce49f5b98f1f68b1d87e67776f9f18a222bf699b85dc9"
+    },
+    {
+      "path": "src/lib/operation-guide.ts",
+      "sha256": "78f85cb1240a03896f2077212ad0ebd63be19a3f38e9c3cd373937a20c36b70a"
+    },
+    {
+      "path": "src/lib/spa-db.ts",
+      "sha256": "58e0403e05c57598ded2c2783975191f0f39d78f8362b55c3b454200300b2e2e"
+    },
+    {
+      "path": "src/lib/sports-series-storage.ts",
+      "sha256": "a9618905dacbd95cd332332942da6b1005b4b38d8fb7adfeb8ff08d5011e902d"
+    },
+    {
+      "path": "src/lib/sports-shared-card-preview.ts",
+      "sha256": "9af5a5a7d500f157e5df213c30ad91786db17a6df392841b86e77a8f3e15351f"
+    },
+    {
+      "path": "src/lib/store-business-profile.ts",
+      "sha256": "9d241cef1d8df0b2f435f8362b742ce628717d4f5487db9fc58b319510430919"
+    },
+    {
+      "path": "src/lib/store-read-only.ts",
+      "sha256": "6f3cea58dacd8f290141969aacc23a0102162afabc6a255b8c8e05d61aef08c4"
+    },
+    {
+      "path": "src/proxy.ts",
+      "sha256": "36e2c9fc35d365a28d03b9649c8b3d99b8f86ac5ed72c1e50ee16d78822e2eba"
+    },
+    {
+      "path": "src/server/actions/beauty.ts",
+      "sha256": "62a002a2f1bf4a13c026670598c66fe75f61c485b56009e77002e55535c57442"
+    },
+    {
+      "path": "src/server/actions/customer-auth.ts",
+      "sha256": "73fc645fa857fa1e2302b7d69fff5b2b35b1850dcde002fb0c66655446fabe4f"
+    },
+    {
+      "path": "src/server/actions/customer-merge.ts",
+      "sha256": "08ac88bf9c4f41396c941636fdf7d986e84f215ee1e0af94b04c62fc2354b1b3"
+    },
+    {
+      "path": "src/server/actions/store-onboarding.ts",
+      "sha256": "1fb0057b75f4af6b813baa904f51937a15f8ec3ea2d97962aaaeca868c67f5c1"
+    },
+    {
+      "path": "src/server/beauty/access.ts",
+      "sha256": "0db21e3f4b04324c61e354b0bc97da7e4dd19559015cb852e673b0ad372fe3aa"
+    },
+    {
+      "path": "src/server/beauty/booking.ts",
+      "sha256": "a77b083692e641a9af4b7125785041a3f4030819f7ec34647ff786f0b2c37a8b"
+    },
+    {
+      "path": "src/server/beauty/commerce.ts",
+      "sha256": "41ac88f83655ff9678a4b27e0daa15e073bbdef20ea9ac913ec3e0ba1902f2c3"
+    },
+    {
+      "path": "src/server/beauty/notifications.ts",
+      "sha256": "8e1c78302a0721729518dccee3990138dcf673507a091cf83509216e3b3d9a49"
+    },
+    {
+      "path": "src/server/beauty/queries.ts",
+      "sha256": "0a3df93662ad313714521e8c3667adc76800a88062459be126c36b3bb4aa3463"
+    },
+    {
+      "path": "src/server/queries/spa-customer-summary.ts",
+      "sha256": "7fe0b99cb82a749f62809639e70ceaecdd597204ee0fbf081a3f199fb5f0e4eb"
+    },
+    {
+      "path": "src/server/queries/spa-revenue.ts",
+      "sha256": "d6416c68a453358428f7045082989b0f8b0f4f859816dfef9d9afa1b5ee281d9"
+    },
+    {
+      "path": "src/server/queries/spa-schedule.ts",
+      "sha256": "ff6148e9ea21039b06b84e6333f350ac47211c5267a7a2cd8b67ae67b7c89029"
+    },
+    {
+      "path": "src/server/services/cash-drawer-form.ts",
+      "sha256": "b44cc547a5310963c108751daf543be4fe7eef96a20296460b6bc8fa6c355e5f"
+    },
+    {
+      "path": "src/server/services/course-waitlist.ts",
+      "sha256": "4e57ffe41dcced42b9dca73fcd5a998be7d68af8ac1604075260494c7d618980"
+    },
+    {
+      "path": "src/server/services/customer-merge.ts",
+      "sha256": "66676a3f20273e93d4f8a1d99f09b37f7e0a87b23b4790c85cb509c60cb14362"
+    },
+    {
+      "path": "src/server/services/service-hours-save.ts",
+      "sha256": "cf230fc8b0dedc2266c2e369d1c7681d443d9ce5a851ec629b476a3445cc29ec"
+    },
+    {
+      "path": "src/server/services/settings-save-route.ts",
+      "sha256": "1f2d92f1be26af46ac8bafd5d93c2d26736a4f6223d5bdb6042c97630091b52d"
+    },
+    {
+      "path": "src/server/services/trial-booking-chat-link.ts",
+      "sha256": "c9f74de7b135d9526310b335cd36f4dcb8c1795841ebebcc014e419475f1c971"
+    },
+    {
+      "path": "vercel.json",
+      "sha256": "aff79cc61121291685854d3ef3649038bb1856a9da101bc7dd6b847c6773e728"
+    }
+  ],
+  "excluded": [
+    "All task production schema/role/hosting metadata and evidence",
+    "All Beauty QA scripts and private /tmp fixtures",
+    "Raw database exports, secrets, env files and unrelated task artifacts"
+  ],
+  "pushed": false,
+  "deployed": false,
+  "reviewDocs": [
+    "docs/beauty/candidate-release-20261021.md",
+    "docs/beauty/candidate-closeout-acceptance.md"
+  ],
+  "syntheticEvidenceOnly": true
+}

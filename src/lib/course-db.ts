@@ -1,11 +1,13 @@
+import { loadCoursePrismaRuntime } from "./generated-prisma-runtime";
 import { assertStoreMemberWorkorderReviewOnly } from "../../scripts/store-member-workorder-review-gate.mjs";
 assertStoreMemberWorkorderReviewOnly();
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
-import { PrismaClient } from "../../generated/course-client";
+import type { PrismaClient } from "../../generated/course-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
+const { PrismaClient: RuntimePrismaClient } = loadCoursePrismaRuntime();
 const globalForCourse = globalThis as unknown as {
   coursePrisma?: PrismaClient;
 };
@@ -23,7 +25,7 @@ export const coursePrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
   () => globalForCourse.coursePrisma,
-  () => withAuditDatabaseContext(new PrismaClient({
+  () => withAuditDatabaseContext(new RuntimePrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],
   })),

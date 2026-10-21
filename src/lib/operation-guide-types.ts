@@ -3,7 +3,7 @@ import type { FeatureKey } from "./feature-flags";
 import type { PermissionCode } from "./permissions";
 
 export interface GuideAccess {
-  module: "steamfoot" | "spa" | "course";
+  module: "steamfoot" | "spa" | "course" | "beauty";
   music?: boolean;
   /** Server-resolved HQ scope; permission filters still apply. */
   hqScope?: boolean;

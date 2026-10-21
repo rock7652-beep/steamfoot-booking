@@ -6,8 +6,7 @@
  * 目的：讓店長在現金管理頁原地完成記一筆收支，不再跳 /dashboard/cashbook/new。
  *
  * 設計沿用 TodayOpenForm 的 client wrapper 模式：
- *   - server component 父層（DailyActionsArea / ClosedActionsArea）用 closure
- *     綁好 createCashbookEntry，當 `action` prop 傳進來。
+ *   - 同源 JSON transport 呼叫既有 createCashbookEntry 權限與交易，不夾帶 RSC。
  *   - 用 useActionState 接 result：成功 → client 端 window.location.assign(returnPath)
  *     走 hard navigation（等效 F5），讓 page server components 重跑、新紀錄即時出現，
  *     繞開 same-URL inline RSC payload 卡死路徑（與 TodayOpenForm 同因）。
@@ -21,7 +20,9 @@
  *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookEntryFields 沿用。
  */
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { postCashDrawerForm } from "@/lib/cash-drawer-form-client";
 
 import { FormSection } from "@/components/desktop";
 import { SubmitButton } from "@/components/submit-button";
@@ -32,8 +33,6 @@ import { CashbookEntryFields } from "../cashbook/_components/cashbook-entry-fiel
 type CreateResult = ActionResult<{ entryId: string }>;
 
 interface Props {
-  /** server action：父層 server component 綁好 createCashbookEntry 後傳入。 */
-  action: (prevState: CreateResult | null, formData: FormData) => Promise<CreateResult>;
   /** Current store for the customer search index. */
   storeId: string;
   instantSearch: boolean;
@@ -53,7 +52,6 @@ const inputCls =
   "block min-h-11 min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 
 export function InlineCashbookForm({
-  action,
   storeId,
   instantSearch,
   returnPath,
@@ -62,7 +60,18 @@ export function InlineCashbookForm({
   canAssignStaff,
   staffOptions,
 }: Props) {
-  const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
+  // Keep one key until this form leaves after success. An uncertain network
+  // response must be retried as the same entry, even if React resets fields.
+  const pathname = usePathname();
+  const requestId = useRef<string | null>(null);
+  const [state, formAction] = useActionState<CreateResult | null, FormData>(
+    async (_previous, formData) => {
+      requestId.current ??= crypto.randomUUID();
+      formData.set("requestId", requestId.current);
+      return postCashDrawerForm<{ entryId: string }>(pathname, "CASHBOOK", formData);
+    },
+    null,
+  );
 
   useEffect(() => {
     if (state?.success) {

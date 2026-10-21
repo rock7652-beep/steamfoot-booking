@@ -24,6 +24,8 @@
 
 import { useActionState, useEffect, type ReactNode } from "react";
 
+import { usePathname } from "next/navigation";
+import { postCashDrawerForm } from "@/lib/cash-drawer-form-client";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -34,6 +36,7 @@ export type CashDrawerFormAction = (
 ) => Promise<ActionResult<unknown>>;
 
 interface Props {
+  direct?: { kind: "CLOSE" | "REOPEN"; sessionId: string };
   /** server action：父層 server component 綁好 sessionId / returnPath 等後傳入。 */
   action: CashDrawerFormAction;
   /** 成功後 hard navigate 的目標 URL（== 原本 redirect 的 returnPath）。 */
@@ -54,6 +57,7 @@ interface Props {
 
 export function CashDrawerActionForm({
   action,
+  direct,
   returnPath,
   submitLabel,
   submitClassName,
@@ -62,8 +66,13 @@ export function CashDrawerActionForm({
   className,
   children,
 }: Props) {
+  const pathname = usePathname();
   const [state, formAction] = useActionState<ActionResult<unknown> | null, FormData>(
-    action,
+    async (previous, form) => {
+      if (!direct) return action(previous, form);
+      form.set("sessionId", direct.sessionId);
+      return postCashDrawerForm(pathname, direct.kind, form);
+    },
     null,
   );
 

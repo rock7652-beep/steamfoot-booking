@@ -1,7 +1,6 @@
 import { configureSpaPreviewPool } from "./spa-preview-pool";
 /** Build the pooled Postgres URL shared by the physically separate clients. */
-export function buildDatabaseUrl(): string {
-  const base = process.env.DATABASE_URL ?? "";
+export function buildDatabaseUrl(base = process.env.DATABASE_URL ?? ""): string {
   if (!base) return base;
 
   const url = new URL(base);

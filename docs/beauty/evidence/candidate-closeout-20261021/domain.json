@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "failedCases": [],
+  "synthetic": true,
+  "formalApplied": false,
+  "authentication": "Session lookup stubbed; actual auth verified separately by browser",
+  "results": [
+    {
+      "case": "Actual application main/Beauty clients use separate restricted roles in same isolated database",
+      "passed": true
+    },
+    {
+      "case": "Minimal role rejects legacy-module/identity/message/ledger read or mutation, DELETE and DDL",
+      "passed": true
+    },
+    {
+      "case": "Dedicated role creates Beauty catalog and shared CourseRoom using explicit columns",
+      "passed": true
+    },
+    {
+      "case": "Real SQL abort rolls back five financial records across schemas; same request retries once",
+      "passed": true
+    },
+    {
+      "case": "Real reserve/complete/cancel business code keeps card 5→4→5 and fee on actual technician",
+      "passed": true
+    },
+    {
+      "case": "Two roles contend on same Store lock; timeout releases safely and subsequent transaction succeeds",
+      "passed": true
+    },
+    {
+      "case": "Existing INVOKER rental guard works with SELECT-only dependency; old main role cancels rental",
+      "passed": true
+    },
+    {
+      "case": "Trial lead/booking/token consumption roll back together; retry consumes once with narrowed shared columns",
+      "passed": true
+    },
+    {
+      "case": "Dedicated role posts CASH sale/refund, advances shared drawer revision and closes refunded card",
+      "passed": true
+    },
+    {
+      "case": "Direct full merge is rejected for Beauty under actual shared-main transaction; customer identity and card ownership unchanged",
+      "passed": true
+    }
+  ]
+}

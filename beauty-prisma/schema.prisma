@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/beauty-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Additive independent module. Shared identities and CourseRoom spaces are
+// referenced by store-scoped SQL FKs in the reviewed candidate, never copied.
+model BeautySetting {
+  storeId           String  @id
+  revision          Int     @default(0)
+  notifications     Boolean @default(false)
+  selfBooking       Boolean @default(true)
+  selfCancel        Boolean @default(true)
+  selfReschedule    Boolean @default(true)
+  cancelDeduct      Boolean @default(false)
+  noShowDeduct      Boolean @default(false)
+  leadMinutes       Int     @default(0)
+  cancelLeadMinutes Int     @default(240)
+  bookableDays      Int     @default(30)
+}
+
+model BeautyService {
+  id         String  @id @default(cuid())
+  storeId    String
+  name       String
+  category   String  @default("")
+  duration   Int
+  buffer     Int     @default(0)
+  price      Int
+  trialPrice Int?
+  active     Boolean @default(true)
+  revision   Int     @default(0)
+
+  @@unique([storeId, id])
+  @@unique([storeId, name])
+}
+
+model BeautyTechnician {
+  id         String   @id @default(cuid())
+  storeId    String
+  name       String
+  gender     String
+  userId     String?
+  serviceIds String[]
+  // Weekly [{day:0..6,start:"09:00",end:"18:00"}], exceptions
+  // {"2026-10-20":[{start,end}]} take precedence, [] means unavailable.
+  weekly     Json
+  exceptions Json     @default("{}")
+  rates      Json     @default("{}")
+  grants     String[] @default([])
+  sort       Int      @default(0)
+  active     Boolean  @default(true)
+  revision   Int      @default(0)
+
+  @@unique([storeId, id])
+  @@unique([storeId, userId])
+}
+
+model BeautyPlan {
+  id                  String   @id @default(cuid())
+  storeId             String
+  name                String
+  sessions            Int
+  price               Int
+  validDays           Int
+  serviceIds          String[]
+  allowShared         Boolean  @default(false)
+  customerPurchasable Boolean  @default(false)
+  active              Boolean  @default(true)
+  revision            Int      @default(0)
+
+  @@unique([storeId, id])
+}
+
+model BeautyCard {
+  id          String    @id @default(cuid())
+  storeId     String
+  customerId  String
+  memberIds   String[]
+  planId      String
+  name        String
+  sessions    Int
+  remaining   Int
+  listPrice   Int
+  paid        Int
+  serviceIds  String[]
+  allowShared Boolean
+  expiresAt   DateTime  @db.Timestamptz(3)
+  closedAt    DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([storeId, id])
+}
+
+model BeautyGroup {
+  id          String              @id @default(cuid())
+  storeId     String
+  customerId  String?
+  contactName String
+  phone       String
+  startsAt    DateTime            @db.Timestamptz(3)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(3)
+  items       BeautyAppointment[]
+
+  @@unique([storeId, id])
+}
+
+model BeautyAppointment {
+  id                    String      @id @default(cuid())
+  storeId               String
+  groupId               String
+  group                 BeautyGroup @relation(fields: [storeId, groupId], references: [storeId, id])
+  customerId            String?
+  personName            String
+  // Guest phone is a trial-limiting claim, never member authorization.
+  personPhone           String
+  serviceId             String
+  serviceName           String
+  technicianId          String
+  locationId            String
+  preference            String
+  specifiedTechnicianId String?
+  startsAt              DateTime    @db.Timestamptz(3)
+  endsAt                DateTime    @db.Timestamptz(3)
+  occupiedEndsAt        DateTime    @db.Timestamptz(3)
+  duration              Int
+  buffer                Int
+  price                 Int
+  isTrial               Boolean
+  status                String      @default("RESERVED")
+  cardId                String?
+  rate                  Json
+  // Freeze cancellation/no-show debit choice when the booking is accepted.
+  cancelDeduct          Boolean
+  noShowDeduct          Boolean
+  debit                 Boolean     @default(false)
+  fee                   Int         @default(0)
+  notes                 String      @default("")
+  revision              Int         @default(0)
+  createdAt             DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@unique([storeId, id])
+  @@index([storeId, startsAt])
+  @@index([storeId, technicianId, startsAt])
+  @@index([storeId, locationId, startsAt])
+}
+
+model BeautyLedger {
+  id            String   @id @default(cuid())
+  storeId       String
+  cardId        String
+  appointmentId String?
+  kind          String
+  delta         Int
+  actorUserId   String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([storeId, cardId])
+}
+
+model BeautyPayment {
+  id                String   @id @default(cuid())
+  storeId           String
+  appointmentId     String?
+  cardId            String?
+  technicianId      String?
+  originalPaymentId String?
+  kind              String
+  amount            Int
+  method            String
+  note              String
+  actorUserId       String
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([storeId, createdAt])
+}
+
+model BeautySettlement {
+  id          String   @id @default(cuid())
+  storeId     String
+  month       String
+  fingerprint String
+  lines       Json
+  actorUserId String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([storeId, month])
+}
+
+model BeautyCommand {
+  storeId    String
+  requestKey String
+  actorKey   String
+  intent     String
+  result     Json
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([storeId, requestKey])
+}
+
+model BeautyEvent {
+  id            String    @id @default(cuid())
+  storeId       String
+  kind          String
+  appointmentId String?
+  customerId    String?
+  userId        String?
+  body          String
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  leaseUntil    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([storeId, status])
+}
+
+model BeautyPurchase {
+  id         String   @id @default(cuid())
+  storeId    String
+  customerId String
+  planId     String
+  snapshot   Json
+  lastFour   String
+  status     String   @default("PENDING")
+  cardId     String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([storeId, id])
+}

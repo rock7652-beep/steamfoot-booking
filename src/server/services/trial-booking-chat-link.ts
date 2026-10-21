@@ -32,9 +32,9 @@ export async function createTrialBookingChatLink(input: {
 }): Promise<{ url: string; expiresAt: Date }> {
   const store = await prisma.store.findUnique({
     where: { id: input.storeId },
-    select: { slug: true },
+    select: { slug: true, industryModule:true },
   });
-  if (!store || !SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug)) {
+  if (!store || (!SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug) && store.industryModule!=="BEAUTY")) {
     throw new Error("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
   }
 
@@ -55,7 +55,7 @@ export async function createTrialBookingChatLink(input: {
     },
     select: { id: true, expiresAt: true },
   });
-  const url = new URL(`/pricing/experience/${store.slug}/book`, deriveBaseUrl());
+  const url = new URL(store.industryModule==="BEAUTY"?`/beauty-trial/${store.slug}`:`/pricing/experience/${store.slug}/book`, deriveBaseUrl());
   url.searchParams.set("entry", `${link.id}.${token}`);
   return { url: url.toString(), expiresAt: link.expiresAt };
 }

@@ -32,7 +32,6 @@ import {
   reopenCashDrawerAction,
   addCashDrawerEntryAction,
 } from "@/server/actions/cash-drawer";
-import { createCashbookEntry } from "@/server/actions/cashbook";
 import { EntrySection } from "./entry-section";
 import { TodayOpenForm } from "./today-open-form";
 import { WithdrawalForm, DepositForm } from "./cash-entry-forms";
@@ -42,37 +41,6 @@ import { InlineCashbookForm } from "./inline-cashbook-form";
 
 /** ADMIN 指派登錄人用的店長清單（避免在多處重打 inline 型別）。 */
 type StaffOption = { id: string; displayName: string };
-
-/**
- * 把 form 的 createCashbookEntry 包成 useActionState 用的 (prev, formData) 簽章。
- * 提供給「記一筆收支」inline form（營業中 / 已結帳補登 共用）。
- * 業務邏輯完全在 createCashbookEntry，本層只搬 FormData → input。
- * 類型限定 INCOME / EXPENSE（提領走 WithdrawalForm / cashDrawer.entry）。
- */
-async function handleAddCashbookEntry(
-  _prev: ActionResult<unknown> | null,
-  formData: FormData,
-): Promise<ActionResult<{ entryId: string }>> {
-  "use server";
-  // 後端權威：本入口只准 INCOME / EXPENSE。即使有人 tamper request 送
-  // WITHDRAW / ADJUSTMENT，也在進 createCashbookEntry 前擋掉並回錯（inline form 顯示），
-  // 提領仍只能走 WithdrawalForm / CashDrawerEntry。
-  const type = formData.get("type");
-  if (type !== "INCOME" && type !== "EXPENSE") {
-    return { success: false, error: "此入口僅能新增收入或支出（提領請使用提領功能）" };
-  }
-  return createCashbookEntry({
-    entryDate: String(formData.get("entryDate") ?? ""),
-    type,
-    category: (formData.get("category") as string) || undefined,
-    amount: Number(formData.get("amount")),
-    paymentMethod: formData.get("paymentMethod") as "CASH" | "OTHER",
-    staffId: (formData.get("staffId") as string) || undefined,
-    customerId: (formData.get("customerId") as string) || undefined,
-    note: (formData.get("note") as string) || undefined,
-    confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
-  });
-}
 
 /** "2026-05-29" → "2026/05/29"（今日狀態卡標題用） */
 function formatDateSlash(todayStr: string): string {
@@ -885,6 +853,7 @@ function CloseDrawerAction({
 
         <CashDrawerActionForm
           action={handleClose}
+          direct={{ kind: "CLOSE", sessionId }}
           returnPath={returnPath}
           submitLabel="完成今日閉店點錢"
           successPendingLabel="已閉店，跳轉中…"
@@ -1061,7 +1030,6 @@ function DailyActionsArea({
         {canCreateCashbook ? (
           <CashActionModal title="記一筆收支" helper="商品收入、店內支出、非現金紀錄">
             <InlineCashbookForm
-                action={handleAddCashbookEntry}
                 storeId={storeId}
                 instantSearch={instantSearch}
                 returnPath={returnPath}
@@ -1193,6 +1161,7 @@ function ClosedActionsArea({
               </p>
               <CashDrawerActionForm
                 action={handleReopen}
+                direct={{ kind: "REOPEN", sessionId }}
                 returnPath={returnPath}
                 submitLabel="確認撤銷閉店"
                 successPendingLabel="已撤銷，跳轉中…"
@@ -1223,7 +1192,6 @@ function ClosedActionsArea({
             helper="補登只留紀錄，不會改變今天的結帳金額"
           >
               <InlineCashbookForm
-                action={handleAddCashbookEntry}
                 storeId={storeId}
                 instantSearch={instantSearch}
                 returnPath={returnPath}
