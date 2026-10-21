@@ -1,4 +1,5 @@
 "use client";
+import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
@@ -460,10 +461,7 @@ export function CourseMemberWorkspace({
             </button>
             </div>
           </header>
-          {(customerPanel || panel === "person") && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {([ ["info","顧客概況"], ...((canReadTransactions || canReadBookings) ? [["records","紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
-            {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
-          </nav>}
+          {(customerPanel || panel === "person") && person && <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},...((canReadTransactions||canReadBookings)?[{id:'records',label:'紀錄'}]:[]),...(healthEnabled?[{id:'health',label:'健康追蹤'}]:[])]} value={panel==='health'?'health':personTab} onSelect={value=>{if(value==='health'){if(panel!=='health')open('health');}else switchPersonTab(value as typeof personTab);}}/>}
           <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${sportsData&&panel==="plan"?"@container p-3":"p-4"}`}>
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (

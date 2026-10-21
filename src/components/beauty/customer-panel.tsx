@@ -1,4 +1,7 @@
 "use client";
+import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
+import {CustomerDetailFields,CustomerPhoneLink} from "@/components/customer-detail-fields";
+import {DataTable} from "@/components/desktop";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -68,7 +71,7 @@ export function BeautyCustomerPanel({
       }
     });
   }
-  const [dirty,setDirty]=useState(false);
+  const [dirty,setDirty]=useState(false),[tab,setTab]=useState("info"),[editing,setEditing]=useState(false);
   const close=()=>{if(!pending&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
   const customer = detail?.success ? detail.data.customer : null;
   return (
@@ -81,13 +84,12 @@ export function BeautyCustomerPanel({
       closeOnEscape={!pending}
       labelledById="beauty-customer-detail"
     >
-      <div className="min-h-0 space-y-4 overflow-y-auto p-4" onChangeCapture={()=>setDirty(true)}>
-        <header className="flex items-center justify-between">
-          <h2 id="beauty-customer-detail">顧客資料與服務紀錄</h2>
-          <button className={field + " !w-auto"} onClick={close}>
-            關閉
-          </button>
-        </header>
+      <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
+        <h2 id="beauty-customer-detail" className="min-w-0 break-words text-base font-semibold text-primary-900">{customer?.name??'顧客資料與服務紀錄'}</h2>
+        <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!dirty||window.confirm('尚未儲存，確定切換？')){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending} onClick={close}>關閉</button></div>
+      </header>
+      <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={()=>setDirty(true)}>
         {!detail && !error && <p role="status">讀取中…</p>}
         {detail && !detail.success && <p role="alert">{detail.error}</p>}
         {error && (
@@ -95,7 +97,8 @@ export function BeautyCustomerPanel({
             {error}
           </p>
         )}
-        {customer && (
+        {customer&&tab==='info'&&!editing&&<section className="space-y-3"><CustomerPhoneLink phone={customer.phone}/><CustomerDetailFields items={[{label:'姓名',value:customer.name},{label:'店內備註',value:customer.notes,full:true}]}/><section className="border-t border-earth-100 pt-2"><h3 className="py-2 text-sm font-semibold">持有方案</h3><DataTable rows={data.cards.filter(c=>c.memberIds.includes(id))} rowKey={c=>c.id} columns={[{key:'name',header:'方案',accessor:c=>c.name},{key:'balance',header:'可用次數',accessor:c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now?Math.max(0,c.remaining-c.held)+' 次':'已結清／到期'},{key:'held',header:'已預約',accessor:c=>c.held+' 次'},{key:'expiry',header:'到期',accessor:c=>formatTWDateTime(new Date(c.expiresAt))}]}/></section></section>}
+        {customer && tab==='info' && editing && (
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -152,11 +155,11 @@ export function BeautyCustomerPanel({
             </fieldset>
           </form>
         )}
-        {data.cards
+        {tab==='info'&&!editing&&data.cards
           .filter((c) => c.customerId === id && c.allowShared && !c.closedAt)
           .map((c) => (
             <form
-              className="space-y-2 rounded-xl border p-3"
+              className="space-y-2 border-t border-earth-100 py-2 text-sm"
               key={c.id}
               onSubmit={(e) => {
                 e.preventDefault();
@@ -194,28 +197,11 @@ export function BeautyCustomerPanel({
               </fieldset>
             </form>
           ))}
-        {detail?.success && (
+        {tab==='records'&&detail?.success && (
           <section>
             <h3>最近200筆服務紀錄</h3>
             {!detail.data.items.length && <p>尚無連結會員身分的服務紀錄。</p>}
-            {detail.data.items.map((b) => (
-              <div className="border-b py-3" key={b.id}>
-                <p>
-                  {formatTWDateTime(new Date(b.startsAt))}｜{b.serviceName}｜
-                  {
-                    (
-                      {
-                        RESERVED: "預約",
-                        COMPLETED: "完成",
-                        CANCELLED: "取消",
-                        NO_SHOW: "未到",
-                      } as Record<string, string>
-                    )[b.status]
-                  }
-                </p>
-                <p>{b.notes}</p>
-              </div>
-            ))}
+            <DataTable rows={detail.data.items} rowKey={b=>b.id} columns={[{key:'date',header:'服務日期',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'service',header:'服務項目',accessor:b=>b.serviceName},{key:'status',header:'狀態',accessor:b=>({RESERVED:'預約',COMPLETED:'完成',CANCELLED:'取消',NO_SHOW:'未到'} as Record<string,string>)[b.status]??b.status},{key:'notes',header:'備註',accessor:b=>b.notes}]}/>
           </section>
         )}
       </div>
