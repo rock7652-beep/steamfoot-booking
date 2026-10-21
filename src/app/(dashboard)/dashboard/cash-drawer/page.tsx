@@ -42,7 +42,11 @@ interface PageProps {
   searchParams: Promise<{ error?: string; cashDrawerError?: string; cashDrawerPanel?: string; panelStoreId?: string; panelPrefix?: string }>;
 }
 
-export default async function CashDrawerPage({ searchParams, courseHome = false }: PageProps) {
+export default async function CashDrawerPage(props: Pick<PageProps, "searchParams">) {
+  return CashDrawerContent(props);
+}
+
+async function CashDrawerContent({ searchParams, courseHome = false }: PageProps) {
   const params = await searchParams;
   const panel = params.cashDrawerPanel === "1";
   const panelError = (message: string) => <div className="p-4"><CashDrawerPanelBridge storeId={params.panelStoreId ?? ""}/><p role="alert">{message}</p></div>;
