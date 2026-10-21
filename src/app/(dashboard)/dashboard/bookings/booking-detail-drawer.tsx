@@ -302,7 +302,7 @@ export function BookingDetailDrawer({
           } else if (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
             if (initialIntent === "reschedule") setRescheduleOpen(true);
             else if (initialIntent === "no-show") setNoShowOpen(true);
-            else if (initialIntent === "cancel") handleCancel();
+            else if (initialIntent === "cancel" && window.confirm("確定取消這筆預約？")) wrapAction("已取消預約", () => cancelBooking(id), "CANCELLED");
             else if (initialIntent === "purchase-plan" && !payload.participantCheckout && b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
             else if (initialIntent === "single" && b.bookingType === "PACKAGE_SESSION") setAdjustToSingleOpen(true);
             else if ((initialIntent === "collect" || initialIntent === "single") && !payload.participantCheckout && b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
@@ -731,6 +731,7 @@ export function BookingDetailDrawer({
         ) : hasFullData && data ? (
           <DrawerContent
             openCustomerPlan={customerPlanShortcut}
+            onCustomerPlanBack={() => setCustomerPlanShortcut(false)}
             registerCloseGuard={registerCustomerCloseGuard}
             payload={pendingBalance !== null && data.booking.customerPlanWallet ? { ...data, booking: { ...data.booking, customerPlanWallet: { ...data.booking.customerPlanWallet, remainingSessions: pendingBalance } } } : data}
             onNoteSaved={(patch) => {
@@ -986,6 +987,7 @@ function DrawerContent({
   onParticipantsUpdated,
   onParticipantBusy,
   openCustomerPlan = false,
+  onCustomerPlanBack,
 }: {
   payload: BookingDrawerPayload;
   registerCloseGuard?: (guard: () => boolean) => void;
@@ -1000,6 +1002,7 @@ function DrawerContent({
   onParticipantsUpdated: () => void;
   onParticipantBusy: (busy: boolean) => void;
   openCustomerPlan?: boolean;
+  onCustomerPlanBack: () => void;
 }) {
   const [showCustomer,setShowCustomer] = useState<string | null>(null);
   const [customerFocus,setCustomerFocus] = useState<"plan" | undefined>();
@@ -1012,7 +1015,7 @@ function DrawerContent({
     checkoutToSingle,
     storedValue,
   } = payload;
-  useEffect(() => { if (openCustomerPlan && !spaMode) { setCustomerFocus("plan"); setShowCustomer(booking.customer.id); } }, [openCustomerPlan, spaMode, booking.customer.id]);
+  const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(
     booking.bookingStatus,
     spaMode ? false : booking.isCheckedIn,
@@ -1081,8 +1084,8 @@ function DrawerContent({
   );
   return (
     <>
-      {showCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} focus={customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
-      <div hidden={!!showCustomer && !spaMode} className={showCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+      {visibleCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      <div hidden={!!visibleCustomer && !spaMode} className={visibleCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
         <div className="min-w-0 flex-1">
