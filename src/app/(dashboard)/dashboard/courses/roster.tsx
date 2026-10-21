@@ -706,7 +706,7 @@ export function CourseRoster({
           !item.expired &&
           !item.closed &&
           item.available >=
-            (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
+            (item.sportsMode==="ASSIGNED"?item.sportsCost??1:item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
           (!session || item.expiresAt >= session.startsAt),
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
@@ -754,20 +754,21 @@ export function CourseRoster({
             return;
           }
           const chosenCard=cards.find(card=>card.id===cardId);
-          const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.unit==="SESSION"?1:item.pointCost),0);
-          if(enrollmentScope==="FUTURE" && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>item.startsAt>chosenCard.expiresAt))){setMessage("請確認後續日期與方案額度、有效期限");return;}
+          const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.sportsMode==="ASSIGNED"?chosenCard.sportsCost??1:chosenCard?.unit==="SESSION"?1:item.pointCost),0);
+          if(enrollmentScope==="FUTURE" && !sportsNative && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>item.startsAt>chosenCard.expiresAt))){setMessage("請確認後續日期與方案額度、有效期限");return;}
           const allowOverCapacity = enrollmentScope==="FUTURE" ? enrollmentSessions.some(item=>item.full) : occupiedCount >= capacity;
           if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
           const data = new FormData(event.currentTarget);
           if(enrollmentScope==="FUTURE") {
-            run(()=>enrollCourseSeries({allowOverCapacity,sessionId,cardId,customerId,requestKey,notes:data.get("notes"),sessionIds:enrollmentSessions.map(item=>item.id)}),`已加入 ${enrollmentSessions.length} 堂課程`);
+            run(()=>enrollCourseSeries({allowOverCapacity,sessionId,cardId:sportsNative?undefined:cardId,autoCard:sportsNative||undefined,customerId,requestKey,notes:data.get("notes"),sessionIds:enrollmentSessions.map(item=>item.id)}),`已加入 ${enrollmentSessions.length} 堂課程`);
             return;
           }
           run(() =>
             createCourseBooking({
               allowOverCapacity,
               sessionId,
-              cardId,
+              cardId:sportsNative?undefined:cardId,
+              autoCard:sportsNative||undefined,
               customerId,
               requestKey,
               notes: data.get("notes"),
@@ -867,7 +868,7 @@ export function CourseRoster({
         {customerId && !makeupForBookingId && enrollmentSessions.length>1 && <fieldset className="rounded-lg border border-earth-200 p-3 text-sm">
           <legend>加入範圍</legend>
           <div className="flex flex-wrap gap-2"><button type="button" aria-pressed={enrollmentScope==="SINGLE"} className={button} onClick={()=>setEnrollmentScope("SINGLE")}>僅本堂</button><button type="button" aria-pressed={enrollmentScope==="FUTURE"} className={button} onClick={()=>setEnrollmentScope("FUTURE")}>本堂及後續 · {enrollmentSessions.length} 堂</button></div>
-          {enrollmentScope==="FUTURE" && <><p className="mt-2">已排定 {enrollmentSessions.length} 堂，已加入、已停課或已取消的堂次不重複加入。</p><ul className="mt-1 max-h-28 overflow-auto text-xs text-earth-600">{enrollmentSessions.map(item=><li key={item.id}>{formatTWDateTime(new Date(item.startsAt))}{item.full?" · 已滿班":""}</li>)}</ul><p className="mt-2">需要 {enrollmentSessions.reduce((sum,item)=>sum+(cards.find(card=>card.id===cardId)?.unit==="SESSION"?1:item.pointCost),0)} {cards.find(card=>card.id===cardId)?.unit==="SESSION"?"堂":"點"} · 可用 {cards.find(card=>card.id===cardId)?.available ?? "—"}</p></>}
+          {enrollmentScope==="FUTURE" && <><p className="mt-2">已排定 {enrollmentSessions.length} 堂，已加入、已停課或已取消的堂次不重複加入。</p><ul className="mt-1 max-h-28 overflow-auto text-xs text-earth-600">{enrollmentSessions.map(item=><li key={item.id}>{formatTWDateTime(new Date(item.startsAt))}{item.full?" · 已滿班":""}</li>)}</ul>{sportsNative?<p className="mt-2">系統核對整批課程的適用權益、額度與效期後才加入，不會拆卡。</p>:<p className="mt-2">需要 {enrollmentSessions.reduce((sum,item)=>sum+(cards.find(card=>card.id===cardId)?.sportsMode==="ASSIGNED"?cards.find(card=>card.id===cardId)?.sportsCost??1:cards.find(card=>card.id===cardId)?.unit==="SESSION"?1:item.pointCost),0)} {cards.find(card=>card.id===cardId)?.unit==="SESSION"?"堂":"點"} · 可用 {cards.find(card=>card.id===cardId)?.available ?? "—"}</p>}</>}
         </fieldset>}
         {enrollmentLoading && <p role="status" className="text-xs text-earth-500">確認後續堂次中…</p>}
         {customerId && (
@@ -888,7 +889,7 @@ export function CourseRoster({
                 {pendingMakeups.filter(item=>item.customerId===customerId).map(item=><option key={item.id} value={item.id} disabled={!eligibleCards.some(card=>card.id===item.cardId)}>{toLocalDateStr(new Date(item.date))} 請假{!eligibleCards.some(card=>card.id===item.cardId) ? "（原方案無可用堂數或已到期）" : ""}</option>)}
               </select>
             </label>}
-            <label className="block text-sm font-medium">
+            {sportsNative?<p className="text-sm text-earth-600">系統依適用權益、額度與效期自動選卡。</p>:<label className="block text-sm font-medium">
               有效方案
               {eligibleCards.length > 1 && !makeupForBookingId && (
                 <span className="ml-2 font-normal text-earth-500">
@@ -913,7 +914,7 @@ export function CourseRoster({
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">
                 沒有可用方案，請先指派方案。

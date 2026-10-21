@@ -82,6 +82,18 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
   function checkout(f:Awaited<ReturnType<typeof fixture>>) {
     return testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return assignCourseWithCheckout(tx,{storeId:f.storeId,userId:"test-manager"},f);},{timeout:15000});
   }
+  it.each(["ASSIGNED","OPEN"])("persists %s entitlement snapshots through a real paid checkout",async sportsMode=>{
+    const f=await fixture();
+    const rights={sportsMode,sportsSubjectId:sportsMode==="ASSIGNED"?"synthetic-subject":null,sportsCost:sportsMode==="ASSIGNED"?2:null};
+    await testDb().coursePointPlan.update({where:{id:f.planId},data:rights});
+    const order=await checkout(f);
+    expect(order).toMatchObject(rights);
+    expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({...rights,remaining:10});
+    await testDb().coursePointPlan.update({where:{id:f.planId},data:{sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null}});
+    expect(await testDb().coursePurchase.findUnique({where:{id:order.id}})).toMatchObject(rights);
+    expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject(rights);
+  });
+
   it("one daily flow keeps checkout, attendance, confirmed income and corrected payment consistent",async()=>{
     // Only the clock and authorization boundary are controlled; all business writes use real PostgreSQL.
     vi.useFakeTimers({toFake:["Date"]});

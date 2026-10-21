@@ -158,3 +158,10 @@ it("keeps music's existing per-plan restriction even for member removals", async
   expect(await setCourseCardMembers({ cardId: "card", customerIds: ["owner"] })).toMatchObject({ success: false, error: "此方案未開放共卡" });
   expect(m.remove).not.toHaveBeenCalled();
 });
+
+it.each(["ASSIGNED","OPEN"])("preserves existing %s rights when a generic edit omits hidden sports fields",async sportsMode=>{
+ const rights={sportsMode,sportsSubjectId:sportsMode==="ASSIGNED"?"subject":null,sportsCost:sportsMode==="ASSIGNED"?2:null};
+ m.plan.mockResolvedValue({...oldPlan,...rights});
+ expect(await saveCoursePointPlan({...planInput,id:"plan",name:"改名"})).toMatchObject({success:true});
+ expect(m.updatePlan.mock.calls[0][0].data).toMatchObject({...rights,name:"改名"});
+});

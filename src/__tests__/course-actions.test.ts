@@ -16,7 +16,11 @@ const mocks = vi.hoisted(() => ({
   cancelForMove: vi.fn(),
   catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
+  planName: vi.fn(),
 }));
+vi.mock("@/lib/sports-staging", () => ({ requireSportsStaging: vi.fn(), sportsStagingEnabled: () => false }));
+vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async () => ({ id: "fitness" }) } } }));
+vi.mock("@/server/services/sports-staging-schedule", () => ({ attachSportsSessionRules: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({
   courseTransaction: async (_storeId: string, work: (tx: unknown) => Promise<unknown>) => {
     const {coursePrisma} = await import("@/lib/course-db");
@@ -55,6 +59,7 @@ vi.mock("@/lib/course-db", () => ({
           updateMany: mocks.catalogUpdate,
         },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
+        coursePointPlan: { findFirst: mocks.planName },
       }),
   },
 }));
@@ -238,6 +243,14 @@ describe("course editing", () => {
   });
 });
 describe("course scheduling action", () => {
+  it("names open enrollment after the teaching item instead of a pricing package", async () => {
+    mocks.template.mockResolvedValue({ id:"yoga",name:"重量訓練 · abcdef",pointCost:2,isActive:true,visibility:"PUBLIC" });
+    mocks.planName.mockResolvedValue({ name:"5次" });
+    const result = await createCourseSchedule({ ...input, repeatUntil:undefined, sportsStaging:{frequency:"SINGLE",enrollment:"OPEN",planId:null,students:[],trialPrice:0} });
+    expect(result).toMatchObject({success:true});
+    expect(mocks.create.mock.calls[0][0].data[0].nameSnapshot).toBe("重量訓練");
+    expect(mocks.planName).not.toHaveBeenCalled();
+  });
   it("derives store and cost on the server, and writes one batch", async () => {
     const result = await createCourseSchedule({
       ...input,

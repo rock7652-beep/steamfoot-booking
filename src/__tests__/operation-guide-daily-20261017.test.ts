@@ -18,7 +18,7 @@ describe("2026-10-17 backend guide review", () => {
     expect(findOperationGuides("方案待核對", { ...access, module: "spa" })).toEqual([]);
   });
   it("keeps the backend catalog counts after SPA retirement", () => {
-    expect(operationGuides).toHaveLength(193);
+    expect(operationGuides).toHaveLength(195);
     expect(guideCategories).toHaveLength(15);
   });
 });

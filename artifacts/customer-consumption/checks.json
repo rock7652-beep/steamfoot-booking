@@ -1,0 +1,70 @@
+{
+  "scope": "Synthetic component preview; Next navigation shim; no auth/database",
+  "evidence": [
+    {
+      "width": 1366,
+      "height": 900,
+      "tableTop": 266,
+      "listFraction": 0.8180645161290323,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "tableTop": 266,
+      "listFraction": 0.8523560209424084,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tableTop": 266,
+      "listFraction": 0.7807153965785381,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "tableTop": 266,
+      "listFraction": 0.8431590656284761,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 600,
+      "height": 900,
+      "tableTop": 306,
+      "listFraction": 0.7547649301143583,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "tableTop": 330,
+      "listFraction": 0.7031463748290013,
+      "pageOverflow": false,
+      "exportPreservesFilters": true,
+      "activeNavigation": "期間消耗統計"
+    }
+  ],
+  "resizePreservesDraft": true,
+  "inlineError": true,
+  "emptyState": true,
+  "exportHiddenWithoutPermission": true,
+  "keyboardSubmit": true,
+  "storePrefix": true,
+  "topN": true,
+  "modalDraftPreserved": true,
+  "metricDropdownAndRanges": true,
+  "applyReturnsToList": true,
+  "consoleErrors": []
+}

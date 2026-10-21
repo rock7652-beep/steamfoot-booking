@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/db';
@@ -81,7 +82,7 @@ async function render(notice:Notice,slug:string,storeName:string) {
   }
   const type=session.template.classType;
   const color=session.isTrial?'#F07829':type==='PRIVATE'?'#3168EF':type==='SELF_ORGANIZED'?'#CD9827':'#40986F';
-  lines.push({name:session.nameSnapshot,startsAt:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),room:session.room.name,color,detail,previous});
+  lines.push({name:courseDisplayName(session.nameSnapshot),startsAt:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),room:session.room.name,color,detail,previous});
  }
  if(!lines.length)return null;
  lines.sort((a,b)=>a.startsAt.localeCompare(b.startsAt));

@@ -1,3 +1,5 @@
+import { findSportsCard } from "./sports-card-selection";
+import { sportsTeachingTemplateId } from "./sports-teaching-rule";
 import "server-only";
 import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
 import {
@@ -83,19 +85,18 @@ export async function attachSportsSessionRules(
     : null;
   if (
     !sessions[0].isTrial &&
-    (!plan || !plan.templateIds.includes(sessions[0].templateId))
+    rule.planId !== null && (!plan || !plan.templateIds.includes(sessions[0].templateId))
   )
     throw new AppError("VALIDATION", "請選擇適用本課程的收費方式");
+  if(!sessions[0].isTrial && rule.planId===null){
+    const t=await tx.courseTemplate.findFirst({where:{id:sessions[0].templateId,storeId:actor.storeId},select:{musicSubjectId:true,isActive:true}});
+    if(!t?.isActive||!t.musicSubjectId||sportsTeachingTemplateId(actor.storeId,t.musicSubjectId)!==sessions[0].templateId)throw new AppError("VALIDATION","請選擇已設定規則的教學項目");
+  }
   if (sessions[0].isTrial && rule.frequency !== "SINGLE")
     throw new AppError("VALIDATION", "體驗僅建立單次課程");
-  const compensation=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId:actor.storeId,templateId:sessions[0].templateId,staffId:""}}});
+  const { captureSportsCoachCompensation } = await import("./sports-coach-compensation");
   for (const session of sessions) {
-    if(compensation){
-      const {sportsCompensation}=await import("@/lib/sports-staging-types");
-      const fee=sportsCompensation.parse((compensation.rules as unknown[])[0]);
-      const captured={...fee,calculationVersion:3,source:"SPORTS_FEE",durationMinutes:Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000)};
-      await tx.courseCompensationSnapshot.upsert({where:{sessionId:session.id},create:{sessionId:session.id,storeId:actor.storeId,staffId:session.coachId,rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes},update:{rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes}});
-    }
+    await captureSportsCoachCompensation(tx, actor.storeId, session);
     await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
   }
   if(rule.perpetual){
@@ -113,42 +114,9 @@ export async function attachSportsSessionRules(
     for (const student of rule.students) {
       let cardId = student.cardId;
       if (!sessions[0].isTrial) {
-        if (!cardId) {
-          const cards = await tx.coursePointCard.findMany({
-            where: {
-              storeId: actor.storeId,
-              planId: rule.planId!,
-              closedAt: null,
-              expiresAt: { gte: sessions[sessions.length - 1].startsAt },
-              members: { some: { customerId: student.customerId } },
-              OR: [
-                { templateIds: { isEmpty: true } },
-                { templateIds: { has: sessions[0].templateId } },
-              ],
-            },
-            include: {
-              bookings: {
-                where: { status: "RESERVED" },
-                select: { pointCost: true },
-              },
-            },
-            orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
-          });
-          cardId =
-            cards.find(
-              (c) =>
-                c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
-                (c.unit === "SESSION" ? 1 : sessions[0].pointCost) *
-                  sessions.length,
-            )?.id ?? null;
-        }
-        const card = cardId
-          ? await tx.coursePointCard.findFirst({
-              where: { id: cardId, storeId: actor.storeId },
-            })
-          : null;
-        if (!card || card.planId !== rule.planId)
-          throw new AppError("VALIDATION", "學員沒有額度與效期足夠的適用方案");
+        const picked=await findSportsCard(tx,actor.storeId,student.customerId,sessions,rule,cardId);
+        if(!picked)throw new AppError("VALIDATION","學員沒有額度與效期足夠的適用方案");
+        cardId=picked.card.id;
       }
       for (const session of sessions)
         await reserveCourseInTransaction(

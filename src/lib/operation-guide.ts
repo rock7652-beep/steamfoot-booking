@@ -1,3 +1,4 @@
+import { imageAnnouncementGuides } from "./operation-guide-image-announcements";
 /** First batch: time-slot booking module only. Source reviewed at 44c1f1f0.
  * The guide is released; article interaction verification remains separate.
  */
@@ -90,9 +91,11 @@ import { dailyOperationGuides20261013 } from "./operation-guide-daily-20261013";
 import { dailyOperationGuides20261014 } from "./operation-guide-daily-20261014";
 import { dailyOperationGuides20261019 } from "./operation-guide-daily-20261019";
 import { dailyOperationGuides20261020 } from "./operation-guide-daily-20261020";
+import { customerConsumptionGuides } from "./operation-guide-customer-consumption";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 const catalogGuides: OperationGuide[] = [
+  ...imageAnnouncementGuides,
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: guide.id === "A03" ? ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/components/admin/inline-roster-note.tsx", "src/server/actions/booking-note.ts"] : ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
   ...courseOperationGuides,
@@ -116,6 +119,7 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261014,
   ...dailyOperationGuides20261019,
   ...dailyOperationGuides20261020,
+  ...customerConsumptionGuides,
 ];
 
 /** Historical frontend articles remain archived; backend search never returns them. */

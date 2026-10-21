@@ -39,6 +39,7 @@ import {
 } from "./course-trial";
 import { refundCoursePurchase } from "./course-refund";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
+import { sportsTeachingTemplateId } from "@/server/services/sports-teaching-rule";
 import { assertSportsProductionReady } from "@/server/services/sports-production-readiness";
 const id = z.string().min(1).max(100);
 async function actor(permission: Parameters<typeof courseManager>[0]) {
@@ -143,13 +144,14 @@ export async function loadSportsStaging(formOnly = false): Promise<
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {
         id: p.id,
-        subject: t?.musicSubjectId ?? t?.id ?? "",
+        subject: p.sportsSubjectId??t?.musicSubjectId ?? t?.id ?? "",
+        sportsMode:p.sportsMode,
         name: p.name,
         unit: p.unit === "POINT" ? "點數" : "堂數",
         amount: p.points,
         price: p.price,
         days: p.validDays,
-        cost: t?.pointCost ?? 1,
+        cost: p.sportsCost??t?.pointCost ?? 1,
         shared: p.allowShared,
         templateId: t?.id ?? "",
         snapshot: JSON.stringify(coursePlanValues.parse(p)),
@@ -239,6 +241,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
           category: s.category,
           active: s.isActive,
           updatedAt: s.updatedAt.toISOString(),
+          templateId:templates.find(t=>t.id===sportsTeachingTemplateId(storeId,s.id))?.id,
         })),
         fees,
         lessons,
@@ -246,8 +249,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
           .filter((c) => {
             const f = fees.find((f) => f.id === c.planId);
             return (
-              f &&
-              (!c.templateIds.length || c.templateIds.includes(f.templateId))
+              f && (c.sportsMode!=="LEGACY" || !c.templateIds.length || c.templateIds.includes(f.templateId))
             );
           })
           .flatMap((c) =>
@@ -255,6 +257,8 @@ export async function loadSportsStaging(formOnly = false): Promise<
               id: m.customerId,
               name: customers.find((p) => p.id === m.customerId)?.name ?? "",
               fee: c.planId,
+              subject:c.sportsSubjectId??fees.find(f=>f.id===c.planId)?.subject,
+              sportsMode:c.sportsMode,
               cardId: c.id,
               available:
                 c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0),
@@ -366,7 +370,8 @@ export async function saveSportsFee(input: unknown) {
         compensation: sportsCompensation.optional(),
         expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
-        subject: id,
+        sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN"]).default("LEGACY"),
+        subject: id.optional(),
         name: z.string().trim().min(1).max(80),
         unit: z.enum(["點數", "堂數"]),
         amount: z.number().int().min(1).max(100000),
@@ -374,14 +379,13 @@ export async function saveSportsFee(input: unknown) {
         days: z.number().int().min(1).max(3650),
         cost: z.number().int().min(1).max(10000),
         shared: z.boolean(),
-        coachIds: z.array(id).min(1, "請選擇至少一位可授課教練"),
+        coachIds: z.array(id).default([]),
         requestKey: z.string().uuid(),
         snapshot: z.string().optional(),
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
-    await courseManager("booking.create");
-    await courseManager("staff.manage");
+    if(d.sportsMode==="LEGACY"){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
       : {};
@@ -398,14 +402,17 @@ export async function saveSportsFee(input: unknown) {
       isActive: d.active ?? base.isActive ?? true,
       customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
       templateIds: [],
-      sportsSetup: {
+      sportsMode:d.sportsMode,
+      sportsSubjectId:d.sportsMode==="ASSIGNED"?d.subject??null:null,
+      sportsCost:d.sportsMode==="ASSIGNED"?(d.unit==="堂數"?1:d.cost):null,
+      sportsSetup: d.sportsMode==="LEGACY"?{
         compensation: d.compensation,
         expectedCompensation: d.expectedCompensation,
         subject: d.subject,
         cost: d.cost,
         coachIds: d.coachIds,
         requestKey: d.requestKey,
-      },
+      }:undefined,
       expectedSnapshot: d.snapshot,
       receipt: { expectedStoreId: storeId, requestKey: d.requestKey },
     });
@@ -448,6 +455,7 @@ export async function sportsStagingCommand(input: unknown) {
           waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
           count: z.number().int().min(1).max(24),
           coach: z.string(),
+          coachId: id.optional(),
           room: z.string(),
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
@@ -477,22 +485,28 @@ export async function sportsStagingCommand(input: unknown) {
           }),
         );
       const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.fee, storeId, isActive: true },
+        where: { id: d.fee??"", storeId, isActive: true },
       });
-      if (!plan) throw new AppError("VALIDATION", "請選收費方式");
+      if (d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
       const template = await coursePrisma.courseTemplate.findFirst({
         where: {
-          id: plan.templateIds[0],
+          id: plan?.templateIds[0]??sportsTeachingTemplateId(storeId,d.subject),
           storeId,
           musicSubjectId: d.subject,
           isActive: true,
         },
       });
-      if (!template) throw new AppError("VALIDATION", "教學項目與收費方式不符");
-      const coach = await prisma.staff.findFirst({
-        where: { storeId, displayName: d.coach, status: "ACTIVE" },
+      if (!template) throw new AppError("VALIDATION", "請先在教學項目設定授課教練與課程規則");
+      const coaches = await prisma.staff.findMany({
+        where: {
+          storeId, status: "ACTIVE", courseCoachEnabled: true,
+          courseQualificationsConfirmed: true,
+          courseQualifiedTemplateIds: { has: template.id },
+          ...(d.coachId ? { id: d.coachId } : { displayName: d.coach }),
+        },
       });
-      if (!coach) throw new AppError("VALIDATION", "請選有效教練");
+      if (coaches.length !== 1) throw new AppError("VALIDATION", "請重新選擇具本課程授課資格的教練；同名教練請重新整理後選擇。");
+      const coach = coaches[0];
       if (room.capacity !== null && d.capacity > room.capacity)
         throw new AppError("VALIDATION", "人數超過空間容量");
       const frequency =
@@ -530,7 +544,7 @@ export async function sportsStagingCommand(input: unknown) {
             frequency,
             ...(sportsNativePreview(storeId)&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
-            planId: d.kind === "體驗" ? null : plan.id,
+            planId: d.kind === "體驗" ? null : plan?.id??null,
             students,
             trialPrice: d.price,
           },
@@ -636,44 +650,13 @@ export async function sportsStagingCommand(input: unknown) {
         })
         .parse(p);
       const rule = await coursePrisma.$queryRaw<
-        Array<{ planId: string | null; trialPrice: number }>
-      >`SELECT "planId","trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId}`;
+        Array<{ planId: string | null; trialPrice: number; enrollment:string }>
+      >`SELECT "planId","trialPrice",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId}`;
       if (!rule[0]) throw new AppError("NOT_FOUND", "課程不在測試改版入口");
-      if (!rule[0].planId)
-        return await result(
-          createCourseTrial({ ...d, price: rule[0].trialPrice }),
-        );
-      const session = await coursePrisma.courseSession.findFirst({
-        where: { id: d.sessionId, storeId, cancelledAt: null },
-      });
-      if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-      const cards = await coursePrisma.coursePointCard.findMany({
-        where: {
-          storeId,
-          planId: rule[0].planId,
-          closedAt: null,
-          expiresAt: { gte: session.startsAt },
-          members: { some: { customerId: d.customerId } },
-          OR: [
-            { templateIds: { isEmpty: true } },
-            { templateIds: { has: session.templateId } },
-          ],
-        },
-        include: {
-          bookings: {
-            where: { status: "RESERVED" },
-            select: { pointCost: true },
-          },
-        },
-        orderBy: { expiresAt: "asc" },
-      });
-      const card = cards.find(
-        (c) =>
-          c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
-          (c.unit === "SESSION" ? 1 : session.pointCost),
-      );
-      if (!card) throw new AppError("VALIDATION", "沒有適用方案");
-      return await result(createCourseBooking({ ...d, cardId: card.id }));
+      const session = await coursePrisma.courseSession.findFirst({where:{id:d.sessionId,storeId,cancelledAt:null}});
+      if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
+      if(session.isTrial)return await result(createCourseTrial({...d,price:rule[0].trialPrice}));
+      return await result(createCourseBooking({...d,autoCard:true}));
     }
     if (data.operation === "trial-collect")
       return await result(collectCourseTrial(p));

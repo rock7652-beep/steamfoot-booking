@@ -36,6 +36,7 @@ const sessions = Array.from({ length: 8 }, (_, i) => ({
 const tx = {
   $executeRaw: m.execute,
   courseSession: { findMany: m.sessions },
+  courseTemplate:{findFirst:async()=>({musicSubjectId:"subject"})},
   courseCompensation:{findUnique:m.compensation},
   courseCompensationSnapshot:{upsert:m.snapshot},
   coursePointPlan: {
@@ -56,12 +57,13 @@ beforeEach(() => {
   m.compensation.mockResolvedValue(null);
   m.cards.mockResolvedValue([
     {
-      id: "used",
+      planId:"plan",templateIds:["template"],requestKey:"old",
+      id: "used",expiresAt:new Date("2099-11-01"),
       unit: "SESSION",
       remaining: 10,
       bookings: [{ pointCost: 3 }],
     },
-    { id: "available", unit: "SESSION", remaining: 10, bookings: [] },
+    { id: "available",expiresAt:new Date("2099-12-31"),planId:"plan",templateIds:["template"],requestKey:"old", unit: "SESSION", remaining: 10, bookings: [] },
   ]);
   m.card.mockResolvedValue({ id: "available", planId: "plan" });
   m.reserve.mockResolvedValue({ id: "booking" });
@@ -74,7 +76,6 @@ it("allocates one sufficient card for the full batch while preserving automatic 
     expect(call[2].cardId).toBe("available");
   expect(m.cards.mock.calls[0][0].where).toMatchObject({
     storeId: "store",
-    planId: "plan",
     expiresAt: { gte: sessions[7].startsAt },
     members: { some: { customerId: "member" } },
   });
@@ -83,17 +84,19 @@ it("allocates one sufficient card for the full batch while preserving automatic 
   expect(rule.students[0].cardId).toBe(null);
 });
 it("keeps an explicit existing card selection without reallocating it", async () => {
+  m.cards.mockResolvedValue([{id:"original",expiresAt:new Date("2099-12-31"),planId:"plan",templateIds:["template"],requestKey:"old",unit:"SESSION",remaining:10,bookings:[]}]);
   await attachSportsSessionRules(tx, actor, "request", {
     ...rule,
     students: [{ customerId: "member", cardId: "original" }],
   });
-  expect(m.cards).not.toHaveBeenCalled();
+  expect(m.cards.mock.calls[0][0].where).toMatchObject({id:"original",storeId:"store"});
   expect(m.reserve.mock.calls[0][2].cardId).toBe("original");
 });
 it("rejects a batch with no sufficient card before creating any reservation", async () => {
   m.cards.mockResolvedValue([
     {
-      id: "held",
+      planId:"plan",templateIds:["template"],requestKey:"old",
+      id: "held",expiresAt:new Date("2099-12-31"),
       unit: "SESSION",
       remaining: 10,
       bookings: [{ pointCost: 8 }],
@@ -111,4 +114,14 @@ it("captures each new hourly class independently without multiplying by pupils",
  await attachSportsSessionRules(tx,actor,"request",rule);
  expect(m.snapshot).toHaveBeenCalledTimes(8);
  expect(m.snapshot.mock.calls[0][0].create).toMatchObject({storeId:"store",rule:{mode:"HOUR",value:600,calculationVersion:3,durationMinutes:90},revision:2});
+});
+
+it.each(["OPEN","ASSIGNED"] as const)("%s 新課次優先保存個別教練費率，未改共用預設",async enrollment=>{
+ const scheduled={...sessions[0],coachId:"coach",endsAt:new Date(sessions[0].startsAt.getTime()+90*60000)};
+ m.sessions.mockResolvedValue([scheduled]);
+ m.compensation.mockImplementation(async({where})=>({rules:[{mode:"HOUR",value:where.storeId_templateId_staffId.staffId?800:600}],revision:3}));
+ await attachSportsSessionRules(tx,actor,"request",{...rule,enrollment,students:[]},[scheduled.id]);
+ expect(m.snapshot).toHaveBeenCalledOnce();
+ expect(m.snapshot.mock.calls[0][0].create).toMatchObject({staffId:"coach",rule:{mode:"HOUR",value:800,source:"SPORTS_COACH_FEE",calculationVersion:3,durationMinutes:90}});
+ expect(m.reserve).not.toHaveBeenCalled();
 });

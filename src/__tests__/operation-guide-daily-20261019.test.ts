@@ -18,7 +18,7 @@ describe("2026-10-19 backend guide audit", () => {
     expect(text("C171")).toContain("超過 500 筆會明確拒絕載入");
     expect(text("C172")).toContain("不回算已售卡片");
     expect(text("C173")).toContain("開放選課不自動加人");
-    expect(text("C173")).toContain("容量或撞期不符時拒絕本次建立");
+    expect(text("C173")).toContain("容量、權益或撞期不符時拒絕本次建立");
     expect(text("C109")).toContain("舊課表");
     expect(text("C110")).toContain("不能再建立重複固定系列");
   });
@@ -34,16 +34,16 @@ describe("2026-10-19 backend guide audit", () => {
   });
   it("persists the exact main and only backend pending topics", () => {
     const s = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
-    expect(s.previousCompleteAudit.dateTaipei).toBe("2026-10-19");
-    expect(s.previousCompleteAudit.mainCommit).toBe("4f52264fc042d92d35e1e1b58003ab6d4b6f71e0");
-    expect(s.previousCompleteAudit.newGuideIds).toEqual(["C171", "C172", "C173"]);
-    expect(s.previousCompleteAudit.updatedGuideIds).toHaveLength(9);
-    expect(s.cumulativeDraftNewGuideIds).toHaveLength(9);
+    expect(s.previousCompleteAudit.dateTaipei).toBe("2026-10-20");
+    expect(s.previousCompleteAudit.mainCommit).toBe("8d717d5dc45da6fbd4e2984afea48165140281b3");
+    expect(s.previousCompleteAudit.newGuideIds).toEqual(["C174", "C175", "C176"]);
+    expect(s.previousCompleteAudit.updatedGuideIds).toHaveLength(14);
+    expect(s.cumulativeDraftNewGuideIds).toHaveLength(11);
     expect(s.cumulativeDraftUpdatedGuideIds).toHaveLength(67);
-    expect(s.backendInteractionPendingCount).toBe(77);
+    expect(s.backendInteractionPendingCount).toBe(79);
     expect(s.frontendInteractionPendingGuideIds).toEqual([]);
     expect(s.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(operationGuides).toHaveLength(193);
+    expect(operationGuides).toHaveLength(195);
     expect(guideCategories).toHaveLength(15);
   });
 });

@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
@@ -29,8 +30,8 @@ export function prepareCourseReminderEvent(
 ) {
   const id=`course-reminder:${createHash("sha256").update(`${store.id}:${booking.id}:${booking.session.startsAt.toISOString()}`).digest("hex")}`;
   const url=courseMemberNotificationUrl(store.slug,"bookings",date);
-  const body=`${customer.name}｜${formatTWDateTime(booking.session.startsAt)}｜${booking.session.nameSnapshot}\n${text}\n${url}`;
+  const body=`${customer.name}｜${formatTWDateTime(booking.session.startsAt)}｜${courseDisplayName(booking.session.nameSnapshot)}\n${text}\n${url}`;
   const triggerAt=new Date(`${toLocalDateStr(now)}T18:00:00+08:00`);
-  const messageInput={customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,address:map?.address??undefined,mapUrl:map?.mapUrl && /^https:\/\//.test(map.mapUrl) ? map.mapUrl : undefined,courseActions:{...(booking.bookingKind==="TRIAL"?{confirm:courseBookingActionUrl(store.slug,date,booking.id,"confirm")}:{}),reschedule:courseBookingActionUrl(store.slug,date,booking.id,"reschedule"),cancel:courseBookingActionUrl(store.slug,date,booking.id,"cancel")}};
+  const messageInput={customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:courseDisplayName(booking.session.nameSnapshot),serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,address:map?.address??undefined,mapUrl:map?.mapUrl && /^https:\/\//.test(map.mapUrl) ? map.mapUrl : undefined,courseActions:{...(booking.bookingKind==="TRIAL"?{confirm:courseBookingActionUrl(store.slug,date,booking.id,"confirm")}:{}),reschedule:courseBookingActionUrl(store.slug,date,booking.id,"reschedule"),cancel:courseBookingActionUrl(store.slug,date,booking.id,"cancel")}};
   return {id,url,body,triggerAt,messageInput};
 }

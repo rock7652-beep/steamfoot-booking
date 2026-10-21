@@ -102,6 +102,7 @@ export function SportsStagingWorkspace({
     duration: 60,
     count: 4,
     coach: initial.coaches[0]?.name ?? "",
+    coachId: initial.coaches[0]?.id ?? "",
     room: initial.rooms[0]?.name ?? "",
     capacity: 8,
     price: 499,
@@ -948,11 +949,11 @@ export function SportsStagingWorkspace({
                 {!rental && (
                   <Field label="授課教練">
                     <select
-                      value={draft.coach}
-                      onChange={(e) => patch({ coach: e.target.value })}
+                      value={draft.coachId}
+                      onChange={(e) => patch({ coachId: e.target.value, coach: live.coaches.find(c => c.id === e.target.value)?.name ?? "" })}
                     >
                       {live.coaches.map((c) => (
-                        <option key={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </Field>

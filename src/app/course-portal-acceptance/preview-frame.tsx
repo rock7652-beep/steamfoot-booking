@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { DEVICE_PRESETS } from "@/lib/device-preview";
 
-const sizes = [
-  { label: "手機 360", width: 360, height: 800 },
-  { label: "手機 390", width: 390, height: 844 },
-  { label: "平板直向", width: 768, height: 1024 },
-  { label: "平板橫向", width: 1024, height: 768 },
-  { label: "桌機 1366", width: 1366, height: 900 },
-] as const;
+const sizes = Object.values(DEVICE_PRESETS);
 
 export function CoursePortalAcceptanceFrame({ src }: { src: string }) {
   const [index, setIndex] = useState(0);

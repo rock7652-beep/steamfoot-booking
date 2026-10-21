@@ -28,9 +28,9 @@ const guide = (id: string) => {
 };
 
 describe("October 5 operation guide audit", () => {
-  it("keeps the current four device preview presets without treating preview as isolation", () => {
+  it("keeps the current three device preview presets without treating preview as isolation", () => {
     const item = guide("I08");
-    expect(Object.values(DEVICE_PRESETS)).toHaveLength(4);
+    expect(Object.values(DEVICE_PRESETS)).toHaveLength(3);
     for (const preset of Object.values(DEVICE_PRESETS)) {
       expect(item.steps.join(" ")).toContain(`${preset.width}×${preset.height}`);
     }
@@ -38,7 +38,7 @@ describe("October 5 operation guide audit", () => {
     expect(item.steps.join(" ")).toContain("1024×768");
     expect(item.steps.join(" ")).toContain("1440×900");
     expect(item.important).toContain("操作仍可能生效");
-    expect(findOperationGuides("平板 直向", access("steamfoot")).map((entry) => entry.id)).toContain("I08");
+    expect(findOperationGuides("平板 預覽", access("steamfoot")).map((entry) => entry.id)).toContain("I08");
   });
 
   it("documents HQ read-only scope without exposing retired SPA guidance", () => {

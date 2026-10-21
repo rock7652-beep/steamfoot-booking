@@ -1,4 +1,5 @@
 "use server";
+import { sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
@@ -329,6 +330,11 @@ export async function updateCourseSession(input: unknown) {
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
           await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
+        const refreshSportsFee=sportsNativePreview(storeId) && (data.coachId !== session.coachId || (data.templateId ?? session.templateId) !== session.templateId || +range.endsAt - +range.startsAt !== +session.endsAt - +session.startsAt);
+        if (refreshSportsFee) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,session);
+          if(reason)throw new AppError("CONFLICT",reason);
+        }
         await tx.courseSession.update({
           where: { id: session.id, storeId },
           data: {
@@ -341,6 +347,11 @@ export async function updateCourseSession(input: unknown) {
             pointCost: data.pointCost,
           },
         });
+        // The session trigger must finish before the sports snapshot is saved.
+        if(refreshSportsFee){
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...session,...range,coachId:data.coachId,templateId:data.templateId??session.templateId},session.coachId,session.templateId);
+        }
         if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"MOVE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
         return data.capacity > session.capacity ? session.id : null;
       },
@@ -595,14 +606,16 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
-        const sportsPlanName=data.sportsStaging?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
+        // Open classes are named for the teaching item, independently of the
+        // cards/pricing packages members use to attend them.
+        const sportsPlanName=data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
             isTrial:data.isTrial,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? sportsPlanName?.name ?? template.name,
+            nameSnapshot: sportsCourseName(source?.nameSnapshot ?? sportsPlanName?.name ?? template.name, template.id),
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
@@ -798,10 +811,6 @@ export async function moveCourseSessions(input: unknown) {
             actorUserId: user.id,
           },
         });
-        if(native){
-          const snapshot=await tx.courseCompensationSnapshot.findUnique({where:{sessionId:change.session.id}});
-          if(snapshot)await tx.courseCompensationSnapshot.update({where:{sessionId:change.session.id},data:{staffId:d.coachId,durationMinutes:duration/60000,rule:{...(snapshot.rule as Record<string,string|number|boolean|null>),durationMinutes:duration/60000}}});
-        }
         const committed=await tx.courseSession.update({
           where: { id: change.session.id },
           data: {
@@ -827,6 +836,10 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+        if(native){
+          const { moveSportsCoachCompensation } = await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx, storeId, { ...change.session, coachId: d.coachId, startsAt: change.startsAt, endsAt: change.endsAt }, change.session.coachId);
+        }
         if(native)moved.push({id:committed.id,startsAt:committed.startsAt.toISOString(),endsAt:committed.endsAt.toISOString(),roomId:committed.roomId,coachId:committed.coachId,rescheduledFromStartsAt:committed.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:committed.rescheduledFromEndsAt?.toISOString()??null,rescheduledFromRoomId:committed.rescheduledFromRoomId,rescheduledFromCoachId:committed.rescheduledFromCoachId,rescheduleKind:committed.rescheduleKind,rescheduledAt:committed.rescheduledAt?.toISOString()??null,releasedAt:committed.releasedAt?.toISOString()??null});
       }
       if(permanent&&d.scope==="FUTURE"){
@@ -941,7 +954,7 @@ export async function previewCourseSchedule(input: unknown) {
       endsAt: item.releasedAt ? item.endsAt : item.rescheduledFromEndsAt!,
       roomId: item.releasedAt ? item.roomId : item.rescheduledFromRoomId!,
       coachId: item.releasedAt ? item.coachId : item.rescheduledFromCoachId!,
-      nameSnapshot: `${item.nameSnapshot}（原固定課保留；僅可排單次）`,
+      nameSnapshot: `${courseDisplayName(item.nameSnapshot)}（原固定課保留；僅可排單次）`,
     }))];
     return {
       success: true as const,
@@ -952,7 +965,7 @@ export async function previewCourseSchedule(input: unknown) {
             (c) => c.startsAt < r.endsAt && c.endsAt > r.startsAt,
           ),
           conflicts: allConflicts.filter(c => c.startsAt < r.endsAt && c.endsAt > r.startsAt).map(c => ({
-            name: c.nameSnapshot,
+            name: courseDisplayName(c.nameSnapshot),
             startsAt: c.startsAt.toISOString(),
             endsAt: c.endsAt.toISOString(),
             resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "授課人員" : ""].filter(Boolean).join("及"),
@@ -1083,7 +1096,12 @@ export async function updateCourseSeries(input: unknown) {
         where: { storeId, id: { in: sessions.map((s) => s.id) } },
         data: { cancelledAt: new Date() },
       });
-      for (const c of changes)
+      for (const c of changes) {
+        const refreshSportsFee=sportsNativePreview(storeId) && (d.coachId !== c.session.coachId || (d.templateId ?? c.session.templateId) !== c.session.templateId || +c.endsAt - +c.startsAt !== +c.session.endsAt - +c.session.startsAt);
+        if (refreshSportsFee) {
+          const reason=await sportsMoveBlockedReason(tx,storeId,c.session);
+          if(reason)throw new AppError("CONFLICT",reason);
+        }
         await tx.courseSession.update({
           where: { id: c.session.id },
           data: {
@@ -1098,6 +1116,11 @@ export async function updateCourseSeries(input: unknown) {
             cancelledAt: null,
           },
         });
+        if(refreshSportsFee){
+          const { moveSportsCoachCompensation }=await import("@/server/services/sports-coach-compensation");
+          await moveSportsCoachCompensation(tx,storeId,{...c.session,startsAt:c.startsAt,endsAt:c.endsAt,coachId:d.coachId,templateId:d.templateId??c.session.templateId},c.session.coachId,c.session.templateId);
+        }
+      }
       return changes
         .filter(change => d.capacity > change.session.capacity)
         .map(change => change.session.id);

@@ -6,6 +6,8 @@ import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
+import { checkPermission } from "@/lib/permissions";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
@@ -32,7 +34,7 @@ import {revalidateStaffInRoute} from "@/lib/revalidation";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
-  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬").nullable(),
+  value: compensationRule.nullable(),
   revision: z.number().int().min(0),
 });
 export async function readCourseStaffTeaching(staffId: string) {
@@ -40,14 +42,16 @@ export async function readCourseStaffTeaching(staffId: string) {
     const { user, storeId } = await courseManagerRead("staff.view");
     if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "無人員管理權限");
     id.parse(staffId);
-    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
+    const nativeSports=sportsNativePreview(storeId);
+    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId) && (!nativeSports || await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
     const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
     if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
     const [fees,settings]=canReadFees ? await Promise.all([
       prisma.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
       prisma.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
     ]) : [[],[]] as const;
-    const data={ version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
+    const defaults=canReadFees && nativeSports ? await prisma.$queryRaw<Array<{templateId:string;rules:CompensationRule[];revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=''` : [];
+    const data={ defaults, version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
 }
@@ -105,13 +109,16 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
       .parse(input);
     if(d.kind==="manager"&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
+    const nativeSports=sportsNativePreview(storeId);
+    if(nativeSports && (d.teachingFees || d.defaultClassFee!==undefined) && !await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))throw new AppError("FORBIDDEN","尚未授權教練計酬設定");
+    if(!nativeSports && d.teachingFees?.some(f=>f.value?.mode==="HOUR"))throw new AppError("VALIDATION","此模組不支援按時計酬");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if (d.permissions?.some(p=>["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(p)) && getEffectiveActorRole(user)!=="OWNER")
       throw new AppError("FORBIDDEN", "只有老闆能設定我的工作權限");
-    if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
+    if ((d.musicSettings || !nativeSports && d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     // Resolve access outside the transaction. Production uses a one-connection
     // pool, so querying through the global client while a transaction owns that

@@ -10,7 +10,7 @@ import { parseEditorialGuides } from "../../scripts/editorial-content.mjs";
 import { validateEditorialChange, verifyEditorialGit } from "../../scripts/editorial-release-preflight.mjs";
 const head="1".repeat(40), base="2".repeat(40);
 const safe={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",VERCEL_GIT_COMMIT_REF:"content/editorial-preview",VERCEL_GIT_COMMIT_SHA:head,EDITORIAL_PREVIEW_APPROVED_COMMIT:head,EDITORIAL_PREVIEW_BASE_COMMIT:base};
-const change={base,head,repository:"rock7652-beep/steamfoot-booking",branch:"content/editorial-preview",slug:articles[0].id,files:["src/content/editorial-guides.json"],before:[],after:articles};
+const change={base,head,repository:"rock7652-beep/steamfoot-booking",branch:"content/editorial-preview",slug:articles[0].id,files:["src/content/editorial-guides.json"],before:[],after:[articles[0]]};
 
 describe("fixed editorial release boundary",()=>{
  it("requires an explicitly pinned preview while preserving production and unrelated branches",()=>{
@@ -57,7 +57,7 @@ describe("fixed editorial release boundary",()=>{
    mkdirSync(join(cwd,"src/content"),{recursive:true});mkdirSync(join(cwd,"src/lib"),{recursive:true});
    writeFileSync(join(cwd,"src/content/editorial-guides.json"),"[]");writeFileSync(join(cwd,"src/lib/public-guides.ts"),'const legacy = [{"id":"legacy-only"}];');
    git("add",".");git("commit","-qm","base");const actualBase=git("rev-parse","HEAD");
-   writeFileSync(join(cwd,"src/content/editorial-guides.json"),JSON.stringify(articles));git("add",".");git("commit","-qm","article");
+   writeFileSync(join(cwd,"src/content/editorial-guides.json"),JSON.stringify([articles[0]]));git("add",".");git("commit","-qm","article");
    const actualHead=git("rev-parse","HEAD"),args={...change,base:actualBase,head:actualHead};
    expect(verifyEditorialGit(args,cwd)).toMatchObject({head:actualHead,base:actualBase});
    writeFileSync(join(cwd,"src/lib/public-guides.ts"),"dirty");
@@ -69,6 +69,23 @@ describe("fixed editorial release boundary",()=>{
    expect(()=>verifyEditorialGit({...args,head:git("rev-parse","HEAD")},cwd)).toThrow(/symlinks/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
  });
+ it("limits the explicit inline-link maintenance review to its base, slug and file allowlist",()=>{
+  const referral=articles.find(a=>a.id==="fitness-studio-member-referral-handoff")!;
+  const review={...change,base:"8d717d5dc45da6fbd4e2984afea48165140281b3",slug:referral.id,after:[referral],inlineLinksReview:true,files:[...change.files,"scripts/editorial-content.mjs"]};
+  expect(validateEditorialChange(review).mode).toBe("one-time-inline-links-review");
+  for(const fields of [{base},{slug:articles[0].id},{bootstrap:true},{files:[...review.files,"src/lib/auth.ts"]},{inlineLinksReview:false}])
+   expect(()=>validateEditorialChange({...review,...fields})).toThrow();
+ });
+ it("supports plain body paragraphs and safe inline links, rejecting executable shapes and schemes",()=>{
+  const make=(paragraph:unknown)=>[{...articles[0],sections:[{heading:"Body",paragraphs:[paragraph]}]}];
+  for(const href of ["/guides/example#details","https://www.steamfoot.com/pricing/features","https://example.org/reference?q=one#two"])
+   expect(()=>parseEditorialGuides(make({inlineParts:["Before ",{label:"reference",href}," after"]}))).not.toThrow();
+  expect(()=>parseEditorialGuides(make("Old plain paragraph"))).not.toThrow();
+  for(const href of ["javascript:alert(1)","data:text/html,test","http://example.org","//example.org","/\\example.org","https://user:pass@example.org/","https://example.org/%0a","https://example.org/ a"])
+   expect(()=>parseEditorialGuides(make({inlineParts:[{label:"unsafe",href}]}))).toThrow();
+  for(const paragraph of [{html:"<b>text</b>"},{inlineParts:[]},{inlineParts:[{label:"bad",href:"/guides",onClick:"alert(1)"}]},{inlineParts:[{html:"<img onerror=alert(1)>"}]}])
+   expect(()=>parseEditorialGuides(make(paragraph))).toThrow();
+ });
  it("rejects executable fields, external links, duplicate IDs and invalid metadata",()=>{
   expect(parseEditorialGuides(articles)).toEqual(articles);
   for(const field of [{script:"alert(1)"},{id:123},{publishedDate:"2026-02-30"},{category:"private"},{featureUrl:"https://evil.example/"},{featureUrl:"//evil.example/apply"}])
@@ -77,3 +94,4 @@ describe("fixed editorial release boundary",()=>{
   expect(()=>parseEditorialGuides([{...articles[0],callToAction:{text:"",inlineParts:[{label:"x",href:"javascript:alert(1)"}]}}])).toThrow(/Invalid editorial/);
  });
 });
+

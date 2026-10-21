@@ -2,7 +2,7 @@
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useState } from "react";
 import type { MusicTeacherSettings } from "@/lib/music-teacher-settings";
-export type TeacherFeeDraft = { mode: "CLASS" | "SHARE" | "INHERIT"; value: string; revision: number };
+export type TeacherFeeDraft = { mode: "CLASS" | "SHARE" | "HOUR" | "INHERIT"; value: string; revision: number };
 export type TeacherPlan = { displayName?:string;currentTeaching?:boolean;isActive?:boolean;id: string; name: string; musicSubjectId?: string | null; subjectName?: string; musicTeacherShare?: number | null; musicPricePerLesson?: number | null };
 const courseName=courseTemplateLabel;
 const input = "min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";

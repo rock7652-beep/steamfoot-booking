@@ -1,5 +1,6 @@
 "use client";
 
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { useEffect, useState, useTransition } from "react";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
@@ -20,7 +21,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [templateId,setTemplateId]=useState(initialTemplateId ?? templates[0]?.id ?? "");
   const template=templates.find(t=>t.id===templateId);
   const subjectId=template?.musicSubjectId??templateId;
-  const subjects=[...new Map(templates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??t.name}])).values()];
+  const subjects=[...new Map(templates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??courseDisplayName(t.name)}])).values()];
   const [capacity,setCapacity]=useState(templates.find(t=>t.id===(initialTemplateId??templates[0]?.id))?.capacity??1);
   function chooseTemplate(id:string){setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);const n=t?.durationMinutes??60;setDuration(([30,60,90,120] as number[]).includes(n)?n as 30|60|90|120:60);resetSlot();}
 
@@ -85,7 +86,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   return <div className="space-y-4 text-sm">
     <div className="grid gap-3 sm:grid-cols-2">
     <label className="block">教學項目<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-    <label className="block">班型方案<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{templates.filter(t=>(t.musicSubjectId??t.id)===subjectId).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+    <label className="block">班型方案<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{templates.filter(t=>(t.musicSubjectId??t.id)===subjectId).map(t=><option key={t.id} value={t.id}>{courseDisplayName(t.name)}</option>)}</select></label>
     <label className="block">人數上限<input className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" type="number" min="1" max="500" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>
     </div>
     <label className="block">② 上課時長

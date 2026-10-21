@@ -72,6 +72,7 @@ beforeEach(() => {
   });
   m.tx.coursePointCard.findFirst.mockResolvedValue({
     id: "card",
+    unit: "POINT", templateIds: [], requestKey: "test-card",
     remaining: 5,
     expiresAt: new Date("2026-10-01T00:00:00Z"),
     members: [{ customerId: "a" }, { customerId: "b" }],
@@ -90,7 +91,7 @@ beforeEach(() => {
 });
 describe("course shared card reservations", () => {
   it.each([["POINT", 3], ["SESSION", 1]] as const)("%s cards reserve and debit their own unit", async (unit, cost) => {
-    m.tx.coursePointCard.findFirst.mockResolvedValue({ id: "card", unit, remaining: unit === "SESSION" ? 1 : 3, expiresAt: new Date("2026-10-01"), members: [{customerId:"a"},{customerId:"b"}] });
+    m.tx.coursePointCard.findFirst.mockResolvedValue({ id: "card", templateIds: [], requestKey: "test-card", unit, remaining: unit === "SESSION" ? 1 : 3, expiresAt: new Date("2026-10-01"), members: [{customerId:"a"},{customerId:"b"}] });
     await reserveCourse(actor, input);
     expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data: expect.objectContaining({pointCost:cost})});
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:cost});
@@ -419,7 +420,7 @@ describe("music manager full-class enrollment",()=>{
  const manager={storeId:"store-a",userId:"manager",name:"店長"};
  beforeEach(()=>{
   m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}},startsAt:new Date("2026-09-16T10:00:00Z"),endsAt:new Date("2026-09-16T11:00:00Z"),capacity:2,pointCost:1});
-  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
+  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",templateIds:[],requestKey:"test-card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
   m.tx.courseBooking.count.mockResolvedValue(2);
  });
  it("requires explicit manager confirmation",async()=>{await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});

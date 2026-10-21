@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import {sportsStagingEnabled} from "@/lib/sports-staging";
 import type { Prisma } from "../../../generated/course-client";
@@ -6,7 +7,7 @@ import { formatTWDateTime } from "@/lib/date-utils";
 
 export type CourseConflict = { id: string; name: string; startsAt: string; capacity: number };
 export class ResourceConflict extends AppError {
-  constructor(message: string, public conflicts: CourseConflict[]) { super("CONFLICT", message); }
+  constructor(message: string, public conflicts: CourseConflict[]) { super("CONFLICT", message); this.conflicts = conflicts.map(row => ({ ...row, name: courseDisplayName(row.name) })); }
 }
 export function handleCourseActionError(error: unknown) {
   if(error instanceof Error && error.message.includes("SPACE_RENTAL_CONFLICT")) return {success:false as const,error:"此空間已有租借或課程，請換時間或空間",conflicts:[] as CourseConflict[]};
@@ -26,7 +27,7 @@ export async function assertNoCourseResourceUse(tx: Pick<Prisma.TransactionClien
     ...(resource.templateIds ? {templateId:{in:resource.templateIds}} : {}),
     ...(resource.capacity !== undefined ? {capacity:{gt:resource.capacity}} : {})},
     select:{id:true,nameSnapshot:true,startsAt:true,capacity:true}, orderBy:{startsAt:"asc"}});
-  if (sessions.length) throw new ResourceConflict(`尚有 ${sessions.length} 堂未結束課程（含進行中），請先處理排課後重試：${formatTWDateTime(sessions[0].startsAt)} ${sessions[0].nameSnapshot}`,
+  if (sessions.length) throw new ResourceConflict(`尚有 ${sessions.length} 堂未結束課程（含進行中），請先處理排課後重試：${formatTWDateTime(sessions[0].startsAt)} ${courseDisplayName(sessions[0].nameSnapshot)}`,
     sessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),capacity:s.capacity})));
 }
 /** Called under the same Store row lock by all scheduling/resource writers. */
