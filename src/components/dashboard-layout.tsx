@@ -31,6 +31,8 @@ import { SubscriptionStatusBanner } from "@/components/subscription-status-banne
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
+import {coursePrisma} from "@/lib/course-db";
+import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -146,6 +148,17 @@ export default async function DashboardLayout({
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
+  // Resolve only the switch alongside the server layout; counts and snapshots stay lazy.
+  const noticeEnabledPromise=(async()=>{
+  if(!hqPlatform && effectiveStoreId && permissions.includes("booking.read")) {
+    try {
+      return industryModule==="course"
+        ? (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false
+        : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
+    } catch { /* The authenticated background summary retries without blocking the dashboard. */ }
+  }
+  return false;
+  })();
   const pricingPlan = isAdmin && (hqPlatform || !activeStoreId)
     ? ("ALLIANCE" as const)
     : effectiveStoreId
@@ -232,6 +245,7 @@ export default async function DashboardLayout({
     ? viewableStores.find((store) => store.id === storeViewContext?.viewedStoreId)
     : null;
 
+  const noticeInitiallyEnabled=await noticeEnabledPromise;
   const operationScope = JSON.stringify([user.id, user.role, user.staffId, activeStoreId,
     storeViewContext?.viewedStoreId, industryModule, canViewAudit, auditScope?.hq, [...permissions].sort()]);
   return (
@@ -241,6 +255,7 @@ export default async function DashboardLayout({
     <DashboardShell
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
+      noticeInitiallyEnabled={noticeInitiallyEnabled}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}

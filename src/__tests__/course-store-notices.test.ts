@@ -1,12 +1,12 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({rule:vi.fn(),find:vi.fn(),upsert:vi.fn(),raw:vi.fn(),manager:vi.fn(),read:vi.fn(),transaction:vi.fn(),update:vi.fn(),audit:vi.fn(),permission:vi.fn()}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
+const m=vi.hoisted(()=>({rule:vi.fn(),find:vi.fn(),upsert:vi.fn(),raw:vi.fn(),manager:vi.fn(),read:vi.fn(),transaction:vi.fn(),update:vi.fn(),audit:vi.fn(),permission:vi.fn(),count:vi.fn(),list:vi.fn()}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:m.rule},courseStoreNotice:{count:m.count,findMany:m.list}}}));
 vi.mock("@/lib/db",()=>({prisma:{}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.read,courseTransaction:m.transaction}));
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:m.audit}));
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
-import {markCourseStoreNotice,saveCourseOperationSwitch} from "@/server/actions/course-store-notices";
+import {loadCourseStoreNotices,markCourseStoreNotice,saveCourseOperationSwitch} from "@/server/actions/course-store-notices";
 import {assertCourseSelfLeaveEnabled,assertCourseSelfRescheduleEnabled,assertCourseSelfBookingEnabled} from "@/server/services/course-self-booking";
 const tx={courseBookingRule:{findUnique:m.rule,upsert:m.upsert},courseStoreNotice:{findUnique:m.find,findFirst:m.find,upsert:m.upsert,update:m.update},$queryRaw:m.raw};
 const actor={storeId:"s",userId:"u",name:"小美",customerId:"c"};
@@ -67,4 +67,12 @@ describe("transactional store notices",()=>{
   expect(m.update).toHaveBeenCalledWith({where:{id:"n"},data:{handledAt:expect.any(Date),handledById:"u",handledByName:"店員",revision:{increment:1}}});
   expect(m.audit).toHaveBeenCalledTimes(1);
  });
+});
+
+it('reads a scoped summary without listing customer snapshots or checking write permission',async()=>{
+ m.read.mockResolvedValue({storeId:'s',user:{role:'OWNER'}});m.count.mockResolvedValue(4);
+ expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:true,count:4,items:[],canHandle:false});
+ expect(m.list).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();expect(m.count).toHaveBeenCalledWith({where:{storeId:'s',handledAt:null}});
+ expect(await loadCourseStoreNotices({storeId:'other',handled:false,summaryOnly:true})).toMatchObject({success:false});expect(m.count).toHaveBeenCalledTimes(1);
+ m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:false,count:0});expect(m.count).toHaveBeenCalledTimes(1);
 });
