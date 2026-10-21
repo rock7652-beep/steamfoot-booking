@@ -1,4 +1,12 @@
-// Independent beauty review never runs hosted migrations or deployments.
+// Explicitly authorized test deployment; schema installation remains separate.
+import { assertBeautyHostedPreviewEnvironment, BEAUTY_HOSTED_PREVIEW_BRANCH } from './consultation-preview-scope.mjs';
+if (process.env.BEAUTY_HOSTED_PREVIEW === '1' || [process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes(BEAUTY_HOSTED_PREVIEW_BRANCH)) {
+  assertBeautyHostedPreviewEnvironment(process.env);
+  console.info('[beauty-hosted-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
+
+// Historical implementation branch stays review-only; deploy only the clean Preview branch.
 if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/beauty-module-20261020")) throw new Error("Beauty review cannot deploy or execute migrations.");
 
 // Isolated feature review: hosted builds must stop before migrations or deployment.

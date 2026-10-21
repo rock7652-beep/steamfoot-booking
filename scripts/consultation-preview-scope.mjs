@@ -71,6 +71,22 @@ export function isIsolatedConsultationDatabaseUrl(value) {
   }
 }
 
+export const BEAUTY_HOSTED_PREVIEW_BRANCH = 'preview/beauty-hosted-20261021';
+/** User-authorized Beauty Preview: existing test database, no automatic DDL or LINE. */
+export function assertBeautyHostedPreviewEnvironment(env) {
+  if (env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview' ||
+      env.BEAUTY_HOSTED_PREVIEW !== '1' ||
+      env.VERCEL_GIT_COMMIT_REF !== BEAUTY_HOSTED_PREVIEW_BRANCH ||
+      env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
+      env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
+      env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||
+      !['0','1'].includes(env.BEAUTY_MODULE_ENABLED) || env.BEAUTY_NOTIFICATIONS_ENABLED !== '0' ||
+      (env.BEAUTY_DATABASE_MODE && env.BEAUTY_DATABASE_MODE !== 'legacy') || env.BEAUTY_DATABASE_URL ||
+      !isIsolatedConsultationDatabaseUrl(env.DATABASE_URL) || !env.AUTH_SECRET ||
+      env.LINE_CHANNEL_ACCESS_TOKEN || env.WEB_LINE_LOGIN_CHANNEL_SECRET || env.PREVIEW_LINE_ACCEPTANCE_ENABLED === '1')
+    throw Error('Beauty hosted Preview requires its exact branch, isolated database, existing connection mode and disabled LINE.');
+}
+
 export const COURSE_BUSINESS_BOUNDARIES_BRANCH = "codex/course-business-boundaries-20261014";
 export const CONSULTATION_PREVIEW_BRANCH = "feat/hq-consultation-intake-20261008";
 export const HQ_INTAKE_LIST_PREVIEW_BRANCH = "feat/hq-intake-list-live-filter-20261008";
@@ -258,9 +274,13 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"beauty-hosted-preview" | "mocked-unit-test" | "production" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (env.BEAUTY_HOSTED_PREVIEW === '1' || env.VERCEL_GIT_COMMIT_REF === BEAUTY_HOSTED_PREVIEW_BRANCH) {
+    assertBeautyHostedPreviewEnvironment(env);
+    return 'beauty-hosted-preview';
+  }
   if (env.BEAUTY_RELEASE_QA === "1") {
     assertBeautyReleaseQaEnvironment(env);
     return "beauty-release-qa";
