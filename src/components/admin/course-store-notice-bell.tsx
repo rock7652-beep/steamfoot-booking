@@ -2,6 +2,7 @@
 import {useEffect,useId,useRef,useState} from "react";
 import dynamic from "next/dynamic";
 import {loadCourseStoreNotices,markCourseStoreNotice,loadCourseStoreNoticeTarget} from "@/server/actions/course-store-notices";
+import {COURSE_NOTICE_LABELS} from "@/lib/course-store-notices";
 import type {StoreNoticeItem} from "@/lib/store-notices";
 import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
@@ -25,7 +26,7 @@ export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
   }catch{if(mounted.current&&seq===generation.current)setTargetError("課程讀取失敗，請重試");}
  }
  return <>
-  <StoreNoticeBell storeId={storeId} namespace="course" loadNotices={loadCourseStoreNotices} markNotice={markCourseStoreNotice} onViewTarget={n=>void openCourse(n)} targetLabel="查看課程" refreshKey={refreshKey}/>
+  <StoreNoticeBell storeId={storeId} namespace="course" labels={COURSE_NOTICE_LABELS} loadNotices={loadCourseStoreNotices} markNotice={markCourseStoreNotice} onViewTarget={n=>void openCourse(n)} targetLabel="查看課程" refreshKey={refreshKey}/>
   {course&&<ModalPanel open onClose={closeCourse} labelledById={courseHeading} width={1100}>
    <header className="flex items-center justify-between gap-2 border-b border-earth-200 p-3"><div className="min-w-0"><h2 id={courseHeading} className="text-base font-semibold text-primary-900">課程詳情</h2><p className="break-words text-sm text-earth-600">{target?.courseName??course.courseName}・{formatTWDateTime(new Date(target?.startsAt??course.startsAt))}</p></div><button type="button" className="min-h-11 shrink-0 px-3" onClick={closeCourse}>返回通知</button></header>
    <div className="max-h-[75dvh] overflow-y-auto p-3">

@@ -62,3 +62,9 @@ it("ignores a late course response after closing and keeps target failures insid
  m.target.mockResolvedValue({success:false,error:"對應課程已不存在"});await click("查看課程");
  expect(document.querySelector('[role="alert"]')?.textContent).toContain("對應課程已不存在");expect(document.querySelector('[data-testid="notice-course"]')).toBeNull();expect(m.mark).not.toHaveBeenCalled();
 });
+
+it("preserves the course-specific restore label in the shared notice presentation",async()=>{
+ m.load.mockResolvedValue(response([{...row,kind:"RESTORE"}]));
+ await act(async()=>window.dispatchEvent(new Event("focus")));
+ expect(document.body.textContent).toContain("恢復上課");
+});

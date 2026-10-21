@@ -7,10 +7,11 @@ import {STORE_NOTICE_LABELS,type StoreNoticeItem,type StoreNoticeLoadResult,type
 import {formatTWDateTime} from "@/lib/date-utils";
 import {NotificationSwitch} from "./notification-switch";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
-export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onViewTarget,targetLabel="查看預約",refreshKey=0}:{
+export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onViewTarget,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
  storeId:string;namespace:"course"|"steamfoot";
  loadNotices:(input:{storeId:string;handled:boolean;offset:number})=>Promise<StoreNoticeLoadResult>;
  markNotice:(input:{storeId:string;id:string;handled:boolean;revision:number})=>Promise<StoreNoticeMarkResult>;
+ labels?:Partial<Record<StoreNoticeItem["kind"],string>>;
  onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;targetLabel?:string;refreshKey?:number;
 }) {
  const [enabled,setEnabled]=useState(false),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
@@ -69,7 +70,7 @@ export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onView
       <div className="flex items-center gap-1 px-2 py-1 hover:bg-earth-50">
        <button type="button" className={`${rosterStatusButtonClassName} ${n.handledAt?"text-primary-700":"text-earth-400"}`} disabled={!canHandle||!!pending} aria-label={`${n.handledAt?"恢復待處理":"標記已處理"}：${n.customerName}`} aria-pressed={!!n.handledAt} onClick={()=>void toggle(n)}><span className="text-lg font-semibold" aria-hidden="true">{n.handledAt?"O":"○"}</span></button>
        <button className="min-h-11 min-w-0 flex-1 text-left" aria-expanded={expanded===n.id} onClick={()=>setExpanded(expanded===n.id?null:n.id)}>
-        <span className="flex flex-wrap gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{STORE_NOTICE_LABELS[n.kind]}</span>{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>
+        <span className="flex flex-wrap gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{labels[n.kind]??STORE_NOTICE_LABELS[n.kind]}</span>{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>
         <span className="block break-words text-earth-600">{n.previousStartsAt?`${noticeTime(n.previousStartsAt)} → `:""}{noticeTime(n.startsAt)}・{n.previousCoachName&&n.previousCoachName!==n.coachName?`${n.previousCoachName} → `:""}{n.coachName}</span>
        </button>
       </div>
