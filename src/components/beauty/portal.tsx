@@ -20,6 +20,7 @@ export function BeautyPortal({ data }: { data: BeautyPortalData }) {
   >(null);
   const purchaseRequests = useRef(new Map<string, string>());
   const [view, setView] = useState("home"),
+    [history,setHistory]=useState(false),
     [error, setError] = useState(""),
     [pending, start] = useTransition(),
     router = useRouter();
@@ -46,7 +47,7 @@ export function BeautyPortal({ data }: { data: BeautyPortalData }) {
   const [date,setDate]=useState(toLocalDateStr),[month,setMonth]=useState(toLocalMonthStr);
   const [now]=useState(Date.now);
   const next=[...data.items].filter(b=>b.status==='RESERVED'&&Date.parse(b.startsAt)>now).sort((a,b)=>a.startsAt.localeCompare(b.startsAt))[0];
-  const visibleItems=view==='home'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===toLocalDateStr()):view==='schedule'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===date):data.items;
+  const visibleItems=view==='home'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===toLocalDateStr()):view==='schedule'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===date):view==='bookings'?data.items.filter(b=>(history ? b.status!=='RESERVED'||Date.parse(b.endsAt)<now : b.status==='RESERVED'&&Date.parse(b.endsAt)>=now)):data.items;
   const moveMonth=(delta:number)=>setMonth(addTaiwanDuration(month+'-01',delta,'MONTH').slice(0,7));
   return (
     <div className="course-portal"><header className="cp-top"><CoursePortalBrand storeName={data.store.name}/>{(data.work||data.canWork)?<div className="cp-role-switch" role="group" aria-label="身分切換"><button aria-pressed={!data.work} onClick={()=>router.push(prefix+'/beauty')}>會員</button><button aria-pressed={data.work} onClick={()=>router.push(prefix+'/beauty?work=1')}>我的工作</button></div>:<span>會員專區</span>}<button aria-label="更新" disabled={pending} onClick={()=>router.refresh()}>↻</button></header>
@@ -71,13 +72,14 @@ export function BeautyPortal({ data }: { data: BeautyPortalData }) {
           onBooked={() => router.refresh()}
         />
       )}
+      {view==='bookings'&&<div className="cp-actions"><button className={!history?'primary':''} onClick={()=>setHistory(false)}>待服務</button><button className={history?'primary':''} onClick={()=>setHistory(true)}>歷史紀錄</button></div>}
       {["home","schedule","bookings"].includes(view) && (
-        <section className="space-y-3">
+        <section className={data.work?"cp-work-list":"space-y-3"}>
           {!visibleItems.length && <section className="cp-card cp-pad"><p>{view==="home"?"今天尚無服務安排。":"尚無服務預約。"}</p></section>}
           {visibleItems.map((b) => (
             <article
               key={b.id}
-              className={data.work?"cp-card cp-work-lesson":"cp-card cp-pad"}
+              className={data.work?"cp-card cp-pad cp-work-lesson":"cp-card cp-pad cp-booking-card"} style={data.work?{padding:14}:undefined}
             >
               <h2 className="font-semibold">
                 {b.personName}｜{b.serviceName}
@@ -196,11 +198,11 @@ export function BeautyPortal({ data }: { data: BeautyPortalData }) {
               <h2>{c.name}</h2>
               <p>
                 剩餘{c.remaining}次｜已預約{c.held}次｜可用
-                {c.closed ? 0 : Math.max(0, c.remaining - c.held)}次
+                {c.closed || Date.parse(c.expiresAt)<=now ? 0 : Math.max(0, c.remaining - c.held)}次
               </p>
               <p>
                 {formatTWDateTime(new Date(c.expiresAt))}到期
-                {c.closed ? "｜已結清" : ""}
+                {c.closed ? "｜已結清" : Date.parse(c.expiresAt)<=now?"｜已到期":""}
               </p>
             </article>
           ))}

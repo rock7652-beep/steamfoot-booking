@@ -41,7 +41,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   }
   for(const item of sessionBalances){sessionOwners.add(item.customerId);sessions.set(item.customerId,(sessions.get(item.customerId)??0)+item.available);}
   for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); if(row.hasPoints)pointOwners.add(row.id); if(row.hasSessions)sessionOwners.add(row.id); }
-  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), points);
+  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), sessionBalances.length ? sessions : points);
   const total = customerPage?.total ?? filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / 20));
   const requestedPage = Number(params.get("page"));

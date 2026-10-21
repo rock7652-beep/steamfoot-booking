@@ -67,7 +67,7 @@ export function BeautyDashboard({
     moneyRequest.current = crypto.randomUUID();
     updateMoneyPanel(v);
   }
-  const [detailId, setDetailId] = useState<string | null>(initialCustomerId??null);
+  const [detailId, setDetailId] = useState<string | null>(initialBooking ? null : initialCustomerId??null);
   const [techFilter] = useState(""),
     [roomFilter] = useState("");
   const [checked, setChecked] = useState<string[]>([]);
@@ -137,7 +137,7 @@ export function BeautyDashboard({
           {error}
         </p>
       )}
-      {!['首頁','班表','顧客管理','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button>{tab==='顧客管理'&&!readOnly&&data.manage.customer&&<button className={button+' bg-primary-700 text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar>}
+      {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button>{tab==='顧客管理'&&!readOnly&&data.manage.customer&&<button className={button+' bg-primary-700 text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar>}
       {tab==='首頁'&&<BeautyHome data={data} readOnly={readOnly} onBook={()=>setBooking(true)} onNavigate={navigate}/>}
       {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={()=>setBooking(true)} pending={pending} readOnly={readOnly}/><section className="space-y-2" aria-label="預約名單"><RosterToolbar label="預約名單操作"><h2 className="text-sm font-semibold">預約名單</h2>{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
  {key:'select',header:'選取',accessor:b=><input type="checkbox" aria-label={`選取${b.personName}`} disabled={readOnly||!data.manage.collect||!!b.cardId||b.status==='CANCELLED'} checked={checked.includes(b.id)} onChange={e=>setChecked(v=>e.target.checked?[...v,b.id]:v.filter(id=>id!==b.id))}/>},
@@ -386,28 +386,15 @@ export function BeautyDashboard({
                 />
                 <button className={button}>查看</button>
               </form>
-              {data.report.lines.map((l) => (
-                <div
-                  key={l.id}
-                  className="flex flex-wrap justify-between gap-2 border-b py-3"
-                >
-                  <span>
-                    {data.techs.find((t) => t.id === l.technicianId)?.name}｜
-                    {formatTWDateTime(new Date(l.date))}｜{l.personName}｜
-                    {l.serviceName}｜應付{l.fee}／已付{l.paid}
-                  </span>
-                  {!readOnly && data.manage.feePay && (
-                    <button
-                      className={button}
-                      onClick={() =>
-                        setMoneyPanel({ kind: "fee", ids: [l.id] })
-                      }
-                    >
-                      登錄付款
-                    </button>
-                  )}
-                </div>
-              ))}
+              <DataTable rows={data.report.lines} rowKey={l=>l.id} columns={[
+                {key:'technician',header:'技師',accessor:l=>data.techs.find(t=>t.id===l.technicianId)?.name??'—'},
+                {key:'date',header:'服務日期',accessor:l=>formatTWDateTime(new Date(l.date))},
+                {key:'customer',header:'顧客',accessor:l=>l.personName},
+                {key:'service',header:'服務項目',accessor:l=>l.serviceName},
+                {key:'fee',header:'應付',align:'right',accessor:l=>l.fee.toLocaleString('zh-TW')},
+                {key:'paid',header:'已付',align:'right',accessor:l=>l.paid.toLocaleString('zh-TW')},
+                {key:'actions',header:'操作',sticky:'right',accessor:l=>!readOnly&&data.manage.feePay?<button className={button} onClick={()=>setMoneyPanel({kind:'fee',ids:[l.id]})}>登錄付款</button>:null},
+              ]}/>
               {!readOnly && data.manage.feeConfirm && (
                 <button
                   disabled={pending}
@@ -459,7 +446,7 @@ export function BeautyDashboard({
               members={data.customers}
               onBooked={() => router.refresh()}
             />
-            <button className={button} onClick={() => setBooking(false)}>
+            <button className={button} onClick={() => {if(window.confirm("確定關閉預約表單？未送出資料將捨棄。"))setBooking(false);}}>
               關閉
             </button>
           </div>
