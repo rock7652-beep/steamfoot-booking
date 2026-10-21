@@ -18,7 +18,21 @@ try{
  browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_EXECUTABLE||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
  for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[560,800],[390,844]]){
   const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`http://127.0.0.1:${port}/`);await page.getByRole('button',{name:'門市通知，3 筆待處理'}).click();
+  await page.addInitScript(()=>{
+   globalThis.__noticeBeeps=0;
+   const original=AudioContext.prototype.createOscillator;
+   AudioContext.prototype.createOscillator=function(...args){globalThis.__noticeBeeps++;return original.apply(this,args);};
+  });
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.getByRole('button',{name:'門市通知，3 筆待處理'}).waitFor();
+  if(await page.evaluate(()=>globalThis.__noticeBeeps)!==0)throw Error('Initial snapshots must be silent');
+  await page.getByText('蒸足預約管理',{exact:true}).click();
+  await page.evaluate(()=>{globalThis.__bumpNotice(true);window.dispatchEvent(new Event('focus'));});
+  await page.getByRole('button',{name:'門市通知，4 筆待處理'}).waitFor();
+  await page.waitForFunction(()=>globalThis.__noticeBeeps===1);
+  await page.evaluate(()=>{globalThis.__bumpNotice(false);window.dispatchEvent(new Event('focus'));});
+  await page.getByRole('button',{name:'門市通知，3 筆待處理'}).click();
+  if(!await page.getByRole('switch',{name:'此裝置提示音',exact:true}).isChecked())throw Error('Sound must default on');
   const dialog=page.getByRole('dialog');await dialog.waitFor();
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error(`Page overflow ${width}`);
   const box=await dialog.boundingBox();if(box.x<0||box.x+box.width>width+1)throw Error('Panel outside viewport');
@@ -33,7 +47,11 @@ try{
   await page.getByText('查看預約：booking-0',{exact:true}).waitFor();
   await page.getByRole('switch',{name:'後台異動通知',exact:true}).click();await page.getByRole('button',{name:'門市通知，3 筆待處理'}).waitFor({state:'hidden'});
   await page.getByRole('switch',{name:'後台異動通知',exact:true}).click();await page.getByRole('button',{name:'門市通知，3 筆待處理'}).waitFor();
-  if(errors.length)throw Error(errors.join(';'));results.push({width,height,overflow:false,mark:true,undo:true,failureRestored:true,targetCallback:true,draftPreserved:true,settingToggle:true});await page.close();
+  await page.getByRole('button',{name:'門市通知，3 筆待處理'}).click();
+  await page.getByRole('switch',{name:'此裝置提示音',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'門市通知，3 筆待處理'}).click();
+  if(await page.getByRole('switch',{name:'此裝置提示音',exact:true}).isChecked())throw Error('Explicit mute must survive reload');
+  if(errors.length)throw Error(errors.join(';'));results.push({width,height,overflow:false,mark:true,undo:true,failureRestored:true,targetCallback:true,draftPreserved:true,settingToggle:true,soundDefaultOn:true,firstLoadSilent:true,gestureUnlock:true,newPendingTone:true,mutePersisted:true});await page.close();
  }
  writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));
 }finally{await browser?.close();await server.close();}

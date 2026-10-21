@@ -18,12 +18,23 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  const [enabled,setEnabled]=useState(initialEnabled),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
  const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
  const [offset,setOffset]=useState(0),[expanded,setExpanded]=useState<string|null>(null),[error,setError]=useState("");
- const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(false),[loading,setLoading]=useState(true);
+ const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(true),[loading,setLoading]=useState(true);
  const [undo,setUndo]=useState<StoreNoticeItem|null>(null);const heading=useId();
  const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
  const [countKnown,setCountKnown]=useState(false);
- const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(false);
+ const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(true);
  const audio=useRef<AudioContext|null>(null);const soundKey=`${namespace}-notice-sound:${storeId}`;
+ // Audio can only be unlocked inside a browser user gesture. Retry on later
+ // gestures if autoplay policy or an interrupted device rejected resume().
+ const armAudio=useCallback(()=>{
+  if(!soundRef.current)return;
+  try {
+   const Context=window.AudioContext??(window as Window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
+   if(!Context)return;
+   if(!audio.current||audio.current.state==="closed")audio.current=new Context();
+   if(audio.current.state!=="running")void audio.current.resume().catch(()=>{});
+  } catch { /* Unsupported or blocked audio must not break notifications. */ }
+ },[]);
  const load=useCallback(async()=>{
   if(busy.current)return;const seq=++generation.current;setLoading(true);
   try{const r=await reader.read({storeId,handled:open?handled:false,offset:open?offset:0,summaryOnly:!open});if(!mounted.current||seq!==generation.current)return;
@@ -36,8 +47,22 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
    }seen.current=r.count;
   }catch{if(mounted.current&&seq===generation.current)setError("通知更新失敗，請重試");}finally{if(mounted.current&&seq===generation.current)setLoading(false);}
  },[storeId,handled,offset,open,reader]);
- useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;void audio.current?.close();};},[]);
- useEffect(()=>{try{const s=localStorage.getItem(soundKey)==="on";soundRef.current=s;setSound(s);}catch{}},[soundKey]);
+ useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;const context=audio.current;audio.current=null;if(context)void context.close().catch(()=>{});};},[]);
+ useEffect(()=>{
+  let selected=true;try{selected=localStorage.getItem(soundKey)!=="off";}catch{}
+  soundRef.current=selected;setSound(selected);
+ },[soundKey]);
+ useEffect(()=>{
+  if(!enabled||!sound)return;
+  document.addEventListener("pointerdown",armAudio,true);
+  document.addEventListener("touchend",armAudio,true);
+  document.addEventListener("keydown",armAudio,true);
+  return()=>{
+   document.removeEventListener("pointerdown",armAudio,true);
+   document.removeEventListener("touchend",armAudio,true);
+   document.removeEventListener("keydown",armAudio,true);
+  };
+ },[enabled,sound,armAudio]);
  useEffect(()=>{
   const requestGeneration=generation;void load();const refresh=()=>{if(document.visibilityState==="visible")void load();};
   const timer=setInterval(refresh,60000);document.addEventListener("visibilitychange",refresh);window.addEventListener("focus",refresh);window.addEventListener(`${namespace}-notices-setting`,refresh);
@@ -56,7 +81,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  useEffect(()=>{if(!undo)return;const timer=setTimeout(()=>setUndo(null),7000);return()=>clearTimeout(timer);},[undo]);
  if(!enabled)return null;
  return <>
-  <button type="button" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound){audio.current??=new AudioContext();void audio.current.resume();}}}>
+  <button type="button" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
    {count>0&&<span className="absolute right-0 top-0 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}
   </button>
@@ -65,7 +90,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
     <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-3 py-1"><h2 id={heading} className="text-base font-semibold text-primary-900">門市通知</h2><button className="min-h-11 min-w-11 text-xl" aria-label="關閉通知" onClick={()=>setOpen(false)}>×</button></div>
     <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-earth-200 px-3"><div role="tablist" aria-label="處理狀態" className="flex">
      {[false,true].map(h=><button key={String(h)} role="tab" aria-selected={handled===h} disabled={!!pending} className={`min-h-11 border-b-2 px-3 text-sm ${handled===h?"border-primary-700 font-semibold text-primary-800":"border-transparent text-earth-600"}`} onClick={()=>{if(h===handled)return;generation.current++;setItems([]);setLoading(true);setError("");setRowError({});setHandled(h);setOffset(0);setExpanded(null);}}>{h?"已處理":`待處理 ${count}`}</button>)}
-    </div><label className="ml-auto flex min-h-11 items-center gap-2 text-sm">提示音<NotificationSwitch aria-label="此裝置提示音" checked={sound} onChange={e=>{const s=e.target.checked;setSound(s);soundRef.current=s;try{localStorage.setItem(soundKey,s?"on":"off");}catch{}if(s){audio.current??=new AudioContext();void audio.current.resume();}}}/></label></div>
+    </div><label className="ml-auto flex min-h-11 items-center gap-2 text-sm">提示音<NotificationSwitch aria-label="此裝置提示音" checked={sound} onChange={e=>{const s=e.target.checked;setSound(s);soundRef.current=s;try{localStorage.setItem(soundKey,s?"on":"off");}catch{}if(s)armAudio();}}/></label></div>
     <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto">
      {error&&<div role="alert" className="flex items-center justify-between px-3 py-2 text-sm text-red-700">{error}<button className="min-h-11 px-2" onClick={()=>void load()}>重試</button></div>}
      {loading&&!items.length&&<p className="p-3 text-sm text-earth-500" role="status">讀取中…</p>}
