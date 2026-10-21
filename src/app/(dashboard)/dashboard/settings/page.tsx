@@ -1,3 +1,5 @@
+import {SteamfootNoticeSetting} from "@/components/admin/steamfoot-notice-setting";
+import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
@@ -131,6 +133,8 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     checkPermission(user.role, user.staffId, "customer.read"),
   ]);
 
+  const steamfootNoticesEnabled = industry === "steamfoot" && canBooking ? await readSteamfootNoticeEnabled(prisma, activeStoreId) : true;
+
   const planInfo = PRICING_PLAN_INFO[plan];
   const planLabel = planInfo?.label ?? plan;
   const openDays = weeklyHours.filter((h) => h.isOpen);
@@ -155,6 +159,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
   // Feature availability never grants a staff permission required by the destination page.
   const commonNotificationRows = (
     <>
+      {industry === "steamfoot" && canBooking && <SteamfootNoticeSetting key={`${activeStoreId}:${steamfootNoticesEnabled}`} storeId={activeStoreId} initialEnabled={steamfootNoticesEnabled} canEdit={canHours && (user.role === "ADMIN" || user.storeId === activeStoreId)}/>}
       <CustomerLabelsSettings />
       {canHours ? (
         <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理">

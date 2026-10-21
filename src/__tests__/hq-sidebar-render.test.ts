@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const context = vi.hoisted(() => ({ path: "/hq/dashboard", search: "" }));
 vi.mock("next/navigation", () => ({ usePathname: () => context.path, useSearchParams: () => new URLSearchParams(context.search) }));
-vi.mock("next/dynamic", () => ({ default: () => () => null }));
+vi.mock("next/dynamic", () => ({ default: (loader: unknown) => String(loader).includes("steamfoot-store-notice-bell") ? ({storeId}:{storeId:string}) => createElement("span", {"data-steamfoot-notice-store":storeId}) : () => null }));
 vi.mock("next/link", () => ({ default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never) }));
 vi.mock("@/components/operation-guide-shell", () => ({ OperationGuideShell: ({ children, enabled, contextPath }: {children: unknown; enabled: boolean; contextPath: string}) => createElement("div", {"data-guide-enabled": String(enabled), "data-guide-path": contextPath}, children as never), OperationGuideTrigger: () => null }));
 vi.mock("@/components/feature-gate", () => ({ PlanBadge: () => null, TrialProgressBar: () => null, LockedNavItem: ({label}: {label: string}) => createElement("button", {}, label) }));
@@ -186,4 +186,11 @@ it.each(["steamfoot", "spa", "course"] as const)("shows granted %s store operati
   expect(html).toContain("operation-audits");
   expect(html).toContain("操作紀錄");
   expect(html).not.toContain("操作與登入紀錄");
+});
+
+it("shows the steamfoot bell only in an authorized single-store scope",()=>{
+ expect(render("steamfoot","a","/s/a/admin/dashboard")).toContain('data-steamfoot-notice-store="a"');
+ expect(render("steamfoot",null)).not.toContain('data-steamfoot-notice-store=');
+ expect(render("steamfoot","a","/s/a/admin/dashboard",false,false,[])).not.toContain('data-steamfoot-notice-store=');
+ expect(render("course","a","/s/a/admin/dashboard")).not.toContain('data-steamfoot-notice-store=');
 });
