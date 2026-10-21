@@ -88,7 +88,7 @@ export async function reserveCourse(
     return reserveCourseInTransaction(
       tx,
       actor,
-      {...input,cardId},
+      {...input,cardId,onSite:true},
       limits.maxMonthlyBookings,
     );
   });
@@ -158,7 +158,9 @@ export async function reserveCourseMembers(
 
 export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number }) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
-  return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
+  // This is a staff-only back-office action used to enter trial learners,
+  // including after the session, when backfilling the roster.
+  return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null, onSite: true }, limits.maxMonthlyBookings));
 }
 
 export async function reserveCourseInTransaction(
@@ -309,7 +311,7 @@ export async function reserveCourseInTransaction(
   if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || (actor.customerId&&!options.sportsMemberTrial))) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
-    !(input.onSite && !actor.customerId && session.endsAt > now) &&
+    !(input.onSite && !actor.customerId) &&
     session.startsAt.getTime() <=
     now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
   )
