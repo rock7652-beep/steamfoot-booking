@@ -186,7 +186,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
                 : result.store.currentSubscriptionId
                   ? "✅ 已開通 30 天完整功能試用，可交由店長完成課程設定"
                 : result.canActivate
-                  ? "✅ 建置完成，尚未起算試用；入口驗收可用後再開通 30 天"
+                  ? "✅ 建置完成，可開通 30 天後台試用；前台透過裝置預覽，LINE 可稍後設定"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>

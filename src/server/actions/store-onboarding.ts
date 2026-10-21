@@ -288,7 +288,6 @@ export async function createStoreAction(
 
 export async function activateStoreAction(
   storeId: string,
-  entryAcceptanceConfirmed = false,
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
   await requirePermission("staff.manage");
@@ -334,7 +333,7 @@ export async function activateStoreAction(
   if (store.currentSubscriptionId) return { success: false, error: "已有訂閱，請至訂閱管理轉正式或續約" };
   const { createTrialSubscription } = await import("@/server/actions/store-subscription");
   const { toLocalDateStr } = await import("@/lib/date-utils");
-  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30, entryAcceptanceConfirmed });
+  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30 });
   if (!result.success) return result;
   return { success: true, data: { planStatus: "TRIAL" } };
 }
