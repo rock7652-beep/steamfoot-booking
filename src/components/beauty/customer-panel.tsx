@@ -1,4 +1,8 @@
 "use client";
+import {CustomerLabels} from "@/components/customer-labels";
+import {StoreMemberConnectionPanel} from "@/components/admin/store-member-connection-panel";
+import {useCustomerPanelGuard} from "@/components/admin/use-customer-panel-guard";
+import {SettingsPanelContext} from "@/components/admin/settings-panel-context";
 import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
 import {CustomerDetailFields,CustomerPhoneLink} from "@/components/customer-detail-fields";
 import {DataTable} from "@/components/desktop";
@@ -26,6 +30,8 @@ export function BeautyCustomerPanel({
   readOnly: boolean;
   onClose: () => void;
 }) {
+  const support=useCustomerPanelGuard();
+  const [recordTab,setRecordTab]=useState("bookings");
   const [reader] = useState(() =>
     createClientReadCache((id: string) => readBeautyCustomer({ id }), {
       ttlMs: 0,
@@ -72,10 +78,10 @@ export function BeautyCustomerPanel({
     });
   }
   const [dirty,setDirty]=useState(false),[tab,setTab]=useState("info"),[editing,setEditing]=useState(false);
-  const close=()=>{if(!pending&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
+  const close=()=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
   const customer = detail?.success ? detail.data.customer : null;
   return (
-    <RightSheet
+    <SettingsPanelContext.Provider value={support.context}><RightSheet
       open
       className="fitness-management-editor"
       presentation="centered"
@@ -86,10 +92,10 @@ export function BeautyCustomerPanel({
     >
       <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
         <h2 id="beauty-customer-detail" className="min-w-0 break-words text-base font-semibold text-primary-900">{customer?.name??'顧客資料與服務紀錄'}</h2>
-        <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!dirty||window.confirm('尚未儲存，確定切換？')){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending} onClick={close}>關閉</button></div>
+        <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending} onClick={close}>關閉</button></div>
       </header>
-      <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={()=>setDirty(true)}>
+      <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={e=>{if((e.target as HTMLElement).closest('form[data-beauty-draft]'))setDirty(true);}}>
         {!detail && !error && <p role="status">讀取中…</p>}
         {detail && !detail.success && <p role="alert">{detail.error}</p>}
         {error && (
@@ -97,9 +103,10 @@ export function BeautyCustomerPanel({
             {error}
           </p>
         )}
-        {customer&&tab==='info'&&!editing&&<section className="space-y-3"><CustomerPhoneLink phone={customer.phone}/><CustomerDetailFields items={[{label:'姓名',value:customer.name},{label:'店內備註',value:customer.notes,full:true}]}/><section className="border-t border-earth-100 pt-2"><h3 className="py-2 text-sm font-semibold">持有方案</h3><DataTable rows={data.cards.filter(c=>c.memberIds.includes(id))} rowKey={c=>c.id} columns={[{key:'name',header:'方案',accessor:c=>c.name},{key:'balance',header:'可用次數',accessor:c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now?Math.max(0,c.remaining-c.held)+' 次':'已結清／到期'},{key:'held',header:'已預約',accessor:c=>c.held+' 次'},{key:'expiry',header:'到期',accessor:c=>formatTWDateTime(new Date(c.expiresAt))}]}/></section></section>}
+        {customer&&tab==='info'&&!editing&&<section className="space-y-3"><CustomerPhoneLink phone={customer.phone}/><CustomerLabels customerId={id} readOnly={readOnly||!data.manage.customerEdit} maxVisible={5}/>{!readOnly&&data.manage.customerEdit?<StoreMemberConnectionPanel compact customerId={id}/>:<p className="text-sm">會員身分：{data.customers.find(c=>c.id===id)?.userId?'已連結':'尚未連結'}</p>}<CustomerDetailFields items={[{label:'姓名',value:customer.name},{label:'店內備註',value:customer.notes,full:true}]}/><section className="border-t border-earth-100 pt-2"><h3 className="py-2 text-sm font-semibold">持有方案</h3><DataTable rows={data.cards.filter(c=>c.memberIds.includes(id))} rowKey={c=>c.id} columns={[{key:'name',header:'方案',accessor:c=>c.name},{key:'balance',header:'可用次數',accessor:c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now?Math.max(0,c.remaining-c.held)+' 次':'已結清／到期'},{key:'held',header:'已預約',accessor:c=>c.held+' 次'},{key:'expiry',header:'到期',accessor:c=>formatTWDateTime(new Date(c.expiresAt))}]}/></section></section>}
         {customer && tab==='info' && editing && (
           <form
+            data-beauty-draft
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
@@ -159,6 +166,7 @@ export function BeautyCustomerPanel({
           .filter((c) => c.customerId === id && c.allowShared && !c.closedAt)
           .map((c) => (
             <form
+              data-beauty-draft
               className="space-y-2 border-t border-earth-100 py-2 text-sm"
               key={c.id}
               onSubmit={(e) => {
@@ -199,12 +207,14 @@ export function BeautyCustomerPanel({
           ))}
         {tab==='records'&&detail?.success && (
           <section>
-            <h3>最近200筆服務紀錄</h3>
+            <nav className="flex gap-2" aria-label="紀錄種類"><button className="min-h-11 px-3 text-sm" aria-pressed={recordTab==='bookings'} onClick={()=>setRecordTab('bookings')}>服務紀錄</button>{detail.data.canTransactions&&<button className="min-h-11 px-3 text-sm" aria-pressed={recordTab==='purchases'} onClick={()=>setRecordTab('purchases')}>交易紀錄</button>}</nav>
+            {recordTab==='purchases'&&detail.data.canTransactions?<DataTable rows={detail.data.payments} rowKey={p=>p.id} columns={[{key:'date',header:'入帳日期',accessor:p=>formatTWDateTime(new Date(p.createdAt))},{key:'kind',header:'類型',accessor:p=>p.kind==='SALE'?'收款':'退款'},{key:'amount',header:'金額',accessor:p=>p.amount.toLocaleString('zh-TW')},{key:'method',header:'付款方式',accessor:p=>({CASH:'現金',BANK_TRANSFER:'轉帳',CARD:'刷卡',OTHER:'其他'} as Record<string,string>)[p.method]??p.method},{key:'note',header:'備註',accessor:p=>p.note}]}/>:null}
+            {recordTab==='bookings'&&<><h3>最近200筆服務紀錄</h3>
             {!detail.data.items.length && <p>尚無連結會員身分的服務紀錄。</p>}
-            <DataTable rows={detail.data.items} rowKey={b=>b.id} columns={[{key:'date',header:'服務日期',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'service',header:'服務項目',accessor:b=>b.serviceName},{key:'status',header:'狀態',accessor:b=>({RESERVED:'預約',COMPLETED:'完成',CANCELLED:'取消',NO_SHOW:'未到'} as Record<string,string>)[b.status]??b.status},{key:'notes',header:'備註',accessor:b=>b.notes}]}/>
+            <DataTable rows={detail.data.items} rowKey={b=>b.id} columns={[{key:'date',header:'服務日期',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'service',header:'服務項目',accessor:b=>b.serviceName},{key:'status',header:'狀態',accessor:b=>({RESERVED:'預約',COMPLETED:'完成',CANCELLED:'取消',NO_SHOW:'未到'} as Record<string,string>)[b.status]??b.status},{key:'notes',header:'備註',accessor:b=>b.notes}]}/></>}
           </section>
         )}
       </div>
-    </RightSheet>
+    </RightSheet></SettingsPanelContext.Provider>
   );
 }

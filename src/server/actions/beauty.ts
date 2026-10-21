@@ -4,9 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission,checkPermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/feature-flags";
-import { requireStoreFeature } from "@/lib/feature-gate";
+import { requireStoreFeature,hasStoreFeature } from "@/lib/feature-gate";
 import { toLocalDateStr } from "@/lib/date-utils";
 import {
   serviceInput,
@@ -723,7 +723,13 @@ export async function readBeautyCustomer(input: unknown) {
       orderBy: { startsAt: "desc" },
       take: 200,
     });
+    const viewer=await requirePermission("customer.read");
+    const canTransactions=!!viewer&&await checkPermission(viewer.role,viewer.staffId,'transaction.read')&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
+    const ownedCards=canTransactions?await beautyPrisma.beautyCard.findMany({where:{storeId:a.storeId,customerId:id},select:{id:true}}):[];
+    const payments=canTransactions?await beautyPrisma.beautyPayment.findMany({where:{storeId:a.storeId,kind:{in:['SALE','REFUND']},OR:[{appointmentId:{in:items.map(b=>b.id)}},{cardId:{in:ownedCards.map(c=>c.id)}}]},select:{id:true,kind:true,amount:true,method:true,note:true,createdAt:true},orderBy:{createdAt:'desc'},take:200}):[];
     return {
+      canTransactions,
+      payments:payments.map(p=>({...p,createdAt:p.createdAt.toISOString()})),
       customer: { ...customer, notes: customer.notes ?? "" },
       items: items.map((b) => ({
         id: b.id,

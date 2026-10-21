@@ -1,4 +1,5 @@
 "use client";
+import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
 import { useState, useTransition } from "react";
 import {fitnessEditorFooter,fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -43,14 +44,17 @@ export function BeautyCatalogEditor({
   onClose,
   onSaved,
   readOnly=false,
+  settingsSection="booking",
 }: {
   kind: EditorKind;
   readOnly?:boolean;
+  settingsSection?:"booking"|"notifications";
   data: BeautyDashboardData;
   draft?: Draft;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [techTab,setTechTab]=useState("basic");
   const [error, setError] = useState(""),
     [pending, start] = useTransition(),
     [dirty, setDirty] = useState(false),
@@ -115,7 +119,9 @@ export function BeautyCatalogEditor({
           關閉
         </button>
       </header>
+      {kind==='technician'&&<CustomerPanelTabs ariaLabel="技師編輯分類" disabled={pending} value={techTab} items={[{id:'basic',label:'基本資料'},{id:'services',label:'服務與拆帳'},{id:'availability',label:'可服務時間'},{id:'work',label:'會員與工作權限'}]} onSelect={setTechTab}/>}
       <form
+        onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
         className="min-h-0 overflow-y-auto p-4"
         onChange={() => setDirty(true)}
         onSubmit={(e) => {
@@ -232,7 +238,7 @@ export function BeautyCatalogEditor({
       >
         <fieldset disabled={pending||readOnly} className="grid gap-4 sm:grid-cols-2">
           {kind !== "settings" && (
-            <>
+            <div className={kind!=="technician"||techTab==="basic"?"contents":"hidden"} data-tech-tab="basic">
               <label>
                 名稱
                 <input
@@ -250,7 +256,7 @@ export function BeautyCatalogEditor({
                 />
                 啟用
               </label>
-            </>
+            </div>
           )}
           {kind === "service" && (
             <>
@@ -365,6 +371,7 @@ export function BeautyCatalogEditor({
           )}
           {kind === "technician" && (
             <>
+              <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}>
               <label>
                 性別（必填）
                 <select
@@ -390,6 +397,7 @@ export function BeautyCatalogEditor({
                   defaultValue={draft.sort ?? 0}
                 />
               </label>
+              </div><div data-tech-tab="work" className={techTab==='work'?'contents':'hidden'}>
               <label>
                 連結會員帳號
                 <select
@@ -430,6 +438,7 @@ export function BeautyCatalogEditor({
                   ))}
                 </div>
               </fieldset>
+              </div><div data-tech-tab="availability" className={techTab==='availability'?'contents':'hidden'}>
               <fieldset className="sm:col-span-2 space-y-2">
                 <legend>每週可服務時間</legend>
                 {weekly.map((p, i) => (
@@ -514,10 +523,11 @@ export function BeautyCatalogEditor({
                 </p>
                 <p>未設定的日期不開放服務。</p>
               </fieldset>
+              </div>
             </>
           )}
           {kind === "technician" && (
-            <fieldset className="space-y-3 sm:col-span-2">
+            <fieldset data-tech-tab="availability" className={"space-y-3 sm:col-span-2 "+(techTab==='availability'?'':'hidden')}>
               <legend>指定日期休假／調班</legend>
               {exceptions.map((e, i) => (
                 <div key={i} className="grid gap-2 sm:grid-cols-4">
@@ -607,7 +617,7 @@ export function BeautyCatalogEditor({
             </fieldset>
           )}
           {(kind === "plan" || kind === "technician") && (
-            <fieldset className="sm:col-span-2 space-y-3">
+            <fieldset data-tech-tab="services" className={"sm:col-span-2 space-y-3 "+(kind==='technician'&&techTab!=='services'?'hidden':'')}>
               <legend>
                 {kind === "plan" ? "適用服務" : "可服務項目與拆帳"}
               </legend>
@@ -706,7 +716,7 @@ export function BeautyCatalogEditor({
                 ["cancelDeduct", "取消扣次（未勾選不扣次）"],
                 ["noShowDeduct", "未到扣次（未勾選不扣次）"],
               ].map(([key, label]) => (
-                <label key={key} className="flex min-h-11 gap-2 items-center">
+                <label key={key} className={(key==='notifications'?settingsSection==='notifications':settingsSection==='booking')?"flex min-h-11 gap-2 items-center":"hidden"}>
                   <input
                     type="checkbox"
                     name={key}
@@ -722,7 +732,7 @@ export function BeautyCatalogEditor({
                 ["cancelLeadMinutes", "取消截止分鐘"],
                 ["bookableDays", "開放預約天數"],
               ].map(([key, label]) => (
-                <label key={key}>
+                <label key={key} className={settingsSection==='booking'?'':'hidden'}>
                   {label}
                   <input
                     className={field}

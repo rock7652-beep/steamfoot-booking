@@ -1,5 +1,8 @@
 "use client";
-import {BusinessMetric} from "@/components/admin/business-metric";
+import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
+import ReportDateRange from "@/components/report-date-range";
+import {courseAnalysisRange} from "@/lib/course-analytics";
+import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
 import {DataTable} from '@/components/desktop';
 import {CourseCustomerList} from '@/app/(dashboard)/dashboard/courses/customer-list';
 import {RosterToolbar,RosterMoreMenu} from '@/components/admin/roster-primitives';
@@ -39,13 +42,13 @@ export function BeautyDashboard({
   tab,
   slug,
   readOnly = false,
-  careContent,operationsNavigation,initialCustomerId,initialBooking=false,
+  analyticsContent,careContent,operationsNavigation,initialCustomerId,initialBooking=false,
 }: {
   data: BeautyDashboardData;
   tab: BeautyTab;
   slug: string;
   readOnly?: boolean;
-  careContent?:ReactNode;operationsNavigation?:ReactNode;initialCustomerId?:string;initialBooking?:boolean;
+  analyticsContent?:ReactNode;careContent?:ReactNode;operationsNavigation?:ReactNode;initialCustomerId?:string;initialBooking?:boolean;
 }) {
   const params=useSearchParams(),settingsCategory=params.get("section")??"booking";
   const router = useRouter(),
@@ -55,15 +58,22 @@ export function BeautyDashboard({
     [booking, setBooking] = useState(initialBooking),
     [editor, setEditor] = useState<{
       kind: EditorKind;
+      settingsSection?:"booking"|"notifications";
       draft?: Record<string, unknown>;
     } | null>(null);
+  const [moneyDirty,setMoneyDirty]=useState(false),[bookingState,setBookingState]=useState({dirty:false,pending:false});
+  const [statusDraft,setStatusDraft]=useState<{id:string;revision:number;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';reason:string;requestKey:string}|null>(null);
   const moneyRequest = useRef(crypto.randomUUID());
   const [moneyPanel, updateMoneyPanel] = useState<{
       kind: "collect" | "refund" | "card" | "fee" | "move" | "void" | "link";
       ids: string[];
     } | null>(null),
     [customerPanel, setCustomerPanel] = useState(false);
+  useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),pending&&!!(moneyPanel||statusDraft));
+  function closeBooking(){if(bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定離開？"))return;setBooking(false);setBookingState({dirty:false,pending:false});}
+  function closeMoney(){if(pending||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
+    setMoneyDirty(false);
     moneyRequest.current = crypto.randomUUID();
     updateMoneyPanel(v);
   }
@@ -71,6 +81,11 @@ export function BeautyDashboard({
   const [techFilter] = useState(""),
     [roomFilter] = useState("");
   const [checked, setChecked] = useState<string[]>([]);
+  const [receiptSearch,setReceiptSearch]=useState(''),[receiptKind,setReceiptKind]=useState(''),[receiptPage,setReceiptPage]=useState(0),[paymentId,setPaymentId]=useState<string|null>(null);
+  const requestedArea=params.get('area');
+  const operationsArea=requestedArea==='fees'&&data.report?'fees':requestedArea==='purchases'&&data.access.planAccess&&data.access.customerAccess?'purchases':'revenue';
+  const receipts=data.payments.filter(p=>(!receiptKind||p.kind===receiptKind)&&`${p.note} ${p.amount}`.includes(receiptSearch));
+  const financialDates=courseAnalysisRange(tab==='營運'?Object.fromEntries(params):{month:data.month});
   const [bookingSeed,setBookingSeed]=useState<{date?:string;time?:string}>({});
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const navigate=(tab:string)=>router.push(`?tab=${encodeURIComponent(tab)}`,{scroll:false});
@@ -106,17 +121,8 @@ export function BeautyDashboard({
     revision: number,
     target: "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESERVED",
   ) {
-    const reason = window.prompt("請填寫操作原因");
-    if (reason?.trim())
-      run(() =>
-        changeBeautyStatus("manager", {
-          requestKey: crypto.randomUUID(),
-          id,
-          revision,
-          target,
-          reason,
-        }),
-      );
+    setError('');
+    setStatusDraft({id,revision,target,reason:'',requestKey:crypto.randomUUID()});
   }
   const canEditTab =
     (
@@ -128,9 +134,6 @@ export function BeautyDashboard({
         設定: data.manage.settings,
       } as Record<string, boolean>
     )[tab] ?? false;
-  const total = data.payments
-    .filter((p) => ["SALE", "REFUND"].includes(p.kind))
-    .reduce((n, p) => n + p.amount, 0);
   return (
     <div className="course-workspace min-w-0 space-y-3">
       {error && (
@@ -300,38 +303,12 @@ export function BeautyDashboard({
       ))}</div></RightSheet>}
       {tab==='顧客管理'&&<section className="space-y-3"><RosterToolbar label="顧客管理操作"><span className="text-sm text-earth-500">共 {data.customers.length} 人</span>{!readOnly&&data.manage.customer&&<button className={button+' ml-auto !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar><CourseCustomerList rows={data.customers.map(c=>({...c,mergedIntoCustomerId:null,userStatus:c.user?.status??null,serviceNote:c.notes,validPackageSessions:0,sponsoredCount:c._count.sponsoredCustomers}))} cards={[]} sportsNative basePath="/dashboard/beauty?tab=顧客管理" sessionUnitLabel="次" sessionBalances={data.cards.filter(k=>!k.closedAt&&Date.parse(k.expiresAt)>data.now).flatMap(k=>k.memberIds.map(customerId=>({customerId,available:Math.max(0,k.remaining-k.held)})))} canReadCards={data.access.planAccess} onView={setDetailId} onCreate={!readOnly&&data.manage.customer?()=>setCustomerPanel(true):undefined} onAssign={!readOnly&&data.manage.card?id=>setMoneyPanel({kind:'card',ids:[id]}):undefined}/></section>}
       {tab==='顧客經營'&&careContent}
-      {tab === "分析" && (
-        <form className="flex flex-wrap gap-2">
-          <input type="hidden" name="tab" value="分析" />
-          <label>
-            月份
-            <input
-              className={field}
-              type="month"
-              name="month"
-              defaultValue={data.month}
-            />
-          </label>
-          <button className={button}>查看</button>
-        </form>
-      )}
-      {tab==='分析'&&<div className="space-y-3"><div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><BusinessMetric label="預約人次" value={String(data.analytics.filter(r=>r.status!=='CANCELLED').reduce((n,r)=>n+r._count.id,0))}/><BusinessMetric label="完成服務" value={String(data.analytics.filter(r=>r.status==='COMPLETED').reduce((n,r)=>n+r._count.id,0))}/>{data.access.financeAccess&&<BusinessMetric label="淨收款" value={`NT$ ${total.toLocaleString('zh-TW')}`} note="依收退款入帳日，含方案銷售"/>}{data.access.planAccess&&<BusinessMetric label="有效方案" value={String(data.cards.filter(c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now).length)}/>}</div><DataTable columns={[{key:'service',header:'服務項目',accessor:r=>r.serviceName},{key:'status',header:'狀態',accessor:r=>({RESERVED:'預約',COMPLETED:'完成',CANCELLED:'取消',NO_SHOW:'未到'}[r.status]??r.status)},{key:'count',header:'人次',accessor:r=>r._count.id}]} rows={data.analytics} rowKey={r=>r.serviceName+r.status}/><details className="rounded-xl border border-earth-200 bg-white p-4 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer">統計方式與歸屬</summary><p>服務依預約開始日期統計，收退款依實際入帳日期。方案銷售計入收款，技師拆帳另列；不重複加計現金帳。</p></details></div>}
+      {tab==='分析'&&analyticsContent}
       {tab === "營運" && (
         <section className="space-y-4">
           {operationsNavigation}
-          <form className="flex flex-wrap gap-2">
-            <input type="hidden" name="tab" value="營運" />
-            <label>
-              月份
-              <input
-                className={field}
-                type="month"
-                name="month"
-                defaultValue={data.month}
-              />
-            </label>
-            <button className={button}>查看</button>
-          </form>
+          <CustomerPanelTabs ariaLabel="營運分類" value={operationsArea} items={[{id:'revenue',label:'收退款明細'},...(data.access.planAccess&&data.access.customerAccess?[{id:'purchases',label:'待核帳'}]:[]),...(data.report?[{id:'fees',label:'技師月結'}]:[])]} onSelect={id=>{const q=new URLSearchParams(params.toString());q.set('area',id);router.push('?'+q,{scroll:false});}}/>
+          <div hidden={operationsArea!=='purchases'}>
           <h2 className="font-semibold">待核帳</h2>
           {data.purchases.map((p) => (
             <div key={p.id} className="flex flex-wrap gap-3 border-b py-3">
@@ -356,29 +333,19 @@ export function BeautyDashboard({
               )}
             </div>
           ))}
+          </div><div hidden={operationsArea!=='revenue'} className="space-y-3">
+          <ReportDateRange compact preserveQuery activePreset={params.get('startDate')?'custom':params.get('preset')??'month'} {...financialDates}/>
+          <RosterToolbar label="收退款篩選"><input className={field+' max-w-72'} aria-label="搜尋收退款" placeholder="搜尋備註或金額" value={receiptSearch} onChange={e=>{setReceiptSearch(e.target.value);setReceiptPage(0);}}/><select className={button} aria-label="交易類型" value={receiptKind} onChange={e=>{setReceiptKind(e.target.value);setReceiptPage(0);}}><option value="">全部類型</option><option value="SALE">收款</option><option value="REFUND">退款</option><option value="FEE">技師付款</option><option value="FEE_VOID">拆帳收回</option></select><span>共 {receipts.length} 筆</span></RosterToolbar>
           <h2 className="font-semibold">收款與退款紀錄</h2>
-          <DataTable rows={data.payments} rowKey={p=>p.id} columns={[{key:'date',header:'入帳時間',accessor:p=>formatTWDateTime(new Date(p.createdAt))},{key:'kind',header:'類型',accessor:p=>({SALE:'收款',REFUND:'退款',FEE:'技師付款',FEE_VOID:'拆帳收回'} as Record<string,string>)[p.kind]??p.kind},{key:'amount',header:'金額',align:'right',accessor:p=>`NT$ ${p.amount.toLocaleString('zh-TW')}`},{key:'method',header:'付款方式',accessor:p=>({CASH:'現金',BANK_TRANSFER:'轉帳',CARD:'刷卡',OTHER:'其他'} as Record<string,string>)[p.method]??p.method},{key:'note',header:'備註',accessor:p=>p.note},{key:'actions',header:'操作',sticky:'right',accessor:p=><div className="flex gap-2">              {p.kind === "FEE" && !readOnly && data.manage.feePay && (
-                <button
-                  className={button}
-                  onClick={() => setMoneyPanel({ kind: "void", ids: [p.id] })}
-                >
-                  登錄拆帳收回
-                </button>
-              )}
-              {p.kind === "SALE" && !readOnly && data.manage.refund && (
-                <button
-                  className={button}
-                  onClick={() => setMoneyPanel({ kind: "refund", ids: [p.id] })}
-                >
-                  登錄退款
-                </button>
-              )}
-</div>}]} />
+          <DataTable rows={receipts.slice(receiptPage*20,receiptPage*20+20)} rowKey={p=>p.id} columns={[{key:'date',header:'入帳時間',accessor:p=>formatTWDateTime(new Date(p.createdAt))},{key:'kind',header:'類型',accessor:p=>({SALE:'收款',REFUND:'退款',FEE:'技師付款',FEE_VOID:'拆帳收回'} as Record<string,string>)[p.kind]??p.kind},{key:'amount',header:'金額',align:'right',accessor:p=>`NT$ ${p.amount.toLocaleString('zh-TW')}`},{key:'method',header:'付款方式',accessor:p=>({CASH:'現金',BANK_TRANSFER:'轉帳',CARD:'刷卡',OTHER:'其他'} as Record<string,string>)[p.method]??p.method},{key:'note',header:'備註',accessor:p=>p.note},{key:'actions',header:'操作',sticky:'right',accessor:p=><RosterMoreMenu openLabel="查看收退款明細" name="交易" onOpen={()=>setPaymentId(p.id)}/>}]} />
+          {receipts.length>20&&<nav aria-label="收退款分頁" className="flex justify-end gap-3 text-sm"><button className={button} disabled={!receiptPage} onClick={()=>setReceiptPage(receiptPage-1)}>上一頁</button><span>{receiptPage+1}／{Math.ceil(receipts.length/20)}</span><button className={button} disabled={(receiptPage+1)*20>=receipts.length} onClick={()=>setReceiptPage(receiptPage+1)}>下一頁</button></nav>}
+          </div>
           {data.report && (
-            <section className="space-y-3">
+
+            <section hidden={operationsArea!=='fees'} className="space-y-3">
               <h2 className="font-semibold">技師拆帳月結｜{data.month}</h2>
               <form className="flex gap-2">
-                <input type="hidden" name="tab" value="營運" />
+                <input type="hidden" name="tab" value="營運" /><input type="hidden" name="area" value="fees"/>
                 <input
                   className={field}
                   type="month"
@@ -419,19 +386,19 @@ export function BeautyDashboard({
       )}
       {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(draft||(!readOnly&&canEditTab))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/>}
       {tab==='設定'&&<SettingsWorkspaceFrame nav={<SettingsWorkspaceNav items={[{id:'booking',label:'營業與預約'},{id:'commerce',label:'收款與體驗'},{id:'notifications',label:'通知與顧客經營'}]} activeId={settingsCategory} onSelect={id=>router.push(`?tab=${encodeURIComponent('設定')}&section=${id}`,{scroll:false})}/>}>
-      {settingsCategory==='booking'&&<><SettingsListRow title="營業時間與公休" summary="每週營業時間、特殊日期與公休" href="/dashboard/settings/hours" expanded={false}/><SettingsListRow title="預約與取消規則" summary={`自行預約${data.policy.selfBooking?'開啟':'關閉'} · 開放${data.policy.bookableDays}天 · 取消${data.policy.cancelDeduct?'扣次':'不扣次'} · 未到${data.policy.noShowDeduct?'扣次':'不扣次'}`} expanded={false} onEdit={!readOnly&&canEditTab?()=>setEditor({kind:'settings'}):undefined}/></>}
-      {settingsCategory==='commerce'&&<><SettingsListRow title="銀行與收款資料" summary="銀行帳戶、轉帳資訊與付款聯繫" href="/dashboard/settings/payment" expanded={false}/><SettingsListRow title="公開體驗表單" summary="每人每項服務限體驗一次" href={`/beauty-trial/${slug}`} action="查看" expanded={false}/></>}
-      {settingsCategory==='notifications'&&<><SettingsListRow title="LINE 官方帳號" summary="帳號連結與登入設定" href="/dashboard/settings/line-official-accounts" expanded={false}/><SettingsListRow title="服務通知" summary={data.policy.notifications?'店家設定開啟':'關閉'} expanded={false}/></>}
+      {settingsCategory==='booking'&&<><SettingsListRow title="營業時間與公休" summary="每週營業時間、特殊日期與公休" href="/dashboard/beauty?tab=設定&section=booking&panel=hours" expanded={false}/><SettingsListRow title="預約與取消規則" summary={`自行預約${data.policy.selfBooking?'開啟':'關閉'} · 開放${data.policy.bookableDays}天 · 取消${data.policy.cancelDeduct?'扣次':'不扣次'} · 未到${data.policy.noShowDeduct?'扣次':'不扣次'}`} expanded={false} onEdit={!readOnly&&canEditTab?()=>setEditor({kind:'settings'}):undefined}/></>}
+      {settingsCategory==='commerce'&&<><SettingsListRow title="銀行與收款資料" summary="銀行帳戶、轉帳資訊與付款聯繫" href="/dashboard/beauty?tab=設定&section=commerce&panel=payment" expanded={false}/><SettingsListRow title="公開體驗表單" summary="每人每項服務限體驗一次" href={`/beauty-trial/${slug}`} action="查看" expanded={false}/></>}
+      {settingsCategory==='notifications'&&<><SettingsListRow title="LINE 官方帳號" summary="帳號連結與登入設定" href="/dashboard/beauty?tab=設定&section=notifications&panel=line" expanded={false}/><SettingsListRow title="服務通知" summary={data.policy.notifications?'店家設定開啟':'關閉'} expanded={false} onEdit={!readOnly&&canEditTab?()=>setEditor({kind:'settings',settingsSection:'notifications'}):undefined}/></>}
       </SettingsWorkspaceFrame>}
+      {statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={520} fitContent labelledById="beauty-status-title" closeOnEscape={!pending} onClose={()=>{if(!pending&&(!statusDraft.reason||window.confirm('尚未確認，確定離開？')))setStatusDraft(null);}}><form className="space-y-3 p-4" onSubmit={e=>{e.preventDefault();if(!pending&&!readOnly&&data.manage.update&&statusDraft.reason.trim())run(async()=>{const r=await changeBeautyStatus('manager',statusDraft);if(r.success)setStatusDraft(null);return r;});}}><h2 id="beauty-status-title" className="font-semibold">確認服務狀態變更</h2><p>{data.items.find(b=>b.id===statusDraft.id)?.personName} · {data.items.find(b=>b.id===statusDraft.id)?.serviceName}</p><p>{({COMPLETED:'服務完成',CANCELLED:'取消此服務分項',NO_SHOW:'標記未到',RESERVED:'恢復／更正回預約'})[statusDraft.target]}</p><label>操作原因<textarea className={field} required maxLength={500} disabled={pending} value={statusDraft.reason} onChange={e=>setStatusDraft({...statusDraft,reason:e.target.value})}/></label>{error&&<p role="alert" className="text-red-700">{error}</p>}<div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={()=>{if(!statusDraft.reason||window.confirm('尚未確認，確定離開？'))setStatusDraft(null);}}>返回</button><button className={button+' !bg-primary-700 !text-white'} disabled={pending||readOnly||!data.manage.update||!statusDraft.reason.trim()}>{pending?'處理中…':'確認'}</button></div></form></RightSheet>}
+      {paymentId&&<RightSheet open width={640} onClose={()=>setPaymentId(null)} labelledById="beauty-receipt-title"><header className="flex items-center justify-between border-b p-4"><h2 id="beauty-receipt-title">收退款明細</h2><button className={button} onClick={()=>setPaymentId(null)}>關閉</button></header><div className="space-y-3 overflow-y-auto p-4">{data.payments.filter(p=>p.id===paymentId).map(p=><section key={p.id}><p>{formatTWDateTime(new Date(p.createdAt))}</p><strong>NT$ {p.amount.toLocaleString('zh-TW')}</strong><p className="whitespace-pre-wrap">{p.note}</p><div className="flex gap-2">{p.kind==='SALE'&&!readOnly&&data.manage.refund&&<button className={button} onClick={()=>setMoneyPanel({kind:'refund',ids:[p.id]})}>登錄退款</button>}{p.kind==='FEE'&&!readOnly&&data.manage.feePay&&<button className={button} onClick={()=>setMoneyPanel({kind:'void',ids:[p.id]})}>登錄拆帳收回</button>}</div></section>)}</div></RightSheet>}
       {booking && (
         <RightSheet
           open
           presentation="centered"
           width={1000}
-          onClose={() => {
-            if (window.confirm("確定關閉預約表單？未送出資料將捨棄。"))
-              setBooking(false);
-          }}
+          onClose={closeBooking}
+          closeOnEscape={!bookingState.pending}
           labelledById="beauty-booking-title"
         >
           <div className="min-h-0 overflow-y-auto p-4">
@@ -441,6 +408,7 @@ export function BeautyDashboard({
             <BeautyBookingForm
               catalog={catalog}
               mode="manager"
+              onStateChange={setBookingState}
               initialDate={bookingSeed.date??data.date}
               initialTime={bookingSeed.time}
               customer={data.customers.find(c=>c.id===initialCustomerId)}
@@ -449,7 +417,7 @@ export function BeautyDashboard({
               members={data.customers}
               onBooked={() => router.refresh()}
             />
-            <button className={button} onClick={() => {if(window.confirm("確定關閉預約表單？未送出資料將捨棄。"))setBooking(false);}}>
+            <button className={button} disabled={bookingState.pending} onClick={closeBooking}>
               關閉
             </button>
           </div>
@@ -458,6 +426,7 @@ export function BeautyDashboard({
       {editor && (
         <BeautyCatalogEditor
           kind={editor.kind}
+          settingsSection={editor.settingsSection}
           readOnly={readOnly||!canEditTab}
           data={data}
           draft={editor.draft}
@@ -521,10 +490,11 @@ export function BeautyDashboard({
           open
           presentation="centered"
           width={700}
-          onClose={() => !pending && setMoneyPanel(null)}
+          onClose={closeMoney}
           labelledById="beauty-money-title"
         >
           <form
+            onChangeCapture={()=>setMoneyDirty(true)}
             className="min-h-0 space-y-3 overflow-y-auto p-4"
             onSubmit={(e) => {
               e.preventDefault();

@@ -1,3 +1,10 @@
+import ScheduleSettingsPage from "../settings/hours/page";
+import PaymentSettingsPage from "../settings/payment/page";
+import LineOfficialAccountsPage from "../settings/line-official-accounts/page";
+import {SettingsPanel} from "@/components/settings";
+import {courseAnalysisRange} from "@/lib/course-analytics";
+import {beautyAnalysisBounds} from "@/lib/beauty/analytics";
+import {BeautyAnalytics} from "@/components/beauty/analytics";
 import {BeautyCare} from "@/components/beauty/care";
 import {RevenueTabs} from "../revenue/_components/revenue-tabs";
 import { redirect } from "next/navigation";
@@ -25,6 +32,7 @@ export default async function BeautyPage({
     calendar?: string;
     customerId?:string;
     action?:string;
+    panel?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -71,11 +79,14 @@ export default async function BeautyPage({
       q.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(q.month)
         ? q.month
         : toLocalMonthStr();
+  let financialDates:ReturnType<typeof courseAnalysisRange>|undefined;
+  if(tab==='營運'){try{financialDates=courseAnalysisRange(q);beautyAnalysisBounds(financialDates);}catch{return <PageShell><p role="alert">請選擇有效且不超過一年的收支日期。</p></PageShell>;}}
   const [data, store, view] = await Promise.all([
     beautyDashboard(
       date,
       month,
       q.calendar === "week" || q.calendar === "month" ? q.calendar : "day",
+      financialDates,
     ),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },
@@ -87,16 +98,18 @@ export default async function BeautyPage({
     <PageShell compact className="course-workspace min-w-0">
       <PageHeader compact title={tab} />
       <BeautyDashboard
-        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.action??""}`}
+        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
         data={data}
         tab={tab}
         initialCustomerId={q.customerId}
         initialBooking={q.action==='booking'}
+        analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
         careContent={tab==='顧客經營'?<BeautyCare data={data} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
+      {tab==='設定'&&['hours','payment','line'].includes(q.panel??'')&&<SettingsPanel title={q.panel==='hours'?'營業時間與公休':q.panel==='payment'?'銀行與收款資料':'LINE 官方帳號'} sourceHref="/dashboard/beauty">{q.panel==='hours'?<ScheduleSettingsPage/>:q.panel==='payment'?<PaymentSettingsPage/>:(u.role==='OWNER'||u.role==='ADMIN')?<LineOfficialAccountsPage/>:<p role="alert">此設定僅供店主查看。</p>}</SettingsPanel>}
     </PageShell>
   );
 }

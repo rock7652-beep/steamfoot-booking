@@ -68,7 +68,8 @@ export async function publicBeautyCatalog(slug: string) {
     },
   };
 }
-export async function beautyPortal(work = false) {
+export async function beautyPortal(work = false, month = toLocalMonthStr()) {
+  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))throw new AppError("VALIDATION","月份格式不正確");
   const a = work ? await beautyWorker() : await beautyMember();
   await requireStoreFeature(a.storeId, FEATURES.MEMBER_PORTAL);
   const store = await prisma.store.findUniqueOrThrow({
@@ -97,6 +98,7 @@ export async function beautyPortal(work = false) {
         where: { storeId: a.storeId, memberIds: { has: a.customerId! } },
         orderBy: { createdAt: "desc" },
       });
+  const cardHistory=cards.length?await beautyPrisma.beautyLedger.findMany({where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)}},select:{id:true,cardId:true,kind:true,delta:true,createdAt:true},orderBy:{createdAt:'desc'},take:1000}):[];
   const held = await beautyPrisma.beautyAppointment.groupBy({
     by: ["cardId"],
     where: {
@@ -136,12 +138,12 @@ export async function beautyPortal(work = false) {
       });
   const bank = await prisma.shopConfig.findUnique({
     where: { storeId: a.storeId },
-    select: { bankName: true, bankAccountNumber: true },
+    select: { bankName: true, bankAccountNumber: true, bankCode:true,address:true,mapUrl:true,shopPhone:true },
   });
   const income =
     work && a.grants?.includes("income")
       ? await beautyPrisma.beautySettlement.findMany({
-          where: { storeId: a.storeId, month: toLocalMonthStr() },
+          where: { storeId: a.storeId, month },
           orderBy: { createdAt: "desc" },
           take: 1,
         })
@@ -158,6 +160,8 @@ export async function beautyPortal(work = false) {
       : [];
   return {
     ...catalog,
+    incomeMonth:month,
+    incomeConfirmed:income.length>0,
     canWork:
       work ||
       !!(await beautyPrisma.beautyTechnician.findFirst({
@@ -186,6 +190,7 @@ export async function beautyPortal(work = false) {
       id: c.id,
       name: c.name,
       remaining: c.remaining,
+      history:cardHistory.filter(l=>l.cardId===c.id).slice(0,100).map(l=>({...l,createdAt:l.createdAt.toISOString()})),
       held: held.find((h) => h.cardId === c.id)?._count.id ?? 0,
       expiresAt: c.expiresAt.toISOString(),
       closed: !!c.closedAt,
@@ -206,6 +211,7 @@ export async function beautyPortal(work = false) {
         .filter((l) => l.technicianId === a.technicianId)
         .map((l) => ({
           ...l,
+          payments:ownFeePayments.filter(p=>p.appointmentId===l.id).map(p=>({amount:p.amount,date:p.createdAt.toISOString(),voided:p.kind==='FEE_VOID'})),
           paid: ownFeePayments
             .filter((p) => p.appointmentId === l.id)
             .reduce((n, p) => n + p.amount, 0),
@@ -218,6 +224,7 @@ export async function beautyDashboard(
   date = toLocalDateStr(),
   month = toLocalMonthStr(),
   calendar: "day" | "week" | "month" = "day",
+  financialDates?:{startDate:string;endDate:string},
 ) {
   const a = await beautyManager("booking.read"),
     u = await getCurrentUser();
@@ -289,7 +296,7 @@ export async function beautyDashboard(
           }
         : dayRange(date);
   const range = span,
-    financialRange = monthRange(month);
+    financialRange = financialDates?{start:dayRange(financialDates.startDate).start,end:dayRange(financialDates.endDate).end}:monthRange(month);
   const reportAccess = await can("report.read");
   const analytics = reportAccess
     ? await beautyPrisma.beautyAppointment.groupBy({

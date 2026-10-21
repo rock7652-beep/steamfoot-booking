@@ -5,7 +5,7 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "@/components/admin/management-layout.module.css";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, LabelList } from "recharts";
+import {BusinessTrendChart} from "@/components/admin/business-trend-chart";
 import { DashboardLink } from "@/components/dashboard-link";
 import type { CourseBusinessReport } from "@/server/queries/course-business-analytics";
 type Segment = keyof CourseBusinessReport["counts"];
@@ -81,7 +81,7 @@ export function BusinessAnalyticsView({data,all,staffId,music=false,periodContro
       <div className="my-3 flex flex-wrap gap-2" role="group" aria-label="趨勢指標">{(['attendance','trial','newCard','renewal','revenue'] as const).filter(key=>(!coach||key!=="renewal")&&(key!=="revenue"||data.netRevenue!==null)).map(key=><button key={key} className={selectedClass(metric===key)} aria-pressed={metric===key} onClick={()=>setMetric(key)}>{metricNames[key]}</button>)}</div>
       <p className="mb-3 text-xs text-earth-500">{monthly?`${monthRows[0]?.date} ～ ${monthRows.at(-1)?.date}，按月統計`:`${data.range.startDate} ～ ${data.range.endDate}，按日統計`} · 單位：{unit} · 截至 {data.effectiveEndDate}。未完整月份以累計值呈現。</p>
       {metric==="renewal"&&<p className="mb-3 text-xs text-earth-500">同一人於同一{monthly?"月":"日"}續卡多筆只算 1 人；各{monthly?"月":"日"}人數不可直接相加為整期不重複人數。</p>}
-      {chartRows.length?<div className="overflow-x-auto"><div className={`h-60 ${monthly?(trendPeriod==="year"?"min-w-[840px]":"min-w-[480px]"):"min-w-[480px]"}`}><ResponsiveContainer width="100%" height="100%"><LineChart data={chartRows} margin={{top:26,right:32,left:8,bottom:8}}><CartesianGrid strokeDasharray="3 3" stroke="#e7e5df"/><XAxis dataKey="date" tickFormatter={v=>monthly?`${v.slice(0,4)}/${Number(v.slice(5))}月`:v.slice(5)} interval={monthly?0:"preserveStartEnd"} minTickGap={24} tick={{fontSize:11}}/><YAxis allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString()}/><Tooltip labelFormatter={v=>String(v)} formatter={v=>[`${Number(v).toLocaleString()} ${unit}`,metricNames[metric]]}/><Line type="linear" dataKey={metric} name={metricNames[metric]} stroke="#427663" strokeWidth={2} connectNulls={false} dot={monthly?{r:4}:false} isAnimationActive={false}>{monthly&&<LabelList dataKey={metric} position="top" formatter={v=>v===null||v===undefined?"":Number(v).toLocaleString()} style={{fontSize:11,fill:"#345a4c"}}/>}</Line></LineChart></ResponsiveContainer></div></div>:<p className="py-8 text-center text-sm text-earth-500">本期尚無紀錄。</p>}
+      <BusinessTrendChart rows={chartRows.map(row=>({date:row.date,value:(row as unknown as Record<string,number|null>)[metric]??null}))} label={metricNames[metric]} unit={unit} monthly={monthly} year={trendPeriod==='year'}/>
       {monthly&&<><p className="mt-2 text-xs text-earth-500 lg:hidden">可左右滑動查看各月份。</p>{monthRows.some(row=>!row.available)&&<p className="mt-2 text-xs text-earth-500">尚無資料：{missingMonthLabel}（早於建店且無歷史紀錄，不以 0 計算）。</p>}</>}
     </section>
     <section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="回流分析">

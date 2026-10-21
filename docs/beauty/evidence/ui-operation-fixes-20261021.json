@@ -1,0 +1,104 @@
+{
+  "results": [
+    {
+      "case": "多人草稿、日期與時段切頁保留 360",
+      "passed": true
+    },
+    {
+      "case": "站內核帳表單 360",
+      "passed": true
+    },
+    {
+      "case": "同行展收與單一服務確認 360",
+      "passed": true
+    },
+    {
+      "case": "多人草稿、日期與時段切頁保留 390",
+      "passed": true
+    },
+    {
+      "case": "站內核帳表單 390",
+      "passed": true
+    },
+    {
+      "case": "同行展收與單一服務確認 390",
+      "passed": true
+    },
+    {
+      "case": "技師週月班表與收入月份",
+      "passed": true
+    },
+    {
+      "case": "技師分類與RWD 1366",
+      "passed": true
+    },
+    {
+      "case": "店長日期帶入 1366",
+      "passed": true
+    },
+    {
+      "case": "收退款篩選與明細 1366",
+      "passed": true
+    },
+    {
+      "case": "分析趨勢與名單 1366",
+      "passed": true
+    },
+    {
+      "case": "技師分類與RWD 1024",
+      "passed": true
+    },
+    {
+      "case": "店長日期帶入 1024",
+      "passed": true
+    },
+    {
+      "case": "收退款篩選與明細 1024",
+      "passed": true
+    },
+    {
+      "case": "分析趨勢與名單 1024",
+      "passed": true
+    },
+    {
+      "case": "技師分類與RWD 768",
+      "passed": true
+    },
+    {
+      "case": "店長日期帶入 768",
+      "passed": true
+    },
+    {
+      "case": "收退款篩選與明細 768",
+      "passed": true
+    },
+    {
+      "case": "分析趨勢與名單 768",
+      "passed": true
+    },
+    {
+      "case": "無未處理瀏覽器例外",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "analytics 768",
+  "passed": true,
+  "syntheticFixture": true,
+  "realBackendVerified": false,
+  "deployed": false,
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "testFiles": 39,
+  "tests": 339,
+  "typeCheck": "passed",
+  "eslint": "passed",
+  "productionBuild": {
+    "passed": false,
+    "turbopack": "compile stalled; task process stopped",
+    "webpack": "blocked by unchanged marketing-sticky-offer.module.css:11 non-pure global selector",
+    "unmodifiedBlockerConfirmedAt": "58ef01a4",
+    "blockerSha256": "0e78da8269a213ad1ac157d15b7fd78c0980aaabdd7ba208f749b332666b3dd3",
+    "database": "synthetic loopback only"
+  },
+  "hostedSourceUnchanged": "f8eb20910a95d461708d275bb4f12cb481c01df4"
+}

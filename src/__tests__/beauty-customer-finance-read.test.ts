@@ -1,0 +1,13 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({manager:vi.fn(),customer:vi.fn(),items:vi.fn(),cards:vi.fn(),payments:vi.fn(),permission:vi.fn(),feature:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer}}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyAppointment:{findMany:m.items},beautyCard:{findMany:m.cards},beautyPayment:{findMany:m.payments}}}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:vi.fn(),beautyMember:vi.fn(),beautyWorker:vi.fn(),command:vi.fn(),audit:vi.fn(),requireBeauty:vi.fn()}));
+vi.mock('@/lib/permissions',()=>({requirePermission:async()=>({id:'user',role:'STAFF',staffId:'staff'}),checkPermission:m.permission}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:vi.fn(),hasStoreFeature:m.feature}));
+vi.mock('@/server/services/trial-booking-chat-link',()=>({resolveTrialBookingChatLink:vi.fn()}));
+import {readBeautyCustomer} from '@/server/actions/beauty';
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'store',userId:'user',manager:true});m.customer.mockResolvedValue({id:'customer',name:'測試',phone:'0900000000',notes:null});m.items.mockResolvedValue([{id:'appointment',serviceName:'做臉',startsAt:new Date('2026-10-21T02:00:00Z'),status:'COMPLETED',notes:''}]);m.cards.mockResolvedValue([{id:'owned-card'}]);m.payments.mockResolvedValue([]);m.permission.mockResolvedValue(false);m.feature.mockResolvedValue(true);});
+it('keeps basic customer history available without fetching finance for a low-permission staff member',async()=>{const r=await readBeautyCustomer({id:'customer',storeId:'foreign'});expect(r.success).toBe(true);if(r.success){expect(r.data.canTransactions).toBe(false);expect(r.data.payments).toEqual([]);}expect(m.cards).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();expect(m.customer.mock.calls[0][0].where.storeId).toBe('store');});
+it('requires both finance permission and the transaction feature',async()=>{m.permission.mockResolvedValue(true);m.feature.mockResolvedValue(false);const r=await readBeautyCustomer({id:'customer'});expect(r.success).toBe(true);expect(m.payments).not.toHaveBeenCalled();});
+it('limits a permitted finance read to this customer appointments and purchased cards in the authorized store',async()=>{m.permission.mockResolvedValue(true);await readBeautyCustomer({id:'customer'});expect(m.payments.mock.calls[0][0].where).toEqual({storeId:'store',kind:{in:['SALE','REFUND']},OR:[{appointmentId:{in:['appointment']}},{cardId:{in:['owned-card']}}]});expect(m.cards.mock.calls[0][0].where).toEqual({storeId:'store',customerId:'customer'});});

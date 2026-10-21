@@ -1,244 +1,71 @@
 "use client";
-import { useState, useTransition, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
-import { BeautyReschedulePanel } from "./reschedule-panel";
-import { BeautyBookingForm } from "./booking-form";
-import { requestBeautyPlan, changeBeautyStatus } from "@/server/actions/beauty";
-import type { BeautyPortalData } from "@/server/beauty/queries";
-import { formatTWDateTime,toLocalDateStr,toLocalMonthStr,addTaiwanDuration } from "@/lib/date-utils";
-import {courseMonthDays} from '@/lib/course-calendar';
+import {useState,useTransition,useRef} from 'react';
+import {useRouter} from 'next/navigation';
+import {StoreImageAnnouncements} from '@/components/image-announcements/carousel';
 import {CoursePortalBrand,CoursePortalNavigation} from '@/components/course-portal-navigation';
 import {CoursePortalCalendar} from '@/components/course-portal-calendar';
+import {CoursePortalSheet} from '@/components/course-portal-sheet';
+import {IncomeMonthFilter} from '@/components/income-month-filter';
+import {PersonalIncomePanel} from '@/components/personal-income-panel';
+import {CopyButton} from '@/app/(customer)/book/shop/[planId]/checkout/copy-button';
+import {BeautyReschedulePanel} from './reschedule-panel';
+import {BeautyBookingForm} from './booking-form';
+import {requestBeautyPlan,changeBeautyStatus} from '@/server/actions/beauty';
 import {logoutAction} from '@/server/actions/auth';
+import {formatTWDateTime,toLocalDateStr,toLocalMonthStr,addTaiwanDuration,parseLocalDate} from '@/lib/date-utils';
+import {courseMonthDays} from '@/lib/course-calendar';
+import type {BeautyPortalData} from '@/server/beauty/queries';
 import '@/app/(customer)/book/course-portal.css';
-const button =
-  "min-h-11 rounded-lg border border-earth-200 bg-white px-3 py-2 text-base disabled:opacity-50";
-export function BeautyPortal({ data }: { data: BeautyPortalData }) {
-  const [reschedule, setReschedule] = useState<
-    BeautyPortalData["items"][number] | null
-  >(null);
-  const purchaseRequests = useRef(new Map<string, string>());
-  const [view, setView] = useState("home"),
-    [history,setHistory]=useState(false),
-    [error, setError] = useState(""),
-    [pending, start] = useTransition(),
-    router = useRouter();
-  const [bookingState,setBookingState]=useState({dirty:false,pending:false});
-  const [bookingOpened,setBookingOpened]=useState(false);
-  function navigate(id:string){if(pending||bookingState.pending)return;if(id==="book")setBookingOpened(true);setView(id);setError("");}
-  function switchRole(work:boolean){if(pending||bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定切換身分？"))return;router.push(`/s/${data.store.slug}/beauty${work?"?work=1":""}`);}
-  function change(
-    id: string,
-    revision: number,
-    target: "COMPLETED" | "CANCELLED" | "RESERVED",
-  ) {
-    const reason = window.prompt("請填寫原因");
-    if (!reason) return;
-    start(async () => {
-      const r = await changeBeautyStatus(data.work ? "work" : "member", {
-        id,
-        revision,
-        target,
-        reason,
-        requestKey: crypto.randomUUID(),
-      });
-      if (r.success) router.refresh();
-      else setError(r.error);
-    });
-  }
-  const [date,setDate]=useState(toLocalDateStr),[month,setMonth]=useState(toLocalMonthStr);
-  const [now]=useState(Date.now);
-  const next=[...data.items].filter(b=>b.status==='RESERVED'&&Date.parse(b.startsAt)>now).sort((a,b)=>a.startsAt.localeCompare(b.startsAt))[0];
-  const visibleItems=view==='home'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===toLocalDateStr()):view==='schedule'?data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===date):view==='bookings'?data.items.filter(b=>(history ? b.status!=='RESERVED'||Date.parse(b.endsAt)<now : b.status==='RESERVED'&&Date.parse(b.endsAt)>=now)):data.items;
-  const moveMonth=(delta:number)=>setMonth(addTaiwanDuration(month+'-01',delta,'MONTH').slice(0,7));
-  return (
-    <div className="course-portal"><header className="cp-top"><CoursePortalBrand storeName={data.store.name}/>{(data.work||data.canWork)?<div className="cp-role-switch" role="group" aria-label="身分切換"><button aria-pressed={!data.work} onClick={()=>switchRole(false)}>會員</button><button aria-pressed={data.work} onClick={()=>switchRole(true)}>我的工作</button></div>:<span>會員專區</span>}<button aria-label="更新" disabled={pending} onClick={()=>router.refresh()}>↻</button></header>
-    <CoursePortalNavigation current={view} onSelect={navigate} items={data.work?[{id:'home',label:'首頁',icon:'home'},{id:'schedule',label:'我的班表',icon:'calendar'},{id:'income',label:'我的收入',icon:'records'},{id:'account',label:'帳戶',icon:'account'}]:[{id:'home',label:'首頁',icon:'home'},{id:'book',label:'立即預約',icon:'calendar'},{id:'bookings',label:'我的預約',icon:'bookings'},{id:'cards',label:'我的方案',icon:'records'},{id:'account',label:'帳戶',icon:'account'}]}/>
-    <main className={`cp-main${data.work?' cp-coach-main':''}`}><div className="cp-title"><h1>{({home:data.work?'今日工作':'會員首頁',book:'預約服務',bookings:'我的預約',schedule:'我的班表',cards:'我的方案',income:'我的收入',account:'帳戶'} as Record<string,string>)[view]}</h1><p>{data.customer?.name}</p></div>
-    {view==='home'&&<><StoreImageAnnouncements storeSlug={data.store.slug}/><section className="cp-card cp-next"><div><p>{data.work?'下一筆服務':'下一次預約'}</p><strong>{next?`${formatTWDateTime(new Date(next.startsAt))} · ${next.serviceName}`:'尚無預約安排'}</strong>{next&&<p>{data.techs.find(t=>t.id===next.technicianId)?.name??'店家安排'}</p>}</div><div className="cp-actions"><button className="primary" onClick={()=>navigate(data.work?'schedule':'book')}>{data.work?'查看班表':'立即預約'}</button>{next&&<button onClick={()=>setView(data.work?'schedule':'bookings')}>查看預約</button>}</div></section></>}
-    {view==='schedule'&&<CoursePortalCalendar month={month} selected={date} unit="次" markers={!data.work} days={courseMonthDays(month).dates.map(d=>({date:d,count:data.items.filter(b=>b.status!=='CANCELLED'&&toLocalDateStr(new Date(b.startsAt))===d).length,closed:false,self:data.items.some(b=>b.customerId===data.customer?.id&&b.status==='RESERVED'&&toLocalDateStr(new Date(b.startsAt))===d)}))} monthPicker={<div className="cp-month"><button aria-label="上個月" onClick={()=>moveMonth(-1)}>‹</button><strong>{month.replace('-',' 年 ')} 月</strong><button aria-label="下個月" onClick={()=>moveMonth(1)}>›</button></div>} context={<><span>我的服務安排</span><button onClick={()=>{setDate(toLocalDateStr());setMonth(toLocalMonthStr());}}>今天</button></>} legend={data.work?'已安排服務次數':'● 本人預約'} onSelect={setDate}/>}
-    {view==='account'&&<section className="cp-card cp-pad"><h2>{data.customer?.name}</h2><p>{data.customer?.phone}</p>{!data.work&&<button className="cp-menu" onClick={()=>setView('cards')}>我的方案 →</button>}<form action={logoutAction} onSubmit={e=>{if(pending||bookingState.pending||(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定登出？")))e.preventDefault();}}><input type="hidden" name="storeSlug" value={data.store.slug}/><button>登出</button></form></section>}
-      {error && (
-        <p role="alert" className="text-red-700">
-          {error}
-        </p>
-      )}
-      {bookingOpened && (
-        <section hidden={view!=="book"}>
-        <BeautyBookingForm
-          mode="member"
-          onStateChange={setBookingState}
-          slug={data.store.slug}
-          catalog={data}
-          customer={data.customer}
-          cards={data.cards}
-          members={data.members}
-          onBooked={() => router.refresh()}
-        /></section>
-      )}
-      {view==='bookings'&&<div className="cp-actions"><button className={!history?'primary':''} onClick={()=>setHistory(false)}>待服務</button><button className={history?'primary':''} onClick={()=>setHistory(true)}>歷史紀錄</button></div>}
-      {["home","schedule","bookings"].includes(view) && (
-        <section className={data.work?"cp-work-list":"space-y-3"}>
-          {!visibleItems.length && <section className="cp-card cp-pad"><p>{view==="home"?"今天尚無服務安排。":"尚無服務預約。"}</p></section>}
-          {visibleItems.map((b) => (
-            <article
-              key={b.id}
-              className={data.work?"cp-card cp-pad cp-work-lesson":"cp-card cp-pad cp-booking-card"} style={data.work?{padding:14}:undefined}
-            >
-              <h2 className="font-semibold">
-                {b.personName}｜{b.serviceName}
-              </h2>
-              <p>
-                {formatTWDateTime(new Date(b.startsAt))}～
-                {formatTWDateTime(new Date(b.endsAt))}
-              </p>
-              <p>
-                技師：
-                {data.techs.find((t) => t.id === b.technicianId)?.name ??
-                  "店家安排"}
-                ｜
-                {
-                  (
-                    {
-                      RESERVED: "已預約",
-                      COMPLETED: "已完成",
-                      CANCELLED: "已取消",
-                      NO_SHOW: "未到",
-                    } as Record<string, string>
-                  )[b.status]
-                }
-              </p>
-              <p>
-                方案取消{b.cancelDeduct ? "扣次" : "不扣次"}；未到
-                {b.noShowDeduct ? "扣次" : "不扣次"}。
-              </p>
-              {data.work && b.notes && <p>本次備註：{b.notes}</p>}
-              {b.status === "RESERVED" && (
-                <div className="flex flex-wrap gap-2">
-                  {data.work && data.grants.includes("complete") && (
-                    <button
-                      className={button}
-                      disabled={pending}
-                      onClick={() => change(b.id, b.revision, "COMPLETED")}
-                    >
-                      服務完成
-                    </button>
-                  )}
-                  {(!data.work || data.grants.includes("cancel")) && (
-                    <button
-                      className={button}
-                      disabled={pending}
-                      onClick={() => change(b.id, b.revision, "CANCELLED")}
-                    >
-                      取消預約
-                    </button>
-                  )}
-                  {(!data.work || data.grants.includes("reschedule")) && (
-                    <button
-                      className={button}
-                      disabled={pending}
-                      onClick={() => {
-                        setReschedule(b);
-                      }}
-                    >
-                      改期
-                    </button>
-                  )}
-                </div>
-              )}
-            </article>
-          ))}
-        </section>
-      )}
-      {view === "cards" && (
-        <section className="space-y-3">
-          <h2 className="font-semibold">購買方案</h2>
-          <p>
-            {data.bank?.bankName}　{data.bank?.bankAccountNumber}
-          </p>
-          {data.plans.map((p) => (
-            <div key={p.id} className="cp-card cp-pad">
-              <span>
-                {p.name}｜{p.sessions}次｜NT${p.price}
-              </span>
-              <button
-                className={button}
-                disabled={pending}
-                onClick={() => {
-                  const lastFour = window.prompt("轉帳完成後請填後四碼");
-                  if (!lastFour) return;
-                  setError("");
-                  start(async () => {
-                    const key = p.id + lastFour;
-                    if (!purchaseRequests.current.has(key))
-                      purchaseRequests.current.set(key, crypto.randomUUID());
-                    const r = await requestBeautyPlan({
-                      planId: p.id,
-                      lastFour,
-                      requestKey: purchaseRequests.current.get(key)!,
-                    });
-                    if (r.success) {
-                      purchaseRequests.current.delete(key);
-                      router.refresh();
-                    } else setError(r.error);
-                  });
-                }}
-              >
-                已轉帳，送出核帳
-              </button>
-            </div>
-          ))}
-          <h2>購買紀錄</h2>
-          {data.purchases.map((p) => (
-            <p key={p.id}>
-              {p.status === "PENDING" ? "待核帳" : "已核帳"}｜
-              {formatTWDateTime(new Date(p.createdAt))}
-            </p>
-          ))}
-          <h2>持有方案</h2>
-          {!data.cards.length && <p>目前沒有方案，購買請聯絡店家。</p>}
-          {data.cards.map((c) => (
-            <article key={c.id} className="cp-card cp-pad">
-              <h2>{c.name}</h2>
-              <p>
-                剩餘{c.remaining}次｜已預約{c.held}次｜可用
-                {c.closed || Date.parse(c.expiresAt)<=now ? 0 : Math.max(0, c.remaining - c.held)}次
-              </p>
-              <p>
-                {formatTWDateTime(new Date(c.expiresAt))}到期
-                {c.closed ? "｜已結清" : Date.parse(c.expiresAt)<=now?"｜已到期":""}
-              </p>
-            </article>
-          ))}
-        </section>
-      )}
-      {reschedule && (
-        <BeautyReschedulePanel
-          mode={data.work ? "work" : "member"}
-          item={reschedule}
-          onClose={() => setReschedule(null)}
-          onSaved={() => {
-            setReschedule(null);
-            router.refresh();
-          }}
-        />
-      )}
-      {view === "income" && (
-        <section>
-          {!data.grants.includes("income") ? (
-            <p>本人收入尚未開放，請洽店長。</p>
-          ) : !data.income.length ? (
-            <p>本月尚無已確認拆帳。</p>
-          ) : (
-            data.income.map((l) => (
-              <p className="border-b py-3" key={l.id}>
-                {l.serviceName}｜應領{l.fee}元｜已付{l.paid}元
-              </p>
-            ))
-          )}
-        </section>
-      )}
-    </main></div>
-  );
+type Item=BeautyPortalData['items'][number];
+const statusName=(value:string)=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'} as Record<string,string>)[value]??value;
+export function BeautyPortal({data,initialView}:{data:BeautyPortalData;initialView?:string}){
+ const router=useRouter();
+ const [view,setView]=useState(initialView==='income'&&data.work?'income':'home');
+ const [history,setHistory]=useState(false),[workPending,setWorkPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [pending,start]=useTransition(),[now]=useState(Date.now);
+ const [date,setDate]=useState(toLocalDateStr),[month,setMonth]=useState(toLocalMonthStr),[showMonth,setShowMonth]=useState(false);
+ const [bookingOpened,setBookingOpened]=useState(false),[bookingState,setBookingState]=useState({dirty:false,pending:false});
+ const [expanded,setExpanded]=useState<Record<string,boolean>>({});
+ const [reschedule,setReschedule]=useState<Item|null>(null);
+ const [buy,setBuy]=useState<BeautyPortalData['plans'][number]|null>(null),[lastFour,setLastFour]=useState('');
+ const [change,setChange]=useState<{item:Item;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';requestKey:string}|null>(null),[reason,setReason]=useState('');
+ const purchaseRequests=useRef(new Map<string,string>()),busy=useRef(false);
+ const prefix=`/s/${data.store.slug}`;
+ function allowLeave(){return !(pending||bookingState.pending||busy.current)&&(!bookingState.dirty||window.confirm('尚有未送出的預約，確定離開？'));}
+ function navigate(id:string){if(pending||bookingState.pending||busy.current)return;if(id==='book')setBookingOpened(true);setView(id);setError('');if(id==='income')router.replace(prefix+'/beauty?work=1&view=income&month='+(data.incomeMonth??toLocalMonthStr()),{scroll:false});}
+ function switchRole(work:boolean){if(allowLeave())router.push(prefix+'/beauty'+(work?'?work=1':''));}
+ function chooseChange(item:Item,target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED'){setReason('');setError('');setChange({item,target,requestKey:crypto.randomUUID()});}
+ async function submitChange(){if(!change||!reason.trim()||busy.current)return;busy.current=true;start(async()=>{try{const r=await changeBeautyStatus(data.work?'work':'member',{id:change.item.id,revision:change.item.revision,target:change.target,reason:reason.trim(),requestKey:change.requestKey});if(r.success){setChange(null);setMessage('服務狀態已更新。');router.refresh();}else setError(r.error);}catch{setError('連線失敗，內容已保留，請核對後重試。');}finally{busy.current=false;}});}
+ async function submitPurchase(){if(!buy||!/^\d{4}$/.test(lastFour)||!data.bank?.bankAccountNumber||busy.current)return;busy.current=true;const plan=buy;const key=plan.id+':'+lastFour;if(!purchaseRequests.current.has(key))purchaseRequests.current.set(key,crypto.randomUUID());start(async()=>{try{const r=await requestBeautyPlan({planId:plan.id,lastFour,requestKey:purchaseRequests.current.get(key)!});if(r.success){purchaseRequests.current.delete(key);setBuy(null);setMessage('核帳資料已送出，店家確認後啟用方案。');setView('cards');router.refresh();}else setError(r.error);}catch{setError('連線失敗，核帳資料已保留，請核對後重試。');}finally{busy.current=false;}});}
+ const next=[...data.items].filter(b=>b.status==='RESERVED'&&Date.parse(b.startsAt)>now).sort((a,b)=>a.startsAt.localeCompare(b.startsAt))[0];
+ const visible=data.items.filter(b=>view==='home'?toLocalDateStr(new Date(b.startsAt))===toLocalDateStr():view==='schedule'?toLocalDateStr(new Date(b.startsAt))===date:view==='records'?(workPending?b.status==='RESERVED'&&Date.parse(b.endsAt)<now:b.status!=='RESERVED'||Date.parse(b.endsAt)<now):view==='bookings'?(history?b.status!=='RESERVED'||Date.parse(b.endsAt)<now:b.status==='RESERVED'&&Date.parse(b.endsAt)>=now):false);
+ const keys=[...new Set(visible.map(b=>data.work?b.id:b.groupId))];
+ const groups=keys.map(key=>({key,items:data.items.filter(b=>(data.work?b.id:b.groupId)===key).sort((a,b)=>a.startsAt.localeCompare(b.startsAt))}));
+ const weekStart=addTaiwanDuration(date,-((parseLocalDate(date).getDay()+6)%7),'DAY');
+ const logout=<form action={logoutAction} onSubmit={e=>{if(!allowLeave())e.preventDefault();}}><input type="hidden" name="storeSlug" value={data.store.slug}/><button>登出</button></form>;
+ const modal=!!buy||!!change||!!reschedule;
+ return <div className="course-portal"><div inert={modal}>
+  <header className="cp-top"><CoursePortalBrand storeName={data.store.name}/>{data.work||data.canWork?<div className="cp-role-switch" role="group" aria-label="身分切換"><button aria-pressed={!data.work} onClick={()=>switchRole(false)}>會員</button><button aria-pressed={data.work} onClick={()=>switchRole(true)}>我的工作</button></div>:<span>會員專區</span>}{data.work?<details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><button className="cp-menu" onClick={()=>navigate('income')}>我的收入</button>{logout}</details>:null}</header>
+  <CoursePortalNavigation current={view} onSelect={navigate} items={data.work?[{id:'home',label:'今日工作',icon:'home'},{id:'schedule',label:'班表',icon:'calendar'},{id:'records',label:'服務紀錄',icon:'records'}]:[{id:'home',label:'首頁',icon:'home'},{id:'book',label:'預約',icon:'calendar'},{id:'bookings',label:'我的預約',icon:'bookings'},{id:'account',label:'我的',icon:'account'}]}/>
+  <main className={`cp-main${data.work?' cp-coach-main':''}`}><div className="cp-title"><h1>{({home:data.work?'今日工作':'會員首頁',book:'預約服務',bookings:'我的預約',schedule:'我的班表',records:'服務紀錄',cards:'我的方案',shop:'購買方案',income:'我的收入',account:'我的'} as Record<string,string>)[view]}</h1><p>{data.customer?.name}</p></div>
+   {message&&<p role="status" className="cp-toast">{message}</p>}{error&&!modal&&<p role="alert" className="cp-error">{error}</p>}
+   {!['home','book','bookings','schedule','records','account'].includes(view)&&<button className="cp-menu" onClick={()=>navigate(data.work?'home':'account')}>‹ 返回{data.work?'今日工作':'我的'}</button>}
+   {view==='home'&&<><StoreImageAnnouncements storeSlug={data.store.slug}/><section className="cp-card cp-next"><div><p>{data.work?'下一筆服務':'下一次預約'}</p><strong>{next?`${formatTWDateTime(new Date(next.startsAt))} · ${next.serviceName}`:'尚無預約安排'}</strong></div><div className="cp-actions"><button className="primary" onClick={()=>navigate(data.work?'schedule':'book')}>{data.work?'查看班表':'立即預約'}</button>{next&&<button onClick={()=>navigate(data.work?'schedule':'bookings')}>查看預約</button>}</div></section></>}
+   {view==='schedule'&&<><div className="cp-actions"><button aria-label="上一週" onClick={()=>setDate(addTaiwanDuration(date,-7,'DAY'))}>‹</button><strong>{weekStart}</strong><button aria-label="下一週" onClick={()=>setDate(addTaiwanDuration(date,7,'DAY'))}>›</button><button onClick={()=>{setDate(toLocalDateStr());setMonth(toLocalMonthStr());}}>今天</button><button aria-pressed={showMonth} onClick={()=>{setMonth(date.slice(0,7));setShowMonth(!showMonth);}}>{showMonth?'切換週曆':'月曆'}</button></div>{showMonth?<CoursePortalCalendar month={month} selected={date} unit="次" markers={false} days={courseMonthDays(month).dates.map(d=>({date:d,count:data.items.filter(b=>b.status!=='CANCELLED'&&toLocalDateStr(new Date(b.startsAt))===d).length,closed:false}))} monthPicker={<div className="cp-month"><button aria-label="上個月" onClick={()=>setMonth(addTaiwanDuration(month+'-01',-1,'MONTH').slice(0,7))}>‹</button><strong>{month.replace('-',' 年 ')} 月</strong><button aria-label="下個月" onClick={()=>setMonth(addTaiwanDuration(month+'-01',1,'MONTH').slice(0,7))}>›</button></div>} context="我的服務安排" legend="已安排服務次數" onSelect={setDate}/>:<div className="cp-week-strip">{Array.from({length:7},(_,i)=>addTaiwanDuration(weekStart,i,'DAY')).map((d,i)=><button key={d} aria-label={d} aria-pressed={date===d} className={date===d?'primary':''} onClick={()=>setDate(d)}><span>{'一二三四五六日'[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{data.items.filter(b=>b.status!=='CANCELLED'&&toLocalDateStr(new Date(b.startsAt))===d).length}次</small></button>)}</div>}</>}
+   {view==='account'&&<><section className="cp-card"><button className="cp-menu" onClick={()=>navigate('cards')}>我的方案 →</button></section><section className="cp-card cp-account-settings"><details className="cp-profile"><summary>個人資料與登入</summary><a className="cp-menu" href={prefix+'/profile'}>修改資料 ›</a><p className="cp-pad">{data.customer?.name} · {data.customer?.phone}</p>{logout}</details><details className="cp-profile"><summary>店家資訊</summary><div className="cp-pad"><h2>{data.store.name}</h2><p>{data.bank?.address??'地址請洽店家'}</p>{data.bank?.shopPhone&&<a href={'tel:'+data.bank.shopPhone}>電話聯絡店家</a>}</div></details></section></>}
+   {bookingOpened&&<section hidden={view!=='book'}><BeautyBookingForm mode="member" slug={data.store.slug} catalog={data} customer={data.customer} cards={data.cards} members={data.members} onStateChange={setBookingState} onBooked={()=>router.refresh()}/></section>}
+   {view==='bookings'&&<div className="cp-actions"><button className={!history?'primary':''} onClick={()=>setHistory(false)}>待服務</button><button className={history?'primary':''} onClick={()=>setHistory(true)}>歷史紀錄</button></div>}
+   {view==='records'&&<div className="cp-actions"><button className={!workPending?'primary':''} onClick={()=>setWorkPending(false)}>全部紀錄</button><button className={workPending?'primary':''} onClick={()=>setWorkPending(true)}>待完成服務</button></div>}
+   {['home','schedule','bookings','records'].includes(view)&&<section className={data.work?'cp-work-list':'space-y-3'}>{!groups.length&&<p className="cp-empty">{view==='home'?'今天尚無服務安排。':'尚無服務預約。'}</p>}{groups.map(({key,items})=><article key={key} className={data.work?'cp-card cp-work-lesson':'cp-card cp-pad cp-booking-card'}>
+    <div className="cp-booking-heading"><h2 className={data.work?'cp-work-title':''}><time className="cp-booking-time">{formatTWDateTime(new Date(items[0].startsAt))}</time><span>{data.work?items[0].serviceName:`同行預約 · ${items.length}項服務`}</span></h2><button aria-expanded={!!expanded[key]} aria-controls={'beauty-details-'+key} onClick={()=>setExpanded(v=>({...v,[key]:!v[key]}))}>{expanded[key]?'收合明細 ⌃':'查看明細 ⌄'}</button></div>
+    <div id={'beauty-details-'+key} hidden={!expanded[key]} className={data.work?'cp-pad cp-roster-body':''}>{items.map(b=><div key={b.id} className="cp-person"><div className="cp-line cp-booking-person-line"><strong>{b.personName}｜{b.serviceName}</strong><span>{statusName(b.status)}</span></div><p>{formatTWDateTime(new Date(b.startsAt))}～{formatTWDateTime(new Date(b.endsAt))}</p><p>技師：{data.techs.find(t=>t.id===b.technicianId)?.name??'店家安排'}</p><p>取消{b.cancelDeduct?'扣次':'不扣次'}；未到{b.noShowDeduct?'扣次':'不扣次'}。</p>{data.work&&b.notes&&<p>本次備註：{b.notes}</p>}{b.status==='RESERVED'&&<div className="cp-actions">{data.work&&data.grants.includes('complete')&&<button disabled={pending} onClick={()=>chooseChange(b,'COMPLETED')}>服務完成</button>}{data.work&&data.grants.includes('complete')&&<button disabled={pending} onClick={()=>chooseChange(b,'NO_SHOW')}>未到</button>}{((!data.work&&data.policy.selfCancel)||data.work&&data.grants.includes('cancel'))&&<button disabled={pending} onClick={()=>chooseChange(b,'CANCELLED')}>取消預約</button>}{((!data.work&&data.policy.selfReschedule)||data.work&&data.grants.includes('reschedule'))&&<button disabled={pending} onClick={()=>setReschedule(b)}>改期</button>}</div>}{data.work&&b.status!=='RESERVED'&&data.grants.includes('complete')&&<button disabled={pending} onClick={()=>chooseChange(b,'RESERVED')}>{b.status==='CANCELLED'?'恢復預約':'更正回預約'}</button>}</div>)}</div>
+   </article>)}</section>}
+   {view==='cards'&&<><section className="cp-card cp-pad cp-plan-overview"><div className="cp-plan-summary"><p>目前持有 {data.cards.length} 個方案</p><button className="primary" onClick={()=>navigate('shop')}>購買方案</button></div></section>{!data.cards.length&&<p className="cp-empty">目前沒有方案。</p>}{data.cards.map(c=><details key={c.id} className="cp-card cp-pad cp-plan"><summary className="cp-plan-row"><h2>{c.name}</h2><strong>剩餘 {c.remaining} 次</strong><span>{formatTWDateTime(new Date(c.expiresAt))} 到期{c.closed?' · 已結清':Date.parse(c.expiresAt)<=now?' · 已到期':''}</span></summary><div className="cp-plan-body"><p>已預約 {c.held} 次 · 還可預約 {c.closed||Date.parse(c.expiresAt)<=now?0:Math.max(0,c.remaining-c.held)} 次</p>{c.history?.length?<ul>{c.history.map(l=><li key={l.id}>{formatTWDateTime(new Date(l.createdAt))} · {l.kind==='GRANT'?'方案啟用':l.kind==='RESERVE'?'預約保留':'服務扣次／更正'} · {l.delta>0?'+':''}{l.delta} 次</li>)}</ul>:<p>尚無使用紀錄。</p>}</div></details>)}<details className="cp-card cp-pad cp-purchase-history"><summary>購買進度</summary>{!data.purchases.length&&<p>尚無購買紀錄。</p>}{data.purchases.map(p=><p key={p.id}>{p.status==='PENDING'?'待核帳':'已核帳'} · {formatTWDateTime(new Date(p.createdAt))}</p>)}</details></>}
+   {view==='shop'&&<section>{data.plans.map(p=><article key={p.id} className="cp-card cp-pad"><h2>{p.name}</h2><p>{p.sessions}次 · NT$ {p.price.toLocaleString('zh-TW')}</p><button className="primary" disabled={pending} onClick={()=>{setError('');setLastFour('');setBuy(p);}}>購買方案</button></article>)}{!data.plans.length&&<p className="cp-empty">店家尚未提供可購買方案。</p>}</section>}
+   {view==='income'&&<section><IncomeMonthFilter month={data.incomeMonth??toLocalMonthStr()}/>{!data.grants.includes('income')?<p>本人收入尚未開放，請洽店長。</p>:!data.incomeConfirmed?<p role="status">本月收入待店長確認。</p>:<PersonalIncomePanel feeLabel="服務費" key={data.incomeMonth} lines={data.income.map(l=>({kind:'FEE',label:l.serviceName,date:l.date,endsAt:null,amount:l.fee,paid:l.paid,payments:l.payments??[]}))}/>}</section>}
+  </main></div>
+  {buy&&<CoursePortalSheet title="購買方案" busy={pending} close={()=>!pending&&setBuy(null)} footer={<><button disabled={pending} onClick={()=>setBuy(null)}>返回</button><button className="primary" disabled={pending||!/^\d{4}$/.test(lastFour)||!data.bank?.bankAccountNumber} onClick={submitPurchase}>{pending?'送出中…':'已匯款，送出核帳資料'}</button></>}><h2>{buy.name}</h2><p>NT$ {buy.price.toLocaleString('zh-TW')} · {buy.sessions}次</p><p>{data.bank?.bankName}（{data.bank?.bankCode}）</p><div className="cp-bank-account"><strong>{data.bank?.bankAccountNumber??'店家尚未提供收款帳號'}</strong>{data.bank?.bankAccountNumber&&<CopyButton value={data.bank.bankAccountNumber} label="複製帳號"/>}</div><p>店家核帳後啟用，送出通知不會立即取得額度。</p><label>轉出帳號後四碼<input aria-label="轉出帳號後四碼" inputMode="numeric" autoComplete="off" maxLength={4} value={lastFour} onChange={e=>setLastFour(e.target.value.replace(/\D/g,'').slice(0,4))}/></label>{error&&<p role="alert" className="cp-error">{error}</p>}</CoursePortalSheet>}
+  {change&&<CoursePortalSheet title={{CANCELLED:'取消服務分項',COMPLETED:'確認服務完成',NO_SHOW:'確認未到',RESERVED:'確認恢復／更正預約'}[change.target]} busy={pending} close={()=>!pending&&setChange(null)} footer={<><button disabled={pending} onClick={()=>setChange(null)}>返回</button><button className="primary" disabled={pending||!reason.trim()} onClick={submitChange}>{pending?'處理中…':'確認'}</button></>}><h2>{change.item.personName} · {change.item.serviceName}</h2><p>{formatTWDateTime(new Date(change.item.startsAt))}</p>{change.target==='CANCELLED'&&<p>只取消此分項，其他同行服務保留；方案取消{change.item.cancelDeduct?'扣次':'不扣次'}。</p>}<label>原因<textarea value={reason} maxLength={500} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert" className="cp-error">{error}</p>}</CoursePortalSheet>}
+  {reschedule&&<BeautyReschedulePanel mode={data.work?'work':'member'} item={reschedule} onClose={()=>setReschedule(null)} onSaved={()=>{setReschedule(null);router.refresh();}}/>}
+ </div>;
 }
