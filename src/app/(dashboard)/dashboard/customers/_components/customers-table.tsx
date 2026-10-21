@@ -339,6 +339,7 @@ export function CustomersTable({
 
   return (
     <DataTable
+      className="[&_table]:min-w-[1040px] [&_th]:whitespace-nowrap"
       columns={[...columns].sort((a,b)=>["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(a.key)-["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(b.key)).filter(column => !(hideAssignedStaff && column.key === "assignedStaff"))}
       rows={rows}
       rowKey={(c) => c.id}
