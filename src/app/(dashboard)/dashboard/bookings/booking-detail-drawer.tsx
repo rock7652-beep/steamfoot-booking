@@ -299,7 +299,7 @@ export function BookingDetailDrawer({
         if(initialIntent && !readOnly && collectionIntentHandled.current !== intentKey && payload.booking.id === id) {
           collectionIntentHandled.current=intentKey;
           const b=payload.booking;
-          if (initialIntent === "purchase-plan" && b.bookingType === "FIRST_TRIAL") {
+          if (initialIntent === "purchase-plan" && (b.bookingType === "FIRST_TRIAL" || b.bookingType === "PACKAGE_SESSION")) {
             setCustomerPlanShortcut(true);
           } else if (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
             if (initialIntent === "reschedule") setRescheduleOpen(true);

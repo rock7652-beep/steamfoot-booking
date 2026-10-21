@@ -597,7 +597,7 @@ function TimelineItem({
 
       <div className="relative flex w-11 shrink-0 justify-center">
         {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={!readOnly && !booking.participantSummary ? [
-          ...(canEditBookingNote && (booking.bookingType === "FIRST_TRIAL" || (actionable && booking.bookingType === "SINGLE")) ? [{ label: "購買方案", onSelect: () => onClick(booking.id, "purchase-plan") }] : []),
+          ...(canEditBookingNote && (booking.bookingType === "FIRST_TRIAL" || (actionable && (booking.bookingType === "SINGLE" || booking.bookingType === "PACKAGE_SESSION"))) ? [{ label: "購買方案", onSelect: () => onClick(booking.id, "purchase-plan") }] : []),
           ...(canEditBookingNote && actionable && booking.bookingType === "PACKAGE_SESSION" ? [{ label: "單次", onSelect: () => onClick(booking.id, "single") }] : []),
           ...(canEditBookingNote && actionable ? [{ label: "改時間", onSelect: () => onClick(booking.id, "reschedule") }] : []),
           ...(actionable && (canEditBookingNote || (booking.bookingType === "FIRST_TRIAL" && !!onNoShowTrial)) ? [{ label: "未到", onSelect: () => booking.bookingType === "FIRST_TRIAL" && onNoShowTrial ? onNoShowTrial(booking.id) : onClick(booking.id, "no-show") }] : []),
