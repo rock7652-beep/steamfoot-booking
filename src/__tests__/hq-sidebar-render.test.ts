@@ -1,3 +1,4 @@
+vi.mock("@/components/admin/steamfoot-store-notice-bell",()=>({SteamfootStoreNoticeBell:({storeId}:{storeId:string})=>createElement("span",{"data-steamfoot-notice-store":storeId})}));
 vi.mock("@/components/admin/course-store-notice-bell",()=>({CourseStoreNoticeBell:({storeId}:{storeId:string})=>createElement("span",{"data-course-notice-store":storeId})}));
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

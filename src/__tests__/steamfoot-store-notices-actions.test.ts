@@ -52,3 +52,9 @@ it('preserves a newer setting and treats an already-saved retry as idempotent',a
 it('rejects malformed payloads before any store or database access',async()=>{
  expect(await loadSteamfootStoreNotices({storeId:'s',handled:false,offset:-1})).toMatchObject({success:false});expect(await markSteamfootStoreNotice({storeId:'s',id:'n',handled:true,revision:-1})).toMatchObject({success:false});expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:'true',previous:false})).toMatchObject({success:false});expect(m.read).not.toHaveBeenCalled();expect(m.write).not.toHaveBeenCalled();
 });
+
+it('reads only the scoped pending count for a closed bell, without snapshots or write permission checks',async()=>{
+ m.raw.mockResolvedValueOnce([{enabled:true}]).mockResolvedValueOnce([{count:7}]);
+ expect(await loadSteamfootStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,items:[],count:7,canHandle:false});
+ expect(m.raw).toHaveBeenCalledTimes(2);expect(m.raw.mock.calls[1][0].join('')).toContain('count(*)');expect(m.permission).not.toHaveBeenCalled();
+});

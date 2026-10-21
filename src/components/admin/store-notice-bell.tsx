@@ -5,33 +5,37 @@ import {RightSheet} from "./right-sheet";
 import {rosterStatusButtonClassName} from "./roster-primitives";
 import {STORE_NOTICE_LABELS,type StoreNoticeItem,type StoreNoticeLoadResult,type StoreNoticeMarkResult} from "@/lib/store-notices";
 import {formatTWDateTime} from "@/lib/date-utils";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
-export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onViewTarget,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
- storeId:string;namespace:"course"|"steamfoot";
- loadNotices:(input:{storeId:string;handled:boolean;offset:number})=>Promise<StoreNoticeLoadResult>;
+export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
+ storeId:string;namespace:"course"|"steamfoot";initialEnabled?:boolean;
+ loadNotices:(input:{storeId:string;handled:boolean;offset:number;summaryOnly?:boolean})=>Promise<StoreNoticeLoadResult>;
  markNotice:(input:{storeId:string;id:string;handled:boolean;revision:number})=>Promise<StoreNoticeMarkResult>;
  labels?:Partial<Record<StoreNoticeItem["kind"],string>>;
  onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;targetLabel?:string;refreshKey?:number;
 }) {
- const [enabled,setEnabled]=useState(false),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
+ const [enabled,setEnabled]=useState(initialEnabled),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
  const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
  const [offset,setOffset]=useState(0),[expanded,setExpanded]=useState<string|null>(null),[error,setError]=useState("");
  const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(false),[loading,setLoading]=useState(true);
  const [undo,setUndo]=useState<StoreNoticeItem|null>(null);const heading=useId();
+ const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
+ const [countKnown,setCountKnown]=useState(false);
  const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(false);
  const audio=useRef<AudioContext|null>(null);const soundKey=`${namespace}-notice-sound:${storeId}`;
  const load=useCallback(async()=>{
   if(busy.current)return;const seq=++generation.current;setLoading(true);
-  try{const r=await loadNotices({storeId,handled,offset});if(!mounted.current||seq!==generation.current)return;
+  try{const r=await reader.read({storeId,handled:open?handled:false,offset:open?offset:0,summaryOnly:!open});if(!mounted.current||seq!==generation.current)return;
    if(!r.success){setError(r.error);return;}if(r.storeId!==storeId)return;
    setEnabled(r.enabled);if(!r.enabled)setOpen(false);
-   setItems(r.items);setCount(r.count);setCanHandle(r.canHandle);setMore(r.more);setError("");
+   setCount(r.count);setCountKnown(true);setError("");
+   if(open){setItems(r.items);setCanHandle(r.canHandle);setMore(r.more);}
    if(seen.current!==null&&r.count>seen.current&&soundRef.current&&audio.current?.state==="running"){
     const oscillator=audio.current.createOscillator(),gain=audio.current.createGain();oscillator.connect(gain);gain.connect(audio.current.destination);gain.gain.value=.06;oscillator.frequency.value=660;oscillator.start();oscillator.stop(audio.current.currentTime+.12);
    }seen.current=r.count;
   }catch{if(mounted.current&&seq===generation.current)setError("通知更新失敗，請重試");}finally{if(mounted.current&&seq===generation.current)setLoading(false);}
- },[storeId,handled,offset,loadNotices]);
+ },[storeId,handled,offset,open,reader]);
  useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;void audio.current?.close();};},[]);
  useEffect(()=>{try{const s=localStorage.getItem(soundKey)==="on";soundRef.current=s;setSound(s);}catch{}},[soundKey]);
  useEffect(()=>{
@@ -40,7 +44,7 @@ export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onView
   return()=>{requestGeneration.current++;clearInterval(timer);document.removeEventListener("visibilitychange",refresh);window.removeEventListener("focus",refresh);window.removeEventListener(`${namespace}-notices-setting`,refresh);};
  },[load,namespace,refreshKey]);
  async function toggle(n:StoreNoticeItem) {
-  if(busy.current||!canHandle)return;busy.current=true;generation.current++;setPending(n.id);setRowError({});setError("");
+  if(busy.current||!canHandle)return;busy.current=true;generation.current++;reader.clear();setPending(n.id);setRowError({});setError("");
   const previous=items,oldCount=count;const target=!n.handledAt;
   setItems(list=>list.filter(i=>i.id!==n.id));setCount(c=>Math.max(0,c+(target?-1:1)));
   try{const r=await markNotice({storeId,id:n.id,handled:target,revision:n.revision});if(!mounted.current)return;
@@ -52,7 +56,7 @@ export function StoreNoticeBell({storeId,namespace,loadNotices,markNotice,onView
  useEffect(()=>{if(!undo)return;const timer=setTimeout(()=>setUndo(null),7000);return()=>clearTimeout(timer);},[undo]);
  if(!enabled)return null;
  return <>
-  <button type="button" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={`門市通知，${count} 筆待處理`} aria-expanded={open} onClick={()=>{setOpen(true);void load();if(sound){audio.current??=new AudioContext();void audio.current.resume();}}}>
+  <button type="button" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound){audio.current??=new AudioContext();void audio.current.resume();}}}>
    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
    {count>0&&<span className="absolute right-0 top-0 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}
   </button>

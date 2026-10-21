@@ -18,9 +18,13 @@ async function scope(storeId:string,permission:"booking.read"|"booking.update"|"
 }
 export async function loadSteamfootStoreNotices(input:unknown):Promise<StoreNoticeLoadResult> {
  try {
-  const d=z.object({storeId:id,handled:z.boolean(),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
+  const d=z.object({storeId:id,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
   const user=await scope(d.storeId,"booking.read");
   if(!await readSteamfootNoticeEnabled(prisma,d.storeId))return {success:true,storeId:d.storeId,enabled:false,items:[],count:0,canHandle:false,more:false};
+  if(d.summaryOnly){
+   const totals=await prisma.$queryRaw<Array<{count:number}>>`SELECT count(*)::int AS count FROM public."SteamfootStoreNotice" WHERE "storeId"=${d.storeId} AND "handledAt" IS NULL`;
+   return {success:true,storeId:d.storeId,enabled:true,items:[],count:totals[0]?.count??0,canHandle:false,more:false};
+  }
   const child=user.role!=="ADMIN"&&user.storeId!==d.storeId;
   type Row=Omit<StoreNoticeItem,"startsAt"|"previousStartsAt"|"handledAt"|"createdAt"|"updatedAt">&{startsAt:Date;previousStartsAt:Date|null;handledAt:Date|null;createdAt:Date;updatedAt:Date};
   const [rows,totals,canHandle]=await Promise.all([

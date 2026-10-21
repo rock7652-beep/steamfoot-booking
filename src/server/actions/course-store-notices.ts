@@ -11,11 +11,15 @@ import type {CourseNoticeItem,CourseNoticeKind} from "@/lib/course-store-notices
 const store=z.string().min(1).max(100);
 export async function loadCourseStoreNotices(input:unknown) {
  try {
-  const d=z.object({storeId:store,handled:z.boolean(),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
+  const d=z.object({storeId:store,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const rule=await coursePrisma.courseBookingRule.findUnique({where:{storeId}});
   if(rule?.backendNoticesEnabled===false)return {success:true as const,storeId,enabled:false,items:[] as CourseNoticeItem[],count:0,canHandle:false,more:false};
+  if(d.summaryOnly){
+   const count=await coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}});
+   return {success:true as const,storeId,enabled:true,items:[] as CourseNoticeItem[],count,canHandle:false,more:false};
+  }
   const [rows,count,canHandle]=await Promise.all([
    coursePrisma.courseStoreNotice.findMany({where:{storeId,handledAt:d.handled?{not:null}:null},orderBy:d.handled?[{handledAt:"desc"},{id:"asc"}]:[{startsAt:"asc"},{createdAt:"asc"},{id:"asc"}],skip:d.offset,take:51}),
    coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}}),
