@@ -44,11 +44,12 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
     }
   }, [route, router, localSections, params]);
   useEffect(() => {
-    if (manual) return;
+    // Settings already keep confirmed local state; focus must not refresh an editor.
+    if (manual || (localSections && params.get("view") === "settings")) return;
     const refresh = () => router.refresh();
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, [manual, router]);
+  }, [manual, router, localSections, params]);
   const preferenceKey = `${preference.mode}:${preference.login ?? ""}`;
   const [reminderOverride, setReminder] = useState<(Preference & { source: string }) | null>(null);
   const reminder = reminderOverride?.source === preferenceKey ? reminderOverride : preference;

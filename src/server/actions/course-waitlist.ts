@@ -1,4 +1,5 @@
 "use server";
+import { settingsStep, settingsSyncStep } from "@/server/services/settings-timing";
 import {waitlistValues,waitlistReceipt,waitlistRevision} from "@/lib/course-waitlist-save";
 import {settingsSaveUncertain} from "@/server/services/settings-save-error";
 import {AppError} from "@/lib/errors";
@@ -30,10 +31,10 @@ export async function saveCourseWaitlistSettings(input: unknown) {
   try {
     const data=waitlistValues.parse(input);
     const receipt=z.object({receipt:waitlistReceipt.optional()}).parse(input).receipt;
-    const { user, storeId } = await courseManager("business_hours.manage");
+    const { user, storeId } = await settingsStep("authorization", () => courseManager("business_hours.manage"));
     if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟候補設定。");
-    await requireStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
-    const saved=await courseTransaction(storeId, async tx => {
+    await settingsStep("feature", () => requireStoreFeature(storeId, FEATURES.COURSE_WAITLIST));
+    const saved=await settingsStep("transaction", () => courseTransaction(storeId, async tx => {
       if(receipt){
         const before=await tx.courseWaitlistSetting.findUnique({where:{storeId}});
         const current=waitlistValues.parse(before??{enabled:false,defaultLimit:5,autoPromoteStopMinutes:240});
@@ -56,10 +57,10 @@ export async function saveCourseWaitlistSettings(input: unknown) {
       action: data.enabled ? "ENABLE" : "DISABLE",
       summary: data.enabled ? "開啟課程候補" : "關閉課程候補",
       after: data,
-    }, tx); });
+    }, tx); }));
 
     let syncWarning=false;
-    try{refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}
+    try{settingsSyncStep("cache", refresh);}catch(error){if(!receipt)throw error;syncWarning=true;}
     if(receipt)return {success:true as const,storeId,data:saved.values,syncWarning};
     return { success: true as const };
   } catch (error) {

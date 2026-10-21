@@ -12,6 +12,7 @@ import { resolveMemberRequestStoreId } from "./member-request-store";
 import { resolveCentralMemberCustomerForStore } from "./central-member-resolver";
 import type { Prisma } from "../../../generated/course-client";
 import { lockCourseStore } from "./course-store-lock";
+import { settingsStep } from "./settings-timing";
 
 export async function courseManager(permission: PermissionCode) {
   const startedAt = Date.now();
@@ -124,9 +125,9 @@ export async function courseTransaction<T>(
 ) {
   const result=await coursePrisma.$transaction(
     async (tx) => {
-      await lockCourseStore(tx, storeId);
-      const value = await work(tx);
-      if (audit) await audit(value, tx);
+      await settingsStep("db_lock", () => lockCourseStore(tx, storeId));
+      const value = await settingsStep("db_work", () => work(tx));
+      if (audit) await settingsStep("db_audit", () => audit(value, tx));
       return value;
     },
     { timeout: 15000 },

@@ -1,5 +1,6 @@
 "use client";
 import {CourseOperationSwitch} from "@/components/admin/course-operation-switch";
+import { toast } from "sonner";
 
 import { trialSettingsRevision } from "@/lib/shop-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
@@ -111,7 +112,6 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
   const confirmedDuty=useConfirmedSettingsRows(dutySource,row=>String(row.enabled));
   const props:Props={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
-  const onSaved=(row:CourseSettingsSectionInput)=>confirmed.confirm({id:row.section,values:row});
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
@@ -128,6 +128,17 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const [status, setStatus] = useState<Record<string, { dirty: boolean; pending: boolean }>>({});
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  function closeSavedRow(id: string, syncWarning: boolean) {
+    // Keep warnings visible, and never close another row opened in the meantime.
+    if (!syncWarning) {
+      setExpandedRow(current => current === id ? null : current);
+      if (id !== "trial") toast.success("已儲存");
+    }
+  }
+  const onSaved = (row: CourseSettingsSectionInput, syncWarning: boolean) => {
+    confirmed.confirm({id:row.section,values:row});
+    closeSavedRow(row.section === "booking" ? "booking-cutoff" : row.section === "payment" ? "payment-bank" : "store", syncWarning);
+  };
   const allowLeave = useRef(false);
   const hasDirty = Object.values(status).some(value => value.dirty);
   const sectionDirty = (section: string) => Object.entries(status).some(([key, state]) => (key === section || key.startsWith(section + ":")) && state.dirty);
@@ -202,7 +213,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
             expanded={expandedRow === "waitlist"}
             onEdit={props.canEdit ? () => openRow("waitlist") : undefined}
           >
-            <CourseWaitlistSettings key={props.storeId} storeId={props.storeId} initial={props.waitlistSettings} canEdit={props.canEdit} onSaved={values=>confirmedWaitlist.confirm({id:"waitlist",values})} />
+            <CourseWaitlistSettings key={props.storeId} storeId={props.storeId} initial={props.waitlistSettings} canEdit={props.canEdit} onSaved={(values,syncWarning)=>{confirmedWaitlist.confirm({id:"waitlist",values});closeSavedRow("waitlist",syncWarning);}} />
           </Row>
         )}
         </FeatureEntry>
@@ -218,7 +229,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
           summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}
           expanded={expandedRow === "trial"}
           onEdit={() => openRow("trial")}
-        ><TrialSettingsForm onSaved={values=>confirmed.confirm({id:"trial",values})} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
+        ><TrialSettingsForm onSaved={(values,syncWarning)=>{confirmed.confirm({id:"trial",values});closeSavedRow("trial",syncWarning);}} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>
