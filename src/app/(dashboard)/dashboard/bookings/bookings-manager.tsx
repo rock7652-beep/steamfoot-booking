@@ -231,7 +231,7 @@ function BookingsManagerContent({
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
-  const [activeBookingIntent, setActiveBookingIntent] = useState<"collect" | undefined>();
+  const [activeBookingIntent, setActiveBookingIntent] = useState<"collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel" | undefined>();
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -553,7 +553,7 @@ function BookingsManagerContent({
   }, [dayBookings]);
 
   const openBooking = useCallback(
-    (id: string, intent?: "collect") => {
+    (id: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => {
       if (saves.isBlocked(id) || (intent && readOnly)) return;
       setActiveBookingIntent(intent);
       // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。

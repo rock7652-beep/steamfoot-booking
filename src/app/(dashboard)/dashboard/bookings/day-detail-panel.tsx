@@ -106,7 +106,7 @@ interface DayDetailPanelProps {
   /** 若有篩選，原始筆數（>0 代表已套篩選） */
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
-  onBookingClick?: (bookingId: string, intent?: "collect") => void;
+  onBookingClick?: (bookingId: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => void;
   noteScope?: string;
   canEditBookingNote?: boolean;
   onBookingNoteSaved?: (bookingId: string, value: string | null) => void;
@@ -372,7 +372,7 @@ function TimelineItem({
   onBookingNoteSaved?: (bookingId: string, value: string | null) => void;
   onSaveBookingNote?: (bookingId: string, notes: string | null, expectedNotes: string | null) => Promise<NoteSaveResult>;
   readOnly?: boolean;
-  onClick?: (id: string, intent?: "collect") => void;
+  onClick?: (id: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => void;
   actionable: boolean;
   selected: boolean;
   onToggleSelect?: (id: string) => void;
@@ -596,9 +596,14 @@ function TimelineItem({
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
-        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={actionable && !readOnly && booking.bookingType === "FIRST_TRIAL" && !booking.participantSummary ? [
-          ...(onNoShowTrial ? [{ label: "未到", onSelect: () => onNoShowTrial(booking.id) }] : []),
-          ...(onCancelTrial ? [{ label: "取消預約", danger: true, onSelect: () => onCancelTrial(booking.id) }] : []),
+        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} actions={!readOnly && canEditBookingNote && !booking.participantSummary ? [
+          ...(booking.bookingType === "FIRST_TRIAL" || (actionable && booking.bookingType === "SINGLE") ? [{ label: "購買方案", onSelect: () => onClick(booking.id, "purchase-plan") }] : []),
+          ...(actionable && booking.bookingType === "PACKAGE_SESSION" ? [{ label: "單次", onSelect: () => onClick(booking.id, "single") }] : []),
+          ...(actionable ? [
+            { label: "改時間", onSelect: () => onClick(booking.id, "reschedule") },
+            { label: "未到", onSelect: () => onClick(booking.id, "no-show") },
+            { label: "取消預約", danger: true, onSelect: () => onClick(booking.id, "cancel") },
+          ] : []),
         ] : []} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
       </div>
     </div>
