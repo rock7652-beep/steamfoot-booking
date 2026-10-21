@@ -8,6 +8,8 @@
 
 **店家現在從這裡開始：[三端試用清單](store-trial-checklist.md)**；正式啟用前的證據與缺項集中於[啟用前清單](release-readiness.md)。所有店家實機勾選尚待本人回報，不由代理測試代簽收。
 
+店家試用期間亦可獨立補驗其他缺項；[轉帳申請→核帳發卡](purchase-acceptance.md)8項已完成，並修正改正後四碼後的舊錯誤提示。合成銀行設定已還原，未設定真實收款或啟用LINE。
+
 | 身分 | 網址 | 測試帳號 |
 |---|---|---|
 | 店長 | [/hq/login?store=beauty-1374-qa](https://sb-5xmothc5nvzv.vercel.run/hq/login?store=beauty-1374-qa) | `owner@beauty-1374.invalid` |

@@ -1,0 +1,50 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "7ea8687e",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "customer receives card",
+  "results": [
+    {
+      "case": "店長真正表單自訂2次1900元方案並開放前台轉帳核帳",
+      "passed": true
+    },
+    {
+      "case": "錯誤後四碼明確拒絕，不產生訂單、方案或收款",
+      "passed": true
+    },
+    {
+      "case": "改正後四碼後舊錯誤清除，僅建立待核帳，不提前發卡或登錄收款",
+      "passed": true
+    },
+    {
+      "case": "原申請請求重送只保留一筆待核帳訂單",
+      "passed": true
+    },
+    {
+      "case": "缺少銀行設定時不能新建轉帳申請，既有待核帳訂單不變",
+      "passed": true
+    },
+    {
+      "case": "店長真正核帳後才發2次方案、GRANT一次及1900元收款／共用收支帳",
+      "passed": true
+    },
+    {
+      "case": "同請求與新request key重複核帳皆不重複發卡、扣次或記收款",
+      "passed": true
+    },
+    {
+      "case": "顧客真正頁面回讀已核帳與可用2次；手機及後台尺寸無整頁溢出，page error及待發通知0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "bankRestored": true,
+  "limitations": [
+    "Fake bank fields set by scoped QA client, not bank-settings UI proof",
+    "No real transfer or LINE delivery",
+    "Retry calls use actual authenticated HTTP",
+    "Native Chrome dimensions, not physical Safari"
+  ]
+}

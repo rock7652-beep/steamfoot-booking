@@ -193,6 +193,7 @@ export function BeautyPortal({ data }: { data: BeautyPortalData }) {
                 onClick={() => {
                   const lastFour = window.prompt("轉帳完成後請填後四碼");
                   if (!lastFour) return;
+                  setError("");
                   start(async () => {
                     const key = p.id + lastFour;
                     if (!purchaseRequests.current.has(key))
