@@ -1,0 +1,108 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "390ef13d",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "dimensions",
+  "results": [
+    {
+      "case": "真正UI自訂3／8／2次方案並售卡，各建立一次GRANT與收款，非產品預設方案",
+      "passed": true
+    },
+    {
+      "case": "顧客經營逐筆對回原始卡與預約：正常3次排除、近期8次及低次2次列入，已結清排除",
+      "passed": true
+    },
+    {
+      "case": "真正UI加入家人，即使取消購買人勾選仍保留購買人；只改成員並追加AUDIT，不改餘額／扣次／收付款",
+      "passed": true
+    },
+    {
+      "case": "舊成員視窗儲存衝突被拒絕，原名單與帳本不變",
+      "passed": true
+    },
+    {
+      "case": "原成員修改請求重送只回原結果，不追加命令、稽核或改帳",
+      "passed": true
+    },
+    {
+      "case": "新增家人真正登入後可讀同一張方案與3次共用餘額",
+      "passed": true
+    },
+    {
+      "case": "家人預約預留1次不提前扣次，可用2次即進入顧客經營名單，原始餘額仍3次",
+      "passed": true
+    },
+    {
+      "case": "家人尚有未完成方案預約時，真正UI移除被拒絕，預約／名單／帳本全部不變",
+      "passed": true
+    },
+    {
+      "case": "取消不扣次釋放預留、可用恢復3次，顧客經營名單同步移除該正常方案",
+      "passed": true
+    },
+    {
+      "case": "預約處理後可真正移除家人；家人不再讀到卡，購買人保有3次，取消歷史與原帳本保留",
+      "passed": true
+    },
+    {
+      "case": "真正已登入HTTP拒絕外店成員、未開放共用、已結清及外店方案，整筆不留改帳或命令",
+      "passed": true
+    },
+    {
+      "case": "低權限登入重送成員修改不能成功且資料不變；路由／action拒絕不混計為分支全覆蓋",
+      "passed": true
+    },
+    {
+      "case": "共用成員視窗與顧客經營桌機／iPad、會員390／360寬無整頁溢出，page error及待送通知0",
+      "passed": true
+    }
+  ],
+  "retention": [
+    {
+      "rows": 17,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 1
+    },
+    {
+      "rows": 18,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 2
+    },
+    {
+      "rows": 17,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 1
+    },
+    {
+      "rows": 17,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 1
+    },
+    {
+      "rows": 17,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 1
+    },
+    {
+      "rows": 17,
+      "closedExcluded": 2,
+      "expiredUnclosedIncluded": 0,
+      "holdBasedLow": 1
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic plans/cards/history retained, no real transfer or LINE",
+    "Reminder is a read-only list; does not prove notification delivery",
+    "Current retention includes expired unclosed cards; shows remaining, filters on available after holds",
+    "Invalid/retry requests use captured authenticated HTTP; low permission may be rejected at route layer",
+    "Native Chrome dimensions, not physical Safari"
+  ]
+}

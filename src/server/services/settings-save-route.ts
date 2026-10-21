@@ -1,11 +1,12 @@
 import "server-only";
 import { z } from "zod";
+import { beautySandboxSameOrigin } from "../../../scripts/beauty-sandbox-qa-scope.mjs";
 
 /** Direct mutation transport: no RSC response and no shared response caching. */
 export function settingsSavePOST<T>(schema:z.ZodType<T,z.ZodTypeDef,unknown>, save:(input:T)=>Promise<{success:boolean;uncertain?:boolean}>, maxBodyLength=40000) {
   const headers={"Cache-Control":"private, no-store"};
   return async function POST(request:Request) {
-    if(request.headers.get("origin")!==new URL(request.url).origin)
+    if(!beautySandboxSameOrigin(request.url,request.headers.get("origin"),process.env))
       return Response.json({success:false,error:"請從本站重新送出。"},{status:403,headers});
     let input:T;
     try{const body=await request.text();if(body.length>maxBodyLength)throw new Error("payload too large");input=schema.parse(JSON.parse(body));}

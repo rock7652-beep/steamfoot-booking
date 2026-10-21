@@ -10,6 +10,7 @@ import { savedPaymentSettings,paymentSettingsRevision } from "@/lib/shop-setting
 
 interface Props {
   compact?: boolean;
+  isBeauty?: boolean;
   storeId: string;
   initial: {
     bankName: string | null;
@@ -24,7 +25,7 @@ const inputCls =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function PaymentSettingsForm({ storeId, initial, compact = false }: Props) {
+export function PaymentSettingsForm({ storeId, initial, compact = false, isBeauty = false }: Props) {
   const [bankName, setBankName] = useState(initial.bankName ?? "");
   const [bankCode, setBankCode] = useState(initial.bankCode ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(initial.bankAccountNumber ?? "");
@@ -221,7 +222,9 @@ export function PaymentSettingsForm({ storeId, initial, compact = false }: Props
             )}
 
             <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
-              轉帳後請透過官方 LINE 聯繫店長確認，提供您的姓名與末 5 碼。
+              {isBeauty
+                ? "轉帳後請在「我的方案」填寫後四碼，送出核帳申請；店長確認入帳後才發放方案。"
+                : "轉帳後請透過官方 LINE 聯繫店長確認，提供您的姓名與末 5 碼。"}
             </p>
 
             <div className="mt-3">

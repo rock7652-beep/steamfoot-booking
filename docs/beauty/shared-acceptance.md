@@ -43,4 +43,4 @@ Sandbox在Next前終結TLS，正常上傳Origin是專用HTTPS網址，但Request
 
 本輪是程式／單元測試／專用隔離站證據，**正式已啟用：否**。沒有真實現金、轉帳、LINE登入或送達，沒有實體iPhone／Android／iPad驗收。合成店沒有舊Transaction紀錄，故未證明新舊交易混合；未窮舉全部現金抽屜競爭、調整及補登場景、分析權限組合、長期大量資料、跨午夜切換或正式pooler／schema。
 
-銀行設定UI、顧客經營、共用成員修改與母子店只讀仍待獨立補驗；完整發布缺項見[正式啟用前清單](release-readiness.md)，店家勾選見[三端試用清單](store-trial-checklist.md)。
+本輪未涵蓋的銀行設定UI、顧客經營與共用成員增刪，後續已完成[獨立補驗](bank-members-acceptance.md)；母子店只讀仍待驗。完整發布缺項見[正式啟用前清單](release-readiness.md)，店家勾選見[三端試用清單](store-trial-checklist.md)。

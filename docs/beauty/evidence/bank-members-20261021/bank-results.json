@@ -1,0 +1,49 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "273671bb",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "dimensions",
+  "results": [
+    {
+      "case": "從美業設定的銀行入口保留本店路徑並開啟共用表單",
+      "passed": true
+    },
+    {
+      "case": "真實UI儲存合成銀行，資料庫只更新本店銀行欄位，LINE欄位保留",
+      "passed": true
+    },
+    {
+      "case": "重新開啟回讀已儲存銀行，預覽使用美業後四碼核帳說明",
+      "passed": true
+    },
+    {
+      "case": "舊視窗銀行修改被拒絕，不覆蓋新資料",
+      "passed": true
+    },
+    {
+      "case": "顧客真正登入後在我的方案讀到本店已儲存銀行，未進行匯款或送通知",
+      "passed": true
+    },
+    {
+      "case": "同筆設定請求重送確認成功，銀行資料不重複變更",
+      "passed": true
+    },
+    {
+      "case": "低權限、顧客、匿名、偽造來源及異店設定寫入都拒絕，銀行未變",
+      "passed": true
+    },
+    {
+      "case": "銀行設定桌機／iPad及顧客390／360寬無整頁溢出，page error 0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "bankRestored": true,
+  "limitations": [
+    "Synthetic bank data only; no real transfer or LINE",
+    "Original bank values restored via real UI when changed; no values in evidence",
+    "Native Chrome dimensions, not physical Safari"
+  ]
+}

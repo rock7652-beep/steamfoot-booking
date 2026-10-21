@@ -7,6 +7,7 @@ import { SettingsReturnLink as Link } from "@/components/settings/settings-navig
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PaymentSettingsForm } from "./payment-form";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export default async function PaymentSettingsPage() {
   const user = await getCurrentUser();
@@ -26,13 +27,13 @@ export default async function PaymentSettingsPage() {
     );
   }
 
-  const [shopConfig, contact] = await Promise.all([getShopConfig(storeId), prisma.shopConfig.findUnique({ where: { storeId }, select: { lineOfficialId: true } })]);
+  const [shopConfig, contact, industryModule] = await Promise.all([getShopConfig(storeId), prisma.shopConfig.findUnique({ where: { storeId }, select: { lineOfficialId: true } }), getStoreIndustryModule(storeId)]);
 
   return (
     <PageShell>
       <PageHeader
         title="付款設定"
-        subtitle="這些資訊會顯示在前台購買頁，讓顧客知道怎麼轉帳並聯繫店長確認"
+        subtitle={industryModule === "beauty" ? "銀行資訊會顯示在美業「我的方案」，供顧客轉帳後送出核帳申請" : "這些資訊會顯示在前台購買頁，讓顧客知道怎麼轉帳並聯繫店長確認"}
         actions={
           <Link
             href="/dashboard/settings?section=payment"
@@ -46,6 +47,7 @@ export default async function PaymentSettingsPage() {
       <PaymentSettingsForm
         key={storeId}
         storeId={storeId}
+        isBeauty={industryModule === "beauty"}
         initial={{
           bankName: shopConfig.bankName,
           bankCode: shopConfig.bankCode,
