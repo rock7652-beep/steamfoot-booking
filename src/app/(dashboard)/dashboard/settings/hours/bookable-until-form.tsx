@@ -1,4 +1,5 @@
 "use client";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
@@ -91,8 +92,10 @@ export function BookableUntilForm({
         const revision=bookingWindowRevision(saved);setAwaitingSource(revision===sourceRevision?null:revision);
         setSavedDate(saved.date);setSavedDays(saved.days);setSavedOpensAt(saved.opensAt);
         setSavedMode(saved.date?"fixed":"rolling");setMode(saved.date?"fixed":"rolling");setFixedDate(saved.date??"");setDays(saved.days);
-        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
-        setExpanded(false);
+        if (canCloseConfirmedSettingsSave(result, setError)) {
+          toast.success("已儲存");
+          setExpanded(false);
+        }
         return;
       }
       } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
