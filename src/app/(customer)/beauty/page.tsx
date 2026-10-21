@@ -8,5 +8,5 @@ export default async function Page({
 }) {
   if (process.env.BEAUTY_MODULE_ENABLED !== "1") return <BeautyClosedNotice />;
   const q = await searchParams;
-  return <BeautyPortal data={await beautyPortal(q.work === "1")} />;
+  return <BeautyPortal key={q.work === "1" ? "work" : "member"} data={await beautyPortal(q.work === "1")} />;
 }
