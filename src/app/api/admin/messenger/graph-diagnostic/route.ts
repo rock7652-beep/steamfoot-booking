@@ -1,3 +1,4 @@
+import { lastDiagnosisByActorAndStore } from "@/server/services/messenger-audit-rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { diagnoseMessengerGraph } from "@/server/services/messenger-graph-diagnostic";
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MIN_INTERVAL_MS = 60_000;
-const lastDiagnosisByActorAndStore = new Map<string, number>();
+
 
 function respond(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -38,8 +39,4 @@ export async function POST(request: Request) {
   } catch {
     return respond({ error: "diagnosis_unavailable" }, 503);
   }
-}
-
-export function resetMessengerGraphDiagnosticRateLimitForTests(): void {
-  lastDiagnosisByActorAndStore.clear();
 }

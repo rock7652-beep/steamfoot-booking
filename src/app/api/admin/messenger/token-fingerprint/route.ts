@@ -1,3 +1,4 @@
+import { lastFingerprintByActorAndStore } from "@/server/services/messenger-audit-rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { diagnoseMessengerPageToken, getTokenFormat } from "@/server/services/messenger-token-fingerprint";
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MIN_INTERVAL_MS = 60_000;
-const lastDiagnosisByActorAndStore = new Map<string, number>();
+
 
 function respond(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -40,16 +41,12 @@ export async function POST(request: Request) {
 
   const key = `${user.id}:${store.id}`;
   const now = Date.now();
-  if (now - (lastDiagnosisByActorAndStore.get(key) ?? 0) < MIN_INTERVAL_MS) return respond({ error: "rate_limited" }, 429);
-  lastDiagnosisByActorAndStore.set(key, now);
+  if (now - (lastFingerprintByActorAndStore.get(key) ?? 0) < MIN_INTERVAL_MS) return respond({ error: "rate_limited" }, 429);
+  lastFingerprintByActorAndStore.set(key, now);
 
   try {
     return respond(await diagnoseMessengerPageToken({ actorUserId: user.id, storeId: store.id, localFingerprint: body.localFingerprint, localFormat: body.localFormat }));
   } catch {
     return respond({ error: "diagnosis_unavailable" }, 503);
   }
-}
-
-export function resetMessengerTokenFingerprintRateLimitForTests(): void {
-  lastDiagnosisByActorAndStore.clear();
 }
