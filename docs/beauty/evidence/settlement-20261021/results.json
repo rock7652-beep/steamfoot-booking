@@ -1,0 +1,257 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "d6884835",
+  "storeId": "beauty-1374-fee-d6884835",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "dimensions",
+  "results": [
+    {
+      "case": "只新增獨立合成店／兩位技師／三筆已完成服務與九月原付款；不改舊帳或伺服器時鐘",
+      "passed": true
+    },
+    {
+      "case": "九／十月真正UI確認月結；九月快照應付500已付300；原確認重送不產生新版本",
+      "passed": true
+    },
+    {
+      "case": "乙技師真正登入，只見本人十月已確認600元，不見甲技師200元與九月500元",
+      "passed": true
+    },
+    {
+      "case": "十月補付九月100元：按九月服務累計已付400，付款日期為十月；重送一筆、超付拒絕",
+      "passed": true
+    },
+    {
+      "case": "仍有淨付款400元時更正回預約被拒，服務與月結／帳本不變",
+      "passed": true
+    },
+    {
+      "case": "分次收回100＋200＋100，追加三筆負帳連回原付款及原技師；重送不重複、超收回拒絕、原九月付款不改",
+      "passed": true
+    },
+    {
+      "case": "收回淨付款至0後才能更正、跨月換乙；重新完成依乙鐘點600計算，九月移除、舊預約revision拒絕",
+      "passed": true
+    },
+    {
+      "case": "舊九／十月快照完整保留；新key沿用舊月結fingerprint及未重新確認的付款均拒絕",
+      "passed": true
+    },
+    {
+      "case": "重新確認追加十月第二版本，原版本不改；新付款600歸實際乙技師，本人收入兩筆應領600／已付0與600",
+      "passed": true
+    },
+    {
+      "case": "確認後付款及部分收回即時回算已付350；技師端與店長報表一致，超過剩餘250拒絕",
+      "passed": true
+    },
+    {
+      "case": "每筆付款／收回一對一入共用支出／收入，依各自實際日期記帳；淨支出350與已付350一致，兩月美業營收仍0、舊快照不改",
+      "passed": true
+    },
+    {
+      "case": "店長1024／768／1366／1920與技師390無整頁溢出；頁面錯誤及待送通知0",
+      "passed": true
+    }
+  ],
+  "reports": [
+    {
+      "month": "2026-09",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 500,
+          "paid": 300
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-09",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 500,
+          "paid": 300
+        }
+      ]
+    },
+    {
+      "month": "2026-09",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 500,
+          "paid": 400
+        }
+      ]
+    },
+    {
+      "month": "2026-09",
+      "lines": []
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 350
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 350
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 350
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 350
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    },
+    {
+      "month": "2026-10",
+      "lines": [
+        {
+          "person": "月結補驗-d6884835跨月",
+          "fee": 600,
+          "paid": 350
+        },
+        {
+          "person": "月結補驗-d6884835甲原單",
+          "fee": 200,
+          "paid": 0
+        },
+        {
+          "person": "月結補驗-d6884835乙原單",
+          "fee": 600,
+          "paid": 0
+        }
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic past completed services and one September fee seeded; live payments/recoveries/corrections/confirms use real UI and DB time",
+    "No DB/server clock changes; original financial history retained",
+    "Old snapshot consistency checked in DB; no claim of UI history version selector",
+    "No actual funds, LINE, physical devices, production activation or all concurrency permutations"
+  ]
+}
