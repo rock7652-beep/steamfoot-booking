@@ -60,6 +60,8 @@ LINE 申請期間另已補完 [帳務與家人共用方案瀏覽器驗收](comme
 
 後續 [撤權、低權限與跨店隔離補驗](security-acceptance.md) 16組已通過，含真正HTTP action、舊登入撤權、RSC收入停止回傳及拒絕後資料摘要核對；路由層與action拒絕分開記錄，未宣稱所有撤權競爭時序或正式資料庫已驗證。
 
+[取消／未到、恢復與更正補驗](debit-acceptance.md) 10組／61個檢查點亦已通過，包含四種扣次組合、舊預約規則快照、重送、家人最後一次、撞約與結清後禁止恢復；原店家設定已還原，並非正式啟用證據。
+
 **真實 LINE 登入及通知送達：尚未實測。** 任務環境沒有綁定本次核准的測試通道／收件人。既有 Vercel 的 LINE 變數同時涉及既有門市與正式用途，不能因為有變數就認定是美業測試帳號；本輪只讀取變數名稱與 target metadata，未將其值複製到 VM。
 
 下一步需指定測試用官方帳號、相同 Provider 下的 Login／Messaging channel、允許的測試收件人，並透過環境設定綁定憑證。測試 LINE Login callback 為 `https://sb-5xmothc5nvzv.vercel.run/api/auth/callback/line`；正式既有 callback／webhook 不改。取得測試設定後，才能安排真人授權登入、核對已驗證 LINE 身分，並建立僅限本店及指定收件人的送達驗收。現在的全域／店家通知與共用外發 guard 仍封鎖，不能把 SKIPPED、事件建立或合成 entry 說成已送達。

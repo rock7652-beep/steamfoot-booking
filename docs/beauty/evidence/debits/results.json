@@ -1,0 +1,96 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "24d3ee99",
+  "synthetic": true,
+  "actualHttpActions": true,
+  "passed": true,
+  "stage": "restoration guards",
+  "checks": 61,
+  "settingsRestored": true,
+  "matrix": [
+    {
+      "cancelDeduct": false,
+      "noShowDeduct": false,
+      "initial": 3,
+      "finalRemaining": 3,
+      "finalHeld": 0,
+      "snapshotPreserved": true,
+      "ledgerAppendOnly": true
+    },
+    {
+      "cancelDeduct": false,
+      "noShowDeduct": true,
+      "initial": 3,
+      "finalRemaining": 3,
+      "finalHeld": 0,
+      "snapshotPreserved": true,
+      "ledgerAppendOnly": true
+    },
+    {
+      "cancelDeduct": true,
+      "noShowDeduct": false,
+      "initial": 3,
+      "finalRemaining": 2,
+      "finalHeld": 0,
+      "snapshotPreserved": true,
+      "ledgerAppendOnly": true
+    },
+    {
+      "cancelDeduct": true,
+      "noShowDeduct": true,
+      "initial": 3,
+      "finalRemaining": 2,
+      "finalHeld": 0,
+      "snapshotPreserved": true,
+      "ledgerAppendOnly": true
+    }
+  ],
+  "results": [
+    {
+      "case": "已支付拆帳時更正被拒絕，扣次與帳本完整回滾；收回後才可更正",
+      "passed": true
+    },
+    {
+      "case": "取消不扣次／未到不扣次：取消、恢復、未到、完成、更正、重送及三端資料一致",
+      "passed": true
+    },
+    {
+      "case": "取消不扣次／未到扣次：取消、恢復、未到、完成、更正、重送及三端資料一致",
+      "passed": true
+    },
+    {
+      "case": "取消扣次／未到不扣次：取消、恢復、未到、完成、更正、重送及三端資料一致",
+      "passed": true
+    },
+    {
+      "case": "取消扣次／未到扣次：取消、恢復、未到、完成、更正、重送及三端資料一致",
+      "passed": true
+    },
+    {
+      "case": "家人已預留最後一次時，另一筆取消預約不能恢復且無殘留",
+      "passed": true
+    },
+    {
+      "case": "家人已用完最後一次時，不能恢復取消預約或透支",
+      "passed": true
+    },
+    {
+      "case": "原技師／空間時段被占用時，恢復整筆失敗且不預留次數",
+      "passed": true
+    },
+    {
+      "case": "更正釋回最後一次後可正常恢復；方案退款結清後禁止恢復且帳本餘額為0",
+      "passed": true
+    },
+    {
+      "case": "所有重送、拒絕與更正均無重複扣次或待發通知",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Real HTTP/RSC and database readback; not every button clicked in this run",
+    "Dedicated development PostgreSQL; not production/pooler",
+    "Transfer registration only; no real transfers",
+    "LINE login/delivery pending"
+  ]
+}
