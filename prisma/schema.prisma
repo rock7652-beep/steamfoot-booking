@@ -3507,3 +3507,33 @@ model ImageAnnouncementAsset {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   @@index([storeId])
 }
+
+// Private server-only notice data; Store FKs and capture trigger live in SQL.
+model SteamfootNoticeSetting {
+  storeId String @id
+  enabled Boolean @default(true)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+}
+
+model SteamfootStoreNotice {
+  id String @id @default(dbgenerated("gen_random_uuid()::text"))
+  storeId String
+  bookingId String
+  kind String
+  customerName String
+  serviceName String
+  staffName String
+  previousStaffName String?
+  startsAt DateTime @db.Timestamptz(3)
+  previousStartsAt DateTime? @db.Timestamptz(3)
+  affectedCount Int @default(1)
+  details Json @default("{}")
+  handledAt DateTime? @db.Timestamptz(3)
+  handledById String?
+  handledByName String?
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([storeId, bookingId])
+  @@index([storeId, handledAt, startsAt])
+}

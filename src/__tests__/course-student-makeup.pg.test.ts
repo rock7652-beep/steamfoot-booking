@@ -26,7 +26,8 @@ const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
   for(const sql of migration.split(";").map(s=>s.trim()).filter(Boolean))await db!.$executeRawUnsafe(sql);
   for(const sql of [
    'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text)',
-   'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)',
+   'CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text)',
+      'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)',
    'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)',
    'CREATE TABLE "SpecialBusinessDay" ("storeId" text,date date,type text)',
    'CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" int,"isOpen" boolean)',

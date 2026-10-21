@@ -10,8 +10,8 @@ type StoreNoticeInput={
 };
 export async function recordCourseStoreNotice(tx:Prisma.TransactionClient,actor:CourseActor,inputOrLoad:StoreNoticeInput|(()=>Promise<StoreNoticeInput>)) {
  const rule=await tx.courseBookingRule.findUnique({where:{storeId:actor.storeId}});
- // Opt-in, including legacy/mocked rules. No old-data scanning when enabled again.
- if(!rule?.backendNoticesEnabled)return;
+ // Enabled by default, including stores without a rule. No historical backfill.
+ if(rule?.backendNoticesEnabled===false)return;
  const input=typeof inputOrLoad==="function"?await inputOrLoad():inputOrLoad;
  const coaches=await tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${actor.storeId} AND (id=${input.coachId} OR id=${input.previousCoachId??input.coachId})`;
  const coachName=coaches.find(c=>c.id===input.coachId)?.displayName??"未指派";

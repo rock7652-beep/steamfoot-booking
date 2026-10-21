@@ -96,7 +96,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
         selfBookingRevision={rule?.selfBookingRevision ?? 0}
         selfLeaveEnabled={rule?.selfLeaveEnabled ?? true}
         selfRescheduleEnabled={rule?.selfRescheduleEnabled ?? rule?.selfBookingEnabled ?? true}
-        backendNoticesEnabled={rule?.backendNoticesEnabled ?? false}
+        backendNoticesEnabled={rule?.backendNoticesEnabled ?? true}
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit && !readOnly}

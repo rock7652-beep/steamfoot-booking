@@ -1,4 +1,5 @@
 "use client";
+import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
@@ -34,6 +35,7 @@ import { createDevicePreviewUrl } from "@/lib/device-preview";
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
 // ssr:false 因為它純 client 互動 + useActionState。
+
 const ChangePasswordModal = dynamic(
   () => import("@/components/change-password-modal"),
   { ssr: false },
@@ -638,6 +640,7 @@ interface StoreViewOption {
 interface DashboardShellProps {
   /** Server-resolved store scope for shared course notifications, including store staff. */
   courseNoticeStoreId?: string | null;
+  noticeInitiallyEnabled?: boolean;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   sportsNative?:boolean;
@@ -680,6 +683,7 @@ interface DashboardShellProps {
 
 export default function DashboardShell({
   courseNoticeStoreId,
+  noticeInitiallyEnabled=false,
   cashDrawerStoreId,
   musicEnabled=false,
   sportsNative=false,
@@ -1285,7 +1289,8 @@ export default function DashboardShell({
 
           {/* Right: store context + user menu */}
           <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId}/> }
+            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
+            {!isHqPlatformView && industryModule==="steamfoot" && courseNoticeStoreId && permissions.includes("booking.read") && <SteamfootStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */

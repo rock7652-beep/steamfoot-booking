@@ -1,3 +1,5 @@
+// Notice persistence is covered by course-store-notices and PostgreSQL tests.
+vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({member:vi.fn(),transaction:vi.fn(),booking:vi.fn(),prior:vi.fn(),target:vi.fn(),raw:vi.fn(),exec:vi.fn(),reserve:vi.fn(),settle:vi.fn(),limits:vi.fn(),payments:vi.fn(),rules:vi.fn(),sessions:vi.fn(),config:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseMember:m.member,courseTransaction:m.transaction}));
@@ -8,7 +10,7 @@ vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:m.limits}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 import {confirmMemberCourseTrial,rescheduleMemberCourseBooking,loadCourseBookingNotification} from "@/server/actions/course-booking-notification";
-const tx={courseBookingRule:{findUnique:m.rules},courseBooking:{findFirst:m.booking,findUnique:m.prior},courseSession:{findFirst:m.target},courseTrialPayment:{updateMany:m.payments},$queryRaw:m.raw,$executeRaw:m.exec};
+const tx={courseStoreNotice:{findUnique:vi.fn()},courseBookingRule:{findUnique:m.rules},courseBooking:{findFirst:m.booking,findUnique:m.prior},courseSession:{findFirst:m.target},courseTrialPayment:{updateMany:m.payments},$queryRaw:m.raw,$executeRaw:m.exec};
 const original=()=>({id:"old",storeId:"s",customerId:"member",customerName:"小美",status:"RESERVED",bookingKind:"TRIAL",cardId:null,card:null,trialPrice:500,sessionId:"original",session:{nameSnapshot:"課程 · 83f866",templateId:"t",startsAt:new Date("2099-10-07T15:00:00+08:00"),cancelledAt:null}});
 beforeEach(()=>{vi.resetAllMocks();m.member.mockResolvedValue({user:{id:"u"},storeId:"s",customer:{id:"member",name:"小美"}});m.transaction.mockImplementation(async(_s,work)=>work(tx));m.booking.mockResolvedValue(original());m.prior.mockResolvedValue(null);m.target.mockResolvedValue({id:"new-session",startsAt:new Date("2099-10-08T15:00:00+08:00")});m.raw.mockResolvedValue([{bookableUntilDate:new Date("2099-12-31T00:00:00Z"),bookingOpensAt:null,bookingWindowDays:null}]);m.reserve.mockResolvedValue({id:"new",sessionId:"new-session"});m.limits.mockResolvedValue({maxMonthlyBookings:500});});
 it("records intent without attendance, balance or receipt writes",async()=>{

@@ -302,7 +302,7 @@ model CourseBookingRule {
   selfBookingRevision Int @default(0)
   selfLeaveEnabled Boolean @default(true)
   selfRescheduleEnabled Boolean @default(true)
-  backendNoticesEnabled Boolean @default(false)
+  backendNoticesEnabled Boolean @default(true)
   bookingLeadMinutes Int @default(0)
   cancellationLeadMinutes Int @default(0)
   @@map("CourseBookingRule")

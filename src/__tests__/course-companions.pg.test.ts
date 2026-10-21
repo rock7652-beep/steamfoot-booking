@@ -52,6 +52,7 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     for (const sql of migration.split(";").map(s => s.trim()).filter(Boolean)) await database().$executeRawUnsafe(sql);
     for (const sql of [
       'CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text)',
+      'CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text, name text, "mergedIntoCustomerId" text)',
       'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text, "featureKey" text, status text, "startsAt" timestamptz, "expiresAt" timestamptz)',
       'CREATE TABLE "ShopConfig" ("storeId" text, "bookableUntilDate" date, "bookingOpensAt" timestamptz, "bookingWindowDays" integer)',

@@ -157,7 +157,6 @@ export async function upsertStoreSubscription(
 // ============================================================
 
 const trialSchema = z.object({
-  entryAcceptanceConfirmed: z.boolean().default(false),
   storeId: z.string().min(1),
   plan: z.enum(["BASIC", "GROWTH", "ALLIANCE", "EXPERIENCE"]),
   startDate: z.string().regex(DATE_RE, "開始日格式須為 YYYY-MM-DD"),
@@ -185,7 +184,7 @@ export async function createTrialSubscription(
     const data = trialSchema.parse(input);
 
     await requirePermission("staff.manage");
-    const created = await openSingleStoreTrial({ storeId: data.storeId, actorId: user.id, startDate: data.startDate, days: data.trialDays, entryAcceptanceConfirmed: data.entryAcceptanceConfirmed });
+    const created = await openSingleStoreTrial({ storeId: data.storeId, actorId: user.id, startDate: data.startDate, days: data.trialDays });
     revalidateStorePlan();
     revalidateShopConfig();
     revalidatePath("/hq/dashboard/stores/subscriptions");
