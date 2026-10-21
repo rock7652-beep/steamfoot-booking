@@ -7,7 +7,7 @@ vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,re
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>null}));
-vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:()=>null}));
+vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
 import {BeautyBookingForm} from '@/components/beauty/booking-form';
 import {BeautyPortal} from '@/components/beauty/portal';
 import type {BeautyPortalData} from '@/server/beauty/queries';
@@ -52,4 +52,10 @@ it('hides customer cancellation and rescheduling when store policy disables them
 it('uses the selected worker item and revision when correcting a completed service',async()=>{
  const item={id:'worker-item',startsAt:'2026-10-20T01:00:00Z',endsAt:'2026-10-20T02:00:00Z',status:'COMPLETED',groupId:'group',revision:3,personName:'本人',serviceName:'做臉',technicianId:'tech',cancelDeduct:false,noShowDeduct:false};
  const host=mount(h(BeautyPortal,{data:{...data,work:true,grants:['complete'],items:[item]} as BeautyPortalData}));act(()=>button(host,'服務紀錄').click());act(()=>button(host,'查看明細 ⌄').click());act(()=>button(host,'更正回預約').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;set(field(sheet,'原因'),'更正誤按');await act(async()=>button(sheet,'確認').click());expect(m.status.mock.calls[0]).toMatchObject(['work',{id:'worker-item',revision:3,target:'RESERVED',reason:'更正誤按'}]);
+});
+
+it('blocks the next action after rescheduling until fresh authoritative props arrive',async()=>{
+ const item={id:'moving',startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,personName:'本人',serviceName:'做臉',technicianId:'tech',cancelDeduct:false,noShowDeduct:false};
+ const first={...data,items:[item]} as BeautyPortalData;const host=mount(h(BeautyPortal,{data:first}));act(()=>button(host,'我的預約').click());act(()=>button(host,'查看明細 ⌄').click());act(()=>button(host,'改期').click());act(()=>button(host,'模擬改期成功').click());expect(m.refresh).toHaveBeenCalledOnce();expect(button(host,'取消預約').disabled).toBe(true);expect(host.querySelector('main')?.getAttribute('aria-busy')).toBe('true');
+ const fresh={...first,items:[{...item,revision:1,startsAt:'2026-10-28T01:00:00Z'}]} as BeautyPortalData;act(()=>roots[0].root.render(h(BeautyPortal,{data:fresh})));expect(button(host,'取消預約').disabled).toBe(false);act(()=>button(host,'取消預約').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;set(field(sheet,'原因'),'更新後取消');await act(async()=>button(sheet,'確認').click());expect(m.status.mock.calls[0]).toMatchObject(['member',{id:'moving',revision:1}]);
 });
