@@ -4,6 +4,7 @@ import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { CashbookEditor } from "./cashbook-editor";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 /**
  * /dashboard/cashbook — 現金管理（一頁式工作台）
@@ -123,8 +124,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const isCourse = industryModule === "course";
   const useInlineEditor = true;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const isViewMode = !!storeViewContext?.isViewMode || isReadOnlyStoreTarget(user, cashbookStoreId);
   const canManageCashbook =
     !isViewMode && (await checkPermission(user.role, user.staffId, "cashbook.create"));
 

@@ -11,6 +11,7 @@ import { tabs } from "@/lib/beauty/contracts";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
 export default async function BeautyPage({
   searchParams,
 }: {
@@ -81,7 +82,7 @@ export default async function BeautyPage({
         data={data}
         tab={tab}
         slug={store.slug}
-        readOnly={!!view?.isViewMode}
+        readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
     </PageShell>
   );

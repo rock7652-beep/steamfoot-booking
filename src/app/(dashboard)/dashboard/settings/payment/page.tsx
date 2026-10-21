@@ -8,6 +8,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 import { PaymentSettingsForm } from "./payment-form";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
 
 export default async function PaymentSettingsPage() {
   const user = await getCurrentUser();
@@ -48,6 +49,7 @@ export default async function PaymentSettingsPage() {
         key={storeId}
         storeId={storeId}
         isBeauty={industryModule === "beauty"}
+        readOnly={isReadOnlyStoreTarget(user, storeId)}
         initial={{
           bankName: shopConfig.bankName,
           bankCode: shopConfig.bankCode,

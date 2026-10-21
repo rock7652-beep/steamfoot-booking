@@ -57,6 +57,6 @@ run `390ef13d`；[原始結果](evidence/bank-members-20261021/members-results.j
 
 ## 仍未完成
 
-沒有真實轉帳、LINE登入／送達、實體手機／Safari或正式PG17／pooler證據；沒有將店家試用勾選代填。未窮舉成員超過20人、合併顧客、全部權限競爭、先扣次後移除、過期臨界及大量名單情境；母子店只讀與剩餘現金／報表例外仍需獨立補驗。
+沒有真實轉帳、LINE登入／送達、實體手機／Safari或正式PG17／pooler證據；沒有將店家試用勾選代填。未窮舉成員超過20人、合併顧客、全部權限競爭、先扣次後移除、過期臨界及大量名單情境；後續母子店主要入口只讀已完成[獨立補驗](organization-clock-acceptance.md)；剩餘現金／報表例外仍待驗。
 
 **正式站未變動**：未合併、未正式migration、未部署，LINE通知繼續停發。三端簽收見[店家試用清單](store-trial-checklist.md)，完整發布缺項見[啟用前清單](release-readiness.md)。

@@ -1,0 +1,66 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "d9d71daa",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "dimensions and root restoration",
+  "results": [
+    {
+      "case": "只新增本任務合成子店與身分fixture，母店組織關係與既有顧客不變",
+      "passed": true
+    },
+    {
+      "case": "真正UI更正顧客姓名／手機／備註，保留顧客ID、登入User與identity link，追加AUDIT",
+      "passed": true
+    },
+    {
+      "case": "舊顧客資料視窗拒絕覆蓋，資料及稽核不變",
+      "passed": true
+    },
+    {
+      "case": "本店既有手機重複更正被拒，原顧客與登入綁定不被合併或接管",
+      "passed": true
+    },
+    {
+      "case": "真正HTTP拒絕空姓名、錯誤手機與外店顧客ID，資料不變",
+      "passed": true
+    },
+    {
+      "case": "更正後以新顧客手機及原密碼登入同一User／顧客身分，前台顯示更正姓名，沒有重綁帳號",
+      "passed": true
+    },
+    {
+      "case": "子店長真正登入並可操作自己的顧客更正",
+      "passed": true
+    },
+    {
+      "case": "母店切換器進入子店：可讀顧客資料、無新增預約／顧客與更正按鈕，欄位停用",
+      "passed": true
+    },
+    {
+      "case": "母店真正HTTP對子店更正與借母店網址夾帶子店ID都拒絕，不改母子店資料",
+      "passed": true
+    },
+    {
+      "case": "清除查看cookie後直接開子店網址仍完整唯讀，不能因缺少cookie露出操作",
+      "passed": true
+    },
+    {
+      "case": "母店不能開無組織關係店，子店長不能反向讀母店",
+      "passed": true
+    },
+    {
+      "case": "母店回自己的網址恢復可操作；後台桌機／iPad及顧客手機無整頁溢出，page error及待送通知0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "childFixture": "beauty-1374-org-d9d71daa",
+  "limitations": [
+    "New synthetic organization/users/customers seeded directly; actual corrections and switches through UI",
+    "Denied requests use authenticated HTTP; no production/LINE/device proof",
+    "Customer phone is the store phone-login lookup; User and identity links remain unchanged",
+    "Clock boundaries verified separately, never change live server/DB clock"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "runId": "84f5ab73",
+  "synthetic": true,
+  "realPostgres": true,
+  "controlledProcessDateOnly": true,
+  "results": [
+    {
+      "case": "台灣日／月／年在UTC16:00切換，共用查詢邊界正確",
+      "passed": true
+    },
+    {
+      "case": "跨午夜售卡依台灣成交日計有效日及共用收支營業日，未混用UTC日期",
+      "passed": true
+    },
+    {
+      "case": "方案到期最後1毫秒可用，下一毫秒拒絕",
+      "passed": true
+    },
+    {
+      "case": "到期當天服務可預留、翌日拒絕且無殘留群組或扣次",
+      "passed": true
+    },
+    {
+      "case": "有效服務日預約可在過期後補登完成，只扣一次，舊版本拒絕",
+      "passed": true
+    },
+    {
+      "case": "等於現在的開始時間拒絕，下一個開放15分鐘時段可預約",
+      "passed": true
+    },
+    {
+      "case": "完整服務加整理時間超過當日營業結束時拒絕，不暗中跨日",
+      "passed": true
+    },
+    {
+      "case": "跨午夜補收沿實際台灣收款日記共用收支，服務日期維持原日",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Domain services and app clock, not real browser/server wall-clock transition",
+    "Postgres NOW()/receipt createdAt remain real; no claim of real midnight revenue timestamp test",
+    "Original synthetic child hours restored; all financial history retained",
+    "Overnight services are rejected by current same-day operating periods"
+  ]
+}
