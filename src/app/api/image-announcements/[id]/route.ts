@@ -15,12 +15,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   let preview = false;
   if (url.searchParams.get("preview") === "1") {
     const user = await getCurrentUser();
-    if (!user || !await checkPermission(user.role, user.staffId, "business_hours.view")) return missing();
+    if (!user || !(await checkPermission(user.role, user.staffId, "business_hours.view") || await checkPermission(user.role, user.staffId, "customer.read") && await checkPermission(user.role, user.staffId, "booking.read"))) return missing();
     try { await validateStoreAccess(user, store.id, "read"); preview = true; } catch { return missing(); }
   }
   const snapshot = await readAnnouncements(store.id);
   const items = preview ? snapshot.items : activeAnnouncements(snapshot.items);
-  if (id === "list" && !preview) return Response.json({ items }, { headers: { "Cache-Control": "no-store" } });
+  if (id === "list") return Response.json({ items }, { headers: { "Cache-Control": "no-store" } });
   if (!items.some(item => item.id === id)) return missing();
   const asset = await prisma.imageAnnouncementAsset.findFirst({ where: { id, storeId: store.id } });
   if (!asset) return missing();
