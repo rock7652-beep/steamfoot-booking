@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/steamfoot-backend-notices": false,
       "feat/customer-period-consumption": false,
       "codex/sports-production-enable": false,
       "codex/sports-production-migration-review": false,

@@ -12,7 +12,8 @@
     "A16",
     "I21",
     "C169",
-    "CG01"
+    "CG01",
+    "A17"
   ],
   "updatedGuideIds": [
     "A05",
@@ -89,9 +90,10 @@
     "C111",
     "C114",
     "IMG01",
-    "CG01"
+    "CG01",
+    "A17"
   ],
-  "articleCount": 204,
+  "articleCount": 205,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -351,8 +353,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 29,
-  "totalInteractionPendingCount": 29,
+  "backendInteractionPendingCount": 30,
+  "totalInteractionPendingCount": 30,
   "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -680,5 +682,11 @@
     ],
     "verification": "source-reviewed; synthetic component Preview only; authenticated acceptance pending",
     "scope": "Store backend image announcements; no frontend tutorial added"
+  },
+  "steamfootStoreNoticeGuideReview": {
+    "guideId": "A17",
+    "status": "source-reviewed",
+    "authenticatedAcceptance": "pending",
+    "note": "新增蒸足後台異動通知操作說明；合成預覽不視為真實登入驗收。"
   }
 }

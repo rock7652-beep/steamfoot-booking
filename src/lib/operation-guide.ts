@@ -1,3 +1,4 @@
+import {steamfootNoticeGuides} from "./operation-guide-steamfoot-notices";
 import { imageAnnouncementGuides } from "./operation-guide-image-announcements";
 /** First batch: time-slot booking module only. Source reviewed at 44c1f1f0.
  * The guide is released; article interaction verification remains separate.
@@ -90,6 +91,7 @@ import { customerConsumptionGuides } from "./operation-guide-customer-consumptio
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 const catalogGuides: OperationGuide[] = [
+  ...steamfootNoticeGuides,
   ...imageAnnouncementGuides,
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: guide.id === "A03" ? ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/components/admin/inline-roster-note.tsx", "src/server/actions/booking-note.ts"] : ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
