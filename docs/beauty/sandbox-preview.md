@@ -109,3 +109,7 @@ LINE 申請期間另已補完 [帳務與家人共用方案瀏覽器驗收](comme
 [完整13組結果與發布步驟](release-runbook.md)：另外建立無外部網路的PG17.11容器完成安裝、前置／已存在狀態拒絕、提交前SQL錯誤／斷線回滾、新庫備份還原及約5秒鎖逾時。修正候選search_path可能把美業表建到其他schema，限定public並提前檢查角色、extension與部分安裝；相關3檔32項回歸通過。
 
 本輪沒有重建或套用既有Sandbox DB，對外試用站仍為原PG18.6／development。正式schema、backend／pooler、production build、供應商PITR與正式套用仍待核；本輪只交付隔離演練及待確認發布方案，不合併、不部署。
+
+## 2026-10-21 Production build／關閉回歸
+
+[完整本機production證據](production-closed-acceptance.md)：build exit0、三端關閉正常、16筆美業操作拒絕、13表不變；既有蒸足／運動／音樂主要登入及取消／請假回歸通過，舊SPA維持原410及資料。修正關閉時通用錯誤，20筆結果含2筆資料回讀。新增loopback PG17.11與next start，未改對外Sandbox原development／PG18.6。144項tracing警告與hosted封裝待核；店家勾選仍留白，LINE、實機與正式發布待各自確認。

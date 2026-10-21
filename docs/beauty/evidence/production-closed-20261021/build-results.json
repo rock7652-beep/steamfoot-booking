@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 136166,
+  "productionRuntime": true,
+  "moduleEnabled": false,
+  "hosted": false,
+  "migrationsSkipped": true,
+  "buildId": "VUyZOWZDGB1WrP8tAjN4_",
+  "nextVersion": "16.2.2",
+  "postgresVersion": "17.11",
+  "staticPages": 232,
+  "appRoutes": 321,
+  "turbopackWarnings": 144,
+  "traceInspection": {
+    "manifests": 325,
+    "uniqueFiles": 6922,
+    "privateQaDirectoryReferenced": false,
+    "envFilesReferenced": false
+  },
+  "limitations": [
+    "Local production compilation and next start; no hosted bundle validation or deployment",
+    "Migration execution deliberately skipped under strict loopback-only closed-module guard",
+    "144 tracing warnings remain; no claim of all CI checks passing"
+  ]
+}

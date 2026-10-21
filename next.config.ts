@@ -57,6 +57,11 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
+  ...(process.env.BEAUTY_PRODUCTION_QA === '1' ? {
+    distDir: '.next-beauty-production-qa',
+    typescript: { tsconfigPath: 'tsconfig.beauty-production-qa.json' },
+    experimental: { cpus: 2 },
+  } : {}),
   ...(process.env.BEAUTY_SANDBOX_QA === '1' ? {
     allowedDevOrigins:['sb-5xmothc5nvzv.vercel.run'],
   } : {}),

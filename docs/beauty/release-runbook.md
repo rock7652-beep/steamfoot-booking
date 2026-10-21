@@ -83,8 +83,8 @@ service檔、TLS憑證及密碼存於DBA核准位置；不在命令、文件或P
 
 ## 當前限制及參考
 
-PG17.11容器通過可補足原PG16／Sandbox18.6的引擎版本證據，仍未讀取正式schema、實際backend／pooler、自訂extensions／operators、備份PITR與production build。R04／R05／R06及正式授權不得因此自動結案。
+PG17.11容器通過可補足原PG16／Sandbox18.6的引擎版本證據，仍未讀取正式schema、實際backend／pooler、自訂extensions／operators、備份PITR與hosted部署封裝（本機production補驗見下）。R04／R05／R06及正式授權不得因此自動結案。
 
 2026-10-21查閱[Supabase changelog](https://supabase.com/changelog.md)、[連線指引](https://supabase.com/docs/guides/database/connecting-to-postgres)、[PG15.19／17.11變更](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes)。該版btree_gist重建索引注意事項針對可能含NaN的浮點欄位；美業新排他鍵為text與tstzrange，不能因此替其他既有索引自動REINDEX。正式自訂operators及extension版本仍須依實際盤點確認。
 
-重要下一步：先準備並補驗production build與部署開關保持關閉時的三端及舊模組回歸；正式結構／角色／pooler只讀比對、店家實機與LINE尚待各自前置，不進行正式寫入。
+重要下一步：本機production build與美業關閉三端／既有模組回歸已完成，見[補驗證據](production-closed-acceptance.md)。接續只讀比對正式結構／角色／pooler並釐清144項tracing警告與hosted封裝；店家實機與LINE尚待各自前置，不進行正式寫入。

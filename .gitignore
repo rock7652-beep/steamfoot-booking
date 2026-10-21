@@ -64,3 +64,5 @@ wallet-review-*.csv
 /supabase/.temp/
 
 /generated/beauty-client
+.next-beauty-production-qa/
+tsconfig.beauty-production-qa.json

@@ -1,0 +1,50 @@
+[
+  {
+    "runId": "7b46fd24",
+    "passed": false,
+    "stage": "owner closed",
+    "reason": "Auth origin and listener hostname mismatch"
+  },
+  {
+    "runId": "05307534",
+    "passed": false,
+    "stage": "owner closed",
+    "reason": "Listener hostname still differed from canonical URL"
+  },
+  {
+    "runId": "9ce58d85",
+    "passed": false,
+    "stage": "member and worker closed",
+    "reason": "Login wait pattern matched too early"
+  },
+  {
+    "runId": "bbc9b748",
+    "passed": false,
+    "stage": "closed write actions",
+    "reason": "Member action request targeted manager route"
+  },
+  {
+    "runId": "1e8b1cc3",
+    "passed": false,
+    "stage": "retired SPA",
+    "reason": "Retired SPA wording assertion too narrow"
+  },
+  {
+    "runId": "2a4e53b4",
+    "passed": false,
+    "stage": "fitness fixture",
+    "reason": "Fitness customer list used redirecting legacy URL"
+  },
+  {
+    "runId": "9875e398",
+    "passed": false,
+    "stage": "fitness member",
+    "reason": "Course home showed only next booking"
+  },
+  {
+    "runId": "3d7fbfc4",
+    "passed": false,
+    "stage": "fitness cancellation",
+    "reason": "Cancellation required expanding booking details"
+  }
+]

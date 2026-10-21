@@ -100,6 +100,10 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "beauty-production-qa") {
+  console.info("[beauty-production-qa] local_production_runtime=true isolated_database=true migrations_skipped=true module_closed=true notifications_blocked=true");
+  process.exit(0);
+}
 if (releaseMode === "sports-redesign-preview") {
   console.info("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
   process.exit(0);

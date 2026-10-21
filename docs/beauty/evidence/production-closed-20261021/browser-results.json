@@ -1,0 +1,186 @@
+{
+  "runId": "ff493790",
+  "productionRuntime": true,
+  "moduleEnabled": false,
+  "synthetic": true,
+  "passed": true,
+  "stage": "complete",
+  "results": [
+    {
+      "case": "production公開體驗顯示正常關閉提示，不回通用系統錯誤，也不公開合成服務／技師／預約資料",
+      "passed": true
+    },
+    {
+      "case": "production真正店長登入，首頁／營運入口關閉，沒有預約或服務操作；桌機／iPad尺寸無整頁溢出",
+      "passed": true
+    },
+    {
+      "case": "真正顧客／技師登入後均顯示關閉；舊book連結只跳一次到beauty，不公開工作或收入資料",
+      "passed": true
+    },
+    {
+      "case": "從本次production manifest取得真正註冊action，實際登入送16筆HTTP：店長預約／收退／方案／月結、會員／技師及公開體驗全拒絕，13張美業表摘要不變",
+      "passed": true
+    },
+    {
+      "case": "關閉時有授權cron也送0筆，未授權401；獨立共用銀行設定仍可正常讀取",
+      "passed": true
+    },
+    {
+      "case": "舊SPA在原基準已封存：顧客／後台／舊工作入口實際HTTP410，歷史資料保留，不因美業開關恢復",
+      "passed": true
+    },
+    {
+      "case": "steamfoot：真正店長登入與原模組顧客清單正常，美業關閉不阻擋原模組",
+      "passed": true
+    },
+    {
+      "case": "steamfoot：真正會員登入，既有會員首頁及原預約／課程資料正常載入",
+      "passed": true
+    },
+    {
+      "case": "steamfoot：真正會員取消／請假送出成功，原模組資料回讀一致，不影響美業表",
+      "passed": true
+    },
+    {
+      "case": "fitness：真正店長登入與原模組顧客清單正常，美業關閉不阻擋原模組",
+      "passed": true
+    },
+    {
+      "case": "fitness：真正會員登入，既有會員首頁及原預約／課程資料正常載入",
+      "passed": true
+    },
+    {
+      "case": "fitness取消／請假資料回讀",
+      "passed": true,
+      "status": "CANCELLED",
+      "absenceKind": null,
+      "remaining": 5
+    },
+    {
+      "case": "fitness：真正會員取消／請假送出成功，原模組資料回讀一致，不影響美業表",
+      "passed": true
+    },
+    {
+      "case": "fitness：真正授課人員我的工作仍能讀本人課程，未被美業開關封鎖",
+      "passed": true
+    },
+    {
+      "case": "music：真正店長登入與原模組顧客清單正常，美業關閉不阻擋原模組",
+      "passed": true
+    },
+    {
+      "case": "music：真正會員登入，既有會員首頁及原預約／課程資料正常載入",
+      "passed": true
+    },
+    {
+      "case": "music取消／請假資料回讀",
+      "passed": true,
+      "status": "CANCELLED",
+      "absenceKind": "STUDENT_LEAVE",
+      "remaining": 5
+    },
+    {
+      "case": "music：真正會員取消／請假送出成功，原模組資料回讀一致，不影響美業表",
+      "passed": true
+    },
+    {
+      "case": "music：真正授課人員我的工作仍能讀本人課程，未被美業開關封鎖",
+      "passed": true
+    },
+    {
+      "case": "原SPA合成資料與13張美業表維持原摘要；SPA在基準程式已封存，不恢復其入口、不當成可用功能回歸；瀏覽器錯誤0",
+      "passed": true
+    }
+  ],
+  "actionResults": [
+    {
+      "name": "saveBeautyCatalog",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "saveBeautySettings",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "saveBeautyLocation",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "bookBeautyParty",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "purchaseBeautyPlan",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "collectBeautyPayment",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "refundBeautyPayment",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "confirmBeautySettlement",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "payBeautyFee",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "voidBeautyFee",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "saveBeautyCustomer",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "confirmBeautyPurchase",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "bookBeautyParty",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "requestBeautyPlan",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "changeBeautyStatus",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    },
+    {
+      "name": "submitBeautyTrial",
+      "rejected": true,
+      "error": "美業模組尚未開放"
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Local next-start with loopback PG17; no hosted deployment or real pooler",
+    "Fixtures seeded directly; legacy cancel/leave and all logins use real UI",
+    "Production action IDs from the built server-reference manifest; no forged sessions",
+    "SPA was already blocked in baseline source, not restored or claimed functional",
+    "No LINE, real notifications, physical devices, production credentials or real money"
+  ]
+}

@@ -1,5 +1,6 @@
 import { BeautyBookingForm } from "@/components/beauty/booking-form";
 import { publicBeautyCatalog } from "@/server/beauty/queries";
+import { BeautyClosedNotice } from "@/components/beauty/closed-notice";
 export default async function Page({
   params,
   searchParams,
@@ -7,6 +8,7 @@ export default async function Page({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ entry?: string }>;
 }) {
+  if (process.env.BEAUTY_MODULE_ENABLED !== "1") return <BeautyClosedNotice />;
   const { slug } = await params,
     q = await searchParams,
     data = await publicBeautyCatalog(slug);

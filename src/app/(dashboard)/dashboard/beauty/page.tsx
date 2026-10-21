@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { BeautyDashboard } from "@/components/beauty/dashboard";
+import { BeautyClosedNotice } from "@/components/beauty/closed-notice";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -25,6 +26,8 @@ export default async function BeautyPage({
   const u = await getCurrentUser();
   if (!u || !(await checkPermission(u.role, u.staffId, "booking.read")))
     redirect("/dashboard");
+  if (process.env.BEAUTY_MODULE_ENABLED !== "1")
+    return <PageShell><PageHeader title="美業" /><BeautyClosedNotice /></PageShell>;
   const q = await searchParams,
     tab = tabs.find((t) => t === q.tab) ?? "首頁",
     a = await beautyManager("booking.read");
