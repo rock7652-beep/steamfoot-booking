@@ -1,0 +1,52 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "e053bac7",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "delete test announcements",
+  "results": [
+    {
+      "case": "真實UI上傳5張無個資PNG、瀏覽器轉JPEG並存入DB；第6張入口停用",
+      "passed": true
+    },
+    {
+      "case": "真實UI排序成功，未來上架、停用、過期三種狀態正確",
+      "passed": true
+    },
+    {
+      "case": "第二個舊編輯視窗儲存被拒絕，不能覆蓋較新公告",
+      "passed": true
+    },
+    {
+      "case": "公開列表僅2張有效圖且真JPEG可讀；隱藏圖404、店長預覽200、匿名預覽及異店404",
+      "passed": true
+    },
+    {
+      "case": "美業會員真正登入後顯示2張有效圖，可切換、放大、縮小、關閉並進入預約",
+      "passed": true
+    },
+    {
+      "case": "技師我的工作不插入顧客公告，不影響服務安排",
+      "passed": true
+    },
+    {
+      "case": "匿名、低權限、非同源及偽造店家寫入均拒絕，公告版本與內容不變",
+      "passed": true
+    },
+    {
+      "case": "後台桌機／iPad與顧客390／360寬無整頁溢出",
+      "passed": true
+    },
+    {
+      "case": "僅刪除本輪5張合成公告並儲存；前台不留空框且預約可開啟，page error 0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic announcement images only, no customer/accounting screenshots published",
+    "No real LINE LIFF or physical Safari",
+    "Image data is served by scoped application API; no external object storage"
+  ]
+}

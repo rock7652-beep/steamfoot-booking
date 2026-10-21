@@ -73,3 +73,9 @@ LINE 申請期間另已補完 [帳務與家人共用方案瀏覽器驗收](comme
 下一步需指定測試用官方帳號、相同 Provider 下的 Login／Messaging channel、允許的測試收件人，並透過環境設定綁定憑證。測試 LINE Login callback 為 `https://sb-5xmothc5nvzv.vercel.run/api/auth/callback/line`；正式既有 callback／webhook 不改。取得測試設定後，才能安排真人授權登入、核對已驗證 LINE 身分，並建立僅限本店及指定收件人的送達驗收。現在的全域／店家通知與共用外發 guard 仍封鎖，不能把 SKIPPED、事件建立或合成 entry 說成已送達。
 
 正式啟用仍另行處理；實體手機／iOS Safari 驗收、真實 LINE 送達、正式 schema／pooler 驗證與所有帳務視窗逐項點選，並未因這個對外網址而自動完成。
+
+## 2026-10-21 現金／公告／分析補驗
+
+[完整證據](shared-acceptance.md)：現金抽屜與分析8組、圖片公告9組真正瀏覽器／DB核對通過。另保留首次補關／今日開店的部分執行失敗紀錄，不混計整組成功。已修正只在完整QA守衛下適用的公告上傳Origin判斷，正常上傳可完成，偽造來源仍拒絕；非QA環境沿用原有同源規則。
+
+現金抽屜保持今日OPEN供試用，合成帳務保留；測試公告已經真正UI移除。兩組同時執行時曾遇Next development記憶體門檻重啟及暫時502，恢復後逐組通過；不把這個環境當作長期穩定性或production runtime證據。LINE保持待驗，正式站未變動。

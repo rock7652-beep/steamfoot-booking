@@ -1,4 +1,5 @@
 import { normalizeAnnouncementImage } from "@/server/services/announcement-image";
+import { beautySandboxSameOrigin } from "../../../../scripts/beauty-sandbox-qa-scope.mjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -12,7 +13,7 @@ const MAX_BODY = 4 * 1024 * 1024;
 export async function POST(request: Request) {
   try {
     // Same-origin boundary for cookie-authenticated multipart writes.
-    if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "請從後台操作" }, { status: 403 });
+    if (!beautySandboxSameOrigin(request.url, request.headers.get("origin"), process.env)) return NextResponse.json({ error: "請從後台操作" }, { status: 403 });
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
     // Bind the submitted editor to its original store; changing the top-bar store

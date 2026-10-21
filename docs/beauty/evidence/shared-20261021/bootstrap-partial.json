@@ -1,0 +1,59 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "c26b265b",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": false,
+  "stage": "open today",
+  "results": [
+    {
+      "case": "分析三個月份逐組對照DB：服務日期人次、完成、依收款日期SALE減REFUND、排除技師付款及目前有效卡",
+      "passed": true
+    },
+    {
+      "case": "真實UI補關上一營業日，依原合成帳目計算實點，保留原始帳本",
+      "passed": true
+    },
+    {
+      "case": "真實UI今日開店，帳面起點銜接前日閉店實點",
+      "passed": true
+    }
+  ],
+  "analytics": [
+    {
+      "month": "2026-10",
+      "servicePeople": 38,
+      "completed": 10,
+      "groups": 5,
+      "net": 21500,
+      "feePaymentsExcluded": 6,
+      "currentValidCards": 9
+    },
+    {
+      "month": "2026-11",
+      "servicePeople": 11,
+      "completed": 0,
+      "groups": 1,
+      "net": 0,
+      "feePaymentsExcluded": 0,
+      "currentValidCards": 9
+    },
+    {
+      "month": "2026-09",
+      "servicePeople": 0,
+      "completed": 0,
+      "groups": 0,
+      "net": 0,
+      "feePaymentsExcluded": 0,
+      "currentValidCards": 9
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic records only; no real cash movement",
+    "No real LINE or physical Safari",
+    "Legacy Transaction tables empty in this store; no legacy transaction mixing proof",
+    "Current valid cards are current, not historical balances",
+    "Synthetic financial history retained; drawer left open for trial"
+  ]
+}

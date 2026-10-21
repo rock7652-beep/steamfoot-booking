@@ -1,0 +1,88 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "95bfd47c",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "dimensions",
+  "results": [
+    {
+      "case": "分析三個月份逐組對照DB：服務日期人次、完成、依收款日期SALE減REFUND、排除技師付款及目前有效卡",
+      "passed": true
+    },
+    {
+      "case": "真實UI現金收入301、非現金收入503、現金支出47：抽屜只增加254，收款總覽分流正確",
+      "passed": true
+    },
+    {
+      "case": "真實UI補入200及提領100影響抽屜100元，不誤列收入",
+      "passed": true
+    },
+    {
+      "case": "美業真實售卡現金1000只入共用收支一次，抽屜與收入同步增加1000",
+      "passed": true
+    },
+    {
+      "case": "美業退款追加負1000及共用支出1000，抽屜扣回，收款總覽保留gross口徑",
+      "passed": true
+    },
+    {
+      "case": "真實UI閉店快照／差額0／翌日起點正確；撤銷閉店後回復營業，原帳本保留",
+      "passed": true
+    },
+    {
+      "case": "售卡再全退後美業分析淨收款與原數相同；手動收支、補入與提領不誤列美業營收",
+      "passed": true
+    },
+    {
+      "case": "後台1024／768／1366寬與操作視窗無整頁溢出；瀏覽器錯誤、待送通知0",
+      "passed": true
+    }
+  ],
+  "analytics": [
+    {
+      "month": "2026-10",
+      "servicePeople": 38,
+      "completed": 10,
+      "groups": 5,
+      "net": 22500,
+      "feePaymentsExcluded": 6,
+      "currentValidCards": 10
+    },
+    {
+      "month": "2026-11",
+      "servicePeople": 11,
+      "completed": 0,
+      "groups": 1,
+      "net": 0,
+      "feePaymentsExcluded": 0,
+      "currentValidCards": 10
+    },
+    {
+      "month": "2026-09",
+      "servicePeople": 0,
+      "completed": 0,
+      "groups": 0,
+      "net": 0,
+      "feePaymentsExcluded": 0,
+      "currentValidCards": 10
+    },
+    {
+      "month": "2026-10",
+      "servicePeople": 38,
+      "completed": 10,
+      "groups": 5,
+      "net": 22500,
+      "feePaymentsExcluded": 6,
+      "currentValidCards": 10
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic records only; no real cash movement",
+    "No real LINE or physical Safari",
+    "Legacy Transaction tables empty in this store; no legacy transaction mixing proof",
+    "Current valid cards are current, not historical balances",
+    "Synthetic financial history retained; drawer left open for trial"
+  ]
+}

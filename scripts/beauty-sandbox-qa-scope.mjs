@@ -26,3 +26,18 @@ export function beautySandboxRewriteUrl(path, requestUrl, forwardedProto, env) {
   url.port = '3000';
   return url;
 }
+
+/** Sandbox TLS terminates before Next, whose Request URL uses its internal
+ * listener. Accept only the pinned public Origin after the complete QA guard;
+ * never infer a trusted origin from forwarded/host headers. Normal hosts keep
+ * their existing strict URL-origin check. */
+export function beautySandboxSameOrigin(requestUrl, origin, env) {
+  const requestOrigin = new URL(requestUrl).origin;
+  if (env.BEAUTY_SANDBOX_QA !== '1') return origin === requestOrigin;
+  assertBeautySandboxQaEnvironment(env);
+  return origin === BEAUTY_SANDBOX_ORIGIN && [
+    BEAUTY_SANDBOX_ORIGIN,
+    'http://localhost:3000', 'https://localhost:3000',
+    'http://0.0.0.0:3000', 'https://0.0.0.0:3000',
+  ].includes(requestOrigin);
+}
