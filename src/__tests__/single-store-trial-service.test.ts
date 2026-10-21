@@ -35,32 +35,38 @@ describe("trial opening transaction", () => {
 });
 
 
-describe("course delivery acceptance", () => {
+describe("course backend trial activation", () => {
   const course = { id: "new-store", industryModule: "COURSE", plan: "EXPERIENCE", planStatus: "TRIAL", liffId: "123-app", moduleInstallation: { status: "ACTIVE" }, currentSubscriptionId: null };
-  it("requires explicit acceptance and a configured entry before starting", async () => {
-    m.find.mockResolvedValue(course);
-    await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("驗收");
-    expect(m.create).not.toHaveBeenCalled();
+  it("starts without LINE or LIFF setup or entry acceptance", async () => {
     m.find.mockResolvedValue({ ...course, liffId: null });
-    await expect(openSingleStoreTrialInTransaction(tx, { ...input, entryAcceptanceConfirmed: true })).rejects.toThrow("LIFF");
+    await expect(openSingleStoreTrialInTransaction(tx, input)).resolves.toEqual({ id: "trial-1" });
+    expect(m.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      status: "TRIAL", isTrial: true,
+      note: expect.not.stringContaining("驗收完成"),
+    }) });
+  });
+  it("still requires an active module before opening a backend trial", async () => {
+    m.find.mockResolvedValue({ ...course, liffId: null, moduleInstallation: { status: "PENDING" } });
+    await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("模組佈建");
+    expect(m.create).not.toHaveBeenCalled();
   });
   it("starts thirty days once and refuses a replay without touching the original", async () => {
     m.find.mockResolvedValue(course);
-    await openSingleStoreTrialInTransaction(tx, { ...input, entryAcceptanceConfirmed: true });
+    await openSingleStoreTrialInTransaction(tx, input);
     m.find.mockResolvedValue({ ...course, currentSubscriptionId: "trial-1" });
-    await expect(openSingleStoreTrialInTransaction(tx, { ...input, entryAcceptanceConfirmed: true })).rejects.toThrow("不可重新起算");
+    await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("不可重新起算");
     expect(m.create).toHaveBeenCalledTimes(1);
     expect(m.updateSub).not.toHaveBeenCalled();
     expect(m.log).toHaveBeenCalledTimes(1);
   });
   it("protects historical trials even when the current subscription pointer is absent", async () => {
     m.find.mockResolvedValue(course); m.history.mockResolvedValue({ id: "old" });
-    await expect(openSingleStoreTrialInTransaction(tx, { ...input, entryAcceptanceConfirmed: true })).rejects.toThrow("不可重新起算");
+    await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("不可重新起算");
     expect(m.create).not.toHaveBeenCalled();
   });
   it("does not accept customized course trial lengths", async () => {
     m.find.mockResolvedValue(course);
-    await expect(openSingleStoreTrialInTransaction(tx, { ...input, entryAcceptanceConfirmed: true, days: 60 })).rejects.toThrow("30 天");
+    await expect(openSingleStoreTrialInTransaction(tx, { ...input, days: 60 })).rejects.toThrow("30 天");
     expect(m.create).not.toHaveBeenCalled();
   });
 });
