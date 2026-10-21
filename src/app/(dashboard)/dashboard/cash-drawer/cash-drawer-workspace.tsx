@@ -62,6 +62,7 @@ async function handleAddCashbookEntry(
     return { success: false, error: "此入口僅能新增收入或支出（提領請使用提領功能）" };
   }
   return createCashbookEntry({
+    requestId: (formData.get("requestId") as string) || undefined,
     entryDate: String(formData.get("entryDate") ?? ""),
     type,
     category: (formData.get("category") as string) || undefined,

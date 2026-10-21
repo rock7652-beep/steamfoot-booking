@@ -1,0 +1,36 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "315b89fb",
+  "storeId": "beauty-1374-close-315b89fb",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": false,
+  "stage": "closed supplement replay",
+  "results": [
+    {
+      "case": "新增專用合成店與月界帳目；收款時間只在建立fixture時指定，既有帳本與DB時鐘不改",
+      "passed": true
+    },
+    {
+      "case": "真正UI關帳100元，建立原始關帳快照",
+      "passed": true
+    },
+    {
+      "case": "已關帳現金補登未勾確認，真正表單驗證阻擋送出",
+      "passed": true
+    },
+    {
+      "case": "確認後補登125元及專用稽核各一筆；原關帳100元與所有快照欄位完全不變",
+      "passed": true
+    }
+  ],
+  "reports": [],
+  "pageErrors": [],
+  "limitations": [
+    "Only isolated synthetic fixture store; financial history retained",
+    "Boundary payments created with explicit fixture timestamps; no DB/server clock changes, no existing receipt updates",
+    "September original refunded in actual October UI, DB-generated refund time",
+    "No real money movement, LINE, physical device or production activation proof",
+    "UI supplements and real refund checked; not a full audit of all cashbook edit routes or legacy mixed transactions"
+  ]
+}

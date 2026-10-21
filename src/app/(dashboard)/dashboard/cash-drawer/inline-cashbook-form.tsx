@@ -21,7 +21,7 @@
  *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookEntryFields 沿用。
  */
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import { FormSection } from "@/components/desktop";
 import { SubmitButton } from "@/components/submit-button";
@@ -62,7 +62,17 @@ export function InlineCashbookForm({
   canAssignStaff,
   staffOptions,
 }: Props) {
-  const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
+  // Keep one key until this form leaves after success. An uncertain network
+  // response must be retried as the same entry, even if React resets fields.
+  const requestId = useRef<string | null>(null);
+  const [state, formAction] = useActionState<CreateResult | null, FormData>(
+    async (previous, formData) => {
+      requestId.current ??= crypto.randomUUID();
+      formData.set("requestId", requestId.current);
+      return action(previous, formData);
+    },
+    null,
+  );
 
   useEffect(() => {
     if (state?.success) {
