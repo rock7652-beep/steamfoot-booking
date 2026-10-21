@@ -1,0 +1,94 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "f10b64a0",
+  "synthetic": true,
+  "realHttpActions": true,
+  "passed": true,
+  "stage": "spoof store context headers",
+  "results": [
+    {
+      "case": "真實店長與技師的正向讀取成功，確認HTTP action不是假失敗",
+      "passed": true
+    },
+    {
+      "case": "limited直接偽造20項管理操作均拒絕且無業務資料異動",
+      "passed": true,
+      "requests": 20,
+      "layers": {
+        "server-action": 20
+      }
+    },
+    {
+      "case": "member直接偽造20項管理操作均拒絕且無業務資料異動",
+      "passed": true,
+      "requests": 20,
+      "layers": {
+        "routing": 20
+      }
+    },
+    {
+      "case": "guest直接偽造20項管理操作均拒絕且無業務資料異動",
+      "passed": true,
+      "requests": 20,
+      "layers": {
+        "routing": 20
+      }
+    },
+    {
+      "case": "技師不能操作或查詢別人的服務；顧客不能偽裝工作身分",
+      "passed": true
+    },
+    {
+      "case": "舊登入撤回complete後立即拒絕後端操作",
+      "passed": true
+    },
+    {
+      "case": "舊登入撤回cancel後立即拒絕後端操作",
+      "passed": true
+    },
+    {
+      "case": "舊登入撤回reschedule後立即拒絕後端操作",
+      "passed": true
+    },
+    {
+      "case": "舊登入停用技師後讀寫均拒絕",
+      "passed": true
+    },
+    {
+      "case": "舊登入解除帳號連結後讀寫均拒絕",
+      "passed": true
+    },
+    {
+      "case": "原收入僅含本人，撤回income後舊登入的真實RSC停止回傳收入資料",
+      "passed": true
+    },
+    {
+      "case": "停用登入帳號後舊工作登入拒絕寫入",
+      "passed": true
+    },
+    {
+      "case": "本店店長及會員帶入外店ID的17項操作均拒絕，沒有外店私密標記或資料異動",
+      "passed": true,
+      "requests": 17
+    },
+    {
+      "case": "改門市網址仍無法讀取未授權外店",
+      "passed": true
+    },
+    {
+      "case": "偽造store headers不能覆寫伺服器的門市範圍",
+      "passed": true
+    },
+    {
+      "case": "所有拒絕測試後業務資料摘要不變、待發通知0",
+      "passed": true
+    }
+  ],
+  "restoredReviewIdentity": true,
+  "limitations": [
+    "Dedicated PostgreSQL only; no production/pooler proof",
+    "Fixtures inserted by guarded QA clients; denial calls use real HTTP",
+    "Not all concurrent revocation races covered",
+    "LINE login and delivery pending"
+  ]
+}
