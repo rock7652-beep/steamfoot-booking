@@ -47,11 +47,9 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
       {active.length > 1 && dots}
     </section>
     <ModalPanel open={open} onClose={close} labelledById={title} width={1000}>
-      <div className="flex h-[100dvh] min-h-0 flex-col bg-earth-950 p-2 text-white">
+      <div className="relative flex h-[100dvh] min-h-0 flex-col bg-earth-950 p-2 text-white">
         <h2 id={title} className="sr-only">公告圖片</h2>
-        <div className="flex shrink-0 justify-end gap-1">
-          <button type="button" aria-label="關閉圖片" className="h-11 w-11 rounded-full bg-white/15 text-2xl" onClick={close}>×</button>
-        </div>
+        <button type="button" aria-label="關閉圖片" className="absolute right-2 z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white bg-earth-900 text-3xl text-white shadow-xl" style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }} onClick={close}>×</button>
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto overscroll-contain" {...swipe}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
