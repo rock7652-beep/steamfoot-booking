@@ -213,6 +213,7 @@ export function BookingDetailDrawer({
   const isActing = saves.isBlocked(actionKey) || participantBusy;
   const checkingResult = actionState?.phase === "checking" || actionState?.phase === "unknown";
   const [noShowOpen, setNoShowOpen] = useState(false);
+  const [cancelShortcutOpen, setCancelShortcutOpen] = useState(false);
   const [partialAttendedPeople, setPartialAttendedPeople] = useState<
     number | null
   >(null);
@@ -260,6 +261,7 @@ export function BookingDetailDrawer({
     setPendingAttendedPeople(null);
     setPartialAttendedPeople(null);
     setNoShowOpen(false);
+    setCancelShortcutOpen(false);
     setAttendanceOpen(false);
     setAttendanceIntent(null);
     setRescheduleOpen(false);
@@ -302,7 +304,7 @@ export function BookingDetailDrawer({
           } else if (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
             if (initialIntent === "reschedule") setRescheduleOpen(true);
             else if (initialIntent === "no-show") setNoShowOpen(true);
-            else if (initialIntent === "cancel" && window.confirm("確定取消這筆預約？")) wrapAction("已取消預約", () => cancelBooking(id), "CANCELLED");
+            else if (initialIntent === "cancel") setCancelShortcutOpen(true);
             else if (initialIntent === "purchase-plan" && !payload.participantCheckout && b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
             else if (initialIntent === "single" && b.bookingType === "PACKAGE_SESSION") setAdjustToSingleOpen(true);
             else if ((initialIntent === "collect" || initialIntent === "single") && !payload.participantCheckout && b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
@@ -813,6 +815,18 @@ export function BookingDetailDrawer({
         )}
         </div>
       </RightSheet>
+      {!readOnly && cancelShortcutOpen && data?.booking.id === bookingId && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/40 p-4" role="presentation">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+            <h2 id="cancel-booking-title" className="text-lg font-semibold text-earth-900">取消預約</h2>
+            <p className="mt-2 text-sm text-earth-600">確定取消 {data.booking.customer.name} 的預約嗎？</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setCancelShortcutOpen(false)} className="min-h-11 rounded-lg border border-earth-300 px-4 text-sm">返回</button>
+              <button type="button" disabled={isActing} onClick={() => { setCancelShortcutOpen(false); wrapAction("已取消預約", () => cancelBooking(bookingId!), "CANCELLED"); }} className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-medium text-white disabled:opacity-50">確認取消</button>
+            </div>
+          </div>
+        </div>
+      )}
       {!readOnly && (
         <NoShowModal
           open={noShowOpen && !!data && !checkingResult}
