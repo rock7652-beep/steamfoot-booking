@@ -1,0 +1,35 @@
+{
+  "synthetic": true,
+  "runId": "1cc22348",
+  "partyA": {
+    "people": 2,
+    "services": [
+      {
+        "duration": 60,
+        "buffer": 15
+      },
+      {
+        "duration": 90,
+        "buffer": 0
+      }
+    ],
+    "sameGroupAfterMove": true,
+    "siblingUnchanged": true,
+    "receipts": [
+      1000,
+      1500,
+      -1500
+    ],
+    "net": 1000,
+    "cashbookEntries": 3,
+    "completedFee": 500
+  },
+  "partyB": {
+    "rejectedSecondOverchargeRolledBack": true,
+    "rejectedCancelledSelectionRolledBack": true,
+    "receipts": [
+      1000
+    ]
+  },
+  "pendingNotifications": 0
+}

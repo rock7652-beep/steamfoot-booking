@@ -1,0 +1,60 @@
+{
+  "origin": "https://sb-5xmothc5nvzv.vercel.run",
+  "runId": "1cc22348",
+  "synthetic": true,
+  "actualBrowser": true,
+  "passed": true,
+  "stage": "collect remaining service",
+  "results": [
+    {
+      "case": "顧客真實表單建立同筆2人不同服務；60+15與90分鐘完整時長、技師性別及共同起始正確",
+      "passed": true
+    },
+    {
+      "case": "顧客只改做臉分項日期；同行按摩與原群組聯絡／起始紀錄完全不變",
+      "passed": true
+    },
+    {
+      "case": "店長跨分項日期合併收款2500元，分別記1000／1500元並連結兩筆共用收支帳",
+      "passed": true
+    },
+    {
+      "case": "重送同筆合併收款不增加付款、命令、稽核或共用收支帳",
+      "passed": true
+    },
+    {
+      "case": "已收款同行按摩可分項取消；做臉完全不變，取消不擅自退款或刪收款",
+      "passed": true
+    },
+    {
+      "case": "只退取消按摩1500元，保留原收款；做臉仍收1000元，整組與共用收支帳淨額一致",
+      "passed": true
+    },
+    {
+      "case": "實際女技師完成改期後做臉並計500元拆帳；顧客回讀一筆完成、一筆取消，退款與同行狀態不變",
+      "passed": true
+    },
+    {
+      "case": "第二人超收時整筆合併收款回滾，第一人的收款與共用收支帳都未殘留",
+      "passed": true
+    },
+    {
+      "case": "收款前只取消按摩；舊勾選仍夾帶已取消項目時，後端拒絕整筆且做臉無異動",
+      "passed": true
+    },
+    {
+      "case": "店長僅收仍有效的做臉1000元，已取消同行不能勾選且沒有收款",
+      "passed": true
+    },
+    {
+      "case": "三端實際瀏覽器無page error、後台桌機／iPad／手機無整頁溢出，待發通知0",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "Native Chrome dimensions; no physical Safari device",
+    "Stale/retry collection cases use real HTTP with legitimate captured action",
+    "Transfer registration only; no real money or LINE delivery"
+  ]
+}
