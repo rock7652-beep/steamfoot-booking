@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   bookBeautyParty,
   submitBeautyTrial,
   readBeautySlots,
 } from "@/server/actions/beauty";
+import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { PartyInput } from "@/lib/beauty/contracts";
 export type BeautyBookingCatalog = {
@@ -40,6 +41,7 @@ export function BeautyBookingForm({
   cards = [],
   members = [],
   onBooked,
+  initialDate,initialTime,onStateChange,
 }: {
   catalog: BeautyBookingCatalog;
   mode: "manager" | "member" | "public";
@@ -57,10 +59,11 @@ export function BeautyBookingForm({
     serviceIds: string[];
   }[];
   members?: { id: string; name: string; phone: string }[];
+  initialDate?:string;initialTime?:string;onStateChange?:(state:{dirty:boolean;pending:boolean})=>void;
   onBooked?: () => void;
 }) {
   const [trial, setTrial] = useState(mode === "public"),
-    [date, setDate] = useState(toLocalDateStr),
+    [date, setDate] = useState(initialDate ?? toLocalDateStr()),
     [time, setTime] = useState(""),
     [slots, setSlots] = useState<string[]>([]),
     [error, setError] = useState(""),
@@ -68,6 +71,9 @@ export function BeautyBookingForm({
       null,
     ),
     [pending, start] = useTransition();
+  const [dirty,setDirty]=useState(false);
+  useCourseDraftGuard(dirty,pending);
+  useEffect(()=>{onStateChange?.({dirty,pending});},[dirty,pending,onStateChange]);
   const blank = (): PartyInput["people"][number] => ({
     name: "",
     phone: "",
@@ -149,6 +155,7 @@ export function BeautyBookingForm({
       if (version !== generation.current) return;
       if (r.success) {
         setSlots(r.data.slots);
+        if(initialTime&&r.data.slots.includes(initialTime))setTime(initialTime);
         setError(
           r.data.slots.length ? "" : "當日沒有可安排全部同行者的時間，請換日期",
         );
@@ -187,6 +194,7 @@ export function BeautyBookingForm({
   return (
     <form
       className="min-w-0 space-y-4"
+      onChangeCapture={()=>setDirty(true)}
       onSubmit={(e) => {
         e.preventDefault();
         if (lock.current || !time || !validate()) return;
@@ -198,6 +206,7 @@ export function BeautyBookingForm({
                 ? await submitBeautyTrial(slug, data(), entry)
                 : await bookBeautyParty(mode, data());
             if (r.success) {
+              setDirty(false);
               setReceipt(r.data);
               onBooked?.();
             } else setError(r.error);

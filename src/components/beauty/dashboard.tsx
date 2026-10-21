@@ -71,6 +71,7 @@ export function BeautyDashboard({
   const [techFilter] = useState(""),
     [roomFilter] = useState("");
   const [checked, setChecked] = useState<string[]>([]);
+  const [bookingSeed,setBookingSeed]=useState<{date?:string;time?:string}>({});
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const navigate=(tab:string)=>router.push(`?tab=${encodeURIComponent(tab)}`,{scroll:false});
   function run(work: () => Promise<{ success: boolean; error?: string }>) {
@@ -139,7 +140,7 @@ export function BeautyDashboard({
       )}
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button>{tab==='顧客管理'&&!readOnly&&data.manage.customer&&<button className={button+' !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar>}
       {tab==='首頁'&&<BeautyHome data={data} readOnly={readOnly} onBook={()=>setBooking(true)} onNavigate={navigate}/>}
-      {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={()=>setBooking(true)} pending={pending} readOnly={readOnly}/><section className="space-y-2" aria-label="預約名單"><RosterToolbar label="預約名單操作"><h2 className="text-sm font-semibold">預約名單</h2>{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
+      {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending} readOnly={readOnly}/><section className="space-y-2" aria-label="預約名單"><RosterToolbar label="預約名單操作"><h2 className="text-sm font-semibold">預約名單</h2>{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
  {key:'select',header:'選取',accessor:b=><input type="checkbox" aria-label={`選取${b.personName}`} disabled={readOnly||!data.manage.collect||!!b.cardId||b.status==='CANCELLED'} checked={checked.includes(b.id)} onChange={e=>setChecked(v=>e.target.checked?[...v,b.id]:v.filter(id=>id!==b.id))}/>},
  {key:'time',header:'預約時間',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'name',header:'顧客／服務',accessor:b=><button className="min-h-11 text-primary-800" onClick={()=>setSelectedId(b.id)}>{b.personName}｜{b.serviceName}</button>},{key:'tech',header:'技師／位置',accessor:b=>`${data.techs.find(t=>t.id===b.technicianId)?.name??'店家安排'}／${data.locations.find(l=>l.id===b.locationId)?.name??'—'}`},
  {key:'status',header:'狀態',accessor:b=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'}[b.status]??b.status)},
@@ -440,6 +441,8 @@ export function BeautyDashboard({
             <BeautyBookingForm
               catalog={catalog}
               mode="manager"
+              initialDate={bookingSeed.date??data.date}
+              initialTime={bookingSeed.time}
               customer={data.customers.find(c=>c.id===initialCustomerId)}
               slug={slug}
               cards={data.cards.map((c) => ({ ...c, closed: !!c.closedAt }))}
