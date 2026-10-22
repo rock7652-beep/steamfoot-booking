@@ -1,0 +1,9 @@
+Tested deployment: dpl_7FkjSAYB5T8DgMBpfDQs9kp78rac (fe44babb, Preview)
+2026-10-22 POST /s/beauty-hosted-20261021/admin/dashboard/settings-save/staff
+HTTP 503: success=false, uncertain=true, DB_CONNECTION
+Runtime diagnosis: prisma.store.findUnique timed out fetching a new connection.
+Pool timeout: 10 seconds; connection_limit: 1.
+Creation held the transaction connection while the quota helper queried global Prisma.
+Preview SQL check after failure: no User/Staff created for the submitted QA email.
+Fix: pass transaction client through checkStaffLimitOrThrow; no permission/quota bypass.
+Fixed deployment is separate; its hosted recheck remains pending access approval.

@@ -1,0 +1,200 @@
+{
+  "testedAppCommit": "fe44babba4c069d378d88b2cd6d88eb62c9a0530",
+  "deploymentId": "dpl_7FkjSAYB5T8DgMBpfDQs9kp78rac",
+  "origin": "https://steamfoot-booking-adxw8rtlf-rock7652-2111s-projects.vercel.app",
+  "scope": "Real hosted application login and server writes, Preview DB checks; Chromium viewport emulation, not physical devices or shop sign-off",
+  "passedCases": [
+    {
+      "case": "位置管理 ordering persists after real save and reload",
+      "passed": true
+    },
+    {
+      "case": "位置管理 original ordering restored",
+      "passed": true
+    },
+    {
+      "case": "服務項目 ordering persists after real save and reload",
+      "passed": true
+    },
+    {
+      "case": "服務項目 original ordering restored",
+      "passed": true
+    },
+    {
+      "case": "收費方式 ordering persists after real save and reload",
+      "passed": true
+    },
+    {
+      "case": "收費方式 original ordering restored",
+      "passed": true
+    },
+    {
+      "case": "technician scope, percentage base, individual hours and work grants survive real close/reopen",
+      "passed": true
+    },
+    {
+      "case": "technician restored to inherited hours and remains inactive",
+      "passed": true
+    },
+    {
+      "case": "staff confirmed-save persisted and reopened with readonly grants unchanged",
+      "passed": true
+    },
+    {
+      "case": "staff profile restored",
+      "passed": true
+    },
+    {
+      "case": "two real windows reject stale customer save, retain draft and preserve first committed value; restored",
+      "passed": true
+    },
+    {
+      "case": "customer note persisted and immediately following profile save used current authority; note and profile restored",
+      "passed": true
+    },
+    {
+      "case": "real readonly STAFF can view authorized dashboard without create controls",
+      "passed": true
+    },
+    {
+      "case": "readonly staff: customer profile write",
+      "passed": true,
+      "http": 200,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "readonly staff: sorting write",
+      "passed": true,
+      "http": 200,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "readonly staff: technician write",
+      "passed": true,
+      "http": 200,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "readonly staff: staff edit",
+      "passed": true,
+      "http": 400,
+      "error": "您沒有店員管理權限"
+    },
+    {
+      "case": "readonly staff: staff create",
+      "passed": true,
+      "http": 400,
+      "error": "您沒有店員管理權限"
+    },
+    {
+      "case": "cross-store owner: customer update",
+      "passed": true,
+      "http": 200,
+      "error": "顧客資料已更新，請重新開啟核對；輸入已保留"
+    },
+    {
+      "case": "cross-store owner: customer read",
+      "passed": true,
+      "http": 200,
+      "error": "找不到顧客"
+    },
+    {
+      "case": "cross-store owner: room ordering",
+      "passed": true,
+      "http": 200,
+      "error": "排序只能包含本店現有項目，請重新整理"
+    },
+    {
+      "case": "cross-store owner: technician update",
+      "passed": true,
+      "http": 200,
+      "error": "技師設定已更新"
+    },
+    {
+      "case": "cross-store owner: staff update",
+      "passed": true,
+      "http": 400,
+      "error": "無權存取其他店舖的員工資料"
+    },
+    {
+      "case": "customer member: backend profile mutation",
+      "passed": true,
+      "http": 307,
+      "mechanism": "middleware redirect to member/login route",
+      "path": "/s/beauty-hosted-20261021/book"
+    },
+    {
+      "case": "customer member: backend sorting mutation",
+      "passed": true,
+      "http": 307,
+      "mechanism": "middleware redirect to member/login route",
+      "path": "/s/beauty-hosted-20261021/book"
+    },
+    {
+      "case": "technician member: backend profile mutation",
+      "passed": true,
+      "http": 307,
+      "mechanism": "middleware redirect to member/login route",
+      "path": "/s/beauty-hosted-20261021/book"
+    },
+    {
+      "case": "technician member: backend sorting mutation",
+      "passed": true,
+      "http": 307,
+      "mechanism": "middleware redirect to member/login route",
+      "path": "/s/beauty-hosted-20261021/book"
+    },
+    {
+      "case": "committed write with dropped response retains draft; authoritative reopen confirms commit before restoring",
+      "passed": true
+    },
+    {
+      "case": "real stale sorting request rejected without overwriting current order",
+      "passed": true
+    },
+    {
+      "case": "create isolated customer through authenticated UI",
+      "passed": true
+    },
+    {
+      "case": "customer fields persisted through server write and full page reopen",
+      "passed": true
+    },
+    {
+      "case": "customer profile restored through UI",
+      "passed": true
+    },
+    {
+      "case": "readonly QA staff authorized customer read before deactivation",
+      "passed": true
+    },
+    {
+      "case": "QA staff deactivated through original confirmed-save UI",
+      "passed": true
+    },
+    {
+      "case": "existing QA staff session denied a previously authorized read after deactivation",
+      "passed": true,
+      "http": 307,
+      "mechanism": "redirect response after deactivation; initial harness expected a Flight error, so status was manually classified as rejection"
+    }
+  ],
+  "passedCount": 35,
+  "unresolvedAtTestedVersion": [
+    {
+      "case": "create new staff through original confirmed-save UI",
+      "http": 503,
+      "accountCreated": false,
+      "cause": "Store plan query used global Prisma while the transaction held the only connection",
+      "fixCommit": "8308ef160fddcf13e6d231a8244ee9dabc722369",
+      "fixUnitRegression": {
+        "files": 9,
+        "tests": 86,
+        "passed": true
+      },
+      "fixHostedAcceptance": "pending access approval for updated deployment"
+    }
+  ],
+  "lineEnabled": false,
+  "productionOperations": false
+}

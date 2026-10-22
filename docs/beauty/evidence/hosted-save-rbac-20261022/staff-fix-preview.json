@@ -1,0 +1,13 @@
+{
+  "id": "dpl_AjRh1HgRM2vs6khQPDtj6i7V8Yz6",
+  "url": "https://steamfoot-booking-9cubr07y8-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "target": "preview",
+  "commit": "8308ef160fddcf13e6d231a8244ee9dabc722369",
+  "hostedCreateAcceptance": "awaiting approval for access to this new deployment",
+  "unitRegression": {
+    "files": 9,
+    "tests": 86,
+    "passed": true
+  }
+}
