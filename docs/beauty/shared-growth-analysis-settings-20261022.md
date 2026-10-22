@@ -2,6 +2,8 @@
 
 ## 邊界及版本
 
+- 隔離 Preview：[新版後台](https://steamfoot-booking-qo37fds6p-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)，部署 `dpl_8cEn8XYerynGwtYETJ3ota5Vi63S` 已 READY。尚未替本版本建立驗證分享連結，也沒有挪用舊版本連結。
+- 應用程式版本：`8f00554d`（共用頁面主變更 `b5d556fc`）；僅更新隔離 Preview。
 - 基準：隔離支線 `preview/beauty-ui-alignment-20261021`，本批起點 `9cb7312d`；延續原有美業資料，不做 schema／角色／環境變數變更。
 - 共用的是現有工作台及操作；資料讀取仍有本店、權限及美業開關檢查，不呼叫課程出席、扣堂或成交寫入。
 - LINE 維持關閉；正式站、既有預約、方案餘額、收退款及稽核不修改。實體裝置與店家簽收仍待完成。
@@ -62,6 +64,7 @@
 - 本機：11 檔／108 項相關回歸通過，涵蓋運動分析、設定工作台、設定權限、用量與美業服務／名單 adapter。
 - Chromium 合成驗收：48 個案例，運動／音樂／美業，1366、1920、1024、768、560px；包含實際 CSS modules，檢查無整頁水平溢出、分類與旋轉草稿保留、美業顧客連結；沒有真實登入或 DB 寫入。
 - 原生 Next/Turbopack production build 通過（本機隔離、Beauty 關閉、LINE 關閉、無 migration）；TypeScript、ESLint 及 diff check 通過。額外試跑 Webpack 因既有 generated Prisma runtime loader 的 createRequire 解析失敗；未為此更動封裝或連線設定，隔離站沿用專案原生建置。
+- 原有運動／音樂設定瀏覽器回歸：另 36 個功能 ENABLED／LOCKED／HIDDEN 案例通過，含草稿尺寸保留與撤權後編輯器卸載；此為合成狀態驗證。
 - 新版 hosted 登入與儲存重開：**待執行**，不能搬用 `8308ef16` 的通過紀錄。
 - 實體手機／平板、店家簽收、LINE：待完成。
 

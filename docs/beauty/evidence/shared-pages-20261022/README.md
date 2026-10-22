@@ -7,3 +7,5 @@
 - 截圖為 Chromium 模擬尺寸；未使用真實顧客資料。
 - 重跑：`PLAYWRIGHT_PATH=<已安裝的 playwright 路徑> node scripts/qa/beauty-shared-pages-browser.mjs`。fixture 攔截網路，後端 action 一律禁止。
 - 逐項範圍及缺項見 `../../shared-growth-analysis-settings-20261022.md`。
+
+`original-settings-states.json`：原運動／音樂設定的 36 個功能三態與撤權案例；合成狀態回歸，不另宣稱真實裝置或 hosted 儲存。
