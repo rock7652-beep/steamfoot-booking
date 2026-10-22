@@ -1,6 +1,7 @@
 "use server";
 
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
+import { OperationTiming } from "@/lib/operation-timing";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -126,8 +127,11 @@ export async function checkAllLineOfficialAccounts(): Promise<ActionResult<LineO
 }
 
 export async function getCurrentLineOfficialAccountStatus(): Promise<LineOfficialAccountStatus> {
-  const store = await requireCurrentStoreLineAccess();
-  return inspectStore(store, false);
+  const timing = new OperationTiming("reminders.line-health");
+  try {
+    const store = await timing.measure("authorization", requireCurrentStoreLineAccess);
+    return await timing.measure("line-api", () => inspectStore(store, false));
+  } finally { timing.finish(); }
 }
 
 export async function checkCurrentLineOfficialAccount(): Promise<ActionResult<LineOfficialAccountStatus>> {

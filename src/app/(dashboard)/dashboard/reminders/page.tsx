@@ -1,3 +1,4 @@
+import { OperationTiming } from "@/lib/operation-timing";
 import { ReminderSectionPicker } from "./reminder-section-picker";
 import { getLineQuotaNotificationSetting } from "@/server/actions/line-quota-notifications";
 import { LineQuotaEmailSetting } from "./line-quota-email-setting";
@@ -41,6 +42,8 @@ interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;
 }
 export default async function RemindersPage({ searchParams }: PageProps) {
+  const timing = new OperationTiming("steam-reminders.read");
+  try {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (
@@ -90,12 +93,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const previewBlocked = isPreviewExternalIntegrationBlocked();
   const health = previewBlocked
     ? null
-    : await getCurrentLineOfficialAccountStatus().catch(() => null);
+    : await timing.measure("line-health", () => getCurrentLineOfficialAccountStatus().catch(() => null));
   let content;
   if (activeTab === "manager") {
-    const recipients = await listStoreLineNotificationRecipients();
+    const recipients = await timing.measure("recipients", listStoreLineNotificationRecipients);
     content = (
-      <LineNotificationRecipientsCard key={storeId} recipients={recipients} showHeading={false} />
+      <LineNotificationRecipientsCard storeId={storeId} key={storeId} recipients={recipients} showHeading={false} />
     );
   } else if (activeTab === "logs") {
     content = (
@@ -242,4 +245,5 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       </PageShell>
     </FeatureGate>
   );
+  } finally { timing.finish(); }
 }
