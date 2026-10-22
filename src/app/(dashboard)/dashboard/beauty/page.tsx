@@ -2,7 +2,7 @@ import {BeautyStoreSettings} from '@/components/beauty/store-settings';
 import {CustomerLabelsSettings} from '@/components/customer-labels';
 import {getCurrentStorePlan} from '@/lib/store-plan';
 import {SettingsListRow} from '@/components/settings';
-import {CARE_REASON_LABELS,type CareReason} from '@/lib/customer-care-lifecycle';
+import {CARE_REASONS,type CareReason} from '@/lib/customer-care-lifecycle';
 import ScheduleSettingsPage from "../settings/hours/page";
 import PaymentSettingsPage from "../settings/payment/page";
 import LineOfficialAccountsPage from "../settings/line-official-accounts/page";
@@ -111,7 +111,7 @@ export default async function BeautyPage({
         initialCustomerId={q.customerId}
         initialBooking={q.action==='booking'}
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
-        careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&q.segment in CARE_REASON_LABELS?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
+        careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         settingsStoreContent={tab==='設定'?<BeautyStoreSettings storeId={a.storeId} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}}/>:undefined}
         settingsLabelsContent={tab==='設定'?<CustomerLabelsSettings/>:undefined}

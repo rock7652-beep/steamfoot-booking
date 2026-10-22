@@ -1,3 +1,4 @@
+import {beautyScheduleRange} from '@/lib/beauty/calendar';
 import {beautyHealthEnabled} from "./health";
 import {resolvedCourseHours} from "@/lib/course-business-hours";
 import "server-only";
@@ -243,16 +244,7 @@ export async function beautyDashboard(
     manage.technician &&
     feeAccess &&
     (await can("teacher.compensation.manage"));
-  const span =
-    calendar === "month"
-      ? monthRange(date.slice(0, 7))
-      : calendar === "week"
-        ? {
-            start: dayRange(date).start,
-            end: dayRange(addTaiwanDuration(date, 6, "DAY")).end,
-          }
-        : dayRange(date);
-  const range = span,
+  const range=beautyScheduleRange(date,calendar),
     financialRange = financialDates?{start:dayRange(financialDates.startDate).start,end:dayRange(financialDates.endDate).end}:monthRange(month);
   const reportAccess = await can("report.read");
   const analytics = reportAccess
@@ -431,7 +423,7 @@ export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
  const [customerPermission,planPermission,feePermission]=await Promise.all([can('customer.read'),can('wallet.read'),can('teacher.compensation.read')]);
  const [customerAccess,planAccess,feeAccess]=await Promise.all([customerPermission&&hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT),planPermission&&hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT),feePermission&&hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR)]);
- const range=calendar==='month'?monthRange(date.slice(0,7)):calendar==='week'?{start:dayRange(date).start,end:dayRange(addTaiwanDuration(date,6,'DAY')).end}:dayRange(date);
+ const range=beautyScheduleRange(date,calendar);
  const [rows,hours,specials]=await Promise.all([
   beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,startsAt:{gte:range.start,lte:range.end}},orderBy:{startsAt:'asc'}}),
   prisma.businessHours.findMany({where:{storeId:a.storeId}}),

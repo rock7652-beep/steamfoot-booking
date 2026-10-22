@@ -1,4 +1,5 @@
 "use client";
+import {courseWeekStart as weekStart} from '@/lib/course-calendar';
 import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {sportsCalendarPresentation} from "@/lib/sports-calendar-presentation";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -34,7 +35,7 @@ type Booking = {
 };
 
 type Session = {
-  service?: {personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
+  service?: {groupId?:string;personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -207,12 +208,6 @@ function filterSession(session: Session, filter: QuickFilter) {
   if (filter === "full") return isFull(session);
   if (filter === "pending") return pendingCheckins(session) > 0;
   return true;
-}
-
-function weekStart(date: string) {
-  const day = parseLocalDate(date).getDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  return addTaiwanDuration(date, offset, "DAY");
 }
 
 function shortDate(date: string) {
@@ -563,23 +558,23 @@ export function CourseScheduleBoard({
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"服務週班表":"教室週課表"}>
-        <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
+        <Toolbar className={businessProfile === "MUSIC" || serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
           <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? "老師" : courseDisplayText("教練", businessProfile)}</label>
-          {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+          {weekResources.length > 1 ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':'選擇週表技師'):resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
-          <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
+          <span className="text-sm font-medium">{serviceMode?`本週 ${new Set(weekSessions.map(s=>s.service?.groupId??s.id)).size} 筆預約・${weekSessions.length} 人次`:<>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
-              const total = scheduleTotals(scheduleOnDate(weekSessions, date));
+              const daySessions=scheduleOnDate(weekSessions,date),total = scheduleTotals(daySessions);
               return <button data-schedule-sticky-header key={date} type="button" onClick={() => onSelectDate(date)} className={`${styles.touchControl} sticky top-0 z-20 border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
                 <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}{date === today && <span className="ml-1 text-[10px] font-normal">今天</span>}</strong>
-                {businessProfile === "MUSIC" ? (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span> : (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span className="block whitespace-nowrap text-[11px] tabular-nums">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
+                {serviceMode?daySessions.length>0&&<span className="block text-xs tabular-nums">{new Set(daySessions.map(s=>s.service?.groupId??s.id)).size}筆・{daySessions.length}人次</span>:businessProfile === "MUSIC" ? (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span> : (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span className="block whitespace-nowrap text-[11px] tabular-nums">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
@@ -603,8 +598,8 @@ export function CourseScheduleBoard({
                     const coachSegments = exception?.type === "UNAVAILABLE" ? [] : exception?.type === "CUSTOM" ? normalizeAvailabilityPeriods(exception.segments) : availability.length ? normalizeAvailabilityPeriods(availability.find(item=>item.dayOfWeek===parseLocalDate(date).getDay())?.segments) : periods;
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
                     const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
-                    const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? sportsNative&&moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${sportsNative&&moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{sportsNative&&moveClipboard?"貼上":"＋"} {time}</span></button>;
+                    const reason = conflict ? (serviceMode?"已有預約":"已有課程") : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? (serviceMode?"技師未開放":"老師未開放") : "店家未開放";
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? sportsNative&&moveClipboard?"貼上":serviceMode?"新增預約":"排課" : reason}`} title={available ? `${date} ${time} · ${sportsNative&&moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{sportsNative&&moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -648,7 +643,7 @@ export function CourseScheduleBoard({
                     onClick={() => onSelectDate(date)}
                   >
                     <span className="block text-xs">{date === today ? "今天 · " : ""}{shortDate(date)}</span>
-                    <strong className="text-sm">{businessProfile === "MUSIC" ? `${scheduleTotals(list).classes} 堂｜${scheduleTotals(list).people} 人次` : `${list.length} 堂`}</strong>
+                    <strong className="text-sm">{serviceMode?`${new Set(list.map(s=>s.service?.groupId??s.id)).size} 筆預約・${list.length} 人次`:businessProfile === "MUSIC" ? `${scheduleTotals(list).classes} 堂｜${scheduleTotals(list).people} 人次` : `${list.length} 堂`}</strong>
                   </button>
                   <div className="space-y-2 p-2">
                     {list.length ? (
