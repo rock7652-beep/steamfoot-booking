@@ -3,7 +3,8 @@ import {CourseHealthWorkspace} from '@/components/course-health-workspace';
 import {BeautyMemberProfile} from './member-profile';
 import {useCourseDraftGuard} from '@/components/admin/use-course-draft-guard';
 import {useState,useTransition,useRef,useEffect} from 'react';
-import {readBeautyPortalRole} from '@/server/actions/beauty-portal';
+import {readBeautyPortalRole} from '@/lib/beauty/portal-role-read';
+import {usePanelReader} from '@/components/operations/panel-read-cache';
 import {BeautyWorkCard} from './work-card';
 import {BeautyCardHistory,BeautyOwnIncome,BeautyWorkRecords} from './portal-details';
 import {useRouter} from 'next/navigation';
@@ -50,9 +51,10 @@ export function BeautyPortal({data:incoming,initialView}:{data:BeautyPortalData;
  const [change,setChange]=useState<{item:Item;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';requestKey:string}|null>(null),[reason,setReason]=useState('');
  const purchaseRequests=useRef(new Map<string,string>()),busy=useRef(false);
  const prefix=`/s/${data.store.slug}`;
+ const roleReader=usePanelReader('beauty-role',readBeautyPortalRole,JSON.stringify([data.store.id,data.scopeKey]),0);
  function allowLeave(){return !(blocked||bookingState.pending||profileState.pending||healthSaving||busy.current)&&(!(bookingState.dirty||healthDirty||profileState.dirty)||window.confirm('尚有未送出的預約，確定離開？'));}
  function navigate(id:string){if(blocked||bookingState.pending||profileState.pending||healthSaving||busy.current)return;if(view==='profile'&&id!=='profile'&&profileState.dirty&&!window.confirm('尚有未儲存的資料，確定離開？'))return;if(id!=='profile')setProfileState({dirty:false,pending:false});if(view==='health'&&id!=='health'&&healthDirty&&!window.confirm('尚有未儲存的量測資料，確定離開？'))return;if(id!=='health')setHealthDirty(false);if(id==='book')setBookingOpened(true);setView(id);setError('');if(id==='health')router.replace(prefix+'/beauty?view=health',{scroll:false});else if(view==='health')router.replace(prefix+'/beauty',{scroll:false});if(id==='income')router.replace(prefix+'/beauty?work=1&view=income&month='+(data.incomeMonth??toLocalMonthStr()),{scroll:false});}
- function switchRole(work:boolean){if(work===data.work||!allowLeave())return;positions.current[data.work?'work':'member']={view:['book','profile','health'].includes(view)?'home':view,date,month,recordMonth,recordSearch,workPending,y:window.scrollY};setError('');start(async()=>{try{const r=await readBeautyPortalRole(work);if(r.success){setRoleData({base:incoming,value:r.data});window.history.replaceState(null,'',prefix+'/beauty'+(work?'?work=1':''));}else setError(r.error);}catch{setError('切換失敗，請重試。');}});}
+ function switchRole(work:boolean){if(work===data.work||!allowLeave())return;positions.current[data.work?'work':'member']={view:['book','profile','health'].includes(view)?'home':view,date,month,recordMonth,recordSearch,workPending,y:window.scrollY};setError('');start(async()=>{try{const r=await roleReader.read(work,data.store.slug);if(r.success){setRoleData({base:incoming,value:r.data});window.history.replaceState(null,'',prefix+'/beauty'+(work?'?work=1':''));}else setError(r.error);}catch{setError('切換失敗，請重試。');}});}
 
  function chooseChange(item:Item,target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED'){setReason('');setError('');setChange({item,target,requestKey:crypto.randomUUID()});}
  async function submitChange(){if(!change||(needsReason&&!reason.trim())||busy.current)return;busy.current=true;start(async()=>{try{const r=await changeBeautyStatus(data.work?'work':'member',{id:change.item.id,revision:change.item.revision,target:change.target,...(needsReason?{reason:reason.trim()}:{}),requestKey:change.requestKey});if(r.success){setChange(null);setMessage('服務狀態已更新。');refreshPortal();}else setError(r.error);}catch{setError('連線失敗，內容已保留，請核對後重試。');}finally{busy.current=false;}});}

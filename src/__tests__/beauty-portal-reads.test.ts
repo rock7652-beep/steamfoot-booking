@@ -4,8 +4,7 @@ vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyCard:{findFirst:m.card},beau
 vi.mock('@/server/beauty/access',()=>({beautyMember:m.member,beautyWorker:m.worker}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/server/beauty/booking',()=>({publicReceipt:(b:Record<string,unknown>)=>({id:b.id,startsAt:b.startsAt,endsAt:b.endsAt,status:b.status})}));
-vi.mock('@/server/beauty/queries',()=>({beautyPortal:m.portal}));
-import {readBeautyCardHistory,readBeautyOwnIncome,readBeautyWorkRecords,readBeautyPortalRole} from '@/server/actions/beauty-portal';
+import {readBeautyCardHistory,readBeautyOwnIncome,readBeautyWorkRecords} from '@/server/actions/beauty-portal';
 beforeEach(()=>{vi.clearAllMocks();m.member.mockResolvedValue({storeId:'store',customerId:'member'});m.worker.mockResolvedValue({storeId:'store',technicianId:'tech',grants:['income']});m.feature.mockResolvedValue(undefined);m.card.mockResolvedValue({id:'card'});m.ledger.mockResolvedValue([]);m.settlement.mockResolvedValue([]);m.payment.mockResolvedValue([]);m.appointments.mockResolvedValue([]);});
 it('limits lazy ledger to the authenticated store and permitted shared-card membership',async()=>{
  expect((await readBeautyCardHistory('card')).success).toBe(true);expect(m.card.mock.calls[0][0].where).toEqual({id:'card',storeId:'store',memberIds:{has:'member'}});expect(m.ledger.mock.calls[0][0].where).toEqual({storeId:'store',cardId:'card'});
@@ -21,8 +20,4 @@ it('scopes paged pending work by store, technician, selected month and actual el
  const input={month:'2026-11',pending:true,search:' 王 ',page:1,storeId:'foreign',technicianId:'foreign'};expect((await readBeautyWorkRecords(input)).success).toBe(true);
  expect(m.appointments.mock.calls[0][0]).toMatchObject({where:{storeId:'store',technicianId:'tech',status:'RESERVED',personName:{contains:'王',mode:'insensitive'}},skip:50,take:51,orderBy:[{startsAt:'asc'},{id:'asc'}]});expect(m.appointments.mock.calls[0][0].where.startsAt.gte).toEqual(new Date('2026-10-31T16:00:00Z'));expect(m.appointments.mock.calls[0][0].where.endsAt.lt).toBeInstanceOf(Date);
  expect((await readBeautyWorkRecords({...input,month:'bad'})).success).toBe(false);expect(m.appointments).toHaveBeenCalledTimes(1);
-});
-
-it('uses the existing authenticated portal reader for fresh role switches and rejects invalid modes',async()=>{
- m.portal.mockResolvedValue({work:true,store:{id:'store'}});expect(await readBeautyPortalRole(true)).toMatchObject({success:true,data:{work:true}});expect(m.portal).toHaveBeenCalledWith(true);expect((await readBeautyPortalRole('true' as unknown as boolean)).success).toBe(false);expect(m.portal).toHaveBeenCalledTimes(1);
 });

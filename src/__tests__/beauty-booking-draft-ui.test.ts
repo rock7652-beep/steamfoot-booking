@@ -7,7 +7,8 @@ vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,re
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
-vi.mock('@/server/actions/beauty-portal',()=>({readBeautyPortalRole:m.role,readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
+vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
+vi.mock('@/server/actions/beauty-portal',()=>({readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>null}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
@@ -96,8 +97,12 @@ it('shows a compact worker card with a visual-only service status and confirmati
  act(()=>button(host,'服務完成').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet.querySelector('textarea')).toBeNull();expect(sheet.textContent).toContain('本次扣 1 次');await act(async()=>button(sheet,'確認').click());expect(m.status.mock.calls[0]).toMatchObject(['work',{id:'work',revision:2,target:'COMPLETED'}]);expect(m.status.mock.calls[0][1]).not.toHaveProperty('reason');
 });
 it('restores role views after a fresh authorized read without rerunning the full route',async()=>{
- const host=mount(h(BeautyPortal,{data}));act(()=>button(host,'會員').click());expect(m.role).not.toHaveBeenCalled();act(()=>button(host,'我的').click());await act(async()=>button(host,'我的工作').click());expect(m.role).toHaveBeenCalledWith(true);expect(m.push).not.toHaveBeenCalled();expect(host.querySelector('h1')?.textContent).toBe('今日工作');await act(async()=>button(host,'服務紀錄').click());await act(async()=>button(host,'會員').click());expect(host.querySelector('h1')?.textContent).toBe('我的');await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('服務紀錄');
+ const host=mount(h(BeautyPortal,{data}));act(()=>button(host,'會員').click());expect(m.role).not.toHaveBeenCalled();act(()=>button(host,'我的').click());await act(async()=>button(host,'我的工作').click());expect(m.role).toHaveBeenCalledWith(true,'test');expect(m.push).not.toHaveBeenCalled();expect(host.querySelector('h1')?.textContent).toBe('今日工作');await act(async()=>button(host,'服務紀錄').click());await act(async()=>button(host,'會員').click());expect(host.querySelector('h1')?.textContent).toBe('我的');await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('服務紀錄');
 });
 it('leaves the existing role visible and reports an authorization failure without exposing work data',async()=>{
  const host=mount(h(BeautyPortal,{data}));m.role.mockResolvedValue({success:false,error:'技師工作身分尚未開放'});await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('會員首頁');expect(host.textContent).toContain('技師工作身分尚未開放');
+});
+it('discards loaded record details after a fresh authority revision even when summary items are unchanged',async()=>{
+ const item={id:'private-record',startsAt:'2026-10-20T01:00:00Z',endsAt:'2026-10-20T02:00:00Z',status:'COMPLETED',groupId:'group',revision:0,personName:'舊權限顧客',serviceName:'做臉',technicianId:'tech'};
+ m.records.mockResolvedValue({success:true,data:{items:[item],hasMore:false}});const first={...data,work:true,readVersion:'first',grants:['complete']} as BeautyPortalData;const host=mount(h(BeautyPortal,{data:first}));await act(async()=>button(host,'服務紀錄').click());expect(host.textContent).toContain('舊權限顧客');m.records.mockResolvedValue({success:false,error:'權限已停用'});await act(async()=>roots[0].root.render(h(BeautyPortal,{data:{...first,readVersion:'second',grants:[]}})));expect(host.textContent).not.toContain('舊權限顧客');expect(host.textContent).toContain('權限已停用');
 });
