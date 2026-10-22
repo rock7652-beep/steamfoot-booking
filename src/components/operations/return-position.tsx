@@ -32,6 +32,8 @@ export function ReturnPosition({ scope, children }: { scope: string; children?: 
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as Element).closest("a");
     if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+    // Panel handlers consume these links without leaving the background page.
+    if (link.closest("[data-settings-panel], [data-course-settings-panel]") && /\/dashboard\/(?:courses\/)?reminders$/.test(new URL(link.href, location.href).pathname)) return;
     const destination = new URL(link.href, location.href);
     if (destination.origin !== location.origin || destination.pathname === location.pathname) return;
     try { sessionStorage.setItem(operationStateKey(scope, `position:${location.pathname}${location.search}`), JSON.stringify({ at: Date.now(), value: window.scrollY })); } catch {}

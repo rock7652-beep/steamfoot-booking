@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingStatus } from "@/components/loading-status";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, useSettingsPanelDismissal, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, useSettingsPanelReaderHost, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 
 export function SettingsPanel({
@@ -49,11 +49,14 @@ export function SettingsPanel({
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchString]);
 
+  const { reader, registerReader } = useSettingsPanelReaderHost();
   const go = useCallback((href: string) => {
     setDestination(null);
     if (href === closeHref) { dismiss(href); return; }
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router, closeHref, dismiss]);
+    const reading = reader.current?.(href);
+    if (reading) startNavigation(async () => { await reading; });
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router, closeHref, dismiss, reader]);
 
   const request = useCallback((href: string) => {
     if (dirty || pending) setDestination(href);
@@ -103,7 +106,7 @@ export function SettingsPanel({
     };
   }, [dirty, pending, request, closeHref, destination, dismissed]);
 
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate, registerReader: sourceHref === "/dashboard/reminders" ? registerReader : undefined }), [report, navigate, registerReader, sourceHref]);
 
   return (
     <div ref={root} data-settings-panel>

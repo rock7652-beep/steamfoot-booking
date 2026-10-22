@@ -4,6 +4,7 @@ export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-contro
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "perf/reminder-feature-reads-20261022",
+  "perf/reminder-panel-reader-20261022",
   "fix/reminder-tab-feedback-density-20261022",
   "fix/manager-toggle-transport-20261022",
   "fix/reminder-panel-reconciliation-20261022",
