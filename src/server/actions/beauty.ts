@@ -1,4 +1,6 @@
 "use server";
+import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
+import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
 import { memberPartyInput, cardAllowsRecipient } from "@/lib/beauty/member-booking";
 import type { BookingPartyInput } from "@/server/beauty/booking";
 import { createHash } from "node:crypto";
@@ -270,7 +272,9 @@ export async function bookBeautyParty(
       d = await bookingInput(mode,input,a);
     if (d.people.some((p) => p.cardId))
       await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
-    return beautyTransaction(a, (tx) => reserveParty(tx, a, d));
+    const booked=await beautyTransaction(a, (tx) => reserveParty(tx, a, d));
+    if(mode==="member")await notifyBeautyBookingManagers(a.storeId,booked.groupId);
+    return booked;
   });
 }
 export async function submitBeautyTrial(
@@ -335,9 +339,11 @@ export async function submitBeautyTrial(
       );
     const customerId = linked?.id;
     const a: BeautyActor = { storeId: store.id, userId: null, actorKey };
-    return beautyTransaction(a, (tx) =>
+    const booked=await beautyTransaction(a, (tx) =>
       reserveParty(tx, a, d, entry ? { ...entry, customerId } : undefined),
     );
+    await notifyBeautyBookingManagers(a.storeId,booked.groupId);
+    return booked;
   });
 }
 export async function readBeautySlots(
@@ -627,7 +633,7 @@ export async function requestBeautyPlan(input: unknown) {
     });
     if (!bank?.bankName || !bank.bankAccountNumber)
       throw new AppError("VALIDATION", "店家尚未設定銀行資料，請洽店家購買");
-    return beautyTransaction(a, (tx) =>
+    const purchased=await beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
         const plan = await tx.beautyPlan.findFirst({
           where: {
@@ -651,11 +657,13 @@ export async function requestBeautyPlan(input: unknown) {
           tx,
           a,
           "PURCHASE_PENDING",
-          JSON.stringify({ orderId: order.id }),
+          JSON.stringify({ orderId: order.id, managerNoticeEligible: !beautyNotificationDeliveryBlocked() && (await settings(tx,a.storeId)).notifications }),
         );
         return { id: order.id };
       }),
     );
+    await notifyBeautyPurchaseManagers(a.storeId,purchased.id);
+    return purchased;
   });
 }
 export async function confirmBeautyPurchase(input: unknown) {

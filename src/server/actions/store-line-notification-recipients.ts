@@ -23,7 +23,14 @@ async function requireStore() {
   const user = await requirePermission("business_hours.manage");
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) throw new AppError("FORBIDDEN", "請先切換至特定店舖");
-  if (await getStoreIndustryModule(storeId) === "course") {
+  const industry = await getStoreIndustryModule(storeId);
+  if (industry === "beauty") {
+    const [{beautyManager},{requireStoreFeature}] = await Promise.all([import("@/server/beauty/access"),import("@/lib/feature-gate")]);
+    const actor = await beautyManager("business_hours.manage", true);
+    if (actor.storeId !== storeId) throw new AppError("FORBIDDEN", "店家範圍已變更，請重新整理");
+    await requireStoreFeature(storeId,FEATURES.LINE_REMINDER);
+  }
+  if (industry === "course") {
     const [{courseManager},{requireStoreFeature}] = await Promise.all([
       import("@/server/services/course-access"), import("@/lib/feature-gate"),
     ]);
@@ -61,6 +68,10 @@ export async function createStoreLineNotificationRecipient(
   try {
     const storeId = await requireStore();
     const values = recipientSchema.parse(input);
+    if (await getStoreIndustryModule(storeId) === "beauty") {
+      const {beautyNotificationDeliveryBlocked} = await import("@/lib/beauty/notification-policy");
+      if (beautyNotificationDeliveryBlocked()) throw new AppError("BUSINESS_RULE", "LINE 維持關閉，暫不建立綁定");
+    }
     const basicId = getLineConfigForStore(storeId).expectedBasicId;
     if (!basicId) throw new AppError("BUSINESS_RULE", "此分店尚未完成 LINE 官方帳號設定");
     const bindingCode = randomBytes(5).toString("hex").toUpperCase();
@@ -72,6 +83,8 @@ export async function createStoreLineNotificationRecipient(
     const bindUrl = `https://line.me/R/oaMessage/${encodeURIComponent(basicId)}/?${encodeURIComponent(command)}`;
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
+    revalidatePath("/dashboard/beauty");
     return { success: true, data: { bindUrl } };
   } catch (error) {
     return handleActionError(error);
@@ -98,6 +111,8 @@ export async function setStoreLineNotificationRecipientActive(
     });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
+    revalidatePath("/dashboard/beauty");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -110,6 +125,8 @@ export async function removeStoreLineNotificationRecipient(id: string): Promise<
     await prisma.storeLineNotificationRecipient.deleteMany({ where: { id, storeId } });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
+    revalidatePath("/dashboard/beauty");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -137,6 +154,8 @@ export async function setSameDayBookingReminder(
     });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
+    revalidatePath("/dashboard/beauty");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -149,6 +168,9 @@ export async function setManagerNotificationPreference(id: string, key: string, 
     z.object({ id: z.string().min(1), key: z.enum(MANAGER_NOTIFICATION_OPTIONS.map(o => o.key) as [string, ...string[]]), enabled: z.boolean() }).parse({ id, key, enabled });
     if (enabled && await getStoreIndustryModule(storeId) === "course" && !managerNotificationOptions(true).some(option => option.key === key)) {
       throw new AppError("BUSINESS_RULE", "此通知尚未接入課程流程");
+    }
+    if (enabled && await getStoreIndustryModule(storeId) === "beauty" && !managerNotificationOptions(false,true).some(option => option.key === key)) {
+      throw new AppError("BUSINESS_RULE", "此通知尚未接入美業流程");
     }
     await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
@@ -163,6 +185,8 @@ export async function setManagerNotificationPreference(id: string, key: string, 
     });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
+    revalidatePath("/dashboard/beauty");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }

@@ -3,9 +3,9 @@ import { useId, useState } from "react";
 import { managerNotificationPreviewSamples } from "@/lib/manager-notification-preview";
 import { LineCardPreview } from "./line-card-preview";
 
-export function ManagerNotificationPreview({ course = false }: { course?: boolean }) {
+export function ManagerNotificationPreview({ course = false, beauty = false }: { course?: boolean; beauty?: boolean }) {
   const selectId = useId();
-  const samples = managerNotificationPreviewSamples(course);
+  const samples = managerNotificationPreviewSamples(course,beauty);
   const [selected, setSelected] = useState("sameDay");
   const sample = samples.find(item => item.key === selected) ?? samples[0];
   return <details className="rounded-xl border border-earth-200 bg-white">

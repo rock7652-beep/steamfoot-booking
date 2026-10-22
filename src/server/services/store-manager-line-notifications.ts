@@ -79,10 +79,8 @@ type StoreManagerNotificationEvent =
       waitingSupportDetails?: Array<{ name: string; provider: string | null; lastMessageAt: Date | null }>;
     };
 
-export type StoreManagerNotificationResult =
-  | { status: "sent"; sentCount: number; failedCount: number }
-  | { status: "skipped"; reason: "recipient_not_configured" }
-  | { status: "failed"; error: string };
+export type { ManagerDeliveryResult as StoreManagerNotificationResult } from "./manager-notification-delivery";
+import type { ManagerDeliveryResult as StoreManagerNotificationResult } from "./manager-notification-delivery";
 
 function recipientEnvKey(storeSlug: string): string {
   return `LINE_MANAGER_USER_ID_${storeSlug.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}`;

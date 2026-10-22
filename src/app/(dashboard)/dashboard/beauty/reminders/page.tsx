@@ -35,7 +35,7 @@ export default async function BeautyRemindersPage({searchParams}:{searchParams:P
   } else if (enabled && active === "manager") {
     // Do not call the legacy recipient read: it migrates rows as a side effect.
     const recipients = await prisma.storeLineNotificationRecipient.findMany({where:{storeId},orderBy:[{isActive:"desc"},{createdAt:"asc"}],select:{id:true,displayName:true,roleLabel:true,isActive:true,linkedAt:true,sameDayBookingEnabled:true,preferences:true}});
-    content = <LineNotificationRecipientsCard recipients={recipients} readOnly bindingUnavailable="LINE 維持關閉；本頁不建立綁定或啟用通知。"/>;
+    content = <LineNotificationRecipientsCard recipients={recipients} beauty readOnly={readOnly} bindingUnavailable={blocked?"LINE 維持關閉；可儲存通知偏好，目前不建立新綁定或發送。":undefined}/>;
   } else if (enabled) {
     const [policy,plans,care,careLogs,store] = await Promise.all([
       beautyPrisma.beautySetting.findUnique({where:{storeId}}),

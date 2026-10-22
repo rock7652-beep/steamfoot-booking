@@ -64,7 +64,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
       bookingDate: { gte: earliestBookingDate, lt: latestBookingDate },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       store: {
-        industryModule: { not: "COURSE" },
+        industryModule: "STEAMFOOT",
         isDemo: false,
         operatingStatus: { in: ["ACTIVE", "TRIAL"] },
       },

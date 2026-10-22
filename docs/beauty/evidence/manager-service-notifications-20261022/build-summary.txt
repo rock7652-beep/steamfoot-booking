@@ -1,0 +1,10 @@
+▲ Next.js 16.2.2 (Turbopack)
+✓ Compiled successfully in 38.1s
+  Finished TypeScript in 78s ...
+  Generating static pages using 2 workers (0/236) ...
+  Generating static pages using 2 workers (59/236)
+  Generating static pages using 2 workers (118/236)
+  Generating static pages using 2 workers (177/236)
+✓ Generating static pages using 2 workers (236/236) in 1237ms
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

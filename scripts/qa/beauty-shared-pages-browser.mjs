@@ -114,6 +114,25 @@ try {
     if(!logHref.includes(module==='beauty'?'/dashboard/beauty?':'/dashboard/courses?'))throw Error('Reminder wrong customer route');
     results.push({module,consumptionFilter:true,consumptionCustomerLink:true,reminderCustomerLink:true,phone390:true});
   }
+  await page.getByLabel('驗收模組').selectOption('beauty');
+  await page.getByLabel('驗收頁面').selectOption('manager-settings');
+  await page.getByRole('button',{name:'設定提醒 ⌄'}).nth(1).click();
+  if(await page.locator('article').nth(1).getByRole('switch').count()!==6)throw Error('Beauty must expose master plus five connected preferences');
+  for(const [width,height] of [[1920,1080],[1366,900],[1024,768],[768,1024],[560,768],[390,844],[360,800]]) {
+    await page.setViewportSize({width,height});
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Beauty manager expanded settings overflow '+width);
+    if(!await page.getByLabel('測試通知人員長名稱 1 新體驗預約',{exact:true}).isVisible())throw Error('Preference lost on resize');
+    results.push({module:'beauty',managerSettingsExpanded:true,width,height,overflow:false});
+  }
+  await page.getByText('查看訊息預覽',{exact:true}).click();
+  if(await page.getByLabel('通知類型',{exact:true}).locator('option').count()!==5)throw Error('Beauty previews include unconnected types');
+  await page.getByLabel('通知類型',{exact:true}).selectOption('incomplete');
+  await page.getByText('服務結束一小時後仍未完成，請核對。',{exact:true}).waitFor();
+  if(await page.getByRole('button',{name:'綁定我的 LINE',exact:true}).count())throw Error('LINE-off offers new binding');
+  await page.getByLabel('唯讀驗收').check();
+  if(await page.getByRole('button',{name:'設定提醒 ⌄'}).count())throw Error('Readonly offers mutation');
+  await page.getByLabel('唯讀驗收').uncheck();
+  results.push({module:'beauty',managerFivePreviews:true,lineOffNoBinding:true,readOnly:true});
   for(const module of ['beauty','music']) {
     await page.getByLabel('驗收模組').selectOption(module);
     await page.getByLabel('驗收頁面').selectOption('reminder-settings');

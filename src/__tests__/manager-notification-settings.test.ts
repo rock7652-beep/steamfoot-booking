@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const course = vi.hoisted(()=>({industry:vi.fn(),manager:vi.fn(),feature:vi.fn()}));
+const course = vi.hoisted(()=>({industry:vi.fn(),manager:vi.fn(),beauty:vi.fn(),feature:vi.fn()}));
 vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:course.industry}));
+vi.mock("@/server/beauty/access",()=>({beautyManager:course.beauty}));
 vi.mock("@/server/services/course-access",()=>({courseManager:course.manager}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:course.feature}));
 const h = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), find: vi.fn(), update: vi.fn(), lock: vi.fn(), revalidate: vi.fn() }));
@@ -10,12 +11,13 @@ vi.mock("@/lib/line-config", () => ({ getLineConfigForStore: vi.fn() }));
 vi.mock("@/server/services/manager-notification-delivery", () => ({ migrateManagerRecipients: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: h.lock, storeLineNotificationRecipient: { findFirst: h.find, update: h.update } }) } }));
-import { setManagerNotificationPreference } from "@/server/actions/store-line-notification-recipients";
+import { createStoreLineNotificationRecipient, setManagerNotificationPreference } from "@/server/actions/store-line-notification-recipients";
 describe("manager notification preference writes", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     course.industry.mockResolvedValue("steamfoot");
     course.manager.mockResolvedValue({storeId:"store-a"});
+    course.beauty.mockResolvedValue({storeId:"store-a"});
     h.permission.mockResolvedValue({ id: "manager" }); h.store.mockResolvedValue("store-a");
     h.find.mockResolvedValue({ lineUserId: "line-a", isActive: true, sameDayBookingEnabled: true, preferences: { lead: false, payment: false } });
   });
@@ -69,4 +71,19 @@ describe("manager notification preference writes", () => {
     expect(await setManagerNotificationPreference("recipient-a", "trial", true)).toMatchObject({ success: false });
     expect(h.update).not.toHaveBeenCalled();
   });
+
+it("Beauty preference writes use actual writable manager scope and only its five adapters",async()=>{
+ course.industry.mockResolvedValue("beauty");
+ for(const key of ["sameDay","trial","payment","incomplete","digest"])expect(await setManagerNotificationPreference("recipient-a",key,true)).toMatchObject({success:true});
+ expect(course.beauty).toHaveBeenCalledWith("business_hours.manage",true);
+ h.update.mockClear();for(const key of ["vip","lead","support"])expect(await setManagerNotificationPreference("recipient-a",key,true)).toMatchObject({success:false});expect(h.update).not.toHaveBeenCalled();
+ course.beauty.mockResolvedValue({storeId:"foreign"});expect(await setManagerNotificationPreference("recipient-a","trial",false)).toMatchObject({success:false});expect(h.update).not.toHaveBeenCalled();
+ course.beauty.mockRejectedValue(new Error("read-only or revoked"));expect(await setManagerNotificationPreference("recipient-a","trial",false)).toMatchObject({success:false});
+});
+
+it("Beauty LINE-off refuses new binding before generating a recipient",async()=>{
+ course.industry.mockResolvedValue("beauty");
+ vi.stubEnv("BEAUTY_NOTIFICATIONS_ENABLED","0");
+ try{expect(await createStoreLineNotificationRecipient({displayName:"測試",roleLabel:"店長"})).toMatchObject({success:false,error:expect.stringContaining("LINE 維持關閉")});}finally{vi.unstubAllEnvs();}
+});
 });

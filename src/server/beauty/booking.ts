@@ -1,4 +1,5 @@
 import "server-only";
+import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import { cardAllowsRecipient,halfHourRule } from "@/lib/beauty/member-booking";
 import { AppError } from "@/lib/errors";
 import {
@@ -415,7 +416,7 @@ export async function reserveParty(
       tx,
       a,
       "BOOK_GROUP",
-      JSON.stringify({ groupId: group.id, ids }),
+      JSON.stringify({ groupId: group.id, ids, managerNoticeEligible: policy.notifications && !beautyNotificationDeliveryBlocked() }),
     );
     return { groupId: group.id, ids };
   });

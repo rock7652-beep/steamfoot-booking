@@ -1,4 +1,5 @@
 import "server-only";
+import { beautyNotificationDeliveryBlocked } from "@/lib/beauty/notification-policy";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -17,11 +18,7 @@ import { deliverCourseCardNotification } from "@/server/services/course-card-not
  * Notifications are opt-in and cron-authenticated. No request-time sending. */
 export async function runBeautyNotifications(now = new Date()) {
   const summary = { sent: 0, skipped: 0, failed: 0 };
-  if (
-    process.env.BEAUTY_MODULE_ENABLED !== "1" ||
-    process.env.BEAUTY_NOTIFICATIONS_ENABLED !== "1"
-  )
-    return summary;
+  if (beautyNotificationDeliveryBlocked()) return summary;
   const stores = await prisma.store.findMany({
     where: {
       industryModule: "BEAUTY",

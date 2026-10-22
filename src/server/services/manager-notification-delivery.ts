@@ -3,6 +3,7 @@ import { buildManagerNotificationCard } from "./manager-notification-card";
 import { type LineMessage, pushMessage } from "@/lib/line";
 import {
   managerPreferences,
+  managerNotificationOptions,
   MANAGER_EVENT_PREFERENCE,
 } from "@/lib/manager-notification-preferences";
 import { randomUUID } from "node:crypto";
@@ -14,7 +15,7 @@ export async function migrateManagerRecipients(storeId: string) {
     where: { id: storeId },
     select: { managerRecipientsMigrated: true, slug: true, industryModule: true },
   });
-  if (!store || store.managerRecipientsMigrated || store.industryModule === "COURSE") return;
+  if (!store || store.managerRecipientsMigrated || ["COURSE", "BEAUTY"].includes(store.industryModule)) return;
   await prisma.$transaction(async (tx) => {
     const claim = await tx.store.updateMany({
       where: { id: storeId, managerRecipientsMigrated: false },
@@ -104,7 +105,7 @@ export async function migrateManagerRecipients(storeId: string) {
 
 export type ManagerDeliveryResult =
   | { status: "sent"; sentCount: number; failedCount: number }
-  | { status: "skipped"; reason: "recipient_not_configured" }
+  | { status: "skipped"; reason: "recipient_not_configured" | "delivery_disabled" }
   | { status: "failed"; error: string };
 export async function deliverManagerNotification(input: {
   storeId: string;
@@ -113,10 +114,23 @@ export async function deliverManagerNotification(input: {
   messages: { type: "text"; text: string }[];
   sameDayTrial?: boolean;
   assignedStaffId?: string | null;
+  /** Server-only observer rechecks its own current business subject. */
+  beforeDeliver?: () => Promise<boolean>;
 }): Promise<ManagerDeliveryResult> {
   try {
     const key = MANAGER_EVENT_PREFERENCE[input.type];
     if (!key) return { status: "failed", error: "Unknown notification type" };
+    const scope = await prisma.store.findUnique({where:{id:input.storeId},select:{industryModule:true}});
+    const beauty = scope?.industryModule === "BEAUTY";
+    if (beauty && !managerNotificationOptions(false,true).some(option=>option.key===key)) return {status:"skipped",reason:"delivery_disabled"};
+    const allowed = async () => {
+      if (beauty) {
+        const { beautyManagerDeliveryAllowed } = await import("@/server/beauty/manager-notifications");
+        if (!await beautyManagerDeliveryAllowed(input.storeId)) return false;
+      }
+      return !input.beforeDeliver || await input.beforeDeliver();
+    };
+    if (!await allowed()) return {status:"skipped",reason:"delivery_disabled"};
     await migrateManagerRecipients(input.storeId);
     const recipients = await prisma.storeLineNotificationRecipient.findMany({
       where: {
@@ -158,6 +172,7 @@ export async function deliverManagerNotification(input: {
         current.sameDayBookingEnabled,
       );
       if (!(latest[key] || (input.sameDayTrial && latest.sameDay))) continue;
+      if (!await allowed()) continue;
       let log;
       try {
         log = await prisma.managerNotificationLog.create({
@@ -215,6 +230,16 @@ export async function deliverManagerNotification(input: {
         } else throw error;
       }
       try {
+        if (!await allowed()) {
+          await prisma.managerNotificationLog.update({where:{id:log.id},data:{status:"SKIPPED",errorMessage:"發送前通知或服務狀態已變更"}});
+          continue;
+        }
+        const finalRecipient = await prisma.storeLineNotificationRecipient.findFirst({where:{id:recipient.id,storeId:input.storeId,isActive:true}});
+        const finalPreferences = managerPreferences(finalRecipient?.preferences,finalRecipient?.sameDayBookingEnabled);
+        if (!finalRecipient?.lineUserId || finalRecipient.lineUserId!==current.lineUserId || !(finalPreferences[key] || (input.sameDayTrial && finalPreferences.sameDay))) {
+          await prisma.managerNotificationLog.update({where:{id:log.id},data:{status:"SKIPPED",errorMessage:"收件人已暫停、解除綁定或變更偏好"}});
+          continue;
+        }
         const result = await pushMessage(
           input.storeId,
           current.lineUserId,

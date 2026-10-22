@@ -8,6 +8,7 @@ import { beautyManager } from "./access";
 import { notificationCenterWhere, type NotificationRow } from "@/server/queries/notification-center";
 
 export const beautyNoticeLabels: Record<string,string> = {
+  SAME_DAY_BOOKING_CREATED:"當日新預約", PUBLIC_TRIAL_BOOKING_CREATED:"新體驗預約", TRANSFER_PENDING_CONFIRMATION:"待確認付款", INCOMPLETE_SERVICE_REMINDER:"服務未完成", DAILY_ACTION_DIGEST:"每日待辦摘要",
   BOOKED: "預約成立", MOVED: "預約改期", REMINDER: "明日服務提醒",
   RESERVED: "恢復預約", CANCELLED: "預約取消", NO_SHOW: "未到", COMPLETED: "服務完成",
   "美業剩餘次數提醒":"美業剩餘次數提醒","美業方案用完提醒":"美業方案用完提醒","美業方案到期提醒":"美業方案到期提醒","體驗後關心":"體驗後關心","第一次回訪邀請":"第一次回訪邀請","最後一次邀請":"最後一次邀請",

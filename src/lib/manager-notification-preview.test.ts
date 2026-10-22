@@ -20,3 +20,5 @@ describe("manager notification preview inventory", () => {
     expect(samples.find(sample => sample.key === "incomplete")?.title).toContain("出席");
   });
 });
+
+it("beauty exposes only its five connected types, with its actual service duration wording",()=>{const rows=managerNotificationPreviewSamples(false,true);expect(rows.map(r=>r.key)).toEqual(["sameDay","trial","payment","incomplete","digest"]);expect(rows.find(r=>r.key==="incomplete")?.details.join("\n")).toContain("服務結束一小時");expect(rows.map(r=>r.details.join(" ")).join(" ")).not.toContain("出席");});

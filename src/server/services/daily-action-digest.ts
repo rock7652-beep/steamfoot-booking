@@ -41,6 +41,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
   const todayTW = toLocalDateStr(now);
   const stores = await prisma.store.findMany({
     where: {
+      industryModule: { not: "BEAUTY" },
       isDemo: false,
       operatingStatus: { in: ["ACTIVE", "TRIAL"] },
     },

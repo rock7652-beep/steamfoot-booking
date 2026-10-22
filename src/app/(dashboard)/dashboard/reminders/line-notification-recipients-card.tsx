@@ -24,12 +24,12 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand, course = false, readOnly = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean; readOnly?: boolean }) {
+function RecipientCard({ item, expanded, onExpand, course = false, beauty = false, readOnly = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean; beauty?: boolean; readOnly?: boolean }) {
   const [pending, start] = useTransition();
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
-  const options = managerNotificationOptions(course);
+  const options = managerNotificationOptions(course,beauty);
   function save(action: () => Promise<{ success: boolean; error?: string }>) {
     setSaved("");
     start(async () => {
@@ -153,12 +153,14 @@ function RecipientCard({ item, expanded, onExpand, course = false, readOnly = fa
 export function LineNotificationRecipientsCard({
   recipients,
   course = false,
+  beauty = false,
   bindingUnavailable,
   showHeading = true,
   readOnly = false,
 }: {
   recipients: Recipient[];
   course?: boolean;
+  beauty?: boolean;
   bindingUnavailable?: string;
   showHeading?: boolean;
   readOnly?: boolean;
@@ -182,7 +184,7 @@ export function LineNotificationRecipientsCard({
   useSettingsPanelGuard(!!name.trim(), pending);
   return (
     <section className="space-y-3">
-      {!readOnly && <ManagerNotificationPreview course={course} />}
+      {!readOnly && <ManagerNotificationPreview course={course} beauty={beauty} />}
       {showHeading ? (
         <div>
           <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>
@@ -193,7 +195,7 @@ export function LineNotificationRecipientsCard({
       ) : null}
       {recipients.length === 0 && (
         <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
-          尚未綁定通知人員。{!readOnly && <>完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。</>}
+          尚未綁定通知人員。{!readOnly && <>完成綁定後，即可設定總開關與 {managerNotificationOptions(course,beauty).length} 項個別提醒。</>}
         </p>
       )}
       {recipients.length > 0 && <>
@@ -205,7 +207,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard readOnly={readOnly} course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard readOnly={readOnly} course={course} beauty={beauty} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
