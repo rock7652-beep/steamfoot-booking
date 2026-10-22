@@ -71,7 +71,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
   }, [dirty, pending, request, closeHref, destination, dismissed]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
-  const context = useMemo(() => ({ report, navigate, registerReader }), [report, navigate, registerReader]);
+  const context = useMemo(() => ({ report, navigate, registerReader: panel === "reminders" ? registerReader : undefined }), [report, navigate, registerReader, panel]);
   return <div ref={root} data-course-settings-panel>
     <RightSheet presentation="centered" open={!dismissed} compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">

@@ -106,7 +106,7 @@ export function SettingsPanel({
     };
   }, [dirty, pending, request, closeHref, destination, dismissed]);
 
-  const context = useMemo(() => ({ report, navigate, registerReader }), [report, navigate, registerReader]);
+  const context = useMemo(() => ({ report, navigate, registerReader: sourceHref === "/dashboard/reminders" ? registerReader : undefined }), [report, navigate, registerReader, sourceHref]);
 
   return (
     <div ref={root} data-settings-panel>
