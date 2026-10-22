@@ -23,17 +23,17 @@
 | 顧客管理 | `courses/customer-list.tsx`、`courses/member-workspace.tsx`、`courses/course-profile-forms.tsx` | **清單共用、詳情待接回**：顧客清單已是 CourseCustomerList；`beauty/customer-panel.tsx` 仍獨立，不能算完整接回。 | 同一份顧客、方案、帳本與異動介面；顧客欄位共用，方案／服務歷史讀美業資料，保留跨店與個資權限。 |
 | 顧客經營 | `dashboard/growth/_components/care-workspace-server.tsx`、`care-workspace.tsx` | **核心共用、入口待清理**：BeautyCare 已使用 CareWorkspaceServer，外層分類與生日月份另外組裝。 | 出席改為實際完成服務，低次數／到期取美業方案；分類、追蹤與聯絡操作仍用既有工作台。 |
 | 營運／收退款 | 現有課程收款、購買方案與退款視窗；`courses/customer-purchases.tsx` | **待接回**：BeautyDashboard 內的收款／退款表單仍另寫。 | 操作與明細共用；單次消費與方案購買是不同交易來源，退款、修訂與授權由美業接點驗證，不能直接呼叫 CoursePointCard 寫入。 |
-| 營運／技師拆帳 | 現有授課費明細／報表；`courses/sports-fee-layout.module.css` | **待接回**：`beauty/fee-summary.tsx` 為自製彙總／明細。 | 只提供拆帳明細，店家自行付款；不帶入付款／收回操作。實際服務技師、固定金額／百分比與店家所選基準為資料差異，無須另做頁面。 |
+| 營運／技師拆帳 | `dashboard/revenue/_components/course-fees.tsx`、既有授課費報表 | **待接回**：`beauty/fee-summary.tsx` 為自製彙總／明細。 | 只提供拆帳明細，店家自行付款；不帶入付款／收回操作。實際服務技師、固定金額／百分比與店家所選基準為資料差異，無須另做頁面。 |
 | 分析 | `courses/business-analytics-view.tsx`、`src/lib/course-business-analytics.ts` | **待接回**：BeautyAnalyticsWorkspace 為另外寫的分析，不能算共用。 | 同一份指標呈現、期間／比較與明細；服務完成、體驗、正淨額購買／退款資料接入共用計算。未付費開卡不能直接當成新購方案。 |
 | 位置管理 | `courses/workspace.tsx` 的 rooms 內頁 | **待接回**：BeautyManagementList 仍另寫。 | 沿用既有空間，不新增床位表；美業不需要的租借欄位由同一元件控制顯示，不另造空間清單。 |
 | 服務項目 | `courses/workspace.tsx` 的 catalog 內頁 | **待接回**：BeautyManagementList／BeautyCatalogEditor 仍另寫。 | 原服務／課程設定的清單與編輯操作共用；美業用服務時長、選填整理時間及可服務技師，移除團課班別／容量專屬欄位；金額放收費方式。 |
 | 收費方式與方案 | `courses/member-workspace.tsx`、`courses/course-profile-forms.tsx` 的 CoursePlanDraftForm | **待接回**：BeautyChargesList／BeautyCatalogEditor 仍另寫。 | 使用既有方案清單／編輯、次數、期限、服務適用範圍、家人共用；單次／體驗價格一起管理。不得預設店家的方案次數與售價；運動固定課、補課券與音樂期課規則不自動套入。 |
-| 技師管理 | 現有教練／教師管理入口、StaffAccountEditor 的可共用欄位與排班編輯 | **待接回**：BeautyManagementList／BeautyCatalogEditor 仍另寫，尚未確認能整頁直接掛入的元件，需抽取現有教師內頁的呈現／操作接點，不可假稱已有完全可掛入的技師頁。 | 技師與後台人員分開；預設承接店家開放時段，可覆寫每人服務時間，資格／服務、性別必填、拆帳與我的工作權限保留；不能把後台帳號當技師記錄。 |
+| 技師管理 | `courses/staff-page.tsx`、`courses/staff-workspace.tsx` 的 CourseStaffWorkspace | **待接回**：BeautyManagementList／BeautyCatalogEditor 仍另寫，既有 CourseStaffWorkspace 是接回來源；其讀寫直接依賴 Staff／課程資格，需抽取資料與動作接點後接入美業技師，不能只改標題或繞過 requireCourseStore。 | 技師與後台人員分開；預設承接店家開放時段，可覆寫每人服務時間，資格／服務、性別必填、拆帳與我的工作權限保留；不能把後台帳號當技師記錄。 |
 | 人員管理 | `dashboard/staff/staff-workspace.tsx`、`staff-account-editor.tsx` | **本輪已接線、待 hosted 核對**：移除 BeautyStaffList 分支，使用原帳號清單、角色／狀態篩選與原帳號編輯器。 | 沿用 staff.view／staff.manage 與既有階層；Beauty 可指派權限仍由 staff/page.tsx 的 BEAUTY_PERMISSIONS 篩選，沒有擴大可授權範圍。 |
 | 圖片公告 | 既有共用公告頁面 | **既有共用入口**，本輪未另寫。 | 仍須在最終全頁驗收核對美業進入路徑與店別；不能用「入口共用」替代全部上傳／發布實測。 |
 | 設定 | `courses/settings-workspace.tsx`、`settings-section-editor.tsx`、共用銀行／營業時間設定頁 | **部分共用、整頁待接回**：BeautyStoreSettings 已用 CourseSettingsSectionEditor，銀行／營業時間已有共用入口；BeautyDashboard 的分類／預約設定仍另組。 | 沿用門市設定欄位、開放時段、銀行、公告與功能開關；美業預約間隔、取消／未到扣次與 LINE 關閉條件由業務接點處理，不帶入候補／固定課專屬規則。 |
 
-除明列完整路徑外，`courses/` 均指 `src/app/(dashboard)/dashboard/courses/`，`beauty/` 指 `src/components/beauty/`。技師管理與授課費的整頁直接掛入來源仍需下一階段核對，不將只有 CSS 或帳號表單存在當成完整頁面可用。
+除明列完整路徑外，`courses/` 均指 `src/app/(dashboard)/dashboard/courses/`，`beauty/` 指 `src/components/beauty/`。技師管理與授課費已有對應來源，但仍需抽取讀寫接點；不將只有 CSS 或帳號表單存在當成完整頁面可用。
 
 ## 三端範圍與禁止重做
 
