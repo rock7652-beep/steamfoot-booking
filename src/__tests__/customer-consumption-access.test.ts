@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { AppError } from "@/lib/app-error";
 
 const mocks = vi.hoisted(() => ({
-  permission: vi.fn(), activeStore: vi.fn(), view: vi.fn(), feature: vi.fn(), industry: vi.fn(), scope: vi.fn(), query: vi.fn(), staff: vi.fn(),
+  permission: vi.fn(), activeStore: vi.fn(), view: vi.fn(), feature: vi.fn(), industry: vi.fn(), scope: vi.fn(), query: vi.fn(), staff: vi.fn(), beautyAccess: vi.fn(), beautyQuery: vi.fn(), beautyPlans: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: mocks.activeStore }));
@@ -16,6 +16,8 @@ vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: mocks.feature }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.industry }));
 vi.mock("@/lib/manager-visibility", () => ({ getManagerCustomerWhere: mocks.scope }));
 vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: mocks.query, staff: { findMany: mocks.staff } } }));
+vi.mock("@/lib/beauty-db",()=>({beautyPrisma:{$queryRaw:mocks.beautyQuery,beautyPlan:{findMany:mocks.beautyPlans}}}));
+vi.mock("@/server/beauty/access",()=>({requireBeauty:mocks.beautyAccess}));
 import { getCustomerConsumption, getCustomerConsumptionAccess } from "@/server/queries/customer-consumption";
 import { GET } from "@/app/api/export/customer-consumption-summary/route";
 
@@ -93,4 +95,17 @@ describe("consumption read and export authorization", () => {
     expect(response.headers.get("content-disposition")).toContain("2026-10-01-2026-10-20.csv");
     expect(await response.text()).toContain('"由少到多","前 5 名"');
   });
+});
+
+
+describe("Beauty dedicated consumption port",()=>{
+ beforeEach(()=>{mocks.industry.mockResolvedValue("beauty");mocks.query.mockReset().mockResolvedValue([{id:"c",name:"顧客",phone:"0900",assignedStaffName:null}]);mocks.beautyPlans.mockResolvedValue([{id:"beauty-plan",name:"十次方案"}]);mocks.beautyQuery.mockResolvedValue([{total:1,matched:1,page:1,rows:[]}]);});
+ it("reads scoped core identities before using only the Beauty data connection",async()=>{const data=await getCustomerConsumption({planId:"beauty-plan"});expect(data.module).toBe("beauty");expect(data.metrics).toEqual(["count","amount","paid"]);expect(mocks.beautyAccess).toHaveBeenCalledWith("own-store");expect(mocks.beautyPlans).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"own-store"}}));expect(mocks.query).toHaveBeenCalledTimes(1);const sql=mocks.beautyQuery.mock.calls[0][0];expect(sql.text).toContain('"BeautyLedger"');expect(sql.text).not.toMatch(/FROM "(?:User|Staff|CourseBooking)"/);expect(sql.values).toContain("own-store");});
+ it("rejects a closed Beauty gate before either database data read",async()=>{mocks.beautyAccess.mockRejectedValue(new AppError("FORBIDDEN","美業尚未開放"));await expect(getCustomerConsumption({})).rejects.toThrow("尚未開放");expect(mocks.query).not.toHaveBeenCalled();expect(mocks.beautyQuery).not.toHaveBeenCalled();});
+ it("rejects foreign plans before core customer query or Beauty report",async()=>{await expect(getCustomerConsumption({planId:"foreign"})).rejects.toThrow("不屬於目前店家");expect(mocks.query).not.toHaveBeenCalled();expect(mocks.beautyQuery).not.toHaveBeenCalled();});
+ it("exports Beauty labels with existing permissions and no-store",async()=>{const response=await GET(new NextRequest("http://localhost/api/export/customer-consumption-summary"));expect(response.status).toBe(200);expect(await response.text()).toContain('"取消／未到扣次"');expect(mocks.permission).toHaveBeenCalledWith("customer.export");});
+});
+
+describe("Music uses the shared COURSE consumption route",()=>{
+ it("accepts music lesson/session plans without routing to Steamfoot or Beauty",async()=>{mocks.industry.mockResolvedValue("course");mocks.query.mockReset().mockResolvedValueOnce([{id:"piano",name:"鋼琴個別課 4 堂",unit:"SESSION"}]).mockResolvedValueOnce([{total:1,matched:1,page:1,rows:[]}]);const data=await getCustomerConsumption({planId:"piano"});expect(data.metrics).toEqual(["count","sessions","amount","paid"]);expect(mocks.query.mock.calls[1][0].text).toContain('"CourseBooking"');expect(mocks.beautyQuery).not.toHaveBeenCalled();});
 });

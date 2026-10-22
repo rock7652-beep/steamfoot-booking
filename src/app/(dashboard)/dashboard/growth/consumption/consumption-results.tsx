@@ -4,9 +4,9 @@ import { CustomerPageLink } from "@/components/customer-page-link";
 import { CONSUMPTION_METRICS, CONSUMPTION_PAGE_SIZE, CONSUMPTION_PATH, consumptionSearchParams, type ConsumptionFilters, type ConsumptionMetric, type ConsumptionRow } from "@/lib/customer-consumption";
 import { ConsumptionSortSelect } from "./consumption-filters";
 
-export function ConsumptionResults({ rows, total, matched, page, filters, metrics, canExport, courseMode = false }: {
+export function ConsumptionResults({ rows, total, matched, page, filters, metrics, canExport, courseMode = false, beautyMode = false }: {
   rows: ConsumptionRow[]; total: number; matched: number; page: number;
-  filters: ConsumptionFilters; metrics: ConsumptionMetric[]; canExport: boolean; courseMode?: boolean;
+  filters: ConsumptionFilters; metrics: ConsumptionMetric[]; canExport: boolean; courseMode?: boolean; beautyMode?: boolean;
 }) {
   const query = consumptionSearchParams(filters);
   const pages = Math.max(1, Math.ceil(total / CONSUMPTION_PAGE_SIZE));
@@ -16,7 +16,7 @@ export function ConsumptionResults({ rows, total, matched, page, filters, metric
   };
   const columns: Column<ConsumptionRow>[] = [
     { key: "name", header: "顧客", width: "min-w-40", accessor: row =>
-      <CustomerPageLink href={courseMode ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(row.id)}` : `/dashboard/customers/${encodeURIComponent(row.id)}`} className="flex min-h-11 flex-col justify-center break-words text-primary-800"><span className="font-medium">{row.name}</span><span className="text-sm text-earth-500">{row.phone || "未提供電話"}</span></CustomerPageLink> },
+      <CustomerPageLink href={beautyMode ? `/dashboard/beauty?tab=顧客管理&customerId=${encodeURIComponent(row.id)}` : courseMode ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(row.id)}` : `/dashboard/customers/${encodeURIComponent(row.id)}`} className="flex min-h-11 flex-col justify-center break-words text-primary-800"><span className="font-medium">{row.name}</span><span className="text-sm text-earth-500">{row.phone || "未提供電話"}</span></CustomerPageLink> },
     { key: "assignedStaff", header: "所屬店長", width: "min-w-28", priority: "secondary", accessor: row => <span className="break-words">{row.assignedStaffName || "未指派"}</span> },
     ...metrics.map(metric => {
       const params = new URLSearchParams(query);

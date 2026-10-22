@@ -35,28 +35,7 @@ export async function listNotificationCenterLogs(
     1,
     Math.min(1000, Number.parseInt(params.page ?? "1", 10) || 1),
   );
-  const conditions: Prisma.Sql[] = [];
-  if (params.audience && ["manager", "customer"].includes(params.audience))
-    conditions.push(Prisma.sql`audience=${params.audience}`);
-  if (
-    params.status &&
-    ["SENT", "FAILED", "PENDING", "SKIPPED"].includes(params.status)
-  )
-    conditions.push(Prisma.sql`status=${params.status}`);
-  if (params.search)
-    conditions.push(
-      Prisma.sql`recipient ILIKE ${`%${params.search.slice(0, 100)}%`}`,
-    );
-  if (params.type)
-    conditions.push(Prisma.sql`type=${params.type.slice(0, 100)}`);
-  if (params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
-    const { start, end } = dayRange(params.date);
-    if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()))
-      conditions.push(Prisma.sql`at >= ${start} AND at <= ${end}`);
-  }
-  const where = conditions.length
-    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
-    : Prisma.empty;
+  const where = notificationCenterWhere(params);
   const [rows, rules] = await Promise.all([
     prisma.$queryRaw<NotificationRow[]>(Prisma.sql`
     WITH notifications AS (
@@ -79,4 +58,30 @@ export async function listNotificationCenterLogs(
     hasMore: rows.length > 30,
     typeOptions: ["手動發送", ...rules.map((r) => r.name)],
   };
+}
+
+/** Shared filter semantics for module-specific notification sources. */
+export function notificationCenterWhere(params: Record<string, string | undefined>) {
+  const conditions: Prisma.Sql[] = [];
+  if (params.audience && ["manager", "customer"].includes(params.audience))
+    conditions.push(Prisma.sql`audience=${params.audience}`);
+  if (
+    params.status &&
+    ["SENT", "FAILED", "PENDING", "SKIPPED"].includes(params.status)
+  )
+    conditions.push(Prisma.sql`status=${params.status}`);
+  if (params.search)
+    conditions.push(
+      Prisma.sql`recipient ILIKE ${`%${params.search.slice(0, 100)}%`}`,
+    );
+  if (params.type)
+    conditions.push(Prisma.sql`type=${params.type.slice(0, 100)}`);
+  if (params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
+    const { start, end } = dayRange(params.date);
+    if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()))
+      conditions.push(Prisma.sql`at >= ${start} AND at <= ${end}`);
+  }
+  return conditions.length
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
 }

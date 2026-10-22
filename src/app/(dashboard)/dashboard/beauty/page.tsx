@@ -1,3 +1,4 @@
+import BeautyRemindersPage from "./reminders/page";
 import {CustomerGrowthNavigation} from '@/components/customer-growth-navigation';
 import {BeautySettingsWorkspace} from '@/components/beauty/settings-workspace';
 import {CustomerLabelsSettings} from '@/components/customer-labels';
@@ -40,7 +41,7 @@ export default async function BeautyPage({
     calendar?: string;
     customerId?:string;
     action?:string;
-    panel?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
+    panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -121,6 +122,7 @@ export default async function BeautyPage({
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
+      {tab==='設定'&&q.panel==='reminders'&&<SettingsPanel title="提醒管理" sourceHref="/dashboard/beauty/reminders" width={1040}><BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/></SettingsPanel>}
       {tab==='設定'&&['hours','payment','line'].includes(q.panel??'')&&<SettingsPanel title={q.panel==='hours'?'營業時間與公休':q.panel==='payment'?'銀行與收款資料':'LINE 官方帳號'} sourceHref={`/dashboard/beauty?tab=設定&section=${q.section??'store'}`}>{q.panel==='hours'?<ScheduleSettingsPage/>:q.panel==='payment'?<PaymentSettingsPage/>:(u.role==='OWNER'||u.role==='ADMIN')?<LineOfficialAccountsPage/>:<p role="alert">此設定僅供店主查看。</p>}</SettingsPanel>}
     </PageShell>
   );

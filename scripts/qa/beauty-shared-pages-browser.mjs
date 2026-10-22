@@ -64,7 +64,7 @@ try {
     await page.evaluate(m=>{history.replaceState(null,'',m==='beauty'?'?tab=設定&section=store':'?view=settings&section=store');},module);
     for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[560,768]]) {
       await page.setViewportSize({width,height});
-      for(const view of ['settings','analytics','care']) {
+      for(const view of ['settings','analytics','care','consumption','reminders']) {
         await page.getByLabel('驗收頁面').selectOption(view);
         if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Overflow '+module+'/'+view+'/'+width);
         if(module==='beauty')await page.screenshot({path:path.join(output,view+'-'+width+'.png'),fullPage:true});
@@ -93,6 +93,27 @@ try {
   await page.getByRole('button',{name:/來客人次/}).first().click();
   const customer=page.getByRole('link',{name:/測試顧客長名稱/});
   if(!(await customer.getAttribute('href')).includes('/dashboard/beauty?tab=顧客管理'))throw Error('Analytics customer link entered course module');
+  for(const module of ['beauty','music']) {
+    await page.getByLabel('驗收模組').selectOption(module);
+    await page.getByLabel('驗收頁面').selectOption('consumption');
+    await page.getByRole('button',{name:/^篩選/}).click();
+    if(!(await page.getByRole('dialog').isVisible()))throw Error('Consumption filter dialog missing');
+    if(module==='beauty' && !(await page.getByLabel('取消／未到扣次').isVisible()))throw Error('Beauty deduction label missing');
+    await page.getByRole('button',{name:'關閉篩選',exact:true}).click();
+    const href=await page.getByRole('link',{name:/測試顧客長名稱/}).getAttribute('href');
+    if(!href.includes(module==='beauty'?'/dashboard/beauty?':'/dashboard/courses?'))throw Error('Consumption wrong customer route');
+    await page.getByLabel('驗收頁面').selectOption('reminders');
+    await page.getByLabel('驗收提醒頁籤').selectOption('manager');
+    if(module==='beauty' && await page.getByRole('button',{name:/設定提醒|解除綁定|綁定我的 LINE/}).count())throw Error('Read-only manager offers LINE mutations');
+    await page.setViewportSize({width:390,height:844});
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Manager overflow');
+    await page.getByLabel('驗收提醒頁籤').selectOption('logs');
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Logs overflow');
+    await page.getByText(/測試長名稱顧客/).click();
+    const logHref=await page.getByRole('link',{name:'查看顧客 →'}).getAttribute('href');
+    if(!logHref.includes(module==='beauty'?'/dashboard/beauty?':'/dashboard/courses?'))throw Error('Reminder wrong customer route');
+    results.push({module,consumptionFilter:true,consumptionCustomerLink:true,reminderCustomerLink:true,phone390:true});
+  }
   if(failures.length)throw Error(failures.join('\n'));
   writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,businessAcceptance:false,physicalDevice:false,results,errors:failures},null,2));
   console.log('Shared pages: '+results.length+' synthetic cases passed');

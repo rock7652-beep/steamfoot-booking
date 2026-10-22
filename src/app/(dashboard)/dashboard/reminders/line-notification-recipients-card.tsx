@@ -24,7 +24,7 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
+function RecipientCard({ item, expanded, onExpand, course = false, readOnly = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean; readOnly?: boolean }) {
   const [pending, start] = useTransition();
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
@@ -61,7 +61,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
             type="checkbox"
             role="switch"
             checked={item.isActive}
-            disabled={pending || !item.linkedAt}
+            disabled={readOnly || pending || !item.linkedAt}
             onChange={(e) => {
               const on = e.target.checked;
               save(() => setStoreLineNotificationRecipientActive(item.id, on));
@@ -69,7 +69,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
             className={notificationSwitchClass}
           />
         </label>
-        <details className="relative">
+        {!readOnly && <details className="relative">
           <summary
             className="cursor-pointer px-3"
             aria-label={`${item.displayName} 更多操作`}
@@ -90,19 +90,19 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
           >
             解除綁定
           </button>
-        </details>
+        </details>}
       </div>
       <div className="mt-2 flex justify-between text-xs text-earth-500">
         <span>
-          {item.isActive
+          {readOnly ? "僅供查看既有綁定" : item.isActive
             && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
             : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
         </span>
         <span role="status">{pending ? "儲存中…" : saved}</span>
       </div>
-      <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="mt-2 text-sm font-medium text-primary-700">
+      {!readOnly && <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="mt-2 text-sm font-medium text-primary-700">
         {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
-      </button>
+      </button>}
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
           className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
@@ -155,11 +155,13 @@ export function LineNotificationRecipientsCard({
   course = false,
   bindingUnavailable,
   showHeading = true,
+  readOnly = false,
 }: {
   recipients: Recipient[];
   course?: boolean;
   bindingUnavailable?: string;
   showHeading?: boolean;
+  readOnly?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -180,18 +182,18 @@ export function LineNotificationRecipientsCard({
   useSettingsPanelGuard(!!name.trim(), pending);
   return (
     <section className="space-y-3">
-      <ManagerNotificationPreview course={course} />
+      {!readOnly && <ManagerNotificationPreview course={course} />}
       {showHeading ? (
         <div>
           <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>
           <p className="mt-1 text-sm text-earth-500">
-            僅顯示本店通知人員。點選「設定提醒」編輯各自接收的通知。
+            {readOnly ? "僅顯示本店通知人員；目前僅供查看既有綁定。" : "僅顯示本店通知人員。點選「設定提醒」編輯各自接收的通知。"}
           </p>
         </div>
       ) : null}
       {recipients.length === 0 && (
         <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
-          尚未綁定通知人員。完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。
+          尚未綁定通知人員。{!readOnly && <>完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。</>}
         </p>
       )}
       {recipients.length > 0 && <>
@@ -203,11 +205,11 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard readOnly={readOnly} course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
-      {bindingUnavailable ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{bindingUnavailable} 完成設定後，請重新整理此頁。</p> : <details
+      {readOnly ? (bindingUnavailable && <p role="status" className="text-sm text-earth-600">{bindingUnavailable}</p>) : bindingUnavailable ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{bindingUnavailable} 完成設定後，請重新整理此頁。</p> : <details
         open={recipients.length === 0}
         className="rounded-xl border border-earth-200 bg-white p-4"
       >

@@ -92,13 +92,13 @@ export function consumptionMetrics(options: ConsumptionOption[]): ConsumptionMet
     ...(units.has("GRID") ? ["grids" as const] : []), ...(units.has("POINT") ? ["points" as const] : []), "amount", "paid"];
 }
 
-export function consumptionCsv(rows: ConsumptionRow[], filters: ConsumptionFilters, planName: string, metrics: ConsumptionMetric[], staffName = "全部店長") {
+export function consumptionCsv(rows: ConsumptionRow[], filters: ConsumptionFilters, planName: string, metrics: ConsumptionMetric[], staffName = "全部店長", beauty = false) {
   const conditions = Object.entries(filters.ranges).map(([metric, range]) =>
     `${CONSUMPTION_METRICS[metric as ConsumptionMetric]} ${range.min ?? "不限"}～${range.max ?? "不限"}`).join("；");
   const data: Array<Array<string | number>> = [
     ["統計期間", filters.startDate, filters.endDate], ["收費方式", planName],
     ["所屬店長條件", staffName],
-    ["曠課／請假扣除", filters.includeAbsent ? "包含" : "不包含"],
+    [beauty ? "取消／未到扣次" : "曠課／請假扣除", filters.includeAbsent ? "包含" : "不包含"],
     ["搜尋", filters.q], ["數值條件（全部符合）", conditions || "不限"],
     ["排序", CONSUMPTION_METRICS[filters.sort], filters.direction === "asc" ? "由少到多" : "由多到少", filters.top ? `前 ${filters.top} 名` : "全部"],
     ["姓名", "電話", "所屬店長", ...metrics.map(metric => CONSUMPTION_METRICS[metric]), "目前方案餘額（非期間末餘額）"],

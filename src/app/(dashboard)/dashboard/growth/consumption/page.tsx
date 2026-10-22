@@ -35,14 +35,14 @@ export default async function CustomerConsumptionPage({ searchParams }: { search
   const metrics = data?.metrics ?? consumptionMetrics(options);
   return <PageShell compact>
     <PageHeader compact title="期間消耗統計" />
-    <ConsumptionFiltersForm key={JSON.stringify(params)} params={params} filters={filters} options={options} staffOptions={staffOptions} metrics={metrics} error={errorMessage} />
-    {data && <ConsumptionResults {...data} courseMode={data.module === "course"} canExport={exportPermission && exportFeature} />}
+    <ConsumptionFiltersForm key={JSON.stringify(params)} params={params} filters={filters} options={options} staffOptions={staffOptions} metrics={metrics} beauty={access.module === "beauty"} error={errorMessage} />
+    {data && <ConsumptionResults {...data} courseMode={data.module === "course"} beautyMode={data.module === "beauty"} canExport={exportPermission && exportFeature} />}
     <details className="rounded-lg border border-earth-200 px-3 text-sm text-earth-600">
       <summary className="flex min-h-11 cursor-pointer items-center">統計口徑與餘額說明</summary>
       <div className="space-y-2 pb-3 leading-6">
-        <p>有扣堂、扣格、扣點或服務扣款即納入；同一筆服務只計一次。購買方案不計消耗次數。{filters.includeAbsent ? "包含曠課／請假扣除。" : "不包含曠課／請假扣除。"}</p>
+        <p>{access.module === "beauty" ? "已實際扣次或收款的服務納入；更正回復後不計。取消／未到依實際扣次狀態統計。" : "有扣堂、扣格、扣點或服務扣款即納入；"}同一筆服務只計一次。購買方案不計消耗次數。{access.module === "beauty" ? (filters.includeAbsent ? "包含取消／未到扣次。" : "不包含取消／未到扣次。") : filters.includeAbsent ? "包含曠課／請假扣除。" : "不包含曠課／請假扣除。"}</p>
         <p>服務消耗依服務日期歸屬；實付依收款日期計算、扣除所選期間的退款，取消或作廢的收款不納入。消耗金額與實付金額可能對應同一筆服務，請勿相加。</p>
-        <p>包含期間內零消耗的顧客。指定收費方式時，只列有該方式方案或期間紀錄的顧客，並只統計該方式；不同收費方式的每點／每格價值可能不同，建議指定後比較。</p>
+        <p>{access.module === "beauty" && "方案使用以實際服務顧客計次；方案購款及退款歸購買人。單次消耗金額為該服務目前淨收款，方案扣次不換算金額；未來服務不計消耗。"}包含期間內零消耗的顧客。指定收費方式時，只列有該方式方案或期間紀錄的顧客，並只統計該方式；{access.module !== "beauty" && "不同收費方式的每點／每格價值可能不同，建議指定後比較。"}</p>
         <p>目前方案餘額為查詢當下的剩餘額度，非期間末餘額，亦尚未扣除預約占用。共卡餘額不可跨顧客加總。未個別建檔的同行者不會依姓名推定歸戶；無服務日期的紙本補登不列入期間服務消耗。</p>
       </div>
     </details>

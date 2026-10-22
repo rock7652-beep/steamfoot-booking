@@ -22,7 +22,7 @@ export async function CustomerGrowthNavigation({ active }: { active: "care" | "l
   ]);
   const tabs = [
     { id: "care", label: "顧客關懷", href: industry === "beauty" ? "/dashboard/beauty?tab=顧客經營" : "/dashboard/growth", state: care },
-    ...(["course","steamfoot"].includes(industry) && consumptionPermissions.every(Boolean) ? [{ id: "consumption", label: "期間消耗統計", href: "/dashboard/growth/consumption", state: care }] : []),
+    ...(["course","steamfoot","beauty"].includes(industry) && consumptionPermissions.every(Boolean) ? [{ id: "consumption", label: "期間消耗統計", href: "/dashboard/growth/consumption", state: care }] : []),
     { id: "leads", label: "數位管家名單", href: "/dashboard/digital-butler/leads", state: leads },
   ];
   return <nav aria-label="顧客經營分類" className="mx-3 flex flex-wrap gap-1 border-b border-earth-200 sm:mx-6">

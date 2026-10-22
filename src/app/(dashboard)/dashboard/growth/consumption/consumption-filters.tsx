@@ -22,8 +22,8 @@ export function ConsumptionSortSelect({ filters, metrics }: { filters: Consumpti
   </select>;
 }
 
-export function ConsumptionFiltersForm({ filters, params, options, staffOptions, metrics, error }: {
-  filters: ConsumptionFilters; params: ConsumptionParams; options: ConsumptionOption[]; staffOptions: ConsumptionStaffOption[]; metrics: ConsumptionMetric[]; error?: string;
+export function ConsumptionFiltersForm({ filters, params, options, staffOptions, metrics, error, beauty = false }: {
+  filters: ConsumptionFilters; params: ConsumptionParams; options: ConsumptionOption[]; staffOptions: ConsumptionStaffOption[]; metrics: ConsumptionMetric[]; error?: string; beauty?: boolean;
 }) {
   const router = useRouter(), pathname = usePathname(), formId = useId(), titleId = useId();
   const value = (key: string, fallback = "") => firstConsumptionParam(params[key]) ?? fallback;
@@ -105,7 +105,7 @@ export function ConsumptionFiltersForm({ filters, params, options, staffOptions,
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">所屬店長<select value={staffId} onChange={event => setStaffId(event.target.value)} className={control}><option value="">全部店長</option><option value="__unassigned__">未指派</option>{staffOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">曠課／請假扣除<select value={includeAbsent} onChange={event => setIncludeAbsent(event.target.value)} className={control}><option value="1">包含扣除紀錄</option><option value="0">不包含曠課／請假扣除</option></select></label>
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">{beauty ? "取消／未到扣次" : "曠課／請假扣除"}<select value={includeAbsent} onChange={event => setIncludeAbsent(event.target.value)} className={control}><option value="1">包含扣除紀錄</option><option value="0">{beauty ? "不包含取消／未到扣次" : "不包含曠課／請假扣除"}</option></select></label>
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">取前 N 名<input form={formId} type="number" min="1" max="10000" step="1" placeholder="全部顧客" value={top} onChange={event => setTop(event.target.value)} className={control} /></label>
         </div>
       </div>

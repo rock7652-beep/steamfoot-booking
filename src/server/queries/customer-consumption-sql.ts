@@ -1,3 +1,4 @@
+import { beautyConsumptionSource } from "./beauty-consumption-sql";
 import { Prisma } from "@prisma/client";
 import { dayRange, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { CONSUMPTION_EXPORT_LIMIT, CONSUMPTION_PAGE_SIZE, type ConsumptionFilters } from "@/lib/customer-consumption";
@@ -5,12 +6,12 @@ import { CONSUMPTION_EXPORT_LIMIT, CONSUMPTION_PAGE_SIZE, type ConsumptionFilter
 /** All identifiers are fixed here; user input is always a bound SQL value. */
 const columns = { count: Prisma.sql`count`, sessions: Prisma.sql`sessions`, grids: Prisma.sql`grids`, points: Prisma.sql`points`, amount: Prisma.sql`amount`, paid: Prisma.sql`paid` };
 
-export function customerConsumptionSql(storeId: string, module: "course" | "steamfoot", staffScope: string | null, filters: ConsumptionFilters, exporting = false, now = new Date()) {
+export function customerConsumptionSql(storeId: string, module: "course" | "steamfoot" | "beauty", staffScope: string | null, filters: ConsumptionFilters, exporting = false, now = new Date(), beautyCustomers?: Array<{id:string;name:string;phone:string;assignedStaffName:string|null}>) {
   const { start } = dayRange(filters.startDate), { end } = dayRange(filters.endDate);
   const dateStart = parseTaiwanDateToDbDate(filters.startDate), dateEnd = parseTaiwanDateToDbDate(filters.endDate);
   const plan = filters.planId;
   const course = module === "course";
-  const source = course ? Prisma.sql`
+  const source = module === "beauty" ? beautyConsumptionSource(storeId, filters, now) : course ? Prisma.sql`
     bookings AS (
       SELECT b.*, s."startsAt" service_at, c."planId" plan_id, c.unit,
         COALESCE(p.amount,0)::float8 money,
@@ -138,18 +139,11 @@ export function customerConsumptionSql(storeId: string, module: "course" | "stea
     return [range.min !== undefined ? Prisma.sql`${column}>=${range.min}` : null,
       range.max !== undefined ? Prisma.sql`${column}<=${range.max}` : null].filter((item): item is Prisma.Sql => item !== null);
   });
-  const selectedCustomers = course ? Prisma.sql`EXISTS (SELECT 1 FROM "CoursePointCard" c JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId" WHERE c."storeId"=${storeId} AND m."customerId"=x.id AND c."planId"=${plan})`
+  const selectedCustomers = module === "beauty" ? Prisma.sql`EXISTS (SELECT 1 FROM "BeautyCard" c WHERE c."storeId"=${storeId} AND x.id=ANY(c."memberIds") AND c."planId"=${plan})` : course ? Prisma.sql`EXISTS (SELECT 1 FROM "CoursePointCard" c JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId" WHERE c."storeId"=${storeId} AND m."customerId"=x.id AND c."planId"=${plan})`
     : Prisma.sql`EXISTS (SELECT 1 FROM "CustomerPlanWallet" w WHERE w."storeId"=${storeId} AND w."customerId"=x.id AND w."planId"=${plan})`;
   const direction = filters.direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   return Prisma.sql`
-    WITH customers AS (
-      SELECT c.id,c.name,c.phone,s."displayName" AS "assignedStaffName"
-      FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
-      LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId"
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
-        AND c."createdAt"<=${end} ${staffScope ? Prisma.sql`AND c."assignedStaffId"=${staffScope}` : Prisma.empty}
-        AND (${filters.staffId}='' OR (${filters.staffId}='__unassigned__' AND s.id IS NULL) OR s.id=${filters.staffId})
-        AND (${filters.q}='' OR strpos(lower(c.name),lower(${filters.q}))>0 OR strpos(c.phone,${filters.q})>0)
+    WITH customers AS (${module === "beauty" ? beautyConsumptionCustomers(beautyCustomers) : customerConsumptionCustomersSql(storeId, staffScope, filters)}
     ), ${source}, summary AS (
       SELECT x.*,COALESCE(u.count,0)::int count, COALESCE(u.sessions,0)::float8 sessions,
         COALESCE(u.grids,0)::float8 grids, COALESCE(u.points,0)::float8 points,
@@ -170,4 +164,22 @@ export function customerConsumptionSql(storeId: string, module: "course" | "stea
     SELECT total,(SELECT count(*)::int FROM filtered) matched,
       ${exporting ? Prisma.sql`1` : Prisma.sql`LEAST(${filters.page},GREATEST(1,(total+${CONSUMPTION_PAGE_SIZE - 1})/${CONSUMPTION_PAGE_SIZE}))`}::int page,
       COALESCE((SELECT jsonb_agg(to_jsonb(p)-'position' ORDER BY position) FROM paged p),'[]'::jsonb) rows FROM totals`;
+}
+
+/** Shared identity query stays on the core connection; the Beauty role needs no User/Staff grants. */
+export function customerConsumptionCustomersSql(storeId: string, staffScope: string | null, filters: ConsumptionFilters, cutoff?: Date) {
+  const end = new Date(Math.min(dayRange(filters.endDate).end.getTime(),cutoff?.getTime()??Infinity));
+  return Prisma.sql`
+      SELECT c.id,c.name,c.phone,s."displayName" AS "assignedStaffName"
+      FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
+      LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId"
+      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
+        AND c."createdAt"<=${end} ${staffScope ? Prisma.sql`AND c."assignedStaffId"=${staffScope}` : Prisma.empty}
+        AND (${filters.staffId}='' OR (${filters.staffId}='__unassigned__' AND s.id IS NULL) OR s.id=${filters.staffId})
+        AND (${filters.q}='' OR strpos(lower(c.name),lower(${filters.q}))>0 OR strpos(c.phone,${filters.q})>0)
+`;
+}
+function beautyConsumptionCustomers(rows?: Array<{id:string;name:string;phone:string;assignedStaffName:string|null}>) {
+  if (!rows) throw new Error("Beauty consumption requires authorized core customer scope");
+  return Prisma.sql`SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS c(id text,name text,phone text,"assignedStaffName" text)`;
 }

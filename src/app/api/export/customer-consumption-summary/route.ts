@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const data = await getCustomerConsumption(Object.fromEntries(request.nextUrl.searchParams), true);
     const planName = data.options.find(option => option.id === data.filters.planId)?.name ?? "全部收費方式";
     const staffName = data.filters.staffId === "__unassigned__" ? "未指派" : data.staffOptions.find(option => option.id === data.filters.staffId)?.name ?? "全部店長";
-    return new NextResponse(consumptionCsv(data.rows, data.filters, planName, data.metrics, staffName), { headers: {
+    return new NextResponse(consumptionCsv(data.rows, data.filters, planName, data.metrics, staffName, data.module === "beauty"), { headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="customer-consumption-${data.filters.startDate}-${data.filters.endDate}.csv"`,
       "Cache-Control": "private, no-store",

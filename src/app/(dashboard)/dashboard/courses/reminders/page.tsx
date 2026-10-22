@@ -20,10 +20,8 @@ import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCourseReminderSetting, getCourseExpiryReminderSetting } from "@/server/actions/course-reminders";
 import { PlanExpiryReminderSettingCard } from "../../reminders/plan-expiry-reminder-setting-card";
 import { listNotificationCenterLogs } from "@/server/queries/notification-center";
-import { PageShell, PageHeader } from "@/components/desktop";
-import { DashboardLink } from "@/components/dashboard-link";
 import { PackageLineCardReminderSettingCard } from "../../reminders/package-line-card-reminder-setting-card";
-import { ReminderTabs } from "../../reminders/reminder-tabs";
+import { ReminderCenter } from "@/components/admin/reminder-center";
 import { NotificationLogList } from "../../reminders/notification-log-list";
 import { StoreLineHealthCard } from "../../reminders/store-line-health-card";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
@@ -84,15 +82,9 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       enabled ? readContent() : Promise.resolve(null),
       timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()),
     ]);
-    return <PageShell>
-      <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
-      <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} />
-      {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="space-y-2">
-        <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />
-        {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
-        {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
-        {content}
-      </div>}
-    </PageShell>;
+    return <ReminderCenter storeId={storeId} active={active} explicit={!!params.tab} baseHref="/dashboard/courses/reminders" returnHref="/dashboard/courses?view=settings&section=notifications" subtitle="課程提醒與發送紀錄" enabled={enabled} coach music={music} blockedMessage={previewBlocked?"隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。":undefined} before={<WorkOrderNotificationSetting initialEnabled={workOrderEnabled} />}>
+      {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
+      {content}
+    </ReminderCenter>;
   } finally { timing.finish(); }
 }

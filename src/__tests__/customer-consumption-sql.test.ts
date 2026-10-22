@@ -67,6 +67,19 @@ async function seedCourse() {
 
 describe("course consumption SQL on embedded PostgreSQL", () => {
   beforeEach(seedCourse);
+  it("music lesson plans use the same session debit, shared member and refund accounting",async()=>{
+    await db.exec(`INSERT INTO "CoursePointCard" (id,"storeId","planId","nameSnapshot",unit,remaining) VALUES ('piano-card','store','piano','鋼琴個別課 4 堂','SESSION',2);
+      INSERT INTO "CourseCardMember" VALUES ('piano-card','store','a'),('piano-card','store','b');
+      INSERT INTO "CourseBooking" (id,"storeId","sessionId","cardId","customerId","pointCost",status) VALUES ('piano-done','store','s','piano-card','a',1,'ATTENDED'),('piano-absent','store','s','piano-card','b',1,'NO_SHOW');
+      INSERT INTO "CoursePurchase" (id,"storeId","customerId","planId",price,status,"confirmedAt") VALUES ('piano-buy','store','a','piano',4000,'CONFIRMED','2026-10-20T04:00Z');
+      INSERT INTO "CoursePurchaseRefund" VALUES ('piano-refund','store','piano-buy',500,'2026-10-20T05:00Z');`);
+    const data=await report("course",{planId:"piano"});
+    expect(data.rows.find(r=>r.id==='a')).toMatchObject({count:1,sessions:1,paid:3500});
+    expect(data.rows.find(r=>r.id==='b')).toMatchObject({count:1,sessions:1,paid:0});
+    expect(data.rows[0].balances).toContain('鋼琴個別課 4 堂（共卡）：剩餘 2 堂');
+    expect((await report('course',{planId:'piano',includeAbsent:'0'})).rows.find(r=>r.id==='b')?.sessions).toBe(0);
+    expect((await report('course',{planId:'piano'},null,true)).rows).toEqual(data.rows);
+  });
   it("shows current assigned manager while excluding a mismatched store's staff name", async () => {
     expect((await report("course")).rows.find(row => row.id === "a")?.assignedStaffName).toBe("林店長");
     await db.exec(`UPDATE "Customer" SET "assignedStaffId"='staff-b' WHERE id='a'; UPDATE "Customer" SET "assignedStaffId"='foreign-staff' WHERE id='zero'`);
