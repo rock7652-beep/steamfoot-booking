@@ -11,7 +11,7 @@ import { createCourseSchedule } from "@/server/actions/course";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import {getMusicScheduleRooms} from "@/server/actions/music-schedule-rooms";
 import {MusicTrialLearners} from "@/components/admin/music-trial-learners";
-import {musicTeachingKey} from "@/lib/music-teaching-item";
+import {MUSIC_DEFAULT_DURATION_MINUTES,musicTeachingKey} from "@/lib/music-teaching-item";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { isMusicTrialTemplate } from "@/lib/music-trial-template";
 
@@ -34,7 +34,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const scrollArea=useRef<HTMLDivElement>(null);
   const submitLock=useRef(false);
   useEffect(()=>{if(active&&scrollArea.current)scrollArea.current.scrollTop=0;},[active,isTrial,initialScheduleKind]);
-  const [originalPosition]=useState(()=>({date:initialDate,time:seed?.time??"",roomId:seed?.roomId??"",coachId:seed?.coachId??"",durationMinutes:seed?.durationMinutes??60}));
+  const [originalPosition]=useState(()=>({date:initialDate,time:seed?.time??"",roomId:seed?.roomId??"",coachId:seed?.coachId??"",durationMinutes:seed?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES}));
   const [date,setDate]=useState(originalPosition.date);
   const [time,setTime]=useState(originalPosition.time);
   const [roomId,setRoomId]=useState(originalPosition.roomId);
@@ -73,7 +73,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const [scheduleKind,setScheduleKind]=useState<"FIXED"|"SINGLE">(initialScheduleKind??"SINGLE");
   useEffect(()=>{if(initialScheduleKind)setScheduleKind(initialScheduleKind);},[initialScheduleKind]);
   const repeat=!isTrial&&scheduleKind==="FIXED";
-  const eligibleTemplates=subjects?subjects.filter(subject=>subject.isActive).map(subject=>({id:musicTeachingKey(subject.id,isTrial),name:subject.name,durationMinutes:templates.find(t=>t.musicSubjectId===subject.id)?.durationMinutes??60,capacity:500,defaultRoomId:null,musicSubjectId:subject.id,musicSubject:subject})):templates.filter(t=>t.isActive!==false&&t.visibility!=="OFF"&&!!t.musicSubjectId&&t.musicSubject?.isActive===true&&(isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t)));
+  const eligibleTemplates=subjects?subjects.filter(subject=>subject.isActive).map(subject=>({id:musicTeachingKey(subject.id,isTrial),name:subject.name,durationMinutes:templates.find(t=>t.musicSubjectId===subject.id)?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:500,defaultRoomId:null,musicSubjectId:subject.id,musicSubject:subject})):templates.filter(t=>t.isActive!==false&&t.visibility!=="OFF"&&!!t.musicSubjectId&&t.musicSubject?.isActive===true&&(isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t)));
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const hasTemplate=!!template;
   const effectiveCapacity=enrollmentMode==="ASSIGNED"?Math.max(1,learners.length):capacity;

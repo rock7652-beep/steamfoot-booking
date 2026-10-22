@@ -1,4 +1,5 @@
 "use client";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import {musicScheduleColors} from "@/lib/music-schedule-colors";
@@ -453,7 +454,7 @@ export function CourseScheduleBoard({
   const [weekRoomId, setWeekRoomId] = React.useState(initialWeekRoomId ?? activeRooms[0]?.id ?? "");
   function setResourceView(view:ResourceView) { updateResourceView(view); onResourceChange?.(view); }
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
-  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(businessProfile === "MUSIC" ? 60 : 30);
+  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 50 | 60 | 90 | 120>(businessProfile === "MUSIC" ? MUSIC_DEFAULT_DURATION_MINUTES : 30);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
@@ -781,9 +782,9 @@ export function CourseScheduleBoard({
               aria-label="找空位所需時長"
               className="bg-transparent font-medium text-earth-800 outline-none"
               value={availabilityDuration}
-              onChange={(event) => setAvailabilityDuration(Number(event.target.value) as 30 | 60 | 90 | 120)}
+              onChange={(event) => setAvailabilityDuration(Number(event.target.value) as 30 | 50 | 60 | 90 | 120)}
             >
-              {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分</option>)}
+              {(businessProfile === "MUSIC" ? [30, MUSIC_DEFAULT_DURATION_MINUTES, 60, 90, 120] : [30, 60, 90, 120]).map((minutes) => <option key={minutes} value={minutes}>{minutes} 分</option>)}
             </select>
           </label>
         )}

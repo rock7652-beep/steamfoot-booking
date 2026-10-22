@@ -1,3 +1,4 @@
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { musicSessionWhere, musicDataScope } from "@/server/services/music-data-scope";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -261,7 +262,7 @@ export default async function CoursesPage({
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??60,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
@@ -319,15 +320,6 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
-      {businessProfile === "MUSIC" && <details className="text-sm text-earth-600"><summary className="inline-flex min-h-11 cursor-pointer items-center">匯入與對照工具</summary><div className="flex flex-wrap items-center gap-2 pb-2">
-      {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
-        <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
-          <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
-            查看 9/26 七種班型示意（49 堂）
-          </a>
-        </div></details>
-      )}
-      </div></details>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}

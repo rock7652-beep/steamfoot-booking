@@ -19,6 +19,7 @@ it('restores four types, assigned/open enrollment, and weekly/biweekly colors wh
  expect([...host.querySelectorAll('select[aria-label="安排類型"] option')].map(o=>o.textContent)).toEqual(['固定課','單次課','體驗課','空間租借']);
  expect(host.querySelector<HTMLInputElement>('[aria-label="排課時間"]')!.value).toBe('09:00');
  expect(host.querySelector<HTMLSelectElement>('[aria-label="排課教室"]')!.value).toBe('room');
+ expect(host.querySelector<HTMLInputElement>('[aria-label="時長"]')!.value).toBe('50');
  expect(host.querySelector('.border-blue-500')).not.toBeNull();
  const frequency=host.querySelector<HTMLSelectElement>('[aria-label="固定課程頻率"]')!;
  await act(async()=>{frequency.value='BIWEEKLY';frequency.dispatchEvent(new Event('change',{bubbles:true}));});
@@ -29,6 +30,7 @@ it('restores four types, assigned/open enrollment, and weekly/biweekly colors wh
  const course=host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!;
  await act(async()=>{course.value='guitar';course.dispatchEvent(new Event('change',{bubbles:true}));});
  expect(host.textContent).toContain('名額');
+ expect(host.querySelector<HTMLInputElement>('[aria-label="時長"]')!.value).toBe('60');
  expect(host.querySelector<HTMLInputElement>('[aria-label="排課時間"]')!.value).toBe('09:00');
  }finally{await act(async()=>root.unmount());}
 });

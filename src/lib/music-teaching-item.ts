@@ -1,3 +1,5 @@
+export const MUSIC_DEFAULT_DURATION_MINUTES = 50;
+
 /** A scheduling identity belongs to a teaching item, never to a tuition version. */
 export const musicTeachingPrefix = "teaching:";
 export function musicTeachingKey(subjectId:string,trial=false) { return `${trial?"teaching-trial:":musicTeachingPrefix}${subjectId}`; }

@@ -1,4 +1,5 @@
 "use client";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -1575,8 +1576,8 @@ export function CourseWorkspace({
                         <label className={businessProfile!=="MUSIC"?"sm:col-span-2":""}>
                           時長（分鐘）
                           {businessProfile === "MUSIC" ? (
-                            <select className={field} name="duration" defaultValue={60} required>
-                              {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                            <select className={field} name="duration" defaultValue={MUSIC_DEFAULT_DURATION_MINUTES} required>
+                              {[30, MUSIC_DEFAULT_DURATION_MINUTES, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
                             </select>
                           ) : (
                             <input className={field} name="duration" type="number" defaultValue={60} min={1} max={480} required />
@@ -1851,7 +1852,7 @@ export function CourseWorkspace({
                               : (new Date(editing.value.endsAt).getTime() - new Date(editing.value.startsAt).getTime()) / 60000
                           }
                         >
-                          {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                          {[30, MUSIC_DEFAULT_DURATION_MINUTES, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
                         </select>
                       ) : (
                         <input
