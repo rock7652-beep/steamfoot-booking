@@ -18,6 +18,19 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 describe.each(["steam", "course"])("%s immediate panel dismissal", kind => {
  const original = kind === "steam" ? "/hq/dashboard/settings?section=notifications&panel=reminders&panelQuery=tab%3Dmanager&month=2026-10" : "/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dmanager&month=2026-10";
  async function render(pending = false) { await act(async () => root.render(kind === "steam" ? el(SettingsPanel, { title: "提醒管理", sourceHref: "/dashboard/reminders", children: el(Form, { pending }) }) : el(CourseSettingsPanel, { panel: "reminders", children: el(Form, { pending }) }))); }
+ it("shows navigation feedback outside the scrollable content until the route finishes", async () => {
+  let finish!: () => void;
+  m.replace.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+  const link = el("a", { href: kind === "steam" ? "/dashboard/reminders?tab=logs" : "/dashboard/courses/reminders?tab=logs" }, "發送紀錄");
+  await act(async () => root.render(kind === "steam" ? el(SettingsPanel, { title: "提醒管理", sourceHref: "/dashboard/reminders", children: link }) : el(CourseSettingsPanel, { panel: "reminders", children: link })));
+  await act(async () => host.querySelector("a")!.click());
+  const status = host.querySelector("[data-panel-navigation-status]");
+  expect(status?.textContent).toContain("正在切換，請稍候");
+  expect(status?.parentElement?.querySelector("header")).toBeTruthy();
+  expect(status?.closest("[data-settings-panel-body]")).toBeNull();
+  await act(async () => finish());
+  expect(host.querySelector("[data-panel-navigation-status]")).toBeNull();
+ });
  it("closes immediately without a server navigation and preserves the background URL", async () => {
   window.history.replaceState(null, "", original); const overflow = document.body.style.overflow; await render();
   expect(document.body.style.overflow).toBe("hidden"); await click("關閉視窗");

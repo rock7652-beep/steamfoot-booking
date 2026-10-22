@@ -45,66 +45,35 @@ function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course 
     });
   }
   return (
-    <article className="rounded-xl border border-earth-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-earth-900">
-            {item.displayName}・{item.roleLabel}
-          </h3>
-          <p className="text-xs text-earth-500">
-            {item.linkedAt ? "LINE 已綁定" : "等待 LINE 綁定"}
-            {item.legacyStaffId ? " · 沿用原負責顧客範圍" : ""}
-          </p>
+    <article data-notification-recipient className="rounded-xl border border-earth-200 bg-white px-4 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1 basis-48">
+          <h3 className="break-words font-semibold text-earth-900">{item.displayName}・{item.roleLabel}</h3>
+          <div className="flex flex-wrap items-center gap-x-2 text-sm text-earth-500">
+            <span>{item.linkedAt ? "LINE 已綁定" : "等待 LINE 綁定"}</span>
+            <span>{display.isActive && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒` : !item.linkedAt ? "綁定後可接收" : "已暫停 · 保留設定"}</span>
+            {item.legacyStaffId && <span>沿用原負責顧客範圍</span>}
+            <span role="status">{pending ? "儲存中…" : saved}</span>
+          </div>
         </div>
-        <label className="flex items-center gap-3 text-sm">
-          接收 LINE 通知
-          <input
-            aria-label={`${item.displayName} 接收 LINE 通知`}
-            type="checkbox"
-            role="switch"
-            checked={display.isActive}
-            disabled={pending || !item.linkedAt}
-            onChange={(e) => {
-              const on = e.target.checked;
-              save("active", () => saveManagerNotification(storeId, item.id, "active", on), on);
-            }}
-            className={notificationSwitchClass}
-          />
-        </label>
-        <details className="relative">
-          <summary
-            className="cursor-pointer px-3"
-            aria-label={`${item.displayName} 更多操作`}
-          >
-            ⋯
-          </summary>
-          <button
-            disabled={pending}
-            className="mt-2 text-sm text-red-700"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `確定解除 ${item.displayName} 的 LINE 通知綁定？`,
-                )
-              )
-                save("remove", () => removeStoreLineNotificationRecipient(item.id));
-            }}
-          >
-            解除綁定
+        <div className="flex max-w-full flex-wrap items-center gap-1">
+          <label className="flex min-h-11 items-center gap-2 px-2 text-sm">
+            接收 LINE 通知
+            <input aria-label={`${item.displayName} 接收 LINE 通知`} type="checkbox" role="switch"
+              checked={display.isActive} disabled={pending || !item.linkedAt}
+              onChange={e => { const on = e.target.checked; save("active", () => saveManagerNotification(storeId, item.id, "active", on), on); }}
+              className={notificationSwitchClass} />
+          </label>
+          <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="min-h-11 rounded-lg px-2 text-sm font-medium text-primary-700">
+            {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
           </button>
-        </details>
+          <details className="relative">
+            <summary className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-sm" aria-label={`${item.displayName} 更多操作`}>⋯</summary>
+            <button disabled={pending} className="absolute right-0 top-full z-30 min-h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-red-700 shadow-md"
+              onClick={() => { if (window.confirm(`確定解除 ${item.displayName} 的 LINE 通知綁定？`)) save("remove", () => removeStoreLineNotificationRecipient(item.id)); }}>解除綁定</button>
+          </details>
+        </div>
       </div>
-      <div className="mt-2 flex justify-between text-xs text-earth-500">
-        <span>
-          {display.isActive
-            && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
-            : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
-        </span>
-        <span role="status">{pending ? "儲存中…" : saved}</span>
-      </div>
-      <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="mt-2 text-sm font-medium text-primary-700">
-        {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
-      </button>
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
           className={`space-y-3 ${!display.isActive ? "opacity-50" : ""}`}
@@ -224,8 +193,8 @@ export function LineNotificationRecipientsCard({
         <summary className="cursor-pointer font-medium text-primary-700">
           ＋ 綁定通知人員
         </summary>
-        <p className="mt-3 text-xs text-earth-500">
-          填寫姓名後，前往本店官方 LINE 傳送綁定訊息。
+        <p className="mt-3 text-sm text-earth-500">
+          填寫姓名後，前往本店官方 LINE 傳送綁定訊息。通知身分不會變更後台權限。
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
           <input
@@ -236,7 +205,7 @@ export function LineNotificationRecipientsCard({
             className="rounded-lg border border-earth-200 p-2 text-sm"
           />
           <select
-            aria-label="通知人員身分"
+            aria-label="通知身分"
             value={role}
             onChange={(e) => setRole(e.target.value as typeof role)}
             className="rounded-lg border border-earth-200 p-2 text-sm"
