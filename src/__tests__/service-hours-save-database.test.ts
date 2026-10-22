@@ -21,6 +21,9 @@ beforeAll(async()=>{db=new PGlite();client=db;await db.exec(`
  CREATE TABLE "SpecialBusinessDay" (id text primary key,"storeId" text,date date,type text,reason text,"openTime" text,"closeTime" text,"slotInterval" int,"defaultCapacity" int,segments jsonb,"updatedAt" timestamp NOT NULL,unique("storeId",date));
  CREATE TABLE "SlotOverride" (id text primary key,"storeId" text,date date,"startTime" text,type text,capacity int,reason text,"updatedAt" timestamp NOT NULL,unique("storeId",date,"startTime"));
  CREATE TABLE "AuditLog" (id text primary key,"actorUserId" text,"targetType" text,"targetId" text,action text,"beforeJson" jsonb,"afterJson" jsonb,"createdAt" timestamp);
+ CREATE TABLE "Store" (id text primary key);
+ INSERT INTO "Store" VALUES ('s'),('other');
+ CREATE TABLE "BeautyAppointment" ("storeId" text,"startsAt" timestamptz,"occupiedEndsAt" timestamptz,status text);
  CREATE TABLE "Booking" ("storeId" text,"bookingDate" date,"slotTime" text,people int,"bookingStatus" text);
  CREATE TABLE "SpaBooking" ("storeId" text,"bookingDate" date,"startTime" text,"endTime" text,people int,status text);
  `);});
@@ -29,7 +32,7 @@ beforeEach(async()=>{
  vi.clearAllMocks();m.permission.mockResolvedValue({id:"owner"});m.store.mockResolvedValue("s");m.module.mockResolvedValue("steamfoot");m.cache.mockReset();
  const transaction=async(work:(tx:unknown)=>unknown)=>db.transaction(async c=>{client=c;try{return await work(tx);}finally{client=db;}});
  m.steam.mockImplementation(transaction);m.spa.mockImplementation(transaction);
- await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","SlotOverride","AuditLog","Booking","SpaBooking";INSERT INTO "BusinessHours" VALUES ('h','s',4,true,'10:00','18:00',60,6,NULL,now()),('other','other',4,true,'09:00','22:00',30,9,NULL,now());`);
+ await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","SlotOverride","AuditLog","Booking","SpaBooking","BeautyAppointment";INSERT INTO "BusinessHours" VALUES ('h','s',4,true,'10:00','18:00',60,6,NULL,now()),('other','other',4,true,'09:00','22:00',30,9,NULL,now());`);
 });
 const values={date:"2030-10-10",status:"custom",mode:"day",weeks:0,reason:"調整營業",periods:[{openTime:"11:00",closeTime:"17:00",slotInterval:60,defaultCapacity:6}]};
 async function input(extra:Record<string,unknown>={}){return {expectedStoreId:"s",requestKey:crypto.randomUUID(),expectedRevision:serviceHoursRevision(await readServiceHoursState(tx as never,"s")),values:{...values,...extra}};}
@@ -69,4 +72,12 @@ it("closed and training copies retain future slot overrides for reopening",async
 });
 it("single-slot reductions protect bookings; committed cache failure returns a warning",async()=>{
  await db.exec(`INSERT INTO "Booking" VALUES ('s','2030-10-10','12:00',3,'CONFIRMED');`);expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:2}]}))).toMatchObject({success:false});m.cache.mockImplementation(()=>{throw Error("cache down");});expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:4}]}))).toMatchObject({success:true,syncWarning:true,data:{day:{slots:expect.arrayContaining([expect.objectContaining({startTime:"12:00",capacity:4})])}}});
+});
+
+it("Beauty hours protect full occupied duration and normalize starts to a half-hour grid",async()=>{
+ m.module.mockResolvedValue('beauty');await db.exec(`INSERT INTO "BeautyAppointment" VALUES ('s','2030-10-10T10:00:00+08','2030-10-10T11:15:00+08','RESERVED'),('other','2030-10-10T20:00:00+08','2030-10-10T21:00:00+08','RESERVED');`);
+ expect(await saveServiceHours(await input())).toMatchObject({success:false,error:expect.stringContaining('已有預約')});
+ expect(await saveServiceHours(await input({periods:[{openTime:'09:00',closeTime:'18:00',slotInterval:15,defaultCapacity:1}]}))).toMatchObject({success:true,data:{day:{slotInterval:30}}});
+ expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'11:00',action:'disable'}]}))).toMatchObject({success:false,error:expect.stringContaining('已有預約')});
+ expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'12:00',action:'disable'}]}))).toMatchObject({success:true});
 });

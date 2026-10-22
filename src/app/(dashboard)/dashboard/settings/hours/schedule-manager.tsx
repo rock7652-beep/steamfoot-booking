@@ -878,7 +878,7 @@ export function ScheduleManager({
                   : dayDraftDirty && editStatus === "open" ? <p className="mt-2 text-xs">{applyMode === "day" ? "沿用每週固定時段，保留當日時段微調。" : "依上方時間更新每週安排。"}</p>
                   : <div className="mt-2 flex flex-wrap gap-2">
                     {(dayDraftDirty && editStatus === "custom" ? draftSlotPreview : dayDetail.slots.filter((slot) => slot.isEnabled)).map((slot) => (
-                      <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span></span>
+                      <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}{!isBeautyStore&&<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span>}</span>
                     ))}
                   </div>)}
               {showAdvancedSlots && !dayDraftDirty && (
