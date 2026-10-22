@@ -71,7 +71,7 @@ export default async function ScheduleSettingsPage() {
     <PageShell>
       <PageHeader
         title={isSpaStore ? "營業與預約時間" : "服務時間與預約開放"}
-        subtitle={isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理當日服務時間、預約時段間隔與每時段可接人數"}
+        subtitle={isBeautyStore ? "設定店家開放的服務時段、休假與特殊日期；預約間隔為30分鐘" : isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理當日服務時間、預約時段間隔與每時段可接人數"}
         actions={
           <Link
             href="/dashboard/settings?section=booking"
@@ -112,6 +112,7 @@ export default async function ScheduleSettingsPage() {
             canManage={canManage}
             isHeadquarters={isHeadquarters}
             isSpaStore={isSpaStore}
+            isBeautyStore={isBeautyStore}
           />
     </PageShell>
   );

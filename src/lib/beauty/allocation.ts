@@ -64,6 +64,7 @@ export function availableTechnician(
   const exceptions = t.exceptions as Record<string, Period[]>;
   if (Object.hasOwn(exceptions, date))
     return containsPeriod(date, start, end, exceptions[date]);
+  if (!Array.isArray(t.weekly) && (t.weekly as {inheritStore?:boolean})?.inheritStore === true) return true;
   const day = new Date(date + "T00:00:00Z").getUTCDay();
   return containsPeriod(
     date,

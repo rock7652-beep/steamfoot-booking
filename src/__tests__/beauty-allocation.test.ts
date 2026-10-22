@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   allocateParty,
+  availableTechnician,
   serviceFee,
   type Technician,
   type Service,
@@ -250,4 +251,13 @@ it("hourly compensation excludes cleanup and needs no percentage base", () => {
   expect(serviceFee({ mode: "FIXED", value: 400 }, 1500, 1200, 1, 90)).toBe(
     400,
   );
+});
+
+it('inherits store hours dynamically while preserving custom empty weeks and date exceptions',()=>{
+ const t={id:'inherit',gender:'FEMALE',serviceIds:['face'],sort:0,active:true,weekly:{inheritStore:true},exceptions:{},rates:{face:{mode:'FIXED',value:100}}};
+ expect(availableTechnician(t,date,+start,+start+3600000)).toBe(true);
+ expect(availableTechnician({...t,weekly:[]},date,+start,+start+3600000)).toBe(false);
+ expect(availableTechnician({...t,exceptions:{[date]:[]}},date,+start,+start+3600000)).toBe(false);
+ expect(allocateParty({date,startsAt:start,people:[{serviceId:'face',preference:'ANY',specifiedTechnicianId:null}],services:[face],technicians:[t],locationIds:['r'],occupied:[],hours:[{start:'11:00',end:'18:00'}]})).toBeNull();
+ expect(technicianInput.parse({name:'新技師',gender:'FEMALE',serviceIds:[],rates:{}}).weekly).toEqual({inheritStore:true});
 });

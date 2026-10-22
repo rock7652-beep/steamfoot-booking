@@ -39,7 +39,7 @@ export const technicianInput = z.object({
   gender,
   userId: key.nullable().default(null),
   serviceIds: z.array(key).max(200),
-  weekly: z
+  weekly: z.union([z.object({inheritStore:z.literal(true)}),z
     .array(
       z
         .object({
@@ -49,7 +49,7 @@ export const technicianInput = z.object({
         })
         .refine((p) => p.end > p.start, "結束時間須晚於開始時間"),
     )
-    .max(50),
+    .max(50)]).default({inheritStore:true}),
   exceptions: z.record(z.array(period)).default({}),
   rates: z.record(rate),
   grants: z

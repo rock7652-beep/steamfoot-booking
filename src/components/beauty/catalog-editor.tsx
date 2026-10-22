@@ -89,8 +89,9 @@ export function BeautyCatalogEditor({
     location: "位置管理",
     settings: "設定",
   }[kind];
+  const [inheritHours,setInheritHours]=useState(!draft.id||(!Array.isArray(draft.weekly)&&(draft.weekly as {inheritStore?:boolean})?.inheritStore===true));
   const [weekly, setWeekly] = useState(
-    (draft.weekly ?? []) as { day: number; start: string; end: string }[],
+    (Array.isArray(draft.weekly)?draft.weekly:[]) as { day: number; start: string; end: string }[],
   );
   function close() {
     if (!pending && (!dirty || window.confirm("尚未儲存，確定離開？")))
@@ -207,7 +208,7 @@ export function BeautyCatalogEditor({
                   userId: str("userId") || null,
                   serviceIds,
                   sort: num("sort"),
-                  weekly,
+                  weekly: inheritHours?{inheritStore:true}:weekly,
                   exceptions: exceptionValues,
                   rates: Object.fromEntries(
                     serviceIds.map((id) => [
@@ -440,7 +441,7 @@ export function BeautyCatalogEditor({
               </fieldset>
               </div><div data-tech-tab="availability" className={techTab==='availability'?'contents':'hidden'}>
               <fieldset className="sm:col-span-2 space-y-2">
-                <legend>每週可服務時間</legend>
+                <legend>每週可服務時間</legend><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={inheritHours} onChange={e=>setInheritHours(e.target.checked)}/>沿用店家開放的服務時段</label><p className="text-sm text-earth-600">{inheritHours?'店家調整開放時間後自動沿用；休假與指定日期調班仍優先。':'依下方自訂時間安排，仍須符合店家開放時段。'}</p><fieldset disabled={inheritHours} hidden={inheritHours}>
                 {weekly.map((p, i) => (
                   <div
                     key={i}
@@ -522,7 +523,7 @@ export function BeautyCatalogEditor({
                   同一天可新增多段時間，例如上午與下午，中間休息不開放預約。
                 </p>
                 <p>未設定的日期不開放服務。</p>
-              </fieldset>
+              </fieldset></fieldset>
               </div>
             </>
           )}

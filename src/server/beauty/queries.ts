@@ -1,3 +1,4 @@
+import {beautyHealthEnabled} from "./health";
 import {resolvedCourseHours} from "@/lib/course-business-hours";
 import "server-only";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -110,7 +111,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
   });
   const customer = await prisma.customer.findFirst({
     where: { storeId: a.storeId, id: a.customerId },
-    select: { id: true, name: true, phone: true },
+    select: { id: true, name: true, phone: true,birthday:true },
   });
   const memberIds = [
     ...new Set([a.customerId!, ...cards.flatMap((c) => c.memberIds)]),
@@ -169,7 +170,8 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
         select: { id: true },
       })),
     work,
-    customer,
+    customer:customer?{...customer,birthday:customer.birthday?.toISOString().slice(0,10)??""}:null,
+    healthEnabled:!work&&await beautyHealthEnabled(a.storeId),
     members,
     plans,
     bank,

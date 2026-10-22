@@ -230,8 +230,8 @@ export const BEAUTY_INDUSTRY_MODULE: IndustryModule = {
   roles:{owner:"店長",provider:"技師",providerPlural:"技師"},
   customer:{memberCenterLabel:"會員專區",summaryTitle:"方案摘要",sessionUnit:"次",makeupLabel:"",walletLabel:"我的方案",buyLabel:"購買方案"},
   manager:{dashboardLabel:"首頁",bookingLabel:"班表",customerLabel:"顧客管理",planLabel:"收費方式",staffLabel:"技師管理"},
-  booking:{...COURSE_INDUSTRY_MODULE.booking,resourceModel:"provider_availability",defaultCapacity:1,slotIntervalMinutes:15},
-  features:{packages:true,makeupCredits:false,healthAssessment:false,referralShare:false,storedValue:false},
+  booking:{...COURSE_INDUSTRY_MODULE.booking,resourceModel:"provider_availability",defaultCapacity:1,slotIntervalMinutes:30},
+  features:{packages:true,makeupCredits:false,healthAssessment:true,referralShare:false,storedValue:false},
 };
 const INDUSTRY_MODULES: Record<Exclude<IndustryModuleId, "spa">, IndustryModule> = {
   steamfoot: STEAMFOOT_INDUSTRY_MODULE,
