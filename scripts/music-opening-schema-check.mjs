@@ -123,17 +123,22 @@ export async function checkMusicOpeningSchema(env, readSchema) {
 /** Stable diagnostic categories only; never forward driver messages or URLs. */
 export function musicOpeningConnectionCategory(error) {
   const code = [error?.code, error?.errorCode].find(value => typeof value === "string" && /^P\d{4}$/.test(value));
-  const message = typeof error?.message === "string" ? error.message : "";
+  const message = [error?.message, error?.meta?.message, error?.cause?.message].filter(value => typeof value === "string").join("\n");
   // P2010 wraps SQLSTATE. Keep only known codes, never arbitrary metadata/message text.
   const sqlstate = [error?.meta?.code, error?.cause?.code].find(value =>
     ["08001", "08003", "08006", "08P01", "26000", "28000", "28P01", "42501", "42P01", "42P05", "42703", "53300", "53400", "57014", "57P01", "57P02", "57P03", "XX000"].includes(value));
   if (sqlstate) return `${code ?? "DATABASE"}:${sqlstate}`;
-  const detail = /prepared statement.*already exists/i.test(message) ? "PREPARED_STATEMENT_EXISTS"
+  const detail = /engine is not yet connected/i.test(message) ? "ENGINE_NOT_CONNECTED"
+    : /response from the engine was empty|unable to JSON.parse response from engine/i.test(message) ? "ENGINE_EMPTY_RESPONSE"
+    : /prepared statement.*already exists/i.test(message) ? "PREPARED_STATEMENT_EXISTS"
     : /prepared statement.*does not exist/i.test(message) ? "PREPARED_STATEMENT_MISSING"
     : /timed?\s*out|timeout/i.test(message) ? "TIMEOUT"
     : /connection.*closed|closed.*connection/i.test(message) ? "CONNECTION_CLOSED"
+    : /TLS|SSL/i.test(message) ? "TLS_FAILURE"
+    : /unexpected.*message|unexpected.*EOF/i.test(message) ? "PROTOCOL_FAILURE"
     : /query engine|engine.*not found|could not locate/i.test(message) ? "ENGINE_UNAVAILABLE" : null;
-  return [code, detail].filter(Boolean).join(":") || "UNKNOWN";
+  const kind = ["PrismaClientInitializationError", "PrismaClientUnknownRequestError", "PrismaClientRustPanicError", "PrismaClientValidationError", "SyntaxError", "TypeError"].includes(error?.name) ? error.name : "UNKNOWN";
+  return [code, detail].filter(Boolean).join(":") || kind;
 }
 
 export function musicOpeningConnectionFailure(error, connectionKind) {
@@ -145,7 +150,7 @@ export function musicOpeningConnectionFailure(error, connectionKind) {
 function isTransientMusicOpeningConnectionFailure(error) {
   const category = musicOpeningConnectionCategory(error);
   return ["P1001", "P1002", "P1017", "P2024"].includes(category.split(":")[0]) ||
-    ["TIMEOUT", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
+    ["TIMEOUT", "ENGINE_NOT_CONNECTED", "ENGINE_EMPTY_RESPONSE", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
 }
 
 /** One read-only statement does not need interactive transaction setup/commit.
@@ -164,6 +169,8 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const client = createClient({ datasources: { db: { url: url.toString() } }, log: [] });
     try {
+      // Complete engine/pool initialization before issuing the catalog query.
+      await client.$connect();
       return await client.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL);
     } catch (error) {
       if (attempt === 1 || !isTransientMusicOpeningConnectionFailure(error)) {

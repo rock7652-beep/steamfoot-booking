@@ -23,6 +23,8 @@ it("reports only safe connection categories, never driver URLs or credentials",(
  expect(musicOpeningConnectionFailure({code:"P2010",meta:{code:"42P05",message:secret},message:secret},"pooled").message).toContain("pooled:P2010:42P05");
  expect(musicOpeningConnectionFailure({code:"P2010",meta:{code:secret},message:secret},"pooled").message).not.toContain("redaction-marker");
  expect(musicOpeningConnectionFailure({message:"Connection timed out: "+secret},"pooled").message).toContain("pooled:TIMEOUT");
+ expect(musicOpeningConnectionFailure({code:"P2010",meta:{message:"Socket timeout: "+secret}},"pooled").message).toContain("pooled:P2010:TIMEOUT");
+ expect(musicOpeningConnectionFailure({name:"PrismaClientUnknownRequestError",message:secret},"pooled").message).toContain("pooled:PrismaClientUnknownRequestError");
 });
 it("accepts only the exact existing preview project and both connections",()=>{
  expect(isMusicOpeningDatabase(direct)).toBe(true);expect(isMusicOpeningDatabase(pooled)).toBe(true);
@@ -46,12 +48,13 @@ it("requires catalog proof for both URLs, not a credential or allowlist flag alo
  const read=vi.fn().mockResolvedValue([ready()]);await checkMusicOpeningSchema(env,read);expect(read.mock.calls.map(call=>call[0])).toEqual([pooled,direct]);
 });
 it("retries only one cold pool lease timeout against the identical isolated target",async()=>{
- const failed={$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2024"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
- const passed={$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const failed={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2024"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const passed={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValueOnce(failed).mockReturnValueOnce(passed);
  expect(await readMusicOpeningSchemaConnection(pooled,create)).toEqual([ready()]);
  expect(create).toHaveBeenCalledTimes(2);expect(create.mock.calls[0]).toEqual(create.mock.calls[1]);
  const options=create.mock.calls[0][0];const url=new URL(options.datasources.db.url);
+ expect(passed.$connect.mock.invocationCallOrder[0]).toBeLessThan(passed.$queryRawUnsafe.mock.invocationCallOrder[0]);
  expect(url.hostname).toBe(new URL(pooled).hostname);expect(url.username).toBe(new URL(pooled).username);
  expect(url.searchParams.get("connection_limit")).toBe("1");expect(url.searchParams.get("pool_timeout")).toBe("15");
  for(const client of [failed,passed]) {expect(client.$queryRawUnsafe).toHaveBeenCalledExactlyOnceWith(MUSIC_OPENING_SCHEMA_SQL);expect(client.$disconnect).toHaveBeenCalledOnce();}
@@ -61,46 +64,56 @@ it.each([
  [{message:"Connection timed out"},"TIMEOUT"],
  [{code:"P2010",message:"Connection timeout"},"P2010:TIMEOUT"],
 ])("fails closed after two timeouts and never creates a third client %#",async(error,category)=>{
- const client={$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const client={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
  await expect(readMusicOpeningSchemaConnection(pooled,create)).rejects.toThrow(`pooled:${category}`);
  expect(create).toHaveBeenCalledTimes(2);expect(client.$disconnect).toHaveBeenCalledTimes(2);
 });
 it("concurrent cold checks use independent one-statement clients and release every lease",async()=>{
- const clients=[0,1,2].map(index=>({$queryRawUnsafe:vi.fn().mockImplementation(async()=>{await Promise.resolve();if(index===0)throw {code:"P2024"};return [ready()];}),$transaction:vi.fn(),$disconnect:vi.fn().mockResolvedValue(undefined)}));
+ const clients=[0,1,2].map(index=>({$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockImplementation(async()=>{await Promise.resolve();if(index===0)throw {code:"P2024"};return [ready()];}),$transaction:vi.fn(),$disconnect:vi.fn().mockResolvedValue(undefined)}));
  const create=vi.fn().mockReturnValueOnce(clients[0]).mockReturnValueOnce(clients[1]).mockReturnValueOnce(clients[2]);
  const results=await Promise.all([readMusicOpeningSchemaConnection(pooled,create),readMusicOpeningSchemaConnection(pooled,create)]);
  expect(results).toEqual([[ready()],[ready()]]);expect(create).toHaveBeenCalledTimes(3);
  for(const client of clients){expect(client.$transaction).not.toHaveBeenCalled();expect(client.$queryRawUnsafe).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();}
 });
 it.each(["P1000","P2010","P2028"])("does not retry non-transient failure %s",async code=>{
- const client={$queryRawUnsafe:vi.fn().mockRejectedValue({code}),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const client={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue({code}),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
  await expect(readMusicOpeningSchemaConnection(direct,create)).rejects.toThrow(`direct:${code}`);expect(create).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();
 });
 it.each([
  {message:"Timed out during connection authentication"},
+ {message:"Engine is not yet connected."}, {message:"Response from the Engine was empty"},
  {code:"P1001",message:"Connection timed out"}, {errorCode:"P1002"}, {code:"P1017",message:"Connection closed"},
  {code:"P2010",message:"Connection timeout"},
  {code:"P2010",meta:{code:"08006"}},
 ])("recovers from a recognized transient cold connection failure %#",async error=>{
- const failed={$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
- const passed={$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const failed={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const passed={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValueOnce(failed).mockReturnValueOnce(passed);
  expect(await readMusicOpeningSchemaConnection(pooled,create)).toEqual([ready()]);
  expect(create).toHaveBeenCalledTimes(2);expect(create.mock.calls[0]).toEqual(create.mock.calls[1]);
  expect(new URL(create.mock.calls[0][0].datasources.db.url).searchParams.get("connect_timeout")).toBe("30");
  expect(failed.$disconnect).toHaveBeenCalledOnce();expect(passed.$disconnect).toHaveBeenCalledOnce();
 });
+it("never queries an uninitialized engine and releases a failed connection before retry",async()=>{
+ const failed={$connect:vi.fn().mockRejectedValue({code:"P1002"}),$queryRawUnsafe:vi.fn(),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const passed={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const create=vi.fn().mockReturnValueOnce(failed).mockReturnValueOnce(passed);
+ expect(await readMusicOpeningSchemaConnection(pooled,create)).toEqual([ready()]);
+ expect(failed.$queryRawUnsafe).not.toHaveBeenCalled();
+ expect(failed.$disconnect.mock.invocationCallOrder[0]).toBeLessThan(passed.$connect.mock.invocationCallOrder[0]);
+ expect(passed.$connect.mock.invocationCallOrder[0]).toBeLessThan(passed.$queryRawUnsafe.mock.invocationCallOrder[0]);
+});
 it.each(["28P01","42501","42P01","42703","42P05","57014"])("never retries database authentication/schema/cancellation failure %s",async code=>{
- const client={$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2010",meta:{code},message:"timeout column or credential failure"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const client={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2010",meta:{code},message:"timeout column or credential failure"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
  await expect(readMusicOpeningSchemaConnection(pooled,create)).rejects.toThrow(`P2010:${code}`);
  expect(create).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();
 });
 it("rejects routing overrides before creating a client and does not retry bad schema",async()=>{
  const create=vi.fn();await expect(readMusicOpeningSchemaConnection(direct+"?host=other.invalid",create)).rejects.toThrow();expect(create).not.toHaveBeenCalled();
- const client={$queryRawUnsafe:vi.fn().mockResolvedValue([{...ready(),columns_ready:false}]),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const client={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockResolvedValue([{...ready(),columns_ready:false}]),$disconnect:vi.fn().mockResolvedValue(undefined)};
  create.mockReturnValue(client);
  await expect(checkMusicOpeningSchema(env,(url:string)=>readMusicOpeningSchemaConnection(url,create))).rejects.toThrow("columns_ready");expect(create).toHaveBeenCalledOnce();
 });
