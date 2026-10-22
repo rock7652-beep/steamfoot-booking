@@ -1,7 +1,8 @@
+import { withReadRequestMemo } from "@/server/services/read-request-memo";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { encodeReminderPanel } from "@/lib/reminder-panel-wire";
-import { readSteamReminderPanel, readCourseReminderPanel } from "@/server/queries/reminder-panel";
+import { readSteamReminderPanel, readCourseReminderPanel, type ReminderPanelData } from "@/server/queries/reminder-panel";
 
 const input = z.object({
   module: z.enum(["steamfoot", "course"]),
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   if (Object.keys(params).some(key => !allowed.has(key))) return Response.json({ success: false, error: "讀取參數有誤。" }, { status: 400, headers });
   const start = performance.now();
   try {
-    const data = module === "course" ? await readCourseReminderPanel(params, expectedStoreId, expectedActorId) : await readSteamReminderPanel(params, expectedStoreId, expectedActorId);
+    const data = await withReadRequestMemo<ReminderPanelData>(() => module === "course" ? readCourseReminderPanel(params, expectedStoreId, expectedActorId) : readSteamReminderPanel(params, expectedStoreId, expectedActorId));
     return Response.json({ success: true, storeId: data.storeId, module, query, data: encodeReminderPanel(data) }, { headers: { ...headers, "Server-Timing": `reminder;dur=${Math.round(performance.now() - start)}` } });
   } catch (error) {
     const denied = error instanceof AppError && ["FORBIDDEN", "NOT_FOUND", "UNAUTHORIZED"].includes(error.code);

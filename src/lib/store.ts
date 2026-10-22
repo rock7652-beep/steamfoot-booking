@@ -1,3 +1,4 @@
+import { memoizeReadRequest } from "@/server/services/read-request-memo";
 import { cache } from "react";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
@@ -6,7 +7,7 @@ import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES } from "@/lib/store-operating-status";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 
-type SessionLike = { role: string; storeId?: string | null; customerReviewStoreId?: string };
+type SessionLike = { id?: string | null; staffId?: string | null; role: string; storeId?: string | null; customerReviewStoreId?: string };
 
 export const ALL_STORES_ID = "__all__";
 
@@ -354,7 +355,7 @@ export async function resolveActiveStoreId(
  * ⚠ 使用 next/headers cookies() 直接讀取，避免動態 import "use server" 模組的問題。
  */
 export const getActiveStoreForRead = cache(
-  async (user: SessionLike): Promise<string | null> => {
+  (user: SessionLike): Promise<string | null> => memoizeReadRequest(`store.active-read:${JSON.stringify([user.id, user.role, user.storeId, user.staffId, user.customerReviewStoreId, getHqStoreViewContext(user)?.storeId])}`, async () => {
     const routeStore = await resolveAuthorizedRouteStore(user, "read");
     if (routeStore) return routeStore.id;
 
@@ -369,7 +370,7 @@ export const getActiveStoreForRead = cache(
       ? cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? user.storeId
       : user.storeId;
     return validateStoreAccess(user, requested, "read");
-  },
+  }),
 );
 
 /**
