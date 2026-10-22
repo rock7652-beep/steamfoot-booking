@@ -11,10 +11,10 @@ it('limits lazy ledger to the authenticated store and permitted shared-card memb
  m.card.mockResolvedValue(null);expect((await readBeautyCardHistory('foreign')).success).toBe(false);expect(m.ledger).toHaveBeenCalledTimes(1);
 });
 it('rejects revoked portal access before reading data',async()=>{m.feature.mockRejectedValue(new Error('revoked'));expect((await readBeautyWorkRecords({month:'2026-10',pending:false,search:'',page:0})).success).toBe(false);expect(m.appointments).not.toHaveBeenCalled();});
-it('requires live income permission and filters confirmed-version lines and payments to this technician',async()=>{
+it('requires live income permission and returns only this technician fee lines without payment tracking',async()=>{
  m.worker.mockResolvedValueOnce({storeId:'store',technicianId:'tech',grants:[]});expect((await readBeautyOwnIncome('2026-10')).success).toBe(false);expect(m.settlement).not.toHaveBeenCalled();
  m.settlement.mockResolvedValue([{lines:[{id:'own',technicianId:'tech',serviceName:'face',date:'2026-10-01',fee:300},{id:'other',technicianId:'foreign',fee:900}]}]);m.payment.mockResolvedValue([{appointmentId:'own',amount:200,kind:'FEE',createdAt:new Date('2026-10-02')}]);
- const r=await readBeautyOwnIncome('2026-10');expect(r.success&&r.data).toMatchObject({confirmed:true,lines:[{id:'own',paid:200}]});expect(r.success&&r.data.lines).toHaveLength(1);expect(m.payment.mock.calls[0][0].where).toMatchObject({storeId:'store',technicianId:'tech'});
+ const r=await readBeautyOwnIncome('2026-10');expect(r.success&&r.data).toMatchObject({confirmed:true,lines:[{id:'own',fee:300}]});expect(r.success&&r.data.lines).toHaveLength(1);expect(m.payment).not.toHaveBeenCalled();expect(r.success&&r.data.lines[0]).not.toHaveProperty('paid');
 });
 it('scopes paged pending work by store, technician, selected month and actual elapsed service time',async()=>{
  const input={month:'2026-11',pending:true,search:' 王 ',page:1,storeId:'foreign',technicianId:'foreign'};expect((await readBeautyWorkRecords(input)).success).toBe(true);

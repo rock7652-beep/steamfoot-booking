@@ -19,11 +19,8 @@ export async function readBeautyCardHistory(cardId:string){return read(async()=>
 export async function readBeautyOwnIncome(month=toLocalMonthStr()){return read(async()=>{
  const a=await actor(true);z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).parse(month);
  if(!a.grants?.includes('income'))throw new AppError('FORBIDDEN','本人收入尚未開放，請洽店長。');
- const [versions,payments]=await Promise.all([
-  beautyPrisma.beautySettlement.findMany({where:{storeId:a.storeId,month},orderBy:{createdAt:'desc'},take:1}),
-  beautyPrisma.beautyPayment.findMany({where:{storeId:a.storeId,technicianId:a.technicianId,kind:{in:['FEE','FEE_VOID']}}}),
- ]);
- return {confirmed:versions.length>0,lines:versions.flatMap(s=>(s.lines as Array<{id:string;technicianId:string;serviceName:string;date:string;fee:number}>).filter(l=>l.technicianId===a.technicianId).map(l=>({id:l.id,serviceName:l.serviceName,date:l.date,fee:l.fee,paid:payments.filter(p=>p.appointmentId===l.id).reduce((n,p)=>n+p.amount,0),payments:payments.filter(p=>p.appointmentId===l.id).map(p=>({amount:p.amount,date:p.createdAt.toISOString(),voided:p.kind==='FEE_VOID'}))})))};
+ const versions=await beautyPrisma.beautySettlement.findMany({where:{storeId:a.storeId,month},orderBy:{createdAt:'desc'},take:1});
+ return {confirmed:versions.length>0,lines:versions.flatMap(s=>(s.lines as Array<{id:string;technicianId:string;serviceName:string;date:string;fee:number}>).filter(l=>l.technicianId===a.technicianId).map(l=>({id:l.id,serviceName:l.serviceName,date:l.date,fee:l.fee})))};
 });}
 export async function readBeautyWorkRecords(input:unknown){return read(async()=>{
  const a=await actor(true),d=z.object({month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),pending:z.boolean(),search:z.string().max(100),page:z.number().int().min(0).max(10000)}).parse(input),range=monthRange(d.month),now=new Date();

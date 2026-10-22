@@ -24,7 +24,7 @@ export function BeautyOwnIncome({scope,allowed,month,onMonth,slug}:{scope:string
 function IncomeDetails({month,scope,slug}:{month:string;scope:string;slug:string}){
  const r=useDetail('beauty-own-income',readBeautyOwnIncome,scope,[month,slug]);
  if(!r.value?.success)return <ReadState error={r.error??(r.value&&!r.value.success?r.value.error:undefined)} retry={r.retry}/>;
- return !r.value.data.confirmed?<p role="status">本月收入待店長確認。</p>:<PersonalIncomePanel compact feeLabel="服務費" lines={r.value.data.lines.map(l=>({kind:'FEE',label:l.serviceName,date:l.date,endsAt:null,amount:l.fee,paid:l.paid,payments:l.payments}))}/>;
+ return !r.value.data.confirmed?<p role="status">本月收入待店長確認。</p>:<PersonalIncomePanel compact feeLabel="服務費" lines={r.value.data.lines.map(l=>({kind:'FEE',label:l.serviceName,date:l.date,endsAt:null,amount:l.fee,paid:null,payments:[]}))}/>;
 }
 type Item=BeautyPortalData['items'][number];
 export function BeautyWorkRecords({scope,month,pending,search,onMonth,onPending,onSearch,data,now,disabled,onChange,onMove}:{scope:string;month:string;pending:boolean;search:string;onMonth:(v:string)=>void;onPending:(v:boolean)=>void;onSearch:(v:string)=>void;data:BeautyPortalData;now:number;disabled:boolean;onChange:(item:Item,target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED')=>void;onMove:(item:Item)=>void}){
