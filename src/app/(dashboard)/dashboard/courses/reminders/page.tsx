@@ -1,3 +1,5 @@
+import { getLineQuotaNotificationSetting } from "@/server/actions/line-quota-notifications";
+import { LineQuotaEmailSetting } from "../../reminders/line-quota-email-setting";
 import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
 import { getWorkOrderNotificationEnabled } from "@/server/actions/work-order-notification";
 import { TrialCareCard } from "../../reminders/trial-care-card";
@@ -79,10 +81,11 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       ]));
       return <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={!!map?.mapUrl} course /><PlanExpiryReminderSettingCard initialEnabled={expiry.enabled} course music={music} /><CourseLowBalanceSettings plans={plans.filter(plan=>!music||plan.unit==="SESSION")} music={music}/><TrialCareCard course storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled??false} initialRules={care?readTrialCareRules(care.rules):defaultCourseTrialCareRules()} logs={careLogs.map(log=>({id:log.id,customerId:log.customerId,customerName:log.customer.name,stage:log.stage,status:log.status,reason:log.reason,createdAt:log.createdAt.toISOString()}))}/></>;
     }
-    const [lineHealth, content, workOrderEnabled] = await Promise.all([
+    const [lineHealth, content, workOrderEnabled, quotaEmail] = await Promise.all([
       enabled ? lineHealthRequest : Promise.resolve(null),
       enabled ? readContent() : Promise.resolve(null),
       timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()),
+      enabled ? getLineQuotaNotificationSetting() : Promise.resolve(null),
     ]);
     return <PageShell>
       <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
@@ -91,6 +94,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
         <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />
         {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
         {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
+        {quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} baseHref="/dashboard/courses/reminders" />}
         {content}
       </div>}
     </PageShell>;

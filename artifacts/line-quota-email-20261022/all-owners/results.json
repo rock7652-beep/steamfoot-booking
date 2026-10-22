@@ -1,0 +1,60 @@
+{
+  "scope": "Real component and CSS; mocked actions/router, no real mail",
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "recipientsVisible": 2,
+      "manualRecipientField": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    }
+  ],
+  "errors": []
+}

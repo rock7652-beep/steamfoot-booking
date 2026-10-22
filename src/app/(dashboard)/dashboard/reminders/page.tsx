@@ -1,3 +1,5 @@
+import { getLineQuotaNotificationSetting } from "@/server/actions/line-quota-notifications";
+import { LineQuotaEmailSetting } from "./line-quota-email-setting";
 import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
 import { getWorkOrderNotificationEnabled } from "@/server/actions/work-order-notification";
 import { TrialCareCard } from "./trial-care-card";
@@ -63,7 +65,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {null}
       </FeatureGate>
     );
-  const workOrderEnabled = await getWorkOrderNotificationEnabled();
+  const [workOrderEnabled, quotaEmail] = await Promise.all([getWorkOrderNotificationEnabled(), getLineQuotaNotificationSetting()]);
   const activeTab =
     params.tab === "logs"
       ? "logs"
@@ -238,6 +240,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
         </div>
 
+        <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">
