@@ -113,3 +113,13 @@ describe("checkCustomerLimitOrThrow / checkStaffLimitOrThrow â€” storeId path å
     expect(mockRequireStaffSession).not.toHaveBeenCalled();
   });
 });
+
+it("staff capacity inside a transaction never asks the global pool for a second connection",async()=>{
+ const {checkStaffLimitOrThrow}=await import("@/lib/usage-gate");
+ mockStoreFindUnique.mockRejectedValue(new Error("global pool already occupied"));
+ const findUnique=vi.fn().mockResolvedValue({id:STORE_A,plan:"EXPERIENCE",maxStaffOverride:2});
+ const tx={store:{findUnique}} as unknown as Pick<Prisma.TransactionClient,"store">;
+ await expect(checkStaffLimitOrThrow(1,STORE_A,tx)).resolves.not.toThrow();
+ await expect(checkStaffLimitOrThrow(10000,STORE_A,tx)).resolves.not.toThrow();
+ expect(findUnique).toHaveBeenCalled();expect(mockStoreFindUnique).not.toHaveBeenCalled();expect(mockRequireStaffSession).not.toHaveBeenCalled();
+});

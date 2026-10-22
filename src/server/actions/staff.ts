@@ -231,7 +231,7 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
       if(receiptId){const committed=await tx.auditLog.findUnique({where:{id:receiptId}});if(committed){if(committed.actorUserId!==sessionUser.id||committed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {staff:{id:staffId!}};}}
       const managerGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
-      await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
+      await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId, tx);
       if(receipt){
         if(normalizedEmail&&await tx.user.findUnique({where:{email:normalizedEmail}}))throw new AppError("CONFLICT","此 Email 已被使用");
         if(await tx.user.findFirst({where:{phone:data.phone,role:staffRole},select:{id:true}}))throw new AppError("CONFLICT","此手機號碼已建立相同身分的帳號");

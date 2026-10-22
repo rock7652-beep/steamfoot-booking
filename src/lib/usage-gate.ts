@@ -39,8 +39,13 @@ async function resolveStoreContext(storeId?: string) {
 export async function checkStaffLimitOrThrow(
   currentCount: number,
   storeId?: string,
+  client?: Pick<Prisma.TransactionClient, "store">,
 ): Promise<void> {
-  const { limits, store } = await resolveStoreContext(storeId);
+  // Staff creation holds the store lock and may own the only pool connection.
+  // Read the plan on that transaction, just as the customer capacity check does.
+  const { limits, store } = storeId && client
+    ? await getStoreForPlanByStoreId(storeId, client).then(store => ({store, limits:getPlanLimits(store)}))
+    : await resolveStoreContext(storeId);
   if (limits.maxStaff !== null && currentCount >= limits.maxStaff) {
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
