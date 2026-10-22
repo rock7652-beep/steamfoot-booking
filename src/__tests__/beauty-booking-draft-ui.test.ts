@@ -8,7 +8,7 @@ vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
 vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
-vi.mock('@/server/actions/beauty-portal',()=>({readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
+vi.mock('@/lib/beauty/portal-detail-read',()=>({readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>h('div',{'data-testid':'announcements'})}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
@@ -53,9 +53,9 @@ it('hides customer cancellation and rescheduling when store policy disables them
  const item={id:'one',startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,personName:'本人',serviceName:'做臉',technicianId:'tech',cancelDeduct:false,noShowDeduct:false};
  const host=mount(h(BeautyPortal,{data:{...data,policy:{...data.policy,selfCancel:false,selfReschedule:false},items:[item]} as BeautyPortalData}));act(()=>button(host,'我的預約').click());expect([...host.querySelectorAll('button')].some(b=>b.textContent==='取消'||b.textContent==='改期')).toBe(false);
 });
-it('uses the selected worker item and revision when correcting a completed service',async()=>{
- const item={id:'worker-item',startsAt:'2026-10-20T01:00:00Z',endsAt:'2026-10-20T02:00:00Z',status:'COMPLETED',groupId:'group',revision:3,personName:'本人',serviceName:'做臉',technicianId:'tech',cancelDeduct:false,noShowDeduct:false};
- const host=mount(h(BeautyPortal,{data:{...data,work:true,grants:['complete'],items:[item]} as BeautyPortalData}));m.records.mockResolvedValue({success:true,data:{items:[item],hasMore:false}});await act(async()=>button(host,'服務紀錄').click());act(()=>button(host,'更正回預約').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;set(field(sheet,'原因'),'更正誤按');await act(async()=>button(sheet,'確認').click());expect(m.status.mock.calls[0]).toMatchObject(['work',{id:'worker-item',revision:3,target:'RESERVED',reason:'更正誤按'}]);
+it('keeps completed technician cards read-only without a correction or empty more menu',()=>{
+ const item={id:'worker-item',startsAt:'2026-10-21T01:00:00Z',endsAt:'2026-10-21T02:00:00Z',status:'COMPLETED',groupId:'group',revision:3,personName:'本人',serviceName:'做臉',technicianId:'tech'};
+ const host=mount(h(BeautyPortal,{data:{...data,work:true,grants:['complete'],items:[item]} as BeautyPortalData}));expect(host.textContent).toContain('已完成');expect(host.textContent).not.toContain('更正回預約');expect(host.textContent).not.toContain('恢復預約');expect(host.querySelector('.beauty-work-card details')).toBeNull();expect(m.status).not.toHaveBeenCalled();
 });
 
 it('blocks the next action after rescheduling until fresh authoritative props arrive',async()=>{
