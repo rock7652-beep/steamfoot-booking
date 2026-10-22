@@ -129,3 +129,13 @@ it('can rerun the reviewed companion upgrade without touching balances',async()=
  await db.exec(`SET beauty_companion.review_id='beauty-companion-v1'`);
  const sql=readFileSync('scripts/sql/beauty-companion-booking-upgrade.sql','utf8');await db.exec(sql);await db.exec(sql);expect((await db.query<{remaining:number}>(`SELECT remaining FROM "BeautyCard" WHERE id='shared-card'`)).rows[0].remaining).toBe(5);
 });
+
+it("adds opt-in expiry settings without changing existing cards or enabling plans, and can rerun",async()=>{
+ await db.exec(`INSERT INTO "BeautyPlan" (id,"storeId",name,sessions,price,"validDays","serviceIds") VALUES ('expiry-upgrade-plan','s','次數方案',5,3000,60,ARRAY['svc'])`);
+ const upgrade=readFileSync('scripts/sql/beauty-reminder-settings-upgrade.sql','utf8');
+ await db.exec(upgrade);await db.exec(upgrade);
+ const rows=await db.query<{expiryReminder:unknown}>(`SELECT "expiryReminder" FROM "BeautyPlan" WHERE id='expiry-upgrade-plan'`);
+ expect(rows.rows[0].expiryReminder).toEqual({enabled:false,days:[14,7]});
+ await db.exec(`UPDATE "BeautyPlan" SET "expiryReminder"='{"enabled":true,"days":[7]}' WHERE id='expiry-upgrade-plan'`);await db.exec(upgrade);
+ expect((await db.query<{expiryReminder:unknown}>(`SELECT "expiryReminder" FROM "BeautyPlan" WHERE id='expiry-upgrade-plan'`)).rows[0].expiryReminder).toEqual({enabled:true,days:[7]});
+});

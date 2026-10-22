@@ -114,7 +114,7 @@ export async function issueCard(
   tx: Tx,
   a: BeautyActor,
   d: z.infer<typeof cardInput>,
-  frozen?: BeautyPlan,
+  frozen?: Omit<BeautyPlan,"expiryReminder">,
 ) {
   return command(tx, a, d.requestKey, d, async () => {
     const p =

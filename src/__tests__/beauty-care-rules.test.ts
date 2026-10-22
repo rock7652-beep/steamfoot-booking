@@ -1,0 +1,22 @@
+import {describe,it,expect,vi,afterEach} from 'vitest';
+import {beautyPlanReminderKinds,readBeautyExpiry,beautyPlanStopped,beautyPlanReminderSchema} from '@/lib/beauty/reminders';
+vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:vi.fn()}));vi.mock('@/server/services/course-card-notification-delivery',()=>({deliverCourseCardNotification:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{}}));vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
+import {beautyCareId,beautyCareMessages} from '@/server/beauty/care-reminders';
+const now=new Date('2026-10-22T10:00Z');
+const card={remaining:5,expiresAt:new Date('2026-11-05T15:59:59Z'),closedAt:null};
+const plan={active:true,lowBalanceEnabled:true,lowBalanceThreshold:2,expiryReminder:{enabled:true,days:[14,7]}};
+afterEach(()=>vi.unstubAllEnvs());
+describe('Beauty reminder business rules, separate from course ledger',()=>{
+it('new/malformed expiry data is off, never inherited course opt-in',()=>{expect(readBeautyExpiry(undefined)).toEqual({enabled:false,days:[14,7]});expect(readBeautyExpiry({enabled:true,days:[0]}).enabled).toBe(false);});
+it('subtracts real reservation holds without calling them deductions',()=>{expect(beautyPlanReminderKinds(card,4,plan,now)).toEqual(['LOW_BALANCE','PLAN_EXPIRY:14']);});
+it('full reservation occupancy suppresses expiry and never says used-up',()=>{expect(beautyPlanReminderKinds(card,5,plan,now)).toEqual(['LOW_BALANCE']);});
+it('zero remaining is a separate once-per-card used-up event',()=>{expect(beautyPlanReminderKinds({...card,remaining:0},0,plan,now)).toEqual(['PLAN_USED_UP']);});
+it.each(['closed','expired','inactive'])('does not notify %s cards/plans',kind=>{expect(beautyPlanReminderKinds({...card,closedAt:kind==='closed'?now:null,expiresAt:kind==='expired'?now:card.expiresAt},0,{...plan,active:kind!=='inactive'},now)).toEqual([]);});
+it('expiry starts at Taiwan 18:00, and uses the Taiwan expiry date',()=>{expect(beautyPlanReminderKinds(card,0,plan,new Date('2026-10-22T09:59:59Z'))).toEqual([]);expect(beautyPlanReminderKinds(card,0,plan,now)).toEqual(['PLAN_EXPIRY:14']);});
+it('does not backfill an expiry stage after the local date changed',()=>{expect(beautyPlanReminderKinds(card,0,plan,new Date('2026-10-22T16:00Z'))).toEqual([]);});
+it('requires a real threshold and same-store/revision form context',()=>{const input={planId:'p',expectedStoreId:'s',expectedRevision:0,enabled:true,threshold:null,expiry:{enabled:false,days:[14,7]}};expect(beautyPlanReminderSchema.safeParse(input).success).toBe(false);expect(beautyPlanReminderSchema.safeParse({...input,threshold:2}).success).toBe(true);expect(beautyPlanReminderSchema.safeParse({...input,threshold:10001}).success).toBe(false);});
+it('invalid opt-out state fails closed, while an absent preference is receiving',()=>{expect(beautyPlanStopped()).toBe(false);expect(beautyPlanStopped('receiving')).toBe(false);expect(beautyPlanStopped('stopped')).toBe(true);expect(beautyPlanStopped('{}')).toBe(true);});
+it('deduplicates card/member/stage independently and avoids delimiter collisions',()=>{const id=beautyCareId('s','c','card','LOW_BALANCE');expect(beautyCareId('s','c','card','LOW_BALANCE')).toBe(id);expect(beautyCareId('s','other','card','LOW_BALANCE')).not.toBe(id);expect(beautyCareId('s','c','card','PLAN_USED_UP')).not.toBe(id);expect(beautyCareId('a:b','c','d','e')).not.toBe(beautyCareId('a','b:c','d','e'));});
+it('all message actions use the actual Beauty member/preference routes',()=>{vi.stubEnv('NEXTAUTH_URL','https://qa.invalid');const body=JSON.stringify(beautyCareMessages('方案剩餘次數','test-shop'));expect(body).toContain('/s/test-shop/beauty?view=plans');expect(body).toContain('/s/test-shop/beauty/reminders');expect(body).not.toMatch(/\/book|courseView/);});
+});

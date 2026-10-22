@@ -594,6 +594,10 @@ export async function transition(
     }),
     b.id,
   );
+  if(input.target==="COMPLETED"&&b.isTrial&&b.customerId) {
+    const id=`beauty-trial-completed:${b.id}`;
+    await tx.beautyEvent.upsert({where:{id},create:{id,storeId:a.storeId,kind:"TRIAL_CARE_COMPLETED",status:"AUDIT",appointmentId:b.id,customerId:b.customerId,body:"體驗首次完成；關懷啟用前不補發"},update:{}});
+  }
   await tx.beautyEvent.create({
     data: {
       storeId: a.storeId,

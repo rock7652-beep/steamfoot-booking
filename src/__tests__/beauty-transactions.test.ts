@@ -65,7 +65,7 @@ beforeEach(() => {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
     },
-    beautyEvent: { create: vi.fn() },
+    beautyEvent: { create: vi.fn(), upsert: vi.fn() },
     beautyAppointment: {
       findFirst: vi.fn().mockResolvedValue({ ...b }),
       count: vi.fn().mockResolvedValue(0),
@@ -392,4 +392,19 @@ it('does not require recording technician payment recovery for a service correct
  await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'店家更正'});
  expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'NO_SHOW',fee:0,debit:false})}));
  expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+});
+
+
+describe("Beauty trial care enrollment boundaries",()=>{
+ it("adds a stable first-completion marker for an identified trial without changing debit rules",async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,isTrial:true} as never);
+  await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
+  expect(tx.beautyEvent.upsert).toHaveBeenCalledWith({where:{id:'beauty-trial-completed:b'},create:expect.objectContaining({id:'beauty-trial-completed:b',storeId:'s',appointmentId:'b',customerId:'member',kind:'TRIAL_CARE_COMPLETED',status:'AUDIT'}),update:{}});
+  expect(tx.beautyLedger.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({delta:-1})}));
+ });
+ it("does not enroll a regular single service or infer an anonymous guest from payer",async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,isTrial:true,customerId:null,cardId:null} as never);
+  await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
+  expect(tx.beautyEvent.upsert).not.toHaveBeenCalled();
+ });
 });

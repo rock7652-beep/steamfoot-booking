@@ -64,7 +64,7 @@ try {
     await page.evaluate(m=>{history.replaceState(null,'',m==='beauty'?'?tab=設定&section=store':'?view=settings&section=store');},module);
     for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[560,768]]) {
       await page.setViewportSize({width,height});
-      for(const view of ['settings','analytics','care','consumption','reminders']) {
+      for(const view of ['settings','analytics','care','consumption','reminders','reminder-settings']) {
         await page.getByLabel('驗收頁面').selectOption(view);
         if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Overflow '+module+'/'+view+'/'+width);
         if(module==='beauty')await page.screenshot({path:path.join(output,view+'-'+width+'.png'),fullPage:true});
@@ -113,6 +113,37 @@ try {
     const logHref=await page.getByRole('link',{name:'查看顧客 →'}).getAttribute('href');
     if(!logHref.includes(module==='beauty'?'/dashboard/beauty?':'/dashboard/courses?'))throw Error('Reminder wrong customer route');
     results.push({module,consumptionFilter:true,consumptionCustomerLink:true,reminderCustomerLink:true,phone390:true});
+  }
+  for(const module of ['beauty','music']) {
+    await page.getByLabel('驗收模組').selectOption(module);
+    await page.getByLabel('驗收頁面').selectOption('reminder-settings');
+    await page.setViewportSize({width:1366,height:900});
+    await page.getByRole('button',{name:'修改',exact:true}).first().click();
+    const plan='提醒方案測試長名稱 00';
+    await page.getByRole('switch',{name:plan+' 啟用提醒',exact:true}).check();
+    await page.getByLabel(plan+' 提醒門檻',{exact:true}).fill('2');
+    await page.getByRole('button',{name:'儲存',exact:true}).click();
+    await page.getByText('「'+plan+'」已儲存',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'修改',exact:true}).first().click();
+    if(await page.getByLabel(plan+' 提醒門檻',{exact:true}).inputValue()!=='2')throw Error('Reminder save did not reopen');
+    await page.getByLabel(plan+' 提醒門檻',{exact:true}).fill('3');
+    await page.getByRole('button',{name:'儲存',exact:true}).click();
+    const writes=await page.evaluate(()=>window.reminderSaves);
+    if(module==='beauty'&&writes.slice(-2).map(w=>w.expectedRevision).join(',')!=='0,1')throw Error('Reminder revision did not advance');
+    await page.getByRole('switch',{name:'啟用整組體驗關懷',exact:true}).click();
+    await page.getByText('體驗後關心',{exact:true}).click();
+    await page.getByLabel('體驗後關心訊息內容',{exact:true}).fill('測試關懷草稿 {{customerName}}');
+    await page.setViewportSize({width:768,height:1024});
+    if(await page.getByLabel('體驗後關心訊息內容',{exact:true}).inputValue()!=='測試關懷草稿 {{customerName}}')throw Error('Care draft lost on resize');
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Expanded reminder overflow');
+    await page.getByRole('button',{name:'確認文案並啟用',exact:true}).click();
+    await page.getByText('設定已儲存',{exact:true}).waitFor();
+    if(!(await page.getByText('設定已儲存；LINE 關閉，尚不發送',{exact:true}).isVisible()))throw Error('Care setting claimed delivery');
+    await page.getByLabel('唯讀驗收').check();
+    if(!(await page.getByRole('button',{name:'修改',exact:true}).first().isDisabled()))throw Error('Read-only plan can edit');
+    if(!(await page.getByRole('switch',{name:'啟用整組體驗關懷',exact:true}).isDisabled()))throw Error('Read-only care can edit');
+    await page.getByLabel('唯讀驗收').uncheck();
+    results.push({module,reminderReopen:true,revision:true,careDraftResize:true,blockedDeliveryCopy:true,readOnlyControls:true});
   }
   if(failures.length)throw Error(failures.join('\n'));
   writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,businessAcceptance:false,physicalDevice:false,results,errors:failures},null,2));

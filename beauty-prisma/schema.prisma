@@ -63,6 +63,7 @@ model BeautyTechnician {
 }
 
 model BeautyPlan {
+  expiryReminder Json @default("{\"enabled\":false,\"days\":[14,7]}")
   lowBalanceEnabled Boolean @default(false)
   lowBalanceThreshold Int?
   id                  String   @id @default(cuid())
