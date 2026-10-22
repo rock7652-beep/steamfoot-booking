@@ -24,7 +24,7 @@ vi.mock("@/lib/errors", () => ({
   },
   handleActionError: () => ({ success: false, error: "invalid request" }),
 }));
-import { saveBeautyCatalog } from "@/server/actions/beauty";
+import { saveBeautyCatalog,payBeautyFee,voidBeautyFee } from "@/server/actions/beauty";
 afterEach(() => vi.clearAllMocks());
 it.each(["unknown", "TECHNICIAN", ""])(
   "rejects an untrusted catalog selector %s before choosing a weaker permission",
@@ -37,3 +37,5 @@ it.each(["unknown", "TECHNICIAN", ""])(
     expect(m.transaction).not.toHaveBeenCalled();
   },
 );
+
+it('retires technician payment mutations without touching old records',async()=>{expect(await payBeautyFee({})).toMatchObject({success:false});expect(await voidBeautyFee({})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});

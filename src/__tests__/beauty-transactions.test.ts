@@ -385,3 +385,11 @@ it('permits an unidentified companion only through an enrolled sponsor and the s
  vi.mocked(tx.beautyCard.findFirst).mockResolvedValue({...card,allowShared:false} as never);
  await expect(assertCard(tx,member,'card',null,'svc',b.startsAt,undefined,'member')).rejects.toThrow('未授權');
 });
+
+it('does not require recording technician payment recovery for a service correction',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'COMPLETED',debit:true,fee:400} as never);
+ vi.mocked(tx.beautyPayment.aggregate).mockResolvedValue({_sum:{amount:400}} as never);
+ await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'店家更正'});
+ expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'NO_SHOW',fee:0,debit:false})}));
+ expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+});

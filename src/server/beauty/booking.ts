@@ -575,16 +575,8 @@ export async function transition(
           b.duration,
         )
       : 0;
-  const feePayments = await tx.beautyPayment.aggregate({
-    where: {
-      storeId: a.storeId,
-      appointmentId: b.id,
-      kind: { in: ["FEE", "FEE_VOID"] },
-    },
-    _sum: { amount: true },
-  });
-  if ((feePayments._sum.amount ?? 0) && fee !== b.fee)
-    throw new AppError("CONFLICT", "已有技師付款，請先核對付款更正");
+  // Technician disbursement is handled by the shop. Historical FEE rows remain
+  // append-only evidence and must not prevent an authorized service correction.
   await tx.beautyAppointment.update({
     where: { id: b.id },
     data: { status: input.target, debit, fee, revision: { increment: 1 } },

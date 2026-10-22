@@ -47,8 +47,6 @@ import {
   issueCard,
   refund,
   settlement,
-  payFee,
-  voidFee,
 } from "@/server/beauty/commerce";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import type { Prisma } from "../../../generated/beauty-client";
@@ -583,24 +581,10 @@ export async function confirmBeautySettlement(input: unknown) {
     );
   });
 }
+/** Retired endpoint: keep old clients from creating new technician payment records. */
 export async function payBeautyFee(input: unknown) {
-  return result(async () => {
-    const a = await beautyManager("teacher.settlement.pay", true);
-    await requirePermission("cashbook.create");
-    await requireStoreFeature(a.storeId, FEATURES.SERVICE_FEE_CALCULATOR);
-    const d = z
-      .object({
-        requestKey: z.string().uuid(),
-        id: key,
-        amount: z.number().int().positive(),
-        method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
-        note: z.string().max(500),
-      })
-      .parse(input);
-    return beautyTransaction(a, (tx) =>
-      command(tx, a, d.requestKey, d, () => payFee(tx, a, d)),
-    );
-  });
+  void input;
+  return {success:false as const,error:'技師付款由店家自行處理；系統僅提供拆帳明細。'};
 }
 export async function saveBeautyCustomer(input: unknown) {
   return result(async () => {
@@ -711,15 +695,8 @@ export async function confirmBeautyPurchase(input: unknown) {
 }
 
 export async function voidBeautyFee(input: unknown) {
-  return result(async () => {
-    const a = await beautyManager("teacher.settlement.pay", true);
-    await requirePermission("cashbook.create");
-    await requireStoreFeature(a.storeId, FEATURES.SERVICE_FEE_CALCULATOR);
-    const d = refundInput.parse(input);
-    return beautyTransaction(a, (tx) =>
-      command(tx, a, d.requestKey, d, () => voidFee(tx, a, d)),
-    );
-  });
+  void input;
+  return {success:false as const,error:'技師付款與收回由店家自行處理；既有紀錄保留。'};
 }
 
 export async function readBeautyCustomer(input: unknown) {
