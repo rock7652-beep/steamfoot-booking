@@ -85,7 +85,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       enabled ? lineHealthRequest : Promise.resolve(null),
       enabled ? readContent() : Promise.resolve(null),
       timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()),
-      enabled ? getLineQuotaNotificationSetting() : Promise.resolve(null),
+      enabled && active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
     ]);
     return <PageShell>
       <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
@@ -94,7 +94,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
         <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />
         {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
         {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
-        {quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} baseHref="/dashboard/courses/reminders" />}
+        {active === "manager" && quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} baseHref="/dashboard/courses/reminders" />}
         {content}
       </div>}
     </PageShell>;

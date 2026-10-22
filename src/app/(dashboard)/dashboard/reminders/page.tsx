@@ -65,7 +65,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {null}
       </FeatureGate>
     );
-  const [workOrderEnabled, quotaEmail] = await Promise.all([getWorkOrderNotificationEnabled(), getLineQuotaNotificationSetting()]);
   const activeTab =
     params.tab === "logs"
       ? "logs"
@@ -74,6 +73,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           params.tab === "templates"
         ? "customer"
         : "manager";
+  const [workOrderEnabled, quotaEmail] = await Promise.all([
+    getWorkOrderNotificationEnabled(),
+    activeTab === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
+  ]);
   const customerSection =
     params.section === "trial-care"
       ? "trial-care"
@@ -240,7 +243,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
         </div>
 
-        <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />
+        {activeTab === "manager" && quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />}
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">
