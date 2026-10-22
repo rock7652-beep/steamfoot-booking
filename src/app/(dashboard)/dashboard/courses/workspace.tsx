@@ -1202,7 +1202,7 @@ export function CourseWorkspace({
       {view !== "schedule" && (
         <section
           className="space-y-1"
-          aria-label={view === "rooms" ? (businessProfile==="MUSIC"?"教室清單":"空間清單") : "課程清單"}
+          aria-label={view === "rooms" ? (businessProfile==="MUSIC"?"教室清單":"空間清單") : catalogSource?"服務清單":"課程清單"}
         >
           <div className="flex flex-wrap items-center gap-3">
             <label className="min-w-48 flex-1 sm:max-w-xs">
@@ -1460,7 +1460,7 @@ export function CourseWorkspace({
                   : editing?.kind === "room"
                     ? (businessProfile==="MUSIC"?"編輯教室":roomRentalHistory?"租借紀錄":"編輯空間")
                     : copyTemplate ? (catalogSource?"複製服務項目":"複製課程") : catalogSource?"編輯服務項目":"編輯課程"
-                : panel === "inspect" ? (editing?.kind === "room" ? (businessProfile === "MUSIC" ? "查看教室" : "查看空間") : "查看課程") : panel === "catalog"
+                : panel === "inspect" ? (editing?.kind === "room" ? (businessProfile === "MUSIC" ? "查看教室" : "查看空間") : catalogSource?"查看服務項目":"查看課程") : panel === "catalog"
                   ? view === "rooms"
                     ? "新增空間"
                     : catalogSource?"新增服務項目":"新增課程"
@@ -1780,12 +1780,12 @@ export function CourseWorkspace({
             )}
             {panel === "inspect" && editing && editing.kind !== "session" && <section className="space-y-3">
               <dl className="divide-y divide-earth-100">{[
-                ["名稱",editing.kind === "template" ? courseDisplayName(editing.value.name) : editing.value.name],...(businessProfile === "MUSIC" || editing.kind === "room" ? [["分類",editing.value.category || (businessProfile === "MUSIC" ? "未分類" : "—")]] : []),
+                ["名稱",editing.kind === "template" ? courseDisplayName(editing.value.name) : editing.value.name],...(businessProfile === "MUSIC" || catalogSource || editing.kind === "room" ? [["分類",editing.value.category || (businessProfile === "MUSIC" ? "未分類" : "—")]] : []),
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
                 ...(catalogSource?(editing.kind==="template"?[["服務時長",`${editing.value.durationMinutes} 分鐘`],["整理時間",`${editing.value.bufferMinutes??0} 分鐘`]]:[]):editing.kind === "template" ? [[businessProfile === "MUSIC" ? "課型":"班別",editing.value.classType === "PRIVATE" ? "個別課" : editing.value.classType === "SELF_ORGANIZED" ? "自組課" : editing.value.classType === "GROUP" ? "團體課":businessProfile === "MUSIC" ? "待補設定" : "未設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設空間",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {!catalogSource && editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
-              <details name="course-workspace-details"><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
+              <details hidden={!!catalogSource&&editing.kind==='template'} name="course-workspace-details"><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing?.kind === "room" && businessProfile!=="MUSIC" && roomRentalHistory && <RentalHistory customers={rentalCustomers} roomId={editing.value.id} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard}/>}
 
