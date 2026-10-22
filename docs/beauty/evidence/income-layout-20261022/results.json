@@ -1,0 +1,9 @@
+{
+  "results": [
+    {
+      "case": "income totals and four rows, month change, return, four viewport sizes",
+      "passed": true
+    }
+  ],
+  "errors": []
+}
