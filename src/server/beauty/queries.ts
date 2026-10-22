@@ -419,10 +419,13 @@ export type BeautyDashboardData = Awaited<ReturnType<typeof beautyDashboard>>;
 
 /** Calendar transport: no customers, plans, payments or settlement reads. */
 export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
- const a=await beautyManager('booking.read'),u=await getCurrentUser();
+ const [a,u]=await Promise.all([beautyManager('booking.read'),getCurrentUser()]);
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
- const [customerPermission,planPermission,feePermission]=await Promise.all([can('customer.read'),can('wallet.read'),can('teacher.compensation.read')]);
- const [customerAccess,planAccess,feeAccess]=await Promise.all([customerPermission&&hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT),planPermission&&hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT),feePermission&&hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR)]);
+ const scopes=[['customer.read',FEATURES.CUSTOMER_MANAGEMENT],['wallet.read',FEATURES.PLAN_MANAGEMENT],['teacher.compensation.read',FEATURES.SERVICE_FEE_CALCULATOR]] as const;
+ const [customerAccess,planAccess,feeAccess]=await Promise.all(scopes.map(async ([permission,feature])=>{
+  const [allowed,enabled]=await Promise.all([can(permission),hasStoreFeature(a.storeId,feature)]);
+  return allowed&&enabled;
+ }));
  const range=beautyScheduleRange(date,calendar);
  const [rows,hours,specials]=await Promise.all([
   beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,startsAt:{gte:range.start,lte:range.end}},orderBy:{startsAt:'asc'}}),

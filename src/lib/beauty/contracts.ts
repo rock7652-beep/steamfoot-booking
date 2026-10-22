@@ -97,6 +97,7 @@ export const personInput = z.object({
   serviceRevision: z.number().int().nonnegative().default(0),
   preference,
   specifiedTechnicianId: key.nullable().default(null),
+  specifiedLocationId: key.nullable().optional(),
   cardId: key.nullable().default(null),
   notes: z.string().max(1000).default(""),
 });

@@ -261,3 +261,12 @@ it('inherits store hours dynamically while preserving custom empty weeks and dat
  expect(allocateParty({date,startsAt:start,people:[{serviceId:'face',preference:'ANY',specifiedTechnicianId:null}],services:[face],technicians:[t],locationIds:['r'],occupied:[],hours:[{start:'11:00',end:'18:00'}]})).toBeNull();
  expect(technicianInput.parse({name:'新技師',gender:'FEMALE',serviceIds:[],rates:{}}).weekly).toEqual({inheritStore:true});
 });
+
+it('honors the selected location and rejects another-store, occupied, or duplicate party locations',()=>{
+ expect(allocate({people:[{...person(),specifiedLocationId:'r2'}]})?.[0].locationId).toBe('r2');
+ expect(allocate({people:[{...person(),specifiedLocationId:'other-store-room'}]})).toBeNull();
+ expect(allocate({people:[{...person(),specifiedLocationId:'r2'}],occupied:[{start:+start,end:+start+75*60000,locationId:'r2',technicianId:'other',duration:60,status:'RESERVED'}]})).toBeNull();
+ expect(allocate({people:[{...person(),specifiedLocationId:'r2'},{...person('massage'),specifiedLocationId:'r2'}]})).toBeNull();
+ // Full service plus buffer must fit even when the next booking starts after the service itself.
+ expect(allocate({people:[{...person(),specifiedLocationId:'r2'}],occupied:[{start:+start+60*60000,end:+start+120*60000,locationId:'r2',technicianId:'other',duration:60,status:'RESERVED'}]})).toBeNull();
+});

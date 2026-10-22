@@ -1,6 +1,6 @@
 "use client";
 import {usePanelReader} from '@/components/operations/panel-read-cache';
-import {readBeautyCalendar,type BeautyCalendarData} from '@/lib/beauty/calendar-read';
+import {readBeautyCalendar,projectBeautyCalendar,type BeautyCalendarData} from '@/lib/beauty/calendar-read';
 import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import ReportDateRange from "@/components/report-date-range";
 import {courseAnalysisRange} from "@/lib/course-analytics";
@@ -10,6 +10,7 @@ import {CourseCustomerList} from '@/app/(dashboard)/dashboard/courses/customer-l
 import {RosterToolbar,RosterMoreMenu} from '@/components/admin/roster-primitives';
 import {SettingsWorkspaceFrame,SettingsWorkspaceNav} from '@/components/settings';
 import {BeautyFeeSummary} from './fee-summary';
+import {BeautySharedMembers} from "./shared-members";
 import {BeautyHome} from './home';
 import {BeautyScheduleWorkspace} from './schedule-workspace';
 import {BeautyManagementList} from './management-list';
@@ -58,8 +59,12 @@ export function BeautyDashboard({
   const calendarReader=usePanelReader('beauty-manager-calendar',readBeautyCalendar,slug,0);
   async function changeCalendar(date:string,calendar:BeautyDashboardData['calendar']){
    if(calendarPending||pending||booking||selectedId||listOpen)return;
+   const previous=calendarState;
+   const preview=calendarReader.peek(date,calendar,slug)??null;
+   const snapshot=preview?.success?preview.data:projectBeautyCalendar(data,date,calendar);
+   if(snapshot)setCalendarState({base:incoming,value:snapshot});
    const version=++calendarVersion.current;setCalendarPending(true);setError('');
-   try{const r=await calendarReader.read(date,calendar,slug);if(version!==calendarVersion.current)return;if(!r.success){setError(r.error);return;}setCalendarState({base:incoming,value:r.data});setChecked([]);const q=new URLSearchParams(window.location.search);q.set('date',date);q.set('calendar',calendar);window.history.replaceState(null,'','?'+q.toString());}catch{setError('班表讀取失敗，原班表已保留，請重試。');}finally{if(version===calendarVersion.current)setCalendarPending(false);}
+   try{const r=await calendarReader.read(date,calendar,slug);if(version!==calendarVersion.current)return;if(!r.success){setCalendarState(previous);setError(r.error);return;}setCalendarState({base:incoming,value:r.data});setChecked([]);const q=new URLSearchParams(window.location.search);q.set('date',date);q.set('calendar',calendar);window.history.replaceState(null,'','?'+q.toString());}catch{setCalendarState(previous);setError('班表讀取失敗，原班表已保留，請重試。');}finally{if(version===calendarVersion.current)setCalendarPending(false);}
   }
   const params=useSearchParams(),settingsCategory=params.get("section")??"store";
   const router = useRouter(),
@@ -74,6 +79,7 @@ export function BeautyDashboard({
     } | null>(null);
   const [moneyDirty,setMoneyDirty]=useState(false),[bookingState,setBookingState]=useState({dirty:false,pending:false});
   const [statusDraft,setStatusDraft]=useState<{id:string;revision:number;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';reason:string;requestKey:string}|null>(null);
+  const [purchasePlanId,setPurchasePlanId]=useState(""),[purchaseCustomerId,setPurchaseCustomerId]=useState("");
   const moneyRequest = useRef(crypto.randomUUID());
   const [moneyPanel, updateMoneyPanel] = useState<{
       kind: "collect" | "refund" | "card" | "move" | "link";
@@ -85,6 +91,7 @@ export function BeautyDashboard({
   function closeMoney(){if(pending||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
     setMoneyDirty(false);
+    setPurchasePlanId("");setPurchaseCustomerId(v?.kind==='card'?v.ids[0]??"":"");
     moneyRequest.current = crypto.randomUUID();
     updateMoneyPanel(v);
   }
@@ -97,7 +104,7 @@ export function BeautyDashboard({
   const operationsArea=requestedArea==='fees'&&data.report?'fees':requestedArea==='purchases'&&data.access.planAccess&&data.access.customerAccess?'purchases':'revenue';
   const receipts=data.payments.filter(p=>(!receiptKind||p.kind===receiptKind)&&`${p.note} ${p.amount}`.includes(receiptSearch));
   const financialDates=courseAnalysisRange(tab==='營運'?Object.fromEntries(params):{month:data.month});
-  const [bookingSeed,setBookingSeed]=useState<{date?:string;time?:string}>({});
+  const [bookingSeed,setBookingSeed]=useState<{date?:string;time?:string;technicianId?:string;locationId?:string}>({});
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const navigate=(tab:string)=>router.push(`?tab=${encodeURIComponent(tab)}`,{scroll:false});
   function run(work: () => Promise<{ success: boolean; error?: string }>) {
@@ -119,6 +126,7 @@ export function BeautyDashboard({
   const catalog = {
     policy: data.policy,
     services: data.services.filter((s) => s.active),
+    locations: data.locations.filter(l=>l.isActive),
     techs: data.techs.filter((t) => t.active),
   };
   const appointments = data.items.filter(
@@ -154,13 +162,16 @@ export function BeautyDashboard({
       )}
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button>{tab==='顧客管理'&&!readOnly&&data.manage.customer&&<button className={button+' !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar>}
       {tab==='首頁'&&<BeautyHome data={data} readOnly={readOnly} onBook={()=>setBooking(true)} onNavigate={navigate}/>}
-      {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending||calendarPending} onChange={changeCalendar} readOnly={readOnly} actions={<button className={button} disabled={calendarPending} onClick={()=>setListOpen(true)}>預約清單</button>}/>{calendarPending&&<p role="status" className="text-sm text-earth-500">更新班表中…</p>}{listOpen&&<RightSheet open presentation="centered" width={1120} labelledById="beauty-list-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setChecked([]);}}}><section className="min-h-0 space-y-2 overflow-auto p-4" aria-label="預約清單"><div className="flex items-center justify-between"><h2 id="beauty-list-title">預約清單</h2><button className={button} disabled={pending} onClick={()=>{setListOpen(false);setChecked([]);}}>關閉</button></div><input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/><RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
+      {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending||calendarPending} onChange={changeCalendar} readOnly={readOnly} actions={<button className={button} disabled={calendarPending} onClick={()=>setListOpen(true)}>預約清單</button>}/>{calendarPending&&<p role="status" className="text-sm text-earth-500">更新班表中…</p>}</>}
+      {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setSelectedId(null);setChecked([]);}}}>
+      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>setSelectedId(null)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>{setListOpen(false);setSelectedId(null);setChecked([]);}}>關閉</button></header>
+      {!selectedId&&<section className="min-h-0 space-y-2 overflow-auto p-4" aria-label="預約清單"><input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/><RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
  {key:'select',header:'選取',accessor:b=><input type="checkbox" aria-label={`選取${b.personName}`} disabled={readOnly||!data.manage.collect||!!b.cardId||b.status==='CANCELLED'} checked={checked.includes(b.id)} onChange={e=>setChecked(v=>e.target.checked?[...v,b.id]:v.filter(id=>id!==b.id))}/>},
  {key:'time',header:'預約時間',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'name',header:'顧客／服務',accessor:b=><button className="min-h-11 text-primary-800" onClick={()=>setSelectedId(b.id)}>{b.personName}｜{b.serviceName}</button>},{key:'tech',header:'技師／位置',accessor:b=>`${data.techs.find(t=>t.id===b.technicianId)?.name??'店家安排'}／${data.locations.find(l=>l.id===b.locationId)?.name??'—'}`},
  {key:'status',header:'狀態',accessor:b=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'}[b.status]??b.status)},
  {key:'actions',header:'操作',sticky:'right',accessor:b=><RosterMoreMenu name={b.personName} onOpen={()=>setSelectedId(b.id)}/>}
- ]}/></section></RightSheet>}</>}
-      {selectedId&&<RightSheet open width={960} onClose={()=>!pending&&setSelectedId(null)} closeOnEscape={!pending} labelledById="beauty-appointment-title"><header className="flex min-h-14 items-center justify-between border-b px-4"><h2 id="beauty-appointment-title" className="font-semibold">預約明細</h2><button className={button} disabled={pending} onClick={()=>setSelectedId(null)}>關閉</button></header><div className="min-h-0 overflow-y-auto p-4">{data.items.filter(b=>b.id===selectedId).map(b=>(
+ ]}/></section>}
+      {selectedId&&<div className="min-h-0 overflow-y-auto p-4">{data.items.filter(b=>b.id===selectedId).map(b=>(
             <article
               key={b.id}
               className="space-y-2 rounded-xl border border-earth-200 bg-white p-3"
@@ -311,7 +322,7 @@ export function BeautyDashboard({
                 </div>
               )}
             </article>
-      ))}</div></RightSheet>}
+      ))}</div>}</RightSheet>}
       {tab==='顧客管理'&&<section className="space-y-3"><RosterToolbar label="顧客管理操作"><span className="text-sm text-earth-500">共 {data.customers.length} 人</span>{!readOnly&&data.manage.customer&&<button className={button+' ml-auto !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar><CourseCustomerList rows={data.customers.map(c=>({...c,mergedIntoCustomerId:null,userStatus:c.user?.status??null,serviceNote:c.notes,validPackageSessions:0,sponsoredCount:c._count.sponsoredCustomers}))} cards={[]} sportsNative basePath="/dashboard/beauty?tab=顧客管理" sessionUnitLabel="次" sessionBalances={data.cards.filter(k=>!k.closedAt&&Date.parse(k.expiresAt)>data.now).flatMap(k=>k.memberIds.map(customerId=>({customerId,available:Math.max(0,k.remaining-k.held)})))} canReadCards={data.access.planAccess} onView={setDetailId} onCreate={!readOnly&&data.manage.customer?()=>setCustomerPanel(true):undefined} onAssign={!readOnly&&data.manage.card?id=>setMoneyPanel({kind:'card',ids:[id]}):undefined}/></section>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}
@@ -416,6 +427,8 @@ export function BeautyDashboard({
               onStateChange={setBookingState}
               initialDate={bookingSeed.date??data.date}
               initialTime={bookingSeed.time}
+              initialTechnicianId={bookingSeed.technicianId}
+              initialLocationId={bookingSeed.locationId}
               customer={data.customers.find(c=>c.id===initialCustomerId)}
               slug={slug}
               cards={data.cards.map((c) => ({ ...c, closed: !!c.closedAt }))}
@@ -494,7 +507,7 @@ export function BeautyDashboard({
         <RightSheet
           open
           presentation="centered"
-          width={700}
+          width={listOpen||selectedId?1200:700}
           onClose={closeMoney}
           labelledById="beauty-money-title"
         >
@@ -629,7 +642,7 @@ export function BeautyDashboard({
                     required
                     className={field}
                     name="customerId"
-                    defaultValue={moneyPanel.ids[0] ?? ""}
+                    value={purchaseCustomerId} onChange={e=>setPurchaseCustomerId(e.target.value)}
                   >
                     <option value="">請選擇</option>
                     {data.customers.map((c) => (
@@ -641,7 +654,7 @@ export function BeautyDashboard({
                 </label>
                 <label>
                   方案
-                  <select className={field} required name="planId">
+                  <select className={field} required name="planId" value={purchasePlanId} onChange={e=>setPurchasePlanId(e.target.value)}>
                     <option value="">請選擇</option>
                     {data.plans
                       .filter((p) => p.active)
@@ -653,18 +666,8 @@ export function BeautyDashboard({
                       ))}
                   </select>
                 </label>
-                <fieldset>
-                  <legend>具名共用成員（僅允許共用方案）</legend>
-                  {data.customers.map((c) => (
-                    <label
-                      className="flex min-h-11 gap-2 items-center"
-                      key={c.id}
-                    >
-                      <input type="checkbox" name="memberIds" value={c.id} />
-                      {c.name}
-                    </label>
-                  ))}
-                </fieldset>
+                {purchaseCustomerId&&data.plans.find(p=>p.id===purchasePlanId)?.allowShared&&<BeautySharedMembers key={purchasePlanId+purchaseCustomerId} customers={data.customers} ownerId={purchaseCustomerId}/>}
+
               </>
             )}
             {moneyPanel.kind === "move" && (
@@ -722,9 +725,9 @@ export function BeautyDashboard({
               原因／備註
               <input className={field} required name="note" />
             </label>
-            <button className={button} disabled={pending}>
+            <div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={closeMoney}>返回</button><button className={button} disabled={pending}>
               {pending ? "處理中…" : "確認"}
-            </button>
+            </button></div>
             {error && (
               <p role="alert" className="text-red-700">
                 {error}

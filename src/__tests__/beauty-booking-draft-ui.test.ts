@@ -110,3 +110,11 @@ it('discards loaded record details after a fresh authority revision even when su
 it('honors a direct income month and preserves a changed month when switching roles',async()=>{
  const work={...data,work:true,incomeMonth:'2026-09',grants:[]} as BeautyPortalData;m.role.mockImplementation(async(workMode:boolean)=>({success:true,data:{...work,work:workMode}}));const host=mount(h(BeautyPortal,{data:work,initialView:'income'}));expect(field(host,'月份').value).toBe('2026-09');set(field(host,'月份'),'2026-08');await act(async()=>button(host,'會員').click());await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('我的收入');expect(field(host,'月份').value).toBe('2026-08');
 });
+
+it('carries the calendar technician and location into authoritative slot queries',async()=>{
+ const seededCatalog={...catalog,techs:[{id:'tech',name:'技師',gender:'FEMALE',serviceIds:['service']}],locations:[{id:'room-selected',name:'指定位置'}]};
+ const host=mount(h(BeautyBookingForm,{catalog:seededCatalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',initialTechnicianId:'tech',initialLocationId:'room-selected',customer:data.customer}));
+ expect((host.querySelector('[aria-label="第1位位置"]') as HTMLSelectElement).value).toBe('room-selected');
+ await act(async()=>button(host,'查詢共同可用時間').click());
+ expect(m.slots.mock.calls[0][2].people[0]).toMatchObject({specifiedTechnicianId:'tech',specifiedLocationId:'room-selected'});
+});

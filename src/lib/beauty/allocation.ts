@@ -30,6 +30,7 @@ export type Person = {
   serviceId: string;
   preference: "FEMALE" | "MALE" | "ANY";
   specifiedTechnicianId: string | null;
+  specifiedLocationId?: string | null;
 };
 export type Assignment = {
   technicianId: string;
@@ -126,7 +127,7 @@ export function allocateParty(input: {
       .sort()
       .filter(
         (id) =>
-          !occupied.some(
+          (!p.specifiedLocationId || id === p.specifiedLocationId) && !occupied.some(
             (o) => o.locationId === id && overlaps({ start, end }, o),
           ),
       );

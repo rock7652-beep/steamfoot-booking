@@ -145,6 +145,7 @@ export async function findAllocation(
   loaded?: Awaited<ReturnType<typeof loadAvailability>>,
   allowPast = false,
 ) {
+  if (!a.manager && d.people.some(p=>p.specifiedLocationId)) throw new AppError("FORBIDDEN", "位置由店家安排");
   const startsAt = parseTaipeiDateTime(d.date, d.time);
   if (!startsAt) throw new AppError("VALIDATION", "日期時間無效");
   const {

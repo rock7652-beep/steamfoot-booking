@@ -38,6 +38,7 @@ export function usePanelReader<Args extends unknown[], T>(
   const cache = usePanelReadCache(namespace, decode, scopeVersion, ttlMs);
   return useMemo(() => ({
     read: (...args: Args) => cache.load(JSON.stringify(args)),
+    peek: (...args: Args) => cache.peek(JSON.stringify(args)),
     prefetch: (...args: Args) => cache.prefetch(JSON.stringify(args)),
     invalidate: (...args: Args) => cache.invalidate(JSON.stringify(args)),
     clear: cache.clear,

@@ -27,6 +27,7 @@ export type BeautyBookingCatalog = {
     trialPrice: number | null;
     revision?: number;
   }[];
+  locations?: {id:string;name:string}[];
   techs: { id: string; name: string; gender: string; serviceIds: string[] }[];
 };
 const control =
@@ -42,7 +43,7 @@ function BeautyDetailedBookingForm({
   cards = [],
   members = [],
   onBooked,
-  initialDate,initialTime,onStateChange,
+  initialDate,initialTime,initialTechnicianId,initialLocationId,onStateChange,
 }: {
   catalog: BeautyBookingCatalog;
   mode: "manager" | "member" | "public";
@@ -61,7 +62,7 @@ function BeautyDetailedBookingForm({
     allowShared?:boolean;
   }[];
   members?: { id: string; name: string; phone: string }[];
-  initialDate?:string;initialTime?:string;onStateChange?:(state:{dirty:boolean;pending:boolean})=>void;
+  initialDate?:string;initialTime?:string;initialTechnicianId?:string;initialLocationId?:string;onStateChange?:(state:{dirty:boolean;pending:boolean})=>void;
   onBooked?: () => void;
 }) {
   const [trial, setTrial] = useState(mode === "public"),
@@ -83,10 +84,12 @@ function BeautyDetailedBookingForm({
     serviceId:
       (mode === "public"
         ? catalog.services.find((s) => s.trialPrice !== null)
-        : catalog.services[0]
+        : mode === "manager" && initialTechnicianId
+          ? catalog.services.find(s=>catalog.techs.find(t=>t.id===initialTechnicianId)?.serviceIds.includes(s.id))
+          : catalog.services[0]
       )?.id ?? "",
     serviceRevision: 0,
-    preference: "" as PartyInput["people"][number]["preference"],
+    preference: (mode === "manager" ? "ANY" : "") as PartyInput["people"][number]["preference"],
     specifiedTechnicianId: null,
     cardId: null,
     notes: "",
@@ -94,6 +97,8 @@ function BeautyDetailedBookingForm({
   const [people, setPeople] = useState<PartyInput["people"]>([
     {
       ...blank(),
+      specifiedTechnicianId: mode === "manager" ? initialTechnicianId ?? null : null,
+      specifiedLocationId: mode === "manager" ? initialLocationId ?? null : null,
       name: customer?.name ?? "",
       phone: customer?.phone ?? "",
       customerId: customer?.id ?? null,
@@ -427,6 +432,7 @@ function BeautyDetailedBookingForm({
                   </select>
                 </label>
               )}
+              {mode === "manager" && <label>位置<select className={control} aria-label={`第${i+1}位位置`} value={p.specifiedLocationId ?? ""} onChange={e=>change(i,{specifiedLocationId:e.target.value||null})}><option value="">自動安排</option>{catalog.locations?.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>}
               <label className="sm:col-span-2">
                 本次備註（選填）
                 <input

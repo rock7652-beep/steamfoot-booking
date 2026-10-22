@@ -1,5 +1,6 @@
 "use client";
 import {CustomerLabels} from "@/components/customer-labels";
+import {BeautySharedMembers} from "./shared-members";
 import {StoreMemberConnectionPanel} from "@/components/admin/store-member-connection-panel";
 import {useCustomerPanelGuard} from "@/components/admin/use-customer-panel-guard";
 import {SettingsPanelContext} from "@/components/admin/settings-panel-context";
@@ -95,7 +96,7 @@ export function BeautyCustomerPanel({
         <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending} onClick={close}>關閉</button></div>
       </header>
       <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={e=>{if((e.target as HTMLElement).closest('form[data-beauty-draft]'))setDirty(true);}}>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={e=>{if((e.target as HTMLElement).matches('[name]')&&(e.target as HTMLElement).closest('form[data-beauty-draft]'))setDirty(true);}}>
         {!detail && !error && <p role="status">讀取中…</p>}
         {detail && !detail.success && <p role="alert">{detail.error}</p>}
         {error && (
@@ -182,27 +183,7 @@ export function BeautyCustomerPanel({
                 );
               }}
             >
-              <h3>{c.name}｜具名共用成員</h3>
-              <p>購買人保留在共用成員中；同用一份餘額。</p>
-              <fieldset disabled={pending || readOnly || !data.manage.members}>
-                {data.customers.map((p) => (
-                  <label
-                    className="flex min-h-11 items-center gap-2"
-                    key={p.id}
-                  >
-                    <input
-                      name="memberIds"
-                      type="checkbox"
-                      value={p.id}
-                      defaultChecked={c.memberIds.includes(p.id)}
-                    />
-                    {p.name}
-                  </label>
-                ))}
-                {!readOnly && data.manage.members && (
-                  <button className={field}>儲存共用成員</button>
-                )}
-              </fieldset>
+              <BeautySharedMembers title={c.name+" · 共用設定"} customers={data.customers} ownerId={c.customerId} memberIds={c.memberIds} disabled={pending||readOnly||!data.manage.members}>{!readOnly&&data.manage.members&&<button className={field+' mt-2'} disabled={pending}>儲存共用成員</button>}</BeautySharedMembers>
             </form>
           ))}
         {tab==='records'&&detail?.success && (

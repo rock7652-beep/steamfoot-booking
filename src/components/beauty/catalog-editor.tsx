@@ -12,6 +12,7 @@ import type { BeautyDashboardData } from "@/server/beauty/queries";
 export type EditorKind =
   "service" | "pricing" | "plan" | "technician" | "location" | "settings";
 type Draft = {
+  pricingType?: "single" | "trial";
   id?: string;
   revision?: number;
   name?: string;
@@ -85,7 +86,7 @@ export function BeautyCatalogEditor({
   );
   const title = {
     service: "服務項目",
-    pricing: "單次／體驗收費",
+    pricing: draft.pricingType==='single'?"單次收費":draft.pricingType==='trial'?"體驗收費":"單次／體驗收費",
     plan: "收費方式",
     technician: "技師管理",
     location: "位置管理",
@@ -185,8 +186,8 @@ export function BeautyCatalogEditor({
                   category: kind==='pricing'?draft.category:str("category"),
                   duration: kind==='pricing'?draft.duration:num("duration"),
                   buffer: kind==='pricing'?draft.buffer:num("buffer"),
-                  price: kind==='service'?(draft.price??0):num("price"),
-                  trialPrice: kind==='service'?(draft.trialPrice??null):(str("trialPrice")===''?null:num("trialPrice")),
+                  price: kind==='service'||draft.pricingType==='trial'?(draft.price??0):num("price"),
+                  trialPrice: kind==='service'||draft.pricingType==='single'?(draft.trialPrice??null):(str("trialPrice")===''?null:num("trialPrice")),
                   active: kind==='pricing'?draft.active:bool("active"),
                 };
               else if (kind === "plan")
@@ -300,7 +301,7 @@ export function BeautyCatalogEditor({
               </label>
             </>
           )}
-          {kind==='pricing'&&<><p className="sm:col-span-2 font-semibold">{draft.name}</p>              <label>
+          {kind==='pricing'&&<><p className="sm:col-span-2 font-semibold">{draft.name}</p>              {draft.pricingType!=='trial'&&<label>
                 單次價格
                 <input
                   className={field}
@@ -310,8 +311,8 @@ export function BeautyCatalogEditor({
                   name="price"
                   defaultValue={draft.price}
                 />
-              </label>
-              <label>
+              </label>}
+              {draft.pricingType!=='single'&&<label>
                 體驗價格（留空不開放）
                 <input
                   className={field}
@@ -320,7 +321,7 @@ export function BeautyCatalogEditor({
                   name="trialPrice"
                   defaultValue={draft.trialPrice ?? ""}
                 />
-              </label>
+              </label>}
 </>}
           {kind === "plan" && (
             <>
@@ -631,7 +632,7 @@ export function BeautyCatalogEditor({
               <legend>
                 {kind === "plan" ? "適用服務" : "可服務項目與拆帳"}
               </legend>
-              {data.services.map((s) => (
+              {data.services.filter(s=>s.active||serviceIds.includes(s.id)).map((s) => (
                 <div key={s.id} className="space-y-2 rounded-lg border border-earth-200 bg-earth-50/40 p-3">
                   <label className="flex min-h-11 items-center gap-2">
                     <input
@@ -646,7 +647,7 @@ export function BeautyCatalogEditor({
                         setDirty(true);
                       }}
                     />
-                    {s.name}
+                    {s.name}{!s.active?"（已停用）":""}
                   </label>
                   {kind === "technician" && serviceIds.includes(s.id) && (
                     <div className="grid gap-3 sm:grid-cols-3">
