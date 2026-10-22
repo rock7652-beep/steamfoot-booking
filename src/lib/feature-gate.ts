@@ -220,9 +220,7 @@ export const getStoreFeaturePresentations = cache(async (storeId: string): Promi
   })) as Record<FeatureKey, FeaturePresentationState>;
 });
 
-/** Read-only server components may share the same fresh presentation snapshot.
- * Never use this helper instead of mutation feature/transaction checks.
+/** Deduplicate identical read-only feature checks within one server request.
+ * Preserve the existing gate/cache policy; mutations keep their original checks.
  */
-export async function isStoreFeatureEnabledForRead(storeId: string, feature: FeatureKey): Promise<boolean> {
-  return (await getStoreFeaturePresentations(storeId))[feature] === "ENABLED";
-}
+export const isStoreFeatureEnabledForRead = cache(async (storeId: string, feature: FeatureKey): Promise<boolean> => hasStoreFeature(storeId, feature));

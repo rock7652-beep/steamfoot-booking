@@ -48,3 +48,11 @@ it("defaults older stores to enabled revision zero",async()=>{
   m.rule.mockResolvedValue(null);
   expect(await props()).toMatchObject({selfBookingEnabled:true,selfBookingRevision:0});
 });
+
+it("starts feature and permitted usage reads while shop configuration is pending", async () => {
+ let finish!: (value: unknown) => void;
+ m.config.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+ const pending = CourseSharedHub({ view: "settings" });
+ try { await vi.waitFor(() => { expect(m.feature).toHaveBeenCalledWith("a", FEATURES.LINE_REMINDER); expect(m.usage).toHaveBeenCalled(); }, { timeout: 1000, interval: 5 }); }
+ finally { finish(null); await pending; }
+});

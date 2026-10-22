@@ -2,7 +2,7 @@
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ feature: vi.fn(), workOrder: vi.fn(), quota: vi.fn() }));
+const m = vi.hoisted(() => ({ feature: vi.fn(), workOrder: vi.fn(), quota: vi.fn(), recipients: vi.fn() }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "s" }) }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "store-a" }));
@@ -16,7 +16,7 @@ vi.mock("@/components/feature-gate", () => ({ FeatureGate: ({ children }: { chil
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: ReactNode }) => createElement("span", null, children) }));
 vi.mock("@/server/actions/work-order-notification", () => ({ getWorkOrderNotificationEnabled: m.workOrder }));
 vi.mock("@/server/actions/line-quota-notifications", () => ({ getLineQuotaNotificationSetting: m.quota }));
-vi.mock("@/server/actions/store-line-notification-recipients", () => ({ listStoreLineNotificationRecipients: async () => [] }));
+vi.mock("@/server/actions/store-line-notification-recipients", () => ({ listStoreLineNotificationRecipients: m.recipients }));
 vi.mock("@/server/actions/line-official-accounts", () => ({ getCurrentLineOfficialAccountStatus: async () => null }));
 vi.mock("@/server/queries/notification-center", () => ({ listNotificationCenterLogs: async () => ({}) }));
 vi.mock("@/server/queries/reminder", () => ({ getStoreReminderState: async () => ({}), getTodayCronRunStatus: async () => null, getSessionBalanceNotificationSetting: async () => ({}), getPackageLineCardReminderSetting: async () => "", getTrialLineCardReminderSetting: async () => ({ body: "", mapUrl: "" }), getPlanExpiryReminderEnabled: async () => false }));
@@ -35,7 +35,7 @@ vi.mock("@/app/(dashboard)/dashboard/reminders/plan-expiry-reminder-setting-card
 vi.mock("@/app/(dashboard)/dashboard/reminders/notification-log-list", () => ({ NotificationLogList: () => createElement("section", null, "紀錄") }));
 import Page from "@/app/(dashboard)/dashboard/reminders/page";
 let host: HTMLDivElement, root: Root;
-beforeEach(() => { vi.resetAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); m.feature.mockResolvedValue(true); m.quota.mockResolvedValue({ recipients: ["owner@example.invalid"] }); m.workOrder.mockResolvedValue(false); host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
+beforeEach(() => { vi.resetAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); m.recipients.mockResolvedValue([]); m.feature.mockResolvedValue(true); m.quota.mockResolvedValue({ recipients: ["owner@example.invalid"] }); m.workOrder.mockResolvedValue(false); host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 it("keeps exactly one email card on manager and none on customer/logs across repeated page reconciliation", async () => {
  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -53,4 +53,12 @@ it.each([false, true])("shows and reads work-order reminders only with an active
  await act(async () => root.render(page));
  expect(host.querySelectorAll('[data-category="work-orders"]')).toHaveLength(enabled ? 1 : 0);
  expect(m.workOrder).toHaveBeenCalledTimes(enabled ? 1 : 0);
+});
+
+it("starts recipient reads without waiting for quota email settings", async () => {
+ let finish!: (value: unknown) => void;
+ m.quota.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+ const pending = Page({ searchParams: Promise.resolve({ tab: "manager" }) });
+ try { await vi.waitFor(() => expect(m.recipients).toHaveBeenCalled(), { timeout: 1000, interval: 5 }); }
+ finally { finish({ recipients: [] }); await pending; }
 });

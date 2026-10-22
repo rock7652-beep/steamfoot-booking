@@ -78,7 +78,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           params.tab === "templates"
         ? "customer"
         : "manager";
-  const [workOrderEnabled, quotaEmail] = await Promise.all([
+  const pendingSettings = Promise.all([
     activeTab === "customer" && workOrdersEnabled ? getWorkOrderNotificationEnabled() : Promise.resolve(false),
     activeTab === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
   ]);
@@ -91,9 +91,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         ? "plan-reminders"
         : "booking-reminders";
   const previewBlocked = isPreviewExternalIntegrationBlocked();
-  const health = previewBlocked
+  const healthRequest = previewBlocked
     ? null
-    : await timing.measure("line-health", () => getCurrentLineOfficialAccountStatus().catch(() => null));
+    : timing.measure("line-health", () => getCurrentLineOfficialAccountStatus().catch(() => null));
+  const contentRequest = (async () => {
+  const [workOrderEnabled] = activeTab === "customer" ? await pendingSettings : [false];
   let content;
   if (activeTab === "manager") {
     const recipients = await timing.measure("recipients", listStoreLineNotificationRecipients);
@@ -152,6 +154,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       ]} />
     );
   }
+  return content;
+  })();
+  const [health, settings, content] = await Promise.all([healthRequest, pendingSettings, contentRequest]);
+  const quotaEmail = settings[1];
   const tabIntro =
     activeTab === "manager"
       ? {
