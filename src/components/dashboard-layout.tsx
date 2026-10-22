@@ -1,3 +1,4 @@
+import { getStoreFeaturePresentations } from "@/server/queries/store-feature-presentations";
 import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
@@ -38,7 +39,7 @@ import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } from "@/lib/feature-gate";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES, type StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   resolveStoreViewContext,
@@ -105,7 +106,11 @@ async function readDashboardLayout({
     </main>;
   }
 
-  const auditScope = await settingsStep("read_audit", () => resolveOperationAuditScope(user!));
+  const [auditScope, permissions, storeOptions] = await Promise.all([
+    settingsStep("read_audit", () => resolveOperationAuditScope(user!)),
+    settingsStep("read_permissions", () => getUserPermissions(user!.role, user!.staffId)),
+    settingsStep("read_scope", () => getStoreOptions(user!)),
+  ]);
   const canViewAudit = Boolean(auditScope);
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
@@ -113,11 +118,6 @@ async function readDashboardLayout({
   const isOwnerLevel = isStaffRole(user.role);
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, storeOptions] =
-    await Promise.all([
-      settingsStep("read_permissions", () => getUserPermissions(user!.role, user!.staffId)),
-      settingsStep("read_scope", () => getStoreOptions(user!)),
-    ]);
   if (isAdmin && activeStoreId && !storeOptions.some(store => store.id === activeStoreId)) {
     const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
     if (archived?.archivedAt) storeOptions.push({ id: archived.id, slug: archived.slug, name: archived.name, isDefault: archived.isDefault, isArchived: true });
@@ -166,7 +166,7 @@ async function readDashboardLayout({
       ? await settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
       : ("EXPERIENCE" as const);
   const featureStates = effectiveStoreId
-    ? Object.fromEntries(await settingsStep("read_features", () => Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)]))))
+    ? await settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
     // HQ opens a store selector; page and iframe enforce the selected store's grant.
     : {
       [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
