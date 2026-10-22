@@ -1,0 +1,121 @@
+{
+  "results": [
+    {
+      "case": "會員首頁卡片",
+      "passed": true
+    },
+    {
+      "case": "方案帳本按需讀取",
+      "passed": true
+    },
+    {
+      "case": "身分切換耗時",
+      "passed": true
+    },
+    {
+      "case": "技師今日精簡卡片",
+      "passed": true
+    },
+    {
+      "case": "技師更多操作與紀錄",
+      "passed": true
+    },
+    {
+      "case": "切換保留紀錄月份與搜尋",
+      "passed": true
+    },
+    {
+      "case": "收入按需讀取",
+      "passed": true
+    },
+    {
+      "case": "唯讀接點權限與跨店隔離",
+      "passed": true
+    },
+    {
+      "case": "店長班表回歸",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "唯讀接點權限與跨店隔離",
+  "timings": [
+    {
+      "role": "我的工作",
+      "ms": 1823
+    },
+    {
+      "role": "會員",
+      "ms": 1829
+    },
+    {
+      "role": "我的工作",
+      "ms": 1315
+    },
+    {
+      "role": "會員",
+      "ms": 1322
+    },
+    {
+      "role": "我的工作",
+      "ms": 1330
+    },
+    {
+      "role": "會員",
+      "ms": 1333
+    },
+    {
+      "role": "我的工作",
+      "ms": 1313
+    },
+    {
+      "role": "會員",
+      "ms": 1335
+    },
+    {
+      "role": "我的工作",
+      "ms": 1313
+    }
+  ],
+  "apiTimings": [
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=834.6"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=633.3"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=477.4"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=601.7"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=481.6"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=593.2"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=476.4"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=594.6"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=490.0"
+    }
+  ],
+  "passed": true,
+  "syntheticFixture": false,
+  "origin": "https://steamfoot-booking-8lyuipzgq-rock7652-2111s-projects.vercel.app"
+}

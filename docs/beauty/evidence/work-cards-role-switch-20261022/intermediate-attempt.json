@@ -1,0 +1,47 @@
+{
+  "results": [
+    {
+      "case": "會員首頁卡片",
+      "passed": true
+    },
+    {
+      "case": "方案帳本按需讀取",
+      "passed": true
+    },
+    {
+      "case": "身分切換耗時",
+      "passed": true
+    },
+    {
+      "case": "技師今日精簡卡片",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "技師更多操作與紀錄",
+  "timings": [
+    {
+      "role": "我的工作",
+      "ms": 3135
+    },
+    {
+      "role": "會員",
+      "ms": 2622
+    },
+    {
+      "role": "我的工作",
+      "ms": 2615
+    },
+    {
+      "role": "會員",
+      "ms": 2613
+    },
+    {
+      "role": "我的工作",
+      "ms": 2614
+    }
+  ],
+  "passed": false,
+  "syntheticFixture": false,
+  "origin": "https://steamfoot-booking-dvp54zl61-rock7652-2111s-projects.vercel.app"
+}
