@@ -8,7 +8,7 @@ vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.storeId }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.industry }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
-vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
+vi.mock("@/server/queries/store-feature-presentations", () => ({ isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: async () => ({ metrics: [] }) }));
 vi.mock("@/server/queries/course-setup", () => ({ getCourseSetup: async () => ({}) }));
 vi.mock("@/components/admin/course-setup-guide", () => ({ CourseSetupGuide: () => null }));

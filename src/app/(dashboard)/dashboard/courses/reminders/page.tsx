@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { courseManager } from "@/server/services/course-access";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/server/queries/store-feature-presentations";
 import { FEATURES } from "@/lib/feature-flags";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCourseReminderSetting, getCourseExpiryReminderSetting } from "@/server/actions/course-reminders";

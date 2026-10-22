@@ -7,7 +7,7 @@ vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", 
 vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "store-a" }));
 vi.mock("@/lib/store-plan", () => ({ getCurrentStorePlan: async () => "BASIC" }));
-vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
+vi.mock("@/server/queries/store-feature-presentations", () => ({ isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/runtime-env", () => ({ isPreviewExternalIntegrationBlocked: () => true }));
 vi.mock("@/lib/db", () => ({ prisma: { trialCareSetting: { findUnique: async () => null }, trialCareLog: { findMany: async () => [] }, store: { findUniqueOrThrow: async () => ({ name: "店家", shopConfig: null }) } } }));
 vi.mock("next/navigation", () => ({ redirect: () => { throw Error("REDIRECT"); } }));
