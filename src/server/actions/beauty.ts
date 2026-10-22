@@ -79,6 +79,7 @@ export async function saveBeautyCatalog(
       await requirePermission("teacher.compensation.manage");
     }
     return beautyTransaction(a, async (tx) => {
+      let record:unknown;
       if (kind === "service") {
         const { id, revision, ...d } = serviceInput.parse(input);
         if (id) {
@@ -93,12 +94,12 @@ export async function saveBeautyCatalog(
             }))
           )
             throw new AppError("CONFLICT", "請先處理未來預約再下架");
-          await tx.beautyService.update({
+          record = await tx.beautyService.update({
             where: { id },
             data: { ...d, revision: { increment: 1 } },
           });
         } else
-          await tx.beautyService.create({ data: { ...d, storeId: a.storeId } });
+          record = await tx.beautyService.create({ data: { ...d, storeId: a.storeId } });
       } else if (kind === "plan") {
         const { id, revision, ...d } = planInput.parse(input);
         if (
@@ -114,12 +115,12 @@ export async function saveBeautyCatalog(
             }))
           )
             throw new AppError("CONFLICT", "方案已更新");
-          await tx.beautyPlan.update({
+          record = await tx.beautyPlan.update({
             where: { id },
             data: { ...d, revision: { increment: 1 } },
           });
         } else
-          await tx.beautyPlan.create({ data: { ...d, storeId: a.storeId } });
+          record = await tx.beautyPlan.create({ data: { ...d, storeId: a.storeId } });
       } else {
         const { id, revision, ...d } = technicianInput.parse(input);
         if (
@@ -184,7 +185,7 @@ export async function saveBeautyCatalog(
           });
       }
       await audit(tx, a, "CATALOG", JSON.stringify({ kind, input }));
-      return { saved: true };
+      return { saved: true, record };
     });
   });
 }
@@ -218,6 +219,7 @@ export async function saveBeautyLocation(input: unknown) {
         })
         .parse(input);
     return beautyTransaction(a, async (tx) => {
+      const savedId=d.id??crypto.randomUUID();
       if (d.id) {
         const r = await tx.$queryRaw<
           Array<{ id: string }>
@@ -237,9 +239,10 @@ export async function saveBeautyLocation(input: unknown) {
           throw new AppError("CONFLICT", "請先處理此位置的預約");
         await tx.$executeRaw`UPDATE "CourseRoom" SET name=${d.name},"isActive"=${d.active},category=COALESCE(${d.category??null},category),details=COALESCE(${d.details??null},details),equipment=COALESCE(${d.equipment??null},equipment),location=COALESCE(${d.location??null},location) WHERE id=${d.id} AND "storeId"=${a.storeId}`;
       } else
-        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${crypto.randomUUID()},${a.storeId},${d.name},1,${d.details??''},${d.category??''},${d.active},NOW(),${d.equipment??''},${d.location??''},false,0,0)`;
+        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${savedId},${a.storeId},${d.name},1,${d.details??''},${d.category??''},${d.active},NOW(),${d.equipment??''},${d.location??''},false,0,0)`;
       await audit(tx, a, "LOCATION", JSON.stringify(d));
-      return { saved: true };
+      const records=await tx.$queryRaw<Array<{id:string;name:string;isActive:boolean;category:string;details:string;equipment:string;location:string}>>`SELECT id,name,"isActive",category,details,equipment,location FROM "CourseRoom" WHERE id=${savedId} AND "storeId"=${a.storeId}`;
+      return { saved: true, record:records[0] };
     });
   });
 }

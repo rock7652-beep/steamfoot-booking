@@ -366,6 +366,7 @@ export async function beautyDashboard(
       ...p,
       createdAt: p.createdAt.toISOString(),
     })),
+    storeId:a.storeId,
     calendarDays,
     now: Date.now(),
     calendar,
