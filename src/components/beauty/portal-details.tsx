@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import {usePanelReader} from '@/components/operations/panel-read-cache';
 import {readBeautyCardHistory,readBeautyOwnIncome,readBeautyWorkRecords} from '@/server/actions/beauty-portal';
-import {formatTWDateTime,toLocalMonthStr} from '@/lib/date-utils';
+import {formatTWDateTime} from '@/lib/date-utils';
 import {PersonalIncomePanel} from '@/components/personal-income-panel';
 import {BeautyWorkCard} from './work-card';
 import type {BeautyPortalData} from '@/server/beauty/queries';
@@ -18,9 +18,8 @@ export function BeautyCardHistory({cardId,scope}:{cardId:string;scope:string}){
  if(!r.value?.success)return <ReadState error={r.error??(r.value&&!r.value.success?r.value.error:undefined)} retry={r.retry}/>;
  return r.value.data.length?<ul>{r.value.data.map(l=><li key={l.id}>{formatTWDateTime(new Date(l.createdAt))} · {l.kind==='GRANT'?'方案啟用':l.kind==='RESERVE'?'預約保留':'服務扣次／更正'} · {l.delta>0?'+':''}{l.delta} 次</li>)}</ul>:<p>尚無使用紀錄。</p>;
 }
-export function BeautyOwnIncome({scope,allowed}:{scope:string;allowed:boolean}){
- const [month,setMonth]=useState(toLocalMonthStr);
- return <><label>月份<input aria-label="收入月份" type="month" value={month} onChange={e=>{if(e.target.value)setMonth(e.target.value);}}/></label>{allowed?<IncomeDetails key={month} month={month} scope={scope}/>:<p>本人收入尚未開放，請洽店長。</p>}</>;
+export function BeautyOwnIncome({scope,allowed,month,onMonth}:{scope:string;allowed:boolean;month:string;onMonth:(month:string)=>void}){
+ return <><label>月份<input aria-label="收入月份" type="month" value={month} onChange={e=>{if(e.target.value)onMonth(e.target.value);}}/></label>{allowed?<IncomeDetails key={month} month={month} scope={scope}/>:<p>本人收入尚未開放，請洽店長。</p>}</>;
 }
 function IncomeDetails({month,scope}:{month:string;scope:string}){
  const r=useDetail('beauty-own-income',readBeautyOwnIncome,scope,[month]);
