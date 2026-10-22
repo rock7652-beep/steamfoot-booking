@@ -4,7 +4,7 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransi
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingStatus } from "@/components/loading-status";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, useSettingsPanelDismissal, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, useSettingsPanelReaderHost, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { resolveDashboardHref } from "@/components/dashboard-link";
 import { COURSE_SETTINGS_PANELS, courseSettingsPanelHref, type CourseSettingsPanel } from "@/lib/course-settings-panels";
 
@@ -35,11 +35,14 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     const params = new URLSearchParams(searchString); params.delete("panel"); params.delete("panelQuery");
     return `${pathname}?${params}`;
   }, [pathname, searchString]);
+  const { reader, registerReader } = useSettingsPanelReaderHost();
   const go = useCallback((href: string) => {
     setDestination(null);
     if (href === closeHref) { dismiss(href); return; }
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router, closeHref, dismiss]);
+    const reading = reader.current?.(href);
+    if (reading) startNavigation(async () => { await reading; });
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router, closeHref, dismiss, reader]);
   const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
@@ -68,7 +71,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
   }, [dirty, pending, request, closeHref, destination, dismissed]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate, registerReader }), [report, navigate, registerReader]);
   return <div ref={root} data-course-settings-panel>
     <RightSheet presentation="centered" open={!dismissed} compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">

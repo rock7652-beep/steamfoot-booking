@@ -55,7 +55,7 @@ describe("settings store-scope source contracts", () => {
       "src/app/(dashboard)/dashboard/settings/duty/page.tsx",
     );
     const remindersPage = read(
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
+      "src/app/(dashboard)/dashboard/reminders/steam-reminder-view.tsx",
     );
 
     expect(paymentPage).toContain("key={storeId}");

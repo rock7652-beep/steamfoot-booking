@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.module }));
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ feature: vi.fn(), workOrder: vi.fn(), quota: vi.fn(), recipients: vi.fn() }));
+const m = vi.hoisted(() => ({ auth: vi.fn(), scope: vi.fn(), module: vi.fn(), feature: vi.fn(), workOrder: vi.fn(), quota: vi.fn(), recipients: vi.fn() }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "s" }) }));
-vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
-vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "store-a" }));
+vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true, requirePermission: m.auth }));
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.scope }));
 vi.mock("@/lib/store-plan", () => ({ getCurrentStorePlan: async () => "BASIC" }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/runtime-env", () => ({ isPreviewExternalIntegrationBlocked: () => true }));
@@ -14,6 +15,11 @@ vi.mock("next/navigation", () => ({ redirect: () => { throw Error("REDIRECT"); }
 vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: ReactNode }) => createElement("main", null, children), PageHeader: () => null }));
 vi.mock("@/components/feature-gate", () => ({ FeatureGate: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: ReactNode }) => createElement("span", null, children) }));
+vi.mock("@/app/(dashboard)/dashboard/courses/reminders/course-reminder-view", () => ({ CourseReminderView: () => null }));
+vi.mock("@/server/services/course-access", () => ({courseManager: vi.fn()}));
+vi.mock("@/server/services/course-coach-notifications", () => ({coachBindingStatus: vi.fn()}));
+vi.mock("@/server/actions/course-plan-reminders", () => ({getCoursePlanReminderSettings: vi.fn()}));
+vi.mock("@/server/actions/course-reminders", () => ({getCourseReminderSetting: vi.fn(),getCourseExpiryReminderSetting: vi.fn()}));
 vi.mock("@/server/actions/work-order-notification", () => ({ getWorkOrderNotificationEnabled: m.workOrder }));
 vi.mock("@/server/actions/line-quota-notifications", () => ({ getLineQuotaNotificationSetting: m.quota }));
 vi.mock("@/server/actions/store-line-notification-recipients", () => ({ listStoreLineNotificationRecipients: m.recipients }));
@@ -35,7 +41,7 @@ vi.mock("@/app/(dashboard)/dashboard/reminders/plan-expiry-reminder-setting-card
 vi.mock("@/app/(dashboard)/dashboard/reminders/notification-log-list", () => ({ NotificationLogList: () => createElement("section", null, "紀錄") }));
 import Page from "@/app/(dashboard)/dashboard/reminders/page";
 let host: HTMLDivElement, root: Root;
-beforeEach(() => { vi.resetAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); m.recipients.mockResolvedValue([]); m.feature.mockResolvedValue(true); m.quota.mockResolvedValue({ recipients: ["owner@example.invalid"] }); m.workOrder.mockResolvedValue(false); host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
+beforeEach(() => { vi.resetAllMocks(); m.auth.mockResolvedValue({id: "owner-a", role: "OWNER", staffId: "s"}); m.scope.mockResolvedValue("store-a"); m.module.mockResolvedValue("steamfoot"); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); m.recipients.mockResolvedValue([]); m.feature.mockResolvedValue(true); m.quota.mockResolvedValue({ recipients: ["owner@example.invalid"] }); m.workOrder.mockResolvedValue(false); host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 it("keeps exactly one email card on manager and none on customer/logs across repeated page reconciliation", async () => {
  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -61,4 +67,15 @@ it("starts recipient reads without waiting for quota email settings", async () =
  const pending = Page({ searchParams: Promise.resolve({ tab: "manager" }) });
  try { await vi.waitFor(() => expect(m.recipients).toHaveBeenCalled(), { timeout: 1000, interval: 5 }); }
  finally { finish({ recipients: [] }); await pending; }
+});
+
+import { readSteamReminderPanel } from "@/server/queries/reminder-panel";
+it.each(["account", "store", "module", "feature", "permission"])("rejects changed %s before reading any tab data", async changed => {
+ if (changed === "account") m.auth.mockResolvedValue({ id: "another" });
+ if (changed === "store") m.scope.mockResolvedValue("store-b");
+ if (changed === "module") m.module.mockResolvedValue("course");
+ if (changed === "feature") m.feature.mockResolvedValue(false);
+ if (changed === "permission") m.auth.mockRejectedValue(new Error("DENIED"));
+ await expect(readSteamReminderPanel({tab: "manager"}, "store-a", "owner-a")).rejects.toThrow();
+ expect(m.recipients).not.toHaveBeenCalled(); expect(m.quota).not.toHaveBeenCalled(); expect(m.workOrder).not.toHaveBeenCalled();
 });

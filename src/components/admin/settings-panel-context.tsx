@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useId, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 
 /** Closing removes local panel URL state without refetching the background page. */
 export function useSettingsPanelDismissal(searchString: string) {
@@ -16,9 +16,20 @@ export function useSettingsPanelDismissal(searchString: string) {
 }
 
 export type SettingsPanelState = { dirty: boolean; pending: boolean };
+export type SettingsPanelReader = (href: string) => Promise<void> | null;
+/** Only the active panel may register a narrow, authenticated data reader. */
+export function useSettingsPanelReaderHost() {
+  const reader = useRef<SettingsPanelReader | null>(null);
+  const registerReader = useCallback((next: SettingsPanelReader) => {
+    reader.current = next;
+    return () => { if (reader.current === next) reader.current = null; };
+  }, []);
+  return { reader, registerReader };
+}
 export const SettingsPanelContext = createContext<{
   report: (id: string, state: SettingsPanelState | null) => void;
   navigate: (href: string) => void;
+  registerReader?: (reader: SettingsPanelReader) => () => void;
 } | null>(null);
 
 /** Optional: standalone pages retain their original behavior. */
