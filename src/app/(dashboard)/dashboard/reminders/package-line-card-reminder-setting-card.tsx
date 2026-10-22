@@ -46,7 +46,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
     void mutation.run("toggle", () => (course ? setCourseReminderEnabled(next) : setBookingReminderTypeEnabled("PACKAGE", next)), () => {
       setEnabled(next);
       toast.success(`${next ? "已開啟" : "已關閉"}${title}`);
-    });
+    }, () => { setEnabled(next); return () => setEnabled(!next); });
   }
 
   return (

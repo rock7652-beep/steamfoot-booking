@@ -1,10 +1,12 @@
 "use client";
+import { useKeyedReminderMutation } from "./reminder-setting-feedback";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
+import { setSessionBalanceNotificationToggle } from "@/server/actions/session-balance-notification-toggle";
 import { LineCardPreview } from "./line-card-preview";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { toast } from "sonner";
 import {
-  saveSessionBalanceRuleSetting,
   saveSessionBalanceTemplateSetting,
 } from "@/server/actions/reminder";
 import {
@@ -20,9 +22,9 @@ const sample = {
   bookingUrl: "",
 };
 
-function Switch({ checked, onClick, disabled }: { checked: boolean; onClick: () => void; disabled: boolean }) {
+function Switch({ checked, onClick, disabled, label }: { checked: boolean; onClick: () => void; disabled: boolean; label: string }) {
   return (
-    <button type="button" onClick={(event) => { event.preventDefault(); onClick(); }} disabled={disabled} aria-pressed={checked} className={`relative h-7 w-12 rounded-full ${checked ? "bg-primary-600" : "bg-earth-300"}`}>
+    <button type="button" onClick={(event) => { event.preventDefault(); onClick(); }} disabled={disabled} aria-label={label} aria-busy={disabled} role="switch" aria-checked={checked} className={`relative h-7 w-12 rounded-full ${checked ? "bg-primary-600" : "bg-earth-300"}`}>
       <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : ""}`} />
     </button>
   );
@@ -39,28 +41,22 @@ export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetti
     lastSessionBookedTemplate: extractSessionBalanceCustomCopy(initialSetting.lastSessionBookedTemplate),
     planUsedUpTemplate: extractSessionBalanceCustomCopy(initialSetting.planUsedUpTemplate),
   }));
+  const [display, patch] = useOptimistic(setting, (current, change: { key: "lastSessionEnabled" | "planUsedUpEnabled"; enabled: boolean }) => ({ ...current, [change.key]: change.enabled }));
   const [scenario, setScenario] = useState<"unbooked" | "booked">("unbooked");
   const [pending, startTransition] = useTransition();
+  const mutation = useKeyedReminderMutation();
+  useSettingsPanelGuard(false, pending || mutation.pending);
 
   function update<K extends keyof SessionBalanceNotificationSettingValue>(key: K, value: SessionBalanceNotificationSettingValue[K]) {
     setSetting((current) => ({ ...current, [key]: value }));
   }
 
   function toggle(type: "lastSessionEnabled" | "planUsedUpEnabled") {
-    const next = { ...setting, [type]: !setting[type] };
-    setSetting(next);
-    startTransition(async () => {
-      const result = await saveSessionBalanceRuleSetting({
-        isEnabled: next.lastSessionEnabled || next.planUsedUpEnabled,
-        lastSessionEnabled: next.lastSessionEnabled,
-        planUsedUpEnabled: next.planUsedUpEnabled,
-      });
-      if (!result.success) {
-        setSetting(setting);
-        toast.error(result.error);
-        return;
-      }
-      toast.success(next[type] ? "提醒已開啟" : "提醒已關閉");
+    const previous = display[type];
+    const next = !previous;
+    mutation.run(type, () => setSessionBalanceNotificationToggle({ key: type, enabled: next }), () => { setSetting(current => ({ ...current, [type]: next })); toast.success(next ? "提醒已開啟" : "提醒已關閉"); }, () => {
+      patch({ key: type, enabled: next });
+      return () => patch({ key: type, enabled: previous });
     });
   }
 
@@ -81,10 +77,11 @@ export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetti
   const lastBody = scenario === "unbooked" ? setting.lastSessionUnbookedTemplate : setting.lastSessionBookedTemplate;
   return (
     <>
+      {Object.entries(mutation.errors).filter(([,error]) => error).map(([key,error]) => <p key={key} role="alert" className="text-sm text-red-700">{key === "lastSessionEnabled" ? "剩餘最後 1 堂" : "方案已用完"}：{error}</p>)}
       <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
           <div><h2 className="text-base font-semibold text-earth-900">剩餘最後 1 堂</h2><p className="mt-1 text-sm text-earth-500">完成服務後剩 1 堂時提醒一次；只影響這項通知。</p></div>
-          <div className="flex items-center gap-3"><Switch checked={setting.lastSessionEnabled} onClick={() => toggle("lastSessionEnabled")} disabled={pending} /><span className="text-earth-400 transition group-open:rotate-180">⌄</span></div>
+          <div className="flex items-center gap-3">{mutation.isPending("lastSessionEnabled") && <span role="status" className="text-sm text-earth-500">儲存中…</span>}<Switch label="剩餘最後 1 堂提醒" checked={display.lastSessionEnabled} onClick={() => toggle("lastSessionEnabled")} disabled={mutation.isPending("lastSessionEnabled")} /><span className="text-earth-400 transition group-open:rotate-180">⌄</span></div>
         </summary>
         <div className="border-t border-earth-100 p-4">
           <div className="mb-4 flex rounded-lg bg-earth-100 p-1 text-sm">
@@ -102,7 +99,7 @@ export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetti
       <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
           <div><h2 className="text-base font-semibold text-earth-900">方案用完提醒</h2><p className="mt-1 text-sm text-earth-500">最後一堂完成後提醒；已有接續方案時不發送。</p></div>
-          <div className="flex items-center gap-3"><Switch checked={setting.planUsedUpEnabled} onClick={() => toggle("planUsedUpEnabled")} disabled={pending} /><span className="text-earth-400 transition group-open:rotate-180">⌄</span></div>
+          <div className="flex items-center gap-3">{mutation.isPending("planUsedUpEnabled") && <span role="status" className="text-sm text-earth-500">儲存中…</span>}<Switch label="方案用完提醒" checked={display.planUsedUpEnabled} onClick={() => toggle("planUsedUpEnabled")} disabled={mutation.isPending("planUsedUpEnabled")} /><span className="text-earth-400 transition group-open:rotate-180">⌄</span></div>
         </summary>
         <div className="border-t border-earth-100 p-4">
           <div className="space-y-3">

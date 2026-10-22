@@ -1,9 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 type Operation = "toggle" | "form";
+
+/** Independent preferences can save together; only duplicate writes to one key are blocked. */
+export function useKeyedReminderMutation() {
+  const locks = useRef(new Set<string>());
+  const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const mounted = useRef(false);
+  const [, start] = useTransition();
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  function run(key: string, action: () => Promise<unknown>, onSuccess: () => void, optimistic?: () => () => void) {
+    if (locks.current.has(key)) return;
+    locks.current.add(key);
+    setPendingKeys([...locks.current]);
+    setErrors(current => ({ ...current, [key]: "" }));
+    start(async () => {
+      const rollback = optimistic?.();
+      const fail = (message: string) => {
+        start(() => rollback?.());
+        setErrors(current => ({ ...current, [key]: message }));
+        toast.error(message);
+      };
+      try {
+        const result = await action();
+        if (!mounted.current) return;
+        if (result && typeof result === "object" && "success" in result && result.success === true) onSuccess();
+        else fail(result && typeof result === "object" && "error" in result && typeof result.error === "string" ? result.error : "尚未確認儲存結果，請稍後再試。");
+      } catch {
+        if (mounted.current) fail("尚未確認儲存結果，請稍後再試。");
+      } finally {
+        locks.current.delete(key);
+        if (mounted.current) setPendingKeys([...locks.current]);
+      }
+    });
+  }
+  return { run, pending: pendingKeys.length > 0, pendingKeys, isPending: (key: string) => pendingKeys.includes(key), errors };
+}
 
 /** Local to each card: serialize writes without conflating their feedback. */
 export function useReminderSettingMutation() {
@@ -17,17 +54,19 @@ export function useReminderSettingMutation() {
     return () => { mounted.current = false; };
   }, []);
 
-  async function run(kind: Operation, action: () => Promise<unknown>, onSuccess: () => void) {
+  async function run(kind: Operation, action: () => Promise<unknown>, onSuccess: () => void, optimistic?: () => () => void) {
     // React has not necessarily rendered the disabled control on a second click.
     if (busy.current) return;
     busy.current = true;
     setOperation(kind);
     setErrors(current => ({ ...current, [kind]: "" }));
+    const rollback = optimistic?.();
 
     const unknownResult = kind === "toggle"
       ? "尚未確認開關儲存結果，請稍後再試。"
       : "尚未確認儲存結果，輸入內容已保留，請稍後再試。";
     const reportError = (message: string) => {
+      rollback?.();
       setErrors(current => ({ ...current, [kind]: message }));
       toast.error(message);
     };
