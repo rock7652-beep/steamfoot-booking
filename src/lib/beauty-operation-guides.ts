@@ -2,6 +2,8 @@ import type { OperationGuide } from "./operation-guide-types";
 const source = [
   "src/components/beauty/dashboard.tsx",
   "src/components/beauty/catalog-editor.tsx",
+  "src/components/beauty/charges-list.tsx",
+  "src/components/beauty/shared-members.tsx",
   "src/server/actions/beauty.ts",
   "src/server/beauty/booking.ts",
 ];
@@ -18,8 +20,8 @@ export const beautyOperationGuides: OperationGuide[] = [
     steps: [
       "新增位置；沿用空間資料，每位同時服務者占用一個位置。",
       "新增服務的分鐘與選填整理時間；單次價、體驗價統一到收費方式設定，體驗價留空不開放體驗。",
-      "新增技師並必填性別，設定可服務項目、每週時間、休假與拆帳；有需要才連結會員帳號和我的工作權限。",
-      "自行建立次數方案，設定適用服務、期限與是否共用；最後核對營業時間及取消規則。",
+      "新增技師並必填性別，設定可服務項目與拆帳；服務時間預設沿用店家，可自訂每週時間與指定日期休假。有需要才連結會員帳號和我的工作權限。",
+      "從收費方式的新增入口選單次、體驗或次數方案；方案次數、金額、適用服務與期限由店家設定。最後核對營業時間及取消規則。",
     ],
     important: "技師不因此取得後台登入權；後台角色及權限在人員管理設定。",
     success: "新增預約能查到同時滿足技師、位置與完整時長的時間。",
@@ -38,9 +40,9 @@ export const beautyOperationGuides: OperationGuide[] = [
     id: "BEAUTY02",
     category: "booking",
     title: "同行多人可以預約不同服務嗎？",
-    summary: "同筆預約逐位選擇服務與性別，整組同時確認。",
+    summary: "同筆預約逐位選擇服務與技師偏好，整組同時確認。",
     answer:
-      "新增預約先選人數，再逐人填資料、服務與必選的技師性別，查詢共同可用時間。",
+      "新增預約先選人數，再逐人填資料、服務與技師偏好，查詢共同可用時間。從班表空白格新增時會帶入日期、時間及所在技師或位置。",
     keywords: "美業 同行 人數 多人 不同服務 性別 體驗",
     path: "日常工作 → 班表 → 新增預約",
     steps: [
@@ -50,7 +52,7 @@ export const beautyOperationGuides: OperationGuide[] = [
     ],
     important:
       "每位服務者有自己的服務狀態、收款與方案紀錄；取消其中一人不會取消其他人。",
-    success: "同組列出各人服務、實際安排技師與不同結束時間。",
+    success: "同組列出各人服務、實際安排技師與不同結束時間；點班表預約或預約清單，都在置中視窗查看，從明細可返回清單。",
     details: [
       "每人每項服務限體驗一次；有效預約、完成或未到占資格，取消後釋放。",
       "無法憑填入的手機取得會員或課卡權限；既有顧客身分應由店家核對後連結。",
@@ -68,12 +70,12 @@ export const beautyOperationGuides: OperationGuide[] = [
     title: "家人共用方案怎麼設定？",
     summary: "方案先允許共用，再為購入方案選擇具名成員。",
     answer:
-      "在收費方式勾選允許具名共用，購買時選成員，之後可從顧客資料管理成員。",
+      "新增次數方案時勾選允許具名共用；購買時預設只選購買人，需要共用才展開管理成員，之後也可從顧客概況修改。",
     keywords: "美業 家人 共用 次數 方案 授權 餘額",
-    path: "收費方式 → 允許具名共用；顧客管理 → 顧客資料／服務紀錄／共用成員",
+    path: "收費方式 → 新增收費方式 → 次數方案；顧客管理 → 顧客概況 → 共用設定",
     steps: [
       "建立店家自訂次數與價格的方案，選適用服務、有效天數並勾選允許共用。",
-      "登錄購買人、實收與付款方式，選具名家人。",
+      "登錄購買人、實收與付款方式；選到可共用方案後，有需要才展開管理共用成員並搜尋家人。",
       "需要修改時從購買人的顧客資料開啟共用成員；尚有預約的成員須先處理預約才能移除。",
     ],
     important:
