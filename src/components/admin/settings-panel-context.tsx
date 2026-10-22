@@ -1,12 +1,12 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useState } from "react";
 
 /** Closing removes local panel URL state without refetching the background page. */
 export function useSettingsPanelDismissal(searchString: string) {
   const [state, setState] = useState({ searchString, dismissed: false });
   const hasPanel = new URLSearchParams(searchString).has("panel");
-  const urlManaged = useRef(hasPanel);
-  const dismissed = (urlManaged.current && !hasPanel) || (state.searchString === searchString && state.dismissed);
+  const [urlManaged] = useState(hasPanel);
+  const dismissed = (urlManaged && !hasPanel) || (state.searchString === searchString && state.dismissed);
   if (state.searchString !== searchString) setState({ searchString, dismissed });
   const dismiss = useCallback((href: string) => {
     window.history.replaceState(null, "", href);
