@@ -1,0 +1,25 @@
+{
+  "commit": "c3bc86f34d13227a538226a4cdda0055adccaff3",
+  "results": [
+    {
+      "case": "supplied music STAFF completes real login and reaches shared session consumption table",
+      "passed": true
+    },
+    {
+      "case": "music STAFF without export grant sees no CSV and direct export is rejected",
+      "passed": true
+    },
+    {
+      "case": "music real authenticated table has no viewport overflow at desktop/tablet/mobile sizes",
+      "passed": true
+    },
+    {
+      "case": "music shared filter modal submits in music store scope",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "tableRows": 50,
+  "readOnly": true,
+  "physicalDevice": false
+}

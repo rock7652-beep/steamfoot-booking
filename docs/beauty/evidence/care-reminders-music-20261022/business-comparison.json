@@ -1,0 +1,20 @@
+{
+  "businessUnchanged": true,
+  "appointments": 15,
+  "payments": 10,
+  "paymentSum": 15500,
+  "cardBalances": [
+    2,
+    5
+  ],
+  "sharedMembersUnchanged": true,
+  "notifications": false,
+  "messageCount": 0,
+  "careLogCount": 0,
+  "planRulesRestored": true,
+  "trialRulesRestored": true,
+  "memberPreferenceEffectiveStateRestored": true,
+  "planRevision": 4,
+  "newDisabledCareSetting": true,
+  "newReceivingPreferenceRecords": true
+}
