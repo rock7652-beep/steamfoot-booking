@@ -77,8 +77,9 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
     where: { id: a.storeId },
     select: { id: true, name: true, slug: true },
   });
-  const catalog = await publicBeautyCatalog(store.slug);
-  const rows = await beautyPrisma.beautyAppointment.findMany({
+  const [catalog,rows,cards,customer,plans,purchases,bank,canWork,healthEnabled,locations] = await Promise.all([
+    publicBeautyCatalog(store.slug),
+    beautyPrisma.beautyAppointment.findMany({
     where: {
       storeId: a.storeId,
       ...(work
@@ -92,86 +93,51 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
     },
     orderBy: { startsAt: "desc" },
     take: 200,
-  });
-  const cards = work
+  }),
+    work
     ? []
-    : await beautyPrisma.beautyCard.findMany({
+    : beautyPrisma.beautyCard.findMany({
         where: { storeId: a.storeId, memberIds: { has: a.customerId! } },
         orderBy: { createdAt: "desc" },
-      });
-  const cardHistory=cards.length?await beautyPrisma.beautyLedger.findMany({where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)}},select:{id:true,cardId:true,kind:true,delta:true,createdAt:true},orderBy:{createdAt:'desc'},take:1000}):[];
-  const held = await beautyPrisma.beautyAppointment.groupBy({
-    by: ["cardId"],
-    where: {
-      storeId: a.storeId,
-      cardId: { in: cards.map((c) => c.id) },
-      status: "RESERVED",
-    },
-    _count: { id: true },
-  });
-  const customer = await prisma.customer.findFirst({
+      }),
+    prisma.customer.findFirst({
     where: { storeId: a.storeId, id: a.customerId },
     select: { id: true, name: true, phone: true,birthday:true },
-  });
-  const memberIds = [
-    ...new Set([a.customerId!, ...cards.flatMap((c) => c.memberIds)]),
-  ];
-  const members = work
+  }),
+    work
     ? []
-    : await prisma.customer.findMany({
-        where: {
-          storeId: a.storeId,
-          id: { in: memberIds },
-          mergedIntoCustomerId: null,
-        },
-        select: { id: true, name: true, phone: true },
-      });
-  const plans = work
-    ? []
-    : await beautyPrisma.beautyPlan.findMany({
+    : beautyPrisma.beautyPlan.findMany({
         where: { storeId: a.storeId, active: true, customerPurchasable: true },
-      });
-  const purchases = work
+      }),
+    work
     ? []
-    : await beautyPrisma.beautyPurchase.findMany({
+    : beautyPrisma.beautyPurchase.findMany({
         where: { storeId: a.storeId, customerId: a.customerId },
         orderBy: { createdAt: "desc" },
-      });
-  const bank = await prisma.shopConfig.findUnique({
+      }),
+    prisma.shopConfig.findUnique({
     where: { storeId: a.storeId },
     select: { bankName: true, bankAccountNumber: true, bankCode:true,address:true,mapUrl:true,shopPhone:true },
-  });
-  const income =
-    work && a.grants?.includes("income")
-      ? await beautyPrisma.beautySettlement.findMany({
-          where: { storeId: a.storeId, month },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        })
-      : [];
-  const ownFeePayments =
-    work && a.grants?.includes("income")
-      ? await beautyPrisma.beautyPayment.findMany({
-          where: {
-            storeId: a.storeId,
-            technicianId: a.technicianId,
-            kind: { in: ["FEE", "FEE_VOID"] },
-          },
-        })
-      : [];
+  }),
+    work || beautyPrisma.beautyTechnician.findFirst({where:{storeId:a.storeId,userId:a.userId,active:true},select:{id:true}}).then(Boolean),
+    !work && beautyHealthEnabled(a.storeId),
+    work ? beautyPrisma.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "CourseRoom" WHERE "storeId"=${a.storeId}` : [],
+  ]);
+  const memberIds=[...new Set([a.customerId!,...cards.flatMap(c=>c.memberIds)])];
+  const [held,members]=await Promise.all([
+    cards.length ? beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}) : [],
+    work ? [] : prisma.customer.findMany({where:{storeId:a.storeId,id:{in:memberIds},mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}}),
+  ]);
   return {
     ...catalog,
+    scopeKey:a.userId,
     incomeMonth:month,
-    incomeConfirmed:income.length>0,
-    canWork:
-      work ||
-      !!(await beautyPrisma.beautyTechnician.findFirst({
-        where: { storeId: a.storeId, userId: a.userId, active: true },
-        select: { id: true },
-      })),
+    incomeConfirmed:false,
+    canWork,
     work,
     customer:customer?{...customer,birthday:customer.birthday?.toISOString().slice(0,10)??""}:null,
-    healthEnabled:!work&&await beautyHealthEnabled(a.storeId),
+    healthEnabled,
+    locations,
     members,
     plans,
     bank,
@@ -187,12 +153,14 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
       groupId: b.groupId,
       technicianId: b.technicianId,
       notes: b.notes,
+      locationId:b.locationId,
+      cardId:b.cardId,
     })),
     cards: cards.map((c) => ({
       id: c.id,
       name: c.name,
       remaining: c.remaining,
-      history:cardHistory.filter(l=>l.cardId===c.id).slice(0,100).map(l=>({...l,createdAt:l.createdAt.toISOString()})),
+      history:[] as Array<{id:string;cardId:string;kind:string;delta:number;createdAt:string}>,
       held: held.find((h) => h.cardId === c.id)?._count.id ?? 0,
       expiresAt: c.expiresAt.toISOString(),
       closed: !!c.closedAt,
@@ -200,26 +168,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
       allowShared:c.allowShared,
       serviceIds: c.serviceIds,
     })),
-    income: income.flatMap((s) =>
-      (
-        s.lines as {
-          id: string;
-          technicianId: string;
-          serviceName: string;
-          date: string;
-          fee: number;
-          paid: number;
-        }[]
-      )
-        .filter((l) => l.technicianId === a.technicianId)
-        .map((l) => ({
-          ...l,
-          payments:ownFeePayments.filter(p=>p.appointmentId===l.id).map(p=>({amount:p.amount,date:p.createdAt.toISOString(),voided:p.kind==='FEE_VOID'})),
-          paid: ownFeePayments
-            .filter((p) => p.appointmentId === l.id)
-            .reduce((n, p) => n + p.amount, 0),
-        })),
-    ),
+    income: [] as Array<{id:string;technicianId:string;serviceName:string;date:string;fee:number;paid:number;payments:Array<{amount:number;date:string;voided:boolean}>}>,
   };
 }
 export type BeautyPortalData = Awaited<ReturnType<typeof beautyPortal>>;

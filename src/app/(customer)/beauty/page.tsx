@@ -10,5 +10,5 @@ export default async function Page({
   if (process.env.BEAUTY_MODULE_ENABLED !== "1") return <BeautyClosedNotice />;
   const q = await searchParams;
   const data=await beautyPortal(q.work === "1",q.month??toLocalMonthStr());
-  return <BeautyPortal key={q.work === "1" ? "work" : "member"} initialView={q.view} data={data} />;
+  return <BeautyPortal key={data.store.id+":"+data.scopeKey} initialView={q.view} data={data} />;
 }

@@ -1,12 +1,12 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {AppError} from '@/lib/errors';
-const m=vi.hoisted(()=>({member:vi.fn(),customer:vi.fn(),reserve:vi.fn(),availability:vi.fn(),allocate:vi.fn(),feature:vi.fn(),transition:vi.fn(),command:vi.fn()}));
+const m=vi.hoisted(()=>({member:vi.fn(),worker:vi.fn(),customer:vi.fn(),reserve:vi.fn(),availability:vi.fn(),allocate:vi.fn(),feature:vi.fn(),transition:vi.fn(),command:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer}}}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
 vi.mock('@/lib/permissions',()=>({requirePermission:vi.fn(),checkPermission:vi.fn()}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature,hasStoreFeature:vi.fn()}));
 vi.mock('@/server/services/trial-booking-chat-link',()=>({resolveTrialBookingChatLink:vi.fn()}));
-vi.mock('@/server/beauty/access',()=>({beautyMember:m.member,beautyManager:vi.fn(),beautyWorker:vi.fn(),beautyTransaction:async(_a:unknown,work:(tx:object)=>unknown)=>work({}),command:m.command,audit:vi.fn(),requireBeauty:vi.fn()}));
+vi.mock('@/server/beauty/access',()=>({beautyMember:m.member,beautyManager:vi.fn(),beautyWorker:m.worker,beautyTransaction:async(_a:unknown,work:(tx:object)=>unknown)=>work({}),command:m.command,audit:vi.fn(),requireBeauty:vi.fn()}));
 vi.mock('@/server/beauty/booking',()=>({reserveParty:m.reserve,loadAvailability:m.availability,findAllocation:m.allocate,transition:m.transition,ownsItem:vi.fn(),settings:vi.fn(),assertCustomerAvailable:vi.fn()}));
 import {bookBeautyParty,readBeautySlots,changeBeautyStatus} from '@/server/actions/beauty';
 const actor={storeId:'store',userId:'user',customerId:'owner'};
@@ -26,4 +26,9 @@ it('records a server-owned reason for member cancellation without weakening work
  m.command.mockImplementation((_tx:unknown,_actor:unknown,_key:string,_intent:unknown,work:()=>unknown)=>work());m.transition.mockResolvedValue({id:'booking'});
  expect((await changeBeautyStatus('member',{id:'booking',revision:0,target:'CANCELLED',requestKey:crypto.randomUUID()})).success).toBe(true);expect(m.transition.mock.calls[0][2].reason).toBe('顧客自行取消');
  m.transition.mockClear();expect((await changeBeautyStatus('member',{id:'booking',revision:0,target:'COMPLETED',requestKey:crypto.randomUUID()})).success).toBe(false);expect(m.transition).not.toHaveBeenCalled();
+});
+
+it('supplies an audit reason only for simple worker completion; corrections still require an explicit reason',async()=>{
+ m.worker.mockResolvedValue({...actor,technicianId:'tech',grants:['complete']});m.command.mockImplementation((_tx:unknown,_actor:unknown,_key:string,_intent:unknown,work:()=>unknown)=>work());m.transition.mockResolvedValue({id:'booking'});
+ expect((await changeBeautyStatus('work',{id:'booking',revision:0,target:'COMPLETED',requestKey:crypto.randomUUID()})).success).toBe(true);expect(m.transition.mock.calls[0][2].reason).toBe('技師確認服務完成');m.transition.mockClear();expect((await changeBeautyStatus('work',{id:'booking',revision:0,target:'RESERVED',requestKey:crypto.randomUUID()})).success).toBe(false);expect(m.transition).not.toHaveBeenCalled();
 });

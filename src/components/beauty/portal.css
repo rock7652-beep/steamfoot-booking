@@ -16,3 +16,23 @@
 .beauty-portal .cp-profile[open] > summary::after{content:none}
 .beauty-portal .beauty-store-chevron{transition:transform .15s}
 .beauty-portal .cp-profile[open] .beauty-store-chevron{transform:rotate(180deg)}
+.beauty-portal .beauty-next-card{padding:18px;display:grid;gap:6px;background:#e8eee7}
+.beauty-portal .beauty-next-card p,.beauty-portal .beauty-next-card h2{margin:0}
+.beauty-portal .beauty-next-card>strong{font-size:18px;line-height:1.5;overflow-wrap:anywhere}
+.beauty-portal .beauty-next-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+.beauty-portal .beauty-text-button{border-color:transparent;background:transparent}
+.beauty-portal .beauty-work-card{padding:16px;margin-bottom:12px;overflow-wrap:anywhere}
+.beauty-portal .beauty-work-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.beauty-portal .beauty-work-card h2{font-size:16px;line-height:1.6;margin:8px 0 2px}
+.beauty-portal .beauty-work-card p{margin:4px 0}
+.beauty-portal .beauty-work-status{color:#53665c;white-space:nowrap}
+.beauty-portal .beauty-work-status.needs-attention{color:#946117}
+.beauty-portal .beauty-work-note{white-space:pre-wrap}
+.beauty-portal .beauty-work-actions{display:flex;justify-content:flex-end;align-items:flex-start;gap:10px;margin-top:12px}
+.beauty-portal .beauty-work-actions>details{min-width:88px}
+.beauty-portal .beauty-work-actions summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px}
+.beauty-portal .beauty-work-actions summary::-webkit-details-marker{display:none}
+.beauty-portal .beauty-work-options{display:grid;gap:6px;padding-top:6px}
+.beauty-portal .beauty-record-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:12px 0}
+.beauty-portal .beauty-record-filters label{min-width:0}
+.beauty-portal .beauty-record-filters input{width:100%;min-width:0;appearance:none}
