@@ -56,10 +56,14 @@ it("retries only one cold pool lease timeout against the identical isolated targ
  expect(url.searchParams.get("connection_limit")).toBe("1");expect(url.searchParams.get("pool_timeout")).toBe("15");
  for(const client of [failed,passed]) {expect(client.$queryRawUnsafe).toHaveBeenCalledExactlyOnceWith(MUSIC_OPENING_SCHEMA_SQL);expect(client.$disconnect).toHaveBeenCalledOnce();}
 });
-it("fails closed after two timeouts and never creates a third client",async()=>{
- const client={$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2024"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
+it.each([
+ [{code:"P2024"},"P2024"],
+ [{message:"Connection timed out"},"TIMEOUT"],
+ [{code:"P2010",message:"Connection timeout"},"P2010:TIMEOUT"],
+])("fails closed after two timeouts and never creates a third client %#",async(error,category)=>{
+ const client={$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
- await expect(readMusicOpeningSchemaConnection(pooled,create)).rejects.toThrow("pooled:P2024");
+ await expect(readMusicOpeningSchemaConnection(pooled,create)).rejects.toThrow(`pooled:${category}`);
  expect(create).toHaveBeenCalledTimes(2);expect(client.$disconnect).toHaveBeenCalledTimes(2);
 });
 it("concurrent cold checks use independent one-statement clients and release every lease",async()=>{
@@ -69,10 +73,30 @@ it("concurrent cold checks use independent one-statement clients and release eve
  expect(results).toEqual([[ready()],[ready()]]);expect(create).toHaveBeenCalledTimes(3);
  for(const client of clients){expect(client.$transaction).not.toHaveBeenCalled();expect(client.$queryRawUnsafe).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();}
 });
-it.each(["P1000","P1001","P2010","P2028"])("does not retry non-lease failure %s",async code=>{
+it.each(["P1000","P2010","P2028"])("does not retry non-transient failure %s",async code=>{
  const client={$queryRawUnsafe:vi.fn().mockRejectedValue({code}),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
  await expect(readMusicOpeningSchemaConnection(direct,create)).rejects.toThrow(`direct:${code}`);expect(create).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();
+});
+it.each([
+ {message:"Timed out during connection authentication"},
+ {code:"P1001",message:"Connection timed out"}, {errorCode:"P1002"}, {code:"P1017",message:"Connection closed"},
+ {code:"P2010",message:"Connection timeout"},
+ {code:"P2010",meta:{code:"08006"}},
+])("recovers from a recognized transient cold connection failure %#",async error=>{
+ const failed={$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const passed={$queryRawUnsafe:vi.fn().mockResolvedValue([ready()]),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const create=vi.fn().mockReturnValueOnce(failed).mockReturnValueOnce(passed);
+ expect(await readMusicOpeningSchemaConnection(pooled,create)).toEqual([ready()]);
+ expect(create).toHaveBeenCalledTimes(2);expect(create.mock.calls[0]).toEqual(create.mock.calls[1]);
+ expect(new URL(create.mock.calls[0][0].datasources.db.url).searchParams.get("connect_timeout")).toBe("30");
+ expect(failed.$disconnect).toHaveBeenCalledOnce();expect(passed.$disconnect).toHaveBeenCalledOnce();
+});
+it.each(["28P01","42501","42P01","42703","42P05","57014"])("never retries database authentication/schema/cancellation failure %s",async code=>{
+ const client={$queryRawUnsafe:vi.fn().mockRejectedValue({code:"P2010",meta:{code},message:"timeout column or credential failure"}),$disconnect:vi.fn().mockResolvedValue(undefined)};
+ const create=vi.fn().mockReturnValue(client);
+ await expect(readMusicOpeningSchemaConnection(pooled,create)).rejects.toThrow(`P2010:${code}`);
+ expect(create).toHaveBeenCalledOnce();expect(client.$disconnect).toHaveBeenCalledOnce();
 });
 it("rejects routing overrides before creating a client and does not retry bad schema",async()=>{
  const create=vi.fn();await expect(readMusicOpeningSchemaConnection(direct+"?host=other.invalid",create)).rejects.toThrow();expect(create).not.toHaveBeenCalled();

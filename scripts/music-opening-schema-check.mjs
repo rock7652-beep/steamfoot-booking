@@ -142,15 +142,21 @@ export function musicOpeningConnectionFailure(error, connectionKind) {
   return new Error(`Music opening isolated schema verification failed (${kind}:${category}); startup/build blocked.`);
 }
 
+function isTransientMusicOpeningConnectionFailure(error) {
+  const category = musicOpeningConnectionCategory(error);
+  return ["P1001", "P1002", "P1017", "P2024"].includes(category.split(":")[0]) ||
+    ["TIMEOUT", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
+}
+
 /** One read-only statement does not need interactive transaction setup/commit.
- * A cold pool acquisition timeout gets one bounded retry against the SAME target.
- * Missing schema, authentication and all other errors never retry or fall back.
+ * A transient cold connection failure gets one bounded retry against the SAME target.
+ * Missing schema, authentication and unclassified errors never retry or fall back.
  */
 export async function readMusicOpeningSchemaConnection(value, createClient) {
   if (!isMusicOpeningDatabase(value)) throw new Error("Music opening connection target rejected.");
   const url = new URL(value);
   url.searchParams.set("connection_limit", "1");
-  url.searchParams.set("connect_timeout", "10");
+  url.searchParams.set("connect_timeout", "30");
   url.searchParams.set("pool_timeout", "15");
   url.searchParams.set("socket_timeout", "15");
   const pooled = url.hostname.endsWith(".pooler.supabase.com");
@@ -160,9 +166,10 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
     try {
       return await client.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL);
     } catch (error) {
-      if (attempt === 1 || (error?.code !== "P2024" && error?.errorCode !== "P2024")) {
+      if (attempt === 1 || !isTransientMusicOpeningConnectionFailure(error)) {
         throw musicOpeningConnectionFailure(error, pooled ? "pooled" : "direct");
       }
+      console.warn(`[music-opening-preflight] transient_connection=${musicOpeningConnectionCategory(error)} retry=1 target_unchanged=true`);
     } finally { await client.$disconnect().catch(() => {}); }
     await new Promise(resolve => setTimeout(resolve, 250));
   }
