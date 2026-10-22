@@ -31,34 +31,34 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
   if(!canEdit)return {success:false,error:'沒有管理權限'};
   const kind=plan?.catalogKind??input.catalogKind;
   if(kind==='single'||kind==='trial'){
-   const ids=input.templateIds as string[];const current=services.find(s=>s.id===(plan?.templateIds[0]??ids[0]));
-   if(!current)return {success:false,error:'請選擇本店服務'};
+   const ids=input.templateIds as string[];const current=plan?.catalogSnapshot?savedBeautyService.parse(plan.catalogSnapshot):services.find(s=>s.id===(plan?.templateIds[0]??ids[0]));
+   if(!current||plan&&current.id!==plan.templateIds[0])return {success:false,error:'請選擇本店服務'};
    if(plan&&plan.catalogRevision!==current.revision)return {success:false,error:'服務已更新，請關閉後重新開啟'};
    const r=await saveBeautyCatalog('service',beautyPricePatch(current,kind,input.catalogPriceValue));
    if(!r.success)return r;
    const saved=beautySingleProduct(savedBeautyService.parse(r.data.record),kind);refresh();return {success:true,data:saved};
   }
   if(kind!=='plan')return {success:false,error:'請選擇收費類型'};
-  const prior=plan?data.plans.find(p=>'plan:'+p.id===plan.id):undefined;
-  if(plan&&(!prior||plan.catalogRevision!==prior.revision))return {success:false,error:'方案已更新，請關閉後重新開啟'};
+  const prior=plan?(plan.catalogSnapshot?savedBeautyPlan.parse(plan.catalogSnapshot):data.plans.find(p=>'plan:'+p.id===plan.id)):undefined;
+  if(plan&&(!prior||'plan:'+prior.id!==plan.id||plan.catalogRevision!==prior.revision))return {success:false,error:'方案已更新，請關閉後重新開啟'};
   const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds:input.templateIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled:input.lowBalanceEnabled,lowBalanceThreshold:input.lowBalanceEnabled?Number(input.lowBalanceThreshold):null});
   if(!r.success)return r;const saved=beautySessionProduct(savedBeautyPlan.parse(r.data.record));refresh();return {success:true,data:saved};
  }};
- const templates:Template[]=services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,capacity:1,pointCost:1,defaultRoomId:null}));
+ const templates:Template[]=services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,catalogSnapshot:{...s},capacity:1,pointCost:1,defaultRoomId:null}));
 
- const rooms:Room[]=data.locations.map(r=>({...r,capacity:1}));
+ const rooms:Room[]=data.locations.map(r=>({...r,catalogSnapshot:{...r},capacity:1}));
  const save:CourseCatalogSource['save']=async(kind,input)=>{
   if(!canEdit)return {success:false,error:'沒有管理權限'};
   if(kind==='room'){
-   const prior=data.locations.find(r=>r.id===input.id);
-   if(input.id&&!prior)return {success:false,error:'位置已更新，請重新整理'};
+   const prior=input.catalogSnapshot?savedBeautyLocation.parse(input.catalogSnapshot):data.locations.find(r=>r.id===input.id);
+   if(input.id&&(!prior||prior.id!==input.id))return {success:false,error:'位置已更新，請重新整理'};
    const r=await saveBeautyLocation({id:prior?.id,name:input.name,active:prior?.isActive??true,category:input.category??'',details:input.details??'',equipment:input.equipment??'',location:input.location??''});
-   if(!r.success)return r;return {success:true,data:{...savedBeautyLocation.parse(r.data.record),capacity:1}};
+   if(!r.success)return r;return {success:true,data:{...savedBeautyLocation.parse(r.data.record),catalogSnapshot:{...savedBeautyLocation.parse(r.data.record)},capacity:1}};
   }
-  const prior=services.find(s=>s.id===input.id);
-  if(input.id&&(!prior||input.catalogRevision!==prior.revision))return {success:false,error:'服務已更新，請關閉後重新開啟'};
+  const prior=input.catalogSnapshot?savedBeautyService.parse(input.catalogSnapshot):services.find(s=>s.id===input.id);
+  if(input.id&&(!prior||prior.id!==input.id||input.catalogRevision!==prior.revision))return {success:false,error:'服務已更新，請關閉後重新開啟'};
   const r=await saveBeautyCatalog('service',{id:prior?.id,revision:prior?.revision??0,name:input.name,category:input.category??'',duration:input.durationMinutes,buffer:input.bufferMinutes??0,price:prior?.price??0,trialPrice:prior?.trialPrice??null,active:prior?.active??true});
-  if(!r.success)return r;const s=savedBeautyService.parse(r.data.record);return {success:true,data:{id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,capacity:1,pointCost:1,defaultRoomId:null}};
+  if(!r.success)return r;const s=savedBeautyService.parse(r.data.record);return {success:true,data:{id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,catalogSnapshot:{...s},capacity:1,pointCost:1,defaultRoomId:null}};
  };
  return {products,status,form,templates,rooms,save};
 }

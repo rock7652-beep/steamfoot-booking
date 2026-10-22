@@ -81,6 +81,7 @@ export type Room = {
   rentalEnabled?:boolean;rentalHourlyRate?:number;rentalBufferMinutes?:number;
   id: string;
   catalogRevision?:number;
+  catalogSnapshot?:Record<string,unknown>;
   name: string;
   category: string;
   isActive: boolean;
@@ -1807,6 +1808,7 @@ export function CourseWorkspace({
                         return saveRoom({
                           ...common,
                           expectedRevision:courseRoomRevision(editing.value),
+                          ...(catalogSource?{catalogSnapshot:editing.value.catalogSnapshot}:{}),
                           capacity: data.get("roomCapacity")
                             ? Number(data.get("roomCapacity"))
                             : null,
@@ -1823,7 +1825,7 @@ export function CourseWorkspace({
                         return saveTemplate({
                           ...common,
                           id:copyTemplate?undefined:editing.value.id,
-                          ...(catalogSource?{bufferMinutes:Number(data.get("buffer")||0),catalogRevision:copyTemplate?undefined:editing.value.catalogRevision}:{}),
+                          ...(catalogSource?{bufferMinutes:Number(data.get("buffer")||0),catalogRevision:copyTemplate?undefined:editing.value.catalogRevision,catalogSnapshot:copyTemplate?undefined:editing.value.catalogSnapshot}:{}),
                           expectedRevision:copyTemplate?undefined:courseTemplateRevision(editing.value),
                           ...details,
                           ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {musicTrialMode:data.get("musicTrialMode") || null}),

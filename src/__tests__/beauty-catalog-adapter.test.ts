@@ -26,3 +26,10 @@ it('keeps successful and rejected batch IDs separate and blocks every write in r
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);const r=await a.status.apply({kind:'plan',ids:['plan:scheme','single:service'],active:false});expect(r).toMatchObject({success:true,succeeded:['plan:scheme'],failed:[{id:'single:service'}]});
  m.catalog.mockClear();const locked=createBeautyCatalogAdapter('收費方式',data,false,m.refresh);expect(await locked.form.save({catalogKind:'plan'},null)).toMatchObject({success:false});expect(await locked.status.apply({kind:'plan',ids:['plan:scheme'],active:true})).toMatchObject({success:false});expect(m.catalog).not.toHaveBeenCalled();expect(m.location).not.toHaveBeenCalled();
 });
+
+it('immediately resaves an authoritative returned plan before the parent RSC refresh without using a stale revision',async()=>{
+ const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh),prior=a.products.find(p=>p.id==='plan:scheme')!;
+ const input={catalogKind:'plan',name:prior.name,points:9,price:8000,validDays:120,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true};
+ const first=await a.form.save(input,prior);expect(first.success).toBe(true);if(!first.success)return;await a.form.save({...input,points:10},first.data);
+ expect(m.catalog).toHaveBeenLastCalledWith('plan',expect.objectContaining({id:'scheme',revision:4,sessions:10}));
+});

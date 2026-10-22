@@ -17,7 +17,7 @@ import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { musicSchedulePatch } from "@/lib/music-plan-validity";
 export type Person = { id: string; updatedAt?: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 export type Plan = {
-  catalogKind?:"plan"|"single"|"trial";catalogRevision?:number;catalogUnavailable?:boolean;lowBalanceEnabled?:boolean;lowBalanceThreshold?:number|null;
+  catalogKind?:"plan"|"single"|"trial";catalogRevision?:number;catalogSnapshot?:Record<string,unknown>;catalogUnavailable?:boolean;lowBalanceEnabled?:boolean;lowBalanceThreshold?:number|null;
   sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;
   musicTerms?: number | null;
   musicBonusLessons?:number;musicTermSizes?:number[];
