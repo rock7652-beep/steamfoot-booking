@@ -1,4 +1,5 @@
 "use client";
+import {BeautyMemberBookingForm} from "./member-booking-form";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   bookBeautyParty,
@@ -32,7 +33,7 @@ const control =
   "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm";
 const button =
   "min-h-11 rounded-lg border border-primary-300 px-4 py-2 text-base disabled:opacity-50";
-export function BeautyBookingForm({
+function BeautyDetailedBookingForm({
   catalog,
   mode,
   slug,
@@ -57,6 +58,7 @@ export function BeautyBookingForm({
     closed: boolean;
     memberIds: string[];
     serviceIds: string[];
+    allowShared?:boolean;
   }[];
   members?: { id: string; name: string; phone: string }[];
   initialDate?:string;initialTime?:string;onStateChange?:(state:{dirty:boolean;pending:boolean})=>void;
@@ -534,4 +536,9 @@ export function BeautyBookingForm({
       )}
     </form>
   );
+}
+
+export function BeautyBookingForm(props:Parameters<typeof BeautyDetailedBookingForm>[0]&{onViewBookings?:()=>void}){
+ if(props.mode==='member')return <BeautyMemberBookingForm {...props}/>;
+ return <BeautyDetailedBookingForm {...props}/>;
 }

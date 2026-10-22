@@ -110,3 +110,22 @@ it("payment reversals cannot refer to another store's original receipt", async (
     ),
   ).rejects.toThrow();
 });
+it('upgrades the legacy named-card check atomically while preserving the other checks',async()=>{
+ const row=await db.query<{definition:string}>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='beauty_appointment_values'`);const definition=row.rows[0].definition;
+ await db.exec(`ALTER TABLE "BeautyAppointment" DROP CONSTRAINT beauty_appointment_values; ALTER TABLE "BeautyAppointment" ADD CONSTRAINT beauty_appointment_values CHECK (${definition.slice(6)} AND ("cardId" IS NULL OR "customerId" IS NOT NULL)); SET beauty_companion.review_id='beauty-companion-v1';`);
+ await db.exec(readFileSync('scripts/sql/beauty-companion-booking-upgrade.sql','utf8'));
+ const after=await db.query<{definition:string}>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='beauty_appointment_values'`);expect(after.rows[0].definition).not.toContain('cardId');expect(after.rows[0].definition).toContain('duration');
+});
+it('allows unnamed shared companions only for an enrolled same-store booking sponsor',async()=>{
+ await db.exec(`INSERT INTO "Customer" VALUES ('sponsor','s'),('outsider','s'); INSERT INTO "BeautyGroup" (id,"storeId","customerId","contactName",phone,"startsAt") VALUES ('shared-group','s','sponsor','測試','0900000000','2099-11-01T01:00Z'),('foreign-group','s','outsider','測試','0900000001','2099-11-01T01:00Z'); INSERT INTO "BeautyPlan" (id,"storeId",name,sessions,price,"validDays","serviceIds","allowShared") VALUES ('shared-plan','s','共用',5,1000,30,ARRAY['svc'],true); INSERT INTO "BeautyCard" (id,"storeId","customerId","memberIds","planId",name,sessions,remaining,"listPrice",paid,"serviceIds","allowShared","expiresAt") VALUES ('shared-card','s','sponsor',ARRAY['sponsor'],'shared-plan','共用',5,5,1000,1000,ARRAY['svc'],true,'2100-01-01');`);
+ const write=(id:string,group:string,start:string)=>db.query(`INSERT INTO "BeautyAppointment" (id,"storeId","groupId","personName","personPhone","serviceId","serviceName","technicianId","locationId",preference,"startsAt","endsAt","occupiedEndsAt",duration,buffer,price,"cardId","isTrial",rate,"cancelDeduct","noShowDeduct") VALUES ($1,'s',$2,'同行者 1','','svc','做臉','t','r','ANY',$3::timestamptz,$3::timestamptz+interval '60 min',$3::timestamptz+interval '75 min',60,15,1000,'shared-card',false,'{"mode":"FIXED","value":100}',false,false)`,[id,group,start]);
+ await expect(write('pending-good','shared-group','2099-11-01T01:00Z')).resolves.toBeDefined();
+ await expect(write('pending-foreign','foreign-group','2099-11-02T01:00Z')).rejects.toThrow('enrolled sponsor');
+ await db.exec(`UPDATE "BeautyCard" SET "allowShared"=false WHERE id='shared-card'`);
+ await expect(write('pending-private','shared-group','2099-11-03T01:00Z')).rejects.toThrow('enrolled sponsor');
+ const allowed=await db.query<{allowed:boolean}>(`SELECT has_function_privilege('anon','public.beauty_pending_companion_card_guard()','EXECUTE') AS allowed`);expect(allowed.rows[0].allowed).toBe(false);
+});
+it('can rerun the reviewed companion upgrade without touching balances',async()=>{
+ await db.exec(`SET beauty_companion.review_id='beauty-companion-v1'`);
+ const sql=readFileSync('scripts/sql/beauty-companion-booking-upgrade.sql','utf8');await db.exec(sql);await db.exec(sql);expect((await db.query<{remaining:number}>(`SELECT remaining FROM "BeautyCard" WHERE id='shared-card'`)).rows[0].remaining).toBe(5);
+});

@@ -322,7 +322,7 @@ ALTER TABLE "BeautyService" ADD CONSTRAINT beauty_service_values CHECK (duration
 ALTER TABLE "BeautyTechnician" ADD CONSTRAINT beauty_technician_gender CHECK (gender IN ('FEMALE','MALE'));
 ALTER TABLE "BeautyPlan" ADD CONSTRAINT beauty_plan_values CHECK (sessions>0 AND price>=0 AND "validDays">0 AND cardinality("serviceIds")>0);
 ALTER TABLE "BeautyCard" ADD CONSTRAINT beauty_card_values CHECK (sessions>0 AND remaining BETWEEN 0 AND sessions AND paid>=0 AND "listPrice">=paid AND cardinality("memberIds")>0 AND "customerId"=ANY("memberIds") AND ("allowShared" OR cardinality("memberIds")=1));
-ALTER TABLE "BeautyAppointment" ADD CONSTRAINT beauty_appointment_values CHECK (status IN ('RESERVED','COMPLETED','CANCELLED','NO_SHOW') AND preference IN ('FEMALE','MALE','ANY') AND duration>0 AND buffer>=0 AND price>=0 AND fee>=0 AND "endsAt"="startsAt"+duration*interval '1 minute' AND "occupiedEndsAt"="endsAt"+buffer*interval '1 minute' AND ("cardId" IS NULL OR "customerId" IS NOT NULL));
+ALTER TABLE "BeautyAppointment" ADD CONSTRAINT beauty_appointment_values CHECK (status IN ('RESERVED','COMPLETED','CANCELLED','NO_SHOW') AND preference IN ('FEMALE','MALE','ANY') AND duration>0 AND buffer>=0 AND price>=0 AND fee>=0 AND "endsAt"="startsAt"+duration*interval '1 minute' AND "occupiedEndsAt"="endsAt"+buffer*interval '1 minute');
 ALTER TABLE "BeautyPayment" ADD CONSTRAINT beauty_payment_values CHECK (kind IN ('SALE','REFUND','FEE','FEE_VOID') AND method IN ('CASH','BANK_TRANSFER','CARD','OTHER') AND ((kind IN ('REFUND','FEE_VOID') AND amount<0) OR (kind IN ('SALE','FEE') AND amount>=0)));
 ALTER TABLE "BeautyAppointment" ADD CONSTRAINT beauty_teacher_overlap EXCLUDE USING gist ("storeId" WITH =,"technicianId" WITH =,tstzrange("startsAt","occupiedEndsAt",'[)') WITH &&) WHERE (status<>'CANCELLED');
 ALTER TABLE "BeautyAppointment" ADD CONSTRAINT beauty_location_overlap EXCLUDE USING gist ("storeId" WITH =,"locationId" WITH =,tstzrange("startsAt","occupiedEndsAt",'[)') WITH &&) WHERE (status<>'CANCELLED');
@@ -346,6 +346,24 @@ ALTER TABLE "BeautyPurchase" ADD FOREIGN KEY ("storeId","planId") REFERENCES "Be
 ALTER TABLE "BeautyPurchase" ADD FOREIGN KEY ("storeId","cardId") REFERENCES "BeautyCard"("storeId",id) ON DELETE RESTRICT;
 CREATE UNIQUE INDEX beauty_payment_store_id ON "BeautyPayment"("storeId",id);
 ALTER TABLE "BeautyPayment" ADD FOREIGN KEY ("storeId","originalPaymentId") REFERENCES "BeautyPayment"("storeId",id) ON DELETE RESTRICT;
+CREATE OR REPLACE FUNCTION public.beauty_pending_companion_card_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $$
+BEGIN
+ IF NEW."cardId" IS NOT NULL AND NEW."customerId" IS NULL THEN
+  IF NEW."isTrial" OR NOT EXISTS(
+   SELECT 1 FROM public."BeautyCard" c JOIN public."BeautyGroup" g
+    ON g.id=NEW."groupId" AND g."storeId"=NEW."storeId"
+   WHERE c.id=NEW."cardId" AND c."storeId"=NEW."storeId"
+    AND c."allowShared" AND c."closedAt" IS NULL
+    AND g."customerId"=ANY(c."memberIds")
+    AND NEW."serviceId"=ANY(c."serviceIds") AND NEW."startsAt"<c."expiresAt"
+  ) THEN RAISE EXCEPTION 'Beauty companion card requires an enrolled sponsor and a valid shared service'; END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.beauty_pending_companion_card_guard() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER beauty_pending_companion_card BEFORE INSERT OR UPDATE OF "cardId","customerId","groupId","storeId","serviceId","startsAt","isTrial" ON public."BeautyAppointment" FOR EACH ROW EXECUTE FUNCTION public.beauty_pending_companion_card_guard();
+
 CREATE FUNCTION beauty_immutable_ledger() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Beauty financial history is immutable; append a reversal'; END $$;
 REVOKE ALL ON FUNCTION beauty_immutable_ledger() FROM PUBLIC,anon,authenticated;
 CREATE TRIGGER beauty_payment_immutable BEFORE UPDATE OR DELETE ON "BeautyPayment" FOR EACH ROW EXECUTE FUNCTION beauty_immutable_ledger();

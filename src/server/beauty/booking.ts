@@ -1,4 +1,5 @@
 import "server-only";
+import { cardAllowsRecipient,halfHourRule } from "@/lib/beauty/member-booking";
 import { AppError } from "@/lib/errors";
 import {
   dayRange,
@@ -24,6 +25,7 @@ import type {
 } from "../../../generated/beauty-client";
 import { command, audit, type BeautyActor } from "./access";
 export type Tx = Prisma.TransactionClient;
+export type BookingPartyInput=Omit<PartyInput,'people'>&{people:(PartyInput['people'][number]&{pendingIdentity?:boolean})[]};
 /** Same customer occupancy rule as the exclusion constraint, under the Store lock. */
 export async function assertCustomerAvailable(
   tx: Tx,
@@ -108,6 +110,8 @@ export async function loadAvailability(
       SlotOverrideRow[]
     >`SELECT date,"startTime",type,capacity,reason FROM "SlotOverride" WHERE "storeId"=${a.storeId} AND date=${new Date(date + "T00:00:00Z")}::date`,
   ]);
+  const rule=serviceDayRule({hours,specials:specials.map((s,i)=>({...s,id:String(i)})),overrides},date);
+  const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.inRange&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
   return {
     services,
     technicians,
@@ -116,6 +120,7 @@ export async function loadAvailability(
     hours,
     specials,
     policy,
+    memberSlots,
     slots: applySlotOverrides(
       serviceDayRule(
         {
@@ -151,6 +156,7 @@ export async function findAllocation(
     specials,
     policy,
     slots,
+    memberSlots,
   } = loaded ?? (await loadAvailability(tx, a, d.date, excludeIds));
   if (
     !allowPast &&
@@ -158,7 +164,7 @@ export async function findAllocation(
       d.date > addTaiwanDuration(toLocalDateStr(), policy.bookableDays, "DAY"))
   )
     throw new AppError("VALIDATION", "此時間尚未開放或已超過預約截止");
-  if (!allowPast && !slots.includes(d.time))
+  if (!allowPast && !slots.includes(d.time) && !memberSlots.includes(d.time))
     throw new AppError("VALIDATION", "此開始時間未開放，請依營業預約單位選擇");
   const result = allocateParty({
     date: d.date,
@@ -190,19 +196,20 @@ export async function assertCard(
   tx: Tx,
   a: BeautyActor,
   cardId: string,
-  customerId: string,
+  customerId: string | null,
   serviceId: string,
   startsAt: Date,
   excludeId?: string,
+  sponsorId?: string | null,
 ) {
   const card = await tx.beautyCard.findFirst({
     where: { id: cardId, storeId: a.storeId, closedAt: null },
   });
   if (
     !card ||
-    card.expiresAt < startsAt ||
+    card.expiresAt <= startsAt ||
     !card.serviceIds.includes(serviceId) ||
-    !card.memberIds.includes(customerId)
+    !cardAllowsRecipient(card,customerId,sponsorId)
   )
     throw new AppError("FORBIDDEN", "此方案不適用或未授權此服務者");
   if (!a.manager && (!a.customerId || !card.memberIds.includes(a.customerId)))
@@ -222,7 +229,7 @@ export async function assertCard(
 export async function reserveParty(
   tx: Tx,
   a: BeautyActor,
-  d: PartyInput,
+  d: BookingPartyInput,
   entry?: {
     linkId: string;
     chatIdentity: string;
@@ -264,6 +271,10 @@ export async function reserveParty(
       throw new AppError("VALIDATION", "體驗不使用一般方案");
     const partyKeys = new Set<string>();
     for (const p of d.people) {
+      if(p.pendingIdentity){
+        if(a.manager||!a.customerId||d.isTrial||p.customerId||p.phone)throw new AppError("FORBIDDEN","同行者資料待店家補齊");
+        continue;
+      }
       if (
         !a.manager &&
         p.customerId &&
@@ -342,9 +353,7 @@ export async function reserveParty(
       const s = services.find((s) => s.id === p.serviceId)!,
         allocation = result[i];
       if (p.cardId) {
-        if (!p.customerId)
-          throw new AppError("FORBIDDEN", "使用方案須選擇具名授權成員");
-        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt);
+        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt, undefined, p.pendingIdentity?a.customerId:undefined);
       }
       const item = await tx.beautyAppointment.create({
         data: {
@@ -506,11 +515,13 @@ export async function transition(
         b.serviceId,
         b.startsAt,
         b.id,
+        b.group.customerId,
       );
     else
       card = await tx.beautyCard.findFirst({
         where: { storeId: a.storeId, id: b.cardId },
       });
+    if(input.target==='RESERVED'&&card&&!cardAllowsRecipient(card,b.customerId,b.group.customerId))throw new AppError("FORBIDDEN","此方案已無共用授權，請先由店家核對");
     if (!card || card.closedAt)
       throw new AppError("CONFLICT", "方案已結清，請先核對退款與更正");
     if (input.target === "RESERVED") {

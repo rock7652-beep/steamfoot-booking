@@ -1,4 +1,6 @@
 "use server";
+import { memberPartyInput, cardAllowsRecipient } from "@/lib/beauty/member-booking";
+import type { BookingPartyInput } from "@/server/beauty/booking";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -249,13 +251,20 @@ async function bookingActor(mode: "manager" | "member" | "work", write = true) {
       ? beautyWorker(write)
       : beautyMember(write);
 }
+async function bookingInput(mode:"manager"|"member",input:unknown,a:BeautyActor):Promise<BookingPartyInput>{
+  if(mode==='manager')return partyInput.parse(input);
+  const d=memberPartyInput.parse(input);
+  const person=await prisma.customer.findFirst({where:{storeId:a.storeId,id:a.customerId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}});
+  if(!person||!person.phone)throw new AppError('FORBIDDEN','請重新登入或聯絡店家核對會員資料');
+  return {...d,contactName:person.name,phone:person.phone,isTrial:false,people:d.people.map((p,i)=>({...p,preference:'ANY',customerId:i===0?person.id:null,name:i===0?person.name:`同行者 ${i}`,phone:i===0?person.phone:'',pendingIdentity:i>0}))};
+}
 export async function bookBeautyParty(
   mode: "manager" | "member",
   input: unknown,
 ) {
   return result(async () => {
     const a = await bookingActor(mode),
-      d = partyInput.parse(input);
+      d = await bookingInput(mode,input,a);
     if (d.people.some((p) => p.cardId))
       await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     return beautyTransaction(a, (tx) => reserveParty(tx, a, d));
@@ -334,7 +343,6 @@ export async function readBeautySlots(
   input: unknown,
 ) {
   return result(async () => {
-    const d = partyInput.parse(input);
     let a: BeautyActor;
     if (mode === "public") {
       const s = await prisma.store.findUnique({
@@ -345,6 +353,7 @@ export async function readBeautySlots(
       await requireBeauty(s.id);
       a = { storeId: s.id, userId: null };
     } else a = await bookingActor(mode, false);
+    const d=mode==='public'?partyInput.parse(input):await bookingInput(mode,input,a);
     const loaded = await loadAvailability(
       beautyPrisma as unknown as Prisma.TransactionClient,
       a,
@@ -352,7 +361,8 @@ export async function readBeautySlots(
     );
     const slots: string[] = [];
     // Public catalog reveals availability only, never names of other customers.
-    for (const time of loaded.slots) {
+    for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
+      if(mode==='member'&&!/:(00|30)$/.test(time))continue;
       try {
         await findAllocation(
           beautyPrisma as unknown as Prisma.TransactionClient,
@@ -395,6 +405,7 @@ export async function moveBeautyAppointment(
           ? await beautyManager("booking.update", true)
           : await bookingActor(mode),
       d = moveInput.parse(input);
+    if(mode==='member'&&!/:(00|30)$/.test(d.time))throw new AppError("VALIDATION","請選擇半小時的預約時段");
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
         const b = await ownsItem(tx, a, d.id),
@@ -444,6 +455,7 @@ export async function moveBeautyAppointment(
             b.serviceId,
             allocation.startsAt,
             b.id,
+            b.group.customerId,
           );
         }
         // Keep historical duration/buffer. Catalog edits cannot silently alter a reservation.
@@ -791,16 +803,8 @@ export async function updateBeautyCardMembers(input: unknown) {
         >`SELECT id FROM "Customer" WHERE "storeId"=${a.storeId} AND id=ANY(${members}::text[]) AND "mergedIntoCustomerId" IS NULL`;
         if (people.length !== members.length)
           throw new AppError("FORBIDDEN", "包含非本店有效顧客");
-        if (
-          await tx.beautyAppointment.count({
-            where: {
-              storeId: a.storeId,
-              cardId: c.id,
-              status: "RESERVED",
-              customerId: { notIn: members },
-            },
-          })
-        )
+        const reservations=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,cardId:c.id,status:'RESERVED'},select:{customerId:true,group:{select:{customerId:true}}}});
+        if(reservations.some(b=>!cardAllowsRecipient({...c,memberIds:members},b.customerId,b.group.customerId)))
           throw new AppError("CONFLICT", "被移除成員尚有方案預約，請先處理");
         await tx.beautyCard.update({
           where: { id: c.id },
@@ -835,8 +839,8 @@ export async function linkBeautyCustomer(input: unknown) {
         if (b.revision !== d.revision || b.customerId)
           throw new AppError("CONFLICT", "預約已更新或已有會員身分");
         const [person] = await tx.$queryRaw<
-          Array<{ id: string; phone: string }>
-        >`SELECT id,phone FROM "Customer" WHERE id=${d.customerId} AND "storeId"=${a.storeId} AND "mergedIntoCustomerId" IS NULL`;
+          Array<{ id: string; name:string; phone: string }>
+        >`SELECT id,name,phone FROM "Customer" WHERE id=${d.customerId} AND "storeId"=${a.storeId} AND "mergedIntoCustomerId" IS NULL`;
         if (!person) throw new AppError("FORBIDDEN", "顧客不屬於本店");
         if (
           b.isTrial &&
@@ -855,9 +859,14 @@ export async function linkBeautyCustomer(input: unknown) {
             "CONFLICT",
             "此顧客已有同項服務體驗，請先核對紀錄",
           );
+        await assertCustomerAvailable(tx,a.storeId,person.id,b.startsAt,b.occupiedEndsAt,b.id);
+        if(b.cardId){
+          const card=await tx.beautyCard.findFirst({where:{id:b.cardId,storeId:a.storeId}});
+          if(!card||!cardAllowsRecipient(card,person.id,b.group.customerId))throw new AppError('FORBIDDEN','此方案未開放共用，請先由店家核對');
+        }
         await tx.beautyAppointment.update({
           where: { id: b.id },
-          data: { customerId: person.id, revision: { increment: 1 } },
+          data: { customerId: person.id,personName:person.name,personPhone:person.phone, revision: { increment: 1 } },
         });
         if (!b.group.customerId && b.group.phone === person.phone)
           await tx.beautyGroup.update({
@@ -888,7 +897,8 @@ export async function readBeautyMoveSlots(
       b = await ownsItem(tx, a, d.id);
     const loaded = await loadAvailability(tx, a, d.date, [b.id]),
       slots: string[] = [];
-    for (const time of loaded.slots) {
+    for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
+      if(mode==='member'&&!/:(00|30)$/.test(time))continue;
       try {
         await findAllocation(
           tx,

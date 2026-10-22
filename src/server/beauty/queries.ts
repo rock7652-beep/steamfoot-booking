@@ -195,6 +195,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
       expiresAt: c.expiresAt.toISOString(),
       closed: !!c.closedAt,
       memberIds: c.memberIds,
+      allowShared:c.allowShared,
       serviceIds: c.serviceIds,
     })),
     income: income.flatMap((s) =>

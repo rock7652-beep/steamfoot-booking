@@ -376,3 +376,12 @@ it("fee reversal appends a negative record and refuses more than the unreversed 
     }),
   );
 });
+
+it('permits an unidentified companion only through an enrolled sponsor and the shared switch',async()=>{
+ vi.mocked(tx.beautyCard.findFirst).mockResolvedValue({...card,allowShared:true} as never);
+ await expect(assertCard(tx,member,'card',null,'svc',b.startsAt,undefined,'member')).resolves.toBeDefined();
+ await expect(assertCard(tx,{...member,customerId:'intruder'},'card',null,'svc',b.startsAt,undefined,'member')).rejects.toThrow('無權');
+ await expect(assertCard(tx,member,'card',null,'svc',b.startsAt,undefined,'foreign')).rejects.toThrow('未授權');
+ vi.mocked(tx.beautyCard.findFirst).mockResolvedValue({...card,allowShared:false} as never);
+ await expect(assertCard(tx,member,'card',null,'svc',b.startsAt,undefined,'member')).rejects.toThrow('未授權');
+});
