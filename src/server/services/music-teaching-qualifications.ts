@@ -9,7 +9,9 @@ export async function syncMusicSubjectTeachers(tx: Prisma.TransactionClient, sto
   const templates = await tx.courseTemplate.findMany({ where: { storeId, musicSubjectId: subjectId }, select: { id: true } });
   const templateIds = templates.map(t => t.id);
   if (!templateIds.length) throw new AppError("VALIDATION", "請先建立教學項目");
-  const teachers = await tx.$queryRaw<Teacher[]>`SELECT s.id,s."courseQualifiedTemplateIds",s."courseCoachEnabled",s."courseQualificationsConfirmed",(s.status::text='ACTIVE' AND u.status::text='ACTIVE') AS active FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId}`;
+  // Pure teaching identities intentionally have no backend login. Staff status is
+  // the teaching lifecycle, matching teacher management and schedule eligibility.
+  const teachers = await tx.$queryRaw<Teacher[]>`SELECT s.id,s."courseQualifiedTemplateIds",s."courseCoachEnabled",s."courseQualificationsConfirmed",(s.status::text='ACTIVE') AS active FROM "Staff" s WHERE s."storeId"=${storeId}`;
   const current = teachers.filter(t => t.courseCoachEnabled && t.courseQualifiedTemplateIds.some(id => templateIds.includes(id))).map(t => t.id);
   if (selected && !expected) throw new AppError("VALIDATION", "請重新讀取目前授課教師後再儲存");
   if (selected && expected && !equal(current, expected)) throw new AppError("CONFLICT", "授課教師已有更新，請重新開啟收費方式後再核對");

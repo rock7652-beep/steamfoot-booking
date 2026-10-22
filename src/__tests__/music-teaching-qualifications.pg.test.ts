@@ -46,6 +46,18 @@ it("rejects foreign teachers before writing",async()=>{
   await expect(db.transaction(sql=>syncMusicSubjectTeachers(adapter(sql),'music','A',['foreign'],['t1'],vi.fn()))).rejects.toThrow('本店啟用');
   expect(await qualifications()).toEqual(before);
 });
+it("accepts active teaching identities without enabling their suspended backend account",async()=>{
+  await db.exec(`UPDATE "User" SET status='SUSPENDED' WHERE id='u2'`);
+  await db.transaction(sql=>syncMusicSubjectTeachers(adapter(sql),'music','A',['t1','t2'],['t1'],vi.fn()));
+  expect(await qualifications()).toEqual([{id:'t1',ids:['a1','b1','a2']},{id:'t2',ids:['b1','a1','a2']}]);
+  expect((await db.query(`SELECT status FROM "User" WHERE id='u2'`)).rows).toEqual([{status:'SUSPENDED'}]);
+});
+it("still refuses a newly selected inactive teacher even when their login account is active",async()=>{
+  await db.exec(`UPDATE "Staff" SET status='INACTIVE' WHERE id='t2'`);
+  const before=await qualifications();
+  await expect(db.transaction(sql=>syncMusicSubjectTeachers(adapter(sql),'music','A',['t1','t2'],['t1'],vi.fn()))).rejects.toThrow('本店啟用');
+  expect(await qualifications()).toEqual(before);
+});
 it("rolls back an earlier teacher write if a later write fails",async()=>{
   const before=await qualifications();
   await expect(db.transaction(async sql=>{const tx=adapter(sql),execute=tx.$executeRaw.bind(tx);let calls=0;tx.$executeRaw=(async(...args:Parameters<typeof execute>)=>{if(++calls===2)throw new Error('write failed');return execute(...args);}) as typeof tx.$executeRaw;return syncMusicSubjectTeachers(tx,'music','A',['t2'],['t1'],vi.fn());})).rejects.toThrow('write failed');
