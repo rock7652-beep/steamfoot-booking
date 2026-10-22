@@ -1,0 +1,27 @@
+{
+  "commit": "d7580ccea1fc49228885fbc7f4c3d765a310533c",
+  "results": [
+    {
+      "case": "hosted 近六個月 completed-service trend equals KPI 1 and real Preview DB cutoff",
+      "passed": true
+    },
+    {
+      "case": "hosted 近一年 completed-service trend equals KPI 1 and real Preview DB cutoff",
+      "passed": true
+    },
+    {
+      "case": "completed-service detail list remains one real customer after cutoff fix",
+      "passed": true
+    },
+    {
+      "case": "actual technician completed-service count matches store scope",
+      "passed": true
+    },
+    {
+      "case": "updated three-page bundle renders after real login without overflow",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "readOnly": true
+}

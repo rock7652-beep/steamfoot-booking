@@ -86,7 +86,9 @@
     "expectedCompletedAsOfTest": 1,
     "hostedKpi": 1,
     "hostedMonthlyTrend": 5,
-    "status": "failed at tested commit; local fix and replay passed, updated hosted acceptance pending"
+    "status": "failed at 8f00554d; resolved and real hosted verification passed on d7580cce",
+    "resolvedIn": "d7580ccea1fc49228885fbc7f4c3d765a310533c",
+    "fixedHostedEvidence": "trend-fix-hosted-results.json"
   },
   "harnessCorrections": [
     "Waited for final URL after client navigation; initial load-state check returned before the route changed.",

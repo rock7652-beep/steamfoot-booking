@@ -2,7 +2,7 @@
 
 ## 實測版本與限制
 
-- 使用者明確同意後，僅為 `8f00554d` 取得該版本的 Vercel 驗證連結，再用原店長／顧客／技師帳密實際登入；未挪用前版主機，未關閉部署保護。
+- 使用者明確同意後，先為 `8f00554d` 取得該版本的 Vercel 驗證連結，再用原店長／顧客／技師帳密實際登入；未挪用前版主機，未關閉部署保護。
 - 部署 `dpl_8cEn8XYerynGwtYETJ3ota5Vi63S`；唯一 DB 為 `steamfoot-preview`，未操作正式站、LINE、schema、policy、角色或連線設定。
 - 未把前版 8308ef16 的通過紀錄移到本版。這次有 16 個通過步驟（包含帳號準備／清理），但也發現一項分析數字不一致；**本版不能宣告全數驗收通過**。
 
@@ -36,7 +36,10 @@ QA 帳號最終六項權限：booking.read、business_hours.view、customer.read
 - 相關新增回歸涵蓋未來完成紀錄、日／月／摘要一致、未來開卡、服務與收款查詢截止。
 - 12 檔／111 項相關回歸通過；TypeScript、ESLint、diff check 與隔離原生 production build 通過；沒有跑 migration。
 - 用本次唯讀測試庫快照在本機重播修正 adapter：原彙總 5，摘要／日圖／月圖皆為 1。**這是真實資料重播，不是修正版 hosted 登入通過。**
-- 修正版的新部署及其 hosted 驗收另外記錄，不使用 8f00554d 的分享連結替換主機。
+- 修正版本：`d7580cce`，部署 `dpl_9iaii9qxt8DV2hxiD1CBkGRnNocH` 已 READY；[修正版後台](https://steamfoot-booking-o6w9qt68c-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)。
+- 延續本次已同意的隔離驗收，修正版取得自身驗證連結，沒有替換舊連結主機。
+- **d7580cce 已真實登入唯讀重驗通過**：六個月／一年趨勢均為 1、摘要為 1，名單與實際技師完成數一致；三頁再次載入與 iPad 尺寸通過，沒有 pageerror。
+- 修正版只重驗分析修正與三頁載入，不把 8f00554d 的設定儲存／權限步驟搬到新版本。測後再核對卡片與金額筆數未變、QA 帳號仍停用；修正版近 15 分鐘 error／warning 篩選無紀錄。
 
 ## 驗收腳本與證據限制
 
@@ -48,4 +51,4 @@ QA 帳號最終六項權限：booking.read、business_hours.view、customer.read
 
 ## 重要下一步
 
-補驗趨勢修正版的 hosted 數字與名單；之後接續美業期間消耗統計資料 adapter、提醒中心共用接入。實體裝置、店家簽收與 LINE 送達仍各自待辦，正式啟用另行確認。
+本批 hosted 數字與名單補驗已完成；下一批接續美業期間消耗統計資料 adapter、提醒中心共用接入。實體裝置、店家簽收與 LINE 送達仍各自待辦，正式啟用另行確認。

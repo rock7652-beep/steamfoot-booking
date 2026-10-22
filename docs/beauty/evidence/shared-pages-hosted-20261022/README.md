@@ -7,3 +7,6 @@
 - `trend-fix-regression.txt`：111 項相關回歸。
 - 其餘截圖：本版實際應用程式登入後取得；尺寸模擬，不是實體手機／平板。
 - 未保存可分享存取 token、cookie、帳密、raw request 或 session state。
+
+- `trend-fix-hosted-results.json`、`trend-fix-hosted-desktop.png`：d7580cce 真實登入後，六個月／一年曲線各為 1、摘要 1、名單與實際技師一致。
+- `trend-fix-final-db-check.json`：修正版唯讀驗收後筆數／金額／方案卡未變、QA 帳號仍停用。
