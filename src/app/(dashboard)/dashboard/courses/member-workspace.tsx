@@ -1,4 +1,5 @@
 "use client";
+import {CourseCustomerOverview} from "./customer-overview";
 import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
 import type {CoursePlanCatalogPort} from "./course-profile-forms";
 import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
@@ -18,7 +19,6 @@ import { useCustomerPanelUrl } from "./use-customer-panel-url";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
-import { CustomerLabels } from "@/components/customer-labels";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
 
@@ -101,7 +101,7 @@ export function CourseMemberWorkspace({
   music = false,
   sharedCardState = "ENABLED",
 }: {
-  catalogSource?:{status:CatalogStatusDriver;form:CoursePlanCatalogPort};
+  catalogSource?:{order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;form:CoursePlanCatalogPort};
   sportsNative?:boolean;
   sportsData?: SportsSnapshot;
   previewStoreId?: string;
@@ -251,7 +251,7 @@ export function CourseMemberWorkspace({
       }
     });
   }
-  const order=useCourseDisplayOrder("plan",plans,displayOrder,!catalogSource&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive);
+  const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&(!catalogSource||planUnit==="all")&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
       (p) =>
@@ -400,7 +400,7 @@ export function CourseMemberWorkspace({
                     {...order.rowProps(p.id)}
                     className={`${music?"grid grid-cols-[1fr_auto] sm:table-row":""} ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    {music ? <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit && (!catalogSource||p.catalogKind==='plan') && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 min-w-0 break-words text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div><div className={`mt-1 flex flex-wrap gap-x-2 ${music ? "text-xs text-earth-500" : "text-sm text-earth-700"}`}>{music && <span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span>}<span>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "本店所有課程"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.catalogKind&&p.catalogKind!=="plan"?"—":p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && !catalogSource && order.handle(p.id,p.name)}{canEdit && (!catalogSource||p.catalogKind==='plan') && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span><span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || (catalogSource?"指定服務":"指定課程") : catalogSource?"全部服務":"全部課程"}>{catalogSource&&`${p.catalogKind==="single"?"單次":p.catalogKind==="trial"?"體驗":"次數方案"} · `}{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || (catalogSource?"指定服務":"指定課程") : catalogSource?"全部服務":"全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
+                    {music ? <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit && (!catalogSource||p.catalogKind==='plan') && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 min-w-0 break-words text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div><div className={`mt-1 flex flex-wrap gap-x-2 ${music ? "text-xs text-earth-500" : "text-sm text-earth-700"}`}>{music && <span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span>}<span>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "本店所有課程"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.catalogKind&&p.catalogKind!=="plan"?"—":p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && (!catalogSource||!!catalogSource.order) && order.handle(p.id,p.name)}{canEdit && (!catalogSource||p.catalogKind==='plan') && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span><span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || (catalogSource?"指定服務":"指定課程") : catalogSource?"全部服務":"全部課程"}>{catalogSource&&`${p.catalogKind==="single"?"單次":p.catalogKind==="trial"?"體驗":"次數方案"} · `}{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || (catalogSource?"指定服務":"指定課程") : catalogSource?"全部服務":"全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
                     <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? catalogSource?"次":"堂" : "點"}{music && <p className="text-xs text-earth-500">{p.catalogKind&&p.catalogKind!=="plan"?"—":p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</p>}</td>
                     <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>{p.catalogUnavailable?"未開放":`NT$ ${p.price.toLocaleString("zh-TW")}`}{!p.catalogUnavailable&&(music || p.price > 0) && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? catalogSource?"次":"堂" : "點"}</p>}</td>
                     {!music && <>
@@ -501,12 +501,7 @@ export function CourseMemberWorkspace({
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab("info")}>‹ 返回 {person.name} 詳情</button>}
-            {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <div aria-label="顧客基本資料" className={sportsNative?"grid grid-cols-1 items-start gap-x-5 sm:grid-cols-2":"contents"}>
-              <CustomerPhoneLink phone={person.phone}/>
-              <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
-              {sportsNative&&<div className="sm:col-span-2">{attribution}{detailFields}</div>}
-              </div>
+            {panel === "person" && person && personTab === "info" && !editingPerson && <CourseCustomerOverview id={person.id} phone={person.phone} canEdit={canEdit} compact={sportsNative} attribution={attribution} details={detailFields} note={
               <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={async(serviceNote, expectedServiceNote) => {
@@ -516,16 +511,11 @@ export function CourseMemberWorkspace({
                   const result=await response.json();if(!result||typeof result.success!=="boolean")throw new Error("儲存回應格式不正確");return result as Awaited<ReturnType<typeof saveCourseCustomerNote>>;
                 }}
                 onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();}} />
-              {!sportsNative&&attribution}
-              {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
+              } cards={canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
                 <CourseCardBrowser native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
-              </section>}
-              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
-              <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={() => router.refresh()}/>
-              {!sportsNative&&detailFields}
-              {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button></ExclusiveMenu>}
-            </section>}
+              </section>} connection={<StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />} advanced={<CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={() => router.refresh()}/>} actions={canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button></ExclusiveMenu>}
+            />}
             {panel === "person" && (
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}

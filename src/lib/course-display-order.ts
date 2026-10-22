@@ -9,3 +9,5 @@ export function moveCourseRow(ids:string[],from:string,to:string) {
   if(from===to||!ids.includes(from)||!ids.includes(to)) return ids;
   const next=ids.filter(id=>id!==from);next.splice(ids.indexOf(to),0,from);return next;
 }
+
+export type CourseOrderWriter = (input:{kind:CourseOrderKind;ids:string[];revision:number})=>Promise<{success:true;revision:number}|{success:false;error:string}>;

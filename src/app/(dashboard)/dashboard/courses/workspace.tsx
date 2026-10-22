@@ -143,7 +143,7 @@ type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
 };
-export type CourseCatalogSource={status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
+export type CourseCatalogSource={order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 type Props = {
   catalogSource?:CourseCatalogSource;
   storeId?: string;
@@ -493,7 +493,7 @@ export function CourseWorkspace({
   const categories = [
     ...new Set(catalogItems.map((item) => item.category)),
   ].sort();
-  const order=useCourseDisplayOrder("room",allRooms,displayOrder,!catalogSource&&view==="rooms"&&canEdit&&!query&&status==="all"&&category==="all"&&rentalFilter==="all"&&!hideTestData&&!busyIds.length,r=>r.isActive);
+  const order=useCourseDisplayOrder(catalogSource&&view==="catalog"?"subject":"room",catalogSource?catalogItems:allRooms,displayOrder,(!catalogSource||!!catalogSource.order)&&(view==="rooms"||!!catalogSource)&&canEdit&&!query&&status==="all"&&category==="all"&&rentalFilter==="all"&&!hideTestData&&!busyIds.length,r=>r.isActive,catalogSource?.order);
   const filteredItems = catalogItems
     .filter(
       (item) =>
@@ -510,7 +510,7 @@ export function CourseWorkspace({
     )
     .sort((a, b) => {
       const rank = (item: Room) => !item.isActive ? 2 : item.visibility === "HIDDEN" ? 1 : 0;
-      return rank(a) - rank(b) || (view==="rooms"?order.compare(a,b):0) || ((businessProfile === "MUSIC" || catalogSource) && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
+      return rank(a) - rank(b) || (view==="rooms"||catalogSource?order.compare(a,b):0) || ((businessProfile === "MUSIC" || catalogSource) && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
     });
   const isInactiveItem=(item:Room|Template)=>view==="rooms"?!item.isActive:!item.isActive||item.visibility==="OFF";
   const activeFilteredItems=filteredItems.filter(item=>!isInactiveItem(item));
@@ -1340,7 +1340,7 @@ export function CourseWorkspace({
                       <td
                         className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
-                        {view==="rooms"&&canEdit&&!catalogSource&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}<button type="button" className="min-h-11 text-left hover:underline" onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open(businessProfile!=="MUSIC" && canEdit?"edit":"inspect");}}>{item.name}</button>{item.id === newRoomId && <span className="ml-2 text-sm font-normal text-primary-700">剛新增</span>}
+                        {canEdit&&(view==="rooms"||!!catalogSource?.order)&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}<button type="button" className="min-h-11 text-left hover:underline" onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open(businessProfile!=="MUSIC" && canEdit?"edit":"inspect");}}>{item.name}</button>{item.id === newRoomId && <span className="ml-2 text-sm font-normal text-primary-700">剛新增</span>}
                         {!item.isActive && <span className="ml-2 text-xs text-earth-500">停用</span>}{template?.visibility === "HIDDEN" && <span className="ml-2 text-xs text-earth-500">隱藏</span>}{template && businessProfile==="MUSIC" && (!item.name.includes(template.classType==="PRIVATE"?"個別":template.classType==="SELF_ORGANIZED"?"自組":"團體")) && <span className="ml-2 whitespace-nowrap font-normal text-xs text-earth-500">{template.musicTrialMode?"體驗":template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"課型待補"}</span>}
 
                       </td>

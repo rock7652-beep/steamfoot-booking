@@ -1,4 +1,5 @@
 "use client";
+import {CourseStaffBasicFields,CourseStaffEditorTabs,CourseStaffPermissionFields} from "../courses/staff-editor-fields";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UserRole } from "@prisma/client";
@@ -22,8 +23,8 @@ export const emptyStaffAccountPolicy: StaffAccountPolicy = { canAssignRoles: fal
 const field = "min-h-11 min-w-0 w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 const button = "min-h-11 rounded-xl border border-earth-200 px-3 py-2 text-sm text-primary-800 disabled:opacity-50";
 
-export function StaffAccountEditor({ person, policy, onClose, storeId="", onSaved }: {
-  storeId?:string; onSaved?:(person:StaffWorkspacePerson,syncWarning:boolean)=>void; person: StaffWorkspacePerson; policy: StaffAccountPolicy; onClose: () => void;
+export function StaffAccountEditor({ person, policy, onClose, storeId="", onSaved,courseStyle=false }: {
+  courseStyle?:boolean;storeId?:string; onSaved?:(person:StaffWorkspacePerson,syncWarning:boolean)=>void; person: StaffWorkspacePerson; policy: StaffAccountPolicy; onClose: () => void;
 }) {
   const titleId = useId();
   const [tab, setTab] = useState("basic");
@@ -87,18 +88,20 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
       <h2 id={titleId} className="font-semibold">{person.canEdit ? "編輯人員" : "查看人員"}</h2>
       <button type="button" className={button} disabled={locked} onClick={close}>關閉</button>
     </header>
-    <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2" aria-label="人員編輯分頁">
+    {courseStyle?<CourseStaffEditorTabs value={tab} disabled={locked} items={[["basic","基本資料"],["permissions","後台帳號／權限"]]} onChange={setTab}/>:(    <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2" aria-label="人員編輯分頁">
       {[["basic", "基本資料"], ["permissions", "後台帳號／權限"]].map(([id, label]) => <button type="button" key={id} className={`${button} ${tab === id ? "!border-primary-300 !bg-primary-50 font-medium" : ""}`} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
-    </nav>
+    </nav>)}
+
     <form className="flex min-h-0 flex-1 flex-col" onSubmit={e => { e.preventDefault(); void save(); }}>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         <fieldset disabled={locked || !person.canEdit} className="space-y-3">
           <div hidden={tab !== "basic"} className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
-            <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
+            {courseStyle?<CourseStaffBasicFields name={name} active={status==='ACTIVE'} phone={phone} onName={setName} onPhone={setPhone} onActive={v=>setStatus(v?'ACTIVE':'INACTIVE')} nameField="displayName" statusField="status" activeValue="ACTIVE" inactiveValue="INACTIVE"><label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e=>setColor(e.target.value)}/></label></CourseStaffBasicFields>:<>            <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
             <label className="block text-sm">電話<input name="phone" maxLength={30} className={field} value={phone} onChange={e => setPhone(e.target.value)}/></label>
             <label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e => setColor(e.target.value)}/></label>
-            <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label>
+            <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label></>}
+
           </div>
           <div hidden={tab !== "permissions"} className="space-y-2">
             <div className={styles.staffAccountFields}>
@@ -106,7 +109,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
               <StaffRoleControl compact role={role} canAssignRoles={policy.canAssignRoles} presets={policy.rolePresets} onRole={setRole} onPreset={setPermissions}/>
             </div>
             <p className="text-sm text-earth-600">{fullAccess ? "此角色權限全開放。" : "切換角色保留權限；套用預設後可逐項調整。"}</p>
-            {!fullAccess && <section className="space-y-2">
+            {courseStyle?<CourseStaffPermissionFields groups={policy.permissionGroups} permissions={permissions} editableCodes={policy.editablePermissions} disabled={fullAccess} onChange={setPermissions}/>:<>            {!fullAccess && <section className="space-y-2">
               <h3 className="font-semibold text-primary-800">店內管理權限 · {allCodes.filter(c => permissions.includes(c)).length}／{allCodes.length}</h3>
               <div className={styles.staffPermissionFilters}>
                 <select aria-label="權限分類" className={field} value={category} onChange={e => { setCategory(e.target.value); setSearch(""); }}>
@@ -123,7 +126,8 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
               </section>)}
               {!visibleGroups.length && <p className="py-3 text-sm text-earth-500">沒有符合條件的權限</p>}
               </div>
-            </section>}
+            </section>}</>}
+
           </div>
         </fieldset>
         {tab === "permissions" && person.canResetPassword && !dirty && !locked && <div className="mt-3"><ResetPasswordButton userId={person.userId} displayName={person.displayName}/></div>}

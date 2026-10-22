@@ -524,7 +524,7 @@ export function StaffWorkspace({
         </section>
       )}
 
-      {editor?.type === "details" && selected ? (accountListOnly ? <StaffAccountEditor key={selected.id} person={selected} policy={accountPolicy} storeId={storeId} onSaved={confirmSaved} onClose={closeSpaEditor} /> :
+      {editor?.type === "details" && selected ? (accountListOnly ? <StaffAccountEditor courseStyle={beauty} key={selected.id} person={selected} policy={accountPolicy} storeId={storeId} onSaved={confirmSaved} onClose={closeSpaEditor} /> :
         <PersonDrawer
           accountListOnly={accountListOnly}
           person={selected}

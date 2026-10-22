@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({catalog:vi.fn(),location:vi.fn(),refresh:vi.fn()}));
+vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({saveBeautyCatalog:m.catalog,saveBeautyLocation:m.location}));
 vi.mock('@/app/(dashboard)/dashboard/courses/workspace',()=>({CourseWorkspace:()=>null}));
 vi.mock('@/app/(dashboard)/dashboard/courses/member-workspace',()=>({CourseMemberWorkspace:()=>null}));

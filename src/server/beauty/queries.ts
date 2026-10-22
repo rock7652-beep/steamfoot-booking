@@ -354,14 +354,17 @@ export async function beautyDashboard(
         _count: { id: true },
       })
     : [];
-  const [calendarHours,calendarSpecials,customerVisits]=await Promise.all([
+  const [calendarHours,calendarSpecials,customerVisits,orderRows]=await Promise.all([
     prisma.businessHours.findMany({where:{storeId:a.storeId}}),
     prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
     customerAccess&&customers.length?beautyPrisma.beautyAppointment.groupBy({by:["customerId"],where:{storeId:a.storeId,customerId:{in:customers.map(c=>c.id)},status:"COMPLETED",startsAt:{lte:new Date()}},_max:{startsAt:true}}):[],
+    beautyPrisma.$queryRaw<Array<{kind:"room"|"subject"|"plan";ids:string[];revision:number}>>`SELECT kind,ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind IN ('room','subject','plan')`,
   ]);
   const calendarDates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
   const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
+  const displayOrders=Object.fromEntries(orderRows.filter(r=>r.kind!=="plan"||planAccess).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
   return {
+    displayOrders,
     purchases: purchases.map((p) => ({
       ...p,
       createdAt: p.createdAt.toISOString(),

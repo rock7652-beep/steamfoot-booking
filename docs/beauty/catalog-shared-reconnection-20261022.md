@@ -48,3 +48,7 @@
 - [隔離測試站後台](https://steamfoot-booking-kw0zumatt-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)。網址仍受原 Vercel 存取保護，不是新增免驗證分享連結。
 - 真實 hosted 登入與資料寫入未驗，沒有把本機 fixture 視為真實店家驗收。
 - 本輪沒有改環境變數、執行資料表升級／資料搬移、建立 PR、合併 main 或操作正式站。
+
+## 排序與後續編輯接回
+
+本批的「排序未接回」是上述版本的歷史限制；後續已實作及驗證的分級結果，見 [排序與顧客／人員編輯](shared-editors-and-order-20261022.md)。Hosted 登入限制仍保留，不能把後續 SQL 或本機元件測試視為登入後完整驗收。

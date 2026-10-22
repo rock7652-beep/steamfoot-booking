@@ -1,11 +1,14 @@
 "use client";
-import {CustomerLabels} from "@/components/customer-labels";
+import {CourseCustomerDraftForm} from "@/app/(dashboard)/dashboard/courses/course-profile-forms";
+import {saveBeautyCustomerProfile} from "@/server/actions/beauty";
+import {CourseCustomerOverview} from "@/app/(dashboard)/dashboard/courses/customer-overview";
+import {RetainedNoteEditor} from "@/components/operations/retained-note-editor";
 import {BeautySharedMembers} from "./shared-members";
 import {StoreMemberConnectionPanel} from "@/components/admin/store-member-connection-panel";
 import {useCustomerPanelGuard} from "@/components/admin/use-customer-panel-guard";
 import {SettingsPanelContext} from "@/components/admin/settings-panel-context";
 import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
-import {CustomerDetailFields,CustomerPhoneLink} from "@/components/customer-detail-fields";
+import {CustomerDetailFields} from "@/components/customer-detail-fields";
 import {DataTable} from "@/components/desktop";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -78,8 +81,9 @@ export function BeautyCustomerPanel({
       }
     });
   }
+  const [profilePending,setPendingProfile]=useState(false);
   const [dirty,setDirty]=useState(false),[tab,setTab]=useState("info"),[editing,setEditing]=useState(false);
-  const close=()=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
+  const close=()=>{if(!pending&&!profilePending&&support.allowLeave()&&(!dirty||window.confirm('尚有未儲存的顧客資料，確定離開？')))onClose();};
   const customer = detail?.success ? detail.data.customer : null;
   return (
     <SettingsPanelContext.Provider value={support.context}><RightSheet
@@ -88,14 +92,14 @@ export function BeautyCustomerPanel({
       presentation="centered"
       width={850}
       onClose={close}
-      closeOnEscape={!pending}
+      closeOnEscape={!pending&&!profilePending}
       labelledById="beauty-customer-detail"
     >
       <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
         <h2 id="beauty-customer-detail" className="min-w-0 break-words text-base font-semibold text-primary-900">{customer?.name??'顧客資料與服務紀錄'}</h2>
-        <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending} onClick={close}>關閉</button></div>
+        <div className="flex items-center gap-2">{customer&&tab==='info'&&!readOnly&&data.manage.customerEdit&&<button className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(!pending&&!profilePending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(!editing);}}}>{editing?'返回顧客概況':'編輯顧客資料'}</button>}<button className={field+' !w-auto'} disabled={pending||profilePending} onClick={close}>關閉</button></div>
       </header>
-      <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
+      <CustomerPanelTabs items={[{id:'info',label:'顧客概況'},{id:'records',label:'紀錄'}]} value={tab} onSelect={value=>{if(!pending&&!profilePending&&support.allowLeave()&&(!dirty||window.confirm('尚未儲存，確定切換？'))){setDirty(false);setEditing(false);setTab(value);}}}/>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4" onChangeCapture={e=>{if((e.target as HTMLElement).matches('[name]')&&(e.target as HTMLElement).closest('form[data-beauty-draft]'))setDirty(true);}}>
         {!detail && !error && <p role="status">讀取中…</p>}
         {detail && !detail.success && <p role="alert">{detail.error}</p>}
@@ -104,65 +108,8 @@ export function BeautyCustomerPanel({
             {error}
           </p>
         )}
-        {customer&&tab==='info'&&!editing&&<section className="space-y-3"><CustomerPhoneLink phone={customer.phone}/><CustomerLabels customerId={id} readOnly={readOnly||!data.manage.customerEdit} maxVisible={5}/>{!readOnly&&data.manage.customerEdit?<StoreMemberConnectionPanel compact customerId={id}/>:<p className="text-sm">會員身分：{data.customers.find(c=>c.id===id)?.userId?'已連結':'尚未連結'}</p>}<CustomerDetailFields items={[{label:'姓名',value:customer.name},{label:'店內備註',value:customer.notes,full:true}]}/><section className="border-t border-earth-100 pt-2"><h3 className="py-2 text-sm font-semibold">持有方案</h3><DataTable rows={data.cards.filter(c=>c.memberIds.includes(id))} rowKey={c=>c.id} columns={[{key:'name',header:'方案',accessor:c=>c.name},{key:'balance',header:'可用次數',accessor:c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now?Math.max(0,c.remaining-c.held)+' 次':'已結清／到期'},{key:'held',header:'已預約',accessor:c=>c.held+' 次'},{key:'expiry',header:'到期',accessor:c=>formatTWDateTime(new Date(c.expiresAt))}]}/></section></section>}
-        {customer && tab==='info' && editing && (
-          <form
-            data-beauty-draft
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              run(() =>
-                updateBeautyCustomer({
-                  id,
-                  expected: customer,
-                  values: {
-                    name: f.get("name"),
-                    phone: f.get("phone"),
-                    notes: f.get("notes"),
-                  },
-                }),
-              );
-            }}
-          >
-            <fieldset
-              className="grid gap-3 sm:grid-cols-2"
-              disabled={pending || readOnly || !data.manage.customerEdit}
-            >
-              <label>
-                姓名
-                <input
-                  className={field}
-                  required
-                  name="name"
-                  defaultValue={customer.name}
-                />
-              </label>
-              <label>
-                手機
-                <input
-                  className={field}
-                  required
-                  pattern="09[0-9]{8}"
-                  type="tel"
-                  name="phone"
-                  defaultValue={customer.phone}
-                />
-              </label>
-              <label className="sm:col-span-2">
-                顧客備註
-                <textarea
-                  className={field}
-                  name="notes"
-                  defaultValue={customer.notes}
-                />
-              </label>
-              {!readOnly && data.manage.customerEdit && (
-                <button className={field}>儲存顧客資料</button>
-              )}
-            </fieldset>
-          </form>
-        )}
+        {customer&&tab==='info'&&!editing&&<CourseCustomerOverview id={id} phone={customer.phone} canEdit={!readOnly&&data.manage.customerEdit} compact details={<CustomerDetailFields items={[{label:'電子信箱',value:customer.email},{label:'生日',value:customer.birthday},{label:'性別',value:({male:'男',female:'女',other:'其他'} as Record<string,string>)[customer.gender??'']},{label:'地址',value:customer.address,full:true},{label:'緊急聯絡人',value:customer.emergencyContactName},{label:'緊急聯絡電話',value:customer.emergencyContactPhone}]}/>} note={<RetainedNoteEditor quiet optimistic stateKey={`beauty-customer-note:${data.storeId}:${id}`} title="顧客備註" hint="" placeholder="輸入顧客備註" maxLength={1000} value={customer.notes} canEdit={!readOnly&&data.manage.customerEdit} save={async(notes,expectedNotes)=>{const r=await updateBeautyCustomer({id,expected:{name:customer.name,phone:customer.phone,notes:expectedNotes??''},values:{name:customer.name,phone:customer.phone,notes:notes??''}});return r;}} onSaved={()=>{reader.invalidate(id);void reader.load(id,{revalidate:true}).then(setDetail);router.refresh();}}/>} connection={!readOnly&&data.manage.customerEdit?<StoreMemberConnectionPanel compact customerId={id}/>:<p className="text-sm">會員身分：{data.customers.find(c=>c.id===id)?.userId?'已連結':'尚未連結'}</p>} cards={<section className="border-t border-earth-100 pt-2"><h3 className="py-2 text-sm font-semibold">持有方案</h3><DataTable rows={data.cards.filter(c=>c.memberIds.includes(id))} rowKey={c=>c.id} columns={[{key:'name',header:'方案',accessor:c=>c.name},{key:'balance',header:'可用次數',accessor:c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now?Math.max(0,c.remaining-c.held)+' 次':'已結清／到期'},{key:'held',header:'已預約',accessor:c=>c.held+' 次'},{key:'expiry',header:'到期',accessor:c=>formatTWDateTime(new Date(c.expiresAt))}]}/></section>}/>}
+        {customer&&tab==='info'&&editing&&<><CourseCustomerDraftForm person={customer} canEdit={!readOnly&&data.manage.customerEdit} canCreate={false} hidden={false} save={saveBeautyCustomerProfile} draftScope={`beauty-customer:${data.storeId}`} onPending={setPendingProfile} onDirtyChange={setDirty} onSaved={()=>{reader.invalidate(id);router.refresh();onClose();}}/><div className="flex justify-end"><button type="submit" form="course-member-form" className={field+' !w-auto'} disabled={profilePending||readOnly||!data.manage.customerEdit}>儲存顧客資料</button></div></>}
         {tab==='info'&&!editing&&data.cards
           .filter((c) => c.customerId === id && c.allowShared && !c.closedAt)
           .map((c) => (

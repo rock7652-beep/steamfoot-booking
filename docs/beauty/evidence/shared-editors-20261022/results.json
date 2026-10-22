@@ -1,0 +1,30 @@
+{
+  "scope": "Local actual UI with stubbed server/navigation, no hosted login, real devices or database acceptance",
+  "results": [
+    {
+      "name": "customer: actual shared edit controls at five widths with mock writes",
+      "passed": true
+    },
+    {
+      "name": "technician: actual shared edit controls at five widths with mock writes",
+      "passed": true
+    },
+    {
+      "name": "staff: actual shared edit controls at five widths with mock writes",
+      "passed": true
+    },
+    {
+      "name": "位置管理: original sorting controls connected to Beauty writer",
+      "passed": true
+    },
+    {
+      "name": "服務項目: original sorting controls connected to Beauty writer",
+      "passed": true
+    },
+    {
+      "name": "收費方式: original sorting controls connected to Beauty writer",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

@@ -9,6 +9,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { requirePermission,checkPermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature,hasStoreFeature } from "@/lib/feature-gate";
+import {updateCustomerSchema} from "@/lib/validators/customer";
 import { toLocalDateStr } from "@/lib/date-utils";
 import {
   serviceInput,
@@ -709,7 +710,7 @@ export async function readBeautyCustomer(input: unknown) {
     const { id } = z.object({ id: key }).parse(input);
     const customer = await prisma.customer.findFirst({
       where: { id, storeId: a.storeId, mergedIntoCustomerId: null },
-      select: { id: true, name: true, phone: true, notes: true },
+      select: { id: true, name: true, phone: true, notes: true,updatedAt:true,email:true,gender:true,birthday:true,serviceNote:true,address:true,emergencyContactName:true,emergencyContactPhone:true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
     const items = await beautyPrisma.beautyAppointment.findMany({
@@ -724,7 +725,7 @@ export async function readBeautyCustomer(input: unknown) {
     return {
       canTransactions,
       payments:payments.map(p=>({...p,createdAt:p.createdAt.toISOString()})),
-      customer: { ...customer, notes: customer.notes ?? "" },
+      customer: { ...customer, notes: customer.notes ?? "",updatedAt:customer.updatedAt.toISOString(),birthday:customer.birthday?.toISOString().slice(0,10)??"" },
       items: items.map((b) => ({
         id: b.id,
         serviceName: b.serviceName,
@@ -734,6 +735,19 @@ export async function readBeautyCustomer(input: unknown) {
       })),
     };
   });
+}
+export async function saveBeautyCustomerProfile(input:unknown){
+ return result(async()=>{
+  const a=await beautyManager("customer.update",true);
+  await requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT);
+  const d=updateCustomerSchema.pick({name:true,phone:true,email:true,gender:true,birthday:true}).extend({id:key,expectedUpdatedAt:z.string().datetime(),address:z.string().trim().max(300),emergencyContactName:z.string().trim().max(100),emergencyContactPhone:z.string().trim().max(30)}).parse(input);
+  return beautyTransaction(a,async tx=>{
+   const n=await tx.$executeRaw`UPDATE "Customer" SET name=${d.name},phone=${d.phone},email=${d.email||null},gender=${d.gender||null},birthday=${d.birthday||null}::date,address=${d.address||null},"emergencyContactName"=${d.emergencyContactName||null},"emergencyContactPhone"=${d.emergencyContactPhone||null},"updatedAt"=NOW() WHERE id=${d.id} AND "storeId"=${a.storeId} AND "mergedIntoCustomerId" IS NULL AND "updatedAt"=${new Date(d.expectedUpdatedAt)}`;
+   if(n!==1)throw new AppError("CONFLICT","顧客資料已更新，請重新開啟核對；輸入已保留");
+   await audit(tx,a,"CUSTOMER_PROFILE",JSON.stringify({id:d.id}));
+   return {id:d.id};
+  });
+ });
 }
 export async function updateBeautyCustomer(input: unknown) {
   return result(async () => {

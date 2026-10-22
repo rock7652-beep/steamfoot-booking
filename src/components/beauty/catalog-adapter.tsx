@@ -1,4 +1,5 @@
 "use client";
+import {saveBeautyDisplayOrder} from "@/server/actions/beauty-display-order";
 import {useRouter} from 'next/navigation';
 import type {Room,Template,CourseCatalogSource} from '@/app/(dashboard)/dashboard/courses/workspace';
 import dynamic from 'next/dynamic';
@@ -64,6 +65,6 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
 }
 export function BeautyCourseCatalog({tab,data,canEdit}:{tab:string;data:BeautyDashboardData;canEdit:boolean}){
  const router=useRouter();const {products,status,form,templates,rooms,save}=createBeautyCatalogAdapter(tab,data,canEdit,()=>router.refresh());
- if(tab==='收費方式')return <CourseMemberWorkspace view="plans" catalogSource={{status,form}} previewStoreId={data.storeId} templates={templates} people={[]} plans={products} cards={[]} canEdit={canEdit} canCreate={canEdit} canManageStaff={false} canAssign={false} canReadBookings={false} canReadTransactions={false} healthEnabled={false} customerRows={[]} canReadCards={false} assignmentStaff={[]} canAssignManager={false} profitEnabled={false}/>;
- return <CourseWorkspace catalogSource={{status,save}} view={tab==='位置管理'?'rooms':'catalog'} businessProfile="FITNESS" storeId={data.storeId} selectedDate={data.date} today={toLocalDateStr()} nowIso={new Date(data.now).toISOString()} calendarDays={{}} rooms={rooms} templates={templates} sessions={[]} coaches={[]} cancelledBookings={[]} staffAvailability={[]} staffAvailabilityExceptions={[]} canCreate={canEdit} canEdit={canEdit}/>;
+ if(tab==='收費方式')return <CourseMemberWorkspace view="plans" catalogSource={{status,form,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.plan} previewStoreId={data.storeId} templates={templates} people={[]} plans={products} cards={[]} canEdit={canEdit} canCreate={canEdit} canManageStaff={false} canAssign={false} canReadBookings={false} canReadTransactions={false} healthEnabled={false} customerRows={[]} canReadCards={false} assignmentStaff={[]} canAssignManager={false} profitEnabled={false}/>;
+ return <CourseWorkspace catalogSource={{status,save,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.[tab==='位置管理'?'room':'subject']} view={tab==='位置管理'?'rooms':'catalog'} businessProfile="FITNESS" storeId={data.storeId} selectedDate={data.date} today={toLocalDateStr()} nowIso={new Date(data.now).toISOString()} calendarDays={{}} rooms={rooms} templates={templates} sessions={[]} coaches={[]} cancelledBookings={[]} staffAvailability={[]} staffAvailabilityExceptions={[]} canCreate={canEdit} canEdit={canEdit}/>;
 }

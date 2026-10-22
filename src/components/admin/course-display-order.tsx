@@ -2,9 +2,9 @@
 import {useEffect,useId,useRef,useState,type PointerEvent} from "react";
 import {toast} from "sonner";
 import {saveCourseDisplayOrder} from "@/server/actions/course-display-order";
-import {emptyCourseOrder,moveCourseRow,orderCourseRows,type CourseOrderKind,type CourseOrderSnapshot} from "@/lib/course-display-order";
+import {emptyCourseOrder,moveCourseRow,orderCourseRows,type CourseOrderWriter,type CourseOrderKind,type CourseOrderSnapshot} from "@/lib/course-display-order";
 
-export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean=()=>true) {
+export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean=()=>true,write:CourseOrderWriter=saveCourseDisplayOrder) {
   const [saved,setSaved]=useState(initial);
   const [pendingId,setPendingId]=useState<string|null>(null);
   const [error,setError]=useState<{id:string;message:string;retry?:()=>void}|null>(null);
@@ -34,7 +34,7 @@ export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKin
       setError({id:rowId,message,retry:()=>{void persist(ids,rowId,undo,previous);}});
     };
     try{
-      const result=await saveCourseDisplayOrder({kind,ids,revision:current.revision});
+      const result=await write({kind,ids,revision:current.revision});
       if(!mounted.current)return;
       if(!result.success){rollback(result.error);return;}
       const next={ids,revision:result.revision};revision.current=result.revision;setSaved(next);

@@ -1,4 +1,5 @@
 "use client";
+import {CourseStaffEditorTabs,CourseStaffBasicFields,CourseStaffPermissionFields,CourseStaffServiceRow} from "./staff-editor-fields";
 import {CourseStaffList,type CourseStaffDisplayRow} from "./staff-list";
 import { SportsCoachFeeFields } from "@/components/admin/sports-coach-fee-fields";
 import { compensationRule } from "@/lib/course-compensation";
@@ -195,7 +196,6 @@ export function CourseStaffWorkspace({
   const [backendRole, setBackendRole] = useState("STAFF");
   const [applyRolePreset, setApplyRolePreset] = useState(false);
   const [permissionDraft, setPermissions] = useState<string[]>([]);
-  const [permissionSearch, setPermissionSearch] = useState("");
   const [transitionPending, start] = useTransition();
   const pending=transitionPending||request.pending||incomePending,locked=pending||request.uncertain;
   useEffect(()=>{if(submitAfterTime&&!pending&&!availabilityGuard.pending){setSubmitAfterTime(false);document.getElementById("course-staff-form")?.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));}},[submitAfterTime,pending,availabilityGuard.pending]);
@@ -246,12 +246,11 @@ export function CourseStaffWorkspace({
   const unrestrictedRole = backendRole === "OWNER" || backendRole === "ADMIN";
   const permissions = kind === "manager" && unrestrictedRole ? allowedPermissionCodes : permissionDraft;
   const financeTeacherIds = kind === "manager" && unrestrictedRole ? null : financeTeacherDraft;
-  const permissionQuery = permissionSearch.trim().toLocaleLowerCase();
   const visiblePermissionGroups = permissionGroups
     .map((group) => ({
       ...group,
-      codes: group.codes.filter(({ code, label }) =>
-        !["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay","teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(code) && (!permissionQuery || `${label} ${code}`.toLocaleLowerCase().includes(permissionQuery)),
+      codes: group.codes.filter(({ code }) =>
+        !["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay","teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(code),
       ),
     }))
     .filter((group) => group.codes.length);
@@ -273,7 +272,6 @@ export function CourseStaffWorkspace({
     setBackendRole(p?.role ?? "STAFF"); setApplyRolePreset(false);
     setPermissions((p?.permissions ?? rolePresets.STAFF ?? []).filter((permission) => allowed.has(permission)));
     setFinanceTeacherIds(p?.financeTeacherIds??financeScope);
-    setPermissionSearch("");
     setKind(p?.kind ?? accountKind ?? "coach");
     setError("");
     setKey(crypto.randomUUID());
@@ -370,7 +368,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <CourseStaffEditorTabs value={tab} disabled={locked} items={[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])]} onChange={id=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}}/>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount} 位。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
@@ -484,9 +482,7 @@ export function CourseStaffWorkspace({
             >
               <fieldset disabled={readOnly || locked} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
-              <label className="block">姓名 *<input className={field} name="name" key={`name:${linkedStaffId}`} defaultValue={person?.name??selectedCounterpart?.name} required /></label>
-              <label className="block">狀態<select className={field} name="active" defaultValue={person?.active === false ? "no" : "yes"}><option value="yes">啟用</option><option value="no">停用</option></select></label>
-              <label className="block">電話（選填）<input key={`phone:${linkedStaffId}`} className={field} name="phone" type="tel" defaultValue={person?.phone??selectedCounterpart?.phone}/></label>
+              <CourseStaffBasicFields key={`basic:${linkedStaffId}`} name={person?.name??selectedCounterpart?.name??""} active={person?.active!==false} phone={person?.phone??selectedCounterpart?.phone}/>
               {kind==="coach"&&<label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label>}
               {kind === "manager" && coachEnabled && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任授課</label>}
               <details className="col-span-full"><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多資料（選填）</summary><div className="grid gap-3 sm:grid-cols-3">
@@ -512,12 +508,11 @@ export function CourseStaffWorkspace({
                   {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} invalidTemplateId={invalidTemplateId} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setInvalidTemplateId(undefined);setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
-                      return <div key={t.id} className={sportsNative?"grid grid-cols-1 items-center gap-x-3 px-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)]":"grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3"}>
-                        <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{courseTemplateLabel(t)}{t.currentTeaching===false&&<span className="text-earth-500">（{t.isActive===false?"停用":"未販售"}）</span>}</label>
+                      return <CourseStaffServiceRow key={t.id} name={courseTemplateLabel(t)} selected={selected} wide={sportsNative} inactiveLabel={t.currentTeaching===false?(t.isActive===false?"停用":"未販售"):undefined} onSelect={value=>{setQualificationsTouched(true);setQualificationIds(ids=>value?[...ids,t.id]:ids.filter(id=>id!==t.id));}}>
 
                         {selected && feeEnabled && sportsNative ? <SportsCoachFeeFields name={courseTemplateLabel(t)} draft={fees[t.id]} defaultRules={sportsDefaults.find(f=>f.templateId===t.id)?.rules} disabled={!canEditFees} onChange={value=>setFees(old=>({...old,[t.id]:value}))}/> : selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
-                      </div>;
+                      </CourseStaffServiceRow>;
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
                   </div>}
@@ -596,63 +591,8 @@ export function CourseStaffWorkspace({
               )}
 
               {kind === "manager" && (
-                <fieldset disabled={unrestrictedRole} className="space-y-2"><details><summary className="min-h-11 cursor-pointer py-2 font-medium text-primary-800">進階權限・已開啟 {permissions.length}／{allowedPermissionCodes.length} 項</summary>
-                  <div className="flex flex-wrap items-end justify-between gap-2">
-                    <div>
-                      <h3 className="font-semibold text-primary-800">店內管理權限</h3>
-                      <p className="text-xs text-earth-500">已開啟 {permissions.length}／{allowedPermissionCodes.length} 項；套用範本後仍可逐項調整。</p>
-                    </div>
-                    <div className="flex gap-1">
-                      {<button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={()=>{setPermissions(allowedPermissionCodes.filter(code=>code.endsWith(".read")||code.endsWith(".view")));setDirty(true);}}>套用僅查看</button>}
-                      <button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={()=>{setPermissions(allowedPermissionCodes);setDirty(true);}}>全部開啟</button>
-                      <button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={()=>{setPermissions([]);setDirty(true);}}>全部清除</button>
-                    </div>
-                  </div>
-                  <input
-                    className={`${field} !min-h-10 !py-1.5 text-sm`}
-                    aria-label="搜尋權限"
-                    placeholder="搜尋權限名稱"
-                    value={permissionSearch}
-                    onChange={(event)=>setPermissionSearch(event.target.value)}
-                    data-browse-control
-                  />
-                  <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2">
-                    {visiblePermissionGroups.map((g) => {
-                      const groupCodes = g.codes.map((item) => item.code);
-                      const selectedCount = groupCodes.filter((code) => permissions.includes(code)).length;
-                      return (
-                        <details name={permissionQuery ? undefined : "staff-permission-sections"} key={g.label} open={permissionQuery ? true : undefined} className="rounded-lg border border-earth-200 bg-white px-3">
-                          <summary className="cursor-pointer py-2 text-sm font-medium text-primary-800">
-                            {music ? g.label : g.label.replaceAll("教師", courseDisplayText("教練", music))} <span className="font-normal text-earth-500">{selectedCount}／{g.codes.length}</span>
-                          </summary>
-                          <div className="border-t border-earth-100 pb-2 pt-1">
-                            <div className="flex justify-end gap-1 pb-1">
-                              <button type="button" className="rounded-md px-2 py-1 text-xs text-primary-800 hover:bg-primary-50" onClick={()=>{setPermissions((current)=>[...new Set([...current,...groupCodes])]);setDirty(true);}}>整組開啟</button>
-                              <button type="button" className="rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-50" onClick={()=>{setPermissions((current)=>current.filter((code)=>!groupCodes.includes(code)));setDirty(true);}}>清除</button>
-                            </div>
-                            <div className="grid grid-cols-1 gap-x-2 min-[520px]:grid-cols-2">
-                              {g.codes.map(({ code, label }) => (
-                                <label key={code} className="flex min-h-9 items-center gap-2 rounded-md px-1 text-sm hover:bg-earth-50">
-                                  <input
-                                    className="h-4 w-4 shrink-0 accent-primary-700"
-                                    type="checkbox"
-                                    name="permission"
-                                    value={code}
-                                    checked={permissions.includes(code)}
-                                    disabled={unrestrictedRole}
-                                    onChange={(event) => setPermissions((current) => event.target.checked ? [...new Set([...current, code])] : current.filter((value) => value !== code))}
-                                  />
-                                  <span className="min-w-0 leading-tight">{label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        </details>
-                      );
-                    })}
-                  </div>
-                  {!visiblePermissionGroups.length && <p className="rounded-lg border border-dashed border-earth-200 p-3 text-center text-sm text-earth-500">找不到符合的權限</p>}</details>
-                </fieldset>
+                <CourseStaffPermissionFields allCodes={allowedPermissionCodes} disabled={unrestrictedRole} groups={visiblePermissionGroups.map(g=>({...g,label:music?g.label:g.label.replaceAll("教師",courseDisplayText("教練",music))}))} editableCodes={allowedPermissionCodes} permissions={permissions} onChange={v=>{setPermissions(v);setDirty(true);}}/>
+
               )}
               </div></fieldset>
             </form>

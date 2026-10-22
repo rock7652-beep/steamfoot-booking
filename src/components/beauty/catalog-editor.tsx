@@ -1,5 +1,5 @@
 "use client";
-import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
+import {CourseStaffEditorTabs,CourseStaffBasicFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
 import { useState, useTransition } from "react";
 import {fitnessEditorFooter,fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -124,7 +124,7 @@ export function BeautyCatalogEditor({
           關閉
         </button>
       </header>
-      {kind==='technician'&&<CustomerPanelTabs ariaLabel="技師編輯分類" disabled={pending} value={techTab} items={[{id:'basic',label:'基本資料'},{id:'services',label:'服務與拆帳'},{id:'availability',label:'可服務時間'},{id:'work',label:'會員與工作權限'}]} onSelect={setTechTab}/>}
+      {kind==='technician'&&<CourseStaffEditorTabs label="技師編輯分類" disabled={pending} value={techTab} items={[["basic","基本資料"],["services","服務與拆帳"],["availability","可服務時間"],["work","會員與工作權限"]]} onChange={setTechTab}/>}
       {kind==='technician'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'} · 已選 {serviceIds.length} 項服務 · {inheritHours?'沿用店家時段':'自訂服務時間'}</p>}
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
@@ -225,7 +225,7 @@ export function BeautyCatalogEditor({
                   grants: ["complete", "cancel", "reschedule", "income"].filter(
                     (g) => bool(g),
                   ),
-                  active: bool("active"),
+                  active: kind==='technician'?f.get("active")==="yes":bool("active"),
                 };
               const r =
                 kind === "settings"
@@ -244,8 +244,8 @@ export function BeautyCatalogEditor({
         }}
       >
         <fieldset disabled={pending||readOnly} className="grid gap-4 sm:grid-cols-2">
-          {kind !== "settings" && kind !== "pricing" && (
-            <div className={kind!=="technician"||techTab==="basic"?"contents":"hidden"} data-tech-tab="basic">
+          {kind !== "settings" && kind !== "pricing" && kind !== "technician" && (
+            <div className="contents">
               <label>
                 名稱
                 <input
@@ -382,7 +382,7 @@ export function BeautyCatalogEditor({
           )}
           {kind === "technician" && (
             <>
-              <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}>
+              <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}><CourseStaffBasicFields name={draft.name??''} active={draft.active!==false} showPhone={false}/>
               <label>
                 性別（必填）
                 <select
@@ -633,24 +633,9 @@ export function BeautyCatalogEditor({
                 {kind === "plan" ? "適用服務" : "可服務項目與拆帳"}
               </legend>
               {data.services.filter(s=>s.active||serviceIds.includes(s.id)).map((s) => (
-                <div key={s.id} className="space-y-2 rounded-lg border border-earth-200 bg-earth-50/40 p-3">
-                  <label className="flex min-h-11 items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={serviceIds.includes(s.id)}
-                      onChange={(e) => {
-                        setServiceIds((ids) =>
-                          e.target.checked
-                            ? [...ids, s.id]
-                            : ids.filter((id) => id !== s.id),
-                        );
-                        setDirty(true);
-                      }}
-                    />
-                    {s.name}{!s.active?"（已停用）":""}
-                  </label>
+                <CourseStaffServiceRow key={s.id} name={s.name} selected={serviceIds.includes(s.id)} inactiveLabel={!s.active?'已停用':undefined} wide onSelect={value=>{setServiceIds(ids=>value?[...ids,s.id]:ids.filter(id=>id!==s.id));setDirty(true);}}>
                   {kind === "technician" && serviceIds.includes(s.id) && (
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid min-w-0 gap-3">
                       <label className="space-y-1 text-sm">拆帳方式<select
                         aria-label={`${s.name}拆帳方式`}
                         className={field}
@@ -713,7 +698,7 @@ export function BeautyCatalogEditor({
                       )}
                     </div>
                   )}
-                </div>
+                </CourseStaffServiceRow>
               ))}
             </fieldset>
           )}
