@@ -57,7 +57,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       if (active === "manager") {
         const recipients = await timing.measure("manager-data", () => listStoreLineNotificationRecipients());
         const lineHealth = await lineHealthRequest;
-        return <LineNotificationRecipientsCard recipients={recipients} bindingUnavailable={previewBlocked ? "隔離測試站不提供 LINE 綁定，請到正式站完成設定。" : lineHealth?.status==="NOT_CONFIGURED" ? "本店尚未完成 LINE 官方帳號設定。請先聯絡總部管理者完成串接，再回來綁定通知人員。" : undefined} course />;
+        return <LineNotificationRecipientsCard storeId={storeId} recipients={recipients} bindingUnavailable={previewBlocked ? "隔離測試站不提供 LINE 綁定，請到正式站完成設定。" : lineHealth?.status==="NOT_CONFIGURED" ? "本店尚未完成 LINE 官方帳號設定。請先聯絡總部管理者完成串接，再回來綁定通知人員。" : undefined} course />;
       }
       if (active === "logs") {
         const data = await timing.measure("log-data", () => listNotificationCenterLogs(params));

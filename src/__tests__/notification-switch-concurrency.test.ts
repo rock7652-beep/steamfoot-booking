@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ coach: vi.fn(), preference: vi.fn(), active: vi.fn(), balance: vi.fn(), error: vi.fn(), success: vi.fn() }));
+vi.mock("@/lib/manager-notification-save", () => ({ saveManagerNotification: (_store: string, id: string, key: string, enabled: boolean) => m.preference(id, key, enabled) }));
 vi.mock("@/server/actions/course-coach-notifications", () => ({ setCoachNotification: m.coach }));
 vi.mock("@/server/actions/store-line-notification-recipients", () => ({ setManagerNotificationPreference: m.preference, setStoreLineNotificationRecipientActive: m.active, createStoreLineNotificationRecipient: vi.fn(), removeStoreLineNotificationRecipient: vi.fn() }));
 vi.mock("@/server/actions/session-balance-notification-toggle", () => ({ setSessionBalanceNotificationToggle: m.balance }));
@@ -30,12 +31,18 @@ it("lets a second coach preference save while the first waits, and rolls back on
 it("keeps other manager switches available, blocks duplicate writes, and restores only a rejected field", async () => {
  const a = deferred(), b = deferred(); m.preference.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
  const recipient = { id: "r1", displayName: "店長", roleLabel: "店長", isActive: true, linkedAt: new Date(), sameDayBookingEnabled: false, preferences: { trial: false } };
- await act(async () => root.render(createElement(LineNotificationRecipientsCard, { recipients: [recipient] })));
+ await act(async () => root.render(createElement(LineNotificationRecipientsCard, { storeId: "store-a", recipients: [recipient] })));
  await act(async () => [...host.querySelectorAll("button")].find(el => el.textContent?.includes("設定提醒"))!.click());
  await act(async () => switches()[1].click()); expect(switches()[1].checked).toBe(true); expect(switches()[2].disabled).toBe(false);
+ const category = host.querySelector<HTMLSelectElement>('select[aria-label="店長 通知分類"]')!;
+ expect(category.disabled).toBe(false);
+ await act(async () => { category.value = "店務提醒"; category.dispatchEvent(new Event("change", { bubbles: true })); });
+ expect(host.querySelector('section[aria-label="店務提醒"]')).not.toBeNull();
+ await act(async () => { category.value = "預約通知"; category.dispatchEvent(new Event("change", { bubbles: true })); });
+
  await act(async () => { switches()[1].click(); switches()[2].click(); }); expect(m.preference).toHaveBeenCalledTimes(2);
  await act(async () => a.reject(new Error("offline"))); expect(switches()[1].checked).toBe(false); expect(switches()[2].checked).toBe(true); expect(switches()[2].disabled).toBe(true);
- await act(async () => { root.render(createElement(LineNotificationRecipientsCard, { recipients: [{ ...recipient, preferences: { trial: true } }] })); b.resolve({ success: true }); });
+ await act(async () => { root.render(createElement(LineNotificationRecipientsCard, { storeId: "store-a", recipients: [{ ...recipient, preferences: { trial: true } }] })); b.resolve({ success: true }); });
  expect(switches()[1].checked).toBe(false); expect(switches()[2].checked).toBe(true); expect(switches()[2].disabled).toBe(false);
 });
 

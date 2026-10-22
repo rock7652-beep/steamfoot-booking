@@ -1,5 +1,6 @@
 "use client";
 import { useKeyedReminderMutation } from "./reminder-setting-feedback";
+import { saveManagerNotification } from "@/lib/manager-notification-save";
 import { ManagerNotificationPreview } from "./manager-notification-preview";
 import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
@@ -8,8 +9,6 @@ import { toast } from "sonner";
 import {
   createStoreLineNotificationRecipient,
   removeStoreLineNotificationRecipient,
-  setStoreLineNotificationRecipientActive,
-  setManagerNotificationPreference,
 } from "@/server/actions/store-line-notification-recipients";
 import {
   managerPreferences,
@@ -25,7 +24,7 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
+function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course = false }: { item: Recipient; storeId: string; onConfirmed: (id: string, key: string, enabled: boolean) => void; expanded: boolean; onExpand: () => void; course?: boolean }) {
   const mutation = useKeyedReminderMutation();
   const pending = mutation.pending;
   useSettingsPanelGuard(false, pending);
@@ -40,7 +39,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
   function save(key: string, action: () => Promise<{ success: boolean; error?: string }>, enabled?: boolean) {
     setSaved("");
     const previous = key === "active" ? display.isActive : p[key as keyof typeof p];
-    mutation.run(key, action, () => setSaved("已儲存"), enabled === undefined ? undefined : () => {
+    mutation.run(key, action, () => { if (enabled !== undefined) onConfirmed(item.id, key, enabled); setSaved("已儲存"); }, enabled === undefined ? undefined : () => {
       patch({ key, enabled });
       return () => patch({ key, enabled: previous });
     });
@@ -67,7 +66,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
             disabled={pending || !item.linkedAt}
             onChange={(e) => {
               const on = e.target.checked;
-              save("active", () => setStoreLineNotificationRecipientActive(item.id, on), on);
+              save("active", () => saveManagerNotification(storeId, item.id, "active", on), on);
             }}
             className={notificationSwitchClass}
           />
@@ -136,7 +135,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                       onChange={(e) => {
                         const on = e.target.checked;
                         save(o.key, () =>
-                          setManagerNotificationPreference(item.id, o.key, on), on,
+                          saveManagerNotification(storeId, item.id, o.key, on), on,
                         );
                       }}
                     />
@@ -152,16 +151,26 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
   );
 }
 export function LineNotificationRecipientsCard({
-  recipients,
+  recipients: initialRecipients,
+  storeId,
   course = false,
   bindingUnavailable,
   showHeading = true,
 }: {
   recipients: Recipient[];
+  storeId: string;
   course?: boolean;
   bindingUnavailable?: string;
   showHeading?: boolean;
 }) {
+  const [snapshot, setSnapshot] = useState(initialRecipients);
+  const [recipients, setRecipients] = useState(initialRecipients);
+  if (snapshot !== initialRecipients) { setSnapshot(initialRecipients); setRecipients(initialRecipients); }
+  function confirm(id: string, key: string, enabled: boolean) {
+    setRecipients(current => current.map(item => item.id !== id ? item : key === "active"
+      ? { ...item, isActive: enabled }
+      : { ...item, preferences: { ...managerPreferences(item.preferences, item.sameDayBookingEnabled), [key]: enabled }, ...(key === "sameDay" ? { sameDayBookingEnabled: enabled } : {}) }));
+  }
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [roleFilter, setRoleFilter] = useState("");
@@ -204,7 +213,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard storeId={storeId} onConfirmed={confirm} course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
