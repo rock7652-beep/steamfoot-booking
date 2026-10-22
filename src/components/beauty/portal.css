@@ -12,5 +12,7 @@
 .beauty-portal .cp-next > .cp-actions button{min-width:104px}
 .beauty-portal .cp-profile > summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;min-height:52px;list-style:none;cursor:pointer;font-size:15px;font-weight:500}
 .beauty-portal .cp-profile > summary::-webkit-details-marker{display:none}
+.beauty-portal .cp-profile > summary::after{content:none}
+.beauty-portal .cp-profile[open] > summary::after{content:none}
 .beauty-portal .beauty-store-chevron{transition:transform .15s}
 .beauty-portal .cp-profile[open] .beauty-store-chevron{transform:rotate(180deg)}
