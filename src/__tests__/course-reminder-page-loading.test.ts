@@ -1,3 +1,5 @@
+vi.mock("@/server/actions/line-quota-notifications", () => ({ getLineQuotaNotificationSetting: async () => ({}) }));
+vi.mock("@/app/(dashboard)/dashboard/reminders/line-quota-email-setting", () => ({ LineQuotaEmailSetting: () => null }));
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), access: vi.fn(), feature: vi.fn(), music: vi.fn(), reminder: vi.fn(), expiry: vi.fn(), plans: vi.fn(), care: vi.fn(), store: vi.fn(), logs: vi.fn(), map: vi.fn(), templates: vi.fn(), teachers: vi.fn(), coachLogs: vi.fn(), binding: vi.fn(), recipients: vi.fn(), notificationLogs: vi.fn(), health: vi.fn(), blocked: vi.fn(), workOrder: vi.fn() }));
 vi.mock("@/server/actions/work-order-notification", () => ({ getWorkOrderNotificationEnabled: m.workOrder }));

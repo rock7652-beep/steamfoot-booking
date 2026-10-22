@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { isLineQuotaExceeded } from "./line-quota-policy";
 import { allowsPreviewLinePush } from "@/lib/preview-line-acceptance";
 import { getConfiguredStoreLine } from "@/lib/store-line-config";
 /**
@@ -181,6 +183,20 @@ async function pushMessageWithAccessToken(
     if (retryKey && res.status === 409 && res.headers.get("x-line-accepted-request-id")) return { success: true };
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (isLineQuotaExceeded(JSON.stringify(err))) {
+        try {
+          // Dispatch after the request so a course transaction's Store lock is
+          // released before the alert insert checks its Store foreign key.
+          after(async () => {
+            try {
+              const { notifyLineQuotaExhausted, notifyCentralLineQuotaExhausted } = await import("@/server/services/line-quota-monitor");
+              if (storeId) await notifyLineQuotaExhausted(storeId);
+              else await notifyCentralLineQuotaExhausted();
+            } catch { console.error("[LINE] Quota email notification failed; daily monitoring will recheck"); }
+          });
+        } catch { console.error("[LINE] Quota email notification could not be recorded"); }
+      }
+
       return {
         success: false,
         error: `LINE API ${res.status}: ${JSON.stringify(err)}`,

@@ -1,0 +1,48 @@
+{
+  "scope": "Real component with mocked router and server actions; no real email or database",
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "draftPreserved": true,
+      "saveAndTest": "mocked actions passed"
+    }
+  ],
+  "errors": []
+}
