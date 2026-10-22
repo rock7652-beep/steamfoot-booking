@@ -1,8 +1,9 @@
 "use client";
+import { useKeyedReminderMutation } from "./reminder-setting-feedback";
 import { ManagerNotificationPreview } from "./manager-notification-preview";
 import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { toast } from "sonner";
 import {
   createStoreLineNotificationRecipient,
@@ -25,22 +26,23 @@ type Recipient = {
   legacyStaffId?: string | null;
 };
 function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
-  const [pending, start] = useTransition();
+  const mutation = useKeyedReminderMutation();
+  const pending = mutation.pending;
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
   const [group, setGroup] = useState("預約通知");
-  const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
+  const [display, patch] = useOptimistic(item, (current, change: { key: string; enabled: boolean }) => {
+    if (change.key === "active") return { ...current, isActive: change.enabled };
+    return { ...current, preferences: { ...managerPreferences(current.preferences, current.sameDayBookingEnabled), [change.key]: change.enabled }, ...(change.key === "sameDay" ? { sameDayBookingEnabled: change.enabled } : {}) };
+  });
+  const p = managerPreferences(display.preferences, display.sameDayBookingEnabled);
   const options = managerNotificationOptions(course);
-  function save(action: () => Promise<{ success: boolean; error?: string }>) {
+  function save(key: string, action: () => Promise<{ success: boolean; error?: string }>, enabled?: boolean) {
     setSaved("");
-    start(async () => {
-      try {
-        const r = await action();
-        if (r.success) setSaved("已儲存");
-        else toast.error(r.error ?? "儲存失敗");
-      } catch {
-        toast.error("暫時無法儲存，請再試一次");
-      }
+    const previous = key === "active" ? display.isActive : p[key as keyof typeof p];
+    mutation.run(key, action, () => setSaved("已儲存"), enabled === undefined ? undefined : () => {
+      patch({ key, enabled });
+      return () => patch({ key, enabled: previous });
     });
   }
   return (
@@ -61,11 +63,11 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
             aria-label={`${item.displayName} 接收 LINE 通知`}
             type="checkbox"
             role="switch"
-            checked={item.isActive}
+            checked={display.isActive}
             disabled={pending || !item.linkedAt}
             onChange={(e) => {
               const on = e.target.checked;
-              save(() => setStoreLineNotificationRecipientActive(item.id, on));
+              save("active", () => setStoreLineNotificationRecipientActive(item.id, on), on);
             }}
             className={notificationSwitchClass}
           />
@@ -86,7 +88,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                   `確定解除 ${item.displayName} 的 LINE 通知綁定？`,
                 )
               )
-                save(() => removeStoreLineNotificationRecipient(item.id));
+                save("remove", () => removeStoreLineNotificationRecipient(item.id));
             }}
           >
             解除綁定
@@ -95,7 +97,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
       </div>
       <div className="mt-2 flex justify-between text-xs text-earth-500">
         <span>
-          {item.isActive
+          {display.isActive
             && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
             : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
         </span>
@@ -106,7 +108,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
       </button>
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
-          className={`space-y-3 ${!item.isActive ? "opacity-50" : ""}`}
+          className={`space-y-3 ${!display.isActive ? "opacity-50" : ""}`}
         >
           <label className="flex flex-wrap items-center gap-3 text-sm"><span>通知分類</span><select aria-label={`${item.displayName} 通知分類`} value={group} onChange={event => setGroup(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2">{["預約通知", "顧客需求", "店務提醒"].map(value => <option key={value}>{value}</option>)}</select></label>
             <section aria-label={group}>
@@ -120,6 +122,8 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                   >
                     <span>
                       <span className="text-sm text-earth-900">{o.label}</span>
+                      {mutation.isPending(o.key) && <span role="status" className="ml-2 text-sm text-earth-500">儲存中…</span>}
+                      {mutation.errors[o.key] && <span role="alert" className="mt-1 block text-sm text-red-700">{mutation.errors[o.key]}</span>}
                     </span>
                     <input
                       aria-label={`${item.displayName} ${o.label}`}
@@ -127,11 +131,12 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                       role="switch"
                       className={notificationSwitchClass}
                       checked={p[o.key]}
-                      disabled={pending || !item.isActive || !item.linkedAt}
+                      disabled={mutation.isPending(o.key) || mutation.isPending("active") || mutation.isPending("remove") || !display.isActive || !item.linkedAt}
+                      aria-busy={mutation.isPending(o.key)}
                       onChange={(e) => {
                         const on = e.target.checked;
-                        save(() =>
-                          setManagerNotificationPreference(item.id, o.key, on),
+                        save(o.key, () =>
+                          setManagerNotificationPreference(item.id, o.key, on), on,
                         );
                       }}
                     />
@@ -142,6 +147,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
             </section>
         </div>
       </div>}
+      {(mutation.errors.active || mutation.errors.remove) && <p role="alert" className="mt-2 text-sm text-red-700">{mutation.errors.active || mutation.errors.remove}</p>}
     </article>
   );
 }
