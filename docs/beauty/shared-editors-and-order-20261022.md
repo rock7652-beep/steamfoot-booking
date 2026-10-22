@@ -31,3 +31,10 @@
 先補受保護測試站的既有登入方式下，店長與低權限帳號的排序／顧客／技師／人員儲存重開、跨店拒絕，再接回設定及分析等剩餘內頁。不得因本機或 DB 管理連線通過，標示店家簽收或正式可上線。LINE、實體裝置與店家簽收仍獨立列待驗。
 
 截圖與分級證據：[shared-editors-20261022](evidence/shared-editors-20261022/README.md)。部署完成後在該目錄補上確切 Preview 版本與狀態。
+
+## 最終隔離測試版
+
+- 程式版本 `fe44babba4c069d378d88b2cd6d88eb62c9a0530`，Vercel Preview `dpl_7FkjSAYB5T8DgMBpfDQs9kp78rac`，**READY**；編譯 17.2 秒，hosted 型別與封裝完成。
+- [測試站後台](https://steamfoot-booking-adxw8rtlf-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)。仍受原 Vercel 存取保護；普通 HTTP 回應內容為 Vercel Authentication 提示，沒有到達應用程式登入，不能以 HTTP 200 認定可登入或驗收通過。
+- 64 檔／469 項回歸在 `c485d1d6` 通過；最終補上備註儲存後重新讀取的關閉／門市切換保護與錯誤處理，受影響 3 檔／10 項再驗通過。最終版本 TypeScript、ESLint、diff check 通過；本機瀏覽器 6 情境於最後修正後再次通過。
+- 真正 DB 檢查全在 `steamfoot-preview`，寫入測試 ROLLBACK；事後重查無 room preference 留存。沒有變更正式站、LINE、連線／環境變數、schema 或角色。

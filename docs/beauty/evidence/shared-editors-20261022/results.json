@@ -26,5 +26,17 @@
       "passed": true
     }
   ],
-  "errors": []
+  "errors": [],
+  "appCommit": "fe44babba4c069d378d88b2cd6d88eb62c9a0530",
+  "fullRegression": {
+    "commit": "c485d1d628109d94568694394de24d07b2be4b98",
+    "files": 64,
+    "tests": 469,
+    "passed": true
+  },
+  "finalCustomerGuardRegression": {
+    "files": 3,
+    "tests": 10,
+    "passed": true
+  }
 }

@@ -1,0 +1,12 @@
+{
+  "deploymentId": "dpl_7FkjSAYB5T8DgMBpfDQs9kp78rac",
+  "url": "https://steamfoot-booking-adxw8rtlf-rock7652-2111s-projects.vercel.app",
+  "target": "preview",
+  "state": "READY",
+  "commit": "fe44babba4c069d378d88b2cd6d88eb62c9a0530",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "compiledSeconds": 17.2,
+  "hostedAuthenticatedAcceptance": "pending: Vercel Authentication response; no new share/bypass link attempted",
+  "productionOperations": false,
+  "lineEnabled": false
+}
