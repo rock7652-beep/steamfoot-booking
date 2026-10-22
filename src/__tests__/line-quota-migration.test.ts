@@ -6,8 +6,15 @@ it("migration enforces store ownership, deduplication, and browser-role isolatio
   const db = new PGlite();
   try {
     await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE TABLE "Store" (id TEXT PRIMARY KEY, "operatingStatus" TEXT DEFAULT \'ACTIVE\', "isDemo" BOOLEAN DEFAULT false, "archivedAt" TIMESTAMP); INSERT INTO "Store" VALUES (\'a\'), (\'b\');');
-    await db.exec(await readFile("prisma/migrations/20261022090000_line_quota_email_alerts/migration.sql", "utf8"));
-    expect((await db.query<{ enabled: boolean }>('SELECT enabled FROM "LineQuotaSetting"')).rows).toEqual([{ enabled: true }, { enabled: true }]);
+    await db.exec(`INSERT INTO "Store" (id,"operatingStatus","isDemo","archivedAt") VALUES ('trial','TRIAL',false,null),('demo','ACTIVE',true,null),('archived','ACTIVE',false,now()),('closed','SUSPENDED',false,null)`);
+    const migration = await readFile("prisma/migrations/20261022090000_line_quota_email_alerts/migration.sql", "utf8");
+    await db.exec(migration);
+    expect((await db.query<{ storeId: string; enabled: boolean }>('SELECT "storeId",enabled FROM "LineQuotaSetting" ORDER BY "storeId"')).rows).toEqual([
+      { storeId: "a", enabled: true }, { storeId: "b", enabled: true }, { storeId: "trial", enabled: true },
+    ]);
+    await db.exec(`UPDATE "LineQuotaSetting" SET enabled=false WHERE "storeId"='a'`);
+    await db.exec(migration.slice(migration.indexOf('INSERT INTO "LineQuotaSetting"')));
+    expect((await db.query<{ enabled: boolean }>(`SELECT enabled FROM "LineQuotaSetting" WHERE "storeId"='a'`)).rows[0].enabled).toBe(false);
     await db.exec(`UPDATE "LineQuotaSetting" SET "updatedAt"=now() WHERE "storeId"='a';
       INSERT INTO "LineQuotaAlert" (id,"storeId","eventKey",email,subject,body) VALUES ('alert-a','a','STORE:2026-10:80','owner@example.com','test','test');`);
     await expect(db.exec(`INSERT INTO "LineQuotaAlert" (id,"storeId","eventKey",email,subject,body) VALUES ('duplicate','a','STORE:2026-10:80','owner@example.com','test','test')`)).rejects.toThrow(/unique/);
