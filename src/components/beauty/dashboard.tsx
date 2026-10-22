@@ -163,7 +163,7 @@ export function BeautyDashboard({
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button>{tab==='顧客管理'&&!readOnly&&data.manage.customer&&<button className={button+' !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar>}
       {tab==='首頁'&&<BeautyHome data={data} readOnly={readOnly} onBook={()=>setBooking(true)} onNavigate={navigate}/>}
       {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending||calendarPending} onChange={changeCalendar} readOnly={readOnly} actions={<button className={button} disabled={calendarPending} onClick={()=>setListOpen(true)}>預約清單</button>}/>{calendarPending&&<p role="status" className="text-sm text-earth-500">更新班表中…</p>}</>}
-      {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setSelectedId(null);setChecked([]);}}}>
+      {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setSelectedId(null);setChecked([]);}}}>
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>setSelectedId(null)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>{setListOpen(false);setSelectedId(null);setChecked([]);}}>關閉</button></header>
       {!selectedId&&<section className="min-h-0 space-y-2 overflow-auto p-4" aria-label="預約清單"><input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/><RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
  {key:'select',header:'選取',accessor:b=><input type="checkbox" aria-label={`選取${b.personName}`} disabled={readOnly||!data.manage.collect||!!b.cardId||b.status==='CANCELLED'} checked={checked.includes(b.id)} onChange={e=>setChecked(v=>e.target.checked?[...v,b.id]:v.filter(id=>id!==b.id))}/>},
@@ -171,7 +171,7 @@ export function BeautyDashboard({
  {key:'status',header:'狀態',accessor:b=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'}[b.status]??b.status)},
  {key:'actions',header:'操作',sticky:'right',accessor:b=><RosterMoreMenu name={b.personName} onOpen={()=>setSelectedId(b.id)}/>}
  ]}/></section>}
-      {selectedId&&<div className="min-h-0 overflow-y-auto p-4">{data.items.filter(b=>b.id===selectedId).map(b=>(
+      {selectedId&&<fieldset disabled={pending} className="min-h-0 overflow-y-auto p-4">{data.items.filter(b=>b.id===selectedId).map(b=>(
             <article
               key={b.id}
               className="space-y-2 rounded-xl border border-earth-200 bg-white p-3"
@@ -322,7 +322,7 @@ export function BeautyDashboard({
                 </div>
               )}
             </article>
-      ))}</div>}</RightSheet>}
+      ))}</fieldset>}</RightSheet>}
       {tab==='顧客管理'&&<section className="space-y-3"><RosterToolbar label="顧客管理操作"><span className="text-sm text-earth-500">共 {data.customers.length} 人</span>{!readOnly&&data.manage.customer&&<button className={button+' ml-auto !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar><CourseCustomerList rows={data.customers.map(c=>({...c,mergedIntoCustomerId:null,userStatus:c.user?.status??null,serviceNote:c.notes,validPackageSessions:0,sponsoredCount:c._count.sponsoredCustomers}))} cards={[]} sportsNative basePath="/dashboard/beauty?tab=顧客管理" sessionUnitLabel="次" sessionBalances={data.cards.filter(k=>!k.closedAt&&Date.parse(k.expiresAt)>data.now).flatMap(k=>k.memberIds.map(customerId=>({customerId,available:Math.max(0,k.remaining-k.held)})))} canReadCards={data.access.planAccess} onView={setDetailId} onCreate={!readOnly&&data.manage.customer?()=>setCustomerPanel(true):undefined} onAssign={!readOnly&&data.manage.card?id=>setMoneyPanel({kind:'card',ids:[id]}):undefined}/></section>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}
