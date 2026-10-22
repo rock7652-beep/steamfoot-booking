@@ -1,0 +1,299 @@
+{
+  "results": [
+    {
+      "case": "six calendar switches use only six authorized GETs, no RSC refresh",
+      "passed": true
+    },
+    {
+      "case": "month counts and booking list dialog",
+      "passed": true
+    },
+    {
+      "case": "weekly query matches Monday–Sunday and beauty labels",
+      "passed": true
+    },
+    {
+      "case": "service editor contains no price fields",
+      "passed": true
+    },
+    {
+      "case": "charging entries and configurable plan reminder",
+      "passed": true
+    },
+    {
+      "case": "fee summary and details with no payment controls",
+      "passed": true
+    },
+    {
+      "case": "all manager pages render with tablet/desktop layouts",
+      "passed": true
+    },
+    {
+      "case": "calendar wrong-store denied",
+      "passed": true
+    },
+    {
+      "case": "member cannot access manager calendar",
+      "passed": true
+    },
+    {
+      "case": "technician receives fee details without payment tracking",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "label": "週表",
+      "settledMs": 1417,
+      "serverTiming": "calendar;dur=724.3"
+    },
+    {
+      "label": "月表",
+      "settledMs": 958,
+      "serverTiming": "calendar;dur=452.2"
+    },
+    {
+      "label": "日表",
+      "settledMs": 1040,
+      "serverTiming": "calendar;dur=422.0"
+    },
+    {
+      "label": "週表",
+      "settledMs": 1086,
+      "serverTiming": "calendar;dur=422.6"
+    },
+    {
+      "label": "月表",
+      "settledMs": 1151,
+      "serverTiming": "calendar;dur=416.8"
+    },
+    {
+      "label": "日表",
+      "settledMs": 900,
+      "serverTiming": "calendar;dur=421.5"
+    }
+  ],
+  "calendarRequests": [
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "method": "GET",
+      "rsc": false
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/cashbook",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/cashbook",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "method": "GET",
+      "rsc": true
+    }
+  ],
+  "errors": []
+}
