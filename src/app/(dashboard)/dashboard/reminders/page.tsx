@@ -56,9 +56,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         <p>請先切換至特定店舖。</p>
       </PageShell>
     );
-  const [plan, enabled] = await Promise.all([
+  const [plan, enabled, workOrdersEnabled] = await Promise.all([
     getCurrentStorePlan(),
     hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
+    hasStoreFeature(storeId, FEATURES.WORK_ORDERS),
   ]);
   if (!enabled)
     return (
@@ -75,7 +76,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         ? "customer"
         : "manager";
   const [workOrderEnabled, quotaEmail] = await Promise.all([
-    getWorkOrderNotificationEnabled(),
+    activeTab === "customer" && workOrdersEnabled ? getWorkOrderNotificationEnabled() : Promise.resolve(false),
     activeTab === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
   ]);
   const customerSection =
@@ -144,7 +145,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             </div>
           </section>
         ) },
-        { key: "work-orders", label: "工單取件提醒", content: <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} /> },
+        ...(workOrdersEnabled ? [{ key: "work-orders", label: "工單取件提醒", content: <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} /> }] : []),
       ]} />
     );
   }
@@ -222,7 +223,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
         </div>
 
-        {activeTab === "manager" && quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />}
+        {activeTab === "manager" && quotaEmail && <LineQuotaEmailSetting key={`quota-email:${storeId}`} initial={quotaEmail} />}
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">

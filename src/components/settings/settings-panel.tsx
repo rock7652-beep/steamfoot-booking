@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 
 export function SettingsPanel({
@@ -21,6 +21,7 @@ export function SettingsPanel({
   const pathname = usePathname();
   const search = useSearchParams();
   const searchString = search.toString();
+  const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
   const [destination, setDestination] = useState<string | null>(null);
   const [navigating, startNavigation] = useTransition();
@@ -49,8 +50,9 @@ export function SettingsPanel({
 
   const go = useCallback((href: string) => {
     setDestination(null);
+    if (href === closeHref) { dismiss(href); return; }
     startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
+  }, [router, closeHref, dismiss]);
 
   const request = useCallback((href: string) => {
     if (dirty || pending) setDestination(href);
@@ -78,6 +80,7 @@ export function SettingsPanel({
   }, [closeHref, pathname, request, searchString, sourceHref]);
 
   useEffect(() => {
+    if (dismissed) return;
     const unload = (event: BeforeUnloadEvent) => {
       if (dirty || pending) {
         event.preventDefault();
@@ -97,7 +100,7 @@ export function SettingsPanel({
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("keydown", escape);
     };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [dirty, pending, request, closeHref, destination, dismissed]);
 
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
 
@@ -105,7 +108,7 @@ export function SettingsPanel({
     <div ref={root} data-settings-panel>
       <RightSheet
         presentation="centered"
-        open
+        open={!dismissed}
         compact
         fixedHeight
         width={width}
@@ -168,7 +171,7 @@ export function SettingsPanel({
               正在更新…
             </p>
           ) : null}
-          <SettingsPanelContext.Provider value={context}>{children}</SettingsPanelContext.Provider>
+          <SettingsPanelContext.Provider value={context}>{dismissed ? null : children}</SettingsPanelContext.Provider>
         </div>
       </RightSheet>
     </div>

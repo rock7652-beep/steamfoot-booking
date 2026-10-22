@@ -373,6 +373,7 @@ describe("inventory and work order paid add-ons", () => {
       for (const status of ["DISABLED","LOCKED","HIDDEN"] as const) {
         mockEntitlement(status);
         expect(await hasStoreFeature("store-a",feature)).toBe(false);
+        expect(await getStoreFeaturePresentation("store-a",feature)).toBe("HIDDEN");
       }
       mockEntitlement("ENABLED",{startsAt:new Date("2099-01-01")});
       expect(await hasStoreFeature("store-a",feature)).toBe(false);
