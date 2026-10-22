@@ -36,7 +36,7 @@ export function PersonalIncomePanel({ lines, feeLabel = "授課費", compact = f
 
   return <div className={compact ? "space-y-3 personal-income-compact" : "space-y-3"}>
     <section aria-label="本月收入摘要" className="rounded-xl bg-primary-50 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p className="text-sm text-earth-600">本月應領</p><p className="break-words text-2xl font-bold tabular-nums text-primary-800">{money(totals.total)}</p></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p className="text-sm text-earth-600">{compact?'本月拆帳':'本月應領'}</p><p className="break-words text-2xl font-bold tabular-nums text-primary-800">{money(totals.total)}</p></div>
     </section>
 
     {lines.length >= 10 ? <div className="space-y-2">

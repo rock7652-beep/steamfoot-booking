@@ -30,15 +30,15 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
     <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-10 shrink-0 rounded-lg border border-earth-300 bg-white px-3 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
   </div></div>;
 }
-type Props = {storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
-export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved }: Props) {
+type Props = {savePath?:string;storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
+export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,savePath }: Props) {
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
   const [saved, setSaved] = useState(draft);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const pathname=usePathname();
-  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/section`,storeId,savedCourseSettingsSection);
+  const mutation=useSettingsSave(savePath??`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/section`,storeId,savedCourseSettingsSection);
   const pending=mutation.pending;
   const revision=useRef(courseSettingsSectionRevision(initial));
   const saving = useRef(false);

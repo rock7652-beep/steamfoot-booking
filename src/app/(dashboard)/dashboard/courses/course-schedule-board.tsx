@@ -325,7 +325,7 @@ function SessionCard({
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       {session.service ? <div className="space-y-0.5 text-sm leading-5">
         <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
-        <strong className="block truncate">{session.nameSnapshot}</strong><span className="block truncate">{session.service.personName} · {copy.coach}</span>
+        <strong className="block truncate">{session.nameSnapshot}</strong><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>
         {session.service.buffer>0&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
       </div> : <>      <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}

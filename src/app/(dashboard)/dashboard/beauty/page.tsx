@@ -1,3 +1,8 @@
+import {BeautyStoreSettings} from '@/components/beauty/store-settings';
+import {CustomerLabelsSettings} from '@/components/customer-labels';
+import {getCurrentStorePlan} from '@/lib/store-plan';
+import {SettingsListRow} from '@/components/settings';
+import {CARE_REASON_LABELS,type CareReason} from '@/lib/customer-care-lifecycle';
 import ScheduleSettingsPage from "../settings/hours/page";
 import PaymentSettingsPage from "../settings/payment/page";
 import LineOfficialAccountsPage from "../settings/line-official-accounts/page";
@@ -26,7 +31,7 @@ export default async function BeautyPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    tab?: string;
+    tab?: string;segment?:string;section?:string;
     date?: string;
     month?: string;
     calendar?: string;
@@ -90,10 +95,12 @@ export default async function BeautyPage({
     ),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },
-      select: { slug: true },
+      select: { id:true,name:true,slug: true },
     }),
     resolveStoreViewContextFromCookie(u),
   ]);
+  const sharedSettings=tab==='設定'?await prisma.shopConfig.findUnique({where:{storeId:a.storeId},select:{address:true,shopPhone:true,mapUrl:true,lineOfficialId:true,lineOfficialUrl:true}}):null;
+  const systemPlan=tab==='設定'?await getCurrentStorePlan():null;
   return (
     <PageShell compact className="course-workspace min-w-0">
       <PageHeader compact title={tab} />
@@ -104,12 +111,15 @@ export default async function BeautyPage({
         initialCustomerId={q.customerId}
         initialBooking={q.action==='booking'}
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
-        careContent={tab==='顧客經營'?<BeautyCare data={data} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
+        careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&q.segment in CARE_REASON_LABELS?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
+        settingsStoreContent={tab==='設定'?<BeautyStoreSettings storeId={a.storeId} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}}/>:undefined}
+        settingsLabelsContent={tab==='設定'?<CustomerLabelsSettings/>:undefined}
+        settingsSubscriptionContent={tab==='設定'?<SettingsListRow title="店家系統方案與用量" summary={String(systemPlan??'請查看目前系統方案')} href="/dashboard/settings/plan" action="查看" expanded={false}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
-      {tab==='設定'&&['hours','payment','line'].includes(q.panel??'')&&<SettingsPanel title={q.panel==='hours'?'營業時間與公休':q.panel==='payment'?'銀行與收款資料':'LINE 官方帳號'} sourceHref="/dashboard/beauty">{q.panel==='hours'?<ScheduleSettingsPage/>:q.panel==='payment'?<PaymentSettingsPage/>:(u.role==='OWNER'||u.role==='ADMIN')?<LineOfficialAccountsPage/>:<p role="alert">此設定僅供店主查看。</p>}</SettingsPanel>}
+      {tab==='設定'&&['hours','payment','line'].includes(q.panel??'')&&<SettingsPanel title={q.panel==='hours'?'營業時間與公休':q.panel==='payment'?'銀行與收款資料':'LINE 官方帳號'} sourceHref={`/dashboard/beauty?tab=設定&section=${q.section??'store'}`}>{q.panel==='hours'?<ScheduleSettingsPage/>:q.panel==='payment'?<PaymentSettingsPage/>:(u.role==='OWNER'||u.role==='ADMIN')?<LineOfficialAccountsPage/>:<p role="alert">此設定僅供店主查看。</p>}</SettingsPanel>}
     </PageShell>
   );
 }

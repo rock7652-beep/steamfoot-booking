@@ -289,8 +289,8 @@ export async function beautyDashboard(
         })
       : [],
     beautyPrisma.$queryRaw<
-      Array<{ id: string; name: string; isActive: boolean }>
-    >`SELECT id,name,"isActive" FROM "CourseRoom" WHERE "storeId"=${a.storeId} ORDER BY name`,
+      Array<{ id: string; name: string; isActive: boolean; category:string;details:string;equipment:string;location:string }>
+    >`SELECT id,name,"isActive",category,details,equipment,location FROM "CourseRoom" WHERE "storeId"=${a.storeId} ORDER BY name`,
     planAccess
       ? beautyPrisma.beautyPlan.findMany({
           where: { storeId: a.storeId },
@@ -424,3 +424,19 @@ export async function beautyDashboard(
   };
 }
 export type BeautyDashboardData = Awaited<ReturnType<typeof beautyDashboard>>;
+
+/** Calendar transport: no customers, plans, payments or settlement reads. */
+export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
+ const a=await beautyManager('booking.read'),u=await getCurrentUser();
+ const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
+ const [customerPermission,planPermission,feePermission]=await Promise.all([can('customer.read'),can('wallet.read'),can('teacher.compensation.read')]);
+ const [customerAccess,planAccess,feeAccess]=await Promise.all([customerPermission&&hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT),planPermission&&hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT),feePermission&&hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR)]);
+ const range=calendar==='month'?monthRange(date.slice(0,7)):calendar==='week'?{start:dayRange(date).start,end:dayRange(addTaiwanDuration(date,6,'DAY')).end}:dayRange(date);
+ const [rows,hours,specials]=await Promise.all([
+  beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,startsAt:{gte:range.start,lte:range.end}},orderBy:{startsAt:'asc'}}),
+  prisma.businessHours.findMany({where:{storeId:a.storeId}}),
+  prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
+ ]);
+ const dates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
+ return {date,calendar,calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
+}

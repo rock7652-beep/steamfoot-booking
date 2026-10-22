@@ -59,6 +59,8 @@ export const technicianInput = z.object({
   active: z.boolean().default(true),
 });
 export const planInput = z.object({
+  lowBalanceEnabled: z.boolean().default(false),
+  lowBalanceThreshold: z.number().int().min(0).max(10000).nullable().default(null),
   id: key.optional(),
   revision: z.number().int().nonnegative().default(0),
   name: z.string().trim().min(1).max(100),

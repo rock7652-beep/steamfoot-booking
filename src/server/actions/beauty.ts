@@ -216,6 +216,7 @@ export async function saveBeautyLocation(input: unknown) {
           id: key.optional(),
           name: z.string().trim().min(1).max(100),
           active: z.boolean(),
+          category:z.string().max(100).optional(),details:z.string().max(1000).optional(),equipment:z.string().max(500).optional(),location:z.string().max(300).optional(),
         })
         .parse(input);
     return beautyTransaction(a, async (tx) => {
@@ -236,9 +237,9 @@ export async function saveBeautyLocation(input: unknown) {
           }))
         )
           throw new AppError("CONFLICT", "請先處理此位置的預約");
-        await tx.$executeRaw`UPDATE "CourseRoom" SET name=${d.name},"isActive"=${d.active} WHERE id=${d.id} AND "storeId"=${a.storeId}`;
+        await tx.$executeRaw`UPDATE "CourseRoom" SET name=${d.name},"isActive"=${d.active},category=COALESCE(${d.category??null},category),details=COALESCE(${d.details??null},details),equipment=COALESCE(${d.equipment??null},equipment),location=COALESCE(${d.location??null},location) WHERE id=${d.id} AND "storeId"=${a.storeId}`;
       } else
-        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${crypto.randomUUID()},${a.storeId},${d.name},1,'','',${d.active},NOW(),'','',false,0,0)`;
+        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${crypto.randomUUID()},${a.storeId},${d.name},1,${d.details??''},${d.category??''},${d.active},NOW(),${d.equipment??''},${d.location??''},false,0,0)`;
       await audit(tx, a, "LOCATION", JSON.stringify(d));
       return { saved: true };
     });

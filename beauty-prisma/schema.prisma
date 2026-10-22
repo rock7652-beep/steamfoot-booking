@@ -63,6 +63,8 @@ model BeautyTechnician {
 }
 
 model BeautyPlan {
+  lowBalanceEnabled Boolean @default(false)
+  lowBalanceThreshold Int?
   id                  String   @id @default(cuid())
   storeId             String
   name                String

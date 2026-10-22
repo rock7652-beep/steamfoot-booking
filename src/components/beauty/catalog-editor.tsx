@@ -10,12 +10,12 @@ import {
 } from "@/server/actions/beauty";
 import type { BeautyDashboardData } from "@/server/beauty/queries";
 export type EditorKind =
-  "service" | "plan" | "technician" | "location" | "settings";
+  "service" | "pricing" | "plan" | "technician" | "location" | "settings";
 type Draft = {
   id?: string;
   revision?: number;
   name?: string;
-  category?: string;
+  category?: string;details?:string;equipment?:string;location?:string;
   duration?: number;
   buffer?: number;
   price?: number;
@@ -34,6 +34,7 @@ type Draft = {
   validDays?: number;
   allowShared?: boolean;
   customerPurchasable?: boolean;
+  lowBalanceEnabled?:boolean;lowBalanceThreshold?:number|null;
 };
 const field =
   "min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2 text-sm";
@@ -84,6 +85,7 @@ export function BeautyCatalogEditor({
   );
   const title = {
     service: "服務項目",
+    pricing: "單次／體驗收費",
     plan: "收費方式",
     technician: "技師管理",
     location: "位置管理",
@@ -102,7 +104,8 @@ export function BeautyCatalogEditor({
       open
       className="fitness-management-editor"
       presentation="centered"
-      width={900}
+      width={kind==='technician'?900:640}
+      fitContent={kind!=='technician'}
       onClose={close}
       labelledById="beauty-editor-title"
       closeOnEscape={!pending}
@@ -121,6 +124,7 @@ export function BeautyCatalogEditor({
         </button>
       </header>
       {kind==='technician'&&<CustomerPanelTabs ariaLabel="技師編輯分類" disabled={pending} value={techTab} items={[{id:'basic',label:'基本資料'},{id:'services',label:'服務與拆帳'},{id:'availability',label:'可服務時間'},{id:'work',label:'會員與工作權限'}]} onSelect={setTechTab}/>}
+      {kind==='technician'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'} · 已選 {serviceIds.length} 項服務 · {inheritHours?'沿用店家時段':'自訂服務時間'}</p>}
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
         className="min-h-0 overflow-y-auto p-4"
@@ -170,21 +174,20 @@ export function BeautyCatalogEditor({
               else if (kind === "location")
                 payload = {
                   id: draft.id,
-                  name: str("name"),
+                  name: str("name"),category:str("category"),details:str("details"),equipment:str("equipment"),location:str("location"),
                   active: bool("active"),
                 };
-              else if (kind === "service")
+              else if (kind === "service" || kind === "pricing")
                 payload = {
                   id: draft.id,
                   revision: draft.revision ?? 0,
-                  name: str("name"),
-                  category: str("category"),
-                  duration: num("duration"),
-                  buffer: num("buffer"),
-                  price: num("price"),
-                  trialPrice:
-                    str("trialPrice") === "" ? null : num("trialPrice"),
-                  active: bool("active"),
+                  name: kind==='pricing'?draft.name:str("name"),
+                  category: kind==='pricing'?draft.category:str("category"),
+                  duration: kind==='pricing'?draft.duration:num("duration"),
+                  buffer: kind==='pricing'?draft.buffer:num("buffer"),
+                  price: kind==='service'?(draft.price??0):num("price"),
+                  trialPrice: kind==='service'?(draft.trialPrice??null):(str("trialPrice")===''?null:num("trialPrice")),
+                  active: kind==='pricing'?draft.active:bool("active"),
                 };
               else if (kind === "plan")
                 payload = {
@@ -192,6 +195,8 @@ export function BeautyCatalogEditor({
                   revision: draft.revision ?? 0,
                   name: str("name"),
                   sessions: num("sessions"),
+                  lowBalanceEnabled:bool("lowBalanceEnabled"),
+                  lowBalanceThreshold:str("lowBalanceThreshold")===""?null:num("lowBalanceThreshold"),
                   price: num("price"),
                   validDays: num("validDays"),
                   serviceIds,
@@ -226,7 +231,7 @@ export function BeautyCatalogEditor({
                   ? await saveBeautySettings(payload)
                   : kind === "location"
                     ? await saveBeautyLocation(payload)
-                    : await saveBeautyCatalog(kind, payload);
+                    : await saveBeautyCatalog(kind==='pricing'?'service':kind, payload);
               if (r.success) {
                 setDirty(false);
                 onSaved();
@@ -238,7 +243,7 @@ export function BeautyCatalogEditor({
         }}
       >
         <fieldset disabled={pending||readOnly} className="grid gap-4 sm:grid-cols-2">
-          {kind !== "settings" && (
+          {kind !== "settings" && kind !== "pricing" && (
             <div className={kind!=="technician"||techTab==="basic"?"contents":"hidden"} data-tech-tab="basic">
               <label>
                 名稱
@@ -259,6 +264,7 @@ export function BeautyCatalogEditor({
               </label>
             </div>
           )}
+          {kind==='location'&&<>{[['category','類別'],['location','位置說明'],['equipment','設備'],['details','備註']].map(([name,label])=><label key={name}>{label}<input className={field} name={name} defaultValue={String(draft[name as keyof Draft]??'')} maxLength={name==='details'?1000:name==='equipment'?500:300}/></label>)}</>}
           {kind === "service" && (
             <>
               <label>
@@ -292,7 +298,9 @@ export function BeautyCatalogEditor({
                   defaultValue={draft.buffer ?? 0}
                 />
               </label>
-              <label>
+            </>
+          )}
+          {kind==='pricing'&&<><p className="sm:col-span-2 font-semibold">{draft.name}</p>              <label>
                 單次價格
                 <input
                   className={field}
@@ -313,10 +321,11 @@ export function BeautyCatalogEditor({
                   defaultValue={draft.trialPrice ?? ""}
                 />
               </label>
-            </>
-          )}
+</>}
           {kind === "plan" && (
             <>
+              <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="lowBalanceEnabled" defaultChecked={draft.lowBalanceEnabled??false}/>低可用次數提醒</label>
+              <label>提醒門檻（次）<input className={field} name="lowBalanceThreshold" type="number" min={0} max={10000} defaultValue={draft.lowBalanceThreshold??''}/></label>
               <label>
                 方案次數
                 <input
@@ -417,10 +426,10 @@ export function BeautyCatalogEditor({
                 </select>
               </label>
               <fieldset className="sm:col-span-2 space-y-2">
-                <legend>我的工作權限</legend>
+                <legend className="font-semibold">我的工作權限</legend>
                 <div className="flex flex-wrap gap-4">
                   {[
-                    ["complete", "服務完成／更正"],
+                    ["complete", "服務完成／未到"],
                     ["cancel", "代客取消"],
                     ["reschedule", "代客改期"],
                     ["income", "查看本人收入"],
@@ -623,7 +632,7 @@ export function BeautyCatalogEditor({
                 {kind === "plan" ? "適用服務" : "可服務項目與拆帳"}
               </legend>
               {data.services.map((s) => (
-                <div key={s.id} className="space-y-2 border-b py-2">
+                <div key={s.id} className="space-y-2 rounded-lg border border-earth-200 bg-earth-50/40 p-3">
                   <label className="flex min-h-11 items-center gap-2">
                     <input
                       type="checkbox"
@@ -640,8 +649,8 @@ export function BeautyCatalogEditor({
                     {s.name}
                   </label>
                   {kind === "technician" && serviceIds.includes(s.id) && (
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <select
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="space-y-1 text-sm">拆帳方式<select
                         aria-label={`${s.name}拆帳方式`}
                         className={field}
                         value={rates[s.id]?.mode ?? "FIXED"}
@@ -661,8 +670,8 @@ export function BeautyCatalogEditor({
                         <option value="FIXED">每次固定金額</option>
                         <option value="HOURLY">固定鐘點（按服務分鐘）</option>
                         <option value="PERCENT">百分比</option>
-                      </select>
-                      <input
+                      </select></label>
+                      <label className="space-y-1 text-sm">{rates[s.id]?.mode==='PERCENT'?'比例（%）':rates[s.id]?.mode==='HOURLY'?'每小時金額（元）':'每次金額（元）'}<input
                         aria-label={`${s.name}拆帳數值`}
                         className={field}
                         type="number"
@@ -679,9 +688,9 @@ export function BeautyCatalogEditor({
                             },
                           }))
                         }
-                      />
+                      /></label>
                       {rates[s.id]?.mode === "PERCENT" && (
-                        <select
+                        <label className="space-y-1 text-sm">計算基準<select
                           aria-label={`${s.name}拆帳基準`}
                           className={field}
                           required
@@ -699,7 +708,7 @@ export function BeautyCatalogEditor({
                           <option value="PAID">
                             按實收（方案實收÷總次數）
                           </option>
-                        </select>
+                        </select></label>
                       )}
                     </div>
                   )}
