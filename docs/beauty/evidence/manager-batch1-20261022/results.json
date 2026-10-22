@@ -1,0 +1,97 @@
+{
+  "results": [
+    {
+      "case": "calendar and toolbar entrances, list/detail/back/action all have exactly one centered dialog",
+      "passed": true
+    },
+    {
+      "case": "calendar switches revalidate with private GET and no RSC page reload",
+      "passed": true
+    },
+    {
+      "case": "display snapshot cannot enable booking or roster before fresh authorization",
+      "passed": true
+    },
+    {
+      "case": "unified add plan: no presets, actual create/edit/reopen of sessions and price",
+      "passed": true
+    },
+    {
+      "case": "single and trial prices save separately on QA-only inactive service; restored to original amounts",
+      "passed": true
+    },
+    {
+      "case": "sharing is collapsed in customer overview; search alone does not trigger a dirty warning",
+      "passed": true
+    },
+    {
+      "case": "calendar B location is honored by a real booking and persisted cancellation without plan/payment operations",
+      "passed": true
+    },
+    {
+      "case": "calendar technician column carries the selected technician into the form",
+      "passed": true
+    },
+    {
+      "case": "real QA technician custom weekly hours, closed day and date override match the board; QA technician deactivated afterward",
+      "passed": true
+    },
+    {
+      "case": "final release waits for refreshed catalog before immediate reopen; persisted QA sessions verified and restored",
+      "passed": true
+    },
+    {
+      "case": "final roster/list/detail navigation fits desktop, landscape/portrait tablet and phone without stacked dialogs or whole-page overflow",
+      "passed": true
+    },
+    {
+      "case": "cross-store and member manager reads denied; customer and technician pages still render",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "label": "週表",
+      "visualMs": 1877,
+      "readyMs": 1881,
+      "server": "calendar;dur=743.9"
+    },
+    {
+      "label": "月表",
+      "visualMs": 1355,
+      "readyMs": 1357,
+      "server": "calendar;dur=417.1"
+    },
+    {
+      "label": "日表",
+      "visualMs": 40,
+      "readyMs": 1031,
+      "server": "calendar;dur=424.0"
+    },
+    {
+      "label": "週表",
+      "visualMs": 72,
+      "readyMs": 1055,
+      "server": "calendar;dur=425.9"
+    },
+    {
+      "label": "月表",
+      "visualMs": 47,
+      "readyMs": 1039,
+      "server": "calendar;dur=431.6"
+    },
+    {
+      "label": "日表",
+      "visualMs": 43,
+      "readyMs": 1022,
+      "server": "calendar;dur=423.7"
+    }
+  ],
+  "fixtures": {
+    "planName": "第一批驗收方案-295270f8",
+    "room": "beauty-hosted-room-b",
+    "bookingName": "第一批預約驗收-ee3cba7b",
+    "technicianName": "第一批驗收技師-41e439ed"
+  },
+  "errors": []
+}

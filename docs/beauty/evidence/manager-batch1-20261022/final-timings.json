@@ -1,0 +1,32 @@
+[
+  {
+    "label": "週表",
+    "totalMs": 1121,
+    "server": "calendar;dur=468.6"
+  },
+  {
+    "label": "月表",
+    "totalMs": 990,
+    "server": "calendar;dur=336.8"
+  },
+  {
+    "label": "日表",
+    "totalMs": 938,
+    "server": "calendar;dur=308.6"
+  },
+  {
+    "label": "週表",
+    "totalMs": 1001,
+    "server": "calendar;dur=324.9"
+  },
+  {
+    "label": "月表",
+    "totalMs": 1087,
+    "server": "calendar;dur=316.7"
+  },
+  {
+    "label": "日表",
+    "totalMs": 961,
+    "server": "calendar;dur=321.8"
+  }
+]
