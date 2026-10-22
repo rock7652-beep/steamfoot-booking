@@ -8,10 +8,9 @@ describe("digital butler dashboard entry entitlement contract", () => {
     const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
 
-    expect(layout).toContain(
-      "Object.values(FEATURES).map",
-    );
-    expect(layout).toContain("getStoreFeaturePresentation(effectiveStoreId, feature)");
+    const reader = read("src/lib/feature-gate.ts");
+    expect(layout).toContain("getStoreFeaturePresentations(effectiveStoreId)");
+    expect(reader).toContain("Object.values(FEATURES).map");
     expect(layout).toContain('state === "ENABLED"');
     expect(layout).toContain("featureStates={featureStates}");
     expect(layout).toContain("effectiveFeatures={effectiveFeatures}");

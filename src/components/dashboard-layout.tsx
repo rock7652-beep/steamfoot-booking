@@ -1,4 +1,4 @@
-import { getStoreFeaturePresentations } from "@/server/queries/store-feature-presentations";
+import { getStoreFeaturePresentations } from "@/lib/feature-gate";
 import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";

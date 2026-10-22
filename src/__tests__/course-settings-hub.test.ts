@@ -9,7 +9,7 @@ vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async (
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: m.rule }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
-vi.mock("@/server/queries/store-feature-presentations", () => ({ isStoreFeatureEnabledForRead: m.feature }));
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
 vi.mock("@/components/desktop", () => ({ PageShell: () => null, PageHeader: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: () => null }));

@@ -11,7 +11,7 @@ import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
-import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/server/queries/store-feature-presentations";
+import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";

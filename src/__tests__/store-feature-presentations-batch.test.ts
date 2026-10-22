@@ -6,7 +6,7 @@ vi.mock("next/cache", () => ({ unstable_cache: <T>(fn: T) => fn }));
 const m = vi.hoisted(() => ({ store: vi.fn(), all: vi.fn(), one: vi.fn(), shared: vi.fn(), plan: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: m.store }, storeFeatureEntitlement: { findMany: m.all, findUnique: m.one }, $queryRaw: m.shared } }));
 vi.mock("@/lib/store-plan", () => ({ getStoreForPlanByStoreId: m.plan, getCurrentStoreForPlan: vi.fn() }));
-import { getStoreFeaturePresentations } from "@/server/queries/store-feature-presentations";
+import { getStoreFeaturePresentations } from "@/lib/feature-gate";
 import { getStoreFeaturePresentation } from "@/lib/feature-gate";
 const now = new Date("2026-10-22T11:00:00Z");
 type Grant = { featureKey: string; status: "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN"; startsAt: Date | null; expiresAt: Date | null };

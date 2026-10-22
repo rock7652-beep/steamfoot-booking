@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getStoreUsage } from "@/server/queries/usage";
-import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/server/queries/store-feature-presentations";
+import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { computeLifecycle, effectiveStateLabel } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";

@@ -1,3 +1,4 @@
+import { resolveCourseSharedCardState } from "@/lib/course-shared-card-policy";
 /**
  * Feature Gate — Server-side 功能閘門
  *
@@ -12,7 +13,7 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
-import { resolveEffectiveEntitlement, type FeaturePresentationState } from "@/lib/effective-entitlement";
+import { resolveEffectiveEntitlement, type FeaturePresentationState, type FeatureEntitlementOverride } from "@/lib/effective-entitlement";
 import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
@@ -173,4 +174,55 @@ export async function getStoreFeaturePresentation(storeId: string, feature: Feat
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   if (entitlement?.status === "HIDDEN") return "HIDDEN";
   return await hasStoreFeature(storeId, feature) ? "ENABLED" : "LOCKED";
+}
+
+/** Presentation only. Two fresh queries, shared only inside one React server request.
+ * Mutations continue to use their original feature gates and transaction checks.
+ */
+export const getStoreFeaturePresentations = cache(async (storeId: string): Promise<Record<FeatureKey, FeaturePresentationState>> => {
+  const [store, rows] = await Promise.all([
+    prisma.store.findUnique({ where: { id: storeId }, select: { plan: true, industryModule: true } }),
+    prisma.storeFeatureEntitlement.findMany({ where: { storeId }, select: { featureKey: true, status: true, startsAt: true, expiresAt: true } }),
+  ]);
+  const demo = isSpaDemoStoreId(storeId);
+  if (!store && !demo) throw new Error("Store not found");
+  const plan = demo ? "ALLIANCE" : store!.plan;
+  const now = new Date();
+  const grants = new Map<string, FeatureEntitlementOverride>(rows.map(row => [row.featureKey, row]));
+  const active = (grant: FeatureEntitlementOverride | undefined) => grant
+    && (!grant.startsAt || grant.startsAt <= now) && (!grant.expiresAt || grant.expiresAt >= now) ? grant : null;
+
+  return Object.fromEntries(Object.values(FEATURES).map(feature => {
+    const raw = grants.get(feature), grant = active(raw);
+    let state: FeaturePresentationState;
+    if (feature === FEATURES.STORE_OPERATION_AUDIT) {
+      // Audit expiry is exclusive, matching the uncached authorization policy.
+      state = grant?.status === "ENABLED" && (!grant.expiresAt || grant.expiresAt > now) ? "ENABLED" : "HIDDEN";
+    } else if (feature === FEATURES.SHARED_CARD) {
+      state = resolveCourseSharedCardState({ industryModule: store?.industryModule ?? "STEAMFOOT", music: grants.get("business.music")?.status === "ENABLED", entitlement: raw ?? null }, now);
+    } else if (feature === FEATURES.WORK_ORDERS) {
+      state = resolveEffectiveEntitlement(hasFeature(plan, feature), grant, now).enabled ? "ENABLED" : "HIDDEN";
+    } else if (feature === FEATURES.INVENTORY) {
+      state = inventoryFeatureAllowed(plan, grant, now) ? "ENABLED" : "HIDDEN";
+    } else if (demo) {
+      state = "ENABLED";
+    } else if (grant?.status === "HIDDEN") {
+      state = "HIDDEN";
+    } else {
+      const enabled = grant?.status === "LOCKED" ? false
+        : grant?.status === "ENABLED" ? true
+        : plan === "EXPERIENCE" ? true
+        : feature === FEATURES.FRONTEND_PREVIEW ? false
+        : resolveEffectiveEntitlement(hasFeature(plan, feature), grant, now).enabled;
+      state = enabled ? "ENABLED" : "LOCKED";
+    }
+    return [feature, state];
+  })) as Record<FeatureKey, FeaturePresentationState>;
+});
+
+/** Read-only server components may share the same fresh presentation snapshot.
+ * Never use this helper instead of mutation feature/transaction checks.
+ */
+export async function isStoreFeatureEnabledForRead(storeId: string, feature: FeatureKey): Promise<boolean> {
+  return (await getStoreFeaturePresentations(storeId))[feature] === "ENABLED";
 }
