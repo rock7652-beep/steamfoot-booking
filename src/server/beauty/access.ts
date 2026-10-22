@@ -19,6 +19,7 @@ export type BeautyActor = {
   grants?: string[];
   manager?: boolean;
   actorKey?: string;
+  verifiedStore?: {id:string;name:string;slug:string};
 };
 export async function requireBeauty(storeId: string, write = false) {
   if (process.env.BEAUTY_MODULE_ENABLED !== "1")
@@ -66,34 +67,28 @@ export async function beautyManager(
   return { storeId, userId: user.id, manager: true };
 }
 export async function beautyMember(write = false): Promise<BeautyActor> {
-  const user = await requireSession(),
-    ctx = await getStoreContext();
+  const [user,ctx]=await Promise.all([requireSession(),getStoreContext()]);
   if (!ctx) throw new AppError("FORBIDDEN", "請從店家入口登入");
-  await requireBeauty(ctx.storeId, write);
-  if (
-    !(await prisma.user.findFirst({
-      where: { id: user.id, status: "ACTIVE" },
-      select: { id: true },
-    }))
-  )
-    throw new AppError("FORBIDDEN", "帳號已停用");
-  const linked = await resolveCentralMemberCustomerForStore(
-    user.id,
-    ctx.storeId,
-  );
-  if (!linked) throw new AppError("FORBIDDEN", "請先連結本店會員");
+  const [verifiedStore,active,linked]=await Promise.all([
+    requireBeauty(ctx.storeId,write),
+    prisma.user.findFirst({where:{id:user.id,status:"ACTIVE"},select:{id:true}}),
+    resolveCentralMemberCustomerForStore(user.id,ctx.storeId),
+  ]);
+  if(!active)throw new AppError("FORBIDDEN","帳號已停用");
+  if(!linked)throw new AppError("FORBIDDEN","請先連結本店會員");
   return {
     storeId: ctx.storeId,
     userId: user.id,
     customerId: linked.customerId,
+    verifiedStore,
   };
 }
 export async function beautyWorker(write = false): Promise<BeautyActor> {
   const a = await beautyMember(write);
-  await requireStoreFeature(a.storeId, FEATURES.STAFF_MANAGEMENT);
-  const t = await beautyPrisma.beautyTechnician.findFirst({
-    where: { storeId: a.storeId, userId: a.userId, active: true },
-  });
+  const [,t]=await Promise.all([
+    requireStoreFeature(a.storeId, FEATURES.STAFF_MANAGEMENT),
+    beautyPrisma.beautyTechnician.findFirst({where:{storeId:a.storeId,userId:a.userId,active:true}}),
+  ]);
   if (!t) throw new AppError("FORBIDDEN", "技師工作身分尚未開放");
   return { ...a, technicianId: t.id, grants: t.grants };
 }

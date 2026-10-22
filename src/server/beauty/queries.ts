@@ -77,7 +77,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))throw new AppError("VALIDATION","月份格式不正確");
   const a = work ? await beautyWorker() : await beautyMember();
   await requireStoreFeature(a.storeId, FEATURES.MEMBER_PORTAL);
-  const store = await prisma.store.findUniqueOrThrow({
+  const store = a.verifiedStore ?? await prisma.store.findUniqueOrThrow({
     where: { id: a.storeId },
     select: { id: true, name: true, slug: true },
   });

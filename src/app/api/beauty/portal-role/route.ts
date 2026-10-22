@@ -9,8 +9,9 @@ export async function GET(request:NextRequest){
   if(!['0','1'].includes(mode??'')||!slug||slug.length>100)throw new AppError('VALIDATION','切換參數不正確');
   // beautyPortal always resolves the authenticated actor, store and current grants.
   // The supplied slug is only an integrity check, never an authorization source.
+  const at=performance.now();
   const data=await beautyPortal(mode==='1');
   if(data.store.slug!==slug)throw new AppError('FORBIDDEN','店家已切換，請重新開啟本店入口');
-  return NextResponse.json({success:true,data},{headers});
+  return NextResponse.json({success:true,data},{headers:{...headers,'Server-Timing':`portal;dur=${(performance.now()-at).toFixed(1)}`}});
  }catch(e){const r=handleActionError(e);return NextResponse.json({success:false,error:r.success?'切換失敗':r.error},{status:403,headers});}
 }
