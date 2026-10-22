@@ -1,4 +1,5 @@
 "use client";
+import {CourseStaffList} from "../courses/staff-list";
 import { createPortal } from "react-dom";
 
 import styles from "@/components/admin/management-layout.module.css";
@@ -94,6 +95,7 @@ export function StaffWorkspace({
   storeId,
   accountPolicy = emptyStaffAccountPolicy,
   accountListOnly = false,
+  beauty = false,
   showSteamfootRent = false,
   people: initialPeople,
   today,
@@ -109,6 +111,7 @@ export function StaffWorkspace({
   canManage: boolean;
   canAssignRoles?: boolean;
   accountListOnly?: boolean;
+  beauty?:boolean;
   showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
@@ -287,7 +290,11 @@ export function StaffWorkspace({
           <p className="text-sm text-earth-500">
             共 {filteredPeople.length} 位／全部 {people.length} 位
           </p>
-          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+          {beauty?<CourseStaffList empty={<p className="p-8 text-center text-earth-500">沒有符合條件的人員。</p>} rows={filteredPeople.map(person=>({
+            id:person.id,name:person.displayName,phone:person.phone,email:person.email,active:person.status==='ACTIVE',onOpen:()=>setEditor({type:'details',personId:person.id}),
+            identity:<>{person.roleLabel}{person.status!=='ACTIVE'&&<span className="text-earth-500">停用</span>}</>,notifications:<span className="text-earth-500">—</span>,
+            actions:<ExclusiveMenu quiet triggerText="⋯" label={`${person.displayName}操作`}><button className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setEditor({type:'details',personId:person.id})}>{person.canEdit?'編輯':'查看'}</button>{person.canEdit&&<StaffStatusToggle staffId={person.id} currentStatus={person.status} quiet/>}</ExclusiveMenu>
+          }))}/>:(          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
@@ -345,7 +352,7 @@ export function StaffWorkspace({
                 沒有符合條件的人員。
               </p>
             )}
-          </div>
+          </div>)}
         </section>
       ) : (
         <section

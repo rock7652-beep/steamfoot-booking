@@ -143,3 +143,13 @@ it("retains permission drafts across category changes and searches all categorie
   expect(document.body.textContent).toContain("未儲存");
   await act(async () => root.unmount());
 });
+
+
+it("uses the course contact/identity list for Beauty and opens the existing guarded account editor",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+ await act(async()=>root.render(createElement(StaffWorkspace,{people:[{...person,status:'ACTIVE'}],today:'2026-10-22',canManage:true,showSpaCompensation:false,createAction:vi.fn(),beauty:true,accountListOnly:true})));
+ expect(host.textContent).toContain('聯絡方式');expect(host.textContent).toContain('身分');expect(host.textContent).toContain('qa@example.invalid');
+ const name=[...host.querySelectorAll('button')].find(b=>b.textContent==='QA 門市')!;expect(name).toBeTruthy();await act(async()=>name.click());expect(document.body.textContent).toContain('後台帳號／權限');
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

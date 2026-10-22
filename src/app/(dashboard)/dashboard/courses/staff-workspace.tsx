@@ -1,4 +1,5 @@
 "use client";
+import {CourseStaffList,type CourseStaffDisplayRow} from "./staff-list";
 import { SportsCoachFeeFields } from "@/components/admin/sports-coach-fee-fields";
 import { compensationRule } from "@/lib/course-compensation";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
@@ -23,7 +24,7 @@ import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseStaffAvailabilityEditor,type CourseAvailabilitySaveHandle} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { ModalPanel } from "@/components/admin/modal-panel";
@@ -332,37 +333,14 @@ export function CourseStaffWorkspace({
       {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}:${inactiveExpanded}`} canDelete={canManage} names={Object.fromEntries(visibleRows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} states={Object.fromEntries(visibleRows.map(p=>[p.id,p.active]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleRows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {rows.length} 筆／全部 {staff.length} 筆</p>}
 </div>
-      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className={"min-w-[720px] w-full text-left text-sm"}>
-          <thead className="bg-earth-50">
-            <tr>
-              {["姓名", "聯絡方式", "身分", "LINE／通知", "操作"].map((t) => (
-                <th key={t} className={`px-3 py-2 font-medium ${!music ? ({"姓名":"w-[20%]","電話":"w-[16%]","E-mail":"w-[28%]","身分":"w-[18%]","系統通知":"w-[12%]"} as Record<string,string>)[t] ?? "" : ""} whitespace-nowrap ${t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
-                  {t}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-earth-100">
-            {visibleRows.map((p,index) => (
-              <Fragment key={p.id}>
-              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
-              <tr
-                {...order.rowProps(p.id)}
-                className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
-              >
-                <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && p.canEdit !== false && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage || p?.canEdit === false);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                <td className="px-3 py-2"><a className="block min-h-11 whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"—"}</a><span className="block max-w-64 break-words text-earth-600">{(p.kind==="manager"?p.email:p.contactEmail)||""}</span></td>
-                <td className="px-3 py-2"><div className="flex flex-wrap items-center gap-x-3">{identity(p,music)}{p.coachEnabled&&<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab("qualifications");}} className="min-h-11 text-left text-sm text-primary-800">{p.qualificationsConfirmed&&p.qualificationIds.length?`可教 ${p.qualificationIds.length} 項`:"授課待設定"}</button>}{!p.active&&<span className="text-earth-500">停用</span>}</div></td>
-                <td className="px-3 py-2">{p.coachEnabled?<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab("work");}} className="min-h-11 text-left text-primary-800">{p.coachLoginReady?(p.notificationsEnabled===false?"LINE 已綁定・通知關閉":"LINE 已綁定"):"LINE 未綁定"}</button>:<span className="text-earth-500">{p.notificationsEnabled===false?"通知已關閉":p.coachLoginReady?"通知已開啟":"待連結 LINE"}</span>}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage&&p.canEdit!==false?"編輯":"查看"}</button>{canManage&&p.canEdit!==false&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}</ExclusiveMenu></td>
-              </tr>
-              </Fragment>
-            ))}
-            {!inactiveExpanded&&inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <CourseStaffList music={music} inactiveCount={inactiveRows.length} inactiveForced={inactiveForced} inactiveExpanded={inactiveExpanded} onToggleInactive={()=>{setSelected([]);setShowInactive(v=>!v);}} rows={visibleRows.map((p):CourseStaffDisplayRow=>({
+        id:p.id,name:p.name,phone:p.phone,email:p.kind==='manager'?p.email:p.contactEmail??'',active:p.active,rowProps:order.rowProps(p.id),onOpen:()=>{edit(p);setReadOnly(!canManage||p.canEdit===false);},
+        beforeName:<>{canManage&&order.handle(p.id,p.name)}{canManage&&p.canEdit!==false&&<input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}</>,
+        afterName:!p.active&&p.assignments.length>0?<span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>:undefined,
+        identity:<>{identity(p,music)}{p.coachEnabled&&<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab('qualifications');}} className="min-h-11 text-left text-sm text-primary-800">{p.qualificationsConfirmed&&p.qualificationIds.length?`可教 ${p.qualificationIds.length} 項`:'授課待設定'}</button>}{!p.active&&<span className="text-earth-500">停用</span>}</>,
+        notifications:p.coachEnabled?<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab('work');}} className="min-h-11 text-left text-primary-800">{p.coachLoginReady?(p.notificationsEnabled===false?'LINE 已綁定・通知關閉':'LINE 已綁定'):'LINE 未綁定'}</button>:<span className="text-earth-500">{p.notificationsEnabled===false?'通知已關閉':p.coachLoginReady?'通知已開啟':'待連結 LINE'}</span>,
+        actions:<ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage&&p.canEdit!==false?'編輯':'查看'}</button>{canManage&&p.canEdit!==false&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab('qualifications');}}>授課設定</button>}</ExclusiveMenu>
+      }))}/>
       {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
       <ModalPanel open={confirmDiscard} onClose={()=>setConfirmDiscard(false)} labelledById="teacher-discard-title" pending={locked||availabilityGuard.pending}>
         <header className="border-b border-earth-100 p-4"><h2 id="teacher-discard-title" className="font-medium">放棄未儲存的修改？</h2></header>

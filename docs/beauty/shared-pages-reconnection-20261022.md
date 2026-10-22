@@ -29,7 +29,7 @@
 | 服務項目 | `courses/workspace.tsx` 的 catalog 內頁 | **待接回**：BeautyManagementList／BeautyCatalogEditor 仍另寫。 | 原服務／課程設定的清單與編輯操作共用；美業用服務時長、選填整理時間及可服務技師，移除團課班別／容量專屬欄位；金額放收費方式。 |
 | 收費方式與方案 | `courses/member-workspace.tsx`、`courses/course-profile-forms.tsx` 的 CoursePlanDraftForm | **待接回**：BeautyChargesList／BeautyCatalogEditor 仍另寫。 | 使用既有方案清單／編輯、次數、期限、服務適用範圍、家人共用；單次／體驗價格一起管理。不得預設店家的方案次數與售價；運動固定課、補課券與音樂期課規則不自動套入。 |
 | 技師管理 | `courses/staff-page.tsx`、`courses/staff-workspace.tsx` 的 CourseStaffWorkspace | **待接回**：BeautyManagementList／BeautyCatalogEditor 仍另寫，既有 CourseStaffWorkspace 是接回來源；其讀寫直接依賴 Staff／課程資格，需抽取資料與動作接點後接入美業技師，不能只改標題或繞過 requireCourseStore。 | 技師與後台人員分開；預設承接店家開放時段，可覆寫每人服務時間，資格／服務、性別必填、拆帳與我的工作權限保留；不能把後台帳號當技師記錄。 |
-| 人員管理 | `dashboard/staff/staff-workspace.tsx`、`staff-account-editor.tsx` | **本輪已接線、待 hosted 核對**：移除 BeautyStaffList 分支，使用原帳號清單、角色／狀態篩選與原帳號編輯器。 | 沿用 staff.view／staff.manage 與既有階層；Beauty 可指派權限仍由 staff/page.tsx 的 BEAUTY_PERMISSIONS 篩選，沒有擴大可授權範圍。 |
+| 人員管理 | `courses/staff-workspace.tsx`、抽出的 `courses/staff-list.tsx` | **名單內容已共用、帳號編輯器待接回**：移除 BeautyStaffList；原音樂／運動 CourseStaffWorkspace 與美業帳號清單使用同一份 CourseStaffList。美業角色／狀態篩選與 StaffAccountEditor 仍在原 StaffWorkspace，不能宣告整頁已共用。 | 沿用 staff.view／staff.manage 與既有階層；Beauty 可指派權限仍由 staff/page.tsx 的 BEAUTY_PERMISSIONS 篩選，沒有擴大可授權範圍。 |
 | 圖片公告 | 既有共用公告頁面 | **既有共用入口**，本輪未另寫。 | 仍須在最終全頁驗收核對美業進入路徑與店別；不能用「入口共用」替代全部上傳／發布實測。 |
 | 設定 | `courses/settings-workspace.tsx`、`settings-section-editor.tsx`、共用銀行／營業時間設定頁 | **部分共用、整頁待接回**：BeautyStoreSettings 已用 CourseSettingsSectionEditor，銀行／營業時間已有共用入口；BeautyDashboard 的分類／預約設定仍另組。 | 沿用門市設定欄位、開放時段、銀行、公告與功能開關；美業預約間隔、取消／未到扣次與 LINE 關閉條件由業務接點處理，不帶入候補／固定課專屬規則。 |
 
@@ -43,6 +43,6 @@
 
 ## 本輪驗證
 
-- 原運動／音樂名單、點名回饋、備註、人員已確認儲存與頁面權限與人員狀態更新相關共 8 檔 89 項測試通過（含下述美業整合測試）。
+- 原運動／音樂名單、點名回饋、備註、人員已確認儲存與頁面權限與人員狀態更新相關測試通過，最終統計及 hosted 結果於驗收後補記。
 - 新增美業名單整合測試驗同組分項、不同結束時間、方案欄位、交易先確認、只讀不顯示交易操作；這是隔離元件驗證，不代表 hosted 實測或正式啟用。
 - 正式資料結構／資料未操作。其餘頁面仍按表標待接回，沒有宣告美業後台整站完成。
