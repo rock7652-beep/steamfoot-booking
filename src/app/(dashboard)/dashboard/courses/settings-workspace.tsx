@@ -29,7 +29,8 @@ import {waitlistRevision} from "@/lib/course-waitlist-save";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@/components/settings";
 
-type Props = {
+export type CourseSettingsWorkspaceProps = {
+  moduleContent?: { label:string; storeSavePath:string; sections:Partial<Record<CourseSettingsSection,ReactNode>> };
   native?:boolean; music?:boolean; shopPhone?:string; lineOfficialId?:string;
   today?: string; trialSettings?: TrialSettings;
   panelContent?: ReactNode;
@@ -94,7 +95,7 @@ const lead = (minutes: number) => {
   return `${minutes} 分鐘前`;
 };
 
-export function CourseSettingsWorkspace(sourceProps: Props) {
+export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProps) {
   const reminderState = useFeaturePresentation(FEATURES.LINE_REMINDER);
   const referralState = useFeaturePresentation(FEATURES.REFERRAL_SHARE);
   const butlerState = useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
@@ -111,11 +112,11 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const confirmedWaitlist=useConfirmedSettingsRows(waitlistSource,row=>waitlistRevision(row.values));
   const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
   const confirmedDuty=useConfirmedSettingsRows(dutySource,row=>String(row.enabled));
-  const props:Props={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
+  const props:CourseSettingsWorkspaceProps={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
-  const active = courseSettingsSection(search.get("section"));
+  const active = courseSettingsSection(search.get("section") === "commerce" ? "payment" : search.get("section"));
   const panel = search.get("panel");
   const featurePanelAllowed = panel === "reminders" ? props.canReminders && reminderState !== "HIDDEN" && reminderState !== "LOCKED"
     : panel === "referral" ? props.canReferralShare && referralState !== "HIDDEN" && referralState !== "LOCKED"
@@ -161,7 +162,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       if (!(link instanceof HTMLAnchorElement) || link.target === "_blank" || link.hasAttribute("download")) return;
       const url = new URL(link.href);
       if (!/^https?:$/.test(url.protocol)) return;
-      if (url.origin === window.location.origin && url.pathname === pathname && url.searchParams.get("view") === "settings") return;
+      if (url.origin === window.location.origin && url.pathname === pathname && (props.moduleContent ? url.searchParams.get("tab") === "設定" : url.searchParams.get("view") === "settings")) return;
       if (link.closest("[data-course-settings-panel]") && courseSettingsPanelHref(url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "") + url.search).includes("view=settings")) return;
       event.preventDefault(); event.stopPropagation(); setLeaveHref(url.href);
     }
@@ -169,7 +170,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
     document.addEventListener("click", intercept, true);
     window.addEventListener("beforeunload", unload);
     return () => { document.removeEventListener("click", intercept, true); window.removeEventListener("beforeunload", unload); };
-  }, [hasDirty, pending, pathname]);
+  }, [hasDirty, pending, pathname, props.moduleContent]);
   function openRow(id: string) {
     if (pending) return;
     setExpandedRow(id);
@@ -177,10 +178,10 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   function select(section: CourseSettingsSection) {
     if (pending) return;
     setExpandedRow(null);
-    const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
+    const params = new URLSearchParams(search.toString()); if(props.moduleContent)params.set("tab", "設定");else params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
-  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
+  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor savePath={props.moduleContent?.storeSavePath} storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
     nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
@@ -190,12 +191,12 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         onSelect={id => select(courseSettingsSection(id))}
       />
     </>}
-    header={<>{props.name} · 課程模組{hasDirty ? " · 有未儲存修改" : ""}</>}
+    header={<>{props.name} · {props.moduleContent?.label ?? "課程模組"}{hasDirty ? " · 有未儲存修改" : ""}</>}
   >
       <section hidden={active !== "store"} aria-label="店家資料">
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定")} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
       </section>
-      <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>
+      <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>{props.moduleContent ? props.moduleContent.sections.booking : <>
         <CourseSelfBookingSettings storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
         <CourseOperationSwitch key={`leave:${props.storeId}:${props.selfLeaveEnabled}`} storeId={props.storeId} title="允許學員自行請假" setting="selfLeaveEnabled" initialEnabled={props.selfLeaveEnabled??true} canEdit={props.canEdit}/>
         <CourseOperationSwitch key={`move:${props.storeId}:${props.selfRescheduleEnabled}`} storeId={props.storeId} title="允許學員自行改期" setting="selfRescheduleEnabled" initialEnabled={props.selfRescheduleEnabled??props.selfBookingEnabled??true} canEdit={props.canEdit}/>
@@ -218,8 +219,8 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         )}
         </FeatureEntry>
         <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle key={props.storeId} storeId={props.storeId} onSaved={enabled=>confirmedDuty.confirm({id:"duty",enabled})} enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
-      </SectionGuard></section>
-      <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>
+       </>}</SectionGuard></section>
+      <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>{props.moduleContent ? props.moduleContent.sections.payment : <>
         {props.canPayment ? <Row title="銀行轉帳資訊" summary={props.bankAccountNumber ? `${props.bankName || "銀行帳戶"}・末四碼 ${props.bankAccountNumber.slice(-4)}` : "未設定"} expanded={expandedRow === "payment-bank"} onEdit={() => openRow("payment-bank")}>
           {editor({ section: "payment", bankName: props.bankName, bankCode: props.bankCode, bankAccountNumber: props.bankAccountNumber }, true)}
           <p className="mt-2 text-sm text-earth-500">付款聯繫：{props.lineOfficialUrl ? "沿用店家官方 LINE" : "尚未設定官方 LINE"} <button type="button" className="min-h-10 px-2 text-primary-700 underline" onClick={() => select("store")}>前往店家資料</button></p>
@@ -230,8 +231,8 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
           expanded={expandedRow === "trial"}
           onEdit={() => openRow("trial")}
         ><TrialSettingsForm onSaved={(values,syncWarning)=>{confirmed.confirm({id:"trial",values});closeSavedRow("trial",syncWarning);}} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
-      </SectionGuard></section>
-      <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
+       </>}</SectionGuard></section>
+      <section hidden={active !== "notifications"} aria-label="通知與顧客經營">{props.moduleContent ? props.moduleContent.sections.notifications : <>
         <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>
         <CustomerLabelsSettings />
         {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="尚無方案顧客待辦" action="查看" href="/dashboard/courses/unassigned-plans" />}
@@ -240,12 +241,12 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href="/dashboard/settings/referral-share" /></FeatureEntry>}
         {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href="/dashboard/settings/digital-butler" /></FeatureEntry>}
         {!hasNotificationEntries && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
-      </section>
-      <section hidden={active !== "subscription"} aria-label="系統方案與用量">
+       </>}</section>
+      <section hidden={active !== "subscription"} aria-label="系統方案與用量">{props.moduleContent ? props.moduleContent.sections.subscription : <>
         <Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}
-      </section>
+       </>}</section>
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
-    {isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
+    {!props.moduleContent && isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
 }

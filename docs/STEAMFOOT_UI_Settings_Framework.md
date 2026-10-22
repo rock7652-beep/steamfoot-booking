@@ -493,6 +493,9 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - 顧客概況 → `src/app/(dashboard)/dashboard/courses/customer-overview.tsx`；顧客基本資料編輯沿用同目錄 `CourseCustomerDraftForm`，美業注入有門市／權限／版本檢查的儲存接點，不改用課程寫入。
 - 人員／技師編輯的基本欄位、分頁、服務資格列與後台權限 → `src/app/(dashboard)/dashboard/courses/staff-editor-fields.tsx`，由原課程及美業共同使用；可服務時間、拆帳基準及工作權限由原模組保留。
 - 顧客詳情的備註、歸屬、LINE 與基本資料編輯 → `src/components/admin/use-customer-panel-guard.ts` 收集既有 SettingsPanelContext 的 dirty／pending 狀態；運動／音樂與 SPA 各自注入原有資料及業務操作。
+- 顧客經營分類與生日月份 → `src/app/(dashboard)/dashboard/growth/_components/care-filters.tsx`；運動／音樂與美業共用，資料口徑各自保留。
+- 分析工作台 → `src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx`；美業注入服務資料 adapter、稱呼與顧客入口，不使用課程扣堂或授課費公式。
+- 設定分類、草稿及離開保護 → `src/app/(dashboard)/dashboard/courses/settings-workspace.tsx`；美業透過內容與儲存接點插槽共用，避免另建設定工作台。
 - 大量清單 → 共用搜尋／篩選／排序／批次操作模式
 - 預約／課程名單 → `src/components/admin/roster-primitives.tsx`（工具列、資料列密度、狀態操作尺寸）；標籤／備註欄 → `src/components/admin/roster-reminders.tsx`（四模組兩行摘要、44px 分離操作、完整內容入口）；本次備註原列編輯 → `src/components/admin/inline-roster-note.tsx`（草稿保留、儲存／取消、就地錯誤，各模組注入 notes-only action）
 

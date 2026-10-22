@@ -237,3 +237,22 @@ it.each(["saved", "rejected", "uncertain", "sync-warning"] as const)("keeps the 
   expect(host.textContent).toContain(outcome === "rejected" ? "驗證失敗" : outcome === "uncertain" ? "尚未確認儲存結果" : outcome === "sync-warning" ? "其他頁面更新失敗" : "確認後的新店名");
   expect(m.refresh).not.toHaveBeenCalled();
 });
+
+it('uses the same store editor with the Beauty save endpoint and confirmed store scope',async()=>{
+ window.history.replaceState(null,'','/s/a/admin/dashboard/beauty?tab=設定&section=store');
+ const fetch=vi.fn(async (_url:string,init:RequestInit)=>{
+  const body=JSON.parse(String(init.body));return {json:async()=>({success:true,storeId:'a',data:{values:body.values,revision:courseSettingsSectionRevision(body.values)}})};
+ });vi.stubGlobal('fetch',fetch);
+ await render({...defaults,moduleContent:{label:'美業模組',storeSavePath:'/api/beauty/settings/store',sections:{booking:createElement('p',null,'美業取消扣次規則')}}});
+ await input('name','美業店家已確認的新名稱');await submit();
+ expect(fetch).toHaveBeenCalledWith('/api/beauty/settings/store',expect.objectContaining({method:'POST'}));
+ const body=JSON.parse(String(fetch.mock.calls[0][1].body));expect(body.expectedStoreId).toBe('a');expect(body.values.section).toBe('store');expect(body.values.name).toBe('美業店家已確認的新名稱');
+ expect(host.textContent).toContain('美業店家已確認的新名稱');
+});
+it('mounts Beauty content in the original settings categories without Course rule editors',async()=>{
+ window.history.replaceState(null,'','/s/a/admin/dashboard/beauty?tab=設定&section=commerce');
+ const props={...defaults,moduleContent:{label:'美業模組',storeSavePath:'/api/beauty/settings/store',sections:{payment:createElement('p',null,'美業付款資料'),booking:createElement('p',null,'美業取消扣次規則')}}};
+ await render(props);expect(host.querySelector('section[aria-label="收款與體驗"]')?.hasAttribute('hidden')).toBe(false);
+ expect(host.textContent).not.toContain('允許學員自行請假');expect(host.textContent).toContain('美業付款資料');
+ await click('營業與預約');expect(window.location.search).toContain('tab=');expect(new URLSearchParams(window.location.search).get('tab')).toBe('設定');
+});

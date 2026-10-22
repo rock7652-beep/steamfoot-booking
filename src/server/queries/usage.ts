@@ -80,7 +80,9 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
       prisma.customer.count({ where: { storeId } }),
       store.industryModule === "COURSE"
         ? coursePrisma.courseBooking.count({ where: bookingWhere })
-        : prisma.booking.count({ where: bookingWhere }),
+        : store.industryModule === "BEAUTY"
+          ? import("@/lib/beauty-db").then(({beautyPrisma}) => beautyPrisma.beautyAppointment.count({where:bookingWhere}))
+          : prisma.booking.count({ where: bookingWhere }),
     ]);
 
   // 分店數為平台級指標，不放在 per-store metrics 中

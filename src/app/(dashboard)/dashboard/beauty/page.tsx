@@ -1,5 +1,8 @@
-import {BeautyStoreSettings} from '@/components/beauty/store-settings';
+import {CustomerGrowthNavigation} from '@/components/customer-growth-navigation';
+import {BeautySettingsWorkspace} from '@/components/beauty/settings-workspace';
 import {CustomerLabelsSettings} from '@/components/customer-labels';
+import {getStoreUsage} from '@/server/queries/usage';
+import {PRICING_PLAN_INFO} from '@/lib/feature-flags';
 import {getCurrentStorePlan} from '@/lib/store-plan';
 import {SettingsListRow} from '@/components/settings';
 import {CARE_REASONS,type CareReason} from '@/lib/customer-care-lifecycle';
@@ -37,7 +40,7 @@ export default async function BeautyPage({
     calendar?: string;
     customerId?:string;
     action?:string;
-    panel?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
+    panel?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -100,9 +103,10 @@ export default async function BeautyPage({
     resolveStoreViewContextFromCookie(u),
   ]);
   const sharedSettings=tab==='設定'?await prisma.shopConfig.findUnique({where:{storeId:a.storeId},select:{address:true,shopPhone:true,mapUrl:true,lineOfficialId:true,lineOfficialUrl:true}}):null;
-  const systemPlan=tab==='設定'?await getCurrentStorePlan():null;
+  const [systemPlan,usage]=tab==='設定'?await Promise.all([getCurrentStorePlan(),getStoreUsage(a.storeId)]):[null,null];
   return (
     <PageShell compact className="course-workspace min-w-0">
+      {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
       <PageHeader compact title={tab} />
       <BeautyDashboard
         key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
@@ -113,9 +117,7 @@ export default async function BeautyPage({
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
         careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
-        settingsStoreContent={tab==='設定'?<BeautyStoreSettings storeId={a.storeId} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}}/>:undefined}
-        settingsLabelsContent={tab==='設定'?<CustomerLabelsSettings/>:undefined}
-        settingsSubscriptionContent={tab==='設定'?<SettingsListRow title="店家系統方案與用量" summary={String(systemPlan??'請查看目前系統方案')} href="/dashboard/settings/plan" action="查看" expanded={false}/>:undefined}
+        settingsContent={tab==='設定'?<BeautySettingsWorkspace readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)} data={data} slug={store.slug} canPayment={await checkPermission(u.role,u.staffId,'plans.edit')} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}} labels={<CustomerLabelsSettings/>} subscription={<><SettingsListRow title="店家系統方案" summary={systemPlan?PRICING_PLAN_INFO[systemPlan].label:'請查看目前系統方案'} href="/dashboard/settings/plan" action="查看" expanded={false}/>{usage&&<SettingsListRow title="目前用量" summary={usage.metrics.map(m=>`${m.label} ${m.current.toLocaleString()}／${m.limit??'不限'}`).join('・')}/>}</>}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />

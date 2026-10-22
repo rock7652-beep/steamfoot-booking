@@ -1,3 +1,4 @@
+import { CareFilters } from "./care-filters";
 import { prisma } from "@/lib/db";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { isCourseCareKind } from "@/server/queries/course-home";
@@ -30,16 +31,7 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   const counts = { birthday: birthdayItems.length, inactive: overview.inactive.length, low: overview.low.length, expiring: overview.expiring.length, trial: overview.trial.length };
   return <PageShell compact>
     <PageHeader compact title="顧客經營" subtitle="今天要關心誰，一頁看懂。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <nav aria-label="關懷分類" className="flex flex-wrap gap-1">
-        <Link aria-current={!selected ? "page" : undefined} href={`/dashboard/growth?month=${month}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900">全部</Link>
-        {([['birthday','本月生日'],['inactive','好久不見'],['low','額度快用完'],['expiring','方案快到期'],['trial','體驗未購買方案']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900" href={`/dashboard/growth?segment=${kind}&month=${month}`}>{label} <span className="tabular-nums">{counts[kind]} 位</span></Link>)}
-      </nav>
-      <details className="min-w-0">
-        <summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">生日月份 · {month}</summary>
-        <form data-settings-panel-filter className="flex flex-wrap items-center gap-2 pb-2">{selected && <input type="hidden" name="segment" value={selected}/>}<input className="min-h-11 max-w-full rounded border border-earth-200 p-2 text-sm" aria-label="生日月份" type="month" name="month" defaultValue={month}/><button className="min-h-11 rounded border border-earth-200 px-3 text-sm">套用</button></form>
-      </details>
-    </div>
+    <CareFilters month={month} selected={selected} counts={counts}/>
     <CareWorkspaceServer storeId={storeId} module="course" month={month} staffScope={staffScope} readOnly={readOnly} canFollowUp={canFollowUp} canBook={canBook} selected={selected} sections={[
       { reason: "birthday", title: "本月生日", description: "本月生日祝福。", emptyText: "本月沒有待祝福顧客。", items: birthdayItems },
       { reason: "inactive", title: "好久不見", description: "超過 30 天未出席。", emptyText: "目前沒有需要回課關懷的顧客。", items: rows("inactive") },

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const m = vi.hoisted(() => ({ store: vi.fn(), staff: vi.fn(), customer: vi.fn(), steam: vi.fn(), course: vi.fn() }));
+const m = vi.hoisted(() => ({ store: vi.fn(), staff: vi.fn(), customer: vi.fn(), steam: vi.fn(), course: vi.fn(), beauty: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireAdminSession: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: m.store }, staff: { count: m.staff }, customer: { count: m.customer }, booking: { count: m.steam } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBooking: { count: m.course } } }));
+vi.mock("@/lib/beauty-db", () => ({ beautyPrisma: { beautyAppointment: { count: m.beauty } } }));
 import { getStoreUsage } from "@/server/queries/usage";
 
 beforeEach(() => {
@@ -38,4 +39,12 @@ it("does not read any usage for a missing store", async () => {
   m.store.mockResolvedValue(null);
   expect(await getStoreUsage("missing")).toBeNull();
   expect(m.course).not.toHaveBeenCalled(); expect(m.steam).not.toHaveBeenCalled();
+});
+
+it("uses Beauty appointments through its own connection for system-plan usage", async () => {
+ m.store.mockResolvedValue({id:"beauty-store",name:"Beauty",industryModule:"BEAUTY",plan:"EXPERIENCE"});m.beauty.mockResolvedValue(7);
+ const usage=await getStoreUsage("beauty-store");
+ expect(usage?.metrics.find(m=>m.label==="本月預約")?.current).toBe(7);
+ expect(m.beauty).toHaveBeenCalledWith({where:{storeId:"beauty-store",createdAt:{gte:new Date("2026-09-30T16:00:00Z"),lte:new Date("2026-10-31T15:59:59.999Z")}}});
+ expect(m.course).not.toHaveBeenCalled();expect(m.steam).not.toHaveBeenCalled();
 });

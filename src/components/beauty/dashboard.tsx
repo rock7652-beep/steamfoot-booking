@@ -10,7 +10,6 @@ import {CourseRosterList,type CourseRosterDisplayRow} from '@/app/(dashboard)/da
 import {SportsRosterReminders} from '@/app/(dashboard)/dashboard/courses/sports-roster-reminders';
 import {CourseCustomerList} from '@/app/(dashboard)/dashboard/courses/customer-list';
 import {RosterToolbar,RosterMoreMenu} from '@/components/admin/roster-primitives';
-import {SettingsWorkspaceFrame,SettingsWorkspaceNav} from '@/components/settings';
 import {BeautyFeeSummary} from './fee-summary';
 import {BeautySharedMembers} from "./shared-members";
 import {BeautyHome} from './home';
@@ -20,7 +19,6 @@ import {BeautyManagementList} from './management-list';
 import { useState, useTransition, useRef,type ReactNode } from "react";
 import { useRouter,useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsListRow } from "@/components/settings";
 import { BeautyCustomerPanel } from "./customer-panel";
 import { BeautyBookingForm } from "./booking-form";
 import { BeautyCatalogEditor, type EditorKind } from "./catalog-editor";
@@ -46,13 +44,13 @@ export function BeautyDashboard({
   tab,
   slug,
   readOnly = false,
-  settingsStoreContent,settingsLabelsContent,settingsSubscriptionContent,analyticsContent,careContent,operationsNavigation,initialCustomerId,initialBooking=false,
+  settingsContent,analyticsContent,careContent,operationsNavigation,initialCustomerId,initialBooking=false,
 }: {
   data: BeautyDashboardData;
   tab: BeautyTab;
   slug: string;
   readOnly?: boolean;
-  settingsStoreContent?:ReactNode;settingsLabelsContent?:ReactNode;settingsSubscriptionContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsNavigation?:ReactNode;initialCustomerId?:string;initialBooking?:boolean;
+  settingsContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsNavigation?:ReactNode;initialCustomerId?:string;initialBooking?:boolean;
 }) {
   const [calendarState,setCalendarState]=useState<{base:BeautyDashboardData;value:BeautyCalendarData}|null>(null);
   const data=calendarState?.base===incoming?{...incoming,...calendarState.value}:incoming;
@@ -68,7 +66,7 @@ export function BeautyDashboard({
    const version=++calendarVersion.current;setCalendarPending(true);setError('');
    try{const r=await calendarReader.read(date,calendar,slug);if(version!==calendarVersion.current)return;if(!r.success){setCalendarState(previous);setError(r.error);return;}setCalendarState({base:incoming,value:r.data});setChecked([]);const q=new URLSearchParams(window.location.search);q.set('date',date);q.set('calendar',calendar);window.history.replaceState(null,'','?'+q.toString());}catch{setCalendarState(previous);setError('班表讀取失敗，原班表已保留，請重試。');}finally{if(version===calendarVersion.current)setCalendarPending(false);}
   }
-  const params=useSearchParams(),settingsCategory=params.get("section")??"store";
+  const params=useSearchParams();
   const router = useRouter(),
     [pending, start] = useTransition(),
     [error, setError] = useState(""),
@@ -269,13 +267,7 @@ export function BeautyDashboard({
         </section>
       )}
       {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<fieldset disabled={pending} aria-busy={pending} className="min-w-0">{pending&&<p role="status" className="py-2 text-sm text-earth-500">更新資料中…</p>}<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(!pending&&(draft||(!readOnly&&canEditTab)))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/></fieldset>}
-      {tab==='設定'&&<SettingsWorkspaceFrame nav={<SettingsWorkspaceNav items={[{id:'store',label:'店家資料'},{id:'booking',label:'營業與預約'},{id:'commerce',label:'收款與體驗'},{id:'notifications',label:'通知與顧客經營'},{id:'subscription',label:'系統方案與用量'}]} activeId={settingsCategory} onSelect={id=>router.push(`?tab=${encodeURIComponent('設定')}&section=${id}`,{scroll:false})}/>}>
-      <div hidden={settingsCategory!=='store'}>{settingsStoreContent}</div>
-      {settingsCategory==='subscription'&&settingsSubscriptionContent}
-      {settingsCategory==='booking'&&<><SettingsListRow title="營業時間與公休" summary="每週營業時間、特殊日期與公休" href="/dashboard/beauty?tab=設定&section=booking&panel=hours" expanded={false}/><SettingsListRow title="預約與取消規則" summary={`自行預約${data.policy.selfBooking?'開啟':'關閉'} · 開放${data.policy.bookableDays}天 · 取消${data.policy.cancelDeduct?'扣次':'不扣次'} · 未到${data.policy.noShowDeduct?'扣次':'不扣次'}`} expanded={false} onEdit={!readOnly&&canEditTab?()=>setEditor({kind:'settings'}):undefined}/></>}
-      {settingsCategory==='commerce'&&<><SettingsListRow title="銀行與收款資料" summary="銀行帳戶、轉帳資訊與付款聯繫" href="/dashboard/beauty?tab=設定&section=commerce&panel=payment" expanded={false}/><SettingsListRow title="公開體驗表單" summary="每人每項服務限體驗一次" href={`/beauty-trial/${slug}`} action="查看" expanded={false}/></>}
-      {settingsCategory==='notifications'&&<>{settingsLabelsContent}<SettingsListRow title="顧客關懷" summary="生日、未回店、方案與體驗追蹤" href="/dashboard/beauty?tab=顧客經營" action="查看" expanded={false}/><SettingsListRow title="LINE 官方帳號" summary="帳號連結與登入設定" href="/dashboard/beauty?tab=設定&section=notifications&panel=line" expanded={false}/><SettingsListRow title="服務通知" summary={data.policy.notifications?'店家設定開啟':'關閉'} expanded={false} onEdit={!readOnly&&canEditTab?()=>setEditor({kind:'settings',settingsSection:'notifications'}):undefined}/></>}
-      </SettingsWorkspaceFrame>}
+      {tab==='設定'&&settingsContent}
       {statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={520} fitContent labelledById="beauty-status-title" closeOnEscape={!pending} onClose={()=>{if(!pending&&(!statusDraft.reason||window.confirm('尚未確認，確定離開？')))setStatusDraft(null);}}><form className="space-y-3 p-4" onSubmit={e=>{e.preventDefault();if(!pending&&!readOnly&&data.manage.update&&statusDraft.reason.trim())run(async()=>{const r=await changeBeautyStatus('manager',statusDraft);if(r.success)setStatusDraft(null);return r;});}}><h2 id="beauty-status-title" className="font-semibold">確認服務狀態變更</h2><p>{data.items.find(b=>b.id===statusDraft.id)?.personName} · {data.items.find(b=>b.id===statusDraft.id)?.serviceName}</p><p>{({COMPLETED:'服務完成',CANCELLED:'取消此服務分項',NO_SHOW:'標記未到',RESERVED:'恢復／更正回預約'})[statusDraft.target]}</p><label>操作原因<textarea className={field} required maxLength={500} disabled={pending} value={statusDraft.reason} onChange={e=>setStatusDraft({...statusDraft,reason:e.target.value})}/></label>{error&&<p role="alert" className="text-red-700">{error}</p>}<div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={()=>{if(!statusDraft.reason||window.confirm('尚未確認，確定離開？'))setStatusDraft(null);}}>返回</button><button className={button+' !bg-primary-700 !text-white'} disabled={pending||readOnly||!data.manage.update||!statusDraft.reason.trim()}>{pending?'處理中…':'確認'}</button></div></form></RightSheet>}
       {paymentId&&<RightSheet open width={640} onClose={()=>setPaymentId(null)} labelledById="beauty-receipt-title"><header className="flex items-center justify-between border-b p-4"><h2 id="beauty-receipt-title">收退款明細</h2><button className={button} onClick={()=>setPaymentId(null)}>關閉</button></header><div className="space-y-3 overflow-y-auto p-4">{data.payments.filter(p=>p.id===paymentId).map(p=><section key={p.id}><p>{formatTWDateTime(new Date(p.createdAt))}</p><strong>NT$ {p.amount.toLocaleString('zh-TW')}</strong><p className="whitespace-pre-wrap">{p.note}</p><div className="flex gap-2">{p.kind==='SALE'&&!readOnly&&data.manage.refund&&<button className={button} onClick={()=>setMoneyPanel({kind:'refund',ids:[p.id]})}>登錄退款</button>}</div></section>)}</div></RightSheet>}
       {booking && (
