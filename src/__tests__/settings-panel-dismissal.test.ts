@@ -31,6 +31,12 @@ describe.each(["steam", "course"])("%s immediate panel dismissal", kind => {
   await click("不儲存並關閉"); expect(host.querySelector("input")).toBeNull();
   window.history.replaceState(null, "", original); await render(); expect(host.querySelector("input")?.value).toBe("原始內容"); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("false");
  });
+ it("follows browser history between closed and reopened panel URLs", async () => {
+  window.history.replaceState(null, "", original); await render(); await click("關閉視窗"); const closed = window.location.pathname + window.location.search;
+  window.history.replaceState(null, "", original); await render(); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("false");
+  window.history.replaceState(null, "", closed); await render(); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("true"); expect(host.querySelector("input")).toBeNull();
+  window.history.replaceState(null, "", original); await render(); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("false");
+ });
  it("retains pending-save protection", async () => {
   window.history.replaceState(null, "", original); await render(true); await click("關閉視窗"); expect(host.textContent).toContain("設定仍在儲存"); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("false"); expect(new URLSearchParams(window.location.search).has("panel")).toBe(true);
  });
