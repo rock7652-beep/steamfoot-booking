@@ -1,0 +1,15 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const m = vi.hoisted(() => ({ user: vi.fn(), readStore: vi.fn(), writeStore: vi.fn(), feature: vi.fn(), store: vi.fn(), grant: vi.fn(), access: vi.fn(), write: vi.fn(), read: vi.fn(), audit: vi.fn() }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: m.user }));
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.readStore, resolveWriteStoreId: m.writeStore }));
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
+vi.mock("@/server/services/inventory", () => ({ inventoryContext: vi.fn(), inventoryTransactionAccess: m.access }));
+vi.mock("@/lib/db", () => ({ prisma: { shopConfig: { findUnique: m.read }, $transaction: async (work: (tx: unknown) => unknown) => work({ $queryRaw: vi.fn(), store: { findUnique: m.store }, storeFeatureEntitlement: { findUnique: m.grant }, shopConfig: { upsert: m.write }, auditLog: { create: m.audit } }) } }));
+import { getWorkOrderNotificationEnabled, setWorkOrderNotificationEnabled } from "@/server/actions/work-order-notification";
+beforeEach(() => { vi.resetAllMocks(); m.user.mockResolvedValue({ id: "owner", role: "OWNER" }); m.readStore.mockResolvedValue("store-a"); m.writeStore.mockResolvedValue("store-a"); m.store.mockResolvedValue({ plan: "BASIC" }); m.grant.mockResolvedValue(null); m.access.mockResolvedValue(() => true); });
+it("does not read saved work-order notification settings when the module is unavailable", async () => { m.feature.mockResolvedValue(false); expect(await getWorkOrderNotificationEnabled()).toBe(false); expect(m.read).not.toHaveBeenCalled(); });
+it("rejects a direct mutation from a paid store without the add-on", async () => { expect((await setWorkOrderNotificationEnabled(true)).success).toBe(false); expect(m.write).not.toHaveBeenCalled(); expect(m.audit).not.toHaveBeenCalled(); });
+it.each(["DISABLED", "LOCKED", "HIDDEN"])("rejects a current %s grant even if the UI previously allowed it", async status => { m.grant.mockResolvedValue({ status, startsAt: null, expiresAt: null }); expect((await setWorkOrderNotificationEnabled(true)).success).toBe(false); expect(m.write).not.toHaveBeenCalled(); });
+it("preserves authorized full-trial access", async () => { m.store.mockResolvedValue({ plan: "EXPERIENCE" }); expect((await setWorkOrderNotificationEnabled(true)).success).toBe(true); expect(m.write).toHaveBeenCalledOnce(); });
+it("accepts a current paid add-on and retains store scoping and audit", async () => { m.grant.mockResolvedValue({ status: "ENABLED", startsAt: null, expiresAt: null }); expect((await setWorkOrderNotificationEnabled(true)).success).toBe(true); expect(m.write.mock.calls[0][0]).toMatchObject({ where: { storeId: "store-a" }, update: { workOrderReadyNotificationEnabled: true } }); expect(m.audit).toHaveBeenCalledOnce(); });
+it("rejects an expired paid add-on inside the transaction", async () => { m.grant.mockResolvedValue({ status: "ENABLED", startsAt: null, expiresAt: new Date("2000-01-01") }); expect((await setWorkOrderNotificationEnabled(true)).success).toBe(false); expect(m.write).not.toHaveBeenCalled(); });

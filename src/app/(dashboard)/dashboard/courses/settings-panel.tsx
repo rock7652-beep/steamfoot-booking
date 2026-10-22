@@ -3,7 +3,7 @@ import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { resolveDashboardHref } from "@/components/dashboard-link";
 import { COURSE_SETTINGS_PANELS, courseSettingsPanelHref, type CourseSettingsPanel } from "@/lib/course-settings-panels";
 
@@ -18,6 +18,7 @@ class PanelError extends Component<{ children: ReactNode; retry: () => void }, {
 export function CourseSettingsPanel({ panel, children }: { panel: CourseSettingsPanel; children: ReactNode }) {
   const router = useRouter(), pathname = usePathname(), search = useSearchParams();
   const searchString = search.toString();
+  const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
   const config = COURSE_SETTINGS_PANELS[panel];
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
   const [destination, setDestination] = useState<string | null>(null);
@@ -35,8 +36,9 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
   }, [pathname, searchString]);
   const go = useCallback((href: string) => {
     setDestination(null);
+    if (href === closeHref) { dismiss(href); return; }
     startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
+  }, [router, closeHref, dismiss]);
   const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
@@ -53,6 +55,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     request(url.href);
   }, [config.href, closeHref, pathname, request, searchString]);
   useEffect(() => {
+    if (dismissed) return;
     const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -62,11 +65,11 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     };
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [dirty, pending, request, closeHref, destination, dismissed]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
   return <div ref={root} data-course-settings-panel>
-    <RightSheet presentation="centered" open compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
+    <RightSheet presentation="centered" open={!dismissed} compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>
@@ -90,7 +93,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
           navigate(config.href + "?" + params);
         }}>
         {navigating && <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">正在更新…</p>}
-        <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{children}</PanelError></SettingsPanelContext.Provider>
+        <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{dismissed ? null : children}</PanelError></SettingsPanelContext.Provider>
       </div>
     </RightSheet>
   </div>;

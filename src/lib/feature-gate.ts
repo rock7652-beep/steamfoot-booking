@@ -166,8 +166,7 @@ export async function getStoreFeaturePresentation(storeId: string, feature: Feat
   if(feature===FEATURES.WORK_ORDERS){
     const [store,grant]=await Promise.all([getStoreForPlanByStoreId(storeId),getActiveStoreFeatureEntitlement(storeId,feature)]);
     const resolution=resolveEffectiveEntitlement(hasFeature(store.plan,feature),grant);
-    if(resolution.source==="HIDDEN" || (!grant&&!resolution.enabled))return "HIDDEN";
-    return resolution.enabled?"ENABLED":"LOCKED";
+    return resolution.enabled ? "ENABLED" : "HIDDEN";
   }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";
   if (isSpaDemoStoreId(storeId)) return "ENABLED";

@@ -34,7 +34,9 @@ describe("course settings side panel", () => {
   });
   it("closes without losing the selected category, store prefix or background query", async () => {
     await render(); await click("關閉視窗");
-    expect(m.replace).toHaveBeenCalledWith("/s/a/admin/dashboard/courses?view=settings&section=notifications&month=2026-09", { scroll: false });
+    expect(window.location.pathname + window.location.search).toBe("/s/a/admin/dashboard/courses?view=settings&section=notifications&month=2026-09");
+    expect(m.replace).not.toHaveBeenCalled();
+    expect(host.querySelector("[data-right-sheet]")?.getAttribute("aria-hidden")).toBe("true");
   });
   it("keeps tabs and GET filters in the panel", async () => {
     await render(); await click("發送紀錄");
@@ -48,11 +50,11 @@ describe("course settings side panel", () => {
     await click("繼續編輯"); await click("發送紀錄"); expect(m.replace).not.toHaveBeenCalled(); await click("繼續編輯");
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(host.textContent).toContain("尚有未儲存");
     const unload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
-    await click("不儲存並關閉"); expect(m.replace).toHaveBeenCalledOnce();
+    await click("不儲存並關閉"); expect(m.replace).not.toHaveBeenCalled(); expect(new URLSearchParams(window.location.search).has("panel")).toBe(false);
   });
   it("blocks dismissing a pending save and allows closing after successful save", async () => {
     await render(true); await click("關閉視窗"); expect(host.textContent).toContain("設定仍在儲存"); expect(host.textContent).not.toContain("不儲存並關閉"); expect(m.replace).not.toHaveBeenCalled();
-    await render(false); await click("繼續編輯"); await click("修改"); await click("模擬儲存成功"); await click("返回設定"); expect(m.replace).toHaveBeenCalledOnce();
+    await render(false); await click("繼續編輯"); await click("修改"); await click("模擬儲存成功"); await click("返回設定"); expect(m.replace).not.toHaveBeenCalled(); expect(new URLSearchParams(window.location.search).has("panel")).toBe(false);
   });
   it("leaves Escape to nested editors", async () => {
     await render(); const nested = document.createElement("div"); nested.setAttribute("data-right-sheet", ""); nested.setAttribute("aria-hidden", "false"); host.querySelector('[role="dialog"]')!.append(nested);
