@@ -4,7 +4,7 @@
   "deploymentId": "dpl_8cEn8XYerynGwtYETJ3ota5Vi63S",
   "url": "https://steamfoot-booking-qo37fds6p-rock7652-2111s-projects.vercel.app",
   "state": "READY",
-  "hostedLoginAcceptance": "pending version-specific access approval; no old share-link host substitution",
+  "hostedLoginAcceptance": "executed: settings/care/roles passed; analytics numeric mismatch found, fix hosted acceptance pending",
   "lineEnabled": false,
   "productionOperations": false,
   "checkedAt": "2026-10-22T13:17:46Z"

@@ -21,4 +21,15 @@ describe('Beauty data into the original analytics workspace',()=>{
   const r=beautyBusinessReport({...input,range:{startDate:'2026-11-01',endDate:'2026-11-30'}});
   expect(r.attendance).toBe(0);expect(r.comparison).toBeNull();expect(r.trend.every(v=>v.attendance===0)).toBe(true);
  });
+ it('keeps daily and monthly attendance equal to completed-service KPIs despite future aggregate records',()=>{
+  const r=beautyBusinessReport({...input,rows:[...input.rows,{date:'2026-10-30',technicianId:'a',reserved:1,completed:1,trial:0,revenue:2000}]});
+  expect(r.trend.reduce((n,d)=>n+d.attendance,0)).toBe(r.attendance);
+  expect(r.monthlyTrend.find(d=>d.date==='2026-10')?.attendance).toBe(r.attendance);
+  expect(r.trend.find(d=>d.date==='2026-10-30')).toMatchObject({available:false,attendance:0,revenue:0});
+  expect(r.netRevenue).toBe(800);
+ });
+ it('does not count future plan cards as a current purchase or conversion',()=>{
+  const r=beautyBusinessReport({...input,cards:[{id:'future-card',customerId:'new',createdAt:date('2026-10-30')}]});
+  expect(r.counts.newCard).toBe(0);expect(r.counts.converted).toBe(0);expect(r.conversionRate).toBe(0);
+ });
 });

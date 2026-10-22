@@ -65,7 +65,7 @@
 - Chromium 合成驗收：48 個案例，運動／音樂／美業，1366、1920、1024、768、560px；包含實際 CSS modules，檢查無整頁水平溢出、分類與旋轉草稿保留、美業顧客連結；沒有真實登入或 DB 寫入。
 - 原生 Next/Turbopack production build 通過（本機隔離、Beauty 關閉、LINE 關閉、無 migration）；TypeScript、ESLint 及 diff check 通過。額外試跑 Webpack 因既有 generated Prisma runtime loader 的 createRequire 解析失敗；未為此更動封裝或連線設定，隔離站沿用專案原生建置。
 - 原有運動／音樂設定瀏覽器回歸：另 36 個功能 ENABLED／LOCKED／HIDDEN 案例通過，含草稿尺寸保留與撤權後編輯器卸載；此為合成狀態驗證。
-- 新版 hosted 登入與儲存重開：**待執行**，不能搬用 `8308ef16` 的通過紀錄。
+- `8f00554d` 真實登入／儲存重開／權限驗收已執行，16 個步驟通過；另抓到摘要與趨勢截止不一致，已做本機修正與真實資料重播，修正版 hosted 仍待驗。詳見 [真實驗收結果](hosted-shared-pages-results-20261022.md)，不將操作通過誤當數字通過。
 - 實體手機／平板、店家簽收、LINE：待完成。
 
 ## 後續優先順序

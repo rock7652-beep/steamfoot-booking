@@ -1,0 +1,98 @@
+{
+  "commit": "8f00554de5ec6196b636f1db1d749e9530c04af4",
+  "deploymentId": "dpl_8cEn8XYerynGwtYETJ3ota5Vi63S",
+  "results": [
+    {
+      "case": "shared care filters preserve Beauty tab and selected reason after real route navigation",
+      "passed": true
+    },
+    {
+      "case": "original analytics workspace loads real Beauty metrics and six/twelve month controls",
+      "passed": true
+    },
+    {
+      "case": "actual Beauty technician scope uses original selector without course fee formula",
+      "passed": true
+    },
+    {
+      "case": "shared store editor preserves category drafts and persists via Beauty confirmed save",
+      "passed": true
+    },
+    {
+      "case": "isolated store phone restored and verified after full reload",
+      "passed": true
+    },
+    {
+      "case": "three real authenticated workspaces fit both iPad sizes",
+      "passed": true
+    },
+    {
+      "case": "QA readonly staff status changed through original editor to ACTIVE",
+      "passed": true
+    },
+    {
+      "case": "real readonly STAFF can read store settings with no edit control",
+      "passed": true
+    },
+    {
+      "case": "readonly STAFF direct settings write",
+      "passed": true,
+      "http": 400,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "STAFF without report.read denied analytics page",
+      "passed": true
+    },
+    {
+      "case": "owner foreign store settings payload",
+      "passed": true,
+      "http": 400,
+      "error": "店家已切換"
+    },
+    {
+      "case": "owner stale settings revision",
+      "passed": true,
+      "http": 400,
+      "error": "設定已有更新，請重新開啟核對。"
+    },
+    {
+      "case": "customer member direct settings write",
+      "passed": true,
+      "http": 400,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "technician member direct settings write",
+      "passed": true,
+      "http": 400,
+      "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+    },
+    {
+      "case": "QA readonly staff status changed through original editor to INACTIVE",
+      "passed": true
+    },
+    {
+      "case": "retired readonly STAFF old session settings write",
+      "passed": true,
+      "http": 400,
+      "error": "請先登入"
+    }
+  ],
+  "passedSteps": 16,
+  "errors": [],
+  "analyticsNumericalFinding": {
+    "month": "2026-10",
+    "expectedCompletedAsOfTest": 1,
+    "hostedKpi": 1,
+    "hostedMonthlyTrend": 5,
+    "status": "failed at tested commit; local fix and replay passed, updated hosted acceptance pending"
+  },
+  "harnessCorrections": [
+    "Waited for final URL after client navigation; initial load-state check returned before the route changed.",
+    "Expanded the original collapsed store row after switching categories; initial harness had not sent a settings POST."
+  ],
+  "physicalDeviceAcceptance": false,
+  "lineEnabled": false,
+  "productionOperations": false
+}

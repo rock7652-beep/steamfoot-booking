@@ -10,6 +10,7 @@ type Person={id:string;name:string};
 /** Presentation adapter only: no Course DB, attendance action, or quota/ledger writes. */
 export function beautyBusinessReport({visits,cards,customers,technicians,rows,range,scope,createdDate,canCustomers,canPlans,finance,now=new Date()}:{visits:Visit[];cards:Card[];customers:Person[];technicians:Person[];rows:BeautyTrendRow[];range:{startDate:string;endDate:string};scope:BusinessScope;createdDate:string;canCustomers:boolean;canPlans:boolean;finance:boolean;now?:Date}):CourseBusinessReport {
  const today=toLocalDateStr(now),endDate=range.endDate<today?range.endDate:today;
+ cards=cards.filter(card=>card.createdAt<=now);
  const completed=visits.filter(v=>v.status==='COMPLETED'&&v.startsAt<=now);
  const scoped=completed.filter(v=>scope.view==='store'||scope.person==='all'||v.technicianId===scope.person);
  const inRange=(d:Date,r=range)=>{const day=toLocalDateStr(d);return day>=r.startDate&&day<=r.endDate;};
@@ -35,9 +36,12 @@ export function beautyBusinessReport({visits,cards,customers,technicians,rows,ra
   return {segments,attendance:current.length,sessions:current.length,hours:current.reduce((n,v)=>n+(+v.endsAt-+v.startsAt)/3600000,0),eligibleTrials:eligible.length,conversionRate:business.conversionRate,retentionBase:base.length,retentionRate:base.length?returned.length/base.length*100:null,retentionRange};
  };
  const summary=summarize(range),comparisonWindow=businessComparisonRange(range,now),prior=comparisonWindow?summarize(comparisonWindow.range):null;
- const filteredRows=rows.filter(r=>scope.view==='store'||scope.person==='all'||r.technicianId===scope.person);
+ const filteredRows=rows.filter(r=>r.date<=today&&(scope.view==='store'||scope.person==='all'||r.technicianId===scope.person));
+ // Use the same actual completed visits as the KPI, including anonymous guests.
+ // SQL day aggregates can contain future-dated QA records marked COMPLETED.
+ const completedRows:BeautyTrendRow[]=[...filteredRows.map(row=>({...row,completed:0})),...scoped.map(visit=>({date:toLocalDateStr(visit.startsAt),technicianId:visit.technicianId,reserved:0,completed:1,trial:0,revenue:0}))];
  const trendMetric=(r:typeof range,monthly=false)=>{
-  const dates=beautyTrend(filteredRows,r,monthly?'year':'current','completed','',createdDate,today);
+  const dates=beautyTrend(completedRows,r,monthly?'year':'current','completed','',createdDate,today);
   return dates.map(d=>{const matching=filteredRows.filter(row=>row.date.slice(0,d.date.length)===d.date);return {date:d.date,available:d.value!==null,attendance:d.value??0,trial:new Set(scoped.filter(v=>v.isTrial&&toLocalDateStr(v.startsAt).slice(0,d.date.length)===d.date&&v.customerId).map(v=>v.customerId)).size,newCard:matching.reduce((n,v)=>n+(v.newCard??0),0),renewal:matching.reduce((n,v)=>n+(v.renewal??0),0),...(finance?{revenue:matching.reduce((n,v)=>n+v.revenue,0)}:{})};});
  };
  return {...summary,pendingProfit:[],pendingFees:[],scope,range,staff:technicians.map(t=>({id:t.id,displayName:t.name,courseCoachEnabled:true,user:{role:'CUSTOMER' as const}})),coverageStart:createdDate,effectiveEndDate:endDate,comparison:prior&&comparisonWindow?{...comparisonWindow,attendance:prior.attendance,trial:prior.segments.trial.length,newCard:prior.segments.newCard.length,renewal:prior.segments.renewal.length,conversionRate:prior.conversionRate}:null,monthlyTrend:trendMetric({startDate:addTaiwanDuration(range.endDate.slice(0,7)+'-01',-11,'MONTH'),endDate:range.endDate},true),counts:Object.fromEntries(Object.entries(summary.segments).map(([k,v])=>[k,v.length])) as CourseBusinessReport['counts'],segments:canCustomers?summary.segments:null,fee:null,missingFees:0,profit:null,knownProfit:0,missingProfit:0,netRevenue:finance?filteredRows.filter(r=>r.date>=range.startDate&&r.date<=endDate).reduce((n,v)=>n+v.revenue,0):null,trend:trendMetric(range)};
