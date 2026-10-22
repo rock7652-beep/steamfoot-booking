@@ -1,4 +1,5 @@
 import "server-only";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import type {Prisma} from "../../../generated/course-client";
 import {AppError} from "@/lib/errors";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
@@ -11,7 +12,7 @@ export async function readMusicTeachingItem(tx:Reader,storeId:string,key:string)
   const subject=await tx.musicSubject.findFirst({where:{id:subjectId,storeId,isActive:true}});
   if(!subject)throw new AppError("VALIDATION","請選擇本店啟用的教學項目");
   const defaults=await tx.courseTemplate.findFirst({where:{storeId,musicSubjectId:subjectId,isActive:true},orderBy:[{createdAt:"asc"},{id:"asc"}],select:{durationMinutes:true,visibility:true,description:true,precautions:true}});
-  return {id:key,storeId,name:subject.name,musicSubjectId:subject.id,musicSubject:subject,isActive:true,visibility:defaults?.visibility??"PUBLIC",classType:null,musicTrialMode:null,musicPricePerLesson:null,musicTermLessons:null,musicScheduleMode:null,durationMinutes:defaults?.durationMinutes??60,pointCost:1,capacity:500,defaultRoomId:null};
+  return {id:key,storeId,name:subject.name,musicSubjectId:subject.id,musicSubject:subject,isActive:true,visibility:defaults?.visibility??"PUBLIC",classType:null,musicTrialMode:null,musicPricePerLesson:null,musicTermLessons:null,musicScheduleMode:null,durationMinutes:defaults?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,pointCost:1,capacity:500,defaultRoomId:null};
 }
 export async function ensureMusicTeachingItem(tx:Prisma.TransactionClient,storeId:string,key:string,trialDefaultPrice=0) {
   if(!musicTeachingSubjectId(key))return;

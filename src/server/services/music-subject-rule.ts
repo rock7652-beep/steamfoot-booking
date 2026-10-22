@@ -1,4 +1,5 @@
 import "server-only";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -18,7 +19,7 @@ export async function resolveMusicSubjectRule(tx:Prisma.TransactionClient,storeI
   const duplicate=await tx.courseTemplate.findFirst({where:{storeId,name},select:{id:true}});
   return tx.courseTemplate.create({data:{storeId,musicSubjectId:subjectId,...settings,
     name:duplicate?`${name} · ${randomUUID().slice(0,6)}`:name,
-    category:subject.category,description:subject.description,visibility:item?.visibility??"PUBLIC",precautions:item?.precautions??"",durationMinutes:item?.durationMinutes??60,pointCost:1,
+    category:subject.category,description:subject.description,visibility:item?.visibility??"PUBLIC",precautions:item?.precautions??"",durationMinutes:item?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,pointCost:1,
     capacity:item?.capacity??(settings.classType==="PRIVATE"?1:settings.classType==="SELF_ORGANIZED"?3:15),
   }});
 }
