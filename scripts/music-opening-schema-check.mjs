@@ -121,10 +121,23 @@ export async function checkMusicOpeningSchema(env, readSchema) {
 }
 
 /** Stable diagnostic categories only; never forward driver messages or URLs. */
-export function musicOpeningConnectionFailure(error, connectionKind) {
+export function musicOpeningConnectionCategory(error) {
   const code = [error?.code, error?.errorCode].find(value => typeof value === "string" && /^P\d{4}$/.test(value));
   const message = typeof error?.message === "string" ? error.message : "";
-  const category = code ?? (/query engine|engine.*not found|could not locate/i.test(message) ? "ENGINE_UNAVAILABLE" : "UNKNOWN");
+  // P2010 wraps SQLSTATE. Keep only known codes, never arbitrary metadata/message text.
+  const sqlstate = [error?.meta?.code, error?.cause?.code].find(value =>
+    ["08001", "08003", "08006", "08P01", "26000", "28000", "28P01", "42501", "42P01", "42P05", "42703", "53300", "53400", "57014", "57P01", "57P02", "57P03", "XX000"].includes(value));
+  if (sqlstate) return `${code ?? "DATABASE"}:${sqlstate}`;
+  const detail = /prepared statement.*already exists/i.test(message) ? "PREPARED_STATEMENT_EXISTS"
+    : /prepared statement.*does not exist/i.test(message) ? "PREPARED_STATEMENT_MISSING"
+    : /timed?\s*out|timeout/i.test(message) ? "TIMEOUT"
+    : /connection.*closed|closed.*connection/i.test(message) ? "CONNECTION_CLOSED"
+    : /query engine|engine.*not found|could not locate/i.test(message) ? "ENGINE_UNAVAILABLE" : null;
+  return [code, detail].filter(Boolean).join(":") || "UNKNOWN";
+}
+
+export function musicOpeningConnectionFailure(error, connectionKind) {
+  const category = musicOpeningConnectionCategory(error);
   const kind = connectionKind === "pooled" ? "pooled" : "direct";
   return new Error(`Music opening isolated schema verification failed (${kind}:${category}); startup/build blocked.`);
 }

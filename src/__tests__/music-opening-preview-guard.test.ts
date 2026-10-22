@@ -20,6 +20,9 @@ it("reports only safe connection categories, never driver URLs or credentials",(
  expect(musicOpeningConnectionFailure({message:"Query engine could not locate "+secret},"pooled").message).toContain("pooled:ENGINE_UNAVAILABLE");
  expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).toContain("pooled:UNKNOWN");
  expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).not.toContain("redaction-marker");
+ expect(musicOpeningConnectionFailure({code:"P2010",meta:{code:"42P05",message:secret},message:secret},"pooled").message).toContain("pooled:P2010:42P05");
+ expect(musicOpeningConnectionFailure({code:"P2010",meta:{code:secret},message:secret},"pooled").message).not.toContain("redaction-marker");
+ expect(musicOpeningConnectionFailure({message:"Connection timed out: "+secret},"pooled").message).toContain("pooled:TIMEOUT");
 });
 it("accepts only the exact existing preview project and both connections",()=>{
  expect(isMusicOpeningDatabase(direct)).toBe(true);expect(isMusicOpeningDatabase(pooled)).toBe(true);
