@@ -1,0 +1,292 @@
+{
+  "reads": [
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=0&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=1&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=0&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=1&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=0&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=1&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=0&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=records&month=2026-10&pending=1&search=&page=0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/beauty/portal-details",
+      "query": "?store=beauty-hosted-20261021&kind=income&month=2026-10"
+    }
+  ],
+  "samples": [
+    {
+      "i": 0,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 1,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 2,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 3,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 4,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 5,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 6,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 7,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 8,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 9,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 10,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 11,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 12,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 13,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 14,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 15,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 16,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 17,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 18,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 19,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 20,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 21,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 22,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 23,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 24,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 25,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 26,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 27,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 28,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 29,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 30,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 31,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 32,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 33,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    },
+    {
+      "i": 34,
+      "heading": "服務紀錄",
+      "loading": false,
+      "reads": 2
+    }
+  ],
+  "results": [
+    {
+      "case": "pending stable for 35 seconds without rereads or loading flashes",
+      "passed": true
+    },
+    {
+      "case": "history/pending round trips stable",
+      "passed": true
+    },
+    {
+      "case": "income read settles",
+      "passed": true
+    },
+    {
+      "case": "customer and wrong-store reads denied",
+      "passed": true
+    },
+    {
+      "case": "plan ledger loads using read-only GET",
+      "passed": true
+    },
+    {
+      "case": "anonymous read denied",
+      "passed": true
+    },
+    {
+      "case": "no browser page errors",
+      "passed": true
+    }
+  ],
+  "errors": []
+}
