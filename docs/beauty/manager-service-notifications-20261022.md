@@ -32,7 +32,7 @@
 
 - 19 個測試檔、179 項通過：三層關閉零讀寫、店家授權／opt-in、多人合併、當日／未來體驗、原停用期間不補發、原訂單快照、狀態重查、共用持久去重／原 retry key、收件人暫停、跨店／撤權／只讀拒絕與原預約扣次／方案／關懷／音樂運動回歸。
 - 105 個合成瀏覽器案例通過：沿用實際共用元件，25 位合成人員、五個偏好與預覽，1920／1366／1024／768／560／390／360px 展開無整頁水平溢出、旋轉保留、LINE 關閉無新綁定入口、只讀禁止修改；封鎖後端及外部網路，不冒稱真實綁定或實體裝置。
-- 最終 production Turbopack build、TypeScript 與相關 ESLint 通過；建置只用固定 loopback 虛擬連線，不執行 npm build／migration。最終 hosted 結果於部署後補記。最初未指定本機 QA 模式被既有環境守衛拒絕，接著發現本機 release QA tsconfig 缺漏；補回被 gitignore 排除的本機設定後通過，未放寬任何守衛。
+- 最終 production Turbopack build、TypeScript 與相關 ESLint 通過；建置只用固定 loopback 虛擬連線，不執行 npm build／migration。最終 hosted 結果如下。最初未指定本機 QA 模式被既有環境守衛拒絕，接著發現本機 release QA tsconfig 缺漏；補回被 gitignore 排除的本機設定後通過，未放寬任何守衛。
 - 驗證前 Preview 唯讀快照：15 筆預約、10 筆付款、所有付款種類合計 15500、卡片餘額 2 / 5、共用成員不變，notifications=false，通知收件人、店長發送紀錄、顧客訊息及關懷紀錄均 0；業務事件只有 AUDIT／SKIPPED。
 
 ## 尚待完成
@@ -40,3 +40,13 @@
 真實 LINE 登入、官方帳號與收件人綁定、實際送達／跨日自然 cron、專用 worker 真實連線、實體 Safari／iPad 與店家簽收仍未完成。測試站沒有已綁定收件人，不能把合成設定測試當作真實 LINE 收件人設定已簽收。獨立角色通知守衛保留，正式資料庫及部署另行確認。
 
 重要下一步：店家在手機／平板驗收提醒中心與既有三端流程；LINE 申請完成後，以指定測試官方帳號及收件人補驗登入、綁定與實際送達，正式啟用另行確認。
+
+## 最終 Preview 驗收
+
+- 應用 `43f207f91e62d95af1fd6128f5ff82b7442e1e92`；部署 `dpl_9P2q48ZqYx86v54uE4RiJXfZRXCH` READY，target=null（Preview）。網址 https://steamfoot-booking-55l2fryx7-rock7652-2111s-projects.vercel.app 。
+- 店長入口：`/s/beauty-hosted-20261021/admin/dashboard/beauty?tab=設定&section=notifications&panel=reminders&panelQuery=tab%3Dmanager`。
+- 9 項真實 hosted 驗證通過：共用店長頁 LINE-off／無綁定入口、五項實際預覽、1366／1024／768／390／360px 無整頁水平溢出、店長新綁定請求明確拒絕、未接入通知開啟拒絕、不存在本店名單的修改拒絕、顧客與技師寫入被路由層 HTTP 307 擋下，以及 cron 缺授權 HTTP 401。沒有建立收件人、修改偏好或執行真實發送。
+- 第一輪腳本已有 6 項通過，但將會員端實際 HTTP 307 的拒絕誤判為失敗；調整腳本接受明確授權拒絕／轉向，再完整重跑通過。應用程式未因此更改；保留初次結果與原因，不掩蓋未通過的腳本紀錄。
+- 驗證前後快照完全相同：15 筆預約、10 筆付款、總額 15500、卡片餘額 2 / 5、共用成員、notifications=false、AUDIT 87／SKIPPED 39；通知收件人、店長／顧客訊息與關懷發送紀錄均 0。
+- 本版近 10 分鐘 Preview error／warning 查詢沒有符合紀錄；僅為有界觀測，非日後零錯誤保證。
+- 驗收證據與本節以本機文件提交保存，不因補紀錄再次部署。正式站、LINE 開關、schema、憑證與部署保護均未調整。

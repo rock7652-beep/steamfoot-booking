@@ -1,0 +1,47 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "origin": "https://steamfoot-booking-55l2fryx7-rock7652-2111s-projects.vercel.app",
+  "results": [
+    {
+      "case": "real manager shared panel has LINE-off state, no recipients and no new binding action",
+      "passed": true
+    },
+    {
+      "case": "real shared preview exposes only the five connected Beauty service types",
+      "passed": true
+    },
+    {
+      "case": "real reminder panel has no page overflow at desktop, tablet and phone sizes",
+      "passed": true
+    },
+    {
+      "case": "real owner new-binding request is refused while LINE is off",
+      "passed": true
+    },
+    {
+      "case": "real owner cannot enable an unconnected Beauty preference",
+      "passed": true
+    },
+    {
+      "case": "real owner cannot change a recipient outside its available store records",
+      "passed": true
+    },
+    {
+      "case": "real member cannot invoke manager notification writer (HTTP 307)",
+      "passed": true
+    },
+    {
+      "case": "real technician cannot invoke manager notification writer (HTTP 307)",
+      "passed": true
+    },
+    {
+      "case": "real Beauty notification cron rejects missing authorization",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "lineDelivery": false,
+  "physicalDevice": false,
+  "validRecipientWrite": false,
+  "businessMutations": false
+}
