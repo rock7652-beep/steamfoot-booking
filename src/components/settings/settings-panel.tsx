@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LoadingStatus } from "@/components/loading-status";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { SettingsPanelContext, useSettingsPanelDismissal, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
@@ -127,6 +128,8 @@ export function SettingsPanel({
           </button>
         </header>
 
+        {navigating && <div data-panel-navigation-status className="shrink-0 border-b border-primary-100 bg-primary-50 px-4"><LoadingStatus>正在切換，請稍候…</LoadingStatus></div>}
+
         {destination ? (
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
             <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
@@ -166,11 +169,6 @@ export function SettingsPanel({
             navigate(sourceHref + "?" + params);
           }}
         >
-          {navigating ? (
-            <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">
-              正在更新…
-            </p>
-          ) : null}
           <SettingsPanelContext.Provider value={context}>{dismissed ? null : children}</SettingsPanelContext.Provider>
         </div>
       </RightSheet>
