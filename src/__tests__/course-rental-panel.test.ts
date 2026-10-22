@@ -74,3 +74,12 @@ it("keeps rental times and payment states readable and opens the selected record
  await click("小安");expect(m.get).toHaveBeenCalledWith("r");expect(host.querySelector('a[href="tel:0900000000"]')).toBeTruthy();
  expect(host.textContent).toContain("已收 $600");await click("← 租借紀錄");expect(host.querySelector('table[aria-label="租借紀錄"]')).toBeTruthy();
 });
+
+it("keeps rental durations in half-hour units when seeded from a 50-minute course",async()=>{
+ const props={rooms,permissions,seed:{date:"2026-10-02",time:"10:00",durationMinutes:50}};
+ await act(async()=>root.render(React.createElement(RentalPanel,{...props,active:false})));
+ await act(async()=>root.render(React.createElement(RentalPanel,{...props,active:true})));
+ const duration=Array.from(host.querySelectorAll<HTMLInputElement>('input[type="number"]')).find(input=>input.min==="30"&&input.step==="30")!;
+ expect(duration.value).toBe("60");expect(duration.validity.valid).toBe(true);
+ await submit();expect(m.save.mock.calls[0][0]).toMatchObject({durationMinutes:60,amount:600});
+});

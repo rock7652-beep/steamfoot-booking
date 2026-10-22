@@ -13,6 +13,8 @@ export type RentalCustomer={id:string;name:string;phone:string};
 const NO_CUSTOMERS:RentalCustomer[]=[];
 type Seed={date?:string;time?:string;roomId?:string;durationMinutes?:number};
 export function RentalPanel({id,rooms,seed,permissions,customers=NO_CUSTOMERS,onDone,onGuard,onSaved,allowWeekly=false,typeControl,active=true,onPositionChange,onCancel}:{onCancel?:()=>void;typeControl?:ReactNode;active?:boolean;onPositionChange?:(position:{date:string;time:string;roomId?:string;durationMinutes:number})=>void;allowWeekly?:boolean;id?:string;rooms:RentalRoom[];seed:Seed;permissions:RentalPermissions;customers?:RentalCustomer[];onDone?:()=>void;onSaved?:(sessions?:unknown[])=>void;onGuard?:(pending:boolean,dirty:boolean)=>void}) {
+  // Course defaults may be 50 minutes; rentals keep their existing half-hour unit.
+  const seedDuration=seed.durationMinutes==null?60:Math.ceil(seed.durationMinutes/30)*30;
   const scrollArea=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(active&&scrollArea.current)scrollArea.current.scrollTop=0;},[active]);
   const formId=useId();
@@ -27,7 +29,7 @@ export function RentalPanel({id,rooms,seed,permissions,customers=NO_CUSTOMERS,on
   const router=useRouter();const [record,setRecord]=useState<RentalDetail|null>(null);const [mode,setMode]=useState<"edit"|"detail"|"payment">(id?"detail":"edit");
   const [error,setError]=useState("");const [pending,start]=useTransition();const [loaded,setLoaded]=useState(!id);
   const [roomId,setRoomId]=useState(seed.roomId??rooms.find(r=>r.rentalEnabled&&r.isActive)?.id??"");
-  const [duration,setDuration]=useState(seed.durationMinutes??60);const [amount,setAmount]=useState(rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
+  const [duration,setDuration]=useState(seedDuration);const [amount,setAmount]=useState(rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
   const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(null);
   const [newCustomer,setNewCustomer]=useState(false);const [customerNotice,setCustomerNotice]=useState("");const [voidOnly,setVoidOnly]=useState(false);
   const [requestKey]=useState(()=>crypto.randomUUID());const paymentKey=useRef(crypto.randomUUID());
@@ -36,7 +38,7 @@ export function RentalPanel({id,rooms,seed,permissions,customers=NO_CUSTOMERS,on
   function apply(r:RentalDetail){setDirty(false);setRecord(r);setRoomId(r.roomId);setDuration((Date.parse(r.endsAt)-Date.parse(r.startsAt))/60000);setAmount(r.amount);setDate(toLocalDateStr(new Date(r.startsAt)));setTime(formatTWDateTime(new Date(r.startsAt)).slice(11));if(r.customerId)setCustomer({id:r.customerId,name:r.customerName,phone:r.customerPhone});setLoaded(true);}
   useEffect(()=>{if(!id)return;let active=true;getCourseRental(id).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id]);
   useEffect(()=>{if(active&&!record&&onPositionChange)onPositionChange({date,time,roomId,durationMinutes:duration});},[active,record,date,time,roomId,duration,onPositionChange]);
-  useEffect(()=>{if(active||record)return;if(seed.date)setDate(seed.date);if(seed.time!==undefined)setTime(seed.time);if(seed.roomId)setRoomId(seed.roomId);if(seed.durationMinutes)setDuration(seed.durationMinutes);if(!dirty)setAmount(rentalPrice(rooms.find(room=>room.id===(seed.roomId??roomId))?.rentalHourlyRate??0,seed.durationMinutes??duration));},[active,record,seed.date,seed.time,seed.roomId,seed.durationMinutes,dirty,rooms,roomId,duration]);
+  useEffect(()=>{if(active||record)return;if(seed.date)setDate(seed.date);if(seed.time!==undefined)setTime(seed.time);if(seed.roomId)setRoomId(seed.roomId);if(seed.durationMinutes)setDuration(seedDuration);if(!dirty)setAmount(rentalPrice(rooms.find(room=>room.id===(seed.roomId??roomId))?.rentalHourlyRate??0,seed.durationMinutes==null?duration:seedDuration));},[active,record,seed.date,seed.time,seed.roomId,seed.durationMinutes,seedDuration,dirty,rooms,roomId,duration]);
   const normalizedQuery=query.trim().toLocaleLowerCase();
   const phoneQuery=normalizedQuery.replace(/[\s()+-]/g,"");
   const matchingCustomers=permissions.customerRead&&normalizedQuery?customers.filter(c=>c.name.toLocaleLowerCase().includes(normalizedQuery)||(phoneQuery&&c.phone.replace(/[\s()+-]/g,"").includes(phoneQuery))):[];
