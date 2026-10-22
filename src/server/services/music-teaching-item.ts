@@ -10,7 +10,8 @@ export async function readMusicTeachingItem(tx:Reader,storeId:string,key:string)
   if(!subjectId)return tx.courseTemplate.findFirst({where:{id:key,storeId},include:{musicSubject:true}});
   const subject=await tx.musicSubject.findFirst({where:{id:subjectId,storeId,isActive:true}});
   if(!subject)throw new AppError("VALIDATION","請選擇本店啟用的教學項目");
-  return {id:key,storeId,name:subject.name,musicSubjectId:subject.id,musicSubject:subject,isActive:true,visibility:"PUBLIC",classType:null,musicTrialMode:null,musicPricePerLesson:null,musicTermLessons:null,musicScheduleMode:null,durationMinutes:60,pointCost:1,capacity:500,defaultRoomId:null};
+  const defaults=await tx.courseTemplate.findFirst({where:{storeId,musicSubjectId:subjectId,isActive:true},orderBy:[{createdAt:"asc"},{id:"asc"}],select:{durationMinutes:true,visibility:true,description:true,precautions:true}});
+  return {id:key,storeId,name:subject.name,musicSubjectId:subject.id,musicSubject:subject,isActive:true,visibility:defaults?.visibility??"PUBLIC",classType:null,musicTrialMode:null,musicPricePerLesson:null,musicTermLessons:null,musicScheduleMode:null,durationMinutes:defaults?.durationMinutes??60,pointCost:1,capacity:500,defaultRoomId:null};
 }
 export async function ensureMusicTeachingItem(tx:Prisma.TransactionClient,storeId:string,key:string,trialDefaultPrice=0) {
   if(!musicTeachingSubjectId(key))return;
@@ -23,7 +24,7 @@ export async function ensureMusicTeachingItem(tx:Prisma.TransactionClient,storeI
   if(existing){if(key.startsWith("teaching-trial:"))await tx.courseTemplate.update({where:{id:key},data:trialFields});return;}
   const products=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:item.musicSubjectId,id:{not:{startsWith:"teaching"}}},select:{musicTeacherShare:true}});
   const shares=[...new Set(products.flatMap(product=>product.musicTeacherShare==null?[]:[product.musicTeacherShare]))];
-  await tx.courseTemplate.create({data:{id:key,storeId,name:`教學項目：${item.name}`,musicSubjectId:item.musicSubjectId,category:item.musicSubject?.category??"",musicTeacherShare:shares.length===1?shares[0]:null,...trialFields,durationMinutes:60,pointCost:1,capacity:500}});
+  await tx.courseTemplate.create({data:{id:key,storeId,name:`教學項目：${item.name}`,musicSubjectId:item.musicSubjectId,category:item.musicSubject?.category??"",musicTeacherShare:shares.length===1?shares[0]:null,...trialFields,durationMinutes:item.durationMinutes,visibility:item.visibility,pointCost:1,capacity:500}});
 
 }
 export async function musicTeachingQualifications(tx:Pick<Prisma.TransactionClient,"courseTemplate">,storeId:string,template:{id:string;musicSubjectId?:string|null}) {

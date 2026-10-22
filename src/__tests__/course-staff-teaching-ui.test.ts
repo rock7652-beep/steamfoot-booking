@@ -69,7 +69,7 @@ it("music qualification editors with read-only pay access can change qualificati
  await click("授課／鐘點費");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
  expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
- await click("編輯課程");
+ await click("編輯項目");
  const qualification=Array.from(document.body.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
  expect(qualification.disabled).toBe(false);
  await act(async()=>qualification.click());

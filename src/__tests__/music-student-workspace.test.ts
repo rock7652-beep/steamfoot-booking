@@ -34,13 +34,15 @@ it("keeps separate makeup out of ordinary balance and excludes expired cards", a
   ]); m.coupons.mockResolvedValue([{ id: "makeup" }]);
   expect(await loadMusicStudentWorkspace("learner")).toMatchObject({ success: true, data: { balance: { remaining: 8, held: 3, available: 5, makeupRemaining: 1 } } });
 });
-it("returns only this learner's verified source payments", async () => {
+it("does not read retired source payments even for an imported learner", async () => {
   m.source.mockResolvedValue([{ id: "proof" }]); m.tuition.mockResolvedValue([{ customerId: "yjy-lubymusic-student-demo", paid: 800, receivable: 0, payments: [] }, { customerId: "other", paid: 99999 }]);
   const result = await loadMusicStudentWorkspace("yjy-lubymusic-student-demo");
-  expect(result).toMatchObject({ success: true, data: { tuition: { paid: 800 } } });
+  expect(result).toMatchObject({ success: true, data: { tuition: null, opening: null } });
   expect(JSON.stringify(result)).not.toContain("99999");
+  for (const query of [m.source, m.tuition, m.opening]) expect(query).not.toHaveBeenCalled();
 });
-it("does not interpret a failed source verification as zero debt", async () => {
+it("keeps native student summary available when retired source data is unavailable", async () => {
   m.source.mockResolvedValue([{ id: "proof" }]); m.tuition.mockRejectedValue(new Error("invalid source"));
-  expect(await loadMusicStudentWorkspace("yjy-lubymusic-student-demo")).toMatchObject({ success: false });
+  expect(await loadMusicStudentWorkspace("yjy-lubymusic-student-demo")).toMatchObject({ success: true, data: { tuition: null, opening: null } });
+  for (const query of [m.source, m.tuition, m.opening]) expect(query).not.toHaveBeenCalled();
 });

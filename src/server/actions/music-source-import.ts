@@ -1,4 +1,5 @@
 "use server";
+import { requireMusicHistoryIntegration } from "@/server/services/music-history-integration";
 import { z } from "zod";
 import { authorizeMusicSourceImport, previewMusicSourceImport, commitMusicSourceImport, readMusicSourceBatch } from "@/server/services/music-source-import";
 import { AppError } from "@/lib/errors";
@@ -11,6 +12,7 @@ export type MusicSourceImportState = {
 export async function submitMusicSourceImport(_previous: MusicSourceImportState, form: FormData): Promise<MusicSourceImportState> {
   let started = false, recoveryBatchId: string | undefined;
   try {
+    requireMusicHistoryIntegration();
     await authorizeMusicSourceImport();
     const file = form.get("manifest");
     if (!file || typeof file === "string" || file.size === 0 || file.size > 512_000) return { status: "HOLD", message: "請選擇 JSON 備份檔，每批最多 100 位學生、500 KB。" };
@@ -26,10 +28,10 @@ export async function submitMusicSourceImport(_previous: MusicSourceImportState,
   } catch (error) {
     if (started && !(error instanceof AppError)) return { status: "RECONCILE", batchId: recoveryBatchId, message: "尚未取得完整結果。請保留這份檔案，用下方按鈕讀回同一批次；不要更改來源後另建批次。" };
     if (error instanceof AppError && error.code === "CONFLICT") return { status: "HOLD", message: "資料已變動或讀回未通過，交易已中止。請重新預覽。" };
-    return { status: "HOLD", message: "資料格式、權限或隔離環境檢查未通過，尚未確認匯入。" };
+    return { status: "HOLD", message: error instanceof AppError ? error.message : "資料格式、權限或隔離環境檢查未通過，尚未確認匯入。" };
   }
 }
 export async function exportMusicSourceBatch(batchId: string) {
-  try { return { success: true as const, data: await readMusicSourceBatch(batchId) }; }
+  try { requireMusicHistoryIntegration(); return { success: true as const, data: await readMusicSourceBatch(batchId) }; }
   catch { return { success: false as const, message: "批次讀回失敗，請保留來源檔並核對權限。" }; }
 }

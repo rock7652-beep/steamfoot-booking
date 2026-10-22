@@ -21,7 +21,7 @@ it('restores four types, assigned/open enrollment, and weekly/biweekly colors wh
  const frequency=host.querySelector<HTMLSelectElement>('[aria-label="固定課程頻率"]')!;
  await act(async()=>{frequency.value='BIWEEKLY';frequency.dispatchEvent(new Event('change',{bubbles:true}));});
  expect(host.querySelector('.border-violet-500')).not.toBeNull();
- expect(host.textContent).toContain('指定學員');expect(host.textContent).toContain('開放報名');
+ expect(host.textContent).toContain('指定學員');expect(host.textContent).toContain('開放選課');
  const radios=host.querySelectorAll<HTMLInputElement>('input[type="radio"]');
  await act(async()=>radios[1].click());
  const course=host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!;

@@ -26,7 +26,6 @@ import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
 import { DashboardLink } from "@/components/dashboard-link";
-import { readMusicPilotFeeProof } from "@/server/services/music-pilot-teacher-fee";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
@@ -63,9 +62,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");
   const salaryHref = canReadSalary && canViewCourseMonthly(user.role,musicDataSeparationEnabled(storeId)) && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
     ? "/dashboard/service-fee-calculator"
-    : canReadSalary && user.role === "ADMIN" && financeScope === null && await readMusicPilotFeeProof(coursePrisma, storeId)
-      ? "/dashboard/courses/source-pilot/salary" : null;
-  const salaryLabel = salaryHref === "/dashboard/courses/source-pilot/salary" ? "樣本鐘點／薪資測試" : "月結／發薪紀錄";
+    : null;
+  const salaryLabel = "月結／發薪紀錄";
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));

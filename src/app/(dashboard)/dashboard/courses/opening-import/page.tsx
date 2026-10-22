@@ -1,3 +1,4 @@
+import { MUSIC_HISTORY_INTEGRATION_ENABLED } from "@/lib/music-history-integration";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -8,6 +9,7 @@ import { assertMusicOpeningPreviewEnvironment } from "../../../../../../scripts/
 import { OpeningImportForm } from "./import-form";
 
 export default async function OpeningImportPage() {
+  if (!MUSIC_HISTORY_INTEGRATION_ENABLED) notFound();
   try {
     if (process.env.VERCEL !== "1") notFound();
     assertMusicOpeningPreviewEnvironment(process.env);

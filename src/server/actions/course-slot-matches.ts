@@ -26,7 +26,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const data = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       templateId: z.string().min(1),
-      durationMinutes: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(120)]),
+      durationMinutes: z.number().int().min(1).max(480),
       moveSessionId: z.string().min(1).optional(),
       scope: z.enum(["SINGLE", "WEEKS", "FUTURE"]).optional(),
       weeks: z.number().int().min(2).max(12).optional(),
@@ -131,7 +131,7 @@ export async function getMusicSlotMatches(input: unknown) {
         : o.rescheduledFromStartsAt&&o.rescheduledFromEndsAt&&o.rescheduledFromStartsAt<end&&o.rescheduledFromEndsAt>start&&(o.rescheduledFromRoomId===roomId||o.rescheduledFromCoachId===coachId));
     };
     for (const period of store.periods) {
-      for (let minute = Math.ceil(minuteOfDay(period.openTime) / 30) * 30; minute + data.durationMinutes <= minuteOfDay(period.closeTime); minute += 30) {
+      for (let minute = Math.ceil(minuteOfDay(period.openTime) / 5) * 5; minute + data.durationMinutes <= minuteOfDay(period.closeTime); minute += 5) {
         const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
         for (const room of rooms) {
           if (!template.musicSubject && room.capacity !== null && room.capacity < (source?.capacity ?? template.capacity)) continue;
@@ -151,7 +151,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const qualified=staff.filter(qualifiedFor);
     const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
-    for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
+    for(let minute=Math.ceil(firstMinute/5)*5;minute+data.durationMinutes<=lastMinute;minute+=5){
       const time=`${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`;
       if(slots.some(slot=>slot.time===time))continue;
       const startsAt=parseTaipeiDateTime(data.date,time)!;

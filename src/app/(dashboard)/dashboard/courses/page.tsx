@@ -1,6 +1,5 @@
 import { musicSessionWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
-import { DashboardLink } from "@/components/dashboard-link";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -26,14 +25,12 @@ import {
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
 import { MusicTypesShowcase } from "./showcase/music-types-showcase";
-import { LubyRealDayShowcase } from "./showcase/luby-real-day-showcase";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { MUSIC_OPENING_BRANCH, MUSIC_OPENING_STORE } from "../../../../../scripts/music-opening-preview-scope.mjs";
 
 export default async function CoursesPage({
   searchParams,
@@ -71,22 +68,13 @@ export default async function CoursesPage({
     const date = query.date && parseTaipeiDateTime(query.date, "00:00")
       ? query.date
       : "2026-09-26";
-    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
     return (
       <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <MusicTypesShowcase date={date} showLubyReplica={activeStore?.slug === "lubymusic"} />
+        <MusicTypesShowcase date={date} showLubyReplica={false} />
       </PageShell>
     );
   }
-  if (query.showcase === "luby-day" && process.env.VERCEL_ENV === "preview") {
-    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
-    if (activeStore?.slug !== "lubymusic") redirect("/dashboard/courses");
-    return (
-      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <LubyRealDayShowcase date="2026-09-26" mode={query.scheduleView === "week" ? "week" : "day"} />
-      </PageShell>
-    );
-  }
+  if (query.showcase === "luby-day") redirect("/dashboard/courses");
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
@@ -274,7 +262,7 @@ export default async function CoursesPage({
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??null,musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??60,capacity:t?.capacity??1,updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??60,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
@@ -309,12 +297,7 @@ export default async function CoursesPage({
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
-  const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
-    && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
-  const canSourceImport = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === MUSIC_OPENING_BRANCH
-    && storeId === MUSIC_OPENING_STORE && ["OWNER", "MANAGER", "ADMIN"].includes(user.role)
-    && (await Promise.all((["wallet.create", "booking.update", "customer.read", "customer.create"] as const).map(permission => checkPermission(user.role, user.staffId, permission)))).every(Boolean);
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell
@@ -338,15 +321,8 @@ export default async function CoursesPage({
         />
       )}
       {businessProfile === "MUSIC" && <details className="text-sm text-earth-600"><summary className="inline-flex min-h-11 cursor-pointer items-center">匯入與對照工具</summary><div className="flex flex-wrap items-center gap-2 pb-2">
-      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">音教雲補課紀錄</DashboardLink>}
-      {businessProfile === "MUSIC" && canSourceImport && <DashboardLink href="/dashboard/courses/opening-import" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-base">音教雲資料匯入</DashboardLink>}
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
         <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
-          {showLubyReplica && (
-            <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
-              查看 9/26 陸比原課表對照（9/12 截圖移日）
-            </a>
-          )}
           <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
             查看 9/26 七種班型示意（49 堂）
           </a>

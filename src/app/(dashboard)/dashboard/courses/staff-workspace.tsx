@@ -129,7 +129,8 @@ export function CourseStaffWorkspace({
   const [qualificationSearch,setQualificationSearch]=useState("");
   const [qualificationScope,setQualificationScope]=useState("all");
   const [qualificationPage,setQualificationPage]=useState(0);
-  const matchingTemplates=templates.filter(t=>t.name.toLocaleLowerCase().includes(qualificationSearch.trim().toLocaleLowerCase()) && (qualificationScope!=="selected" || qualificationIds.includes(t.id)));
+  const qualificationItems=music?Array.from(new Map(templates.map(t=>[t.musicSubjectId??t.id,{...t,name:t.subjectName??t.name}])).values()):templates;
+  const matchingTemplates=qualificationItems.filter(t=>t.name.toLocaleLowerCase().includes(qualificationSearch.trim().toLocaleLowerCase()) && (qualificationScope!=="selected" || qualificationIds.some(id=>templates.some(v=>v.id===id&&(t.musicSubjectId?v.musicSubjectId===t.musicSubjectId:v.id===t.id)))));
   const qualificationPages=Math.max(1,Math.ceil(matchingTemplates.length/10));
   const visibleQualificationPage=Math.min(qualificationPage,qualificationPages-1);
   const [qualificationsTouched,setQualificationsTouched]=useState(false);
@@ -384,7 +385,7 @@ export function CourseStaffWorkspace({
                       coachEnabled,
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
                       qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
-                      teachingVersion,
+                      teachingVersion:teachingVersion??person?.updatedAt,
 
                       musicSettings: teachingDirty && music && coachEnabled && feeEnabled && canEditFees ? musicSettings : undefined,
                       teachingFees: teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: !fees[templateId] || fees[templateId].mode==="INHERIT" ? null : {mode: fees[templateId].mode, value: Number(fees[templateId].value)}, revision: fees[templateId]?.revision ?? 0})) : undefined,
@@ -553,9 +554,10 @@ export function CourseStaffWorkspace({
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>}
                   {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
-                      const selected = qualificationIds.includes(t.id);
+                      const groupIds=music&&t.musicSubjectId?templates.filter(v=>v.musicSubjectId===t.musicSubjectId).map(v=>v.id):[t.id];
+                      const selected = groupIds.some(id=>qualificationIds.includes(id));
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3">
-                        <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>
+                        <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...new Set([...ids,...groupIds])]:ids.filter(id=>!groupIds.includes(id)));}}/>{t.name}</label>
 
                         {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
@@ -563,7 +565,7 @@ export function CourseStaffWorkspace({
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
                   </div>}
-                  {!music&&qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
+                  {qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
                 </section>
               </div>
               <div data-staff-tab="work" hidden={tab!=="work" || !coachEnabled} className="space-y-3">

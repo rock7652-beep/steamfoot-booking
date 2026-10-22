@@ -1,3 +1,4 @@
+import { MUSIC_HISTORY_INTEGRATION_ENABLED } from "@/lib/music-history-integration";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -8,6 +9,7 @@ import { SalaryPreview } from "./salary-preview";
 import { MonthlyTest } from "./monthly-test";
 export const maxDuration=90;
 export default async function SalaryPilotPage({ searchParams }: { searchParams: Promise<{ teacherId?: string }> }){
+  if (!MUSIC_HISTORY_INTEGRATION_ENABLED) notFound();
   const user=await getCurrentUser();
   if(!user||!await checkPermission(user.role,user.staffId,"staff.view")||!await checkPermission(user.role,user.staffId,"teacher.settlement.read"))notFound();
   const report=await readMusicPilotSalary();

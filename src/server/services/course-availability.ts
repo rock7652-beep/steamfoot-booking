@@ -2,7 +2,7 @@ import "server-only";
 import { ResourceConflict } from "./course-resources";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
-import { COURSE_DURATION_OPTIONS, normalizeAvailabilityPeriods, periodContains } from "@/lib/course-availability";
+import { normalizeAvailabilityPeriods, periodContains } from "@/lib/course-availability";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Reader=Pick<Prisma.TransactionClient,"$queryRaw">;
@@ -17,9 +17,7 @@ async function isMusicCourseStore(tx:Reader,storeId:string) {
 
 export async function assertMusicCourseDuration(tx:Reader,storeId:string,durationMinutes:number) {
   if(!(await isMusicCourseStore(tx,storeId))) return;
-  if(!(COURSE_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
-    throw new AppError("VALIDATION","音樂教室課程時長限 30／60／90／120 分鐘");
-  }
+  if(!Number.isInteger(durationMinutes)||durationMinutes<1||durationMinutes>480) throw new AppError("VALIDATION","課程時長請填 1–480 分鐘");
 }
 
 export async function assertMusicCourseAvailability(
@@ -34,9 +32,6 @@ export async function assertMusicCourseAvailability(
     const duration=Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000);
     if(music) await assertMusicCourseDuration(tx,storeId,duration);
     const start=formatTWDateTime(session.startsAt).slice(11);
-    if(music&&!start.endsWith(":00")&&!start.endsWith(":30")) {
-      throw new AppError("VALIDATION","音樂教室課程請從整點或半點開始");
-    }
     const date=toLocalDateStr(session.startsAt);
     if(date!==toLocalDateStr(session.endsAt)) throw new AppError("VALIDATION","課程不可跨日");
     const dayOfWeek=new Date(date+"T00:00:00Z").getUTCDay();

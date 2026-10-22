@@ -1,7 +1,7 @@
 import "server-only";
+import { musicDataSeparationEnabled } from "./music-data-scope";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import type { Prisma } from "../../../generated/course-client";
-import { musicDataSeparationEnabled } from "./music-data-scope";
 
 /** Pricing versions of one item share eligibility. Historical template bindings remain intact. */
 export async function musicItemTemplateIds(
@@ -16,7 +16,7 @@ export async function musicItemTemplateIds(
   const target = await tx.courseTemplate.findFirst({ where: { id: templateId, storeId }, select: { musicSubjectId: true, classType: true, musicTrialMode: true } });
   if (!target?.musicSubjectId) return [templateId];
   const versions = await tx.courseTemplate.findMany({
-    where: { storeId, musicSubjectId: target.musicSubjectId, classType: target.classType, musicTrialMode: target.musicTrialMode },
+    where: { storeId, musicSubjectId: target.musicSubjectId, musicTrialMode: target.musicTrialMode },
     select: { id: true },
   });
   return versions.map(version => version.id);

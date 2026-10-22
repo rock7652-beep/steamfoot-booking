@@ -1,3 +1,4 @@
+import { MUSIC_HISTORY_INTEGRATION_ENABLED } from "@/lib/music-history-integration";
 import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicCustomerWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
 import { notFound } from "next/navigation";
@@ -12,6 +13,7 @@ import { getOpeningMakeupWorkspace } from "@/server/queries/music-opening-makeup
 import { OpeningMakeupList } from "./opening-makeup-list";
 
 export default async function OpeningMakeupsPage({ searchParams }: { searchParams: Promise<{ customerId?: string;dataScope?:string }> }) {
+  if (!MUSIC_HISTORY_INTEGRATION_ENABLED) notFound();
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.read"))) notFound();
   const storeId = await getActiveStoreForRead(user);

@@ -10,7 +10,7 @@ import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
-import { isMusicPilotCard, readMusicPilotTuition } from "@/server/services/music-pilot-policy";
+import { isMusicPilotCard } from "@/server/services/music-pilot-policy";
 import { musicSourceDisplayNote } from "@/lib/music-source-import";
 
 export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
@@ -144,12 +144,12 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
     (async()=>{
   const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
-      return {pilotCards,sourceTuition:pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : []};
+      return {pilotCards};
     })(),
     bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     ? getCourseSharedCardState(storeId).then(state=>state === "ENABLED") : false,
   ]);
-  const {pilotCards,sourceTuition}=pilotData;
+  const {pilotCards}=pilotData;
   const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
   const nativeDebitedBookings=new Set(nativeLeaveIds);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
@@ -267,7 +267,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     openingIssue: openingIssue ?? openingOperationWarning,
     openingImported: openingMakeup || opening.kind !== "NATIVE",
     ...((pilotCards.has(b.cardId??"") || (b.status === "RESERVED" ? nativeLeaveCards.has(b.cardId??"") : nativeDebitedBookings.has(b.id)))?{leaveDeductsWithMakeup:true}:{}),
-    ...(pilotCards.has(b.cardId??"")?{sourceTuition:sourceTuition.find(t=>t.customerId===b.customerId)}:{}),
+    
     ...(openingMakeup ? { openingMakeup: true } : {}),
     openingTuition: opening.kind === "OPENING" ? {paid:opening.record.tuition.paidBeforeCutoff,receivable:opening.record.tuition.receivableAtCutoff} : null,
     termClosedBeforeCutoff: openingLesson.kind === "OPENING" ? openingLesson.closedBeforeCutoff : 0,

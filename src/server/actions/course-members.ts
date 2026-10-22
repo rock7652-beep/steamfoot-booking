@@ -1,4 +1,5 @@
 "use server";
+import { syncMusicSubjectTeachers } from "@/server/services/music-teaching-qualifications";
 import { nativeLeaveWasDebited } from "@/server/services/music-native-leave";
 import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
@@ -162,6 +163,8 @@ export async function saveCoursePointPlan(input: unknown) {
         id: id.optional(),
         expectedSnapshot: z.string().max(30000).optional(),
         musicSetup: musicSubjectRuleSchema.optional(),
+        musicTeacherIds: z.array(id).min(1).max(100).optional(),
+        expectedMusicTeacherIds: z.array(id).max(100).optional(),
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
@@ -178,10 +181,10 @@ export async function saveCoursePointPlan(input: unknown) {
         templateIds: z.array(id).max(200).default([]),
       })
 ;
-    const { id: planId, expectedSnapshot, musicSetup, allowShared, ...fields } = schema.parse(input);
+    const { id: planId, expectedSnapshot, musicSetup, musicTeacherIds, expectedMusicTeacherIds, allowShared, ...fields } = schema.parse(input);
     const data = { ...fields, allowShared: allowShared ?? false };
-    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
-    const { storeId } = await courseManager("plans.edit");
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,musicTeacherIds:true,expectedMusicTeacherIds:true}).parse(JSON.parse(expectedSnapshot)) : null;
+    const { user, storeId } = await courseManager("plans.edit");
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.music", status: "ENABLED" },
       select: { storeId: true },
@@ -211,6 +214,13 @@ export async function saveCoursePointPlan(input: unknown) {
       data.price=musicSetup.totalPrice??quote.price;data.validDays=quote.validDays;
       data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
       if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
+    }
+    if (isMusic && musicSetup) {
+      const result = await syncMusicSubjectTeachers(tx, storeId, musicSetup.subjectId, musicTeacherIds, expectedMusicTeacherIds, async () => {
+        const access = await courseManager("staff.manage");
+        if (access.storeId !== storeId || access.user.id !== user.id) throw new AppError("FORBIDDEN", "教師管理範圍不符");
+      });
+      if (result.changed) await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'MusicSubject',${musicSetup.subjectId},'QUALIFICATIONS','更新教學項目授課教師',${JSON.stringify(result.before)}::jsonb,${JSON.stringify(result.after)}::jsonb,now())`;
     }
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
     // Hidden/locked controls may be omitted by a form. Preserve an existing choice.

@@ -54,7 +54,7 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}
  {report.separationEnabled&&<section aria-label="計薪資料來源" className="rounded-lg border border-earth-200 bg-white p-3">
  <nav aria-label="切換計薪資料" className="flex flex-wrap gap-2">
- <Link href={cohortHref(false)} aria-current={!legacyView?"page":undefined} className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm ${!legacyView?"bg-primary-50 font-semibold text-primary-800":""}`}>營運／音教雲匯入（{operationalCount}）</Link>
+ <Link href={cohortHref(false)} aria-current={!legacyView?"page":undefined} className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm ${!legacyView?"bg-primary-50 font-semibold text-primary-800":""}`}>營運資料（{operationalCount}）</Link>
  <Link href={cohortHref(true)} aria-current={legacyView?"page":undefined} className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm ${legacyView?"bg-primary-50 font-semibold text-primary-800":""}`}>舊驗收資料（{legacyCount}）</Link>
  </nav>
  <p className="mt-2 text-sm text-earth-500">{legacyView?"舊驗收資料僅供查閱，不納入營運月結，也不在此登記發薪。":"營運月結已排除已核對的舊驗收課堂；僅計入已結束課堂，未來排課尚不列入。"}</p>

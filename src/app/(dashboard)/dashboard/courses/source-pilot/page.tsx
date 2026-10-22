@@ -1,3 +1,4 @@
+import { MUSIC_HISTORY_INTEGRATION_ENABLED } from "@/lib/music-history-integration";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -11,6 +12,7 @@ import { ZodError } from "zod";
 type Cell={text:string};
 type FeeHistory={groups:{periods:{fee:string[];payments:{tables:Cell[][][]}[];lessons:{tables:Cell[][][]}[]}[]}[]};
 export default async function SourcePilotPage(){
+  if (!MUSIC_HISTORY_INTEGRATION_ENABLED) notFound();
   const user=await getCurrentUser();
   if(!user||!await checkPermission(user.role,user.staffId,"customer.read")||!await checkPermission(user.role,user.staffId,"booking.read")||!await checkPermission(user.role,user.staffId,"wallet.read"))notFound();
   let data;try{data=await readMusicOperationalPilot();}catch(error){

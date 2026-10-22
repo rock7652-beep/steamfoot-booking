@@ -1,4 +1,5 @@
 "use server";
+import { requireMusicHistoryIntegration } from "@/server/services/music-history-integration";
 import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
 import { courseManager } from "@/server/services/course-access";
@@ -6,6 +7,7 @@ import { changeOpeningMakeup, openingMakeupCommandSchema } from "@/server/servic
 
 export async function updateOpeningMakeup(input: unknown) {
   try {
+    requireMusicHistoryIntegration();
     const command = openingMakeupCommandSchema.parse(input);
     const { user, storeId } = await courseManager(command.action === "RESERVE" ? "booking.create" : "booking.update");
     const data = await changeOpeningMakeup({ storeId, userId: user.id, name: user.name ?? "" }, command);

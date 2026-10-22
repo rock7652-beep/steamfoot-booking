@@ -1,4 +1,5 @@
 import "server-only";
+import { requireMusicHistoryIntegration } from "./music-history-integration";
 import { AppError } from "@/lib/errors";
 import { parseMusicSourceImport, planMusicSourceImport, sourceImportHash, sourceBatchId, sourceCustomerId, sourceStudentMarker, type MusicSourceImport, type SourceCustomer } from "@/lib/music-source-import";
 import { assertMusicOpeningPreviewEnvironment, MUSIC_OPENING_STORE } from "../../../scripts/music-opening-preview-scope.mjs";
@@ -11,6 +12,7 @@ function assertScope(actor: Actor) {
   if (actor.storeId !== MUSIC_OPENING_STORE || !["OWNER", "MANAGER", "ADMIN"].includes(actor.role)) throw new AppError("FORBIDDEN", "匯入範圍不符");
 }
 export async function authorizeMusicSourceImport() {
+  requireMusicHistoryIntegration();
   if (process.env.VERCEL !== "1") throw new AppError("FORBIDDEN", "僅開放隔離預覽環境");
   assertMusicOpeningPreviewEnvironment(process.env);
   const { courseManager } = await import("./course-access");

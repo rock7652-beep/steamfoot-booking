@@ -31,7 +31,6 @@ import { Fragment, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
-import { ModalPanel } from "@/components/admin/modal-panel";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
@@ -64,6 +63,7 @@ export function CourseMemberWorkspace({
   previewStoreId,
   displayOrder,
   subjects=[],
+  musicTeachers=[], canEditMusicTeachers=false,
   profitEnabled=true,
   canDelete=false,
   termSessions=[],
@@ -93,6 +93,8 @@ export function CourseMemberWorkspace({
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
   subjects?:{id:string;name:string;category:string;isActive:boolean}[];
+  musicTeachers?:{id:string;name:string;active:boolean;qualificationIds:string[]}[];
+  canEditMusicTeachers?:boolean;
   profitEnabled?:boolean;
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
@@ -319,6 +321,8 @@ export function CourseMemberWorkspace({
         {view === "plans" && planArea === "catalog" && music && <select aria-label="教學項目篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部教學項目</option>{subjects.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
+            disabled={music&&view==="plans"&&templateFilter==="all"}
+            title={music&&view==="plans"&&templateFilter==="all"?"請先選擇教學項目":undefined}
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
             onClick={() => {
               if (view === "customers") {
@@ -525,7 +529,7 @@ export function CourseMemberWorkspace({
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],[music?"所屬教學項目":"適用課程",music?planItems(plan).map(s=>s.name).join("、")||"待確認對應":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (

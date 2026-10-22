@@ -1,10 +1,12 @@
 "use server";
+import { requireMusicHistoryIntegration } from "@/server/services/music-history-integration";
 import { revalidatePath } from "next/cache";
 import { AppError } from "@/lib/errors";
 import { commitMusicOperationalPilot } from "@/server/services/music-operational-pilot";
 export type MusicOperationalPilotState={success:boolean;message:string};
 export async function applyMusicOperationalPilot(_previous:MusicOperationalPilotState,form:FormData):Promise<MusicOperationalPilotState>{
   try{
+    requireMusicHistoryIntegration();
     if(form.get("confirmed")!=="yes")return {success:false,message:"請先確認這是音樂教室的十人測試樣本。"};
     const result=await commitMusicOperationalPilot();
     revalidatePath("/dashboard/courses/source-pilot");revalidatePath("/dashboard/courses");revalidatePath("/dashboard/courses/opening-makeups");

@@ -109,6 +109,8 @@ export async function CourseMemberPage({
   const assignmentStaff = await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}});
   const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,...musicSessionWhere(storeId,query.dataScope),cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]});
+  const musicTeachers = music ? (await prisma.staff.findMany({where:{storeId,courseCoachEnabled:true},select:{id:true,displayName:true,status:true,courseQualifiedTemplateIds:true,user:{select:{status:true}}},orderBy:{displayName:"asc"}})).map(t=>({id:t.id,name:t.displayName,active:t.status==="ACTIVE"&&t.user.status==="ACTIVE",qualificationIds:t.courseQualifiedTemplateIds})) : [];
+  const canEditMusicTeachers = !isViewMode && await checkPermission(user.role,user.staffId,"staff.manage");
   const subjects=music?await coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}):[];
   const displayOrders=await readCourseOrders(storeId);
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
@@ -135,6 +137,7 @@ export async function CourseMemberPage({
         termSessions={termSessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString()}))}
         templates={templates}
         subjects={subjects}
+        musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers}
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}

@@ -1,4 +1,5 @@
 "use server";
+import { requireMusicHistoryIntegration } from "@/server/services/music-history-integration";
 import { courseManager } from "@/server/services/course-access";
 import { requireMusicFinance } from "@/server/services/music-finance-access";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
@@ -11,6 +12,7 @@ export type MonthlyPilotState={success:boolean;message:string;report?:MonthlyPil
 /** Preview verification only; never expands the OWNER-only live payment actions. */
 export async function testMusicPilotMonthly(_previous:MonthlyPilotState,form:FormData):Promise<MonthlyPilotState>{
   try{
+    requireMusicHistoryIntegration();
     assertMusicOpeningPreviewEnvironment(process.env);
     if(form.get("confirmed")!=="yes")return {success:false,message:"請確認執行十人樣本測試，結束自動復原。"};
     const a=await courseManager("cashbook.create");

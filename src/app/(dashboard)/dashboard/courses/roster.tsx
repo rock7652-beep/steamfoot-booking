@@ -73,12 +73,10 @@ function remainingTermOrdinals(booking: RosterBooking) {
 }
 
 function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
-  if (!booking.termPayment && !booking.nextTerm && !booking.openingTuition && !booking.sourceTuition) return null;
+  if (!booking.termPayment && !booking.nextTerm) return null;
   const payment = (record: NonNullable<typeof booking.termPayment>) =>
     `${record.date ? toLocalDateStr(new Date(record.date)) : "已收款"} · NT$ ${record.amount.toLocaleString()} · ${COURSE_PAYMENT_LABELS[record.method ?? ""] ?? record.method ?? "付款方式未記錄"}`;
   return <div className="space-y-1 border-t border-earth-100 pt-2">
-    {booking.sourceTuition && <div><p>音教雲已收 NT$ {booking.sourceTuition.paid.toLocaleString()}・欠款 NT$ {booking.sourceTuition.receivable.toLocaleString()}（來源紀錄）</p>{booking.sourceTuition.payments.map((p,i)=><p key={i}>{p.date}・{p.method}・NT$ {p.amount.toLocaleString()}</p>)}</div>}
-    {booking.openingTuition && <p>期初已收 NT$ {booking.openingTuition.paid.toLocaleString()} · 期初應收 NT$ {booking.openingTuition.receivable.toLocaleString()}（非本期收款）</p>}
     {booking.termPayment && <p>本期付款：{payment(booking.termPayment)}</p>}
     {booking.nextTerm && <div>
       <p className="font-medium">下期已繳 {booking.nextPaidLessons} 堂 · {payment(booking.nextTerm.payment)}</p>

@@ -159,7 +159,14 @@ export async function saveCourseStaff(input: unknown) {
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
         if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
-        const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
+        let qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
+        const isMusicTeaching = musicFinanceStore;
+        if (isMusicTeaching && d.qualificationIds) {
+          if (existing && d.teachingVersion !== existing.updatedAt.toISOString()) throw new AppError("CONFLICT", "教師資格已有更新，請重新開啟後再核對");
+          const versions = await tx.$queryRaw<Array<{id:string;musicSubjectId:string|null}>>`SELECT id,"musicSubjectId" FROM "CourseTemplate" WHERE "storeId"=${storeId}`;
+          const subjects = new Set(versions.filter(t=>qualificationIds.includes(t.id)).map(t=>t.musicSubjectId).filter(Boolean));
+          qualificationIds = [...new Set([...qualificationIds,...versions.filter(t=>subjects.has(t.musicSubjectId)).map(t=>t.id)])];
+        }
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
         if (qualificationIds.length) {
           const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseTemplate" WHERE "storeId"=${storeId} AND id=ANY(${qualificationIds}::text[])`;
@@ -172,7 +179,7 @@ export async function saveCourseStaff(input: unknown) {
           if(unfinished) throw new AppError("CONFLICT",`仍有 ${unfinished} 堂未結束課次，請先完成改派或取消後再停用`);
         }
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
-        if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
+        if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || (!isMusicTeaching && removed.length))) {
           const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
           if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除教練身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
         }
@@ -180,7 +187,7 @@ export async function saveCourseStaff(input: unknown) {
         const courseFields={courseCoachEnabled:coachEnabled,courseQualifiedTemplateIds:qualificationIds,courseQualificationsConfirmed:qualificationsConfirmed};
         if (d.teachingFees) {
           const feeIds = d.teachingFees.map(f => f.templateId);
-          if (new Set(feeIds).size !== feeIds.length || feeIds.length !== qualificationIds.length || feeIds.some(id => !qualificationIds.includes(id)))
+          if (new Set(feeIds).size !== feeIds.length || (!isMusicTeaching && feeIds.length !== qualificationIds.length) || feeIds.some(id => !qualificationIds.includes(id)))
             throw new AppError("VALIDATION", "每個可教授課程都需有一筆授課費");
           const current = await tx.$queryRaw<Array<{templateId:string;revision:number}>>`SELECT "templateId", revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
           for (const fee of d.teachingFees) {
