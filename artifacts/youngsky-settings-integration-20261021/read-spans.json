@@ -1,0 +1,728 @@
+[
+  {
+    "operation": "hub",
+    "traceId": "207e6a4c-aa3a-4af1-b069-6c986576aac5",
+    "ok": true,
+    "totalMs": 2338.9,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 6.5,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 14.8,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 373.8,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 138.2,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 634.7,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 635,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 43.8,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 913,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "31d0a94b-9814-4422-8a01-ca0b269a8837",
+    "ok": true,
+    "totalMs": 4741.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 722.9,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 544.7,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 589.5,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 1.1,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 821.3,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 68.3,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 998.2,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 12.4,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 411,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 43.1,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 57.8,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 8.2,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 108.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "hub",
+    "traceId": "4b5cd81a-deb8-4a34-a095-4e34a45198b5",
+    "ok": true,
+    "totalMs": 312.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 0.1,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 9.8,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 23.3,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 145.7,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 146,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 12,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 77,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "57f4167e-4f0e-4a8e-be7d-3c81b78e2418",
+    "ok": true,
+    "totalMs": 1169.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 98.5,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 6,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 51.4,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 1.4,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 182.9,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 59.4,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 72.3,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 10,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 501.8,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 24.1,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 13.1,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 5,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 49,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "hub",
+    "traceId": "3ddcb80e-f823-4dae-a44e-8804c8845f20",
+    "ok": true,
+    "totalMs": 337.9,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 2.9,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 8,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 20.6,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 57.3,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 58.2,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 17.6,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 187.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "e8ba5450-3573-4b26-9265-9250aa2aaa54",
+    "ok": true,
+    "totalMs": 1865.1,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 291,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 19.1,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 52.4,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 3.1,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 97.6,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 55.4,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 107.6,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 56.1,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 738.6,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 33.2,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 38.2,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 16.1,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 226.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "hub",
+    "traceId": "90d55933-cc7e-4915-a283-232e73cce6b6",
+    "ok": true,
+    "totalMs": 266.1,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 1.1,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 10.2,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 28.4,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 89.2,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 94.5,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 8.4,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 98.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "9f98b553-58c0-4b34-adb0-626f1fc9a88d",
+    "ok": true,
+    "totalMs": 1496.1,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 228.4,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 8.2,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 44.2,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 6.9,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 115.2,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 9.5,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 88.1,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 22.1,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 742.4,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 25.3,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 11.5,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 6.9,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 59,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "hub",
+    "traceId": "da9e083b-5052-4068-a390-9286d906251f",
+    "ok": true,
+    "totalMs": 210.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 0.6,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 12.2,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 27.7,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 47.6,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 47.9,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 17.9,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 68.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "683671ca-ac98-405b-a627-5bb9880f7831",
+    "ok": true,
+    "totalMs": 1148.5,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 103.8,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 7.1,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 53.6,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 77.9,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 12.2,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 108.5,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 19,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 418.5,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 53.3,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 18.2,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 17.4,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 101,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "hub",
+    "traceId": "ac819d9b-83db-4684-8fed-b0a95e827429",
+    "ok": true,
+    "totalMs": 287,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 0.8,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 0.2,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 4.2,
+        "ok": true
+      },
+      {
+        "name": "read_config",
+        "durationMs": 23.5,
+        "ok": true
+      },
+      {
+        "name": "read_usage",
+        "durationMs": 42.7,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 47.1,
+        "ok": true
+      },
+      {
+        "name": "read_waitlist",
+        "durationMs": 7.2,
+        "ok": true
+      },
+      {
+        "name": "read_setup",
+        "durationMs": 184.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "layout",
+    "traceId": "6b719fd1-88b7-4d2a-8a73-b75082fab76e",
+    "ok": true,
+    "totalMs": 1120.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 104.8,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 5.5,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 29.2,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 3.7,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 63.1,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 6.5,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 49.2,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 10.3,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 653.4,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 19.3,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 10.1,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 9.8,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 39.9,
+        "ok": true
+      }
+    ]
+  }
+]

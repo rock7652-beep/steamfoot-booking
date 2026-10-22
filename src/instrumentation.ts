@@ -1,5 +1,7 @@
 /** Log-only, read-only connection verification for the isolated SPA Preview. */
 export async function register() {
+  // Keep Node-only database imports out of the instrumentation Edge bundle.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.VERCEL_GIT_COMMIT_REF === "feat/store-member-link-workorder-line-20261012") {
     const { verifyStoreMemberWorkorderSchema } = await import("../scripts/store-member-workorder-review-gate.mjs");
     await verifyStoreMemberWorkorderSchema(process.env);
@@ -36,4 +38,5 @@ export async function register() {
   if (status.main && status.spa)
     console.info("[spa-preview-pool] verified", status);
   else console.error("[spa-preview-pool] verification failed", status);
+  }
 }

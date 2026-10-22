@@ -141,8 +141,8 @@ export interface BookingPrefill {
 }
 
 interface BookingDetailDrawerProps {
-  /** A roster shortcut opens the existing payment flow after authoritative detail loads. */
-  initialIntent?: "collect";
+  /** A roster shortcut opens the matching existing action after authoritative detail loads. */
+  initialIntent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel";
   sharedActions?: ReturnType<typeof useResponsiveAction>;
   operationGuidePreview?: boolean;
   open: boolean;
@@ -213,6 +213,7 @@ export function BookingDetailDrawer({
   const isActing = saves.isBlocked(actionKey) || participantBusy;
   const checkingResult = actionState?.phase === "checking" || actionState?.phase === "unknown";
   const [noShowOpen, setNoShowOpen] = useState(false);
+  const [cancelShortcutOpen, setCancelShortcutOpen] = useState(false);
   const [partialAttendedPeople, setPartialAttendedPeople] = useState<
     number | null
   >(null);
@@ -238,6 +239,7 @@ export function BookingDetailDrawer({
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
   const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
+  const [customerPlanShortcut, setCustomerPlanShortcut] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
   // 記錄 `data` 上次 seed 的 bookingId — 讓我們能在 render 期（而非 effect 內）
@@ -259,6 +261,7 @@ export function BookingDetailDrawer({
     setPendingAttendedPeople(null);
     setPartialAttendedPeople(null);
     setNoShowOpen(false);
+    setCancelShortcutOpen(false);
     setAttendanceOpen(false);
     setAttendanceIntent(null);
     setRescheduleOpen(false);
@@ -267,6 +270,7 @@ export function BookingDetailDrawer({
     setCollectSingleOpen(false);
     setAdjustCheckoutOpen(false);
     setAdjustToSingleOpen(false);
+    setCustomerPlanShortcut(false);
   }
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
@@ -291,14 +295,22 @@ export function BookingDetailDrawer({
         setPendingBalance(null);
         setError(null);
         // Only route the explicit shortcut; never collect or complete without confirmation.
-        if(initialIntent === "collect" && !readOnly && collectionIntentHandled.current !== id && payload.booking.id === id) {
-          collectionIntentHandled.current=id;
+        const intentKey = `${id}:${initialIntent}`;
+        if(initialIntent && !readOnly && collectionIntentHandled.current !== intentKey && payload.booking.id === id) {
+          collectionIntentHandled.current=intentKey;
           const b=payload.booking;
-          if(!payload.participantCheckout && (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")) {
-            if(b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
+          if (initialIntent === "purchase-plan" && (b.bookingType === "FIRST_TRIAL" || b.bookingType === "PACKAGE_SESSION")) {
+            setCustomerPlanShortcut(true);
+          } else if (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
+            if (initialIntent === "reschedule") setRescheduleOpen(true);
+            else if (initialIntent === "no-show") setNoShowOpen(true);
+            else if (initialIntent === "cancel") setCancelShortcutOpen(true);
+            else if (initialIntent === "purchase-plan" && !payload.participantCheckout && b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
+            else if (initialIntent === "single" && b.bookingType === "PACKAGE_SESSION") setAdjustToSingleOpen(true);
+            else if ((initialIntent === "collect" || initialIntent === "single") && !payload.participantCheckout && b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
               if(b.people>1 && b.attendedPeople==null) {setAttendanceIntent("collect");setAttendanceOpen(true);}
               else setCollectOpen(true);
-            } else if(b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
+            } else if ((initialIntent === "collect" || initialIntent === "single") && !payload.participantCheckout && b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
           }
         }
       })
@@ -720,6 +732,8 @@ export function BookingDetailDrawer({
           />
         ) : hasFullData && data ? (
           <DrawerContent
+            openCustomerPlan={customerPlanShortcut}
+            onCustomerPlanBack={() => setCustomerPlanShortcut(false)}
             registerCloseGuard={registerCustomerCloseGuard}
             payload={pendingBalance !== null && data.booking.customerPlanWallet ? { ...data, booking: { ...data.booking, customerPlanWallet: { ...data.booking.customerPlanWallet, remainingSessions: pendingBalance } } } : data}
             onNoteSaved={(patch) => {
@@ -801,6 +815,18 @@ export function BookingDetailDrawer({
         )}
         </div>
       </RightSheet>
+      {!readOnly && cancelShortcutOpen && data?.booking.id === bookingId && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/40 p-4" role="presentation">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+            <h2 id="cancel-booking-title" className="text-lg font-semibold text-earth-900">取消預約</h2>
+            <p className="mt-2 text-sm text-earth-600">確定取消 {data.booking.customer.name} 的預約嗎？</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setCancelShortcutOpen(false)} className="min-h-11 rounded-lg border border-earth-300 px-4 text-sm">返回</button>
+              <button type="button" disabled={isActing} onClick={() => { setCancelShortcutOpen(false); wrapAction("已取消預約", () => cancelBooking(bookingId!), "CANCELLED"); }} className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-medium text-white disabled:opacity-50">確認取消</button>
+            </div>
+          </div>
+        </div>
+      )}
       {!readOnly && (
         <NoShowModal
           open={noShowOpen && !!data && !checkingResult}
@@ -903,6 +929,7 @@ export function BookingDetailDrawer({
                 : "本次服務")
             }
             serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
+            initialMode={initialIntent === "purchase-plan" ? "plan" : "single"}
             wallets={data.checkout?.wallets ?? []}
             storedValue={data.storedValue}
             onCollected={handleSingleCollected}
@@ -973,6 +1000,8 @@ function DrawerContent({
   spaMode = false,
   onParticipantsUpdated,
   onParticipantBusy,
+  openCustomerPlan = false,
+  onCustomerPlanBack,
 }: {
   payload: BookingDrawerPayload;
   registerCloseGuard?: (guard: () => boolean) => void;
@@ -986,8 +1015,11 @@ function DrawerContent({
   spaMode?: boolean;
   onParticipantsUpdated: () => void;
   onParticipantBusy: (busy: boolean) => void;
+  openCustomerPlan?: boolean;
+  onCustomerPlanBack: () => void;
 }) {
   const [showCustomer,setShowCustomer] = useState<string | null>(null);
+  const [customerFocus,setCustomerFocus] = useState<"plan" | undefined>();
   const {
     booking,
     customerSummary,
@@ -997,6 +1029,7 @@ function DrawerContent({
     checkoutToSingle,
     storedValue,
   } = payload;
+  const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(
     booking.bookingStatus,
     spaMode ? false : booking.isCheckedIn,
@@ -1065,8 +1098,8 @@ function DrawerContent({
   );
   return (
     <>
-      {showCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onClose={onClose} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
-      <div hidden={!!showCustomer && !spaMode} className={showCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+      {visibleCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      <div hidden={!!visibleCustomer && !spaMode} className={visibleCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
         <div className="min-w-0 flex-1">

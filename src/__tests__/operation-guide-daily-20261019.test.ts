@@ -38,12 +38,12 @@ describe("2026-10-19 backend guide audit", () => {
     expect(s.previousCompleteAudit.mainCommit).toBe("8d717d5dc45da6fbd4e2984afea48165140281b3");
     expect(s.previousCompleteAudit.newGuideIds).toEqual(["C174", "C175", "C176"]);
     expect(s.previousCompleteAudit.updatedGuideIds).toHaveLength(14);
-    expect(s.cumulativeDraftNewGuideIds).toHaveLength(11);
-    expect(s.cumulativeDraftUpdatedGuideIds).toHaveLength(67);
-    expect(s.backendInteractionPendingCount).toBe(79);
+    expect(s.cumulativeDraftNewGuideIds).toHaveLength(12);
+    expect(s.cumulativeDraftUpdatedGuideIds).toHaveLength(69);
+    expect(s.backendInteractionPendingCount).toBe(82);
     expect(s.frontendInteractionPendingGuideIds).toEqual([]);
     expect(s.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(operationGuides).toHaveLength(195);
+    expect(operationGuides).toHaveLength(196);
     expect(guideCategories).toHaveLength(15);
   });
 });

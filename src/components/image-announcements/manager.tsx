@@ -98,25 +98,26 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <input ref={input} type="file" accept="image/jpeg,image/png" multiple hidden onChange={event => void upload(event.target.files)} />
     {!items.length && <div className="rounded-xl border border-dashed border-earth-300 p-8 text-center text-sm text-earth-500">尚未上傳圖片</div>}
-    <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] items-start gap-3">
+    <div className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-2 2xl:grid-cols-3">
       {items.map((item, position) => <article key={item.id} data-image-id={item.id} className="min-w-0 overflow-hidden rounded-xl border border-earth-200 bg-white" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (canManage && !pending && drag.current) reorder(drag.current, item.id); drag.current = null; }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.url} alt={`公告圖片 ${position + 1}`} className="h-48 w-full bg-earth-50 object-contain" />
-        <div className="space-y-2 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-earth-700">{announcementStatus(item)}</span>{canManage && <button type="button" disabled={pending} className={button} onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "收合" : "編輯"}</button>}</div>
+        <img src={item.url} alt={`公告圖片 ${position + 1}`} className="h-32 w-full bg-earth-50 object-contain" />
+        <div className="space-y-1.5 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-earth-700">{announcementStatus(item)}</span>{canManage && <button type="button" disabled={pending} className={`${button} min-h-9`} onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "收合" : "編輯"}</button>}</div>
           {item.notice && <p className="text-sm text-amber-700">{item.notice}</p>}
           {canManage && <div className="flex gap-1">
             <button type="button" aria-label={`拖曳第 ${position + 1} 張圖片`} draggable={!pending} disabled={pending} className={`${button} touch-none cursor-grab`} onDragStart={() => { drag.current = item.id; }} onPointerDown={event => { if (event.pointerType !== "mouse") { drag.current = item.id; event.currentTarget.setPointerCapture(event.pointerId); } }} onPointerUp={event => { if (event.pointerType !== "mouse") { const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-image-id]")?.getAttribute("data-image-id"); if (target && drag.current) reorder(drag.current, target); drag.current = null; } }}>⠿</button>
             <button type="button" aria-label={`上移第 ${position + 1} 張圖片`} className={button} disabled={pending || !position} onClick={() => reorder(item.id, items[position - 1].id)}>↑</button>
             <button type="button" aria-label={`下移第 ${position + 1} 張圖片`} className={button} disabled={pending || position === items.length - 1} onClick={() => reorder(item.id, items[position + 1].id)}>↓</button>
           </div>}
-          {editing === item.id && <fieldset disabled={pending} className="min-w-0 space-y-3 border-t border-earth-100 pt-3">
-            <button type="button" className={`${button} w-full`} onClick={() => { replacement.current = item.id; input.current?.click(); }}>更換圖片</button>
-            <label className="block text-sm">上架日期 {!item.startsOn && <span className="text-earth-500">（立即）</span>}<input aria-label={`第 ${position + 1} 張上架日期`} type="date" value={item.startsOn} onChange={event => patch(item.id, { startsOn: event.target.value })} className="mt-1 block min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-2" /></label>
-            <label className="block text-sm">下架日期 {!item.endsOn && <span className="text-earth-500">（不限）</span>}<input aria-label={`第 ${position + 1} 張下架日期`} type="date" min={item.startsOn} value={item.endsOn} onChange={event => patch(item.id, { endsOn: event.target.value })} className="mt-1 block min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-2" /></label>
+          {editing === item.id && <fieldset disabled={pending} className="min-w-0 space-y-2 border-t border-earth-100 pt-2">
+            <button type="button" className={`${button} min-h-9 w-full`} onClick={() => { replacement.current = item.id; input.current?.click(); }}>更換圖片</button>
+            <div className="grid min-w-0 grid-cols-2 gap-2">
+              <label className="min-w-0 text-xs">上架日期 {!item.startsOn && <span className="text-earth-500">（立即）</span>}<input aria-label={`第 ${position + 1} 張上架日期`} type="date" value={item.startsOn} onChange={event => patch(item.id, { startsOn: event.target.value })} className="mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-earth-200 px-2 text-sm" /></label>
+              <label className="min-w-0 text-xs">下架日期 {!item.endsOn && <span className="text-earth-500">（不限）</span>}<input aria-label={`第 ${position + 1} 張下架日期`} type="date" min={item.startsOn} value={item.endsOn} onChange={event => patch(item.id, { endsOn: event.target.value })} className="mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-earth-200 px-2 text-sm" /></label>
+            </div>
             {item.startsOn && item.endsOn && item.endsOn < item.startsOn && <p className="text-sm text-red-700">下架日期不可早於上架日期</p>}
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={item.enabled} onChange={event => patch(item.id, { enabled: event.target.checked })} />啟用</label>
-            <button type="button" className={`${button} text-red-700`} onClick={() => { if (confirm("刪除此圖片？儲存後將從本店首頁移除，無法復原。")) { changed(items.filter(row => row.id !== item.id)); setEditing(null); } }}>刪除圖片</button>
+            <div className="flex items-center justify-between gap-2"><label className="flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" checked={item.enabled} onChange={event => patch(item.id, { enabled: event.target.checked })} />啟用</label><button type="button" className={`${button} min-h-9 text-red-700`} onClick={() => { if (confirm("刪除此圖片？儲存後將從本店首頁移除，無法復原。")) { changed(items.filter(row => row.id !== item.id)); setEditing(null); } }}>刪除圖片</button></div>
           </fieldset>}
         </div>
       </article>)}

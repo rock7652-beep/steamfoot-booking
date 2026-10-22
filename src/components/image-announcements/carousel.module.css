@@ -1,3 +1,16 @@
+/* Keep the announcement visually integrated with the member page background. */
+.carousel {
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+.heading {
+  margin: 0 0 4px;
+  color: #61715c;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 /* Isolate controls from module-specific customer portal button defaults. */
 .carousel button.preview {
   grid-area: 1 / 1;
@@ -8,7 +21,7 @@
   pointer-events: none;
   padding: 0;
   border: 0;
-  background: var(--color-earth-50, #faf9f6);
+  background: transparent;
 }
 .slides {
   display: grid;
@@ -20,9 +33,10 @@
 }
 .image {
   display: block;
-  width: 100%;
+  width: 33.333%;
   height: auto;
   max-width: 100%;
+  margin-inline: auto;
 }
 .dots button.dotButton,
 .dots button.dotButton[aria-current] {

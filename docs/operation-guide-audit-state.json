@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-21",
+  "auditDateTaipei": "2026-10-22",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "aa886d666fb3a439a636f854f6c09608d59a41cc",
-  "previousSuccessfulAuditCommit": "8d717d5dc45da6fbd4e2984afea48165140281b3",
+  "lastInventoriedMainCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
+  "previousSuccessfulAuditCommit": "aa886d666fb3a439a636f854f6c09608d59a41cc",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261012",
   "newGuideIds": [
-    "IMG01",
-    "CG01"
+    "A17"
   ],
   "updatedGuideIds": [
-    "I08",
-    "C114",
+    "A05",
+    "IMG01",
+    "C124",
     "C123",
-    "C172",
-    "C173",
-    "C176"
+    "C170",
+    "I19",
+    "I21"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -30,7 +30,8 @@
     "C175",
     "C176",
     "IMG01",
-    "CG01"
+    "CG01",
+    "A17"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -99,7 +100,9 @@
     "C122",
     "E08",
     "I08",
-    "C161"
+    "C161",
+    "C124",
+    "I19"
   ],
   "interactionPendingGuideIds": [
     "I20",
@@ -180,9 +183,12 @@
     "I08",
     "C161",
     "IMG01",
-    "CG01"
+    "CG01",
+    "C124",
+    "I19",
+    "A17"
   ],
-  "articleCount": 195,
+  "articleCount": 196,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -486,7 +492,7 @@
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-21 核對 main 8d717d5d..aa886d66 共8筆提交。main 已新增 IMG01 圖片公告與 CG01 期間消耗統計；更新 I08、C114、C123、C172、C173、C176，校正三種裝置尺寸、新版運動六步順序、指定項目／通用卡、同名教練、單堂名稱及共用／個別計酬。現行195題／15類，79題待隔離登入驗收；前台及SPA維持封存，不改業務規則或自動合併。",
+  "continuation": "2026-10-22 核對 main aa886d66..abfe50b1 共10筆提交。沿用 main 新增 A17 蒸足後台異動通知，更新 A05、IMG01、C124、C123、C170、I19、I21，涵蓋預約名單快捷操作、圖片公告版面、過堂補登、通知預設／提示音、試用開通與設定儲存結果。現行196題／15類，82題待隔離登入驗收；前台及SPA維持封存，指南分支不改業務規則或自動合併。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -518,9 +524,9 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 79,
-  "totalInteractionPendingCount": 79,
-  "reviewedMainCommitCount": 8,
+  "backendInteractionPendingCount": 82,
+  "totalInteractionPendingCount": 82,
+  "reviewedMainCommitCount": 10,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -623,19 +629,19 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "aa886d666fb3a439a636f854f6c09608d59a41cc",
+    "sourceCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
     "isolation": "本版 Preview 尚未完成已登入且確認資料隔離、通知封鎖的後台工作階段驗收",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "前輪77題未完成；本輪2篇新後台文章加入待驗，6篇修訂已在既有待驗清單，去重為79題。來源核對、既有功能PR畫面、測試與HTTP 200均不抵扣。",
+    "note": "前輪79題未完成；本輪新增A17，C124與I19因修訂重新加入待驗，其餘修訂已在既有待驗清單，去重為82題。來源核對、既有功能PR畫面、測試與HTTP 200均不抵扣。",
     "blockers": [
       "本版 Preview 的 Vercel 存取及隔離後台登入待確認",
       "I20 仍需具 store_operation_audit 的隔離 OWNER 身分"
     ],
     "nonBlockingFollowups": [
-      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；IMG01另核對上傳／排序／日期畫面但不儲存，CG01只查既有隔離名單與匯出權限。"
+      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；A17／C170核對鈴鐺與提示音但不改設定，A05／C124只開啟快捷操作不送出，IMG01只核對上傳／排序／日期畫面但不儲存。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"
@@ -986,33 +992,37 @@
     "scope": "Store backend period consumption list, manager filters and authorized CSV export"
   },
   "currentMainAudit": {
-    "range": "8d717d5dc45da6fbd4e2984afea48165140281b3..aa886d666fb3a439a636f854f6c09608d59a41cc",
-    "commitCount": 8,
+    "range": "aa886d666fb3a439a636f854f6c09608d59a41cc..abfe50b1092e9f78a1db76b575b255df5cf3524f",
+    "commitCount": 10,
     "pullRequests": [
-      1365,
-      1367,
-      1366,
-      1369,
-      1372,
-      1373,
-      1371,
-      1375
+      1378,
+      1377,
+      1381,
+      1382,
+      1384,
+      1385,
+      1383,
+      1386
     ],
-    "frontendOnlyOrEditorial": [
-      1365
-    ],
+    "frontendOnlyOrEditorial": [],
     "newGuideIds": [
-      "IMG01",
-      "CG01"
+      "A17"
     ],
     "updatedGuideIds": [
-      "I08",
-      "C114",
+      "A05",
+      "IMG01",
+      "C124",
       "C123",
-      "C172",
-      "C173",
-      "C176"
+      "C170",
+      "I19",
+      "I21"
     ],
     "businessRulesChangedByGuideBranch": false
+  },
+  "steamfootStoreNoticeGuideReview": {
+    "guideId": "A17",
+    "status": "source-reviewed",
+    "authenticatedAcceptance": "pending",
+    "note": "新增蒸足後台異動通知操作說明；合成預覽不視為真實登入驗收。"
   }
 }

@@ -41,6 +41,7 @@ interface Props {
   embedded?: boolean;
   serviceName?: string;
   serviceMinutes?: number | null;
+  initialMode?: "single" | "plan";
   wallets?: Array<{
     id: string;
     planName: string;
@@ -74,6 +75,7 @@ export function CollectSingleModal({
   embedded = false,
   serviceName = "本次服務",
   serviceMinutes,
+  initialMode = "single",
   wallets = [],
   storedValue = null,
   onCollected,
@@ -88,7 +90,8 @@ export function CollectSingleModal({
   const [completeService, setCompleteService] = useState(true);
   const [discountReason, setDiscountReason] = useState("");
   const [note, setNote] = useState("");
-  const [mode, setMode] = useState<"single" | "plan">("single");
+  const [mode, setMode] = useState<"single" | "plan">(initialMode);
+  useEffect(() => { if (open && !spaMode) setMode(initialMode); }, [open, initialMode, spaMode]);
   const [spaSettlement, setSpaSettlement] = useState<
     "PAYMENT" | "PACKAGE" | "STORED_VALUE"
   >("PAYMENT");

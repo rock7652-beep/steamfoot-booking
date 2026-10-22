@@ -464,6 +464,7 @@ export function WelcomeBack({
   memberLinks,
   hasWorkAccess = false,
   compactHome = false,
+  previewAnnouncements = false,
 }: {
   storeSlug: string;
   displayName: string | null;
@@ -480,6 +481,7 @@ export function WelcomeBack({
   };
   hasWorkAccess?: boolean;
   compactHome?: boolean;
+  previewAnnouncements?: boolean;
 }) {
   if (!memberSummary) {
     return (
@@ -544,7 +546,7 @@ export function WelcomeBack({
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
 
-      <StoreImageAnnouncements storeSlug={storeSlug} />
+      <StoreImageAnnouncements storeSlug={storeSlug} preview={previewAnnouncements} />
 
       <section className="rounded-2xl bg-primary-800 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>

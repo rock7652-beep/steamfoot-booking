@@ -10,7 +10,7 @@ const access: GuideAccess = { module: "course", permissions, features };
 
 describe("2026-10-16 backend guide review", () => {
   it("preserves the backend-only catalog counts after SPA retirement", () => {
-    expect(operationGuides).toHaveLength(195);
+    expect(operationGuides).toHaveLength(196);
     expect(guideCategories).toHaveLength(15);
   });
 

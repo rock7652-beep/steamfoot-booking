@@ -1,3 +1,5 @@
+// Notice persistence is covered by course-store-notices and PostgreSQL tests.
+vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({
   getStoreLimitsByStoreId: async () => ({ maxMonthlyBookings: null }),
 }));

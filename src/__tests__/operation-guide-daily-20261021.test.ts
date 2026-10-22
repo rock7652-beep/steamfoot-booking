@@ -22,20 +22,24 @@ const allCourse: GuideAccess = {
 
 describe("2026-10-21 backend guide audit", () => {
   it("records the exact main baseline and backend-only counts", () => {
-    expect(state.lastInventoriedMainCommit).toBe(
+    expect(state.previousSuccessfulAuditCommit).toBe(
       "aa886d666fb3a439a636f854f6c09608d59a41cc",
     );
-    expect(state.newGuideIds).toEqual(["IMG01", "CG01"]);
+    expect(state.lastInventoriedMainCommit).toBe(
+      "abfe50b1092e9f78a1db76b575b255df5cf3524f",
+    );
+    expect(state.newGuideIds).toEqual(["A17"]);
     expect(state.updatedGuideIds).toEqual([
-      "I08",
-      "C114",
+      "A05",
+      "IMG01",
+      "C124",
       "C123",
-      "C172",
-      "C173",
-      "C176",
+      "C170",
+      "I19",
+      "I21",
     ]);
-    expect(state.totalInteractionPendingCount).toBe(79);
-    expect(operationGuides).toHaveLength(195);
+    expect(state.totalInteractionPendingCount).toBe(82);
+    expect(operationGuides).toHaveLength(196);
   });
 
   it("finds the two new backend articles", () => {

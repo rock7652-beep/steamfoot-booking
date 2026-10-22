@@ -1,3 +1,4 @@
+import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { RosterPreviewDiagnosticsProvider } from "@/components/admin/roster-preview-diagnostics";
@@ -31,6 +32,8 @@ import { SubscriptionStatusBanner } from "@/components/subscription-status-banne
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
+import {coursePrisma} from "@/lib/course-db";
+import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -46,7 +49,7 @@ import type { IndustryModuleId } from "@/lib/industry-modules";
 import { PreviewNavigationReporter } from "@/components/device-preview/preview-navigation-reporter";
 import { ErrorState } from "@/components/ui/error-state";
 
-export default async function DashboardLayout({
+async function readDashboardLayout({
   children,
   hqPlatform = false,
 }: {
@@ -55,7 +58,7 @@ export default async function DashboardLayout({
 }) {
   let user: Awaited<ReturnType<typeof getCurrentUser>>;
   try {
-    user = await getCurrentUser();
+    user = await settingsStep("authorization", getCurrentUser);
   } catch (error) {
     if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
     // The old selection may have been disabled/deleted. Expose only recovery,
@@ -84,7 +87,7 @@ export default async function DashboardLayout({
   // a redacted message and cannot reliably identify AppError codes.
   let activeStoreId: string | null;
   try {
-    activeStoreId = await getActiveStoreForRead(user);
+    activeStoreId = await settingsStep("store_scope", () => getActiveStoreForRead(user!));
   } catch (error) {
     if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
     const ownStore = user.storeId ? await prisma.store.findFirst({
@@ -102,7 +105,7 @@ export default async function DashboardLayout({
     </main>;
   }
 
-  const auditScope = await resolveOperationAuditScope(user);
+  const auditScope = await settingsStep("read_audit", () => resolveOperationAuditScope(user!));
   const canViewAudit = Boolean(auditScope);
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
@@ -112,8 +115,8 @@ export default async function DashboardLayout({
   // Source of truth: Store.plan (PricingPlan)
   const [permissions, storeOptions] =
     await Promise.all([
-      getUserPermissions(user.role, user.staffId),
-      getStoreOptions(user),
+      settingsStep("read_permissions", () => getUserPermissions(user!.role, user!.staffId)),
+      settingsStep("read_scope", () => getStoreOptions(user!)),
     ]);
   if (isAdmin && activeStoreId && !storeOptions.some(store => store.id === activeStoreId)) {
     const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
@@ -121,7 +124,7 @@ export default async function DashboardLayout({
   }
   const routeFeature = coreFeatureForDashboardPath((await headers()).get("x-next-pathname") ?? "");
   if (!hqPlatform && activeStoreId && routeFeature) await requireStoreFeature(activeStoreId, routeFeature);
-  const industryModule = !hqPlatform && activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
+  const industryModule = !hqPlatform && activeStoreId ? await settingsStep("module_check", () => getStoreIndustryModule(activeStoreId!)) : "steamfoot";
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
@@ -137,8 +140,8 @@ export default async function DashboardLayout({
     }
   }
   const trialStatus = hqPlatform ? undefined : industryModule === "course"
-    ? await (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined)
-    : await getCachedTrialStatus(activeStoreId ?? undefined);
+    ? await settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
+    : await settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined));
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
@@ -146,13 +149,24 @@ export default async function DashboardLayout({
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
+  // Resolve only the switch alongside the server layout; counts and snapshots stay lazy.
+  const noticeEnabledPromise=(async()=>{
+  if(!hqPlatform && effectiveStoreId && permissions.includes("booking.read")) {
+    try {
+      return industryModule==="course"
+        ? (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false
+        : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
+    } catch { /* The authenticated background summary retries without blocking the dashboard. */ }
+  }
+  return false;
+  })();
   const pricingPlan = isAdmin && (hqPlatform || !activeStoreId)
     ? ("ALLIANCE" as const)
     : effectiveStoreId
-      ? await getCachedStorePlan(effectiveStoreId)
+      ? await settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
       : ("EXPERIENCE" as const);
   const featureStates = effectiveStoreId
-    ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)])))
+    ? Object.fromEntries(await settingsStep("read_features", () => Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)]))))
     // HQ opens a store selector; page and iframe enforce the selected store's grant.
     : {
       [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
@@ -183,7 +197,7 @@ export default async function DashboardLayout({
       });
       storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
-      industryModuleId = await getStoreIndustryModule(effectiveStoreId);
+      industryModuleId = await settingsStep("module_check", () => getStoreIndustryModule(effectiveStoreId));
     } catch {
       // 忽略：店名/營運狀態失敗時使用 UI fallback
     }
@@ -213,15 +227,15 @@ export default async function DashboardLayout({
   }
 
   if (user.role === "OWNER" && user.storeId) {
-    multiStoreEnabled = await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE);
+    multiStoreEnabled = await settingsStep("feature", () => hasStoreFeature(user!.storeId!, FEATURES.MULTI_STORE));
     viewableStores = storeOptions.map((store) => ({
       id: store.id,
       name: store.name,
       isOwnStore: store.id === user.storeId,
     }));
-    storeViewContext = await resolveStoreViewContext(user, {
+    storeViewContext = await settingsStep("read_scope", () => resolveStoreViewContext(user!, {
       viewedStoreId: activeStoreId,
-    });
+    }));
   }
 
   const ownStore = user.storeId
@@ -232,6 +246,7 @@ export default async function DashboardLayout({
     ? viewableStores.find((store) => store.id === storeViewContext?.viewedStoreId)
     : null;
 
+  const noticeInitiallyEnabled=await noticeEnabledPromise;
   const operationScope = JSON.stringify([user.id, user.role, user.staffId, activeStoreId,
     storeViewContext?.viewedStoreId, industryModule, canViewAudit, auditScope?.hq, [...permissions].sort()]);
   return (
@@ -241,6 +256,7 @@ export default async function DashboardLayout({
     <DashboardShell
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
+      noticeInitiallyEnabled={noticeInitiallyEnabled}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}
@@ -298,7 +314,7 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
+      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await settingsStep("read_labels", loadCustomerLabels) : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
       <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
     </OperationAuditAccessProvider>
@@ -309,6 +325,10 @@ export default async function DashboardLayout({
 
 async function CourseSetupProgress({storeId,userId}:{storeId:string;userId:string}) {
   let setup:Awaited<ReturnType<typeof getCourseSetup>>|null=null;
-  try { setup=await getCourseSetup(storeId,userId); } catch { /* Daily operations remain accessible if progress cannot load. */ }
-  return setup ? <CourseSetupGuide storeId={storeId} key={storeId} {...setup}/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
+  try { setup=await settingsStep("read_setup", () => getCourseSetup(storeId,userId)); } catch { /* Daily operations remain accessible if progress cannot load. */ }
+  return setup ? <CourseSetupGuide storeId={storeId} key={storeId} {...setup} localSections/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
+}
+
+export default function DashboardLayout(props: Parameters<typeof readDashboardLayout>[0]) {
+  return traceSettingsRead("layout", () => readDashboardLayout(props));
 }

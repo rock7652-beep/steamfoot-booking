@@ -1,3 +1,5 @@
+// Notice persistence is covered by course-store-notices and PostgreSQL tests.
+vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "../../generated/course-client";
 
