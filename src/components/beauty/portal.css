@@ -7,3 +7,10 @@
 .beauty-portal .cp-nav button{min-width:0}
 
 .beauty-portal .beauty-booking-card h2{margin:0;line-height:1.5}
+.beauty-portal .cp-next{justify-content:space-between}
+.beauty-portal .cp-next > .cp-actions{flex:0 0 auto;margin-left:auto;align-items:flex-end;flex-direction:column}
+.beauty-portal .cp-next > .cp-actions button{min-width:104px}
+.beauty-portal .cp-profile > summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;min-height:52px;list-style:none;cursor:pointer;font-size:15px;font-weight:500}
+.beauty-portal .cp-profile > summary::-webkit-details-marker{display:none}
+.beauty-portal .beauty-store-chevron{transition:transform .15s}
+.beauty-portal .cp-profile[open] .beauty-store-chevron{transform:rotate(180deg)}

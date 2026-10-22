@@ -389,7 +389,8 @@ export async function changeBeautyStatus(
         mode === "manager"
           ? await beautyManager("booking.update", true)
           : await bookingActor(mode),
-      d = changeInput.parse(input);
+      raw = z.object({target:z.string()}).passthrough().parse(input),
+      d = changeInput.parse(mode==="member"&&raw.target==="CANCELLED"?{...raw,reason:"顧客自行取消"}:input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, () => transition(tx, a, d)),
     );
