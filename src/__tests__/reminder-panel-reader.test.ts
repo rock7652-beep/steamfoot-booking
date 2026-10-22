@@ -44,12 +44,13 @@ describe.each(["steamfoot", "course"] as const)("%s independent reminder reader"
  it("keeps controls responsive and ignores an older response after a later tab wins", async () => {
   const pending: {url: string; finish: (r: Response) => void}[] = [];
   m.fetch.mockImplementation(url => new Promise<Response>(finish => pending.push({ url, finish })));
-  await render(); await click("customer"); expect(host.querySelector('[data-panel-navigation-status]')).not.toBeNull();
+  await render(); await click("customer"); await render("late-hydration"); expect(host.querySelector('[data-panel-navigation-status]')).not.toBeNull();
   await click("分類"); expect(host.textContent).toContain("收合"); await click("logs"); expect(pending).toHaveLength(2);
   await act(async () => pending[1].finish(response(pending[1].url)));
   expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
   await act(async () => pending[0].finish(response(pending[0].url)));
   expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
+  await render("late-server-refresh"); expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
  });
  it("blocks discarding drafts before reading and preserves the prior URL on failure", async () => {
   await render(); await click("修改"); await click("logs"); expect(m.fetch).not.toHaveBeenCalled(); expect(host.textContent).toContain("尚有未儲存");

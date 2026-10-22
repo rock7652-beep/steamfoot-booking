@@ -9,15 +9,24 @@ import { CourseReminderView } from "../courses/reminders/course-reminder-view";
 
 /** Same scope as OperationScope, no persisted or completed-response caching. */
 export function ReminderPanelReader({ initial }: { initial: ReminderPanelData }) {
-  return <ReminderPanelSession key={initial.readId} initial={initial} />;
+  return <ReminderPanelSession key={`${initial.module}:${initial.storeId}:${initial.actorId}`} initial={initial} />;
 }
 function ReminderPanelSession({ initial }: { initial: ReminderPanelData }) {
   const [data, setData] = useState(initial);
+  const [serverSnapshot, setServerSnapshot] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retryHref, setRetryHref] = useState("");
   const latest = useRef(0);
   const register = useContext(SettingsPanelContext)?.registerReader;
+  if (serverSnapshot !== initial) {
+    setServerSnapshot(initial);
+    // A late hydration/refresh of the old tab must not erase an in-flight read
+    // or a newer local tab. Same-tab action refreshes still update server props.
+    const current = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("panelQuery");
+    const key = (params: Record<string, string | undefined>) => JSON.stringify(Object.entries(params).filter(([,v]) => v !== undefined).sort(([a],[b]) => a.localeCompare(b)));
+    if (!register || (!loading && current !== null && key(Object.fromEntries(new URLSearchParams(current))) === key(initial.params))) setData(initial);
+  }
   const fetchData = useCallback(async (query: string) => {
     const params = new URLSearchParams({ module: initial.module, expectedStoreId: initial.storeId, expectedActorId: initial.actorId, query });
     const response = await fetch(`/api/settings/reminder-panel?${params}`, {

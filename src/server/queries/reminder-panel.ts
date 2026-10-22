@@ -1,5 +1,4 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -82,7 +81,7 @@ const contentRequest = (async () => {
 return { kind: "customer" as const, state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled };
 })();
 const [health, settings, content] = await Promise.all([healthRequest, pendingSettings, contentRequest]);
-return { module: "steamfoot" as const, readId: randomUUID(), actorId, storeId, params, plan, activeTab, customerSection, workOrdersEnabled, previewBlocked, health, quotaEmail: settings[1], content };
+return { module: "steamfoot" as const, actorId, storeId, params, plan, activeTab, customerSection, workOrdersEnabled, previewBlocked, health, quotaEmail: settings[1], content };
 } finally { timing.finish(); }
 }
 export type SteamReminderData = Awaited<ReturnType<typeof readSteamReminderPanel>>;
@@ -120,7 +119,7 @@ return {kind: "coach" as const, initial: Object.fromEntries(COACH_NOTICE_KINDS.m
 return {kind: "customer" as const, setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled};
  }
  const [lineHealth, content, quotaEmail] = await Promise.all([lineHealthRequest, readContent(), active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null)]);
- return { module: "course" as const, readId: randomUUID(), actorId, storeId, params, active, music, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
+ return { module: "course" as const, actorId, storeId, params, active, music, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
  } finally { timing.finish(); }
 }
 export type CourseReminderData = Awaited<ReturnType<typeof readCourseReminderPanel>>;
