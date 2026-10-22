@@ -184,7 +184,6 @@ export default async function StaffPage({
                 rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(p=>industryModule!=='beauty'||BEAUTY_PERMISSIONS.includes(p))])),
                 permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: industryModule === "beauty" ? g.label.replaceAll("教師", "技師") : g.label, codes: g.codes.filter(code => industryModule==='beauty'?BEAUTY_PERMISSIONS.includes(code):!code.startsWith("teacher.")).map(code => ({ code, label: industryModule === "beauty" ? PERMISSION_LABELS[code].replaceAll("教師", "技師") : PERMISSION_LABELS[code] })) })).filter(g => g.codes.length),
               }}
-              beauty={industryModule==='beauty'}
               accountListOnly={!isSpaStore}
               showSteamfootRent={industryModule === "steamfoot"}
               people={people}

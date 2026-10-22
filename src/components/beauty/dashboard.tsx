@@ -6,6 +6,8 @@ import ReportDateRange from "@/components/report-date-range";
 import {courseAnalysisRange} from "@/lib/course-analytics";
 import {CustomerPanelTabs} from "@/components/admin/customer-panel-tabs";
 import {DataTable} from '@/components/desktop';
+import {CourseRosterList,type CourseRosterDisplayRow} from '@/app/(dashboard)/dashboard/courses/roster-list';
+import {SportsRosterReminders} from '@/app/(dashboard)/dashboard/courses/sports-roster-reminders';
 import {CourseCustomerList} from '@/app/(dashboard)/dashboard/courses/customer-list';
 import {RosterToolbar,RosterMoreMenu} from '@/components/admin/roster-primitives';
 import {SettingsWorkspaceFrame,SettingsWorkspaceNav} from '@/components/settings';
@@ -165,164 +167,32 @@ export function BeautyDashboard({
       {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={setSelectedId} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending||calendarPending} onChange={changeCalendar} readOnly={readOnly} actions={<button className={button} disabled={calendarPending} onClick={()=>setListOpen(true)}>預約清單</button>}/>{calendarPending&&<p role="status" className="text-sm text-earth-500">更新班表中…</p>}</>}
       {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setSelectedId(null);setChecked([]);}}}>
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>setSelectedId(null)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>{setListOpen(false);setSelectedId(null);setChecked([]);}}>關閉</button></header>
-      {!selectedId&&<section className="min-h-0 space-y-2 overflow-auto p-4" aria-label="預約清單"><input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/><RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar><DataTable rows={appointments} rowKey={b=>b.id} columns={[
- {key:'select',header:'選取',accessor:b=><input type="checkbox" aria-label={`選取${b.personName}`} disabled={readOnly||!data.manage.collect||!!b.cardId||b.status==='CANCELLED'} checked={checked.includes(b.id)} onChange={e=>setChecked(v=>e.target.checked?[...v,b.id]:v.filter(id=>id!==b.id))}/>},
- {key:'time',header:'預約時間',accessor:b=>formatTWDateTime(new Date(b.startsAt))},{key:'name',header:'顧客／服務',accessor:b=><button className="min-h-11 text-primary-800" onClick={()=>setSelectedId(b.id)}>{b.personName}｜{b.serviceName}</button>},{key:'tech',header:'技師／位置',accessor:b=>`${data.techs.find(t=>t.id===b.technicianId)?.name??'店家安排'}／${data.locations.find(l=>l.id===b.locationId)?.name??'—'}`},
- {key:'status',header:'狀態',accessor:b=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'}[b.status]??b.status)},
- {key:'actions',header:'操作',sticky:'right',accessor:b=><RosterMoreMenu name={b.personName} onOpen={()=>setSelectedId(b.id)}/>}
- ]}/></section>}
-      {selectedId&&<fieldset disabled={pending} className="min-h-0 overflow-y-auto p-4">{data.items.filter(b=>b.id===selectedId).map(b=>(
-            <article
-              key={b.id}
-              className="space-y-2 rounded-xl border border-earth-200 bg-white p-3"
-            >
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="checkbox"
-                  disabled={
-                    readOnly || !data.manage.collect ||
-                    !!b.cardId ||
-                    b.status === "CANCELLED"
-                  }
-                  aria-label={`選取${b.personName}`}
-                  checked={checked.includes(b.id)}
-                  onChange={(e) =>
-                    setChecked((c) =>
-                      e.target.checked
-                        ? [...c, b.id]
-                        : c.filter((id) => id !== b.id),
-                    )
-                  }
-                />
-                <strong>
-                  {formatTWDateTime(new Date(b.startsAt))}　{b.personName}｜
-                  {b.serviceName}
-                </strong>
-                <span>
-                  {
-                    (
-                      {
-                        RESERVED: "已預約",
-                        COMPLETED: "已完成",
-                        CANCELLED: "已取消",
-                        NO_SHOW: "未到",
-                      } as Record<string, string>
-                    )[b.status]
-                  }
-                </span>
-              </div>
-              <p>
-                {data.techs.find((t) => t.id === b.technicianId)?.name ??
-                  "技師"}
-                ｜
-                {data.locations.find((l) => l.id === b.locationId)?.name ??
-                  "位置"}
-                ｜結束 {formatTWDateTime(new Date(b.endsAt))}｜
-                {b.cardId ? "使用方案1次" : `NT$${b.price}`}
-              </p>
-              <details>
-                <summary className="min-h-11 cursor-pointer py-2">
-                  同行與備註
-                </summary>
-                <p>
-                  同組：
-                  {data.items
-                    .filter((x) => x.groupId === b.groupId)
-                    .map((x) => x.personName)
-                    .join("、")}
-                </p>
-                <p>
-                  {b.personPhone}　{b.notes || "無本次備註"}
-                </p>
-              </details>
-              {!readOnly && (
-                <div className="flex flex-wrap gap-2">
-                  {data.manage.update && b.status === "RESERVED" && (
-                    <>
-                      <button
-                        disabled={pending}
-                        className={button}
-                        onClick={() => status(b.id, b.revision, "COMPLETED")}
-                      >
-                        服務完成
-                      </button>
-                      <button
-                        disabled={pending}
-                        className={button}
-                        onClick={() => status(b.id, b.revision, "NO_SHOW")}
-                      >
-                        未到
-                      </button>
-                      <button
-                        className={button}
-                        onClick={() =>
-                          setMoneyPanel({ kind: "move", ids: [b.id] })
-                        }
-                      >
-                        改期／換技師位置
-                      </button>
-                    </>
-                  )}
-                  <button
-                    disabled={pending || !data.manage.update}
-                    className={button}
-                    onClick={() =>
-                      status(
-                        b.id,
-                        b.revision,
-                        b.status === "CANCELLED" ? "RESERVED" : "CANCELLED",
-                      )
-                    }
-                  >
-                    {b.status === "CANCELLED" ? "恢復預約" : "取消"}
-                  </button>
-                  {b.status !== "RESERVED" && b.status !== "CANCELLED" && (
-                    <button
-                      className={button}
-                      disabled={pending}
-                      onClick={() => status(b.id, b.revision, "RESERVED")}
-                    >
-                      更正回預約
-                    </button>
-                  )}
-                  {!b.customerId &&
-                    data.manage.update &&
-                    data.access.customerAccess && (
-                      <button
-                        className={button}
-                        onClick={() =>
-                          setMoneyPanel({ kind: "link", ids: [b.id] })
-                        }
-                      >
-                        核對並連結顧客
-                      </button>
-                    )}
-                  {data.manage.collect && !b.cardId && (
-                    <button
-                      className={button}
-                      onClick={() =>
-                        setMoneyPanel({ kind: "collect", ids: [b.id] })
-                      }
-                    >
-                      收款
-                    </button>
-                  )}
-                  <button
-                    disabled={!data.manage.card}
-                    className={button}
-                    onClick={() =>
-                      setMoneyPanel({
-                        kind: "card",
-                        ids: b.customerId ? [b.customerId] : [],
-                      })
-                    }
-                  >
-                    購買方案
-                  </button>
-                </div>
-              )}
-            </article>
-      ))}</fieldset>}</RightSheet>}
+      <section className="flex min-h-0 flex-col gap-2 p-4" aria-label="預約清單">
+        {!selectedId&&<input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/>}
+        <RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} disabled={pending} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar>
+        <CourseRosterList labels={{identity:'顧客／電話',owner:'技師／位置',cost:'本次使用',balance:'可用次數',balanceDescription:'方案剩餘次數扣除已預約保留次數',scroll:'預約名單捲動區'}} empty="目前沒有符合的預約" rows={(selectedId?data.items.filter(b=>{const selected=data.items.find(item=>item.id===selectedId);return b.id===selectedId||!!selected?.groupId&&b.groupId===selected.groupId;}):appointments).map((b):CourseRosterDisplayRow=>{
+          const card=data.access.planAccess&&b.cardId?data.cards.find(c=>c.id===b.cardId):undefined;
+          const available=card?Math.max(0,card.remaining-card.held):null;
+          const openCustomer=()=>{if(b.customerId&&data.access.customerAccess)setDetailId(b.customerId);};
+          const actions:{label:string;onSelect:()=>void;danger?:boolean}[]=[];
+          if(!readOnly){
+            if(data.manage.update){
+              if(b.status==='RESERVED')actions.push({label:'服務完成',onSelect:()=>status(b.id,b.revision,'COMPLETED')},{label:'未到',onSelect:()=>status(b.id,b.revision,'NO_SHOW')},{label:'改期／換技師位置',onSelect:()=>setMoneyPanel({kind:'move',ids:[b.id]})});
+              actions.push({label:b.status==='CANCELLED'?'恢復預約':'取消預約',onSelect:()=>status(b.id,b.revision,b.status==='CANCELLED'?'RESERVED':'CANCELLED'),danger:b.status!=='CANCELLED'});
+              if(b.status==='COMPLETED'||b.status==='NO_SHOW')actions.push({label:'更正回預約',onSelect:()=>status(b.id,b.revision,'RESERVED')});
+              if(!b.customerId&&data.access.customerAccess)actions.push({label:'核對並連結顧客',onSelect:()=>setMoneyPanel({kind:'link',ids:[b.id]})});
+            }
+            if(data.manage.collect&&!b.cardId&&b.status!=='CANCELLED')actions.push({label:'收款',onSelect:()=>setMoneyPanel({kind:'collect',ids:[b.id]})});
+            if(data.manage.card)actions.push({label:'購買方案',onSelect:()=>setMoneyPanel({kind:'card',ids:b.customerId?[b.customerId]:[]})});
+          }
+          return {id:b.id,name:b.personName,phone:b.personPhone,owner:[data.techs.find(t=>t.id===b.technicianId)?.name??'店家安排',data.locations.find(l=>l.id===b.locationId)?.name??'—'].join('／'),status:({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'} as Record<string,string>)[b.status]??b.status,mark:b.status==='COMPLETED'?'attended':b.status==='CANCELLED'?'cancelled':b.status==='NO_SHOW'?'leave':'pending',statusTitle:b.status==='RESERVED'?'標記服務完成':'目前服務狀態',statusDisabled:pending||readOnly||!data.manage.update||b.status!=='RESERVED',onStatus:()=>status(b.id,b.revision,'COMPLETED'),onOpen:()=>setSelectedId(b.id),
+            ...(data.manage.collect&&!readOnly?{selected:checked.includes(b.id),selectionDisabled:pending||!!b.cardId||b.status==='CANCELLED',onSelect:(selected:boolean)=>setChecked(old=>selected?[...old,b.id]:old.filter(id=>id!==b.id))}:{}),
+            feedback:<p className="text-xs text-earth-600">{b.serviceName} · {formatTWDateTime(new Date(b.startsAt))}–{formatTWDateTime(new Date(b.endsAt)).split(' ').at(-1)}</p>,cost:!data.access.planAccess?'—':b.cardId?'1次':`NT$${b.price.toLocaleString()}`,balance:available??'—',balanceWarning:available!==null&&available===0,
+            reminders:<SportsRosterReminders customerId={data.access.customerAccess?b.customerId??undefined:undefined} name={b.personName} notes={b.notes} serviceNote={data.customers.find(c=>c.id===b.customerId)?.notes} canEdit={!readOnly&&data.manage.customerEdit} />,
+            actions:<RosterMoreMenu name={b.personName} disabled={pending} openLabel={b.customerId&&data.access.customerAccess?'顧客資料':'預約明細'} onOpen={b.customerId&&data.access.customerAccess?openCustomer:()=>setSelectedId(b.id)} actions={actions}/>
+          };
+        })}/>
+      </section></RightSheet>}
       {tab==='顧客管理'&&<section className="space-y-3"><RosterToolbar label="顧客管理操作"><span className="text-sm text-earth-500">共 {data.customers.length} 人</span>{!readOnly&&data.manage.customer&&<button className={button+' ml-auto !bg-primary-700 !text-white'} onClick={()=>setCustomerPanel(true)}>＋新增顧客</button>}</RosterToolbar><CourseCustomerList rows={data.customers.map(c=>({...c,mergedIntoCustomerId:null,userStatus:c.user?.status??null,serviceNote:c.notes,validPackageSessions:0,sponsoredCount:c._count.sponsoredCustomers}))} cards={[]} sportsNative basePath="/dashboard/beauty?tab=顧客管理" sessionUnitLabel="次" sessionBalances={data.cards.filter(k=>!k.closedAt&&Date.parse(k.expiresAt)>data.now).flatMap(k=>k.memberIds.map(customerId=>({customerId,available:Math.max(0,k.remaining-k.held)})))} canReadCards={data.access.planAccess} onView={setDetailId} onCreate={!readOnly&&data.manage.customer?()=>setCustomerPanel(true):undefined} onAssign={!readOnly&&data.manage.card?id=>setMoneyPanel({kind:'card',ids:[id]}):undefined}/></section>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}

@@ -1,5 +1,4 @@
 "use client";
-import {BeautyStaffList} from '@/components/beauty/staff-list';
 import { createPortal } from "react-dom";
 
 import styles from "@/components/admin/management-layout.module.css";
@@ -95,7 +94,6 @@ export function StaffWorkspace({
   storeId,
   accountPolicy = emptyStaffAccountPolicy,
   accountListOnly = false,
-  beauty = false,
   showSteamfootRent = false,
   people: initialPeople,
   today,
@@ -111,7 +109,6 @@ export function StaffWorkspace({
   canManage: boolean;
   canAssignRoles?: boolean;
   accountListOnly?: boolean;
-  beauty?:boolean;
   showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
@@ -238,7 +235,7 @@ export function StaffWorkspace({
         </div>
       </section>}
 
-      {beauty ? <BeautyStaffList people={people} canManage={canManage} onOpen={id=>setEditor({type:'details',personId:id})} onCreate={()=>setEditor({type:'create'})}/> : accountListOnly ? (
+      {accountListOnly ? (
         <section
           className="space-y-2 [&_button]:min-h-11"
           aria-label="人員清單"
