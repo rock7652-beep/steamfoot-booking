@@ -63,6 +63,7 @@ it.each([
  [{code:"P2024"},"P2024"],
  [{message:"Connection timed out"},"TIMEOUT"],
  [{code:"P2010",message:"Connection timeout"},"P2010:TIMEOUT"],
+ [{code:"P1008",message:"Operations timed out"},"P1008:TIMEOUT"],
 ])("fails closed after two timeouts and never creates a third client %#",async(error,category)=>{
  const client={$connect:vi.fn().mockResolvedValue(undefined),$queryRawUnsafe:vi.fn().mockRejectedValue(error),$disconnect:vi.fn().mockResolvedValue(undefined)};
  const create=vi.fn().mockReturnValue(client);
@@ -84,6 +85,7 @@ it.each(["P1000","P2010","P2028"])("does not retry non-transient failure %s",asy
 it.each([
  {message:"Timed out during connection authentication"},
  {message:"Engine is not yet connected."}, {message:"Response from the Engine was empty"},
+ {code:"P1008",message:"Operations timed out"},
  {code:"P1001",message:"Connection timed out"}, {errorCode:"P1002"}, {code:"P1017",message:"Connection closed"},
  {code:"P2010",message:"Connection timeout"},
  {code:"P2010",meta:{code:"08006"}},

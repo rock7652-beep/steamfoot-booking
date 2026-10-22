@@ -150,7 +150,7 @@ export function musicOpeningConnectionFailure(error, connectionKind) {
 function isTransientMusicOpeningConnectionFailure(error) {
   const category = musicOpeningConnectionCategory(error);
   return ["P1001", "P1002", "P1017", "P2024"].includes(category.split(":")[0]) ||
-    ["TIMEOUT", "ENGINE_NOT_CONNECTED", "ENGINE_EMPTY_RESPONSE", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
+    ["TIMEOUT", "P1008:TIMEOUT", "ENGINE_NOT_CONNECTED", "ENGINE_EMPTY_RESPONSE", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
 }
 
 /** One read-only statement does not need interactive transaction setup/commit.
@@ -163,7 +163,7 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
   url.searchParams.set("connection_limit", "1");
   url.searchParams.set("connect_timeout", "30");
   url.searchParams.set("pool_timeout", "15");
-  url.searchParams.set("socket_timeout", "15");
+  url.searchParams.set("socket_timeout", "30");
   const pooled = url.hostname.endsWith(".pooler.supabase.com");
   if (pooled) url.searchParams.set("pgbouncer", "true");
   for (let attempt = 0; attempt < 2; attempt++) {
