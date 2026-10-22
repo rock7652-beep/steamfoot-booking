@@ -4,7 +4,7 @@
   "state": "READY",
   "target": "preview",
   "commit": "8308ef160fddcf13e6d231a8244ee9dabc722369",
-  "hostedCreateAcceptance": "awaiting approval for access to this new deployment",
+  "hostedCreateAcceptance": "passed; see staff-fix-hosted-results.json",
   "unitRegression": {
     "files": 9,
     "tests": 86,

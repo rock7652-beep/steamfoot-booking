@@ -6,4 +6,6 @@ Pool timeout: 10 seconds; connection_limit: 1.
 Creation held the transaction connection while the quota helper queried global Prisma.
 Preview SQL check after failure: no User/Staff created for the submitted QA email.
 Fix: pass transaction client through checkStaffLimitOrThrow; no permission/quota bypass.
-Fixed deployment is separate; its hosted recheck remains pending access approval.
+Historical failure above remains attributed to fe44babb.
+Following separate user approval, 8308ef16 hosted creation/reopen, same-request retry, and QA retirement passed.
+See staff-fix-hosted-results.json; no SQL-provisioned account was used for the fixed UI creation test.

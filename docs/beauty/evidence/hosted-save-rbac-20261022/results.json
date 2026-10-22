@@ -192,7 +192,7 @@
         "tests": 86,
         "passed": true
       },
-      "fixHostedAcceptance": "pending access approval for updated deployment"
+      "fixHostedAcceptance": "passed on 8308ef16; see staff-fix-hosted-results.json (historical fe44babb failure retained)"
     }
   ],
   "lineEnabled": false,

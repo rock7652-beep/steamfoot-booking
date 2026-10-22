@@ -41,10 +41,14 @@
 - 修正：`8308ef16`，`src/lib/usage-gate.ts`、`src/server/actions/staff.ts`。
 - 相關回歸：9 檔／86 項通過；TypeScript、ESLint、diff check 通過。
 - 隔離修正版：`dpl_AjRh1HgRM2vs6khQPDtj6i7V8Yz6`；[Preview](https://steamfoot-booking-9cubr07y8-rock7652-2111s-projects.vercel.app)。
-- **此修正的 hosted 新增重驗尚待該版本的存取授權；不能把 fe44babb 的通過案例搬到新版本。** 既有授權連結只綁原版本，沒有替換其主機或建立另一個未獲同意的分享連結。
+- 使用者另行明確同意後，為此修正版取得專屬存取驗證連結；未挪用舊版本連結，未停用部署保護。
+- **8308ef16 hosted 補驗三項皆通過**：店長經真實登入新增人員，整頁重載後重開資料正確；同一 requestKey 重送回傳相同 Staff ID；完成後透過既有介面停用。沒有以 SQL 建立此帳號或替代新增流程。
+- 唯讀 DB 核對只有一個 User、一個 Staff、一筆 CREATE 稽核、一筆新增儲存收據；總計兩筆儲存收據，另一筆是停用更新。最終 Staff INACTIVE／User SUSPENDED。測前該 Email 與手機均無帳號。
+- 收退款仍 10 筆、15,500 元，預約仍 15 筆，與既有基準相同。修正版當次最近 15 分鐘 error／warning 篩選沒有紀錄；此補驗沒有 pageerror。
+- 新版僅補驗新增修正，原 35 步仍屬 fe44babb，不冒稱新版全量回歸；本輪沒有修改應用程式或重新部署。
 
 ## 下一步
 
-於修正版完成「新增一次 → 重開 → 同 requestKey 重試不重複建立 → 停用測試帳號」；通過後這批可交店家操作驗收，再繼續剩餘管理內頁共用。正式啟用、LINE、實體裝置與店家簽收維持各自待辦。
+本批新增修正與儲存／權限驗收已完成，可交店家操作驗收；下一批繼續盤點並接回尚未完成的管理共用頁面，優先核對顧客經營、分析與設定。正式啟用、LINE、實體裝置與店家簽收維持各自待辦。
 
 [分級證據與截圖](evidence/hosted-save-rbac-20261022/README.md)

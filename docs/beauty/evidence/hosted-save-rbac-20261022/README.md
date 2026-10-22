@@ -5,4 +5,4 @@
 - 截圖：實際受保護 Preview 經應用程式登入後取得，不是 fixture。瀏覽器尺寸模擬，不是實體裝置簽收。
 - 只保存公開可審閱的結果；沒有存取分享 token、cookie、帳密、原始 request body 或 session state。
 - 停用後原 session 的讀取實際回應 307；初版驗收 helper 預期 Flight false 而誤列為失敗，已依實際回應及資料庫停用狀態列為拒絕，沒有把 200 空回應算通過。
-- staff 新增的修正已隔離建置，hosted 重驗需對新版建立經同意的驗證連結；舊 link 不挪用。
+- `staff-fix-hosted-results.json`、`staff-fix-create-reopened.png`：使用者另行同意 8308ef16 存取後，真實新增／重開、相同請求重試及停用皆通過；舊 link 未挪用。資料庫只有一個新帳號、一筆新增收據；另有一筆停用更新收據。原版本失敗紀錄保留。
