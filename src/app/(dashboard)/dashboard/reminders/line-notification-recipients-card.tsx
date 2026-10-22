@@ -28,6 +28,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
   const [pending, start] = useTransition();
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
+  const [group, setGroup] = useState("預約通知");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
   const options = managerNotificationOptions(course);
   function save(action: () => Promise<{ success: boolean; error?: string }>) {
@@ -105,26 +106,20 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
       </button>
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
-          className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
+          className={`space-y-3 ${!item.isActive ? "opacity-50" : ""}`}
         >
-          {["預約通知", "顧客需求", "店務提醒"].map((group) => (
-            <section key={group}>
-              <h4 className="mb-3 text-sm font-semibold text-earth-800">
-                {group}
-              </h4>
-              <div className="space-y-4">
+          <label className="flex flex-wrap items-center gap-3 text-sm"><span>通知分類</span><select aria-label={`${item.displayName} 通知分類`} value={group} onChange={event => setGroup(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2">{["預約通知", "顧客需求", "店務提醒"].map(value => <option key={value}>{value}</option>)}</select></label>
+            <section aria-label={group}>
+              <div className="grid gap-x-6 gap-y-2 md:grid-cols-2">
                 {options.filter(
                   (o) => o.group === group,
                 ).map((o) => (
                   <label
                     key={o.key}
-                    className="flex items-start justify-between gap-3"
+                    className="flex min-h-11 items-center justify-between gap-3"
                   >
                     <span>
                       <span className="text-sm text-earth-900">{o.label}</span>
-                      <span className="mt-1 block text-xs leading-relaxed text-earth-500">
-                        {o.description}
-                      </span>
                     </span>
                     <input
                       aria-label={`${item.displayName} ${o.label}`}
@@ -143,8 +138,8 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                   </label>
                 ))}
               </div>
+              <details className="mt-3 text-sm"><summary className="min-h-11 cursor-pointer py-2.5 text-primary-700">查看提醒說明</summary><dl className="space-y-2 text-earth-600">{options.filter(option => option.group === group).map(option => <div key={option.key}><dt className="font-medium">{option.label}</dt><dd>{option.description}</dd></div>)}</dl></details>
             </section>
-          ))}
         </div>
       </div>}
     </article>

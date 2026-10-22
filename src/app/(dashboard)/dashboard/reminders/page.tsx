@@ -1,3 +1,4 @@
+import { ReminderSectionPicker } from "./reminder-section-picker";
 import { getLineQuotaNotificationSetting } from "@/server/actions/line-quota-notifications";
 import { LineQuotaEmailSetting } from "./line-quota-email-setting";
 import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
@@ -65,7 +66,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {null}
       </FeatureGate>
     );
-  const [workOrderEnabled, quotaEmail] = await Promise.all([getWorkOrderNotificationEnabled(), getLineQuotaNotificationSetting()]);
   const activeTab =
     params.tab === "logs"
       ? "logs"
@@ -74,8 +74,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           params.tab === "templates"
         ? "customer"
         : "manager";
+  const [workOrderEnabled, quotaEmail] = await Promise.all([
+    getWorkOrderNotificationEnabled(),
+    activeTab === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
+  ]);
   const customerSection =
-    params.section === "trial-care"
+    params.section === "work-orders"
+      ? "work-orders"
+      : params.section === "trial-care"
       ? "trial-care"
       : params.section === "plan-reminders"
         ? "plan-reminders"
@@ -110,32 +116,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
         prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, shopConfig: { select: { lineOfficialUrl: true } } } }),
       ]);
-    const customerSections = [
-      { key: "booking-reminders", label: "預約前提醒" },
-      { key: "trial-care", label: "體驗後關懷" },
-      { key: "plan-reminders", label: "方案使用提醒" },
-    ] as const;
-
     content = (
-      <section key={`${storeId}-customer-${customerSection}`} className="space-y-5">
-        <nav aria-label="顧客提醒分類" className="inline-flex max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-earth-50 p-1">
-          {customerSections.map((item) => (
-            <Link
-              key={item.key}
-              href={`/dashboard/reminders?tab=customer&section=${item.key}`}
-              aria-current={customerSection === item.key ? "page" : undefined}
-              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-1 ${
-                customerSection === item.key
-                  ? "bg-white text-primary-800 shadow-sm"
-                  : "text-earth-600 hover:bg-white/70 hover:text-primary-700"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+      <ReminderSectionPicker key={storeId} initial={customerSection} sections={[
+        { key: "booking-reminders", label: "預約前提醒", content: (
 
-        {customerSection === "booking-reminders" ? (
           <section aria-labelledby="booking-reminders-title" className="space-y-3">
             <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
             <CronRunBanner data={cron} />
@@ -144,16 +128,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               <TrialLineCardReminderSettingCard key={`${storeId}-trial`} initialBody={trial.body} initialMapUrl={trial.mapUrl} initialEnabled={state.trialBookingEnabled} />
             </div>
           </section>
-        ) : null}
-
-        {customerSection === "trial-care" ? (
+        ) },
+        { key: "trial-care", label: "體驗後關懷", content: (
           <section aria-labelledby="trial-care-title" className="space-y-3">
             <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
             <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
           </section>
-        ) : null}
-
-        {customerSection === "plan-reminders" ? (
+        ) },
+        { key: "plan-reminders", label: "方案使用提醒", content: (
           <section aria-labelledby="plan-reminders-title" className="space-y-3">
             <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
             <div className="grid items-start gap-3 lg:grid-cols-3">
@@ -161,15 +143,16 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               <PlanExpiryReminderSettingCard key={`${storeId}-expiry`} initialEnabled={expiry} />
             </div>
           </section>
-        ) : null}
-      </section>
+        ) },
+        { key: "work-orders", label: "工單取件提醒", content: <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} /> },
+      ]} />
     );
   }
   const tabIntro =
     activeTab === "manager"
       ? {
-          title: "店長 LINE 通知",
-          description: "管理本店通知人員與各自接收的提醒。",
+          title: "店長通知",
+          description: "設定通知人員與接收項目。",
         }
       : activeTab === "logs"
         ? {
@@ -227,7 +210,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               查看發送異常 →
             </Link>
           </div>
-          <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} />
       <ReminderTabs
             active={activeTab}
             explicit={!!params.tab}
@@ -240,7 +222,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
         </div>
 
-        <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />
+        {activeTab === "manager" && quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} />}
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">

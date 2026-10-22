@@ -68,7 +68,8 @@ describe("settings store-scope source contracts", () => {
     expect(dutyPage).toContain("key={storeId}");
     expect(remindersPage).toContain("key={`${storeId}-balance`}");
     expect(remindersPage).toContain("key={`${storeId}-expiry`}");
-    expect(remindersPage).toContain("key={`${storeId}-customer-${customerSection}`}");
+    // The category picker owns preserved drafts; changing stores still remounts all forms.
+    expect(remindersPage).toContain("<ReminderSectionPicker key={storeId}");
   });
 
   it("keeps reminder reads and final updates store-scoped", () => {

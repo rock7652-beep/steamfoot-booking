@@ -1,3 +1,4 @@
+import { ReminderSectionPicker } from "../../reminders/reminder-section-picker";
 import { getLineQuotaNotificationSetting } from "@/server/actions/line-quota-notifications";
 import { LineQuotaEmailSetting } from "../../reminders/line-quota-email-setting";
 import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
@@ -70,7 +71,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
         const binding = await timing.measure("coach-binding", () => Promise.all(teachers.map(t=>coachBindingStatus(storeId,t.id))));
         return <CoachNotificationSettings music={music} initial={Object.fromEntries(COACH_NOTICE_KINDS.map(kind=>[kind,templates.some(t=>t.id===coachNoticeSettingId(storeId,kind)&&t.body==="enabled")])) as Record<CoachNoticeKind,boolean>} teachers={teachers.map((t,i)=>({id:t.id,name:t.displayName,bound:binding[i]}))} logs={logs.map(l=>({id:l.id,name:teachers.find(t=>t.id===l.staffId)?.displayName??"已停用人員",kind:l.kind,status:l.status,reason:l.errorMessage??"",time:formatTWDateTime(l.createdAt)}))}/>;
       }
-      const [setting, expiry, plans, care, careStore, careLogs, map] = await timing.measure("customer-data", () => Promise.all([
+      const [setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled] = await timing.measure("customer-data", () => Promise.all([
         getCourseReminderSetting(),
         getCourseExpiryReminderSetting(),
         getCoursePlanReminderSettings(),
@@ -78,23 +79,22 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
         prisma.store.findUniqueOrThrow({where:{id:storeId},select:{name:true}}),
         prisma.trialCareLog.findMany({where:{storeId,module:"COURSE"},orderBy:{createdAt:"desc"},take:50,include:{customer:{select:{name:true}}}}),
         prisma.shopConfig.findUnique({where:{storeId},select:{mapUrl:true}}),
+        timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()),
       ]));
-      return <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={!!map?.mapUrl} course /><PlanExpiryReminderSettingCard initialEnabled={expiry.enabled} course music={music} /><CourseLowBalanceSettings plans={plans.filter(plan=>!music||plan.unit==="SESSION")} music={music}/><TrialCareCard course storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled??false} initialRules={care?readTrialCareRules(care.rules):defaultCourseTrialCareRules()} logs={careLogs.map(log=>({id:log.id,customerId:log.customerId,customerName:log.customer.name,stage:log.stage,status:log.status,reason:log.reason,createdAt:log.createdAt.toISOString()}))}/></>;
+      return <ReminderSectionPicker key={storeId} initial={params.section ?? "booking-reminders"} sections={[{ key: "booking-reminders", label: "上課提醒", content: <PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={!!map?.mapUrl} course /> }, { key: "plan-reminders", label: "方案使用提醒", content: <><PlanExpiryReminderSettingCard initialEnabled={expiry.enabled} course music={music} /><CourseLowBalanceSettings plans={plans.filter(plan=>!music||plan.unit==="SESSION")} music={music}/></> }, { key: "trial-care", label: "體驗後關懷", content: <TrialCareCard course storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled??false} initialRules={care?readTrialCareRules(care.rules):defaultCourseTrialCareRules()} logs={careLogs.map(log=>({id:log.id,customerId:log.customerId,customerName:log.customer.name,stage:log.stage,status:log.status,reason:log.reason,createdAt:log.createdAt.toISOString()}))}/> }, { key: "work-orders", label: "工單取件提醒", content: <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} /> }]} />;
     }
-    const [lineHealth, content, workOrderEnabled, quotaEmail] = await Promise.all([
+    const [lineHealth, content, quotaEmail] = await Promise.all([
       enabled ? lineHealthRequest : Promise.resolve(null),
       enabled ? readContent() : Promise.resolve(null),
-      timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()),
-      enabled ? getLineQuotaNotificationSetting() : Promise.resolve(null),
+      enabled && active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null),
     ]);
     return <PageShell>
       <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
-      <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} />
       {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="space-y-2">
         <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />
         {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
         {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
-        {quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} baseHref="/dashboard/courses/reminders" />}
+        {active === "manager" && quotaEmail && <LineQuotaEmailSetting key={storeId} initial={quotaEmail} baseHref="/dashboard/courses/reminders" />}
         {content}
       </div>}
     </PageShell>;
