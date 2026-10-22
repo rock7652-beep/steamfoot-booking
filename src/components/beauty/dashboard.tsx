@@ -398,7 +398,7 @@ export function BeautyDashboard({
           )}
         </section>
       )}
-      {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(draft||(!readOnly&&canEditTab))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/>}
+      {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<fieldset disabled={pending} aria-busy={pending} className="min-w-0">{pending&&<p role="status" className="py-2 text-sm text-earth-500">更新資料中…</p>}<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(!pending&&(draft||(!readOnly&&canEditTab)))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/></fieldset>}
       {tab==='設定'&&<SettingsWorkspaceFrame nav={<SettingsWorkspaceNav items={[{id:'store',label:'店家資料'},{id:'booking',label:'營業與預約'},{id:'commerce',label:'收款與體驗'},{id:'notifications',label:'通知與顧客經營'},{id:'subscription',label:'系統方案與用量'}]} activeId={settingsCategory} onSelect={id=>router.push(`?tab=${encodeURIComponent('設定')}&section=${id}`,{scroll:false})}/>}>
       <div hidden={settingsCategory!=='store'}>{settingsStoreContent}</div>
       {settingsCategory==='subscription'&&settingsSubscriptionContent}
@@ -451,7 +451,7 @@ export function BeautyDashboard({
           onClose={() => setEditor(null)}
           onSaved={() => {
             setEditor(null);
-            router.refresh();
+            start(()=>router.refresh());
           }}
         />
       )}
