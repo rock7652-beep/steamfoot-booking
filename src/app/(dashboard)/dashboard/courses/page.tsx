@@ -1,5 +1,4 @@
-import { musicSessionWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
+import { musicSessionWhere, musicDataScope } from "@/server/services/music-data-scope";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -309,7 +308,7 @@ export default async function CoursesPage({
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1"
       }
     >
-      {view === "schedule" && <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/> }
+      
       {view !== "schedule" && (
         <PageHeader
           title={view === "catalog" ? "課程管理" : "空間管理"}

@@ -4,7 +4,6 @@ import {CourseRevenueTransactions} from "./course-revenue-transactions";
 import {MusicRevenueMetrics} from "@/components/admin/music-revenue-metrics";
 import {Suspense} from "react";
 import { MusicRevenueSync } from "@/components/admin/music-revenue-sync";
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
@@ -46,7 +45,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     ];
     return <PageShell compact><PageHeader compact title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
       {musicDataSeparationEnabled(storeId)&&<MusicRevenueSync/>}
-      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+      
       <p className="mb-3 text-sm">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 沖銷 {money(totals.voids)} · 淨收款 {money(totals.net)}</p>
       <DataTable columns={detailColumns} rows={detailRows} rowKey={r=>r.id}/>
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm text-primary-700" href={`${basePath}?${new URLSearchParams({dateFrom:from,dateTo:to,...scopeQuery})}`}>前往營運交易工作台 →</Link>
@@ -72,7 +71,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   return <MusicRevenueLive key={JSON.stringify([storeId,from,to,status,staff,params.page,params.dataScope])} initial={{totals:receiptTotals,transactions:detail}} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope}} enabled={musicDataSeparationEnabled(storeId)}><PageShell compact>
     <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:"PENDING",staff:staff??""})}`}>查看期間待核帳</Link>} />
     {musicDataSeparationEnabled(storeId)&&<MusicRevenueSync targetedTransactions/>}
-      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+      
     {legacy&&<p className="text-sm text-earth-600">舊驗收交易僅供查閱，不列入營運收款。</p>}
     <RevenueTabs readOnly={readOnly} />
     {musicDataSeparationEnabled(storeId) ? <MusicRevenueMetrics key={`${storeId}:${from}:${to}:${params.dataScope??"operational"}`} initial={receiptTotals} from={from} to={to} dataScope={params.dataScope}/> : <>

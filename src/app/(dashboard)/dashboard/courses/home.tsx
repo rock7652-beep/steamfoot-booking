@@ -1,7 +1,6 @@
 import { CourseTodoList } from "./todo-list";
 export { CourseTodoList } from "./todo-list";
 import { prisma } from "@/lib/db";
-import { MusicHome } from "./music-home";
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { courseHomeAccess } from "@/server/queries/course-home-access";
@@ -93,7 +92,6 @@ export async function CourseHome({ user, storeId }: {
     const showTodos = access.todos.payments || access.todos.attendance || access.todos.followUp || (access.customers && access.planStatus);
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}));
     const date = toLocalDateStr();
-    if (music) return <MusicHome user={user} storeId={storeId} date={date} access={access} careEnabled={careState === "ENABLED"}/>;
     const revenueHref = `/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`;
     const scheduleHref = `/dashboard/courses?date=${date}`;
     return <PageShell compact><HomePosition>

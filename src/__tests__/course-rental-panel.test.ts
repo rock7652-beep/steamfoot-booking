@@ -18,7 +18,7 @@ async function click(text:string){await act(async()=>Array.from(host.querySelect
 async function input(el:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("input",{bubbles:true}));});}
 async function submit(){await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
 it("adds a customer inside the rental form and preserves the time and quote after a failed save",async()=>{
- await mount();await input(host.querySelector<HTMLInputElement>('input[name="date"]')!,"2026-10-03");await click("＋新顧客");
+ await mount();await input(host.querySelector<HTMLInputElement>('input[name="date"]')!,"2026-10-03");await click("＋建立新顧客");
  await input(host.querySelector<HTMLInputElement>('input[name="newName"]')!,"新學員");await input(host.querySelector<HTMLInputElement>('input[name="newPhone"]')!,"0911111111");
  m.create.mockResolvedValue({success:true,customer:{id:"new",name:"新學員",phone:"0911111111",existing:false}});await click("建立並帶入");await submit();
  expect(m.save.mock.calls[0][0]).toMatchObject({customerId:"new",date:"2026-10-03",time:"10:00",amount:600});expect(host.textContent).toContain("輸入已保留");expect(host.querySelector<HTMLInputElement>('input[name="date"]')!.value).toBe("2026-10-03");

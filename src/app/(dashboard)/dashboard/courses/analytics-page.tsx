@@ -1,4 +1,3 @@
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
@@ -44,7 +43,7 @@ export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;pr
   if(scopeQuery)query.set("dataScope","legacy");
   return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell compact>
     <PageHeader compact title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href={`/dashboard/store-revenue?${scopeQuery.slice(1)}`} className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
-    <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+    
     <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
     <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}:${params.dataScope??"operational"}`} data={data} music={music} all={all} staffId={user.staffId}/>
     {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支">{musicDataSeparationEnabled(storeId)&&<p className="mb-3 text-sm text-earth-600">以下為全店現金帳收支，不依學員資料分類；包含其他業務與尚未核對來源的帳務，不能視為這批音教雲學員的營收。</p>}<RevenueMixTrend points={revenuePoints}/></section>}

@@ -1,5 +1,4 @@
 import { musicCustomerWhere, musicDataSeparationEnabled, musicDataScope } from "@/server/services/music-data-scope";
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { studentReturnHref } from "@/lib/music-student-navigation";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -34,7 +33,7 @@ export default async function MusicMakeupsPage({ searchParams }: { searchParams:
     checkPermission(user.role, user.staffId, "booking.create"),
   ]);
   return <PageShell className="w-full min-w-0"><PageHeader title={query.customerId ? `${customers[0].name} · 請假與補課` : "請假與補課"} actions={<div className="flex flex-wrap gap-2">{query.customerId && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={studentReturnHref(query.customerId, returnQuery.toString())}>返回學員</DashboardLink>}<DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={musicDataScope(storeId,query.dataScope)==="legacy"?"/dashboard/courses?dataScope=legacy":"/dashboard/courses"}>返回課表</DashboardLink></div>} />
-    <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+    
     {native ? <NativeMakeupList classified={musicDataSeparationEnabled(storeId)} data={native} canCreate={canCreate && !readOnly} /> : <p className="text-sm text-earth-600">查看蒸管家補課方案需學費方案檢視權限。</p>}
   </PageShell>;
 }

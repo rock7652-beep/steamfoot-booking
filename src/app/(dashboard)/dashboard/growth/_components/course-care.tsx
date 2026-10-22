@@ -1,5 +1,4 @@
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
-import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
+import { musicDataScope } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { isCourseCareKind } from "@/server/queries/course-home";
@@ -35,7 +34,7 @@ export async function CourseCare({ dataScope, storeId, month, readOnly, canFollo
   const counts = { birthday: birthdayItems.length, inactive: overview.inactive.length, low: overview.low.length, expiring: overview.expiring.length, trial: overview.trial.length };
   return <PageShell compact>
     <PageHeader compact title="顧客經營" subtitle="今天要關心誰，一頁看懂。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
-    <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+    
     <div className="flex flex-wrap items-center justify-between gap-2">
       <nav aria-label="關懷分類" className="flex flex-wrap gap-1">
         <Link aria-current={!selected ? "page" : undefined} href={`/dashboard/growth?month=${month}${scopeQuery}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900">全部</Link>

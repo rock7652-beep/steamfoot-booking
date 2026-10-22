@@ -1,7 +1,6 @@
 import { musicPlanWhere } from "@/server/services/music-plan-scope";
 import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
-import { musicDataScope, musicSessionWhere, musicDataSeparationEnabled, musicCustomerWhere } from "@/server/services/music-data-scope";
+import { musicDataScope, musicSessionWhere, musicCustomerWhere } from "@/server/services/music-data-scope";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -124,7 +123,7 @@ export async function CourseMemberPage({
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" ? <PageHeader title={music ? "收費方式" : "方案管理"} /> : music && <PageHeader title="學員管理" />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <MusicDataScopeFilter enabled={musicDataSeparationEnabled(storeId)}/>
+      
       <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} previewStoreId={storeId} key={`${storeId}:${query.dataScope??"operational"}`} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}

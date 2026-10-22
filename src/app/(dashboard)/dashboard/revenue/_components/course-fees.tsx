@@ -1,6 +1,5 @@
 import { canViewCourseMonthly, canOperateCourseMonthly } from "@/lib/course-monthly-access";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
-import { MusicDataScopeFilter } from "@/components/admin/music-data-scope-filter";
 import { musicDataScope, LEGACY_MUSIC_SESSION_IDS } from "@/server/services/music-data-scope";
 import { RosterTable } from "@/components/admin/roster-table";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
@@ -37,7 +36,7 @@ export async function CourseFees({storeId,range,readOnly,dataScope}: {storeId:st
   const pendingAmount=summarized.reduce((sum,{row,fee,ended})=>sum+(!row.cancelledAt&&ended&&fee!==null&&fee>(row.amount??0)&&Number.isSafeInteger(fee)?fee-(row.amount??0):0),0);
   return <details className="rounded-xl border border-earth-200 bg-white p-3">
     <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="w-full text-sm font-medium text-primary-800 sm:w-auto sm:text-right">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
-    <MusicDataScopeFilter enabled={cohort!==null} label="鐘點費資料分類"/>
+    
     <p className="my-2 text-sm text-earth-600">依上方日期查看課次。固定費每堂計一次；音樂課比例按實際應計學員座位核算，未完成點名須先核對。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
     <RosterTable label="教師鐘點費清單" columns={["日期／課程", "授課人員", "應付", "已付", "付款狀態", "明細／操作"]}>

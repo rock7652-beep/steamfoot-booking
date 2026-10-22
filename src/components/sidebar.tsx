@@ -741,7 +741,7 @@ export default function DashboardShell({
 
   // Give the fitness timetable room on tablet widths; an explicit toggle wins.
   const sidebarPreference = useRef<boolean | null>(null);
-  const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
+  const compactCourseTablet = industryModule === "course" && isCourseSchedule;
   const compactHqTablet = !!storeOptions?.length;
   useEffect(() => {
     const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
@@ -805,10 +805,9 @@ export default function DashboardShell({
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), label: musicEnabled ? "收款與營收" : "營運", requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
+      { ...entry("/dashboard/revenue"), label: "營運", requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
-    if (course && musicEnabled && permissions.includes("customer.read")) daily.splice(3, 0, { ...entry("/dashboard/bookings"), href: "/dashboard/courses/makeups", label: "請假與補課" });
     const management: NavItem[] = [
       hqItem("/dashboard/operation-audits"),
       { ...entry("/dashboard/plans"), label: musicEnabled ? "收費方式" : "方案管理", href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
@@ -816,7 +815,7 @@ export default function DashboardShell({
     ];
     if (course) management.push(
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: musicEnabled ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: musicEnabled ? "教室管理" : "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
     if (spa) management.push(
@@ -828,20 +827,11 @@ export default function DashboardShell({
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
       permission: course ? "booking.read" : undefined,
     });
-    if (course && musicEnabled) {
-      const extraHrefs = new Set(["/dashboard/growth", "/dashboard/digital-butler/leads", "/dashboard/work-orders", "/dashboard/inventory", "/dashboard/courses?view=analytics"]);
-      const primaryOrder = ["/dashboard/courses?view=catalog", "/dashboard/courses?view=plans", "/dashboard/teachers", "/dashboard/courses?view=rooms", "/dashboard/staff", "/dashboard/courses?view=settings"];
-      return [
-        { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily.filter(item => !extraHrefs.has(item.href)) },
-        { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: [...management].sort((a,b) => primaryOrder.indexOf(a.href) - primaryOrder.indexOf(b.href)) },
-        { id: "music-more", label: "其他功能", defaultOpen: false, icon: <span aria-hidden="true">⋯</span>, items: daily.filter(item => extraHrefs.has(item.href)) },
-      ];
-    }
     return [
-      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
+      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings, permissions]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);
