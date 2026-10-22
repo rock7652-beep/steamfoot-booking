@@ -1,7 +1,9 @@
 .beauty-portal .beauty-booking-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
 .beauty-portal .beauty-booking-row + .beauty-booking-row{border-top:1px solid #e5e9e2}
-.beauty-portal .beauty-booking-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
-.beauty-portal .beauty-booking-actions button{min-width:58px}
+.beauty-portal .beauty-booking-actions{display:flex;flex-direction:row;gap:4px;flex-shrink:0}
+.beauty-portal .beauty-booking-actions button{min-width:48px;padding-inline:8px}
 .beauty-portal .beauty-booking-card p{margin:2px 0}
 .beauty-portal input[type=radio],.beauty-portal input[type=checkbox]{min-height:20px;width:20px;padding:0;accent-color:#315b49}
 .beauty-portal .cp-nav button{min-width:0}
+
+.beauty-portal .beauty-booking-card h2{margin:0;line-height:1.5}
