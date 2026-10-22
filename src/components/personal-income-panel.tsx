@@ -17,7 +17,7 @@ function period(line: PersonalIncomeLine) {
 }
 
 /** Receives only the server's authorized, whitelisted personal income rows. */
-export function PersonalIncomePanel({ lines, feeLabel = "授課費" }: { lines: PersonalIncomeLine[]; feeLabel?: "授課費" | "服務費" }) {
+export function PersonalIncomePanel({ lines, feeLabel = "授課費", compact = false }: { lines: PersonalIncomeLine[]; feeLabel?: "授課費" | "服務費"; compact?: boolean }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -34,7 +34,7 @@ export function PersonalIncomePanel({ lines, feeLabel = "授課費" }: { lines: 
     listRef.current?.scrollIntoView({ block: "start" });
   };
 
-  return <div className="space-y-3">
+  return <div className={compact ? "space-y-3 personal-income-compact" : "space-y-3"}>
     <section aria-label="本月收入摘要" className="rounded-xl bg-primary-50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p className="text-sm text-earth-600">本月應領</p><p className="break-words text-2xl font-bold tabular-nums text-primary-800">{money(totals.total)}</p></div>
     </section>
@@ -58,6 +58,10 @@ export function PersonalIncomePanel({ lines, feeLabel = "授課費" }: { lines: 
           {kinds.length > 1 ? <span className="break-words text-xs tabular-nums text-earth-600">{filtered ? "篩選小計" : "整月小計"} {money(summarizePersonalIncome(allInKind).total)}</span> : null}
         </div>
         {group.map((line, index) => {
+          if (compact) return <div key={`${pagination.page}:${query}:${line.date}:${line.label}:${index}`} className="personal-income-row">
+            <div className="personal-income-description"><span className="text-sm text-earth-600">{period(line)}</span><strong className="text-base">{line.label}</strong></div>
+            <strong className="personal-income-amount">{money(line.amount)}</strong>
+          </div>;
           return <details key={`${pagination.page}:${query}:${line.date}:${line.label}:${index}`} className="group border-t border-earth-100">
             <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-center gap-x-2 gap-y-0.5 px-3 py-2 [&::-webkit-details-marker]:hidden">
               <span className="min-w-0 truncate text-sm font-medium" title={line.label}>{line.label}</span>

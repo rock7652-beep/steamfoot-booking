@@ -36,3 +36,17 @@
 .beauty-portal .beauty-record-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:12px 0}
 .beauty-portal .beauty-record-filters label{min-width:0}
 .beauty-portal .beauty-record-filters input{width:100%;min-width:0;appearance:none}
+
+/* Income uses the shared reader and totals, with a compact beauty presentation. */
+.beauty-portal .beauty-income-back{margin:0 0 12px;padding:8px 0;min-height:44px}
+.beauty-portal .beauty-income-toolbar{display:flex;justify-content:flex-end;margin-bottom:16px}
+.beauty-portal .beauty-income-toolbar label{display:flex;align-items:center;gap:12px;margin:0;min-width:0}
+.beauty-portal .beauty-income-toolbar input{min-width:0;width:180px;max-width:100%;margin:0}
+.beauty-portal .personal-income-compact section[aria-label="本月收入摘要"]{border:1px solid #dce5db;border-radius:14px;padding:16px;margin-bottom:16px}
+.beauty-portal .personal-income-compact section[aria-label="本月收入摘要"] p{margin:0}
+.beauty-portal .personal-income-compact section[aria-label="本月收入摘要"] p:last-child{font-size:24px;line-height:1.4}
+.beauty-portal .personal-income-compact h2{margin:0;font-size:16px}
+.beauty-portal .personal-income-compact section>div:first-child{padding:14px 16px}
+.beauty-portal .personal-income-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-top:1px solid #e9ece6}
+.beauty-portal .personal-income-description{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.beauty-portal .personal-income-amount{flex-shrink:0;font-variant-numeric:tabular-nums;max-width:48%;overflow-wrap:anywhere;text-align:right}

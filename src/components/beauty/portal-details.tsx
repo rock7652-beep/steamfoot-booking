@@ -19,12 +19,12 @@ export function BeautyCardHistory({cardId,scope,slug}:{cardId:string;scope:strin
  return r.value.data.length?<ul>{r.value.data.map(l=><li key={l.id}>{formatTWDateTime(new Date(l.createdAt))} · {l.kind==='GRANT'?'方案啟用':l.kind==='RESERVE'?'預約保留':'服務扣次／更正'} · {l.delta>0?'+':''}{l.delta} 次</li>)}</ul>:<p>尚無使用紀錄。</p>;
 }
 export function BeautyOwnIncome({scope,allowed,month,onMonth,slug}:{scope:string;allowed:boolean;month:string;slug:string;onMonth:(month:string)=>void}){
- return <><label>月份<input aria-label="收入月份" type="month" value={month} onChange={e=>{if(e.target.value)onMonth(e.target.value);}}/></label>{allowed?<IncomeDetails key={month} month={month} scope={scope} slug={slug}/>:<p>本人收入尚未開放，請洽店長。</p>}</>;
+ return <><div className="beauty-income-toolbar"><label>月份<input aria-label="收入月份" type="month" value={month} onChange={e=>{if(e.target.value)onMonth(e.target.value);}}/></label></div>{allowed?<IncomeDetails key={month} month={month} scope={scope} slug={slug}/>:<p>本人收入尚未開放，請洽店長。</p>}</>;
 }
 function IncomeDetails({month,scope,slug}:{month:string;scope:string;slug:string}){
  const r=useDetail('beauty-own-income',readBeautyOwnIncome,scope,[month,slug]);
  if(!r.value?.success)return <ReadState error={r.error??(r.value&&!r.value.success?r.value.error:undefined)} retry={r.retry}/>;
- return !r.value.data.confirmed?<p role="status">本月收入待店長確認。</p>:<PersonalIncomePanel feeLabel="服務費" lines={r.value.data.lines.map(l=>({kind:'FEE',label:l.serviceName,date:l.date,endsAt:null,amount:l.fee,paid:l.paid,payments:l.payments}))}/>;
+ return !r.value.data.confirmed?<p role="status">本月收入待店長確認。</p>:<PersonalIncomePanel compact feeLabel="服務費" lines={r.value.data.lines.map(l=>({kind:'FEE',label:l.serviceName,date:l.date,endsAt:null,amount:l.fee,paid:l.paid,payments:l.payments}))}/>;
 }
 type Item=BeautyPortalData['items'][number];
 export function BeautyWorkRecords({scope,month,pending,search,onMonth,onPending,onSearch,data,now,disabled,onChange,onMove}:{scope:string;month:string;pending:boolean;search:string;onMonth:(v:string)=>void;onPending:(v:boolean)=>void;onSearch:(v:string)=>void;data:BeautyPortalData;now:number;disabled:boolean;onChange:(item:Item,target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED')=>void;onMove:(item:Item)=>void}){
