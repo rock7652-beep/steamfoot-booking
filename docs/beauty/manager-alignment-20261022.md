@@ -3,9 +3,9 @@
 2026-10-22。三包調整已部署隔離 Preview；店家實體裝置及店務習慣簽收仍待完成。本輪沒有正式發布、合併 main、建立 PR、修改 LINE 或連線憑證。
 
 - 支線：`preview/beauty-ui-alignment-20261021`。
-- 部署來源：`77ce0cf2173784d4144fe73986fec8506fcf30a6`。
-- Preview：`dpl_6xRfA8NYfUKRt3FxSJvAuRZrS3K5`，READY。
-- 後台：https://steamfoot-booking-nzsffdgec-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty
+- 部署來源：`62bff067f7862401547cce1eca8ccf5c2da0b78d`。
+- Preview：`dpl_HrLujYUNiDDFpiGikQMcfxBRJG3e`，READY。
+- 後台：https://steamfoot-booking-pd97iqshz-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty
 - `BEAUTY_MODULE_ENABLED=1`、`BEAUTY_NOTIFICATIONS_ENABLED=0`；此為隔離測試啟用證據，不代表正式啟用。
 
 ## 完成功能與驗證範圍
@@ -30,7 +30,9 @@
 
 ## 班表效能及週界修正
 
-修正前同環境六次約 1.40～1.58 秒，平均 1476 ms；最終版六次約 0.90～1.42 秒，平均 1092 ms。最終伺服器專用讀取約 0.42～0.72 秒，其他耗時含網路與呈現。這是代理網路中的 Chromium 實測，不代表手機 5G 必定相同。
+修正前同環境六次約 1.40～1.58 秒，平均 1476 ms；最終版六次約 0.76～1.37 秒，平均 999 ms。最終伺服器專用讀取約 0.29～0.62 秒，其他耗時含網路與呈現。這是代理網路中的 Chromium 實測，不代表手機 5G 必定相同。
+
+實站另驗證店家資料填寫後切換設定分類、再切回仍保留草稿，捨棄後恢復原值，未儲存到資料庫。
 
 另修正原本「選週四查週四起七天，但共用畫面畫週一起七天」的落差；初次頁面及後續 GET 都使用相同週一至週日範圍，避免漏掉週初資料。運動模組原有算法保持一致。
 
@@ -47,15 +49,15 @@
 
 ## 資料及測試庫升級
 
-只在 `steamfoot-preview`（ttworfzgwejdeolegkxl）新增 BeautyPlan.lowBalanceEnabled 與 lowBalanceThreshold，未改資料表、角色或 policy 的權限模型。既有方案預設不啟用提醒；原預約及帳本未回填或搬移。
+只在 `steamfoot-preview`（ttworfzgwejdeolegkxl）新增 BeautyPlan.lowBalanceEnabled 與 lowBalanceThreshold，未另建資料表，也未更動角色或 policy 的權限模型。既有方案預設不啟用提醒；原預約及帳本未回填或搬移。
 
-候選加法 SQL：`scripts/sql/beauty-plan-care-upgrade.sql`。後續正式發布需先套用既有美業安裝／同行升級，再套本檔，最後部署新版；正式套用仍須另行確認。可重跑，不刪欄位回復，以免遺失店家設定。此欄位只影響顧客經營提醒判斷，不自動開啟 LINE。
+候選加法 SQL：`scripts/sql/beauty-plan-care-upgrade.sql`。後續正式發布需先套用既有美業安裝／同行升級，再套本檔，最後部署新版；正式套用仍須另行確認。可重跑，不刪欄位回復，以免遺失店家設定。此欄位只影響顧客經營提醒判斷，不自動開啟 LINE。低次數以剩餘減已預約占用判斷，包含已用完但未到期、未結清的方案；到期提醒則不包含已用完方案。
 
 實站驗證新增的停用 QA 服務與方案保留，未提供顧客購買；名稱及結果見 fixture-results.json。原兩項服務仍是 1000／500／60 分鐘及 1500／750／90 分鐘。最後核對原店資料：14 筆預約、15 筆方案帳本、兩張未結清卡剩餘 2 與 5 次。沒有新增服務收退款、技師付款或扣次交易。
 
 ## 測試與發布限制
 
-102 個相關測試檔、790 項通過，涵蓋美業、共用人員／設定、班表、分析、個人收入及後台指南；TypeScript、ESLint、diff check 通過，hosted build READY。不是宣稱全站 1208 個測試檔全部完成。初始廣泛執行遇到沙箱 Node 子程序 EPERM，受影響相關檔在允許 mock 子程序後已通過。
+103 個相關測試檔、796 項通過，涵蓋美業、共用人員／設定、班表、分析、個人收入及後台指南；TypeScript、ESLint、diff check 通過，hosted build READY。不是宣稱全站 1208 個測試檔全部完成。初始廣泛執行遇到沙箱 Node 子程序 EPERM，受影響相關檔在允許 mock 子程序後已通過。
 
 後台指南 BEAUTY01／BEAUTY04 已同步服務價格入口及只看拆帳的新規格。驗證證據位於 `evidence/manager-alignment-20261022/`，不包含登入密碼、保護繞過碼或瀏覽器 session。
 

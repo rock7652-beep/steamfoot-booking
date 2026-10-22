@@ -44,33 +44,33 @@
   "timings": [
     {
       "label": "週表",
-      "settledMs": 1417,
-      "serverTiming": "calendar;dur=724.3"
+      "settledMs": 1372,
+      "serverTiming": "calendar;dur=614.2"
     },
     {
       "label": "月表",
-      "settledMs": 958,
-      "serverTiming": "calendar;dur=452.2"
+      "settledMs": 945,
+      "serverTiming": "calendar;dur=338.3"
     },
     {
       "label": "日表",
-      "settledMs": 1040,
-      "serverTiming": "calendar;dur=422.0"
+      "settledMs": 1075,
+      "serverTiming": "calendar;dur=290.7"
     },
     {
       "label": "週表",
-      "settledMs": 1086,
-      "serverTiming": "calendar;dur=422.6"
+      "settledMs": 786,
+      "serverTiming": "calendar;dur=294.8"
     },
     {
       "label": "月表",
-      "settledMs": 1151,
-      "serverTiming": "calendar;dur=416.8"
+      "settledMs": 1060,
+      "serverTiming": "calendar;dur=306.5"
     },
     {
       "label": "日表",
-      "settledMs": 900,
-      "serverTiming": "calendar;dur=421.5"
+      "settledMs": 755,
+      "serverTiming": "calendar;dur=296.6"
     }
   ],
   "calendarRequests": [
@@ -150,12 +150,12 @@
       "rsc": true
     },
     {
-      "path": "/s/beauty-hosted-20261021/admin/dashboard",
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/cashbook",
       "method": "GET",
       "rsc": true
     },
     {
-      "path": "/s/beauty-hosted-20261021/admin/dashboard/cashbook",
+      "path": "/s/beauty-hosted-20261021/admin/dashboard",
       "method": "GET",
       "rsc": true
     },

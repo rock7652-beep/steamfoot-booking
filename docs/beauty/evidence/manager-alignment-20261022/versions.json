@@ -1,0 +1,13 @@
+{
+  "deployedSource": "62bff067f7862401547cce1eca8ccf5c2da0b78d",
+  "deployment": "dpl_HrLujYUNiDDFpiGikQMcfxBRJG3e",
+  "hostedAndDraftEvidenceSource": "62bff067f7862401547cce1eca8ccf5c2da0b78d",
+  "fixtureWritesSource": "4a4990c90699c090695e2911defd514d09885310",
+  "analysisAndGuardsEvidenceSource": "77ce0cf2173784d4144fe73986fec8506fcf30a6",
+  "tests": {
+    "files": 103,
+    "passed": 796
+  },
+  "lineNotifications": "disabled",
+  "productionAction": "none"
+}
