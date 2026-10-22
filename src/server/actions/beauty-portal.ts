@@ -6,6 +6,7 @@ import {requireStoreFeature} from '@/lib/feature-gate';
 import {FEATURES} from '@/lib/feature-flags';
 import {AppError,handleActionError} from '@/lib/errors';
 import {monthRange,toLocalMonthStr} from '@/lib/date-utils';
+import {beautyPortal} from '@/server/beauty/queries';
 import {publicReceipt} from '@/server/beauty/booking';
 async function read<T>(run:()=>Promise<T>){try{return {success:true as const,data:await run()};}catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?'讀取失敗':r.error};}}
 async function actor(work:boolean){const a=work?await beautyWorker():await beautyMember();await requireStoreFeature(a.storeId,FEATURES.MEMBER_PORTAL);return a;}
@@ -30,3 +31,5 @@ export async function readBeautyWorkRecords(input:unknown){return read(async()=>
  const rows=await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,technicianId:a.technicianId,startsAt:{gte:range.start,lte:range.end},...(d.pending?{status:'RESERVED',endsAt:{lt:now}}:{OR:[{status:{not:'RESERVED'}},{endsAt:{lt:now}}]}),...(d.search.trim()?{personName:{contains:d.search.trim(),mode:'insensitive' as const}}:{})},orderBy:[{startsAt:d.pending?'asc':'desc'},{id:'asc'}],skip:d.page*50,take:51});
  return {hasMore:rows.length>50,items:rows.slice(0,50).map(b=>({...publicReceipt(b),customerId:b.customerId,revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:b.cardId,notes:b.notes}))};
 });}
+
+export async function readBeautyPortalRole(work:boolean){return read(async()=>beautyPortal(z.boolean().parse(work)));}

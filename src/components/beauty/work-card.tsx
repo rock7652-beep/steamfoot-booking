@@ -13,7 +13,7 @@ export function BeautyWorkCard({item,now,showDate,location,grants,disabled,onCha
   {location&&<p>空間：{location}</p>}
   {item.notes&&<p className="beauty-work-note">備註：{item.notes}</p>}
   {(more||reserved&&complete)&&<div className="beauty-work-actions">
-   {more&&<details><summary>更多 ⋯</summary><div className="beauty-work-options">
+   {more&&<details><summary>更多 ⋯</summary><div className="beauty-work-options" onClick={e=>{if((e.target as HTMLElement).closest('button'))e.currentTarget.closest('details')?.removeAttribute('open');}}>
     {reserved&&grants.includes('reschedule')&&<button disabled={disabled} onClick={onMove}>改期</button>}
     {reserved&&grants.includes('cancel')&&<button disabled={disabled} onClick={()=>onChange('CANCELLED')}>取消預約</button>}
     {reserved&&complete&&<button disabled={disabled} onClick={()=>onChange('NO_SHOW')}>未到</button>}

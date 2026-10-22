@@ -2,12 +2,12 @@
 import {act,createElement as h} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn()}));
+const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,replace:vi.fn()}),usePathname:()=>'/s/test/beauty',useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
-vi.mock('@/server/actions/beauty-portal',()=>({readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
+vi.mock('@/server/actions/beauty-portal',()=>({readBeautyPortalRole:m.role,readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>null}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
@@ -22,7 +22,7 @@ function field(host:HTMLElement,name:string){const label=[...host.querySelectorA
 function set(el:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement,value:string){act(()=>{const proto=el.tagName==='SELECT'?HTMLSelectElement.prototype:el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,value);el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
 const catalog={services:[{id:'service',name:'做臉',duration:60,price:1000,trialPrice:500}],techs:[]};
 const data={...catalog,store:{id:'store',slug:'test',name:'測試店'},canWork:true,work:false,customer:{id:'person',name:'顧客',phone:'0900000000'},cards:[],members:[],items:[],plans:[],purchases:[],grants:[],income:[],bank:null,policy:{selfBooking:true,selfCancel:true,selfReschedule:true}} as unknown as BeautyPortalData;
-beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
+beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
 afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
  const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',customer:data.customer}));
@@ -95,6 +95,9 @@ it('shows a compact worker card with a visual-only service status and confirmati
  expect(card.textContent).toContain('服務中');expect(card.textContent).toContain('09:45–10:45');expect(card.textContent).toContain('王小姐 · 按摩');expect(card.textContent).toContain('空間：A室');expect(card.textContent).not.toContain('技師：');expect(card.textContent).not.toContain('取消規則');expect(host.textContent).not.toContain('下一筆服務');expect(card.querySelectorAll('h2')).toHaveLength(1);expect(m.status).not.toHaveBeenCalled();
  act(()=>button(host,'服務完成').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet.querySelector('textarea')).toBeNull();expect(sheet.textContent).toContain('本次扣 1 次');await act(async()=>button(sheet,'確認').click());expect(m.status.mock.calls[0]).toMatchObject(['work',{id:'work',revision:2,target:'COMPLETED'}]);expect(m.status.mock.calls[0][1]).not.toHaveProperty('reason');
 });
-it('restores each role view after an authorized fresh navigation and ignores the already-active role',async()=>{
- const host=mount(h(BeautyPortal,{data}));act(()=>button(host,'會員').click());expect(m.push).not.toHaveBeenCalled();act(()=>button(host,'我的').click());act(()=>button(host,'我的工作').click());expect(m.push).toHaveBeenCalledWith('/s/test/beauty?work=1',{scroll:false});act(()=>roots[0].root.render(h(BeautyPortal,{data:{...data,work:true}})));expect(host.querySelector('h1')?.textContent).toBe('今日工作');await act(async()=>button(host,'服務紀錄').click());act(()=>button(host,'會員').click());act(()=>roots[0].root.render(h(BeautyPortal,{data})));expect(host.querySelector('h1')?.textContent).toBe('我的');act(()=>button(host,'我的工作').click());await act(async()=>roots[0].root.render(h(BeautyPortal,{data:{...data,work:true}})));expect(host.querySelector('h1')?.textContent).toBe('服務紀錄');
+it('restores role views after a fresh authorized read without rerunning the full route',async()=>{
+ const host=mount(h(BeautyPortal,{data}));act(()=>button(host,'會員').click());expect(m.role).not.toHaveBeenCalled();act(()=>button(host,'我的').click());await act(async()=>button(host,'我的工作').click());expect(m.role).toHaveBeenCalledWith(true);expect(m.push).not.toHaveBeenCalled();expect(host.querySelector('h1')?.textContent).toBe('今日工作');await act(async()=>button(host,'服務紀錄').click());await act(async()=>button(host,'會員').click());expect(host.querySelector('h1')?.textContent).toBe('我的');await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('服務紀錄');
+});
+it('leaves the existing role visible and reports an authorization failure without exposing work data',async()=>{
+ const host=mount(h(BeautyPortal,{data}));m.role.mockResolvedValue({success:false,error:'技師工作身分尚未開放'});await act(async()=>button(host,'我的工作').click());expect(host.querySelector('h1')?.textContent).toBe('會員首頁');expect(host.textContent).toContain('技師工作身分尚未開放');
 });

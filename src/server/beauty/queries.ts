@@ -31,8 +31,12 @@ export async function publicBeautyCatalog(slug: string) {
   });
   if (!store) throw new AppError("NOT_FOUND", "找不到店家");
   await requireBeauty(store.id);
+  return privateBeautyCatalog(store);
+}
+// Only called after public or member access has verified this store.
+async function privateBeautyCatalog(store:{id:string;name:string;slug:string},work=false){
   const [services, techs] = await Promise.all([
-    beautyPrisma.beautyService.findMany({
+    work ? [] : beautyPrisma.beautyService.findMany({
       where: { storeId: store.id, active: true },
       select: {
         id: true,
@@ -44,7 +48,7 @@ export async function publicBeautyCatalog(slug: string) {
         revision: true,
       },
     }),
-    beautyPrisma.beautyTechnician.findMany({
+    work ? [] : beautyPrisma.beautyTechnician.findMany({
       where: { storeId: store.id, active: true },
       select: { id: true, name: true, gender: true, serviceIds: true },
       orderBy: [{ sort: "asc" }, { id: "asc" }],
@@ -78,7 +82,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
     select: { id: true, name: true, slug: true },
   });
   const [catalog,rows,cards,customer,plans,purchases,bank,canWork,healthEnabled,locations] = await Promise.all([
-    publicBeautyCatalog(store.slug),
+    privateBeautyCatalog(store,work),
     beautyPrisma.beautyAppointment.findMany({
     where: {
       storeId: a.storeId,
@@ -131,6 +135,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
   return {
     ...catalog,
     scopeKey:a.userId,
+    readVersion:crypto.randomUUID(),
     incomeMonth:month,
     incomeConfirmed:false,
     canWork,
