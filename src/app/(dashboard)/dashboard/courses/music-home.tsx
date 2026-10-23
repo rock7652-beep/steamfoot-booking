@@ -1,3 +1,4 @@
+import { musicRetirementEnabled } from "@/lib/music-retirement";
 import { musicCustomerWhere, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { CourseTodoList } from "./todo-list";
 import { Suspense, type ReactNode } from "react";
@@ -32,7 +33,7 @@ function Section(props:{title:string;load:()=>Promise<ReactNode>}) {return <Susp
 
 export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;storeId:string;date:string;access:Access;careEnabled:boolean}) {
   const schedule=`/dashboard/courses?date=${date}`;
-  return <PageShell compact><PageHeader title="今日教務工作台" subtitle={`${date} · 依目前帳號與門市權限顯示`} actions={<div className="flex flex-wrap gap-2"><HomeRetry/>{access.create&&<Link className={action} href={`${schedule}&action=schedule`}>新增排課</Link>}{access.bookings&&<Link className={action} href={schedule}>完整課表</Link>}</div>}/>
+  return <PageShell compact><PageHeader title="今日教務工作台" subtitle={`${date} · 依目前帳號與門市權限顯示`} actions={<div className="flex flex-wrap gap-2"><HomeRetry/>{musicRetirementEnabled()&&access.revenue&&access.customers&&<Link className={action} href="/dashboard/courses/archive">封存紀錄</Link>}{access.create&&<Link className={action} href={`${schedule}&action=schedule`}>新增排課</Link>}{access.bookings&&<Link className={action} href={schedule}>完整課表</Link>}</div>}/>
     <div className="@container space-y-3">
       {access.bookings&&<Section title="今日課程" load={async()=>{
         const result=await getMusicHomeSchedule(storeId,date), next=result.rows.flatMap(r=>[new Date(r.startsAt).getTime(),new Date(r.endsAt).getTime()]).filter(n=>n>Date.now());

@@ -5,7 +5,7 @@ vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:vi.fn().m
 vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:vi.fn()}));
 vi.mock("@/server/services/course-teacher-fee",()=>({readTeacherFeeSeats:vi.fn().mockResolvedValue(new Map()),capturedTeacherFee:()=>({amount:0})}));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},staff:{findMany:vi.fn().mockResolvedValue([])},store:{findUniqueOrThrow:vi.fn().mockResolvedValue({createdAt:new Date("2026-09-01")})}}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({courseSession:{findMany:m.sessions},coursePurchase:{findMany:m.purchases},courseCompensationSnapshot:{findMany:m.fees},courseTrialPayment:{findMany:m.receipts},coursePurchaseRefund:{findMany:m.refunds}})}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:vi.fn().mockResolvedValue([]),courseSession:{findMany:m.sessions},coursePurchase:{findMany:m.purchases},courseCompensationSnapshot:{findMany:m.fees},courseTrialPayment:{findMany:m.receipts},coursePurchaseRefund:{findMany:m.refunds}})}}));
 import {getCourseBusinessAnalytics} from "@/server/queries/course-business-analytics";
 import {musicCustomerWhere,musicSessionWhere} from "@/server/services/music-data-scope";
 import {musicPurchaseWhere,musicTrialBookingWhere} from "@/server/services/music-finance-scope";
@@ -24,7 +24,7 @@ it.each([undefined,"legacy"])("uses one cohort for all business-analysis branche
  expect(m.fees.mock.calls[0][0].where.sessionId).toEqual(musicSessionWhere("store-lubymusic",scope).id);
 });
 it("binds exact attendance cohort IDs and leaves production unchanged",()=>{
- const sql=musicAttendanceScopeSql("store-lubymusic");expect(sql.text).toContain('b."customerId" IS NULL');expect(sql.values).toHaveLength(2);
+ const sql=musicAttendanceScopeSql("store-lubymusic");expect(sql.text).toContain('b."customerId" IS NULL');expect(sql.values).toHaveLength(5);
  expect(musicAttendanceScopeSql("store-lubymusic","legacy").text).not.toContain("NOT(");
  vi.stubEnv("VERCEL_ENV","production");expect(musicBookingCustomerWhere("store-lubymusic")).toEqual({});expect(musicAttendanceScopeSql("store-lubymusic").text).toBe("");
 });

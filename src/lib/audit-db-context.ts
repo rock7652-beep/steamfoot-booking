@@ -1,3 +1,4 @@
+import { ensureMusicArchiveReady } from "@/lib/music-retirement";
 import {verifiedPermissionRequestSession} from "@/lib/permission-request-session";
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -93,6 +94,7 @@ export function withAuditDatabaseContext<T extends object>(original: T, auditMod
   return new Proxy(original, {
     get(target, key, receiver) {
       if (key === "$transaction") return async (work: unknown, ...options: unknown[]) => {
+        await ensureMusicArchiveReady();
         const actor = await resolveActor();
         return scope.run(actor, () => deliveryScope.run({ pending: false }, async () => {
           const statement = Prisma.sql`SELECT set_config('steamfoot.audit_actor', ${JSON.stringify(actor)}, true)`;

@@ -1,3 +1,5 @@
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import { separateMusicPayroll } from "./music-payroll-cohorts";
 import { createHash } from "node:crypto";
@@ -18,7 +20,7 @@ export async function readCourseMonthlySettlement(tx:Prisma.TransactionClient,st
   const [settings,orders,sessions,payments,feePayments,staff,revisions]=await Promise.all([
     readSettlementSettings(tx,storeId),
     tx.coursePurchase.findMany({where:{storeId,confirmedAt:{gte:start,lte:end},status:{in:["CONFIRMED","REFUNDED","VOIDED"]}},include:{refunds:true},orderBy:{id:"asc"}}),
-    tx.$queryRaw<Array<{id:string;staffId:string;name:string;startsAt:Date;endsAt:Date;cancelledAt:Date|null;rule:unknown}&CapturedTeacherFee>>`SELECT s.id,COALESCE(c."staffId",s."coachId") AS "staffId",s."nameSnapshot" AS name,s."startsAt",s."endsAt",s."cancelledAt",s."teacherAttendance",c.rule,c.revision,c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode" FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId" WHERE s."storeId"=${storeId} AND s."startsAt">=${start} AND s."startsAt"<=${end} ORDER BY s.id`,
+    tx.$queryRaw<Array<{id:string;staffId:string;name:string;startsAt:Date;endsAt:Date;cancelledAt:Date|null;rule:unknown}&CapturedTeacherFee>>(RetirementPrisma.sql`SELECT s.id,COALESCE(c."staffId",s."coachId") AS "staffId",s."nameSnapshot" AS name,s."startsAt",s."endsAt",s."cancelledAt",s."teacherAttendance",c.rule,c.revision,c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode" FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId" WHERE s."storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession","s.id")} AND s."startsAt">=${start} AND s."startsAt"<=${end} ORDER BY s.id`),
     tx.$queryRaw<Array<{id:string;purchaseId:string;amount:number;createdAt:Date;note:string;voidedAt:Date|null;voidReason:string|null}>>`SELECT p.* FROM "CourseProfitPayment" p JOIN "CoursePurchase" o ON o.id=p."purchaseId" AND o."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND o."confirmedAt">=${start} AND o."confirmedAt"<=${end} ORDER BY p."createdAt",p.id`,
     tx.$queryRaw<Array<{id:string;sessionId:string;amount:number;createdAt:Date;note:string;voidedAt:Date|null;voidReason:string|null}>>`SELECT p.* FROM "CourseFeePayment" p JOIN "CourseSession" s ON s.id=p."sessionId" AND s."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND s."startsAt">=${start} AND s."startsAt"<=${end} ORDER BY p."createdAt",p.id`,
     tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${storeId}`,

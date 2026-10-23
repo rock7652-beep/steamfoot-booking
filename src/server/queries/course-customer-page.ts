@@ -1,3 +1,4 @@
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import { musicDataScope, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
@@ -61,7 +62,7 @@ export async function getCourseCustomerPage(
         COALESCE(b.sessions,0) AS sessions,COALESCE(b."hasPoints",false) AS "hasPoints",COALESCE(b."hasSessions",false) AS "hasSessions",CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
       FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
       LEFT JOIN attendance a ON a."customerId"=c.id LEFT JOIN balances b ON b."customerId"=c.id
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter} ${cohortSql}
+      WHERE c."storeId"=${storeId} ${musicRetirementSql(storeId,"Customer","c.id")} AND c."mergedIntoCustomerId" IS NULL ${labelFilter} ${cohortSql}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
         AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)

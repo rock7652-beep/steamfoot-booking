@@ -1,4 +1,6 @@
 "use server";
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -21,7 +23,7 @@ export async function saveCourseBookingWindow(input: unknown): Promise<ActionRes
     const window=resolveCustomerBookingWindow(config,now);
     await prisma.$transaction(async tx=>{
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} AND "industryModule"::text='COURSE' FOR UPDATE`;
-      const affected=await tx.$queryRaw<Array<{startsAt:Date}>>`SELECT s."startsAt" FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=${storeId} AND b.status::text='RESERVED' AND s."cancelledAt" IS NULL AND s."startsAt">${window.closesAt} ORDER BY s."startsAt" LIMIT 1`;
+      const affected=await tx.$queryRaw<Array<{startsAt:Date}>>(RetirementPrisma.sql`SELECT s."startsAt" FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=${storeId} ${musicRetirementSql(storeId,"CourseBooking","b.id")} AND b.status::text='RESERVED' AND s."cancelledAt" IS NULL AND s."startsAt">${window.closesAt} ORDER BY s."startsAt" LIMIT 1`);
       if(affected.length) throw new AppError("BUSINESS_RULE",`${formatTWDateTime(affected[0].startsAt)} 已有課程預約，請將開放截止設在該預約之後`);
       await tx.shopConfig.upsert({where:{storeId},create:{storeId,...config},update:config});
     });

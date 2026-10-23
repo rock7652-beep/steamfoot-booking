@@ -22,8 +22,8 @@ it("monthly fingerprint and confirmed snapshot use operational rows; legacy-only
  vi.stubEnv("WORKERS_CI_BRANCH","");vi.stubEnv("CF_PAGES_BRANCH","");
  let ids=[legacy[0],"music-luby-s-0921-1800-a","source-real"];
  const execute=vi.fn();
- const tx={$executeRaw:execute,coursePurchase:{findMany:vi.fn().mockResolvedValue([])},$queryRaw:vi.fn(async(strings:TemplateStringsArray)=>{
-  if(strings.join("").includes('FROM "CourseSession" s LEFT JOIN'))return ids.map(id=>({id,staffId:"teacher",name:id,startsAt:new Date("2026-01-01"),endsAt:new Date("2026-01-02"),cancelledAt:null,teacherAttendance:"ATTENDED",rule:{mode:"CLASS",value:400},revision:1}));
+ const tx={$executeRaw:execute,coursePurchase:{findMany:vi.fn().mockResolvedValue([])},$queryRaw:vi.fn(async(strings:TemplateStringsArray & {sql?:string})=>{
+  if((strings.sql??strings.join("")).includes('FROM "CourseSession" s LEFT JOIN'))return ids.map(id=>({id,staffId:"teacher",name:id,startsAt:new Date("2026-01-01"),endsAt:new Date("2026-01-02"),cancelledAt:null,teacherAttendance:"ATTENDED",rule:{mode:"CLASS",value:400},revision:1}));
   return [];
  })} as unknown as Prisma.TransactionClient;
  const report=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");expect(report.lines.map(l=>l.id)).toEqual(["source-real"]);expect(report.legacyTestLines).toHaveLength(2);

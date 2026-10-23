@@ -1,3 +1,5 @@
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import { ResourceConflict } from "./course-resources";
 import type { Prisma } from "../../../generated/course-client";
@@ -67,9 +69,9 @@ export async function assertMusicCourseAvailability(
 /** Read affected lessons under the scheduling lock; weekly changes preserve them. */
 export async function listOutsideTeacherAvailability(tx:Reader,storeId:string,staffId:string) {
   const [sessions,weekly,exceptions]=await Promise.all([
-    tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>`
+    tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>(RetirementPrisma.sql`
       SELECT id,"nameSnapshot" AS name,"startsAt","endsAt",capacity FROM "CourseSession"
-      WHERE "storeId"=${storeId} AND "coachId"=${staffId} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP ORDER BY "startsAt"`,
+      WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${staffId} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP ORDER BY "startsAt"`),
     tx.$queryRaw<Array<{dayOfWeek:number;segments:unknown}>>`
       SELECT "dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
     tx.$queryRaw<Array<{date:Date;type:string;segments:unknown}>>`

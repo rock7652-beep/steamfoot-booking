@@ -1,4 +1,6 @@
 "use server";
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
@@ -173,13 +175,13 @@ export async function saveCourseStaff(input: unknown) {
         }
         if(existing?.status === "ACTIVE" && !d.active && !d.confirmDeactivate) throw new AppError("CONFLICT","請確認停用：所有工作存取立即撤銷，既有課次保留待交接");
         if(existing?.status === "ACTIVE" && !d.active) {
-          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`;
+          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>(RetirementPrisma.sql`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`);
           const unfinished=Number(impact?.count??0);
           if(unfinished) throw new AppError("CONFLICT",`仍有 ${unfinished} 堂未結束課次，請先完成改派或取消後再停用`);
         }
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
         if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || (!isMusicTeaching && removed.length))) {
-          const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
+          const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>(RetirementPrisma.sql`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`);
           if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除教練身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
         }
         if(existing?.courseQualificationsConfirmed && !qualificationsConfirmed) throw new AppError("VALIDATION","已確認資格不可改回待補；請調整可教課程");

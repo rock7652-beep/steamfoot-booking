@@ -1,6 +1,7 @@
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import {coursePrisma} from "@/lib/course-db";
 import {musicDataSeparationEnabled} from "@/server/services/music-data-scope";
-import { musicReceiptScopeSql } from "@/server/services/music-finance-scope";
+import { musicReceiptScopeSql } from "@/server/services/music-retired-finance-scope";
 import { musicDataScope, LEGACY_MUSIC_SESSION_IDS, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
@@ -25,7 +26,7 @@ export async function getCourseHomeToday(storeId: string, date: string, now = ne
       min(s."endsAt") FILTER (WHERE s."endsAt">${now}) AS "nextEnd",
       count(b.id) FILTER (WHERE b.status='ATTENDED')::int attended
     FROM "CourseSession" s LEFT JOIN "CourseBooking" b ON b."sessionId"=s.id AND b."storeId"=s."storeId" AND b.status<>'CANCELLED'
-    WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."startsAt" BETWEEN ${start} AND ${end}`);
+    WHERE s."storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession","s.id")} AND s."cancelledAt" IS NULL AND s."startsAt" BETWEEN ${start} AND ${end}`);
   return row;
 }
 
@@ -62,7 +63,7 @@ export async function getCourseHomeCustomers(storeId: string, staffId: string | 
   // Intentionally uncached: count-only, current authorization on every request; no stale assignment/merge cache.
   const [row] = await prisma.$queryRaw<Array<{ total: number; mine: number }>>(Prisma.sql`
     SELECT count(*)::int total, count(*) FILTER (WHERE "assignedStaffId"=${staffId})::int mine
-    FROM "Customer" WHERE "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL
+    FROM "Customer" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"Customer")} AND "mergedIntoCustomerId" IS NULL
     ${scope ? Prisma.sql`AND "assignedStaffId"=${scope}` : Prisma.empty}`);
   return { total: scope ? null : row.total, mine: staffId ? row.mine : null };
 }
@@ -100,7 +101,7 @@ export async function getCourseCareCounts(storeId: string, scope: string | null,
         AND NOT EXISTS (SELECT 1 FROM "CoursePurchase" o WHERE o."storeId"=${storeId} AND o."customerId"=c.id AND o.status IN ('CONFIRMED','REFUNDED'))
         AND NOT EXISTS (SELECT 1 FROM cards k WHERE k."customerId"=c.id AND k.remaining>0))::int trial
     FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId" LEFT JOIN visits v ON v."customerId"=c.id
-    WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
+    WHERE c."storeId"=${storeId} ${musicRetirementSql(storeId,"Customer","c.id")} AND c."mergedIntoCustomerId" IS NULL AND (u.status IS NULL OR u.status<>'SUSPENDED')
     ${scope ? Prisma.sql`AND c."assignedStaffId"=${scope}` : Prisma.empty}`);
   return row;
 }
@@ -125,8 +126,8 @@ export async function getCourseHomeTodos(storeId: string, access: CourseTodoAcce
   const sessionScope=scope?Prisma.sql`AND (s.id = ANY(${LEGACY_MUSIC_SESSION_IDS}::text[])) = ${scope==="legacy"}`:Prisma.empty;
   const customerScope=scope?Prisma.sql`AND COALESCE(("customerId" = ANY(${LEGACY_MUSIC_CUSTOMER_IDS}::text[])),false) = ${scope==="legacy"}`:Prisma.empty;
   const parts: Prisma.Sql[] = [];
-  if (access.payments) parts.push(Prisma.sql`SELECT id, 'payment' kind, name label, "createdAt" date FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status='PENDING' ${customerScope}`);
-  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL ${sessionScope} AND s."teacherAttendance" NOT IN ('LEAVE','NO_SHOW') AND s."endsAt"<=${now} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
+  if (access.payments) parts.push(Prisma.sql`SELECT id, 'payment' kind, name label, "createdAt" date FROM "CoursePurchase" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CoursePurchase")} AND status='PENDING' ${customerScope}`);
+  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL ${musicRetirementSql(storeId,"CourseSession","s.id")} ${sessionScope} AND s."teacherAttendance" NOT IN ('LEAVE','NO_SHOW') AND s."endsAt"<=${now} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
   if (access.followUp && scope!=="legacy") parts.push(Prisma.sql`SELECT id, 'followUp' kind, COALESCE("customerDisplayName",'顧客跟進') label, "createdAt" date FROM "DigitalButlerLead" WHERE "storeId"=${storeId} AND status IN ('NEW','CONTACTING','QUOTED') ${access.staffScope ? Prisma.sql`AND "assignedStaffId"=${access.staffScope}` : Prisma.empty}`);
   if (!parts.length) return { total: 0, items: [] };
   const union = Prisma.join(parts, " UNION ALL ");
