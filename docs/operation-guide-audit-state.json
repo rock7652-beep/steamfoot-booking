@@ -1,23 +1,22 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-22",
+  "auditDateTaipei": "2026-10-23",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
-  "previousSuccessfulAuditCommit": "aa886d666fb3a439a636f854f6c09608d59a41cc",
+  "lastInventoriedMainCommit": "7cb8c26127f60337c159b05391bc90f3263246ad",
+  "previousSuccessfulAuditCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261012",
   "newGuideIds": [
-    "A17"
+    "F13"
   ],
   "updatedGuideIds": [
-    "A05",
-    "IMG01",
-    "C124",
+    "F01",
+    "F04",
     "C123",
-    "C170",
-    "I19",
-    "I21"
+    "I21",
+    "I22",
+    "W06"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -31,7 +30,8 @@
     "C176",
     "IMG01",
     "CG01",
-    "A17"
+    "A17",
+    "F13"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -186,9 +186,10 @@
     "CG01",
     "C124",
     "I19",
-    "A17"
+    "A17",
+    "F13"
   ],
-  "articleCount": 196,
+  "articleCount": 197,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -487,12 +488,20 @@
     1372,
     1373,
     1371,
-    1375
+    1375,
+    1387,
+    1388,
+    1389,
+    1390,
+    1391,
+    1392,
+    1393,
+    1394
   ],
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-22 核對 main aa886d66..abfe50b1 共10筆提交。沿用 main 新增 A17 蒸足後台異動通知，更新 A05、IMG01、C124、C123、C170、I19、I21，涵蓋預約名單快捷操作、圖片公告版面、過堂補登、通知預設／提示音、試用開通與設定儲存結果。現行196題／15類，82題待隔離登入驗收；前台及SPA維持封存，指南分支不改業務規則或自動合併。",
+  "continuation": "2026-10-23 核對 main abfe50b1..7cb8c261 共8筆提交（#1387～#1394）。新增 F13 LINE 額度 Email 通知，更新 F01、F04、C123、I21、I22、W06，涵蓋提醒分類下拉選單、精簡通知人員列、開關獨立儲存、工單入口授權、提醒分頁獨立載入與設定視窗返回。現行197題／15類，83題待隔離登入驗收；前台及SPA維持封存，指南分支不改業務規則或自動合併。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -524,21 +533,10 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 82,
-  "totalInteractionPendingCount": 82,
-  "reviewedMainCommitCount": 10,
-  "reviewedStandaloneCommits": [
-    "1e133b93",
-    "e4b44f8c",
-    "4b3872ed",
-    "7488ac5b",
-    "58a46214",
-    "693c8446",
-    "3e3ec3ea",
-    "365eef4a",
-    "a7861451",
-    "d923bae2"
-  ],
+  "backendInteractionPendingCount": 83,
+  "totalInteractionPendingCount": 83,
+  "reviewedMainCommitCount": 8,
+  "reviewedStandaloneCommits": [],
   "publishedGuidePullRequests": [
     1042,
     1091,
@@ -629,19 +627,19 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
+    "sourceCommit": "7cb8c26127f60337c159b05391bc90f3263246ad",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
     "isolation": "本版 Preview 尚未完成已登入且確認資料隔離、通知封鎖的後台工作階段驗收",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "前輪79題未完成；本輪新增A17，C124與I19因修訂重新加入待驗，其餘修訂已在既有待驗清單，去重為82題。來源核對、既有功能PR畫面、測試與HTTP 200均不抵扣。",
+    "note": "前輪82題未完成；本輪新增F13，六篇修訂原已在待驗清單，去重為83題。來源核對、功能PR畫面、測試與HTTP 200均不抵扣。",
     "blockers": [
       "本版 Preview 的 Vercel 存取及隔離後台登入待確認",
       "I20 仍需具 store_operation_audit 的隔離 OWNER 身分"
     ],
     "nonBlockingFollowups": [
-      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；A17／C170核對鈴鐺與提示音但不改設定，A05／C124只開啟快捷操作不送出，IMG01只核對上傳／排序／日期畫面但不儲存。"
+      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；F13只核對開關、信箱數、預覽封鎖與搜尋，不寄測試信；F01／C123核對分類下拉、精簡人員列、獨立載入與關閉返回，不儲存設定或發通知。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"
@@ -992,30 +990,29 @@
     "scope": "Store backend period consumption list, manager filters and authorized CSV export"
   },
   "currentMainAudit": {
-    "range": "aa886d666fb3a439a636f854f6c09608d59a41cc..abfe50b1092e9f78a1db76b575b255df5cf3524f",
-    "commitCount": 10,
+    "range": "abfe50b1092e9f78a1db76b575b255df5cf3524f..7cb8c26127f60337c159b05391bc90f3263246ad",
+    "commitCount": 8,
     "pullRequests": [
-      1378,
-      1377,
-      1381,
-      1382,
-      1384,
-      1385,
-      1383,
-      1386
+      1387,
+      1388,
+      1389,
+      1390,
+      1391,
+      1392,
+      1393,
+      1394
     ],
     "frontendOnlyOrEditorial": [],
     "newGuideIds": [
-      "A17"
+      "F13"
     ],
     "updatedGuideIds": [
-      "A05",
-      "IMG01",
-      "C124",
+      "F01",
+      "F04",
       "C123",
-      "C170",
-      "I19",
-      "I21"
+      "I21",
+      "I22",
+      "W06"
     ],
     "businessRulesChangedByGuideBranch": false
   },
@@ -1024,5 +1021,11 @@
     "status": "source-reviewed",
     "authenticatedAcceptance": "pending",
     "note": "新增蒸足後台異動通知操作說明；合成預覽不視為真實登入驗收。"
+  },
+  "lineQuotaEmailGuideReview": {
+    "guideId": "F13",
+    "status": "source-reviewed",
+    "authenticatedAcceptance": "pending",
+    "note": "新增 LINE 額度 Email 通知文章；正式寄信網域已由功能 PR 驗證，但指南驗收仍不得寄測試信或以送信紀錄替代登入後操作。"
   }
 }

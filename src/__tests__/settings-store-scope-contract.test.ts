@@ -55,7 +55,7 @@ describe("settings store-scope source contracts", () => {
       "src/app/(dashboard)/dashboard/settings/duty/page.tsx",
     );
     const remindersPage = read(
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
+      "src/app/(dashboard)/dashboard/reminders/steam-reminder-view.tsx",
     );
 
     expect(paymentPage).toContain("key={storeId}");
@@ -68,7 +68,8 @@ describe("settings store-scope source contracts", () => {
     expect(dutyPage).toContain("key={storeId}");
     expect(remindersPage).toContain("key={`${storeId}-balance`}");
     expect(remindersPage).toContain("key={`${storeId}-expiry`}");
-    expect(remindersPage).toContain("key={`${storeId}-customer-${customerSection}`}");
+    // The category picker owns preserved drafts; changing stores still remounts all forms.
+    expect(remindersPage).toContain("<ReminderSectionPicker key={storeId}");
   });
 
   it("keeps reminder reads and final updates store-scoped", () => {

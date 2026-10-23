@@ -1184,21 +1184,23 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F01",
     "category": "care",
     "title": "顧客提醒與店長通知在哪裡分開設定？",
-    "summary": "提醒面板分店長通知、顧客提醒、工單待取件通知與發送紀錄；示範預覽不會發送 LINE。",
+    "summary": "提醒面板分店長通知、顧客提醒與發送紀錄；顧客提醒再用下拉選單選擇預約、關懷、方案或已開通的工單提醒。",
     "path": "設定 → 通知與顧客經營 → 提醒管理",
     "steps": [
       "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
-      "切到店長通知、顧客提醒或發送紀錄；工單功能開通時，另核對「工單待取件 LINE 通知」。顧客提醒再分預約前、體驗後關懷與方案使用提醒。",
-      "店長通知開關變更後等待「已儲存」；顯示儲存中時不要重複點擊或關閉。需要儲存的其他設定明確送出，再重新開啟核對開關與收件人。實際發送結果另從發送紀錄查。"
+      "切到店長通知、顧客提醒或發送紀錄；顧客提醒從「提醒類型」選預約前、體驗後關懷、方案使用提醒，已開通工單時才會出現工單取件提醒。",
+      "店長通知的人員列預設精簡顯示；點「設定提醒」再用通知分類下拉選單調整個別項目，說明預設收合。店長 LINE 卡片的「通知類型」位於預設收合的查看訊息預覽，與上方人員設定的「通知分類」不同。每個開關各自等待「已儲存」，其他開關不必等整頁重新整理。實際發送結果另從發送紀錄查。"
     ],
     "important": "顧客與店長是不同收件對象；開啟前先核對。預覽按鈕不跳轉業務操作、不發 LINE，不需為了看樣式建立真實預約或收款。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 預約前 體驗後 方案使用 查看訊息預覽 通知類型 Flex 示範資料 9種",
+    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種",
     "details": [
-      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋；各開關與文字內容會依序儲存，前一項未完成前下一項保持等待。若失敗會保留未送出的畫面值並顯示可重試，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
+      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
       "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
       "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
-      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。"
+      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
+      "店長通知上方另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
+      "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。"
     ],
     "modules": [
       "steamfoot",
@@ -1212,7 +1214,10 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
       "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
       "src/lib/manager-notification-preview.ts",
-      "src/lib/manager-notification-preferences.ts"
+      "src/lib/manager-notification-preferences.ts",
+      "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
+      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+      "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1263,11 +1268,11 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
       "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
-      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理。"
+      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
     ],
     "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。預覽看起來正確或發送紀錄顯示成功，不代表本人已在 LINE 看見或點過連結。",
     "success": "",
-    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆",
+    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆",
     "details": [
       "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
       "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
@@ -1281,7 +1286,8 @@ export const additionalGuides: OperationGuide[] = [
       "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
       "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
       "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
-      "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。"
+      "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
+      "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。"
     ],
     "modules": [
       "steamfoot",
@@ -1303,7 +1309,9 @@ export const additionalGuides: OperationGuide[] = [
       "src/components/admin/store-member-connection-panel.tsx",
       "src/server/services/liff-login-recovery.ts",
       "src/server/services/store-member-connection.ts",
-      "src/server/services/work-order-ready-notification.ts"
+      "src/server/services/work-order-ready-notification.ts",
+      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+      "src/server/services/line-quota-monitor.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",

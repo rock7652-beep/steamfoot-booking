@@ -92,6 +92,7 @@ import { dailyOperationGuides20261013 } from "./operation-guide-daily-20261013";
 import { dailyOperationGuides20261014 } from "./operation-guide-daily-20261014";
 import { dailyOperationGuides20261019 } from "./operation-guide-daily-20261019";
 import { dailyOperationGuides20261020 } from "./operation-guide-daily-20261020";
+import { dailyOperationGuides20261023 } from "./operation-guide-daily-20261023";
 import { customerConsumptionGuides } from "./operation-guide-customer-consumption";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
@@ -121,6 +122,7 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261014,
   ...dailyOperationGuides20261019,
   ...dailyOperationGuides20261020,
+  ...dailyOperationGuides20261023,
   ...customerConsumptionGuides,
 ];
 

@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getStoreUsage } from "@/server/queries/usage";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { computeLifecycle, effectiveStateLabel } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -38,7 +38,9 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
   const subtitle = "店長控制台 · 查看狀態、同頁編輯設定";
   let body: React.ReactNode;
   {
-    const [store, rule, canEdit, config, canPayment, canStaff, canPlans] = await settingsStep("read_config", () => Promise.all([
+    const canPaymentRequest = checkPermission(user.role, user.staffId, "plans.edit");
+    const [[store, rule, canEdit, config, canPayment, canStaff, canPlans], [digitalButler, referralShare, lineReminder, customerCare, waitlistFeature, musicGrant], usage] = await Promise.all([
+    settingsStep("read_config", () => Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
         select: { name: true, plan: true, currentSubscription: { select: { status: true, expiresAt: true } }, subscriptions: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true, expiresAt: true } } },
@@ -46,22 +48,24 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
       prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, shopPhone: true, lineOfficialId: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookingOpensAt:true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
-      checkPermission(user.role,user.staffId,"plans.edit"),
+      canPaymentRequest,
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
-    ]));
-    const [usage, digitalButler, referralShare, lineReminder, customerCare, waitlistFeature] = await settingsStep("read_features", () => Promise.all([
-      canPayment ? settingsStep("read_usage", () => getStoreUsage(storeId)) : null,
+    ])),
+    settingsStep("read_features", () => Promise.all([
       hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
       hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE),
       hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
       hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
       hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST),
-    ]));
+      prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}),
+    ])),
+    canPaymentRequest.then(allowed => allowed ? settingsStep("read_usage", () => getStoreUsage(storeId)) : null),
+    ]);
     const waitlistSetting = waitlistFeature
       ? await settingsStep("read_waitlist", () => coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } }))
       : null;
-    const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
+    const music = !!musicGrant;
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     // Direct panel queries must not render protected server content for a hidden/locked

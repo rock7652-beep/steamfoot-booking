@@ -352,3 +352,11 @@ describe("getCurrentUser staff store recovery", () => {
     );
   });
 });
+
+import { withReadRequestMemo } from "@/server/services/read-request-memo";
+it("shares session recovery only within one opted-in panel read and rechecks the next request", async () => {
+ const results = await withReadRequestMemo(() => Promise.all([getCurrentUser(), getCurrentUser(), getCurrentUser()]));
+ expect(results[0]).toBe(results[1]); expect(results[1]).toBe(results[2]); expect(mocks.auth).toHaveBeenCalledOnce();
+ mocks.auth.mockResolvedValue({ user: null });
+ expect(await withReadRequestMemo(getCurrentUser)).toBeNull(); expect(mocks.auth).toHaveBeenCalledTimes(2);
+});

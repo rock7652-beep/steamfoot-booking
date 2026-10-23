@@ -1,14 +1,14 @@
 "use client";
+import { useKeyedReminderMutation } from "./reminder-setting-feedback";
+import { saveManagerNotification } from "@/lib/manager-notification-save";
 import { ManagerNotificationPreview } from "./manager-notification-preview";
 import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { toast } from "sonner";
 import {
   createStoreLineNotificationRecipient,
   removeStoreLineNotificationRecipient,
-  setStoreLineNotificationRecipientActive,
-  setManagerNotificationPreference,
 } from "@/server/actions/store-line-notification-recipients";
 import {
   managerPreferences,
@@ -24,107 +24,74 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
-  const [pending, start] = useTransition();
+function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course = false }: { item: Recipient; storeId: string; onConfirmed: (id: string, key: string, enabled: boolean) => void; expanded: boolean; onExpand: () => void; course?: boolean }) {
+  const mutation = useKeyedReminderMutation();
+  const pending = mutation.pending;
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
-  const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
+  const [group, setGroup] = useState("預約通知");
+  const [display, patch] = useOptimistic(item, (current, change: { key: string; enabled: boolean }) => {
+    if (change.key === "active") return { ...current, isActive: change.enabled };
+    return { ...current, preferences: { ...managerPreferences(current.preferences, current.sameDayBookingEnabled), [change.key]: change.enabled }, ...(change.key === "sameDay" ? { sameDayBookingEnabled: change.enabled } : {}) };
+  });
+  const p = managerPreferences(display.preferences, display.sameDayBookingEnabled);
   const options = managerNotificationOptions(course);
-  function save(action: () => Promise<{ success: boolean; error?: string }>) {
+  function save(key: string, action: () => Promise<{ success: boolean; error?: string }>, enabled?: boolean) {
     setSaved("");
-    start(async () => {
-      try {
-        const r = await action();
-        if (r.success) setSaved("已儲存");
-        else toast.error(r.error ?? "儲存失敗");
-      } catch {
-        toast.error("暫時無法儲存，請再試一次");
-      }
+    const previous = key === "active" ? display.isActive : p[key as keyof typeof p];
+    mutation.run(key, action, () => { if (enabled !== undefined) onConfirmed(item.id, key, enabled); setSaved("已儲存"); }, enabled === undefined ? undefined : () => {
+      patch({ key, enabled });
+      return () => patch({ key, enabled: previous });
     });
   }
   return (
-    <article className="rounded-xl border border-earth-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-earth-900">
-            {item.displayName}・{item.roleLabel}
-          </h3>
-          <p className="text-xs text-earth-500">
-            {item.linkedAt ? "LINE 已綁定" : "等待 LINE 綁定"}
-            {item.legacyStaffId ? " · 沿用原負責顧客範圍" : ""}
-          </p>
+    <article data-notification-recipient className="rounded-xl border border-earth-200 bg-white px-4 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1 basis-48">
+          <h3 className="break-words font-semibold text-earth-900">{item.displayName}・{item.roleLabel}</h3>
+          <div className="flex flex-wrap items-center gap-x-2 text-sm text-earth-500">
+            <span>{item.linkedAt ? "LINE 已綁定" : "等待 LINE 綁定"}</span>
+            <span>{display.isActive && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒` : !item.linkedAt ? "綁定後可接收" : "已暫停 · 保留設定"}</span>
+            {item.legacyStaffId && <span>沿用原負責顧客範圍</span>}
+            <span role="status">{pending ? "儲存中…" : saved}</span>
+          </div>
         </div>
-        <label className="flex items-center gap-3 text-sm">
-          接收 LINE 通知
-          <input
-            aria-label={`${item.displayName} 接收 LINE 通知`}
-            type="checkbox"
-            role="switch"
-            checked={item.isActive}
-            disabled={pending || !item.linkedAt}
-            onChange={(e) => {
-              const on = e.target.checked;
-              save(() => setStoreLineNotificationRecipientActive(item.id, on));
-            }}
-            className={notificationSwitchClass}
-          />
-        </label>
-        <details className="relative">
-          <summary
-            className="cursor-pointer px-3"
-            aria-label={`${item.displayName} 更多操作`}
-          >
-            ⋯
-          </summary>
-          <button
-            disabled={pending}
-            className="mt-2 text-sm text-red-700"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `確定解除 ${item.displayName} 的 LINE 通知綁定？`,
-                )
-              )
-                save(() => removeStoreLineNotificationRecipient(item.id));
-            }}
-          >
-            解除綁定
+        <div className="flex max-w-full flex-wrap items-center gap-1">
+          <label className="flex min-h-11 items-center gap-2 px-2 text-sm">
+            接收 LINE 通知
+            <input aria-label={`${item.displayName} 接收 LINE 通知`} type="checkbox" role="switch"
+              checked={display.isActive} disabled={pending || !item.linkedAt}
+              onChange={e => { const on = e.target.checked; save("active", () => saveManagerNotification(storeId, item.id, "active", on), on); }}
+              className={notificationSwitchClass} />
+          </label>
+          <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="min-h-11 rounded-lg px-2 text-sm font-medium text-primary-700">
+            {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
           </button>
-        </details>
+          <details className="relative">
+            <summary className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-sm" aria-label={`${item.displayName} 更多操作`}>⋯</summary>
+            <button disabled={pending} className="absolute right-0 top-full z-30 min-h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-red-700 shadow-md"
+              onClick={() => { if (window.confirm(`確定解除 ${item.displayName} 的 LINE 通知綁定？`)) save("remove", () => removeStoreLineNotificationRecipient(item.id)); }}>解除綁定</button>
+          </details>
+        </div>
       </div>
-      <div className="mt-2 flex justify-between text-xs text-earth-500">
-        <span>
-          {item.isActive
-            && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
-            : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
-        </span>
-        <span role="status">{pending ? "儲存中…" : saved}</span>
-      </div>
-      <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="mt-2 text-sm font-medium text-primary-700">
-        {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
-      </button>
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
-          className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
+          className={`space-y-3 ${!display.isActive ? "opacity-50" : ""}`}
         >
-          {["預約通知", "顧客需求", "店務提醒"].map((group) => (
-            <section key={group}>
-              <h4 className="mb-3 text-sm font-semibold text-earth-800">
-                {group}
-              </h4>
-              <div className="space-y-4">
+          <label className="flex flex-wrap items-center gap-3 text-sm"><span>通知分類</span><select aria-label={`${item.displayName} 通知分類`} value={group} onChange={event => setGroup(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2">{["預約通知", "顧客需求", "店務提醒"].map(value => <option key={value}>{value}</option>)}</select></label>
+            <section aria-label={group}>
+              <div className="grid gap-x-6 gap-y-2 md:grid-cols-2">
                 {options.filter(
                   (o) => o.group === group,
                 ).map((o) => (
                   <label
                     key={o.key}
-                    className="flex items-start justify-between gap-3"
+                    className="flex min-h-11 items-center justify-between gap-3"
                   >
                     <span>
                       <span className="text-sm text-earth-900">{o.label}</span>
-                      <span className="mt-1 block text-xs leading-relaxed text-earth-500">
-                        {o.description}
-                      </span>
+                      {mutation.isPending(o.key) && <span role="status" className="ml-2 text-sm text-earth-500">儲存中…</span>}
+                      {mutation.errors[o.key] && <span role="alert" className="mt-1 block text-sm text-red-700">{mutation.errors[o.key]}</span>}
                     </span>
                     <input
                       aria-label={`${item.displayName} ${o.label}`}
@@ -132,35 +99,47 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                       role="switch"
                       className={notificationSwitchClass}
                       checked={p[o.key]}
-                      disabled={pending || !item.isActive || !item.linkedAt}
+                      disabled={mutation.isPending(o.key) || mutation.isPending("active") || mutation.isPending("remove") || !display.isActive || !item.linkedAt}
+                      aria-busy={mutation.isPending(o.key)}
                       onChange={(e) => {
                         const on = e.target.checked;
-                        save(() =>
-                          setManagerNotificationPreference(item.id, o.key, on),
+                        save(o.key, () =>
+                          saveManagerNotification(storeId, item.id, o.key, on), on,
                         );
                       }}
                     />
                   </label>
                 ))}
               </div>
+              <details className="mt-3 text-sm"><summary className="min-h-11 cursor-pointer py-2.5 text-primary-700">查看提醒說明</summary><dl className="space-y-2 text-earth-600">{options.filter(option => option.group === group).map(option => <div key={option.key}><dt className="font-medium">{option.label}</dt><dd>{option.description}</dd></div>)}</dl></details>
             </section>
-          ))}
         </div>
       </div>}
+      {(mutation.errors.active || mutation.errors.remove) && <p role="alert" className="mt-2 text-sm text-red-700">{mutation.errors.active || mutation.errors.remove}</p>}
     </article>
   );
 }
 export function LineNotificationRecipientsCard({
-  recipients,
+  recipients: initialRecipients,
+  storeId,
   course = false,
   bindingUnavailable,
   showHeading = true,
 }: {
   recipients: Recipient[];
+  storeId: string;
   course?: boolean;
   bindingUnavailable?: string;
   showHeading?: boolean;
 }) {
+  const [snapshot, setSnapshot] = useState(initialRecipients);
+  const [recipients, setRecipients] = useState(initialRecipients);
+  if (snapshot !== initialRecipients) { setSnapshot(initialRecipients); setRecipients(initialRecipients); }
+  function confirm(id: string, key: string, enabled: boolean) {
+    setRecipients(current => current.map(item => item.id !== id ? item : key === "active"
+      ? { ...item, isActive: enabled }
+      : { ...item, preferences: { ...managerPreferences(item.preferences, item.sameDayBookingEnabled), [key]: enabled }, ...(key === "sameDay" ? { sameDayBookingEnabled: enabled } : {}) }));
+  }
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [roleFilter, setRoleFilter] = useState("");
@@ -203,7 +182,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard storeId={storeId} onConfirmed={confirm} course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
@@ -214,8 +193,8 @@ export function LineNotificationRecipientsCard({
         <summary className="cursor-pointer font-medium text-primary-700">
           ＋ 綁定通知人員
         </summary>
-        <p className="mt-3 text-xs text-earth-500">
-          填寫姓名後，前往本店官方 LINE 傳送綁定訊息。
+        <p className="mt-3 text-sm text-earth-500">
+          填寫姓名後，前往本店官方 LINE 傳送綁定訊息。通知身分不會變更後台權限。
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
           <input
@@ -226,7 +205,7 @@ export function LineNotificationRecipientsCard({
             className="rounded-lg border border-earth-200 p-2 text-sm"
           />
           <select
-            aria-label="通知人員身分"
+            aria-label="通知身分"
             value={role}
             onChange={(e) => setRole(e.target.value as typeof role)}
             className="rounded-lg border border-earth-200 p-2 text-sm"

@@ -3,6 +3,14 @@ import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "perf/reminder-feature-reads-20261022",
+  "perf/reminder-panel-reader-20261022",
+  "fix/reminder-tab-feedback-density-20261022",
+  "fix/manager-toggle-transport-20261022",
+  "fix/reminder-panel-reconciliation-20261022",
+  "fix/reminder-optimistic-switches-20261022",
+  "feat/line-quota-email-alerts-20261022",
+  "fix/line-quota-manager-tab-20261022",
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,

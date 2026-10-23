@@ -65,6 +65,8 @@ export async function listNotificationCenterLogs(
       SELECT 'message:'||m.id, 'customer', c.name, COALESCE(r.name,t.name,'手動發送'), m.status::text, m."renderedBody", m."errorMessage",COALESCE(m."sentAt",m."createdAt"),c.id,CASE WHEN m.channel::text='LINE' THEN CASE m."lineRoute"::text WHEN 'CENTRAL' THEN 'LINE（中央）' WHEN 'STORE' THEN 'LINE（分店）' ELSE 'LINE（舊紀錄）' END ELSE m.channel::text END,NULL,NULL,NULL,NULL FROM "MessageLog" m JOIN "Customer" c ON c.id=m."customerId" AND c."storeId"=m."storeId" LEFT JOIN "ReminderRule" r ON r.id=m."ruleId" AND r."storeId"=m."storeId" LEFT JOIN "MessageTemplate" t ON t.id=m."templateId" AND t."storeId"=m."storeId" WHERE m."storeId"=${storeId}
       UNION ALL
       SELECT 'balance:'||n.id, 'customer', c.name, n.type::text,n.status::text,n."renderedBody",n."errorMessage",COALESCE(n."sentAt",n."createdAt"),c.id,'LINE',n."responseAction",p.name,n."managerNotificationStatus"::text,n."managerNotificationError" FROM "SessionBalanceNotification" n JOIN "Customer" c ON c.id=n."customerId" AND c."storeId"=n."storeId" LEFT JOIN "CustomerPlanWallet" w ON w.id=n."walletId" AND w."storeId"=n."storeId" LEFT JOIN "ServicePlan" p ON p.id=w."planId" AND p."storeId"=n."storeId" WHERE n."storeId"=${storeId}
+      UNION ALL
+      SELECT 'quota-email:'||id, 'manager', email, 'LINE 額度 Email 通知', status, body, error, COALESCE("sentAt","createdAt"),NULL,'Email',NULL,NULL,NULL,NULL FROM "LineQuotaAlert" WHERE "storeId"=${storeId}
     ) SELECT * FROM notifications ${where} ORDER BY at DESC,id DESC LIMIT 31 OFFSET ${(page - 1) * 30}
   `),
     prisma.reminderRule.findMany({
@@ -77,6 +79,6 @@ export async function listNotificationCenterLogs(
     rows: rows.slice(0, 30),
     page,
     hasMore: rows.length > 30,
-    typeOptions: ["手動發送", ...rules.map((r) => r.name)],
+    typeOptions: ["手動發送", "LINE 額度 Email 通知", ...rules.map((r) => r.name)],
   };
 }

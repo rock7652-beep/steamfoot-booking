@@ -9,7 +9,7 @@ vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async (
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: m.rule }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
-vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
 vi.mock("@/components/desktop", () => ({ PageShell: () => null, PageHeader: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: () => null }));
@@ -47,4 +47,12 @@ it("passes the self-booking flag and revision through both editable and read-onl
 it("defaults older stores to enabled revision zero",async()=>{
   m.rule.mockResolvedValue(null);
   expect(await props()).toMatchObject({selfBookingEnabled:true,selfBookingRevision:0});
+});
+
+it("starts feature and permitted usage reads while shop configuration is pending", async () => {
+ let finish!: (value: unknown) => void;
+ m.config.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+ const pending = CourseSharedHub({ view: "settings" });
+ try { await vi.waitFor(() => { expect(m.feature).toHaveBeenCalledWith("a", FEATURES.LINE_REMINDER); expect(m.usage).toHaveBeenCalled(); }, { timeout: 1000, interval: 5 }); }
+ finally { finish(null); await pending; }
 });

@@ -47,7 +47,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
     void mutation.run("toggle", () => setBookingReminderTypeEnabled("TRIAL", next), () => {
       setEnabled(next);
       toast.success(next ? "已開啟首次體驗提醒" : "已關閉首次體驗提醒");
-    });
+    }, () => { setEnabled(next); return () => setEnabled(!next); });
   }
 
   return (

@@ -109,6 +109,7 @@ export function SettingsListRow({
           {href ? (
             <DashboardLink
               href={destination ?? href}
+              prefetch={settingsSearch !== null && new URLSearchParams(settingsSearch).get("panel") === "reminders" ? false : undefined}
               scroll={settingsSearch !== null && href.startsWith("/dashboard/settings?") ? false : undefined}
               aria-label={`開啟${title}`}
               className="inline-flex min-h-11 min-w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200"

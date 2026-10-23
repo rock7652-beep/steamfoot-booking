@@ -19,6 +19,10 @@ describe("manager notification preference writes", () => {
     h.permission.mockResolvedValue({ id: "manager" }); h.store.mockResolvedValue("store-a");
     h.find.mockResolvedValue({ lineUserId: "line-a", isActive: true, sameDayBookingEnabled: true, preferences: { lead: false, payment: false } });
   });
+  it("rejects a stale store receipt before any mutation", async () => {
+    expect(await setManagerNotificationPreference("recipient-a", "trial", false, "other-store")).toMatchObject({ success: false });
+    expect(h.lock).not.toHaveBeenCalled(); expect(h.update).not.toHaveBeenCalled();
+  });
   it("locks the selected store row and preserves unrelated preferences", async () => {
     expect(await setManagerNotificationPreference("recipient-a", "trial", false)).toMatchObject({ success: true });
     expect(h.permission).toHaveBeenCalledWith("business_hours.manage");
