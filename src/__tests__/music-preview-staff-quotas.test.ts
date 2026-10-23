@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ manager: vi.fn(), plan: vi.fn(), staff: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn(), raw: vi.fn(), transaction: vi.fn(), feature: vi.fn(), entitlement: vi.fn() }));
+const m = vi.hoisted(() => ({ manager: vi.fn(), plan: vi.fn(), staff: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn(), raw: vi.fn(), transaction: vi.fn(), feature: vi.fn(), entitlement: vi.fn(), music: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), unstable_cache: (fn: unknown) => fn }));
 vi.mock("@/lib/store-plan", () => ({ getStoreForPlanByStoreId: m.plan, getCurrentStoreForPlan: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager }));
-vi.mock("@/server/services/music-finance-access", () => ({ canMusicFinance: async () => true, requireMusicFinance: async () => {}, isMusicFinanceStore: async () => true, readMusicFinanceScope: async () => null }));
+vi.mock("@/server/services/music-finance-access", () => ({ canMusicFinance: async () => true, requireMusicFinance: async () => {}, isMusicFinanceStore: m.music, readMusicFinanceScope: async () => null }));
 vi.mock("@/lib/revalidation", () => ({ revalidateStaff: vi.fn(), revalidateStaffPermissions: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
   storeFeatureEntitlement: { findUnique: m.entitlement },
@@ -15,6 +15,7 @@ const plan = { plan: "EXPERIENCE", planStatus: "ACTIVE", planEffectiveAt: null, 
 const input = { name: "Synthetic music teacher", kind: "coach", emergencyContactName: "Synthetic contact", emergencyContactPhone: "not-a-real-number", emergencyContactRelation: "synthetic", requestKey: "11111111-1111-4111-a111-111111111111" };
 beforeEach(() => {
   vi.resetAllMocks();
+  m.music.mockResolvedValue(true);
   for (const [key, value] of Object.entries({ VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/music-opening-state-20261007", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: direct, DIRECT_URL: direct, WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "" })) vi.stubEnv(key, value);
   m.plan.mockImplementation(async (id: string) => ({ ...plan, id }));
   m.manager.mockResolvedValue({ user: { id: "synthetic-owner", role: "OWNER", staffId: "synthetic-owner-staff" }, storeId: "store-lubymusic" });
@@ -65,4 +66,21 @@ it("fails closed on an invalid claimed Preview before entering a staff transacti
   expect(m.transaction).not.toHaveBeenCalled(); expect(m.create).not.toHaveBeenCalled();
   expect(JSON.stringify(error.mock.calls)).not.toContain("unapproved.invalid");
   error.mockRestore();
+});
+
+// Optional contacts must reach the real action transaction in both course modules.
+it.each([true, false])("allows omitted, blank and partial emergency contacts (music=%s)", async music => {
+  m.music.mockResolvedValue(music); m.count.mockResolvedValue(0);
+  const { emergencyContactName: _name, emergencyContactPhone: _phone, emergencyContactRelation: _relation, ...withoutContacts } = input;
+  for (const contacts of [{}, { emergencyContactName: "", emergencyContactPhone: "", emergencyContactRelation: "" }, { emergencyContactName: "家人" }]) {
+    m.create.mockClear();
+    expect(await saveCourseStaff({ ...withoutContacts, ...contacts })).toMatchObject({ success: true });
+    expect(m.create).toHaveBeenCalledWith({ data: expect.objectContaining({ staff: { create: expect.objectContaining({ emergencyContactName: "emergencyContactName" in contacts ? contacts.emergencyContactName : "", emergencyContactPhone: "", emergencyContactRelation: "" }) } }) });
+  }
+});
+it("retains contact length validation and staff name requirements", async () => {
+  for (const changes of [{ emergencyContactPhone: "1".repeat(31) }, { emergencyContactName: "字".repeat(81) }, { emergencyContactRelation: "字".repeat(41) }, { name: "" }]) {
+    expect(await saveCourseStaff({ ...input, ...changes })).toMatchObject({ success: false });
+  }
+  expect(m.transaction).not.toHaveBeenCalled();
 });

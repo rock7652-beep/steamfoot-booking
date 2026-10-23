@@ -357,8 +357,8 @@ export function CourseStaffWorkspace({
                 {label:"姓名",value:person.name},{label:"身分",value:identity(person,music)},{label:"狀態",value:person.active?"啟用":"停用"},
                 {label:"電話",value:person.phone||"未填"},{label:"Email",value:person.kind==="manager"?person.email:person.contactEmail||"未填"},{label:"生日",value:person.birthday||"未填"},
                 {label:"系統通知",value:person.notificationsEnabled===false?"關閉":"開啟"},
-              ]}/><details><summary className="min-h-11 cursor-pointer py-2">緊急聯絡資料</summary><CustomerDetailFields items={[{label:"姓名",value:person.emergencyContactName||"待補"},{label:"關係",value:person.emergencyContactRelation||"待補"},{label:"電話",value:person.emergencyContactPhone||"待補"}]}/></details></>}
-              {tab === "basic" && !music && <dl className={music?"divide-y divide-earth-100":"grid gap-x-6 sm:grid-cols-2"}>{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["Email",person.kind==="manager"?person.email:person.contactEmail||"未填"],["系統通知",person.notificationsEnabled===false?"關閉":"開啟"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名待補",person.emergencyContactRelation || "關係待補",person.emergencyContactPhone || "電話待補"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-2 border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
+              ]}/><details><summary className="min-h-11 cursor-pointer py-2">緊急聯絡資料</summary><CustomerDetailFields items={[{label:"姓名",value:person.emergencyContactName||"未填"},{label:"關係",value:person.emergencyContactRelation||"未填"},{label:"電話",value:person.emergencyContactPhone||"未填"}]}/></details></>}
+              {tab === "basic" && !music && <dl className={music?"divide-y divide-earth-100":"grid gap-x-6 sm:grid-cols-2"}>{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["Email",person.kind==="manager"?person.email:person.contactEmail||"未填"],["系統通知",person.notificationsEnabled===false?"關閉":"開啟"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名未填",person.emergencyContactRelation || "關係未填",person.emergencyContactPhone || "電話未填"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-2 border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
               {(tab === "qualifications" || tab === "work") && <>
                 {tab === "qualifications" && <><p className="rounded-lg bg-primary-50 px-3 py-2 text-sm">授課設定：{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "待補"}</p>{!music && <details><summary className="min-h-11 cursor-pointer py-2">可教授課程</summary><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、")||"尚未設定"}</p></details>}</>}
                 {tab === "work" && <><details><summary className="min-h-11 cursor-pointer py-2">會員連結 · {person.coachLoginReady?"已開通工作入口":"尚未開通工作入口"}</summary><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name??"已連結會員":"尚未連結會員"}</p><p className="py-2 text-sm text-earth-600">授課資格與登入分開管理；編輯會員連結後開通工作入口。</p></details>{music&&<CourseStaffAvailabilityEditor staffId={person.id} readOnly/>}{person.assignments.length?<CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/>:<p>沒有未結束且未取消的課次。</p>}</>}
@@ -495,9 +495,9 @@ export function CourseStaffWorkspace({
 
               {kind==="coach"&&<><label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><div className="self-end rounded-lg bg-earth-50 px-3 py-2 text-sm"><strong>系統通知</strong><span className="ml-2 text-earth-600">{person?.coachLoginReady?"已開啟":"連結 LINE 後自動開啟"}</span></div></>}
 
-              <details open={!person} className="col-span-full"><summary className="min-h-11 cursor-pointer py-2">緊急聯絡資料{!person?"（必填）":""}</summary><div className="grid gap-2 @min-[28rem]/staff:grid-cols-3">{([
+              <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-2">緊急聯絡資料（選填）</summary><div className="grid gap-2 @min-[28rem]/staff:grid-cols-3">{([
                 ["emergencyContactName","緊急聯絡人姓名"],["emergencyContactPhone","緊急聯絡人電話"],["emergencyContactRelation","緊急聯絡人關係"],
-              ] as const).map(([name,label])=><label key={name}>{label}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone")?"tel":"text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} required={!person}/></label>)}</div></details>
+              ] as const).map(([name,label])=><label key={name}>{label}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone")?"tel":"text"} defaultValue={person?.[name]??selectedCounterpart?.[name]}/></label>)}</div></details>
 </> : <>
               <label className="block">
                 姓名 *
@@ -550,7 +550,7 @@ export function CourseStaffWorkspace({
                 ["emergencyContactName", "緊急聯絡人姓名"],
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
-              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{(music||kind==="manager") ? (!person ? (music?"（必填）":" *") : !person[name] ? "（待補）" : "") : ""}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone") ? "tel" : "text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} required={!person && (music || kind==="manager")} /></label>)}
+              ] as const).map(([name, label]) => <label className="block" key={name}>{label}（選填）<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone") ? "tel" : "text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} /></label>)}
 </div></details>
               </>}
               </div>

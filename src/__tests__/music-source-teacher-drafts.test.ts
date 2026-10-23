@@ -195,9 +195,7 @@ describe("ordinary staff action cannot activate a source draft", () => {
     expect(sql).not.toContain(" OR ");
     expect(m.raw.mock.calls[0].slice(1)).toEqual(["ordinary-staff", "MusicSourceTeacherDraft"]);
   });
-  it("does not broaden ordinary settings or weaken the new music personnel contact requirement", async () => {
-    expect(await saveCourseStaff({ name: "Synthetic ordinary teacher", kind: "coach", active: false, requestKey: input.requestKey })).toMatchObject({ success: false, error: "新建人員請填緊急聯絡姓名、關係與電話" });
-    expect(m.transaction).not.toHaveBeenCalled(); expectNoWrites();
+  it("keeps ordinary staff outside the source-draft restriction", async () => {
     await expect(assertMusicSourceTeacherDraftEditable(tx, { id: "ordinary-staff", userId: "ordinary-user" }, "other-store")).resolves.toBeUndefined();
     expect(m.raw).not.toHaveBeenCalled();
   });
