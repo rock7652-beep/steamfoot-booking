@@ -49,8 +49,7 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  {user.role==="ADMIN"&&<p className="text-sm text-earth-600">HQ 測試站操作：可確認月結、登錄發薪及沖回；操作會留下紀錄。</p>}
- <PageHeader title={music ? "教師薪資與月結" : "每月收入結算"} subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
- {music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center self-start rounded-lg border px-3 text-sm">返回教師管理</Link>}
+ <PageHeader title={music ? "教師薪資與月結" : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">返回教師管理</Link>}<IncomeMonthFilter month={month}/></div>}/>
  {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}
  {report.separationEnabled&&<section aria-label="計薪資料來源" className="rounded-lg border border-earth-200 bg-white p-3">
  <nav aria-label="切換計薪資料" className="flex flex-wrap gap-2">
