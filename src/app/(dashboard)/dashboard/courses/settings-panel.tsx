@@ -57,12 +57,11 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
       if (event.key !== "Escape") return;
       // Nested editors own Escape while they are open.
       if (root.current?.querySelector('[data-right-sheet][aria-hidden="false"] [data-right-sheet][aria-hidden="false"], [role="alertdialog"]')) return;
-      event.preventDefault(); if (destination) setDestination(null); else request(closeHref);
+      event.preventDefault(); if (destination && pending) setDestination(null); else request(closeHref);
     };
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
   }, [pending, request, closeHref, destination]);
-  useEffect(()=>{if(!pending)setDestination(null);},[pending]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
   return <div ref={root} data-course-settings-panel>
