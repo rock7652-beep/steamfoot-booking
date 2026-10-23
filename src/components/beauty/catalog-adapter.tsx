@@ -1,9 +1,10 @@
 "use client";
-import {MusicSubjectCatalog,type MusicSubjectView} from "@/app/(dashboard)/dashboard/courses/music-subject-catalog";
+import type {MusicSubjectView} from "@/app/(dashboard)/dashboard/courses/music-subject-catalog";
 import {saveBeautyDisplayOrder} from "@/server/actions/beauty-display-order";
 import {useRouter} from 'next/navigation';
 import type {Room,Template,CourseCatalogSource} from '@/app/(dashboard)/dashboard/courses/workspace';
 import dynamic from 'next/dynamic';
+const MusicSubjectCatalog=dynamic(()=>import('@/app/(dashboard)/dashboard/courses/music-subject-catalog').then(m=>m.MusicSubjectCatalog));
 const CourseWorkspace=dynamic(()=>import('@/app/(dashboard)/dashboard/courses/workspace').then(m=>m.CourseWorkspace));
 const CourseMemberWorkspace=dynamic(()=>import('@/app/(dashboard)/dashboard/courses/member-workspace').then(m=>m.CourseMemberWorkspace));
 import type {Plan,CoursePlanCatalogPort} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';

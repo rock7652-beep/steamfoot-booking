@@ -53,3 +53,12 @@ it("sports teaching-item form sends course cost and the same coach qualification
  expect(JSON.parse(m.fetch.mock.calls[0][1].body).sportsRule).toMatchObject({pointCost:1,coachIds:["coach"],expectedCoachIds:[],compensation:{mode:"SHARE",value:60}});
  expect(coach.checked).toBe(true);
 });
+it('uses the same subject editor with service fields and a Beauty writer, without calling course endpoints',async()=>{
+ const save=vi.fn().mockImplementation(async data=>({success:true,data:{...row,name:String(data.get('name'))}}));
+ await act(async()=>root.render(createElement(MusicSubjectCatalog,{...props,key:'beauty',catalog:{label:'服務項目',status:{impact:vi.fn(),apply:vi.fn()},order:vi.fn(),feeHref:id=>`?tab=收費方式&serviceId=${id}`,fields:()=>createElement('label',null,'服務時長',createElement('input',{name:'duration',type:'number',required:true,defaultValue:60})),save}})));
+ expect(host.textContent).toContain('新增服務項目');expect(host.querySelector('[name="duration"]')).toBeTruthy();expect(host.querySelector('[name="price"]')).toBeNull();
+ const input=host.querySelector<HTMLInputElement>('[name="name"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'做臉');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0].get('duration')).toBe('60');expect(m.fetch).not.toHaveBeenCalled();expect(host.querySelector('tbody')!.textContent).toContain('做臉');
+});

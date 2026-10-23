@@ -25,3 +25,10 @@ it('uses the existing plan form without preset quota or price and submits servic
 it('edits trial pricing in the shared form, with no hidden required name or scheme fields blocking submit',async()=>{
  const plan:Plan={id:'trial:s',name:'做臉',points:1,price:500,validDays:0,isActive:true,unit:'SESSION',templateIds:['s'],catalogKind:'trial',catalogRevision:3};await mount(plan);await set('[name="price"]','');expect(host.querySelector<HTMLInputElement>('[name="name"]')!.disabled).toBe(true);expect(host.querySelector('[name="points"]')).toBeNull();expect(host.querySelector('[name="days"]')).toBeNull();expect(host.querySelector<HTMLInputElement>('[name="price"]')!.required).toBe(false);await submit();expect(m.save).toHaveBeenCalledWith(expect.objectContaining({catalogKind:'trial',catalogPriceValue:'',templateIds:['s']}),plan);expect(m.course).not.toHaveBeenCalled();
 });
+it('opens new charging directly with the full unfilled session-plan fields',async()=>{
+ await mount();
+ expect(host.querySelector<HTMLSelectElement>('select[aria-label="收費類型"]')!.value).toBe('plan');
+ for(const name of ['name','points','price','days']){const input=host.querySelector<HTMLInputElement>(`[name="${name}"]`)!;expect(input,name).toBeTruthy();expect(input.disabled,name).toBe(false);expect(input.value,name).toBe('');}
+ expect(host.querySelector('[name="allowShared"]')).toBeTruthy();
+ expect(m.course).not.toHaveBeenCalled();
+});
