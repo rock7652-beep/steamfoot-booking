@@ -1,5 +1,5 @@
 import { withMusicRetirement } from "@/lib/music-retirement";
-import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
+import { assertMusicOpeningRuntimeIsolation, withMusicOpeningRuntimeSchema } from "@/lib/music-opening-preview-isolation";
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { Prisma, PrismaClient } from "../../generated/course-client";
@@ -25,10 +25,10 @@ export const coursePrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
   () => globalForCourse.coursePrisma,
-  () => withAuditDatabaseContext(withMusicRetirement(new PrismaClient({
+  () => withAuditDatabaseContext(withMusicRetirement(withMusicOpeningRuntimeSchema(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],
-  }), Prisma.dmmf.datamodel.models)),
+  })), Prisma.dmmf.datamodel.models)),
 );
 if (!isGuideUiPreview() && process.env.NODE_ENV !== "production")
   globalForCourse.coursePrisma = coursePrisma;

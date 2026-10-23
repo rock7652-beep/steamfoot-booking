@@ -4,10 +4,8 @@ export async function register() {
   const { assertMusicOpeningPreviewEnvironment } = await import("../scripts/music-opening-preview-scope.mjs");
   if (process.env.NODE_ENV !== "test" || process.env.VERCEL === "1") {
     assertMusicOpeningPreviewEnvironment(process.env);
-    if (process.env.NEXT_RUNTIME === "nodejs") {
-      const { runMusicOpeningSchemaPreflight } = await import("../scripts/music-opening-schema-check.mjs");
-      await runMusicOpeningSchemaPreflight();
-    }
+    // Full database readiness is awaited at both Prisma query boundaries while
+    // an actual request is active. No networking during module initialization.
   }
 
   if (
