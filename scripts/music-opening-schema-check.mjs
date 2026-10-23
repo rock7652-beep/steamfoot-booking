@@ -121,7 +121,11 @@ export function assertMusicOpeningSchema(rows) {
 /** Injection exists for local unit tests, never as an environment bypass. */
 export async function checkMusicOpeningSchema(env, readSchema) {
   assertMusicOpeningPreviewEnvironment(env);
-  for (const url of [env.DATABASE_URL,env.DIRECT_URL]) assertMusicOpeningSchema(await readSchema(url));
+  for (const [key,url] of [["DATABASE_URL",env.DATABASE_URL],["DIRECT_URL",env.DIRECT_URL]]) {
+    const started=Date.now();
+    try { assertMusicOpeningSchema(await readSchema(url)); }
+    catch(error) { console.error("[music-opening-preflight] capability_failed",{connection:key,elapsedMs:Date.now()-started});throw error; }
+  }
 }
 
 /** Stable diagnostic categories only; never forward driver messages or URLs. */
@@ -177,11 +181,15 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
   if (pooled) url.searchParams.set("pgbouncer", "true");
   for (let attempt = 0; attempt < 2; attempt++) {
     const client = createClient({ datasources: { db: { url: url.toString() } }, log: [] });
+    let phase="connect";
+    const started=Date.now();
     try {
       // Complete engine/pool initialization before issuing the catalog query.
       await client.$connect();
+      phase="catalog";
       return await client.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL);
     } catch (error) {
+      console.warn("[music-opening-preflight] connection_failed",{phase,port:url.port||"5432",attempt:attempt+1,elapsedMs:Date.now()-started,category:musicOpeningConnectionCategory(error)});
       if (attempt === 1 || !isTransientMusicOpeningConnectionFailure(error)) {
         throw musicOpeningConnectionFailure(error, pooled ? "pooled" : "direct");
       }

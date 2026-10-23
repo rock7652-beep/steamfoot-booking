@@ -623,7 +623,7 @@ export function CourseStaffWorkspace({
               </>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
                 {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
-                  onRole={value => { setBackendRole(value); if(value === "OWNER") setPermissions(allowedPermissionCodes); setDirty(true); }}
+                  onRole={value => { setBackendRole(value); if(value === "OWNER") { setPermissions(allowedPermissionCodes); setFinanceTeacherIds(null); } setDirty(true); }}
                   onPreset={value => { setPermissions(backendRole==="OWNER"?allowedPermissionCodes:value); setApplyRolePreset(true); setDirty(true); toast.success("已套用角色預設權限；儲存後生效"); }}/>}
                 
 
