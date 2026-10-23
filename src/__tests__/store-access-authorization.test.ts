@@ -257,3 +257,9 @@ describe("organization store authorization", () => {
       .rejects.toThrow("店舖路由資訊無效");
   });
 });
+
+it("filters unsupported persisted module enums before Prisma decodes the HQ selector",async()=>{
+  const {getAccessibleStores}=await import("@/lib/store");
+  await getAccessibleStores({role:"ADMIN"});
+  expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({industryModule:{in:["STEAMFOOT","SPA","COURSE"]}})}));
+});
