@@ -1423,8 +1423,9 @@ function CreatePersonDrawer({
   const pathname=usePathname();
   const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/staff`,storeId,savedStaffPerson);
   const submitLock=useRef(false),locked=request.pending||request.uncertain;
+  const [dirty,setDirty]=useState(false);
   const [error,setError]=useState("");
-  function close(){if(!locked)onClose();}
+  function close(){if(!locked&&(!dirty||window.confirm("尚有未儲存的人員資料，確定離開？")))onClose();}
   async function create(form:FormData){
     if(submitLock.current)return;submitLock.current=true;setError("");
     try{
@@ -1460,7 +1461,7 @@ function CreatePersonDrawer({
   }
   return (
     <Drawer title="新增人員" centered={compact} onClose={close}>
-      <form onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className="space-y-6">
+      <form onChangeCapture={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className={compact?"space-y-4 [&_input]:min-h-11 [&_select]:min-h-11":"space-y-6"}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         <fieldset disabled={locked} className="contents">
         <section className={compact?"grid grid-cols-1 gap-3 sm:grid-cols-2":"space-y-4"}>
