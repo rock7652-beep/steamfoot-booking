@@ -612,7 +612,7 @@ export function CourseStaffWorkspace({
               )}
 
                 </details>
-                {music && person && coachEnabled && availabilityOpened && <div data-browse-control><CourseStaffAvailabilityEditor staffId={person.id} onGuard={updateAvailabilityGuard}/></div>}
+                {music && person && coachEnabled && !readOnly && availabilityOpened && <div data-browse-control><CourseStaffAvailabilityEditor staffId={person.id} onGuard={updateAvailabilityGuard}/></div>}
                 {music && person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {music && person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
