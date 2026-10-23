@@ -36,7 +36,6 @@ export function useFormDraft<T extends Fields>(key: string, initial: T, revision
   function set<K extends keyof T>(field: K, value: T[K]) { setMany({ [field]: value } as unknown as Partial<T>); }
   function discard() {
     if (busy.current) return false;
-    if (draft && !window.confirm("捨棄尚未儲存的修改，回到目前已儲存的資料？")) return false;
     setDraft(null);
     return true;
   }

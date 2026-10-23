@@ -34,7 +34,7 @@ it("retains incomplete birthday parts after unmount and reopening",async()=>{
 it("does not replace restored input with a newer server version or submit stale data",async()=>{
  await render();await input("name","我的輸入");await render({...person,name:"同事修改",updatedAt:"2026-09-27T01:00:00.000Z"});
  expect(host.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe("我的輸入");expect(host.textContent).toContain("資料已有更新");await submit();expect(m.customer).not.toHaveBeenCalled();
- vi.spyOn(window,"confirm").mockReturnValue(true);await act(async()=>host.querySelector("button")!.click());expect(host.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe("同事修改");
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);await act(async()=>host.querySelector("button")!.click());expect(confirm).not.toHaveBeenCalled();expect(host.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe("同事修改");
 });
 it("retains validation and network failures, and never replays automatically",async()=>{
  m.customer.mockResolvedValueOnce({success:false,error:"電話格式錯誤"}).mockRejectedValueOnce(Error("offline"));
@@ -43,6 +43,7 @@ it("retains validation and network failures, and never replays automatically",as
 });
 it("submits once, passes the original revision and clears only on success",async()=>{
  let done!:(v:unknown)=>void;m.customer.mockImplementation(()=>new Promise(r=>{done=r;}));await render();await input("name","新姓名");await submit();await submit();expect(m.customer).toHaveBeenCalledOnce();expect(m.customer.mock.calls[0][0]).toMatchObject({expectedUpdatedAt:person.updatedAt,name:"新姓名"});
+ await act(async()=>host.querySelector("button")!.click());expect(host.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe("新姓名");
  await act(async()=>done({success:true}));expect(m.saved).toHaveBeenCalledOnce();expect(host.textContent).not.toContain("尚未儲存");
 });
 it("an old request cannot close a newly selected customer",async()=>{
