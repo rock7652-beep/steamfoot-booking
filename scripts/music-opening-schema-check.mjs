@@ -125,9 +125,10 @@ export function musicOpeningConnectionCategory(error) {
   const code = [error?.code, error?.errorCode].find(value => typeof value === "string" && /^P\d{4}$/.test(value));
   const message = [error?.message, error?.meta?.message, error?.cause?.message].filter(value => typeof value === "string").join("\n");
   // P2010 wraps SQLSTATE. Keep only known codes, never arbitrary metadata/message text.
-  const sqlstate = [error?.meta?.code, error?.cause?.code].find(value =>
+  const sqlstate = [error?.code, error?.meta?.code, error?.cause?.code].find(value =>
     ["08001", "08003", "08006", "08P01", "26000", "28000", "28P01", "42501", "42P01", "42P05", "42703", "53300", "53400", "57014", "57P01", "57P02", "57P03", "XX000"].includes(value));
   if (sqlstate) return `${code ?? "DATABASE"}:${sqlstate}`;
+  if (["ETIMEDOUT","ECONNRESET","ECONNREFUSED","EPIPE","ENETUNREACH","EHOSTUNREACH"].includes(error?.code)) return `NETWORK:${error.code}`;
   const detail = /engine is not yet connected/i.test(message) ? "ENGINE_NOT_CONNECTED"
     : /response from the engine was empty|unable to JSON.parse response from engine/i.test(message) ? "ENGINE_EMPTY_RESPONSE"
     : /prepared statement.*already exists/i.test(message) ? "PREPARED_STATEMENT_EXISTS"
@@ -149,7 +150,9 @@ export function musicOpeningConnectionFailure(error, connectionKind) {
 
 function isTransientMusicOpeningConnectionFailure(error) {
   const category = musicOpeningConnectionCategory(error);
-  return ["P1001", "P1002", "P1017", "P2024"].includes(category.split(":")[0]) ||
+  return /^NETWORK:(ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|ENETUNREACH|EHOSTUNREACH)$/.test(category) ||
+    /^DATABASE:(08001|08003|08006|57P01|57P02|57P03)$/.test(category) ||
+    ["P1001", "P1002", "P1017", "P2024"].includes(category.split(":")[0]) ||
     ["TIMEOUT", "P1008:TIMEOUT", "ENGINE_NOT_CONNECTED", "ENGINE_EMPTY_RESPONSE", "P2010:TIMEOUT", "P2010:08001", "P2010:08003", "P2010:08006", "P2010:57P01", "P2010:57P02", "P2010:57P03"].includes(category);
 }
 
@@ -188,7 +191,9 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
 /** Reuse platform-provided existing credentials without reading/saving them elsewhere. */
 export async function runMusicOpeningSchemaPreflight(env = process.env) {
   assertMusicOpeningPreviewEnvironment(env);
-  const { PrismaClient } = await import("@prisma/client");
-  await checkMusicOpeningSchema(env, value => readMusicOpeningSchemaConnection(value, options => new PrismaClient(options)));
+  const [{ default: pg }, { createMusicOpeningCatalogClient }] = await Promise.all([
+    import("pg"), import("./music-opening-catalog-client.mjs"),
+  ]);
+  await checkMusicOpeningSchema(env, value => readMusicOpeningSchemaConnection(value, options => createMusicOpeningCatalogClient(options, pg.Client)));
   console.info("[music-opening-preflight] isolated_database=true schema_ready=true tenant_verified=true");
 }
