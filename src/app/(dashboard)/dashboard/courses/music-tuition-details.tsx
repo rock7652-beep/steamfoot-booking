@@ -43,7 +43,7 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
         <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? "補繳學費" : "學費明細"} · {order.name}</h3>
         <button type="button" className={button} disabled={busy} onClick={close}>關閉</button>
       </header>
-      <div className="min-h-0 overflow-y-auto p-4 text-sm">
+      <div className="@container/tuition min-h-0 min-w-0 overflow-y-auto p-3 text-sm">
         {discard && <div role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p>放棄尚未儲存的收款資料？</p>
           <div className="mt-2 flex gap-2"><button type="button" className={button} onClick={() => setDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={() => { setDirty(false); setDiscard(false); setMode(null); }}>放棄修改</button></div>
@@ -65,7 +65,7 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
           finally { submitting.current = false; setBusy(false); }
         }}>
           <p className="rounded-lg bg-earth-50 px-3 py-2">應收 {tuition.due.toLocaleString()} · 已收 {order.price.toLocaleString()} · <strong>欠款 {outstanding.toLocaleString()}</strong></p>
-          <fieldset disabled={busy} className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <fieldset disabled={busy} className="grid min-w-0 grid-cols-1 gap-2 @min-[22rem]/tuition:grid-cols-2">
             <label className="space-y-1">本次實收<input className={field} name="amount" type="number" min="1" max={outstanding} step="1" required defaultValue={outstanding} /></label>
             <label className="space-y-1">付款日期<input className={field} name="date" type="date" max={toLocalDateStr()} required defaultValue={toLocalDateStr()} /></label>
             <label className="space-y-1">付款方式<select className={field} name="method" required value={method} onChange={event => setMethod(event.target.value)}><option value="">請選擇</option>{["CASH", "BANK_TRANSFER", "CARD", "OTHER"].map(value => <option key={value} value={value}>{COURSE_PAYMENT_LABELS[value]}</option>)}</select></label>
@@ -73,20 +73,21 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
           </fieldset>
           {error && <p role="alert" className="text-red-700">{error}</p>}
           <div className="flex items-center justify-between gap-3 border-t pt-3"><span className="text-earth-500">登錄已收到的款項</span><button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white disabled:opacity-50" disabled={busy}>{busy ? "儲存中…" : "儲存收款"}</button></div>
-        </form> : <div className="space-y-3">
-          <p>期限：{tuition.expiry} · {tuition.discountTeacherFee ? "折後學費拆帳" : "原學費拆帳"}</p>
-          <RosterTable label="各期學費" columns={["期別", "堂數", "應收", "已收", "欠款"]}>
+        </form> : <div className="grid min-w-0 grid-cols-1 gap-3 @min-[44rem]/tuition:grid-cols-2">
+          <p className="col-span-full">期限：{tuition.expiry} · {tuition.discountTeacherFee ? "折後學費拆帳" : "原學費拆帳"}</p>
+          <section className="min-w-0 [&_table]:min-w-[22rem]"><RosterTable label="各期學費" columns={["期別", "堂數", "應收", "已收", "欠款"]}>
             {tuition.periods.map(period => <tr key={period.period}><td>{period.period}</td><td>{period.lessons}</td><td className="text-right tabular-nums">{period.due.toLocaleString()}</td><td className="text-right tabular-nums">{period.received.toLocaleString()}</td><td className="text-right tabular-nums">{order.status === "CONFIRMED" ? period.outstanding.toLocaleString() : "—"}</td></tr>)}
           </RosterTable>
-          <h4 className="font-semibold">付款紀錄</h4>
+          </section><section className="min-w-0 space-y-2 [&_table]:min-w-[22rem]"><h4 className="font-semibold">付款紀錄</h4>
           <RosterTable label="付款明細" columns={["付款日期", "實收", "方式", "後四碼"]}>
             {tuition.receipts.map(receipt => <tr key={receipt.id}><td>{toLocalDateStr(new Date(receipt.paidAt))}</td><td className="text-right tabular-nums">{receipt.amount.toLocaleString()}</td><td>{COURSE_PAYMENT_LABELS[receipt.method]}</td><td>{receipt.lastFour ?? "—"}</td></tr>)}
           </RosterTable>
           {!tuition.receipts.length && <p className="text-earth-500">尚無付款紀錄</p>}
-          {tuition.canReadBookings && <details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看出勤紀錄（{tuition.lessons.length}）</summary><RosterTable label="學費對應出勤" columns={["上課時間", "老師", "狀態"]}>{tuition.lessons.map(lesson => <tr key={lesson.id}><td>{formatTWDateTime(new Date(lesson.date))}</td><td>{lesson.teacher}</td><td>{lesson.status}</td></tr>)}</RosterTable></details>}
-          {order.refunds.map(refund => <p key={refund.id}>退款 {refund.amount.toLocaleString()} · {refund.reason}</p>)}
-          {order.note && <p>備註：{order.note}</p>}
-          {order.voidReason && <p>作廢原因：{order.voidReason}</p>}
+          </section>
+          {tuition.canReadBookings && <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看出勤紀錄（{tuition.lessons.length}）</summary><RosterTable label="學費對應出勤" columns={["上課時間", "老師", "狀態"]}>{tuition.lessons.map(lesson => <tr key={lesson.id}><td>{formatTWDateTime(new Date(lesson.date))}</td><td>{lesson.teacher}</td><td>{lesson.status}</td></tr>)}</RosterTable></details>}
+          {order.refunds.map(refund => <p className="col-span-full" key={refund.id}>退款 {refund.amount.toLocaleString()} · {refund.reason}</p>)}
+          {order.note && <p className="col-span-full break-words">備註：{order.note}</p>}
+          {order.voidReason && <p className="col-span-full break-words">作廢原因：{order.voidReason}</p>}
         </div>}
       </div>
     </ModalPanel>

@@ -43,20 +43,21 @@ function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted
  }
  return {submit,error,pending};
 }
-export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...callbacks}:Callbacks&{person:Person|null;canEdit:boolean;canCreate:boolean;hidden:boolean}){
+export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,compact=false,...callbacks}:Callbacks&{person:Person|null;canEdit:boolean;canCreate:boolean;hidden:boolean;compact?:boolean}){
+ const customerField=compact ? `${field} min-h-11 min-w-0 max-w-full` : field;
  const [year="1970",month="",day=""]=(person?.birthday??"").split("-");
  const draft=useFormDraft(`course-customer:${person?.id??"new"}`,{name:person?.name??"",phone:person?.phone??"",email:person?.email??"",gender:person?.gender??"",serviceNote:person?.serviceNote??"",address:person?.address??"",emergencyContactName:person?.emergencyContactName??"",emergencyContactPhone:person?.emergencyContactPhone??"",birthYear:year||"1970",birthMonth:month,birthDay:day},person?.updatedAt??null);
  const {submit,error,pending}=useSaveForm(draft,callbacks);
- return <form id="course-member-form" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${hidden?"hidden":""}`} onSubmit={e=>{
+ return <form id="course-member-form" className={`${compact ? "grid grid-cols-2 gap-3 [&_label]:min-w-0" : "grid grid-cols-1 gap-3 sm:grid-cols-2"} ${hidden?"hidden":""}`} onSubmit={e=>{
   if(person?!canEdit:!canCreate){e.preventDefault();return;}
   void submit(e,d=>saveCourseCustomer({id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
  }}>
- <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
+ <div className="col-span-full"><FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  <fieldset disabled={pending} className="contents">
                 <label className="block">
                   姓名
                   <input
-                    className={field}
+                    className={customerField}
                     name="name"
                     value={draft.values.name} onChange={e=>draft.set("name",e.target.value)}
                     readOnly={person ? !canEdit : !canCreate}
@@ -67,7 +68,7 @@ export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...call
                 <label className="block">
                   電話
                   <input
-                    className={field}
+                    className={customerField}
                     name="phone"
                     value={draft.values.phone} onChange={e=>draft.set("phone",e.target.value)}
                     readOnly={person ? !canEdit : !canCreate}
@@ -75,15 +76,15 @@ export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...call
                     required
                   />
                 </label>
-                <fieldset disabled={person ? !canEdit : !canCreate} className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
-                  <label className="block">電子信箱<input className={field} name="email" type="email" value={draft.values.email} onChange={e=>draft.set("email",e.target.value)} /></label>
-                  <label className="block">性別<select className={field} name="gender" value={draft.values.gender} onChange={e=>draft.set("gender",e.target.value)}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
-                  <div>生日<BirthdayFields parts={{year:draft.values.birthYear,month:draft.values.birthMonth,day:draft.values.birthDay}} onPartsChange={p=>draft.setMany({birthYear:p.year,birthMonth:p.month,birthDay:p.day})} className={field} /></div>
-                  <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} value={draft.values.emergencyContactName} onChange={e=>draft.set("emergencyContactName",e.target.value)} /></label>
-                  <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} value={draft.values.emergencyContactPhone} onChange={e=>draft.set("emergencyContactPhone",e.target.value)} /></label>
-                  {!person && <label className="block">店內備註<textarea className={field} name="serviceNote" value={draft.values.serviceNote} onChange={e=>draft.set("serviceNote",e.target.value)} maxLength={1000} /></label>}
-                  <label className="block">地址<input className={field} name="address" maxLength={300} value={draft.values.address} onChange={e=>draft.set("address",e.target.value)} /></label>
-                </fieldset>
+                <details className="col-span-full" open={compact ? undefined : true}><summary className={compact ? "min-h-11 cursor-pointer py-2 text-sm text-primary-700" : "hidden"}>更多資料 · 聯絡、生日與地址</summary><fieldset disabled={person ? !canEdit : !canCreate} className={compact ? "grid min-w-0 grid-cols-2 gap-3 [&>label]:min-w-0" : "grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2"}>
+                  <label className="block">電子信箱<input className={customerField} name="email" type="email" value={draft.values.email} onChange={e=>draft.set("email",e.target.value)} /></label>
+                  <label className="block">性別<select className={customerField} name="gender" value={draft.values.gender} onChange={e=>draft.set("gender",e.target.value)}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
+                  <div className={compact ? "col-span-full min-w-0" : undefined}>生日<BirthdayFields parts={{year:draft.values.birthYear,month:draft.values.birthMonth,day:draft.values.birthDay}} onPartsChange={p=>draft.setMany({birthYear:p.year,birthMonth:p.month,birthDay:p.day})} className={customerField} /></div>
+                  <label className="block">緊急聯絡人姓名<input className={customerField} name="emergencyContactName" maxLength={100} value={draft.values.emergencyContactName} onChange={e=>draft.set("emergencyContactName",e.target.value)} /></label>
+                  <label className="block">緊急聯絡人電話<input className={customerField} name="emergencyContactPhone" type="tel" maxLength={30} value={draft.values.emergencyContactPhone} onChange={e=>draft.set("emergencyContactPhone",e.target.value)} /></label>
+                  {!person && <label className="block">店內備註<textarea className={customerField} name="serviceNote" value={draft.values.serviceNote} onChange={e=>draft.set("serviceNote",e.target.value)} maxLength={1000} /></label>}
+                  <label className={compact ? "col-span-full block" : "block"}>地址<input className={customerField} name="address" maxLength={300} value={draft.values.address} onChange={e=>draft.set("address",e.target.value)} /></label>
+                </fieldset></details>
               </fieldset></form>;
 }
 export function CoursePlanDraftForm({plan,templates,subjects=[],musicTeachers=[],canEditMusicTeachers=false,termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{musicTeachers?:{id:string;name:string;active:boolean;qualificationIds:string[]}[];canEditMusicTeachers?:boolean;subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){

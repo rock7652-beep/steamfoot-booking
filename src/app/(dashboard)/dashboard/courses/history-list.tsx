@@ -23,9 +23,9 @@ export function CourseHistoryList<T extends {id:string}>({customerId,label,load,
     return ()=>{active=false;};
   },[customerId,page,range,key,invalid,load,mode]);
   const ready=result?.key===key;
-  return <section className="space-y-3 py-3">
-    <h3 className="font-semibold text-primary-800">{label}</h3>
-    <div className="grid grid-cols-2 gap-3 text-sm">{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div>
+  return <section className="@container/history space-y-2 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-primary-800">{label}</h3>
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 text-sm @min-[42rem]/history:w-auto">{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0 @min-[42rem]/history:flex @min-[42rem]/history:items-center @min-[42rem]/history:gap-2">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2 @min-[42rem]/history:mt-0 @min-[42rem]/history:w-40" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div></div>
     {invalid ? <p role="alert">開始日期不可晚於結束日期</p> : !ready && result?.customerId !== customerId ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
       {columns ? <RosterTable label={label} columns={columns}>{result?.rows.map(row=><tr key={row.id}>{render(row)}</tr>)}</RosterTable> : <ul className="divide-y divide-earth-100">{result?.rows.map(row=><li key={row.id} className="space-y-1 py-3 text-sm">{render(row)}</li>)}</ul>}
       {!result?.rows.length && <p className="text-sm text-earth-500">{empty}</p>}

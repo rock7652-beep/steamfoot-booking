@@ -23,11 +23,11 @@ export function MusicStudentOverview({ customerId, tab }: { customerId: string; 
   }, [reader, customerId, retry, includeTuition]);
   const value = result?.id === customerId ? result.value : null;
   const link = "inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 py-2 text-sm text-primary-800";
-  if (!value && tab === "plans") return null;
+  if (tab !== "info" && tab !== "makeups") return null;
   if (!value) return <p role="status" className="mb-3 text-sm text-earth-600">讀取學員堂數與課表…</p>;
   if (!value.success) return <p role="alert" className="mb-3 text-sm text-red-700">{value.error}<button type="button" className="min-h-11 px-3 underline" onClick={() => { setResult(null); reader.invalidate(customerId, includeTuition); setRetry(n => n + 1); }}>重新讀取</button></p>;
   const { balance, next } = value.data;
-  return <section className="mb-4 space-y-3 text-sm" aria-label="學員概況">
+  return <section className="mb-2 space-y-2 text-sm" aria-label="學員概況">
     {tab === "info" && <><div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-primary-50 p-3">
       {balance && <><span>一般剩餘 <strong>{balance.remaining}</strong> 堂</span><span>已排 <strong>{balance.held}</strong> 堂</span><span>可再預約 <strong>{balance.available}</strong> 堂</span></>}
       {!!balance?.makeupRemaining && <span>另發補課 <strong>{balance.makeupRemaining}</strong> 堂</span>}

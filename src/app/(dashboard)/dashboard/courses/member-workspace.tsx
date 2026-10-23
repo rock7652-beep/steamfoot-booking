@@ -445,7 +445,7 @@ export function CourseMemberWorkspace({
             {(music ? [["info","基本資料"], ...(canReadCards ? [["plans","學費與堂數"]] : []), ...(canReadTransactions ? [["payments","付款紀錄"]] : []), ...(canReadBookings ? [["bookings","課表與出勤"],["makeups","請假與補課"]] : [])] : [ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && !music && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
             {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
@@ -490,7 +490,7 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab(panel === "card" || panel === "assign" ? "plans" : "info")}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <CustomerDetailFields items={[
+              <CustomerDetailFields className={music ? "@min-[46rem]/member:grid-cols-3" : undefined} items={[
                 {label:"電話",value:<CustomerPhoneLink phone={person.phone}/>},
                 ...(!music?[{label:"所屬店長",value:customerRows.find(c=>c.id===person.id)?.assignedStaff?.displayName??null}]:[]),
                 {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
@@ -513,7 +513,7 @@ export function CourseMemberWorkspace({
               </details>}
             </section>}
             {panel === "person" && (
-              <CourseCustomerDraftForm key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
+              <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && (music?hasVisitedTab("payments"):personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div hidden={music&&personTab!=="payments"}><CourseCustomerPurchases music={music} key={`purchases-${person.id}`} customerId={person.id} /></div>}
@@ -528,7 +528,7 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onChange={e=>{if(!music||(e.target as HTMLElement).closest("[data-purchase-details]"))setDirty(true);}}
-                className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"
+                className={music ? "grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" : "grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"}
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     musicCheckoutTransport("purchase", {
@@ -554,7 +554,7 @@ export function CourseMemberWorkspace({
                   )
                 }
               >
-                <fieldset disabled={pending} className="min-w-0 space-y-3">
+                <fieldset disabled={pending} className={music ? "min-w-0 space-y-2 [&>label]:grid [&>label]:grid-cols-[5rem_minmax(0,1fr)] [&>label]:items-center [&>label]:gap-2" : "min-w-0 space-y-3"}>
                 <h3 className="font-semibold">{music?"收費方式":"方案資料"}</h3>
                 {person ? <div><span className="text-sm text-earth-500">{music ? "學員" : "顧客"}</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   {music ? "學員" : "顧客"}
@@ -590,7 +590,7 @@ export function CourseMemberWorkspace({
 
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
-                <fieldset data-purchase-details disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
+                <fieldset data-purchase-details disabled={pending} className={music ? "min-w-0 @min-[40rem]/member:border-l @min-[40rem]/member:border-earth-200 @min-[40rem]/member:pl-3" : "min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5"}>
                   {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 </fieldset>
               </form>
@@ -630,12 +630,12 @@ export function CourseMemberWorkspace({
             )}
           </div>
           {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && sharingVisible && card?.allowShared)) && (
-            <footer className={panel === "plan" && !music ? fitnessEditorFooter : "shrink-0 border-t border-earth-100 bg-white px-4 py-3"}>
-              {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
-              <div className={`flex gap-2 ${panel === "plan" && !music ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending} onClick={close}>取消</button>}<button
+            <footer className={panel === "plan" && !music ? fitnessEditorFooter : `shrink-0 border-t border-earth-100 bg-white px-4 py-3 ${music && panel === "assign" ? "flex flex-wrap items-center gap-3" : ""}`}>
+              {panel === "assign" && <p className={`${music ? "min-w-0 flex-1" : "mb-2"} flex flex-wrap justify-between gap-2 text-sm`}><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
+              <div className={`flex gap-2 ${music || (panel === "plan" && !music) ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending} onClick={close}>取消</button>}<button
                 form="course-member-form"
                 type="submit"
-                className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : "w-full"} !bg-primary-700 !text-white`}
+                className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : music ? "min-w-28" : "w-full"} !bg-primary-700 !text-white`}
                 disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
