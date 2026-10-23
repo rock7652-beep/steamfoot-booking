@@ -93,7 +93,7 @@ export function CourseSelfBookingSettings({
     });
   }
 
-  if(music)return <SettingsListRow compact title="允許學員自行預約" summary={savedEnabled?"開啟":"關閉"} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label="允許學員自行預約" checked={savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={e=>{const next=e.target.checked;setState(current=>({...current,enabled:next}));save(next);}}/></label>}>
+  if(music)return <SettingsListRow compact expanded={!!error||saveRequest.uncertain} title="允許學員自行預約" summary={savedEnabled?"開啟":"關閉"} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label="允許學員自行預約" checked={savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={e=>{const next=e.target.checked;setState(current=>({...current,enabled:next}));save(next);}}/></label>}>
     {error&&<p role="alert" className="py-1 text-sm text-red-700">{error}</p>}
     {saveRequest.uncertain&&<button type="button" disabled={pending} className="min-h-11 rounded-lg border px-3 text-sm" onClick={()=>save()}>重試確認</button>}
   </SettingsListRow>;
