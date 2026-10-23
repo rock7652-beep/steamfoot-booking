@@ -725,7 +725,7 @@ export function CourseWorkspace({
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
-        <div className={`@container/schedule ${styles.workspace} flex min-w-0 flex-col gap-1`}>
+        <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {businessProfile === "MUSIC" && params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>從學員資料進入 · 返回後保留原搜尋與篩選</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -848,7 +848,7 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className="relative z-10 grid min-w-0 grid-cols-1 items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 p-2 @min-[32rem]/schedule:grid-cols-2 @min-[48rem]/schedule:grid-cols-4">
+          {<div className="relative z-10 grid min-w-0 grid-cols-1 items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 p-2 @min-[32rem]/course-schedule:grid-cols-2 @min-[48rem]/course-schedule:grid-cols-4">
             <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
