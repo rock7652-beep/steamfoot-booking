@@ -58,7 +58,9 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
   }
   const serviceIds=input.sportsMode==='LEGACY'&&prior&&input.subjectId===prior.serviceIds[0]?prior.serviceIds:input.templateIds;
   const lowBalanceEnabled=input.lowBalanceEnabled??prior?.lowBalanceEnabled??false;
-  const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled,lowBalanceThreshold:lowBalanceEnabled?Number(input.lowBalanceThreshold??prior?.lowBalanceThreshold):null});
+  const rawThreshold=input.lowBalanceThreshold===undefined?prior?.lowBalanceThreshold??null:input.lowBalanceThreshold;
+  const lowBalanceThreshold=input.lowBalanceEnabled===undefined&&input.lowBalanceThreshold===undefined?prior?.lowBalanceThreshold??null:lowBalanceEnabled&&rawThreshold!=null?Number(rawThreshold):null;
+  const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled,lowBalanceThreshold});
   if(!r.success)return r;const record=savedBeautyPlan.parse(r.data.record);const saved={...beautySessionProduct(record),sportsMode:record.serviceIds.length===1?'ASSIGNED':'LEGACY',sportsSubjectId:record.serviceIds[0]??null,sportsCost:1};refresh();return {success:true,data:saved};
  }};
  const templates:Template[]=services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,catalogSnapshot:{...s},capacity:1,pointCost:1,defaultRoomId:null}));

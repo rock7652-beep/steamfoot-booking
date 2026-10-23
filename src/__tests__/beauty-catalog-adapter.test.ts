@@ -7,7 +7,7 @@ vi.mock('@/app/(dashboard)/dashboard/courses/member-workspace',()=>({CourseMembe
 import {createBeautyCatalogAdapter} from '@/components/beauty/catalog-adapter';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const service={id:'service',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true};
-const plan={id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
+const plan={storeId:'store',expiryReminder:{enabled:false,days:[14,7]},id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
 const data={storeId:'store',services:[service],plans:[plan],locations:[{id:'room',name:'空間',isActive:true,category:'A',details:'備註',equipment:'設備',location:'二樓'}]} as unknown as BeautyDashboardData;
 beforeEach(()=>{vi.resetAllMocks();m.catalog.mockImplementation(async(_kind,input)=>({success:true,data:{saved:true,record:{...input,id:input.id??'new',revision:input.revision+1}}}));});
 it('changing service duration preserves both prices, returns the authoritative revision, and rejects stale source',async()=>{
@@ -55,4 +55,10 @@ it('defaults blank shared room capacity to one on creation and preserves existin
  expect(m.location).toHaveBeenLastCalledWith(expect.objectContaining({capacity:1}));
  expect(await a.save('room',{id:'room',name:'既有床位',roomCapacity:''})).toMatchObject({success:true,data:{capacity:3}});
  await a.save('room',{name:'保留驗證',roomCapacity:0});expect(m.location).toHaveBeenLastCalledWith(expect.objectContaining({capacity:0}));
+});
+
+it.each([{lowBalanceEnabled:true,lowBalanceThreshold:null},{lowBalanceEnabled:false,lowBalanceThreshold:3}])('does not rewrite untouched reminder metadata through the native fee form: %j',async reminder=>{
+ const a=createBeautyCatalogAdapter('收費方式',{...data,plans:[{...plan,...reminder}]},true,m.refresh);
+ await a.form.save({sportsMode:'ASSIGNED',subjectId:'service',unit:'SESSION',name:plan.name,points:7,price:6500,validDays:80,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true},a.products[0]);
+ expect(m.catalog).toHaveBeenCalledWith('plan',expect.objectContaining(reminder));
 });

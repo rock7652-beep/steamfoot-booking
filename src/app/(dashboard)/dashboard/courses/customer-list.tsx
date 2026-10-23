@@ -12,7 +12,8 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[] }: {
+export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[] }: {
+  assignCustomers?:typeof bulkAssignCourseCustomers;
   basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
@@ -77,7 +78,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
     {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar staffLabel="所屬店長" inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
       onCancel={() => setSelected(new Set())}
       onSubmit={async assignedStaffId => {
-        const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });
+        const response = await assignCustomers({ customerIds: [...selectedIds], assignedStaffId });
         if (!response.success) { setResult(response.error ?? "本批未儲存，請重試。"); return false; }
         setResult(`已指派 ${response.data.count} 位顧客，推薦人與既有方案不變。`);
         setSelected(new Set()); router.refresh();

@@ -228,6 +228,7 @@ export async function beautyDashboard(
         ["members", "wallet.adjust"],
         ["customer", "customer.create"],
         ["customerEdit", "customer.update"],
+        ["customerAssign", "customer.assign"],
         ["plan", "plans.edit"],
         ["technician", "staff.manage"],
         ["location", "business_hours.manage"],
@@ -366,7 +367,9 @@ export async function beautyDashboard(
   const displayOrders=Object.fromEntries(orderRows.filter(r=>r.kind!=="plan"||planAccess).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
   const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
   const technicianAssignments=includeTechnicianAssignments&&staffAccess?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[];
+  const assignmentStaff=customerAccess?await prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[];
   return {
+    assignmentStaff,
     displayOrders,
     rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),
     technicianAssignments:technicianAssignments.map(row=>({id:row.id,technicianId:row.technicianId,name:row.serviceName,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),capacity:1,bookedCount:1,locationLabel:locations.find(location=>location.id===row.locationId)?.name??'未指定'})),

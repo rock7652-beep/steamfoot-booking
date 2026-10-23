@@ -3,6 +3,7 @@ import {act,createElement as h} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({status:vi.fn(),move:vi.fn(),collect:vi.fn(),push:vi.fn(),refresh:vi.fn(),params:new URLSearchParams()}));
+vi.mock('@/server/actions/beauty-customer-attribution',()=>({bulkAssignBeautyCustomers:vi.fn(),saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn()}));
 vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:m.refresh,push:m.push}),useSearchParams:()=>m.params,usePathname:()=>'/dashboard/beauty'}));
 vi.mock('@/lib/beauty/calendar-read',()=>({readBeautyCalendar:vi.fn(),projectBeautyCalendar:vi.fn()}));

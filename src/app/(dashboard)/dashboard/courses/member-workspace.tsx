@@ -51,7 +51,7 @@ import {
 import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
-import { CustomerAttributionForm } from "@/components/customer-attribution-form";
+import {CourseCustomerAttribution} from "./customer-attribution";
 import { saveCourseCustomerAttribution, searchCourseReferrerCandidates } from "@/server/actions/course-customer-attribution";
 import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
@@ -275,14 +275,7 @@ export function CourseMemberWorkspace({
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
 
 
-  const attribution=person&&(<section aria-label="歸屬設定" className={sportsNative?"py-1":"border-t border-earth-100 py-2"}>
-                <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                  {!music && <span>所屬店長：{customerRows.find(row => row.id === person.id)?.assignedStaff?.displayName ?? "未指派"}</span>}
-                  <span>推薦人：{customerRows.find(row => row.id === person.id)?.sponsor?.name ?? "未設定"}</span>
-                  {canAssignManager && <button type="button" className="min-h-11 px-3 text-primary-700" onClick={() => { if (supportGuard.allowLeave()) setEditingAttribution(value => !value); }}>{editingAttribution ? "取消修改" : "修改歸屬"}</button>}
-                </div>
-                {editingAttribution && <CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}`} customerId={person.id} currentStaffId={customerRows.find(row=>row.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}} />}
-              </section>);
+  const attribution=person&&<CourseCustomerAttribution customerId={person.id} currentStaff={customerRows.find(row=>row.id===person.id)?.assignedStaff??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} music={music} compact={sportsNative} editing={editingAttribution} onToggle={()=>{if(supportGuard.allowLeave())setEditingAttribution(value=>!value);}} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}}/>;
   const detailFields=person&&(<CustomerDetailFields items={[
                 {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
                 {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
