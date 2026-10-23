@@ -426,7 +426,7 @@ export function BeautyCatalogEditor({
                     ))}
                 </select>
               </label>
-              <fieldset className="sm:col-span-2 space-y-2">
+              <fieldset className="@container/hours sm:col-span-2 space-y-2">
                 <legend className="font-semibold">我的工作權限</legend>
                 <div className="flex flex-wrap gap-4">
                   {[
@@ -455,7 +455,7 @@ export function BeautyCatalogEditor({
                 {weekly.map((p, i) => (
                   <div
                     key={i}
-                    className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[7rem_1fr_1fr_auto]"
+                    className="grid grid-cols-2 items-center gap-2 @min-[32rem]/hours:grid-cols-[7rem_1fr_1fr_auto]"
                   >
                     <select
                       aria-label={`時段${i + 1}星期`}
@@ -538,10 +538,10 @@ export function BeautyCatalogEditor({
             </>
           )}
           {kind === "technician" && (
-            <fieldset data-tech-tab="availability" className={"space-y-3 sm:col-span-2 "+(techTab==='availability'?'':'hidden')}>
+            <fieldset data-tech-tab="availability" className={"@container/hours space-y-3 sm:col-span-2 "+(techTab==='availability'?'':'hidden')}>
               <legend>指定日期休假／調班</legend>
               {exceptions.map((e, i) => (
-                <div key={i} className="grid gap-2 sm:grid-cols-4">
+                <div key={i} className="grid gap-2 @min-[32rem]/hours:grid-cols-4">
                   <input
                     aria-label="調班日期"
                     required
@@ -635,7 +635,7 @@ export function BeautyCatalogEditor({
               {data.services.filter(s=>s.active||serviceIds.includes(s.id)).map((s) => (
                 <CourseStaffServiceRow key={s.id} name={s.name} selected={serviceIds.includes(s.id)} inactiveLabel={!s.active?'已停用':undefined} wide onSelect={value=>{setServiceIds(ids=>value?[...ids,s.id]:ids.filter(id=>id!==s.id));setDirty(true);}}>
                   {kind === "technician" && serviceIds.includes(s.id) && (
-                    <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_8rem]">
+                    <div className="grid min-w-0 gap-2 @min-[28rem]/service:grid-cols-[minmax(0,1fr)_8rem]">
                       <label className="space-y-1 text-sm">拆帳方式<select
                         aria-label={`${s.name}拆帳方式`}
                         className={field}
@@ -676,7 +676,7 @@ export function BeautyCatalogEditor({
                         }
                       /></label>
                       {rates[s.id]?.mode === "PERCENT" && (
-                        <label className="space-y-1 text-sm sm:col-span-2">計算基準<select
+                        <label className="space-y-1 text-sm @min-[28rem]/service:col-span-2">計算基準<select
                           aria-label={`${s.name}拆帳基準`}
                           className={field}
                           required

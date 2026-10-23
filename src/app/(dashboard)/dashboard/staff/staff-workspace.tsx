@@ -1461,10 +1461,10 @@ function CreatePersonDrawer({
   }
   return (
     <Drawer title="新增人員" centered={compact} onClose={close}>
-      <form onChangeCapture={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className={compact?"space-y-4 [&_input]:min-h-11 [&_select]:min-h-11":"space-y-6"}>
+      <form onChangeCapture={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className={compact?"@container/staff space-y-4 [&_input]:min-h-11 [&_select]:min-h-11":"space-y-6"}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         <fieldset disabled={locked} className="contents">
-        <section className={compact?"grid grid-cols-1 gap-3 sm:grid-cols-2":"space-y-4"}>
+        <section className={compact?"grid grid-cols-1 gap-3 @min-[28rem]/staff:grid-cols-2":"space-y-4"}>
           <Field label="人員類型">
             <select name="role" defaultValue="STAFF" className={inputClass}>
               <option value="STAFF">Staff／門市人員</option>

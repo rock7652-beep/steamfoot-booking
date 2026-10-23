@@ -200,7 +200,7 @@ function BeautyDetailedBookingForm({
     );
   return (
     <form
-      className="min-w-0 space-y-4"
+      className="@container/booking min-w-0 space-y-4"
       onChangeCapture={()=>setDirty(true)}
       onSubmit={(e) => {
         e.preventDefault();
@@ -226,7 +226,7 @@ function BeautyDetailedBookingForm({
       }}
     >
       <fieldset disabled={pending} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 @min-[28rem]/booking:grid-cols-2">
           <label>
             預約人數
             <select
@@ -285,7 +285,7 @@ function BeautyDetailedBookingForm({
             className="space-y-3 rounded-xl border border-earth-200 p-3"
           >
             <h3 className="font-semibold">第{i + 1}位</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 @min-[28rem]/booking:grid-cols-2">
               {members.length > 0 && (
                 <label>
                   服務者
@@ -436,7 +436,7 @@ function BeautyDetailedBookingForm({
                 </label>
               )}
               {mode === "manager" && <label>位置<select className={control} aria-label={`第${i+1}位位置`} value={p.specifiedLocationId ?? ""} onChange={e=>change(i,{specifiedLocationId:e.target.value||null})}><option value="">自動安排</option>{catalog.locations?.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>}
-              <label className="sm:col-span-2">
+              <label className="@min-[28rem]/booking:col-span-2">
                 本次備註（選填）
                 <input
                   className={control}
@@ -449,7 +449,7 @@ function BeautyDetailedBookingForm({
           </section>
         ))}
         {mode === "manager" && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={separateContact} onChange={e=>{setSeparateContact(e.target.checked);invalidate();}}/>另設聯絡人</label>}
-        <div className={`grid items-end gap-3 ${slots.length?"sm:grid-cols-3":"sm:grid-cols-2"}`}>
+        <div className={`grid items-end gap-3 ${slots.length?"@min-[28rem]/booking:grid-cols-3":"@min-[28rem]/booking:grid-cols-2"}`}>
           {(mode !== "manager" || separateContact) && <>
           <label>
             聯絡人姓名

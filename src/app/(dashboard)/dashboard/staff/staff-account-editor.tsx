@@ -92,11 +92,11 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
       {[["basic", "基本資料"], ["permissions", "後台帳號／權限"]].map(([id, label]) => <button type="button" key={id} className={`${button} ${tab === id ? "!border-primary-300 !bg-primary-50 font-medium" : ""}`} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
     </nav>)}
 
-    <form className="flex min-h-0 flex-1 flex-col" onSubmit={e => { e.preventDefault(); void save(); }}>
+    <form className="@container/staff flex min-h-0 flex-1 flex-col" onSubmit={e => { e.preventDefault(); void save(); }}>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         <fieldset disabled={locked || !person.canEdit} className="space-y-3">
-          <div hidden={tab !== "basic"} className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
+          <div hidden={tab !== "basic"} className="grid grid-cols-1 gap-3 @min-[28rem]/staff:grid-cols-2">
             {courseStyle?<CourseStaffBasicFields name={name} active={status==='ACTIVE'} phone={phone} onName={setName} onPhone={setPhone} onActive={v=>setStatus(v?'ACTIVE':'INACTIVE')} nameField="displayName" statusField="status" activeValue="ACTIVE" inactiveValue="INACTIVE"><label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e=>setColor(e.target.value)}/></label></CourseStaffBasicFields>:<>            <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
             <label className="block text-sm">電話<input name="phone" maxLength={30} className={field} value={phone} onChange={e => setPhone(e.target.value)}/></label>
             <label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e => setColor(e.target.value)}/></label>
