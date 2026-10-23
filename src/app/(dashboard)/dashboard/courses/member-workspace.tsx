@@ -324,8 +324,6 @@ export function CourseMemberWorkspace({
         {view === "plans" && planArea === "catalog" && music && <select aria-label="教學項目篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部教學項目</option>{subjects.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
-            disabled={music&&view==="plans"&&templateFilter==="all"}
-            title={music&&view==="plans"&&templateFilter==="all"?"請先選擇教學項目":undefined}
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
             onClick={() => {
               if (view === "customers") {

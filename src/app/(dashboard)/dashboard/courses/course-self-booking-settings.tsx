@@ -93,6 +93,7 @@ export function CourseSelfBookingSettings({
 
   return (
     <SettingsListRow
+      compact={music}
       title="允許學員自行預約"
       summary={savedEnabled ? "開啟" : "關閉"}
       expanded={expanded && canEdit}
