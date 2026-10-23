@@ -1,0 +1,20 @@
+{
+  "results": [
+    "complete original native five scheduling kinds",
+    "native scheduling 1920 no document overflow",
+    "native scheduling 1366 no document overflow",
+    "native scheduling 1024 no document overflow",
+    "native scheduling 768 no document overflow",
+    "unsupported recurrence preserves original draft",
+    "native single scheduling saved through Beauty core and closed original form",
+    "saved service appears after authoritative reload",
+    "no course-only route invoked by Beauty native scheduling",
+    "no browser errors"
+  ],
+  "errors": [],
+  "postPaths": [
+    "/s/beauty-shared-qa/admin/dashboard/beauty",
+    "/s/beauty-shared-qa/admin/dashboard/beauty",
+    "/s/beauty-shared-qa/admin/dashboard/beauty"
+  ]
+}

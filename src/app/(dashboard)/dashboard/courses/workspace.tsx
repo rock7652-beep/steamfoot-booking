@@ -14,6 +14,7 @@ import {SportsAttendancePanel} from "./sports-attendance-panel";
 import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
+import {SportsScheduleDialog} from "./sports-schedule-dialog";
 import {SportsScheduleFields} from "./sports-schedule-fields";
 import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
@@ -106,7 +107,8 @@ export type Template = Omit<Room, "capacity"> & {
   waitlistLimit?: number;
   waitlistStopMinutes?: number | null;
 };
-type Session = {
+export type Session = {
+  occupiedStartsAt?:string;occupiedEndsAt?:string;
   sportsPalette?:boolean;
   rentalId?:string;rentalCancelled?:boolean;isTrial?:boolean;
   bookings: {
@@ -143,6 +145,7 @@ type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
 };
+export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 type Props = {
   catalogSource?:CourseCatalogSource;
@@ -1428,7 +1431,12 @@ export function CourseWorkspace({
           )}
         </section>
       )}
-      {panel && (
+      {panel === "schedule" && sportsNative && <SportsScheduleDialog title={copySource?"複製排課":"新增排課"} busy={pending||sportsScheduleBusy} onClose={closePanel} onDraft={()=>setDirty(true)}>
+        {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
+        {notice&&<p role="status" className="text-sm text-primary-700">{notice}</p>}
+        {sportsData?<SportsScheduleFields waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>}
+      </SportsScheduleDialog>}
+      {panel && !(panel === "schedule" && sportsNative) && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC" && view !== "rooms"}
           fitContent={compactSessionEdit||!!catalogSource&&!catalogSource.rentalModule}
@@ -2098,7 +2106,7 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}

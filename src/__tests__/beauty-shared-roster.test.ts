@@ -12,7 +12,7 @@ vi.mock('@/server/actions/beauty',()=>({changeBeautyStatus:m.status,linkBeautyCu
 vi.mock('@/components/beauty/schedule-workspace',()=>({BeautyScheduleWorkspace:({onOpen}:{onOpen:(id:string)=>void})=>h('button',{onClick:()=>onOpen('a')},'開啟預約')}));
 vi.mock('@/components/beauty/customer-panel',()=>({BeautyCustomerPanel:()=>null}));
 vi.mock('@/components/beauty/catalog-editor',()=>({BeautyCatalogEditor:()=>null}));
-vi.mock('@/components/beauty/booking-form',()=>({BeautyBookingForm:()=>null}));
+vi.mock('@/components/beauty/native-schedule-source',()=>({BeautyNativeScheduleDialog:()=>null}));
 vi.mock('@/components/customer-labels',()=>({CustomerLabels:()=>null}));
 import {BeautyDashboard} from '@/components/beauty/dashboard';
 import type {BeautyDashboardData} from '@/server/beauty/queries';

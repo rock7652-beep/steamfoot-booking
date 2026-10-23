@@ -8,6 +8,12 @@ export function beautyScheduleRange(date:string,calendar:'day'|'week'|'month'){
  return {start:dayRange(start).start,end:dayRange(addTaiwanDuration(start,6,'DAY')).end};
 }
 
+/** Same padded month read as the native sports controller, including cross-month weeks. */
+export function beautyNativeCalendarRange(date:string){
+ const first=date.slice(0,7)+'-01';
+ return {start:dayRange(addTaiwanDuration(first,-6,'DAY')).start,end:dayRange(addTaiwanDuration(addTaiwanDuration(first,1,'MONTH'),5,'DAY')).end};
+}
+
 /** Adapt beauty hours to the existing schedule board, including closed weekdays. */
 export function beautyStaffAvailability(technicians: {id:string;weekly:unknown;exceptions:unknown}[]) {
  const staffAvailability = technicians.flatMap(t => Array.isArray(t.weekly)

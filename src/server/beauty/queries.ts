@@ -1,4 +1,4 @@
-import {beautyScheduleRange} from '@/lib/beauty/calendar';
+import {beautyScheduleRange,beautyNativeCalendarRange} from '@/lib/beauty/calendar';
 import {beautyHealthEnabled} from "./health";
 import {resolvedCourseHours} from "@/lib/course-business-hours";
 import "server-only";
@@ -430,7 +430,8 @@ export async function beautyDashboard(
 export type BeautyDashboardData = Awaited<ReturnType<typeof beautyDashboard>>;
 
 /** Calendar transport: no customers, plans, payments or settlement reads. */
-export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
+export async function beautyCalendar(date:string,calendar:'day'|'week'|'month',native=false){
+ if(native&&calendar!=='month')throw new AppError('VALIDATION','原版課表須讀取完整月份');
  const [a,u]=await Promise.all([beautyManager('booking.read'),getCurrentUser()]);
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
  const scopes=[['customer.read',FEATURES.CUSTOMER_MANAGEMENT],['wallet.read',FEATURES.PLAN_MANAGEMENT],['teacher.compensation.read',FEATURES.SERVICE_FEE_CALCULATOR]] as const;
@@ -438,13 +439,13 @@ export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
   const [allowed,enabled]=await Promise.all([can(permission),hasStoreFeature(a.storeId,feature)]);
   return allowed&&enabled;
  }));
- const range=beautyScheduleRange(date,calendar);
+ const range=native?beautyNativeCalendarRange(date):beautyScheduleRange(date,calendar);
  const [rows,hours,specials]=await Promise.all([
   beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,startsAt:{gte:range.start,lte:range.end}},orderBy:{startsAt:'asc'}}),
   prisma.businessHours.findMany({where:{storeId:a.storeId}}),
   prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
  ]);
  const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
- const dates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
+ const dates=Array.from({length:native?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
  return {date,calendar,rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
 }

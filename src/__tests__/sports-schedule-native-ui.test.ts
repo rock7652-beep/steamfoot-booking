@@ -1,17 +1,18 @@
 // @vitest-environment jsdom
 import {act,createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
 vi.mock("@/server/actions/course-rental",()=>({createRentalCustomer:vi.fn()}));
 vi.mock("@/server/actions/sports-staging",()=>({sportsStagingCommand:vi.fn()}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
 import {sportsStagingCommand} from "@/server/actions/sports-staging";
-import {SportsScheduleFields} from "@/app/(dashboard)/dashboard/courses/sports-schedule-fields";
+import {SportsScheduleFields,type SportsScheduleSource} from "@/app/(dashboard)/dashboard/courses/sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 const data:SportsSnapshot={storeId:"sports-live-flow-store",date:"2026-10-18",subjects:[{id:"subject",templateId:"item-template",name:"瑜伽",category:"運動",active:true,updatedAt:"v1"}],fees:[],lessons:[],students:[],customers:[{id:"student",name:"學員",phone:"0900000000"}],coaches:[{id:"coach",name:"王教練",templates:["item-template"]}],rooms:[{id:"first",name:"第一空間",capacity:10,rental:true},{id:"selected",name:"指定空間",capacity:5,rental:true}]};
-async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={}){
+async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={},source?:SportsScheduleSource){
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
- await act(async()=>root.render(createElement(SportsScheduleFields,{initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
+ await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
  return {host,close:async()=>{await act(async()=>root.unmount());host.remove();}};
 }
 it("從空間格子排課即帶入空間及時間，指定學員無人數上限或堂數欄",async()=>{
@@ -80,4 +81,27 @@ it("same-name coaches submit the selected staff identity",async()=>{
   const request=vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0] as {payload:Record<string,unknown>};
   expect(request.payload).toMatchObject({coach:"王教練",coachId:"second-coach",mode:"開放選課"});
  } finally {await m.close();data.coaches.pop();}
+});
+
+
+it("the original complete form routes scheduling to the injected core and retains errors and the draft",async()=>{
+ const command=vi.fn().mockResolvedValue({success:false,error:"固定週期尚未接回"});
+ const source:SportsScheduleSource={command,createCustomer:vi.fn(),catalogHref:"?tab=服務項目"};
+ const m=await mount({coachId:"coach"},{},source);
+ const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(query,"學員");query.dispatchEvent(new Event("input",{bubbles:true}));});
+ await act(async()=>(m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+ const previous=vi.mocked(sportsStagingCommand).mock.calls.length;
+ await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(command).toHaveBeenCalledWith(expect.objectContaining({operation:"schedule",payload:expect.objectContaining({students:["student"],coachId:"coach",kind:"每週固定",room:"第一空間"})}));
+ expect(vi.mocked(sportsStagingCommand).mock.calls.length).toBe(previous);
+ expect(m.host.querySelector('[role="alert"]')?.textContent).toBe("固定週期尚未接回");expect(m.host.textContent).toContain("已選 1 人");
+ await m.close();
+});
+
+
+it("injecting another module core does not substitute any original scheduling markup",()=>{
+ const props={initial:data,date:"2026-10-18",requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()};
+ const source:SportsScheduleSource={command:vi.fn(),createCustomer:vi.fn(),catalogHref:"/dashboard/courses?view=catalog"};
+ expect(renderToStaticMarkup(createElement(SportsScheduleFields,{...props,source}))).toBe(renderToStaticMarkup(createElement(SportsScheduleFields,props)));
 });

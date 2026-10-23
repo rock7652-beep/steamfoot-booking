@@ -22,7 +22,7 @@ import { useState, useTransition, useRef,useCallback,useEffect,type ReactNode } 
 import { useRouter,useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { BeautyCustomerPanel } from "./customer-panel";
-import { BeautyBookingForm } from "./booking-form";
+import {BeautyNativeScheduleDialog} from "./native-schedule-source";
 import { BeautyCatalogEditor, type EditorKind } from "./catalog-editor";
 import {
   linkBeautyCustomer,
@@ -93,6 +93,7 @@ export function BeautyDashboard({
     } | null>(null),
     [customerPanel, setCustomerPanel] = useState(false);
   useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),pending&&!!(moneyPanel||statusDraft));
+  const updateBookingGuard=useCallback((dirty:boolean,pending:boolean)=>setBookingState(old=>old.dirty===dirty&&old.pending===pending?old:{dirty,pending}),[]);
   function closeBooking(){if(bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定離開？"))return;setBooking(false);setBookingState({dirty:false,pending:false});}
   function closeMoney(){if(pending||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
@@ -135,12 +136,6 @@ export function BeautyDashboard({
       }
     });
   }
-  const catalog = {
-    policy: data.policy,
-    services: data.services.filter((s) => s.active),
-    locations: data.locations.filter(l=>l.isActive),
-    techs: data.techs.filter((t) => t.active),
-  };
   const appointments = data.items.filter(
     (b) =>
       `${b.personName} ${b.serviceName}`.includes(search) &&
@@ -283,36 +278,10 @@ export function BeautyDashboard({
       {tab==='設定'&&settingsContent}
       {statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={520} fitContent labelledById="beauty-status-title" closeOnEscape={!pending} onClose={()=>{if(!pending&&(!statusDraft.reason||window.confirm('尚未確認，確定離開？')))setStatusDraft(null);}}><form className="space-y-3 p-4" onSubmit={e=>{e.preventDefault();if(!pending&&!readOnly&&data.manage.update&&statusDraft.reason.trim())run(async()=>{const r=await changeBeautyStatus('manager',statusDraft);if(r.success)setStatusDraft(null);return r;});}}><h2 id="beauty-status-title" className="font-semibold">確認服務狀態變更</h2><p>{data.items.find(b=>b.id===statusDraft.id)?.personName} · {data.items.find(b=>b.id===statusDraft.id)?.serviceName}</p><p>{({COMPLETED:'服務完成',CANCELLED:'取消此服務分項',NO_SHOW:'標記未到',RESERVED:'恢復／更正回預約'})[statusDraft.target]}</p><label>操作原因<textarea className={field} required maxLength={500} disabled={pending} value={statusDraft.reason} onChange={e=>setStatusDraft({...statusDraft,reason:e.target.value})}/></label>{error&&<p role="alert" className="text-red-700">{error}</p>}<div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={()=>{if(!statusDraft.reason||window.confirm('尚未確認，確定離開？'))setStatusDraft(null);}}>返回</button><button className={button+' !bg-primary-700 !text-white'} disabled={pending||readOnly||!data.manage.update||!statusDraft.reason.trim()}>{pending?'處理中…':'確認'}</button></div></form></RightSheet>}
       {paymentId&&<RightSheet open width={640} onClose={()=>setPaymentId(null)} labelledById="beauty-receipt-title"><header className="flex items-center justify-between border-b p-4"><h2 id="beauty-receipt-title">收退款明細</h2><button className={button} onClick={()=>setPaymentId(null)}>關閉</button></header><div className="space-y-3 overflow-y-auto p-4">{data.payments.filter(p=>p.id===paymentId).map(p=><section key={p.id}><p>{formatTWDateTime(new Date(p.createdAt))}</p><strong>NT$ {p.amount.toLocaleString('zh-TW')}</strong><p className="whitespace-pre-wrap">{p.note}</p><div className="flex gap-2">{p.kind==='SALE'&&!readOnly&&data.manage.refund&&<button className={button} onClick={()=>setMoneyPanel({kind:'refund',ids:[p.id]})}>登錄退款</button>}</div></section>)}</div></RightSheet>}
-      {booking && (
-        <RightSheet
-          open
-          presentation="centered"
-          width={840}
-          fitContent
-          className="fitness-management-editor"
-          onClose={closeBooking}
-          closeOnEscape={!bookingState.pending}
-          labelledById="beauty-booking-title"
-        >
-          <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2"><h2 id="beauty-booking-title" className="font-semibold">新增預約</h2><button className={button} disabled={bookingState.pending} onClick={closeBooking}>關閉</button></header>
-          <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
-            <BeautyBookingForm
-              catalog={catalog}
-              mode="manager"
-              onStateChange={setBookingState}
-              initialDate={bookingSeed.date??data.date}
-              initialTime={bookingSeed.time}
-              initialTechnicianId={bookingSeed.technicianId}
-              initialLocationId={bookingSeed.locationId}
-              customer={data.customers.find(c=>c.id===initialCustomerId)}
-              slug={slug}
-              cards={data.cards.map((c) => ({ ...c, closed: !!c.closedAt }))}
-              members={data.customers}
-              onBooked={() => router.refresh()}
-            />
-          </div>
-        </RightSheet>
-      )}
+      {booking && !readOnly && data.access.writeAccess && <BeautyNativeScheduleDialog data={data} date={bookingSeed.date??data.date}
+        seed={{time:bookingSeed.time,coachId:bookingSeed.technicianId,roomId:bookingSeed.locationId}}
+        onGuard={updateBookingGuard} busy={bookingState.pending} onClose={closeBooking}
+        onCreated={()=>{setBooking(false);setBookingState({dirty:false,pending:false});router.refresh();}}/>}
       {editor && (
         <BeautyCatalogEditor
           kind={editor.kind}
