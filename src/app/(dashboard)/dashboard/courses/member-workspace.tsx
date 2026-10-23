@@ -214,7 +214,7 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   useCourseDraftGuard(!sportsNative&&!sportsData&&!!panel&&(dirty || supportGuard.dirty),!sportsNative&&!sportsData&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
-  function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
+  function finishDraftForm(row?:Plan,syncWarning=false){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers"&&!sportsNative, panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {

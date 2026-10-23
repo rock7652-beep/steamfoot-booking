@@ -18,7 +18,7 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, mu
     void mutation.run("toggle", () => (course ? setCourseExpiryReminderEnabled : setPlanExpiryReminderEnabled)(next), () => {
       setEnabled(next);
       toast.success(next ? "已開啟方案到期提醒" : "已關閉方案到期提醒");
-    });
+    }, () => { setEnabled(next); return () => setEnabled(!next); });
   }
 
   return (

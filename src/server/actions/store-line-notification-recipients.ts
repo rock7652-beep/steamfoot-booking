@@ -4,6 +4,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { FEATURES } from "@/lib/feature-flags";
 import { migrateManagerRecipients } from "@/server/services/manager-notification-delivery";
 import { managerPreferences, managerNotificationOptions, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
+import { settingsStep } from "@/server/services/settings-timing";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -19,9 +20,10 @@ const recipientSchema = z.object({
   roleLabel: z.enum(["店長", "店主", "合夥人", "值班主管"]),
 });
 
-async function requireStore() {
-  const user = await requirePermission("business_hours.manage");
-  const storeId = await getActiveStoreForRead(user);
+async function requireStore(expectedStoreId?: string) {
+  const user = await settingsStep("authorization", () => requirePermission("business_hours.manage"));
+  const storeId = await settingsStep("store_scope", () => getActiveStoreForRead(user));
+  if (expectedStoreId && storeId !== expectedStoreId) throw new AppError("FORBIDDEN", "店家範圍已變更，請重新整理");
   if (!storeId) throw new AppError("FORBIDDEN", "請先切換至特定店舖");
   const industry = await getStoreIndustryModule(storeId);
   if (industry === "beauty") {
@@ -94,9 +96,10 @@ export async function createStoreLineNotificationRecipient(
 export async function setStoreLineNotificationRecipientActive(
   id: string,
   isActive: boolean,
+  expectedStoreId?: string,
 ): Promise<ActionResult> {
   try {
-    const storeId = await requireStore();
+    const storeId = await requireStore(expectedStoreId);
     const recipient = await prisma.storeLineNotificationRecipient.findFirst({
       where: { id, storeId },
       select: { lineUserId: true },
@@ -162,9 +165,9 @@ export async function setSameDayBookingReminder(
   }
 }
 
-export async function setManagerNotificationPreference(id: string, key: string, enabled: boolean): Promise<ActionResult> {
+export async function setManagerNotificationPreference(id: string, key: string, enabled: boolean, expectedStoreId?: string): Promise<ActionResult> {
   try {
-    const storeId = await requireStore();
+    const storeId = await requireStore(expectedStoreId);
     z.object({ id: z.string().min(1), key: z.enum(MANAGER_NOTIFICATION_OPTIONS.map(o => o.key) as [string, ...string[]]), enabled: z.boolean() }).parse({ id, key, enabled });
     if (enabled && await getStoreIndustryModule(storeId) === "course" && !managerNotificationOptions(true).some(option => option.key === key)) {
       throw new AppError("BUSINESS_RULE", "此通知尚未接入課程流程");
@@ -172,8 +175,8 @@ export async function setManagerNotificationPreference(id: string, key: string, 
     if (enabled && await getStoreIndustryModule(storeId) === "beauty" && !managerNotificationOptions(false,true).some(option => option.key === key)) {
       throw new AppError("BUSINESS_RULE", "此通知尚未接入美業流程");
     }
-    await prisma.$transaction(async tx => {
-      await tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
+    await settingsStep("transaction", () => prisma.$transaction(async tx => {
+      await settingsStep("db_lock", () => tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`);
       const recipient = await tx.storeLineNotificationRecipient.findFirst({ where: { id, storeId } });
       if (!recipient) throw new AppError("NOT_FOUND", "找不到通知人員");
       if (enabled && (!recipient.isActive || !recipient.lineUserId)) throw new AppError("BUSINESS_RULE", "請先綁定 LINE 並開啟接收通知");
@@ -182,7 +185,7 @@ export async function setManagerNotificationPreference(id: string, key: string, 
         preferences: { ...preferences, [key]: enabled },
         ...(key === "sameDay" ? { sameDayBookingEnabled: enabled } : {}),
       } });
-    });
+    }));
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
     revalidatePath("/dashboard/beauty/reminders");

@@ -1,3 +1,4 @@
+import { memoizeReadRequest } from "@/server/services/read-request-memo";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -231,7 +232,7 @@ export async function requireHqStoreSwitchActor() {
   return user;
 }
 
-export const getCurrentUser = cache(async () => {
+export const getCurrentUser = cache(() => memoizeReadRequest("session.current-user", async () => {
   const user = await getAuthenticatedUser();
   if (!user) return null;
   if (user.role === "ADMIN") {
@@ -245,7 +246,7 @@ export const getCurrentUser = cache(async () => {
     }
   }
   return registerAuditActor(user);
-});
+}));
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */
 export async function requireSession() {

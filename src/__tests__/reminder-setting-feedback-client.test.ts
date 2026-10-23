@@ -89,7 +89,7 @@ describe.each(cases)("$name toggle feedback", item => {
     expect(status.className).toBe(className);
   });
 
-  it("shows pending while collapsed, locks same-tick clicks and confirms state only after success", async () => {
+  it("shows the requested state immediately while pending and locks only same-card writes", async () => {
     const request = deferred();
     item.toggle.mockReturnValue(request.promise);
     await render(item.render());
@@ -99,7 +99,7 @@ describe.each(cases)("$name toggle feedback", item => {
     expect(summary().querySelector('[role="status"]')!.textContent).toBe("儲存中…");
     expect(toggle().disabled).toBe(true);
     expect(toggle().getAttribute("aria-busy")).toBe("true");
-    expect(toggle().getAttribute("aria-checked")).toBe("false");
+    expect(toggle().getAttribute("aria-checked")).toBe("true");
     expect(latestGuard()).toEqual({ dirty: false, pending: true });
     expect(actions.success).not.toHaveBeenCalled();
 
@@ -153,7 +153,7 @@ describe.each(cases)("$name toggle feedback", item => {
       if (outcome === "success") oldRequest.resolve({ success: true });
       else oldRequest.reject(new Error("old store connection lost"));
     });
-    expect(toggle().getAttribute("aria-checked")).toBe("false");
+    expect(toggle().getAttribute("aria-checked")).toBe("true");
     expect(toggle().disabled).toBe(true);
     expect(summary().querySelector('[role="status"]')!.textContent).toBe("儲存中…");
     expect(actions.success).not.toHaveBeenCalled();

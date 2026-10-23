@@ -634,6 +634,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - **MUST** 先顯示視窗外框及已知摘要，不以頁面重新導航作為開啟 client 表單的前置條件。
 - 顧客清單開啟詳情時，姓名、電話與目前門市已載入的標籤 **MUST** 直接呈現；摘要只供辨識，權限與帳務操作等完整資料讀取成功後才提供。換顧客、讀取錯誤或重試時不得顯示上一位的摘要或明細。
 - 已由 RSC／頁面 props 提供的資料直接顯示；設定中心沿用 DashboardLink／Next 路由預讀與 SettingsPanel，不為同一份資料增加 client 請求。
+- 提醒管理面板首次使用 RSC props；面板內分頁與紀錄篩選可使用同源獨立 reader，只重讀該分頁資料，避免重跑背景 layout。每次重新驗證登入、門市、模組、權限與功能，receipt 相符才更新 URL；保留 dirty／pending guard、失敗重試與晚到回應隔離，不持久快取通知資料。
 - client 讀取共用 `src/lib/client-read-cache.ts`；跨入口用 `src/components/operations/panel-read-cache.tsx` 的 `usePanelReader`／`usePanelReadCache`。既有 booking transport 使用同一核心的 adapter，保留門市參數與 authoritative payload 檢查。
 - `PanelReadProvider` 僅掛在帳號／門市／模組／權限 keyed OperationScope 內；**禁止** module global、localStorage 或跨使用者共享個資快取。額外門市、權限或 loader 捕捉的變數，以及 server 資料修訂，必須納入 scopeVersion。
 - **SHOULD** 對可預讀入口用 pointer enter、focus 與 touch intent；同鍵的預讀與開啟共用 in-flight 請求。錯誤與 `{success:false}` 不快取，實際開啟可重試。

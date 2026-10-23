@@ -597,6 +597,8 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  lineQuotaSetting LineQuotaSetting?
+  lineQuotaAlerts LineQuotaAlert[]
   imageAnnouncementSet ImageAnnouncementSet?
   imageAnnouncementAssets ImageAnnouncementAsset[]
   inventorySuppliers InventorySupplier[]
@@ -3537,4 +3539,33 @@ model SteamfootStoreNotice {
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
   @@unique([storeId, bookingId])
   @@index([storeId, handledAt, startsAt])
+}
+
+// Default-on monitoring for all real operating stores; explicit opt-outs are retained.
+model LineQuotaSetting {
+  storeId String @id
+  enabled Boolean @default(true)
+  activatedAt DateTime @default(now())
+  snapshot Json?
+  lastCheckedAt DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model LineQuotaAlert {
+  id String @id @default(cuid())
+  storeId String
+  eventKey String
+  email String
+  subject String
+  body String
+  status String @default("PENDING")
+  lastAttemptAt DateTime?
+  sentAt DateTime?
+  error String?
+  createdAt DateTime @default(now())
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@unique([storeId, eventKey])
+  @@index([storeId, createdAt])
 }
