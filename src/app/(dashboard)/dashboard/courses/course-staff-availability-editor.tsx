@@ -15,16 +15,16 @@ import {
 type Period={openTime:string;closeTime:string};
 type Day={dayOfWeek:number;periods:Period[]};
 const names=["日","一","二","三","四","五","六"];
-const field="min-h-10 rounded-lg border border-earth-200 bg-white px-2 text-sm";
-const button="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-xs text-primary-800";
+const field="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm";
+const button="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-xs text-primary-800";
 
 function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段",showErrors=false}:{label?:string;showErrors?:boolean;compact?:boolean;fitness?:boolean;periods:Period[];onChange:(value:Period[])=>void}) {
   const errors=showErrors?availabilityPeriodErrors(periods):{};
   return <div className="flex flex-wrap items-center gap-1">
     {periods.map((period,index)=><div key={index} className={`flex flex-wrap min-w-0 items-center gap-1 ${errors[index]?"rounded-lg bg-red-50 p-1":""}`}>
-      <input aria-label={`${label}第${index+1}段開始`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:field}`} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
+      <input aria-label={`${label}第${index+1}段開始`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
       <span className="text-xs text-earth-500">{compact?"–":"至"}</span>
-      <input aria-label={`${label}第${index+1}段結束`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:field}`} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
+      <input aria-label={`${label}第${index+1}段結束`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
       {periods.length>1&&<button type="button" aria-label="移除時段" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>×</button>}
       {errors[index]&&<span role="alert" className="w-full text-xs text-red-700">第 {index+1} 段：{errors[index]}</span>}
     </div>)}
