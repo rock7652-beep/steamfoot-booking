@@ -234,7 +234,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         </span>
       </summary>
 
-      <div className="flex max-h-[64vh] min-h-0 flex-col border-t border-earth-100">
+      <div className="flex max-h-[min(48dvh,420px)] min-h-0 flex-col border-t border-earth-100">
         <div className="flex shrink-0 flex-wrap items-center gap-2 p-3">
           <input
             aria-label="搜尋提醒方案"

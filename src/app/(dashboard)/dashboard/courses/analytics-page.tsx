@@ -50,6 +50,6 @@ export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;pr
     
     {!music && periodControls}
     <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}:${params.dataScope??"operational"}`} periodControls={music?periodControls:undefined} data={data} music={music} all={all} staffId={user.staffId}/>
-    {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支">{musicDataSeparationEnabled(storeId)&&<p className="mb-3 text-sm text-earth-600">以下為全店現金帳收支，不依學員資料分類；包含其他業務與尚未核對來源的帳務，不能視為這批音教雲學員的營收。</p>}<RevenueMixTrend points={revenuePoints}/></section>}
+    {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支"><RevenueMixTrend points={revenuePoints}/></section>}
   </PageShell></AnalysisReturnState>;
 }
