@@ -449,7 +449,7 @@ function BeautyDetailedBookingForm({
           </section>
         ))}
         {mode === "manager" && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={separateContact} onChange={e=>{setSeparateContact(e.target.checked);invalidate();}}/>另設聯絡人</label>}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className={`grid items-end gap-3 ${slots.length?"sm:grid-cols-3":"sm:grid-cols-2"}`}>
           {(mode !== "manager" || separateContact) && <>
           <label>
             聯絡人姓名
@@ -492,11 +492,11 @@ function BeautyDetailedBookingForm({
               }}
             />
           </label>
+          {!!slots.length&&<label>開始時間<select className={control} required value={time} onChange={e=>setTime(e.target.value)}><option value="">請選擇時間</option>{slots.map(s=><option key={s} value={s}>{s}</option>)}</select></label>}
           <button type="button" className={button} onClick={readSlots}>
             查詢時段
           </button>
         </div>
-        {!!slots.length && <fieldset><legend className="mb-2 text-sm">可用時段</legend><div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{slots.map(s=><button key={s} type="button" aria-pressed={time===s} className={`${button} ${time===s?'bg-primary-700 text-white':''}`} onClick={()=>setTime(s)}>{s}</button>)}</div></fieldset>}
         <p>
           共{people.length}位，{trial ? "體驗" : "一般"}原價合計 NT$
           {people.reduce((sum, p) => {
