@@ -28,6 +28,7 @@ model BeautySetting {
 }
 
 model BeautyService {
+  defaultRate Json?
   id         String  @id @default(cuid())
   storeId    String
   name       String

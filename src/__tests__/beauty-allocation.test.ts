@@ -270,3 +270,12 @@ it('honors the selected location and rejects another-store, occupied, or duplica
  // Full service plus buffer must fit even when the next booking starts after the service itself.
  expect(allocate({people:[{...person(),specifiedLocationId:'r2'}],occupied:[{start:+start+60*60000,end:+start+120*60000,locationId:'r2',technicianId:'other',duration:60,status:'RESERVED'}]})).toBeNull();
 });
+
+it('freezes a service default only when no technician override exists',()=>{
+ const inherited={...tech('a'),rates:{}};
+ const services=[{...face,defaultRate:{mode:'FIXED',value:400}}];
+ expect(allocate({services,technicians:[inherited]})?.[0].rate).toEqual({mode:'FIXED',value:400});
+ expect(allocate({services,technicians:[tech('a')]})?.[0].rate).toEqual({mode:'FIXED',value:300});
+ expect(allocate({services:[face],technicians:[inherited]})).toBeNull();
+ expect(allocate({services:[{...face,defaultRate:{mode:'PERCENT',value:101,base:'PAID'}}],technicians:[inherited]})).toBeNull();
+});

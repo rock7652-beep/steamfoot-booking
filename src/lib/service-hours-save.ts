@@ -1,6 +1,8 @@
+import {weeklyDay} from "./course-weekly-hours-save";
 import {z} from "zod";
 import {courseDayHoursValues,courseDayHoursReceipt,savedCourseDayHours} from "./course-day-hours-save";
 export const serviceHoursValues=courseDayHoursValues.extend({
+ weeklyDays:z.array(weeklyDay).min(1).max(7).optional(),
  dayOfWeek:z.number().int().min(0).max(6).optional(),
  mode:z.enum(["day","copy","dates","permanent","template","weekly","slots","undo"]),
  targetDates:z.array(courseDayHoursValues.shape.date).max(62).default([]),conflictMode:z.enum(["skip","replace"]).default("skip"),includeSlotOverrides:z.boolean().default(false),

@@ -1,8 +1,8 @@
 import 'server-only';
-import type {Prisma} from '../../../generated/beauty-client';
+import {Prisma} from '../../../generated/beauty-client';
 import {AppError} from '@/lib/errors';
 import {toLocalDateStr} from '@/lib/date-utils';
-import {serviceInput,technicianInput,planInput} from '@/lib/beauty/contracts';
+import {serviceInput,technicianInput,planInput,rate} from '@/lib/beauty/contracts';
 import {audit,type BeautyActor} from './access';
 
 /** Single catalog validator/writer shared by all management interfaces. */
@@ -10,6 +10,8 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
       let record:unknown;
       if (kind === "service") {
         const { id, revision, ...d } = serviceInput.parse(input);
+        const {defaultRate,...fields}=d;
+        const values={...fields,...(defaultRate===undefined?{}:{defaultRate:defaultRate??Prisma.DbNull})};
         if (id) {
           const prior = await tx.beautyService.findFirst({
             where: { storeId: a.storeId, id, revision },
@@ -22,12 +24,16 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
             }))
           )
             throw new AppError("CONFLICT", "請先處理未來預約再下架");
+          if(d.defaultRate===null&&prior.defaultRate){
+            const inheriting=await tx.beautyTechnician.findMany({where:{storeId:a.storeId,serviceIds:{has:id}},select:{rates:true}});
+            if(inheriting.some(t=>!rate.safeParse((t.rates as Record<string,unknown>)[id]).success))throw new AppError('CONFLICT','仍有技師沿用本項預設計酬，請先設定個別計酬');
+          }
           record = await tx.beautyService.update({
             where: { id },
-            data: { ...d, revision: { increment: 1 } },
+            data: { ...values, revision: { increment: 1 } },
           });
         } else
-          record = await tx.beautyService.create({ data: { ...d, storeId: a.storeId } });
+          record = await tx.beautyService.create({ data: { ...values, storeId: a.storeId } });
       } else if (kind === "plan") {
         const { id, revision, ...d } = planInput.parse(input);
         if (
@@ -57,11 +63,11 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
           })) !== new Set(d.serviceIds).size
         )
           throw new AppError("FORBIDDEN", "包含非本店服務");
-        if (d.serviceIds.some((id) => !d.rates[id]))
-          throw new AppError(
-            "VALIDATION",
-            "每項可服務項目須設定計酬，無報酬可填固定0元",
-          );
+        const missing=d.serviceIds.filter(id=>!d.rates[id]);
+        if(missing.length){
+          const defaults=await tx.beautyService.findMany({where:{storeId:a.storeId,id:{in:missing}},select:{id:true,defaultRate:true}});
+          if(missing.some(id=>!rate.safeParse(defaults.find(s=>s.id===id)?.defaultRate).success))throw new AppError('VALIDATION','每項可服務項目須設定計酬，或沿用已設定的服務預設');
+        }
         if (
           d.userId &&
           !(await tx.$queryRaw<

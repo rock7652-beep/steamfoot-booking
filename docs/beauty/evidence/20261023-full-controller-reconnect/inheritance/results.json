@@ -1,0 +1,11 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "new qualification inherits actual service default",
+    "inheritance saves through authorized native core",
+    "inheritance persists after authoritative reopen",
+    "actual service default is shown",
+    "no browser errors"
+  ],
+  "errors": []
+}

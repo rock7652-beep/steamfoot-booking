@@ -22,6 +22,7 @@ export const period = z
   .object({ start: clock, end: clock })
   .refine((p) => p.end > p.start, "結束時間須晚於開始時間");
 export const serviceInput = z.object({
+  defaultRate:rate.nullable().optional(),
   id: key.optional(),
   revision: z.number().int().nonnegative().default(0),
   name: z.string().trim().min(1).max(100),

@@ -1,3 +1,5 @@
+import {CourseHoursWorkspace} from "../../courses/hours/hours-workspace";
+import {beautyPrisma} from "@/lib/beauty-db";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
@@ -67,6 +69,32 @@ export default async function ScheduleSettingsPage() {
   const isBeautyStore=hoursIndustry === "beauty";
   const isSpaStore=hoursIndustry === "spa" || isBeautyStore;
 
+  const schedule=(<ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
+            weeklyHours={weeklyHours.map((h) => ({
+              dayOfWeek: h.dayOfWeek,
+              persisted:h.persisted,
+              dayName: h.dayName,
+              isOpen: h.isOpen,
+              openTime: h.openTime,
+              closeTime: h.closeTime,
+              slotInterval: h.slotInterval,
+              defaultCapacity: h.defaultCapacity,
+              periods: h.periods,
+            }))}
+            initialSpecialDays={specialDays}
+            initialSummary={initialSummary}
+            initialYear={nowYear}
+            initialMonth={nowMonth}
+            canManage={canManage}
+            isHeadquarters={isHeadquarters}
+            isSpaStore={isSpaStore}
+            isBeautyStore={isBeautyStore}
+          />);
+  if(isBeautyStore){
+    const policy=await beautyPrisma.beautySetting.findUnique({where:{storeId:effectiveStoreId}});
+    return <PageShell><PageHeader title="營業與公休" actions={<Link href="/dashboard/beauty?tab=設定&section=booking">返回設定</Link>}/><CourseHoursWorkspace booking={<BookableUntilForm direct storeId={effectiveStoreId} initialDate={policy?.bookableUntilDate??null} initialDays={policy?.bookableDays??30} savePath="/api/beauty/settings/booking-window" today={todayStr} canManage={canManage}/>} schedule={schedule}/></PageShell>;
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -94,26 +122,7 @@ export default async function ScheduleSettingsPage() {
         canManage={canManage}
       />}
 
-      <ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
-            weeklyHours={weeklyHours.map((h) => ({
-              dayOfWeek: h.dayOfWeek,
-              dayName: h.dayName,
-              isOpen: h.isOpen,
-              openTime: h.openTime,
-              closeTime: h.closeTime,
-              slotInterval: h.slotInterval,
-              defaultCapacity: h.defaultCapacity,
-              periods: h.periods,
-            }))}
-            initialSpecialDays={specialDays}
-            initialSummary={initialSummary}
-            initialYear={nowYear}
-            initialMonth={nowMonth}
-            canManage={canManage}
-            isHeadquarters={isHeadquarters}
-            isSpaStore={isSpaStore}
-            isBeautyStore={isBeautyStore}
-          />
+      {schedule}
     </PageShell>
   );
 }

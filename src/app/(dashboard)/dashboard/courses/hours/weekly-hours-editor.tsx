@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
+import type {SettingsSaveTransport} from "@/components/admin/use-settings-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import {savedWeeklyHours,weeklyState} from "@/lib/course-weekly-hours-save";
 import { usePathname } from "next/navigation";
@@ -7,7 +8,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 
 type Period = { openTime: string; closeTime: string };
 type Day = { dayOfWeek: number; dayName: string; persisted?: boolean; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
-export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }: { storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
+export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, source:transportSource }: { source?:{transport:SettingsSaveTransport;values:()=>Record<string,unknown>};storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
   const [days, setDays] = useState(() => initial.map(day => ({ ...day, periods: day.periods.length ? day.periods.map(p => ({ openTime: p.openTime, closeTime: p.closeTime })) : [{ openTime: day.openTime ?? "10:00", closeTime: day.closeTime ?? "22:00" }] })));
   const [saved, setSaved] = useState(() => days.filter(day => day.persisted !== false));
   const initialDays = useRef(days);
@@ -17,7 +18,7 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }
   const [pending, start] = useTransition();
   const saving = useRef(false);
   const pathname=usePathname();
-  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/weekly-hours`,storeId,savedWeeklyHours);
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/weekly-hours`,storeId,savedWeeklyHours,transportSource?.transport);
   const [authority,setAuthority]=useState(initial);
   const changed = days.filter(day => JSON.stringify(day) !== JSON.stringify(saved.find(s => s.dayOfWeek === day.dayOfWeek)));
   useSettingsPanelGuard(changed.length > 0, pending || request.uncertain);
@@ -27,7 +28,7 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }
     saving.current = true; setMessage("");
     start(async () => {
       try {
-        const result = await request.save({days:changed.map(({ dayOfWeek, isOpen, periods }) => ({ dayOfWeek, isOpen, periods })),expected:authority.map(day=>weeklyState.parse(day))});
+        const result = await request.save({...transportSource?.values(),days:changed.map(({ dayOfWeek, isOpen, periods }) => ({ dayOfWeek, isOpen, periods })),expected:authority.map(day=>weeklyState.parse(day))});
         if (!result.success) { setMessage(result.error ?? "儲存失敗，修改已保留"); return; }
         const confirmed=result.data.map(day=>({...day,periods:day.periods.length?day.periods:[{openTime:day.openTime??"10:00",closeTime:day.closeTime??"22:00"}]}));
         setAuthority(result.data);setDays(confirmed);setSaved(confirmed.filter(day=>day.persisted));setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存每週營業時間");

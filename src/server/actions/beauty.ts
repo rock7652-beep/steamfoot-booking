@@ -76,12 +76,15 @@ export async function saveBeautyCatalog(
         ? FEATURES.STAFF_MANAGEMENT
         : FEATURES.PLAN_MANAGEMENT,
     );
+    if(kind==="service"&&typeof input==="object"&&input!==null&&"defaultRate" in input&&input.defaultRate!==undefined){await requirePermission("teacher.compensation.manage");await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);}
     if (kind === "technician") {
       await requirePermission("teacher.compensation.read");
       await requirePermission("teacher.compensation.manage");
     }
     return beautyTransaction(a, async (tx) => {
-      return persistBeautyCatalog(tx,a,kind,input);
+      const saved=await persistBeautyCatalog(tx,a,kind,input);
+      if(kind==="service"&&!(typeof input==="object"&&input!==null&&"defaultRate" in input&&input.defaultRate!==undefined))return {...saved,record:{...saved.record as object,defaultRate:undefined}};
+      return saved;
     });
   });
 }

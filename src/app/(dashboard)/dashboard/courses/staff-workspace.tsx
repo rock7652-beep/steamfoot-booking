@@ -69,7 +69,7 @@ export type CourseStaffPerson = {
   customerId: string;
 };
 type Person=CourseStaffPerson;
-export type CourseStaffSource={previewEnabled?:boolean;
+export type CourseStaffSource={previewEnabled?:boolean;allowInheritFee?:(templateId:string)=>boolean;
  save:SettingsSaveTransport;
  savedSchema:import("zod").ZodType<{rows:Person[]},import("zod").ZodTypeDef,unknown>;
  readTeaching:typeof readCourseStaffTeaching;
@@ -510,7 +510,7 @@ export function CourseStaffWorkspace({
                       return <CourseStaffServiceRow key={t.id} name={courseTemplateLabel(t)} selected={selected} wide={sportsNative} inactiveLabel={t.currentTeaching===false?(t.isActive===false?"停用":"未販售"):undefined} onSelect={value=>{setQualificationsTouched(true);setQualificationIds(ids=>value?[...ids,t.id]:ids.filter(id=>id!==t.id));}}>
 
                         {selected&&feeEnabled&&source?.feeFields?.(person,t.id,fees[t.id]?.mode??"INHERIT")}
-                        {selected && feeEnabled && sportsNative ? <SportsCoachFeeFields allowInherit={!source} name={courseTemplateLabel(t)} draft={fees[t.id]} defaultRules={sportsDefaults.find(f=>f.templateId===t.id)?.rules} disabled={!canEditFees} onChange={value=>setFees(old=>({...old,[t.id]:value}))}/> : selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+                        {selected && feeEnabled && sportsNative ? <SportsCoachFeeFields allowInherit={!source||!!source.allowInheritFee?.(t.id)} name={courseTemplateLabel(t)} draft={fees[t.id]} defaultRules={sportsDefaults.find(f=>f.templateId===t.id)?.rules} disabled={!canEditFees} onChange={value=>setFees(old=>({...old,[t.id]:value}))}/> : selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
                       </CourseStaffServiceRow>;
                     })}

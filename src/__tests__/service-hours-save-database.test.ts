@@ -81,3 +81,20 @@ it("Beauty hours protect full occupied duration and normalize starts to a half-h
  expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'11:00',action:'disable'}]}))).toMatchObject({success:false,error:expect.stringContaining('已有預約')});
  expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'12:00',action:'disable'}]}))).toMatchObject({success:true});
 });
+it('saves multiple beauty weekdays atomically and retains protected appointments, exceptions and stored capacity',async()=>{
+ m.module.mockResolvedValue('beauty');
+ await db.exec(`INSERT INTO "BeautyAppointment" VALUES ('s','2030-10-10T10:00:00+08','2030-10-10T11:15:00+08','RESERVED');INSERT INTO "SpecialBusinessDay" VALUES ('holiday','s','2030-10-11','closed','保留',null,null,null,null,null,now());`);
+ const weeklyDays=[{dayOfWeek:4,isOpen:true,periods:[{openTime:'10:00',closeTime:'18:00'}]},{dayOfWeek:5,isOpen:false,periods:[]}];
+ const receipt=await input({mode:'weekly',status:'open',periods:[],weeklyDays});
+ expect(await saveServiceHours(receipt)).toMatchObject({success:true,data:{count:2}});
+ expect((await db.query<Record<string,unknown>>('SELECT "dayOfWeek","defaultCapacity","slotInterval" FROM "BusinessHours" WHERE "storeId"=\'s\' ORDER BY "dayOfWeek"')).rows).toEqual([{dayOfWeek:4,defaultCapacity:6,slotInterval:30},{dayOfWeek:5,defaultCapacity:6,slotInterval:30}]);
+ expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay" WHERE id=\'holiday\'')).rows[0].count).toBe(1);
+ const rejected=await input({mode:'weekly',status:'open',periods:[],weeklyDays:[{...weeklyDays[0],periods:[{openTime:'12:00',closeTime:'18:00'}]},{dayOfWeek:2,isOpen:false,periods:[]}]});
+ expect(await saveServiceHours(rejected)).toMatchObject({success:false});
+ expect((await db.query<Record<string,unknown>>('SELECT "openTime" FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=4')).rows[0].openTime).toBe('10:00');expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=2')).rows[0].count).toBe(0);
+ expect(await saveServiceHours(receipt)).toMatchObject({success:true});
+});
+it('rejects duplicate batch weekdays or a non-beauty weekly batch without writes',async()=>{
+ const day={dayOfWeek:4,isOpen:true,periods:[{openTime:'10:00',closeTime:'18:00'}]};
+ expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day]}))).toMatchObject({success:false});m.module.mockResolvedValue('beauty');expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day,day]}))).toMatchObject({success:false});expect(write).not.toHaveBeenCalled();
+});

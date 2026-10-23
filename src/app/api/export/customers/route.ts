@@ -50,16 +50,18 @@ export async function GET() {
   const dataExportLocked = await requireDataExportFeature(activeStoreId);
   if (dataExportLocked) return dataExportLocked;
 
-  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
+  const industry=activeStoreId?await getStoreIndustryModule(activeStoreId):null;
+  if (activeStoreId && (industry === "course"||industry === "beauty")) {
     if (!(await checkPermission(user.role,user.staffId,"customer.read"))) return new NextResponse("Forbidden",{status:403});
     const { resolveStoreViewContextFromCookie } = await import("@/lib/store-view-context-server");
     if ((await resolveStoreViewContextFromCookie(user))?.isViewMode) return new NextResponse("Forbidden in view mode",{status:403});
     const { getCourseCustomerCsv } = await import("@/server/queries/course-customer-export");
-    const csv = await getCourseCustomerCsv(activeStoreId,{
+    const exportCsv=industry==="beauty"?(await import("@/server/queries/beauty-customer-export")).getBeautyCustomerCsv:getCourseCustomerCsv;
+    const csv = await exportCsv(activeStoreId,{
       cards:await checkPermission(user.role,user.staffId,"wallet.read"),
       bookings:await checkPermission(user.role,user.staffId,"booking.read"),
     });
-    return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
+    return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="${industry}-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
   }
 
   // 匯出符合當前店舖視角的顧客

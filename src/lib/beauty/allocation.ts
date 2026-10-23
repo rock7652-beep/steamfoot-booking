@@ -2,6 +2,7 @@ import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { rate, type Rate } from "./contracts";
 export type Range = { start: number; end: number };
 export type Service = {
+  defaultRate?:unknown;
   id: string;
   name: string;
   duration: number;
@@ -118,7 +119,7 @@ export function allocateParty(input: {
         t.serviceIds.includes(s.id) &&
         (p.preference === "ANY" || t.gender === p.preference) &&
         availableTechnician(t, day, start, end) &&
-        rate.safeParse((t.rates as Record<string, unknown>)[s.id]).success &&
+        rate.safeParse((t.rates as Record<string, unknown>)[s.id]??s.defaultRate).success &&
         !occupied.some(
           (o) => o.technicianId === t.id && overlaps({ start, end }, o),
         ),
@@ -154,7 +155,7 @@ export function allocateParty(input: {
           string,
           unknown
         >
-      )[c.s.id],
+      )[c.s.id]??c.s.defaultRate,
     ),
   }));
 }

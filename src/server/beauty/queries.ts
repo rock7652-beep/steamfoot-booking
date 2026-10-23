@@ -238,6 +238,7 @@ export async function beautyDashboard(
         ["customer", "customer.create"],
         ["customerEdit", "customer.update"],
         ["customerAssign", "customer.assign"],
+        ["customerExport", "customer.export"],
         ["plan", "plans.edit"],
         ["technician", "staff.manage"],
         ["location", "business_hours.manage"],
@@ -250,6 +251,7 @@ export async function beautyDashboard(
       ]),
     ),
   );
+  manage.customerExport=manage.customerExport&&customerAccess&&(await hasStoreFeature(a.storeId,FEATURES.DATA_EXPORT));
   manage.card = manage.card && manage.collect;
   manage.technician =
     manage.technician &&
@@ -395,7 +397,7 @@ export async function beautyDashboard(
     manage,
     date,
     month,
-    services,
+    services:services.map(s=>({...s,defaultRate:feeAccess?s.defaultRate:undefined})),
     techs: techs.map((t) => ({ ...t, rates: feeAccess ? t.rates : {} })),
     locations,
     plans,

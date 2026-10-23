@@ -15,9 +15,11 @@ const mockStoreFindMany = vi.fn();
 const mockGetStoreRevenueSummary = vi.fn();
 const mockGetCoachRevenueSummary = vi.fn();
 const mockGetTransactionDetails = vi.fn();
-const courseExport = vi.hoisted(()=>({module:vi.fn(),csv:vi.fn()}));
+const courseExport = vi.hoisted(()=>({module:vi.fn(),csv:vi.fn(),beauty:vi.fn()}));
 vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:courseExport.module}));
 vi.mock("@/server/queries/course-customer-export",()=>({getCourseCustomerCsv:courseExport.csv}));
+
+vi.mock("@/server/queries/beauty-customer-export",()=>({getBeautyCustomerCsv:courseExport.beauty}));
 
 let activeStoreCookie: string | null = "store-1";
 
@@ -80,7 +82,7 @@ describe("data_export route gates", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     courseExport.module.mockResolvedValue("steamfoot");
-    courseExport.csv.mockResolvedValue("course-csv");
+    courseExport.csv.mockResolvedValue("course-csv");courseExport.beauty.mockResolvedValue("beauty-csv");
     activeStoreCookie = "store-1";
     mockAuth.mockResolvedValue({ user: adminUser() });
     mockCheckPermission.mockResolvedValue(true);
@@ -118,6 +120,10 @@ describe("data_export route gates", () => {
     expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
 
+  it("routes beauty CSV through the same export entry with separate wallet and booking permissions",async()=>{
+    courseExport.module.mockResolvedValue("beauty");mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="booking.read");
+    const {GET}=await import("@/app/api/export/customers/route");const response=await GET();expect(await response.text()).toBe("beauty-csv");expect(courseExport.beauty).toHaveBeenCalledWith("store-1",{cards:true,bookings:false});expect(courseExport.csv).not.toHaveBeenCalled();expect(mockCustomerFindMany).not.toHaveBeenCalled();
+  });
   it("rejects a course export without customer.read even when export permission exists", async () => {
     courseExport.module.mockResolvedValue("course");
     mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="customer.read");
