@@ -232,7 +232,7 @@ export function CourseStaffWorkspace({
     setOpen(true);
   }
   function close() {
-    if (pending || availabilityGuard.pending || ((dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
+    if (pending || availabilityGuard.pending || (!music && (dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
     setOpen(false);
   }
   return (
@@ -334,7 +334,7 @@ export function CourseStaffWorkspace({
               {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":"查看教練"):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":"編輯教練"):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":"新增教練"):"新增人員")}
             </h2>
             {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" />}
-            {music && person?.coachEnabled && salaryHref && (financeScope === null || financeScope.includes(person.id)) && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary-800" onClick={event => { if (pending || availabilityGuard.pending || ((dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的變更，確定離開？"))) event.preventDefault(); }} href={`${salaryHref}?teacherId=${encodeURIComponent(person.id)}`}>{person.name} · {salaryLabel}</DashboardLink>}
+            {music && person?.coachEnabled && salaryHref && (financeScope === null || financeScope.includes(person.id)) && <DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary-800" onClick={event => { if (pending || availabilityGuard.pending) event.preventDefault(); }} href={`${salaryHref}?teacherId=${encodeURIComponent(person.id)}`}>{person.name} · {salaryLabel}</DashboardLink>}
             
             <button
               className={button}

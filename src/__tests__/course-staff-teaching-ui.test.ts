@@ -129,3 +129,17 @@ it("shows assigned course dates, times and actual booking counts in a compact ta
  expect(table?.textContent).toContain("3／10");expect(table?.textContent).toContain("12:00–12:30");
  expect(table?.querySelector('a')?.getAttribute('href')).toContain("session=session");
 });
+
+it("closes a changed music teacher without a leave-confirmation popup or save",async()=>{
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
+ try {
+  await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
+  await click("老師");
+  await click("編輯資料");
+  await inputValue(document.body.querySelector('input[name="phone"]') as HTMLInputElement,"0911222333");
+  await click("取消");
+  expect(confirm).not.toHaveBeenCalled();
+  expect(document.body.querySelector('[aria-labelledby="course-staff-title"]')).toBeNull();
+  expect(m.save).not.toHaveBeenCalled();
+ } finally { confirm.mockRestore(); }
+});
