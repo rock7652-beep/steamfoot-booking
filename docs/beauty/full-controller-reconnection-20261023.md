@@ -83,3 +83,7 @@
 使用者回覆「維持已確認美業流程（建議）」。上方過往把運動點數／開放選課／固定週期課當成待補功能的描述停止適用；不新增這些業務。實際逐人預約沿用共用 `SportsScheduleFields` 的 `source.reservation` → `ServiceReservationForm`，會員端維持已確認兩頁流程。既有資料、LINE 關閉及正式站不動的邊界維持。
 
 本輪多人預約與帳本26項通過；隔離庫逐欄核對只缺服務預設計酬及交易追加修訂。migration工具兩次回報 `Invalid or expired requestState`，讀回確認未套用，故未部署。詳見[最新驗收與阻擋](native-fees-finance-verification-20261023.md#本輪續驗已確認範圍多人預約及升級狀態)。LINE關閉，正式站未動。
+
+## 最新遠端狀態
+
+兩項必要升級已套用，既有資料筆數一致；完整 `e2b713f9` 已推送至原隔離支線並部署為 [新版Preview](https://steamfoot-booking-b7700d6m3-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)，狀態READY。新版受Vercel登入保護，本次遠端業務驗收尚未完成，已詢問本次暫時驗收存取授權；不以本機或歷史hosted結果代替。上方未部署敘述為歷史紀錄。LINE關閉，正式站未操作。

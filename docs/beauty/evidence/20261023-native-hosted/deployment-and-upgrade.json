@@ -1,0 +1,32 @@
+{
+  "deploymentId": "dpl_HWdX2HEvkHvwDGb2xnTSctQkJcN7",
+  "origin": "https://steamfoot-booking-b7700d6m3-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "target": "preview",
+  "commit": "e2b713f9d51fb83633c0b3986c7c39b1355dbb52",
+  "isolatedProject": "ttworfzgwejdeolegkxl",
+  "migrations": [
+    {
+      "version": "20261023165610",
+      "name": "beauty_service_default_rate_20261023"
+    },
+    {
+      "version": "20261023165631",
+      "name": "beauty_native_transaction_revisions_20261023"
+    }
+  ],
+  "countsBeforeAndAfter": {
+    "appointments": 21,
+    "cards": 3,
+    "payments": 19,
+    "ledger": 23
+  },
+  "revisionRls": true,
+  "immutableTrigger": true,
+  "anonRead": false,
+  "authenticatedInsert": false,
+  "lineEnabled": false,
+  "productionChanged": false,
+  "hostedLoginAcceptance": "PENDING_VERCEL_AUTHENTICATION",
+  "notes": "Counts verified; not a full row-content hash. No business-flow acceptance claimed for this deployment."
+}

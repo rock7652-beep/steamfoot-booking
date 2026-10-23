@@ -48,3 +48,27 @@
 - 遠端前後筆數：預約21、卡片3、付款19、帳本23，一致。LINE branch設定確認為0，正式站未操作；遠端登入及新版部署驗收仍待 migration 接點恢復。
 
 本輪證據：[多人預約及帳本結果](evidence/20261023-party-scope/results.json)、[四人確認畫面](evidence/20261023-party-scope/confirm-4-390.png)、[平板畫面](evidence/20261023-party-scope/after-4-768.png)。
+
+## 後續更新：隔離升級成功、完整 Preview READY
+
+本節取代上方「尚未升級、未推送、未部署」的歷史狀態。2026-10-23重新核對MCP可達性及唯讀查詢皆正常，原請求狀態錯誤未再出現；將兩項必要加法升級分別送出，均成功並已讀回確認。不推定先前錯誤是Postgres故障。
+
+| 項目 | 結果 |
+| --- | --- |
+| 隔離庫 | `ttworfzgwejdeolegkxl`，既有legacy連線、角色保留 |
+| 服務預設計酬 | `20261023165610 beauty_service_default_rate_20261023` |
+| 不可改寫交易修訂 | `20261023165631 beauty_native_transaction_revisions_20261023` |
+| 保護 | RLS及不可改刪trigger存在，anon不可讀、authenticated不可新增；未建立公開policy |
+| 升級前後筆數 | 預約21、卡片3、付款19、帳本23，一致；不冒稱逐欄雜湊比對 |
+| 完整來源 | `e2b713f9d51fb83633c0b3986c7c39b1355dbb52`，既有隔離支線 |
+| 部署 | `dpl_HWdX2HEvkHvwDGb2xnTSctQkJcN7`，READY／Preview，未指派正式網域 |
+| 建置 | 編譯、TypeScript及240個靜態頁通過；保留原Prisma追蹤warning |
+| LINE／正式站 | LINE關閉，正式站未操作 |
+
+[新版店長後台](https://steamfoot-booking-b7700d6m3-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)；[新版顧客／技師入口](https://steamfoot-booking-b7700d6m3-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/)。
+
+**新版遠端登入驗收尚未完成。** 普通HTTPS請求重新導向Vercel登入頁（最終200並非應用程式成功）。既有驗收存取資料只對應舊部署；沒有移植cookie、重建分享權限或關閉保護。已向使用者詢問是否明確允許本次暫時存取連結，回覆前不進行依賴該存取的操作。前輪自動審查曾因「新增可分享的存取權限」拒絕此動作；本輪沒有重試建立。
+
+新版單人／兩人／四人、方案帳本、收退款及低權限／跨店限制仍待登入後實測，不沿用本機或舊部署結果冒稱通過。READY後查詢此部署error／fatal runtime logs未見紀錄，但存取保護阻擋了完整應用流程，這不能替代業務驗收。實體裝置與店家簽收仍待完成。
+
+[部署與升級證據](evidence/20261023-native-hosted/deployment-and-upgrade.json)。
