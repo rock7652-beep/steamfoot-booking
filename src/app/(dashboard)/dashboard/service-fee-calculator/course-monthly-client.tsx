@@ -23,7 +23,7 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{e
  {actions&&<div className="ml-auto flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">{actions}</div>}
  </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
- <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-4 py-3 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?"教練授課費":"應領合計"}</span><span className="sr-only">明細</span></div>
+ <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-3 py-2 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?"教練授課費":"應領合計"}</span><span className="sr-only">明細</span></div>
  {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
  {!!entries.length&&!visible.length&&<p role="status" className="p-4 text-sm">找不到符合的人員。</p>}
  </div></section>;
@@ -37,16 +37,17 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  const issues=filtered.some(line=>line.issue||line.amount===null);
  const total=people.reduce((sum,person)=>sum+person.profit+person.fee,0);
  return <>
+ <div className="flex flex-wrap items-center gap-2">
  {music && <div className="flex flex-wrap items-center gap-2 text-sm"><label>教師<select aria-label="薪資教師" className="min-h-11 rounded-lg border px-3" value={teacherId} onChange={e=>setTeacherId(e.target.value)}><option value="">全部人員</option>{[...new Map(lines.filter(l=>l.staffId).map(l=>[l.staffId!,l.name])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}{teacherId && !lines.some(l=>l.staffId===teacherId) && <option value={teacherId}>所選教師（本月無紀錄）</option>}</select></label>{teacherId && <button type="button" className={button} onClick={()=>setTeacherId("")}>查看全店月結</button>}</div>}
  <div className="flex flex-wrap items-center gap-2" role="group" aria-label="收入類別">
  {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:music ? "教師鐘點費" : "教練授課費"}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
- </div>
+ </div></div>
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
  {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?"授課費合計":"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{!teacherId && confirm}
  </div>
  <CourseMonthlyPeople category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId ? undefined : actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
- {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
+ {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
  <strong className="truncate" title={person.name}>{person.name}</strong>
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="PROFIT"&&(l.issue||l.amount===null))?"待核對":money(person.profit)}</span>}
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="FEE"&&(l.issue||l.amount===null))?"待核對":money(person.fee)}</span>}

@@ -18,7 +18,7 @@ export function CourseWeeklyHoursEditor({ initial, canManage, onSaved }: { initi
   const changed = days.filter(day => JSON.stringify(day) !== JSON.stringify(saved.find(s => s.dayOfWeek === day.dayOfWeek)));
   useSettingsPanelGuard(changed.length > 0, pending);
   function update(dow: number, change: Partial<Day>) { setDays(previous => previous.map(day => day.dayOfWeek === dow ? { ...day, ...change } : day)); setMessage(""); }
-  return <form aria-label="每週營業時間" className="rounded-xl border bg-white p-4" onSubmit={event => {
+  return <form aria-label="每週營業時間" className="rounded-xl border bg-white p-3" onSubmit={event => {
     event.preventDefault(); if (saving.current || !changed.length || !canManage) return;
     saving.current = true; setMessage(""); const submitted = days;
     start(async () => {
@@ -31,8 +31,8 @@ export function CourseWeeklyHoursEditor({ initial, canManage, onSaved }: { initi
     });
   }}>
     <h3 className="font-semibold">每週營業時間</h3><p className="mt-1 text-xs text-earth-600">直接調整各日，最後一次儲存。公休與多段時間皆可設定。</p>
-    <fieldset disabled={!canManage || pending} className="mt-3 min-w-0 divide-y">
-      {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-3 py-3">
+    <fieldset disabled={!canManage || pending} className="mt-2 min-w-0 divide-y">
+      {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-2 py-1">
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={day.isOpen} onChange={e => update(day.dayOfWeek, { isOpen: e.target.checked })} />{day.dayName}</label>
         {day.isOpen ? <div className="min-w-0 flex-1 space-y-2">{day.periods.map((period, index) => <div key={index} className="flex flex-wrap items-center gap-2">
           <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 min-w-0 rounded border px-2" /><span>至</span>

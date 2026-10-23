@@ -142,12 +142,11 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
       )}
 
       {displayRun && passedChecks.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-green-700">通過的項目（{passedChecks.length}）</h3>
+        <details className="space-y-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-green-700">通過的項目（{passedChecks.length}）</summary>
           {passedChecks.map((check) => (
             <CheckDetailCard key={check.id} check={check} />
           ))}
-        </div>
+        </details>
       )}
 
       {/* Empty state */}

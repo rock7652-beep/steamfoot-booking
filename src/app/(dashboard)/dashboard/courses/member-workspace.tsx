@@ -294,7 +294,7 @@ export function CourseMemberWorkspace({
         {view === "customers" && !music && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
-          className={`${field} max-w-xs`}
+          className={`${field} max-w-56`}
           aria-label="搜尋"
           placeholder={music?"搜尋收費方式":"搜尋方案"}
           value={search}
@@ -302,7 +302,7 @@ export function CourseMemberWorkspace({
         />}
         {view === "plans" && planArea === "catalog" && (
           <select
-            className={`${field} max-w-36`}
+            className={`${field} max-w-32`}
             aria-label="狀態篩選"
             value={status}
             onChange={(e) => { setSelected([]);setStatus(e.target.value); setPage(0); }}
@@ -411,7 +411,7 @@ export function CourseMemberWorkspace({
           onClose={close}
           width={music && customerPanel ? 1100 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
-          fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
+          fitContent={(music && (panel === "person" || panel === "plan")) || (!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">

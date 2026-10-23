@@ -42,7 +42,7 @@ export function CourseCardBrowser({ compact=false, dataScope, customerId, state,
     </div>
     {!ready && <p role="status">更新中…</p>}
     {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
-      <RosterTable label="學費與堂數方案清單" columns={["方案", "剩餘", "已預約", "可用", "期限", "操作"]}>
+      <RosterTable dense widths={["30%","10%","16%","10%","22%","12%"]} label="學費與堂數方案清單" columns={["方案", "剩餘", "已預約", "可用", "期限", "操作"]}>
 
         {visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?"堂":"點";

@@ -122,7 +122,7 @@ export function CashbookEditor({
         {entry ? "編輯" : "＋ 新增記帳"}
       </button>
       {open && (
-        <RightSheet presentation={presentation} open onClose={close} width={640} labelledById={titleId}>
+        <RightSheet fitContent presentation={presentation} open onClose={close} width={640} labelledById={titleId}>
           <header className="flex items-center justify-between border-b p-4">
             <h2 id={titleId} className="font-semibold">
               {title}
@@ -146,7 +146,7 @@ export function CashbookEditor({
           >
             <fieldset
               disabled={busy}
-              className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4"
+              className="min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto p-3"
             >
               {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" ? <CashbookFormFields
                 closedDates={closedDates}
@@ -214,10 +214,10 @@ export function CashbookEditor({
                 </p>
               )}
             </fieldset>
-            <footer className="border-t bg-white p-4">
+            <footer className="flex justify-end border-t bg-white p-3">
               <button
                 disabled={busy}
-                className="min-h-11 w-full rounded-lg bg-primary-600 text-white"
+                className="min-h-11 min-w-28 rounded-lg bg-primary-600 text-white"
               >
                 {busy ? "儲存中…" : "儲存"}
               </button>

@@ -20,10 +20,10 @@ export function SettingsWorkspaceNav({
   onSelect?: (id: string) => void;
 }) {
   return (
-    <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">
+    <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 xl:block">
       {items.map((item) => {
         const cls =
-          "block min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-100 " +
+          "block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-100 " +
           (activeId === item.id
             ? "bg-primary-50 font-semibold text-primary-800"
             : "text-earth-600 hover:bg-earth-50");
@@ -51,7 +51,7 @@ export function SettingsWorkspaceFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-3 md:grid-cols-[170px_minmax(0,1fr)]">
+    <div className="grid min-w-0 gap-3 xl:grid-cols-[170px_minmax(0,1fr)]">
       <nav aria-label="設定分類" className="min-w-0">{nav}</nav>
       <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4 py-1 sm:px-5">
         {header ? <div className="border-b border-earth-100 py-2.5 text-sm text-earth-500">{header}</div> : null}
@@ -87,10 +87,10 @@ export function SettingsListRow({
   const showChildren = expanded === undefined ? true : expanded;
   return (
     <section className="@container min-w-0 border-b border-earth-100 last:border-0">
-      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 @3xl:grid-cols-[200px_minmax(0,1fr)_200px]"}>
+      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-x-3 gap-y-1 py-2 @min-[30rem]:grid-cols-[minmax(7rem,1fr)_minmax(0,2fr)_auto]"}>
         <h3 title={title} className="min-w-0 break-words text-sm font-semibold text-primary-900">{title}</h3>
         {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 @3xl:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className="min-w-0 break-words text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>}
-        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${columns ? "@3xl:flex-col @3xl:items-end" : "@3xl:w-[200px]"}`}>
+        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${columns ? "@3xl:flex-col @3xl:items-end" : "@min-[30rem]:max-w-52"}`}>
           {controls}
           {onEdit && (!expanded || columns) ? (
             <button
@@ -114,7 +114,7 @@ export function SettingsListRow({
         </div>
       </div>
       {(showChildren || keepMounted) && children ? (
-        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : "@3xl:ml-[216px]"}`}>{children}</div>
+        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : ""}`}>{children}</div>
       ) : null}
     </section>
   );
@@ -144,7 +144,7 @@ export function SettingsModuleWorkspace({
     <SettingsWorkspaceFrame
       nav={
         <>
-          <label className="block text-sm md:hidden">
+          <label className="block text-sm xl:hidden">
             設定分類
             <select
               value={active.id}

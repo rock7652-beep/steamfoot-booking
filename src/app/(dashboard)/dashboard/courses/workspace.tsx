@@ -725,7 +725,7 @@ export function CourseWorkspace({
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
-        <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
+        <div className={`@container/schedule ${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {businessProfile === "MUSIC" && params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>從學員資料進入 · 返回後保留原搜尋與篩選</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -848,8 +848,8 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
-            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
+          {<div className="relative z-10 grid min-w-0 grid-cols-1 items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 p-2 @min-[32rem]/schedule:grid-cols-2 @min-[48rem]/schedule:grid-cols-4">
+            <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
               aria-label={businessProfile === "MUSIC" ? "教師篩選" : "教練篩選"}
@@ -864,7 +864,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label><label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-room-filter">教室
+            </label><label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-room-filter">教室
             <select
               id="course-room-filter"
               aria-label="教室篩選"
@@ -879,7 +879,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label>{businessProfile === "MUSIC" ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-category-filter">教學項目
+            </label>{businessProfile === "MUSIC" ? <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-category-filter">教學項目
             <select
               id="course-category-filter"
               aria-label="教學項目篩選"
@@ -890,8 +890,8 @@ export function CourseWorkspace({
               <option value="all">全部教學項目</option>
               {[...new Map(allTemplates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??t.name}])).values()].map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            </label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
-            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
+            </label> : <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{businessProfile !== "MUSIC" && <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
+            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 min-w-0 w-full bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
             {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || classFilter !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
                 type="button"
@@ -1065,8 +1065,8 @@ export function CourseWorkspace({
           className="space-y-1"
           aria-label={view === "rooms" ? (businessProfile==="MUSIC"?"教室清單":"空間清單") : "課程清單"}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="min-w-48 flex-1 sm:max-w-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="min-w-40 flex-1 sm:max-w-56">
               <span className="sr-only">搜尋名稱</span>
               <input
                 className={field}
@@ -1122,7 +1122,7 @@ export function CourseWorkspace({
                 ))}
               </select>
             )}
-            {(businessProfile === "MUSIC" || query.trim() || status !== "all" || category !== "all" || classFilter !== "all" || rentalFilter !== "all" || roomFilter !== "all") && <button
+            {(query.trim() || status !== "all" || category !== "all" || classFilter !== "all" || rentalFilter !== "all" || roomFilter !== "all") && <button
               className={button}
               onClick={() => {
                 setSelectedIds([]);setHideTestData(false);setQuery("");
@@ -1136,7 +1136,7 @@ export function CourseWorkspace({
             </button>}
             {canCreate && (
               <button
-                className={businessProfile === "MUSIC" ? primary : "min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800 disabled:opacity-50"}
+                className={businessProfile === "MUSIC" ? `${primary} ml-auto order-first` : "min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800 disabled:opacity-50"}
                 disabled={pending}
                 onClick={() => open("catalog")}
               >
@@ -1524,7 +1524,7 @@ export function CourseWorkspace({
                             maxLength={80}
                           />
                         </label>
-                        {businessProfile==="MUSIC"&&(<label className="col-span-full">
+                        {businessProfile==="MUSIC"&&(<label>
                           分類
                           <input
                             className={field}
@@ -1738,7 +1738,7 @@ export function CourseWorkspace({
                   <p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
-                <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
+                <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):editing.kind==="room"?"":"col-span-full"}>
                   {editing.kind === "room" ? "空間名稱" : "課程名稱"}{businessProfile!=="MUSIC"&&" *"}
                   <input
                     className={field}
@@ -1755,7 +1755,7 @@ export function CourseWorkspace({
                 {editing.kind === "template" && (businessProfile === "MUSIC" ? <ClassType value={editing.value.classType} required={copyTemplate}/> : <FitnessClassField classType={editing.value.classType} trialMode={editing.value.musicTrialMode} locked={!copyTemplate && editing.value.hasSessions}/>)}
                 {editing.kind === "template" && businessProfile === "MUSIC" && <MusicCourseFields value={editing.value}/>}
                 {editing.kind !== "session" && businessProfile === "MUSIC" && (
-                  <label className="col-span-full">
+                  <label className={editing.kind==="room"?"":"col-span-full"}>
                     分類
                     <input
                       className={field}

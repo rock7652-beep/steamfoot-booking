@@ -35,12 +35,12 @@ export async function CourseCare({ dataScope, storeId, month, readOnly, canFollo
   return <PageShell compact>
     <PageHeader compact title="顧客經營" subtitle="今天要關心誰，一頁看懂。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
     
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <nav aria-label="關懷分類" className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap items-center gap-2">
+      <nav aria-label="關懷分類" className="flex flex-wrap gap-1 min-w-0 flex-1">
         <Link aria-current={!selected ? "page" : undefined} href={`/dashboard/growth?month=${month}${scopeQuery}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900">全部</Link>
         {([['birthday','本月生日'],['inactive','好久不見'],['low','額度快用完'],['expiring','方案快到期'],['trial','體驗未購買方案']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900" href={`/dashboard/growth?segment=${kind}&month=${month}${scopeQuery}`}>{label} <span className="tabular-nums">{counts[kind]} 位</span></Link>)}
       </nav>
-      <details className="min-w-0">
+      <details className="min-w-0 shrink-0">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">生日月份 · {month}</summary>
         <form data-settings-panel-filter className="flex flex-wrap items-center gap-2 pb-2">{legacy&&<input type="hidden" name="dataScope" value="legacy"/>}{selected && <input type="hidden" name="segment" value={selected}/>}<input className="min-h-11 max-w-full rounded border border-earth-200 p-2 text-sm" aria-label="生日月份" type="month" name="month" defaultValue={month}/><button className="min-h-11 rounded border border-earth-200 px-3 text-sm">套用</button></form>
       </details>

@@ -32,7 +32,7 @@ function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段"
   </div>;
 }
 
-export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
+export function CourseStaffAvailabilityEditor({staffId,fitness=false,readOnly=false,onGuard}:{staffId:string;readOnly?:boolean;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
   const [showWeeklyErrors,setShowWeeklyErrors]=useState(false);
   const [showExceptionErrors,setShowExceptionErrors]=useState(false);
   const [dirtyWeekly,setDirtyWeekly]=useState(false);
@@ -122,24 +122,25 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>
-    <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
+    <fieldset disabled={readOnly || pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-2"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
-    </label>{fitness&&<button type="button" disabled={pending} className={`${fitnessEditorSave} bg-primary-700 text-white disabled:opacity-50`} onClick={saveWeekly}>{pending?"儲存中…":"儲存時間"}</button>}</div>
-    {!inherit&&<div className={fitness?"grid grid-cols-[repeat(auto-fit,minmax(min(100%,432px),1fr))] items-start gap-x-4 gap-y-2":"space-y-2"}>
+    </label>{fitness&&!readOnly&&<button type="button" disabled={pending} className={`${fitnessEditorSave} bg-primary-700 text-white disabled:opacity-50`} onClick={saveWeekly}>{pending?"儲存中…":"儲存時間"}</button>}</div>
+    {!inherit&&<div className={fitness?"grid grid-cols-[repeat(auto-fit,minmax(min(100%,432px),1fr))] items-start gap-x-4 gap-y-2":"grid gap-1"}>
       {days.map(day=>{
         const toggle=day.periods.length?<button type="button" className={fitness?"col-start-2 row-start-1 min-h-9 justify-self-start rounded-lg whitespace-nowrap text-sm text-primary-700 hover:text-primary-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 min-[600px]:col-start-3":"text-xs text-earth-500"} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>{fitness?"設為休息":"不授課"}</button>:<button type="button" className={fitness?`${button} col-start-2 row-start-1 justify-self-end min-[600px]:col-start-3`:button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>{fitness?"開放授課":"＋ 開放"}</button>;
         const periods=<PeriodRows label={`週${names[day.dayOfWeek]}`} showErrors={showWeeklyErrors} fitness={fitness} compact={fitness} periods={day.periods} onChange={periods=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item));}}/>;
-        return <div key={day.dayOfWeek} className={fitness?"grid min-w-0 max-w-[436px] grid-cols-[1.75rem_minmax(0,1fr)] items-center min-[600px]:grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-1 border-b border-earth-100 bg-white pb-2":"grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]"}>
+        return <div key={day.dayOfWeek} className={fitness?"grid min-w-0 max-w-[436px] grid-cols-[1.75rem_minmax(0,1fr)] items-center min-[600px]:grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-1 border-b border-earth-100 bg-white pb-2":"grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1 @min-[28rem]/staff:grid-cols-[2rem_minmax(0,1fr)_auto]"}>
           {fitness?<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="col-span-2 row-start-2 min-w-0 min-[600px]:col-span-1 min-[600px]:row-start-auto">{day.periods.length>0?periods:<span className="text-sm text-earth-500">休息</span>}</div>{toggle}</>:<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="min-w-0">{periods}</div>{toggle}</>}
         </div>;
       })}
     </div>}
-    {!fitness&&<button type="button" disabled={pending} className={button} onClick={saveWeekly}>儲存每週可授課時間</button>}</fieldset>
+    {!fitness&&!readOnly&&<button type="button" disabled={pending} className={button} onClick={saveWeekly}>儲存每週可授課時間</button>}</fieldset>
 
+    {!!exceptions.length&&<p className="text-sm text-earth-600">已設定 {exceptions.length} 筆單日例外 · {exceptions.slice(0,3).map(item=>item.date).join("、")}</p>}
     <details className="rounded-lg border border-earth-200 bg-white p-2">
       <summary className="cursor-pointer text-sm font-medium text-primary-900">單日例外／請假／臨時加開</summary>
-      <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyException(true)} className="mt-3 grid gap-2 sm:grid-cols-2">
+      <fieldset disabled={readOnly || pending || !ready} onChangeCapture={()=>setDirtyException(true)} className="mt-3 grid gap-2 sm:grid-cols-2">
         <input className={field} type="date" value={exceptionDate} onChange={e=>setExceptionDate(e.target.value)}/>
         <select className={field} value={exceptionType} onChange={e=>setExceptionType(e.target.value as typeof exceptionType)}>
           <option value="UNAVAILABLE">當日不可授課／請假</option>
