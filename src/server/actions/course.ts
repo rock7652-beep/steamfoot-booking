@@ -1,4 +1,5 @@
 "use server";
+import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
 import {courseTrialPrice} from "@/lib/course-trial-price";
@@ -335,6 +336,7 @@ export async function updateCourseSession(input: unknown) {
             await tx.courseScheduleSeries.update({ where: { id: rule.id }, data: { excludedDates: [...excluded] } });
           }
         }
+        if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"MOVE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
         return data.capacity > session.capacity ? session.id : null;
       },
       { timeout: 15000 },

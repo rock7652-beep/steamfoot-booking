@@ -62,7 +62,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   const [editing, setEditing] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [discard, setDiscard] = useState(false);
+  const [, setDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
@@ -223,7 +223,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   }
 
   return (
-    <details className="rounded-xl border border-earth-200 bg-white">
+    <details open className="rounded-xl border border-earth-200 bg-white">
       <summary className="flex min-h-12 cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-2">
         <div>
           <h2 className="text-sm font-semibold text-primary-900">方案提醒設定</h2>
@@ -234,20 +234,20 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         </span>
       </summary>
 
-      <div className="flex max-h-[min(28rem,60dvh)] min-h-0 flex-col border-t border-earth-100">
+      <div className="flex max-h-[64vh] min-h-0 flex-col border-t border-earth-100">
         <div className="flex shrink-0 flex-wrap items-center gap-2 p-3">
           <input
             aria-label="搜尋提醒方案"
             placeholder="搜尋方案名稱"
             value={query}
             onChange={event => { setQuery(event.target.value); setPage(1); }}
-            className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 text-sm"
+            className="min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm"
           />
           <select
             aria-label="篩選提醒方案"
             value={filter}
             onChange={event => { setFilter(event.target.value); setPage(1); }}
-            className="min-h-11 rounded-lg border px-3 text-sm"
+            className="min-h-10 rounded-lg border px-3 text-sm"
           >
             <option value="all">全部方案</option>
             <option value="enabled">已開啟提醒</option>
@@ -258,7 +258,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
           <button
             type="button"
             onClick={() => setBulkOpen(value => !value)}
-            className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700"
+            className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700"
           >
             批次套用
           </button>
@@ -327,7 +327,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                   <fieldset disabled={pending} className="border-t border-earth-100 bg-earth-50/40 px-3 py-3">
                     <div className="grid gap-3 lg:grid-cols-2">
                       <section className="rounded-lg border border-earth-200 bg-white p-3">
-                        <label className="flex min-h-11 items-center justify-between gap-3">
+                        <label className="flex min-h-10 items-center justify-between gap-3">
                           <span className="text-sm font-medium text-earth-800">剩餘額度提醒</span>
                           <NotificationSwitch aria-label={`${plan.name} 啟用提醒`} checked={draft.enabled} onChange={event => update(plan.id, { enabled: event.target.checked })} />
                         </label>
@@ -342,7 +342,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                               step="1"
                               value={draft.threshold}
                               onChange={event => update(plan.id, { threshold: event.target.value })}
-                              className="min-h-11 w-24 rounded-lg border border-earth-300 px-3 text-sm tabular-nums"
+                              className="min-h-10 w-24 rounded-lg border border-earth-300 px-3 text-sm tabular-nums"
                             />
                             {unit}時提醒
                           </label>
@@ -350,7 +350,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                       </section>
 
                       <section className="rounded-lg border border-earth-200 bg-white p-3">
-                        <label className="flex min-h-11 items-center justify-between gap-3">
+                        <label className="flex min-h-10 items-center justify-between gap-3">
                           <span className="text-sm font-medium text-earth-800">到期提醒</span>
                           <NotificationSwitch aria-label={`${plan.name} 啟用到期提醒`} checked={draft.expiryEnabled} onChange={event => update(plan.id, { expiryEnabled: event.target.checked })} />
                         </label>
@@ -363,7 +363,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                               value={draft.expiryDays}
                               placeholder="14, 7"
                               onChange={event => update(plan.id, { expiryDays: event.target.value })}
-                              className="min-h-11 w-36 rounded-lg border border-earth-300 px-3 text-sm tabular-nums"
+                              className="min-h-10 w-36 rounded-lg border border-earth-300 px-3 text-sm tabular-nums"
                             />
                             天提醒
                           </label>
@@ -379,8 +379,8 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                         </button>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => cancelOne(plan)} className="min-h-11 min-w-20 rounded-lg border bg-white px-3 text-sm">取消</button>
-                        <button type="button" disabled={!changed || pending} onClick={() => saveOne(plan)} className="min-h-11 min-w-20 rounded-lg bg-primary-700 px-3 text-sm font-medium text-white disabled:opacity-40">儲存</button>
+                        <button type="button" onClick={() => cancelOne(plan)} className="min-h-10 min-w-20 rounded-lg border bg-white px-3 text-sm">取消</button>
+                        <button type="button" disabled={!changed || pending} onClick={() => saveOne(plan)} className="min-h-10 min-w-20 rounded-lg bg-primary-700 px-3 text-sm font-medium text-white disabled:opacity-40">儲存</button>
                       </div>
                     </div>
 
@@ -414,18 +414,10 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         <div className="shrink-0 border-t bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p role="status" className="text-sm text-primary-800">{message || (changes.length ? `${changes.length} 項尚未儲存` : "所有設定已儲存")}</p>
-            {discard ? (
-              <div role="alert" className="flex flex-wrap items-center gap-2">
-                <span className="text-sm">捨棄全部未儲存修改？</span>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => setDiscard(false)}>繼續編輯</button>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }}>捨棄修改</button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button type="button" disabled={pending || !changes.length} onClick={() => setDiscard(true)} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
-                <button type="button" disabled={pending || !changes.length} onClick={saveAll} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button type="button" disabled={pending || !changes.length} onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }} className="min-h-10 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
+              <button type="button" disabled={pending || !changes.length} onClick={saveAll} className="min-h-10 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
+            </div>
           </div>
         </div>
       </div>

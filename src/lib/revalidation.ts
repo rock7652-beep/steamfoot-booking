@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 /**
  * 集中管理快取失效邏輯
  *
@@ -133,3 +134,7 @@ export function revalidateStoreFeatureEntitlements() {
   revalidatePath("/dashboard");
   revalidatePath("/hq/dashboard/stores");
 }
+
+export function revalidateShopConfigInRoute() { revalidateTag(CACHE_TAGS.shopConfig,{expire:0}); }
+
+export function revalidateDutySchedulingInRoute() { revalidateTag(CACHE_TAGS.dutyScheduling,{expire:0}); for(const path of ["/dashboard","/dashboard/duty","/dashboard/settings/duty","/dashboard/bookings","/book"]) revalidatePath(path); }

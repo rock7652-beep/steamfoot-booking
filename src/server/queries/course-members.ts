@@ -1,3 +1,4 @@
+import { fixedMusicPeriodsEnabled, readMusicLessonAssignments } from "@/server/services/music-lesson-periods";
 import {measureMusicRead} from "@/lib/music-read-timing";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
@@ -158,6 +159,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
     select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   });
+  const fixedAssignments = await readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]);
+  const fixedById = new Map(fixedAssignments.map(a=>[a.bookingId,a]));
   return bookings.map(({ card, checkedInAt, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey, ...b }) => {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });
     const opening = readMusicOpeningCard(card, storeId, b.customerId);
@@ -213,6 +216,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const periodLessons = termNumber ? allLessons.slice(periodStart,periodStart+termSize) : [];
     const previousTermLesson = termNumber && termNumber > 1 ? allLessons[periodStart - 1] : null;
     const privateLeaves = (card?.bookings ?? []).filter((item) => !isMusicOpeningMakeupBooking(item) && item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && (((hasSnapshot ? card!.musicTermSizes.length+(musicSnapshotBonus(card!.musicTermSizes,card!.musicBonusLessons,purchasedLessons)?1:0) : card?.plan.musicTerms??1) === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
+    const fixedNative = fixedMusicPeriodsEnabled(storeId) && opening.kind === "NATIVE" && !!card;
+    const fixedLesson = fixedById.get(b.id);
+    const fixedTermCount = fixedLesson ? card?.musicTermSizes[fixedLesson.period-1] ?? card?.musicBonusLessons ?? 0 : 0;
+    const fixedRows = (card?.bookings??[]).filter(item=>{const a=fixedById.get(item.id);return a && a.period===fixedLesson?.period && a.customerId===b.customerId;});
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
     return ({
     ...b,
@@ -277,6 +284,16 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         ? Array.from({length:openingLesson.originalTermLessonCount-openingLesson.closedBeforeCutoff},(_,i)=>openingLesson.closedBeforeCutoff+i+1)
           .filter(ordinal=>!currentSourceLessons.some(({item})=>item.musicOpeningLessonOrdinal===ordinal))
         : [],
+    ...(fixedNative ? {
+      termNumber:fixedLesson?.period??null, termIndex:fixedLesson?.ordinal??null, termCount:fixedTermCount,
+      bonusPeriod:!!fixedLesson&&fixedLesson.period>card!.musicTermSizes.length,
+      termLessons:fixedRows.map(item=>({ordinal:fixedById.get(item.id)!.ordinal,date:item.session.startsAt.toISOString(),status:item.absenceKind==="STUDENT_LEAVE"||item.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假":item.absenceKind==="TEACHER_ABSENT"?"教師未授課":item.status==="CANCELLED"?"已取消":item.status==="ATTENDED"?"已出席":item.status==="NO_SHOW"?"曠課":"待上課"})),
+      termUnscheduledOrdinals:Array.from({length:fixedTermCount},(_,i)=>i+1).filter(n=>!fixedAssignments.some(a=>a.cardId===b.cardId&&a.customerId===b.customerId&&a.period===fixedLesson?.period&&a.ordinal===n&&a.kind==="REGULAR"&&!a.releasedAt)),
+      termLeaveCount:fixedRows.filter(item=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind??"")).length,
+      termNoShowCount:fixedRows.filter(item=>item.status==="NO_SHOW").length,
+      termPrivateLeaves:fixedRows.filter(item=>item.absenceKind==="STUDENT_LEAVE").map(item=>item.session.startsAt.toISOString()),
+      ...(!fixedLesson ? {openingIssue:"期別待確認，請至學員逐期總覽核對歸屬"}:{}),
+    }:{}),
     ...(openingMakeup || opening.kind !== "NATIVE" ? {
       termNumber: !openingIssue && openingLesson.kind === "OPENING" ? openingLesson.originalTermNumber : null,
       termIndex: !openingIssue && openingLesson.kind === "OPENING" ? openingLesson.originalLessonOrdinal : null,

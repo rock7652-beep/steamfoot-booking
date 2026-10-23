@@ -1,4 +1,5 @@
 "use server";
+import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { syncMusicSubjectTeachers } from "@/server/services/music-teaching-qualifications";
 import { nativeLeaveWasDebited } from "@/server/services/music-native-leave";
 import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
@@ -569,6 +570,7 @@ export async function cancelCourseSession(input: unknown) {
           b.id,
           "CANCELLED",
         );
+      await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"STOP",customerName:session.nameSnapshot,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
       await tx.courseSession.update({
         where: { id: session.id },
         data: { cancelledAt: new Date() },
@@ -859,6 +861,11 @@ export async function markCourseTeacherAttendance(input: unknown) {
         const bookings = await tx.courseBooking.findMany({ where: { storeId, sessionId: data.sessionId, status: "CANCELLED", absenceKind: "TEACHER_ABSENT" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true } });
         for (const booking of bookings) await correctCourseAttendance(tx, actor, booking.id, "RESERVED", "CANCELLED");
       }
+      await recordCourseStoreNotice(tx,actor,async()=>{
+        const session=await tx.courseSession.findFirstOrThrow({where:{id:data.sessionId,storeId}});
+        const students=await tx.courseBooking.findMany({where:{storeId,sessionId:data.sessionId},select:{customerName:true}});
+        return {subjectKey:`session:${session.id}`,kind:data.status==="SCHEDULED"?"RESTORE":"STOP",customerName:session.nameSnapshot,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt,affectedCount:students.length};
+      });
       await syncCourseRelease(tx, storeId, data.sessionId);
     });
     refresh();return {success:true as const};

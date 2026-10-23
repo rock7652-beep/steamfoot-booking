@@ -85,6 +85,10 @@ SELECT
  AND p.prosrc LIKE '%TG_OP=''DELETE''%' AND p.prosrc LIKE '%NEW.version<>OLD.version+1%'
  AND p.prosrc LIKE '%to_jsonb(NEW)-''version''-''updatedAt''%') AS makeup_immutable_ready,
  EXISTS(SELECT 1 FROM public."Store" WHERE id='store-lubymusic' AND slug='lubymusic' AND "industryModule"::text='COURSE') AS tenant_ready,
+ (EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='CourseMusicLessonAssignment' AND c.relrowsecurity)
+ AND (SELECT count(*)=2 FROM pg_trigger WHERE tgname IN ('music_lesson_assignment_guard','music_lesson_assignment_release') AND NOT tgisinternal AND tgenabled<>'D')
+ AND NOT EXISTS(SELECT 1 FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='CourseMusicLessonAssignment' AND grantee IN ('anon','authenticated','PUBLIC'))
+ AND (SELECT count(*)=2 FROM pg_indexes WHERE schemaname='public' AND indexname IN ('MusicLesson_regular_slot','MusicLesson_active_makeup'))) AS fixed_period_ready,
  COALESCE((SELECT json_agg(pg_get_constraintdef(p.oid)) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND p.contype='c' AND p.convalidated AND c.relname IN ('CourseBooking','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement')),'[]'::json) AS checks;
 `;
@@ -194,6 +198,10 @@ export async function runMusicOpeningSchemaPreflight(env = process.env) {
   const [{ default: pg }, { createMusicOpeningCatalogClient }] = await Promise.all([
     import("pg"), import("./music-opening-catalog-client.mjs"),
   ]);
-  await checkMusicOpeningSchema(env, value => readMusicOpeningSchemaConnection(value, options => createMusicOpeningCatalogClient(options, pg.Client)));
+  await checkMusicOpeningSchema(env, async value => {
+    const rows=await readMusicOpeningSchemaConnection(value, options => createMusicOpeningCatalogClient(options, pg.Client));
+    if(rows[0]?.fixed_period_ready!==true)throw new Error("Music fixed-period schema is not ready; preview blocked.");
+    return rows;
+  });
   console.info("[music-opening-preflight] isolated_database=true schema_ready=true tenant_verified=true");
 }

@@ -1,4 +1,6 @@
 "use client";
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
+import {courseDisplayText} from "@/lib/course-display-text";
 import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
@@ -399,7 +401,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     window.scrollTo(0, 0);
   }
   function leaveNote() {
-    if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本次備註尚未儲存，要放棄修改嗎？")) return false;
+    
     setEditingNote(null);
     return true;
   }
@@ -820,7 +822,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {!readOnly && !p.readOnly && p.companionBookingEnabled && sharingEnabled && !b.companionIndex && b.canAddCompanion && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
-                      <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
+                      <label>本次備註（店長與授課{p.music?"教師":"教練"}可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
                       <div className="cp-actions"><button type="submit" disabled={pending}>儲存備註</button><button type="button" disabled={pending} onClick={() => leaveNote()}>取消修改</button></div>
                     </form> : <button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本次備註</button>}
                   </details>
@@ -940,6 +942,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ) && <button onClick={back}>‹ 返回</button>}
           {page === "home" && (
             <>
+              {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {heading(coach ? "今日工作" : "會員首頁")}
               {!coach && <section className="cp-card cp-next">
                 <div>
@@ -1074,9 +1077,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
                           {b.openingMakeup && <span className="cp-muted">期初補課・請由店家處理</span>}
-                          {!b.openingMakeup && selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {!b.openingMakeup && (p.selfRescheduleEnabled ?? selfBookingEnabled) && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
                           {!b.openingMakeup && b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
-                          {!b.openingMakeup && b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
+                          {!b.openingMakeup && p.selfLeaveEnabled !== false && b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
                               onClick={() => {
@@ -1333,12 +1336,12 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               <label className="cp-card cp-pad cp-guide-search">搜尋操作指南
                 <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : sharingVisible ? "預約、共卡、轉帳…" : "預約、取消、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
               </label>
-              <p role="status">{coach ? "教練" : "會員"}指南 · {guides.length} 題</p>
+              <p role="status">{coach ? p.music?"教師":"教練" : "會員"}指南 · {guides.length} 題</p>
               <section className="cp-card cp-pad cp-guide" key={`${role}:${search}`}>
                 {guides.map(guide => (
                   <details key={guide.id}>
-                    <summary>{guide.title}</summary>
-                    <ol className="list-decimal space-y-2 pl-5 py-3">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol>
+                    <summary>{courseDisplayText(guide.title,p.music)}</summary>
+                    <ol className="list-decimal space-y-2 pl-5 py-3">{guide.steps.map(step => <li key={step}>{courseDisplayText(step,p.music)}</li>)}</ol>
                     <p>{guide.note}</p>
                   </details>
                 ))}
@@ -1568,7 +1571,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
         <p>{formatTWDateTime(new Date(openingOperation.startsAt))}</p>
         <p>獨立補課權益，不使用方案額度；如需調整，請聯繫店家。</p>
       </Sheet>}
-      {notification && !openingOperation && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
+      {notification && !openingOperation && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} selfRescheduleEnabled={p.selfRescheduleEnabled ?? selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {cancelId && !openingOperation && (
         <Sheet
           title="取消預約"

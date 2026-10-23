@@ -1,3 +1,4 @@
+import { canMusicFinance, readMusicFinanceScope } from "@/server/services/music-finance-access";
 import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
@@ -34,8 +35,11 @@ export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;pr
   catch {return <PageShell compact><PageHeader compact title="營運分析"/><p role="alert">日期或分析對象不正確，或沒有檢視權限。</p><DashboardLink href="/dashboard/courses?view=analytics">返回本月分析</DashboardLink></PageShell>;}
   const [money,customers,cash]=await Promise.all([checkPermission(user.role,user.staffId,"transaction.read"),checkPermission(user.role,user.staffId,"customer.read"),checkPermission(user.role,user.staffId,"cashbook.read")]);
   const canExport=!(await resolveStoreViewContextFromCookie(user))?.isViewMode && await checkPermission(user.role,user.staffId,"report.export") && await hasDataExportFeature(storeId);
+  const financeScope=music?await readMusicFinanceScope(user,storeId):null;
+  const feesAllowed=cash && (music ? await canMusicFinance(user,storeId,"teacher.compensation.read") && (financeScope===null || (scope.view==="coach" && financeScope.includes(scope.person))) : user.role==="OWNER");
+  const periodControls=<ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery compact={music}/>;
   let data;
-  try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:cash&&user.role==="OWNER"},params.dataScope);} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
+  try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:feesAllowed},params.dataScope);} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
   if(!all) data.staff=data.staff.filter(s=>s.id===user.staffId);
   const revenuePoints=money&&scope.view==="store" ? await getIndustrySixMonthRevenueMixTrend(storeId) : null;
   const scopeQuery=musicDataScope(storeId,params.dataScope)==="legacy"?"&dataScope=legacy":"";
@@ -44,8 +48,8 @@ export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;pr
   return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell compact>
     <PageHeader compact title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href={`/dashboard/store-revenue?${scopeQuery.slice(1)}`} className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
     
-    <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
-    <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}:${params.dataScope??"operational"}`} data={data} music={music} all={all} staffId={user.staffId}/>
+    {!music && periodControls}
+    <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}:${params.dataScope??"operational"}`} periodControls={music?periodControls:undefined} data={data} music={music} all={all} staffId={user.staffId}/>
     {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支">{musicDataSeparationEnabled(storeId)&&<p className="mb-3 text-sm text-earth-600">以下為全店現金帳收支，不依學員資料分類；包含其他業務與尚未核對來源的帳務，不能視為這批音教雲學員的營收。</p>}<RevenueMixTrend points={revenuePoints}/></section>}
   </PageShell></AnalysisReturnState>;
 }

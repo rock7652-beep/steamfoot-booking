@@ -15,9 +15,10 @@ type Props = {
   close: () => void;
   readOnly?: boolean;
   selfBookingEnabled?: boolean;
+  selfRescheduleEnabled?: boolean;
 };
 
-export function CourseBookingNotificationDialog({ bookingId, action, close, readOnly = false, selfBookingEnabled = true }: Props) {
+export function CourseBookingNotificationDialog({ bookingId, action, close, readOnly = false, selfBookingEnabled = true, selfRescheduleEnabled }: Props) {
   const reader = usePanelReader("course-booking-notification", loadCourseBookingNotification, bookingId);
   const [loaded, setLoaded] = useState<{ bookingId: string; data: Data } | null>(null);
   const [error, setError] = useState("");
@@ -40,8 +41,8 @@ export function CourseBookingNotificationDialog({ bookingId, action, close, read
   }, [bookingId, reader]);
 
   // The fresh loader protects deep links; the parent flag also blocks an already-open dialog.
-  const reschedulingBlocked = action === "reschedule" && (!selfBookingEnabled || data?.selfBookingEnabled === false);
-  const allowed = !reschedulingBlocked && !!data?.booking.active && (action === "confirm"
+  const reschedulingBlocked = action === "reschedule" && (!(selfRescheduleEnabled??selfBookingEnabled) || (data?.selfRescheduleEnabled??data?.selfBookingEnabled)===false);
+  const allowed = !(action==="cancel" && data?.selfLeaveEnabled===false) && !reschedulingBlocked && !!data?.booking.active && (action === "confirm"
     ? data.booking.trial && Date.parse(data.booking.startsAt) > Date.now()
     : Date.parse(data.booking.cutoff) > Date.now());
 

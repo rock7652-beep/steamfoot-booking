@@ -22,7 +22,7 @@ import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 
 let host: HTMLDivElement, root: Root;
-const message = "如需預約或調整時間，請聯繫店家";
+const message = "如需預約，請聯繫店家";
 const props = () => ({
   selfBookingEnabled: true, initialRole: "member", rolePreferenceKey: "self-booking-ui", month: "2099-01", serverNow: Date.parse("2099-01-20T08:00:00+08:00"), initialDate: "2099-01-20", initialView: "schedule", memberEnabled: true, hasWork: false,
   customerId: "member", customerName: "會員本人", storeName: "測試店", prefix: "/s/a", companionBookingEnabled: true, cancellationLeadMinutes: 120,

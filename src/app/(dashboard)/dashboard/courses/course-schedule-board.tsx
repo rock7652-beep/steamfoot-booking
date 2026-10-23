@@ -221,7 +221,7 @@ function adaptiveCopy(
 ) {
   const template = templates.find((item) => item.id === session.templateId);
   const coach =
-    coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定老師" : "未指定教練");
+    coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定教師" : "未指定教練");
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
   const privateClass = template?.classType === "PRIVATE";
   const groupClass = template?.classType === "GROUP";
@@ -286,7 +286,7 @@ function SessionCard({
   const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
-  const teacherTitle = businessProfile === "MUSIC" ? "老師" : "教練";
+  const teacherTitle = businessProfile === "MUSIC" ? "教師" : "教練";
   const teacherState=session.teacherAttendance==="LEAVE"?`${teacherTitle}請假`:session.teacherAttendance==="NO_SHOW"?`${teacherTitle}曠課`:"";
   const progressText = rental ? "" : attendance.teacherAbsent ? "免點名" : attendance.total ? `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}` : "";
   const progressColor = attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500";
@@ -532,8 +532,8 @@ export function CourseScheduleBoard({
     return (
       <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
         <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
-          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "老師視角" : "教練視角"}</button></div>
-          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "老師" : "教練"}</label>
+          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "教師視角" : "教練視角"}</button></div>
+          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : "教練"}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
@@ -742,7 +742,7 @@ export function CourseScheduleBoard({
             className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
-            {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
+            {businessProfile === "MUSIC" ? "教師視角" : "教練視角"}
           </button>
         </div>
   );
@@ -863,7 +863,7 @@ export function CourseScheduleBoard({
                       </div>
                     )) : (
                       <div className="sticky top-0 z-20 border-b border-earth-200 bg-earth-50 px-3 py-3 text-sm text-earth-500">
-                        尚無可用{resourceView === "room" ? "教室" : "教練"}
+                        尚無可用{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : "教練"}
                       </div>
                     )}
                   </>

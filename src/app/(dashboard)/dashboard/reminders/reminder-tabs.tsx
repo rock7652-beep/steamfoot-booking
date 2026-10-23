@@ -10,6 +10,7 @@ export function ReminderTabs({
   baseHref = "/dashboard/reminders",
   customerOnly = false,
   coach = false,
+  music = false,
 }: {
   active: string;
   explicit: boolean;
@@ -17,6 +18,7 @@ export function ReminderTabs({
   baseHref?: string;
   customerOnly?: boolean;
   coach?: boolean;
+  music?: boolean;
 }) {
   const router = useRouter();
   const panelNavigate = useSettingsPanelNavigation();
@@ -41,7 +43,7 @@ export function ReminderTabs({
       {[
         { key: "manager", label: "店長通知" },
         { key: "customer", label: "顧客提醒" },
-        ...(coach?[{key:"coach",label:"教練／老師"}]:[]),
+        ...(coach?[{key:"coach",label:music ? "教師通知" : "教練通知"}]:[]),
         { key: "logs", label: "發送紀錄" },
       ].filter(t => !customerOnly || t.key !== "manager").map((t) => (
         <DashboardLink

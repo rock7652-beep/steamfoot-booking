@@ -28,6 +28,7 @@ import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
+import { coursePrisma } from "@/lib/course-db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
@@ -215,6 +216,8 @@ export default async function DashboardLayout({
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit}>
     <DashboardShell
+      courseNoticeStoreId={industryModule==="course" ? effectiveStoreId : undefined}
+      noticeInitiallyEnabled={industryModule==="course" && !!effectiveStoreId && (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled !== false}
       canViewAudit={canViewAudit}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}

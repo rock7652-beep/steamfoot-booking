@@ -596,6 +596,8 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  imageAnnouncementSet ImageAnnouncementSet?
+  imageAnnouncementAssets ImageAnnouncementAsset[]
   inventorySuppliers InventorySupplier[]
   inventoryProducts InventoryProduct[]
   inventoryOrders InventoryOrder[]
@@ -3390,4 +3392,20 @@ model StaffLoginRecord {
   @@index([storeId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([createdAt])
+}
+
+model ImageAnnouncementSet {
+  storeId String @id
+  revision Int @default(0)
+  items Json @default("[]")
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model ImageAnnouncementAsset {
+  id String @id
+  storeId String
+  content Bytes
+  mimeType String
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@index([storeId])
 }

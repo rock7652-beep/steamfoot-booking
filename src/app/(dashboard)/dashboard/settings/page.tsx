@@ -252,7 +252,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
         moduleLabel={isSpaStore ? "SPA 模組" : "蒸足模組"}
         storeName={storeName}
         sections={sections}
-        initialSection={params.section}
       />
 
       {params.panel === "reminders" ? (

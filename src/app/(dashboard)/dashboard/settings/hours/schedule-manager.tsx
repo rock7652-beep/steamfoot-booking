@@ -266,15 +266,7 @@ export function ScheduleManager({
     });
   }, [applyMode, isCourseStore, pickerMonth, pickerYear]);
 
-  useEffect(() => {
-    if (!dayDraftDirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dayDraftDirty]);
+
 
   /** 失效並強制重抓「目前月份」cache（mutation 後使用） */
   const invalidateAndReloadCurrentMonth = useCallback(async () => {
@@ -441,7 +433,7 @@ export function ScheduleManager({
 
   // ── 換月 ──
   const changeMonth = useCallback(async (dir: 1 | -1) => {
-    if (dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換月份嗎？")) return;
+
     let newMonth = month + dir;
     let newYear = year;
     if (newMonth < 1) { newMonth = 12; newYear--; }
@@ -463,7 +455,7 @@ export function ScheduleManager({
   //     回來後 race-guard 過濾、寫 cache、覆蓋 dayDetail
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
-      if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
+
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
       setSaveError(null);
       setDateSelectionAttempted(false);

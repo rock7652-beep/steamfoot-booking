@@ -1,4 +1,5 @@
 "use client";
+import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
@@ -635,6 +636,8 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  courseNoticeStoreId?: string | null;
+  noticeInitiallyEnabled?: boolean;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   operationGuidePreview?: boolean;
@@ -672,6 +675,8 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  courseNoticeStoreId,
+  noticeInitiallyEnabled=false,
   cashDrawerStoreId,
   musicEnabled=false,
   operationGuidePreview = false,
@@ -827,6 +832,11 @@ export default function DashboardShell({
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
       permission: course ? "booking.read" : undefined,
     });
+    if (course && musicEnabled) {
+      management.push({ ...entry("/dashboard/settings"), href:"/dashboard/image-announcements", label: "圖文公告", permission:"business_hours.view", requiredFeature:undefined });
+      const order = ["空間管理", "教學項目", "收費方式", "教師管理", "人員管理", "圖文公告", "設定"];
+      management.sort((a,b) => (order.indexOf(a.label) < 0 ? 99 : order.indexOf(a.label)) - (order.indexOf(b.label) < 0 ? 99 : order.indexOf(b.label)));
+    }
     return [
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
@@ -1243,6 +1253,7 @@ export default function DashboardShell({
 
           {/* Right: store context + user menu */}
           <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/>}
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */

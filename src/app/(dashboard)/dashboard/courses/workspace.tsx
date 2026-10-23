@@ -1,4 +1,5 @@
 "use client";
+import { courseDisplayText } from "@/lib/course-display-text";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { studentReturnHref } from "@/lib/music-student-navigation";
@@ -243,6 +244,7 @@ export function CourseWorkspace({
   staffAvailabilityExceptions,
   view,
 }: Props) {
+  const musicDisplay = businessProfile === "MUSIC";
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
   const [allRooms,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceRooms);
   const rooms = allRooms.filter((r) => r.isActive);
@@ -471,11 +473,11 @@ export function CourseWorkspace({
   const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => {
     const teacherStatus = pendingTeacherAttendance[session.id] ?? session.teacherAttendance;
     if (teacherStatus === "LEAVE" || teacherStatus === "NO_SHOW") return [];
-    return session.bookings.filter((booking) => (pendingAttendance[booking.id] ?? booking.status) === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName }));
+    return session.bookings.filter((booking) => (pendingAttendance[booking.id] ?? booking.status) === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定教師",name:booking.customerName }));
   });
   const leaveStudents: DailyAttendanceRow[] = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
     const session = dailySessions.find((item) => item.id === booking.sessionId);
-    return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];
+    return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定教師",name:booking.customerName,note:booking.notes }] : [];
   });
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
@@ -849,7 +851,7 @@ export function CourseWorkspace({
           </div>
 
           {<div className="relative z-10 grid min-w-0 grid-cols-1 items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 p-2 @min-[32rem]/course-schedule:grid-cols-2 @min-[48rem]/course-schedule:grid-cols-4">
-            <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
+            <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課教師" : "授課教練"}
             <select
               id="course-coach-filter"
               aria-label={businessProfile === "MUSIC" ? "教師篩選" : "教練篩選"}
@@ -857,7 +859,7 @@ export function CourseWorkspace({
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">{businessProfile === "MUSIC" ? "全部授課老師" : "全部授課教練"}</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部授課教師" : "全部授課教練"}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -1419,7 +1421,7 @@ export function CourseWorkspace({
                             {!rental && (attendance.total > 0 || attendance.teacherAbsent) && <span title="點名完成度" className={`text-sm tabular-nums ${attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500"}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}`}</span>}
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定教練"}{" · "}</>}
+                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? courseDisplayText("未指定教練", musicDisplay)}{" · "}</>}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
                             {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
@@ -1734,8 +1736,7 @@ export function CourseWorkspace({
                       : businessProfile === "MUSIC" ? "名稱會同步顯示於使用此教室的課程。" : "名稱會同步顯示於使用此空間的課程。"}
                 </p>
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
-                  <p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
+                  本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", musicDisplay)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):editing.kind==="room"?"":"col-span-full"}>
@@ -1825,8 +1826,7 @@ export function CourseWorkspace({
                           )
                           .map((c) => (
                             <option key={c.id} value={c.id} disabled>
-                              {c.displayName}（已停用，請另選教練）
-                            </option>
+                              {c.displayName}{courseDisplayText("（已停用，請另選教練）", musicDisplay)}</option>
                           ))}
                         {coaches.filter(c=>(c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(editTemplateId || editing.value.templateId)) || (c.id===editing.value.coachId && !c.courseQualificationsConfirmed && (!editTemplateId || editTemplateId===editing.value.templateId))).map((c) => (
                           <option key={c.id} value={c.id}>
@@ -2013,7 +2013,7 @@ export function CourseWorkspace({
                     </button>
                   </>
                 ) : !coaches.length ? (
-                  <p>本店尚無可排課的教練，請先完成人員建檔。</p>
+                  <p>{courseDisplayText("本店尚無可排課的教練，請先完成人員建檔。", musicDisplay)}</p>
                 ) : !rooms.length ? (
                   <p>
                     目前沒有可使用的教室，請至左側「空間管理」新增或恢復使用後再排課。
@@ -2063,9 +2063,7 @@ export function CourseWorkspace({
                         </select>
                       </label>
                     )}
-                    <label className="min-[500px]:col-span-3">
-                      授課教練
-                      <select
+                    <label className="min-[500px]:col-span-3">{courseDisplayText("授課教練", musicDisplay)}<select
                         className={`${field} min-h-11`}
                         name="coachId"
                         required
@@ -2077,7 +2075,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">開啟教練管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", musicDisplay)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", musicDisplay)}</a><button type="button" className={button} onClick={()=>router.refresh()}>{courseDisplayText("已設定，更新教練名單", musicDisplay)}</button></span>}
                     </label>
                     <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
@@ -2189,7 +2187,7 @@ export function CourseWorkspace({
                           }}
                         />
                         {extraDateKeys.map(date => <input key={date} type="hidden" name="additionalDates" value={date} />)}
-                        <p className="text-xs text-earth-500">同時間、教練與空間；如有撞期，整批不會建立。</p>
+                        <p className="text-xs text-earth-500">{courseDisplayText("同時間、教練與空間；如有撞期，整批不會建立。", musicDisplay)}</p>
                       </div>
                     )}
                     {repeat && <WeeklyRepeatFields repeatControl={repeatControl} date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {
@@ -2378,7 +2376,7 @@ export function CourseWorkspace({
                   initialAssignedCoach={businessProfile === "MUSIC" ? "all" : assignedCoachFilter}
                   musicLayout={businessProfile === "MUSIC"}
                   classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
-                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
+                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定教師"}
                   teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
                   coachId={dialogSession.coachId}
                   roomId={dialogSession.roomId}

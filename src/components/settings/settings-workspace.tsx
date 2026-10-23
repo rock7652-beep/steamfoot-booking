@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
+import { SettingsNavigationContext, settingsWorkspaceHref, useRememberSettingsLocation } from "./settings-navigation";
 
 export type SettingsWorkspaceNavItem = {
   id: string;
@@ -20,10 +22,10 @@ export function SettingsWorkspaceNav({
   onSelect?: (id: string) => void;
 }) {
   return (
-    <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 xl:block">
+    <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">
       {items.map((item) => {
         const cls =
-          "block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-100 " +
+          "block min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-100 " +
           (activeId === item.id
             ? "bg-primary-50 font-semibold text-primary-800"
             : "text-earth-600 hover:bg-earth-50");
@@ -51,7 +53,7 @@ export function SettingsWorkspaceFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-[170px_minmax(0,1fr)]">
+    <div className="grid min-w-0 gap-3 md:grid-cols-[170px_minmax(0,1fr)]">
       <nav aria-label="設定分類" className="min-w-0">{nav}</nav>
       <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4 py-1 sm:px-5">
         {header ? <div className="border-b border-earth-100 py-2.5 text-sm text-earth-500">{header}</div> : null}
@@ -85,12 +87,14 @@ export function SettingsListRow({
   children?: ReactNode;
 }) {
   const showChildren = expanded === undefined ? true : expanded;
+  const settingsSearch = useContext(SettingsNavigationContext);
+  const destination = href && settingsSearch !== null ? settingsWorkspaceHref(href, settingsSearch) : href;
   return (
     <section className="@container min-w-0 border-b border-earth-100 last:border-0">
-      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-x-3 gap-y-1 py-2 @min-[30rem]:grid-cols-[minmax(7rem,1fr)_minmax(0,2fr)_auto]"}>
+      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 @3xl:grid-cols-[200px_minmax(0,1fr)_200px]"}>
         <h3 title={title} className="min-w-0 break-words text-sm font-semibold text-primary-900">{title}</h3>
         {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 @3xl:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className="min-w-0 break-words text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>}
-        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${columns ? "@3xl:flex-col @3xl:items-end" : "@min-[30rem]:max-w-52"}`}>
+        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${columns ? "@3xl:flex-col @3xl:items-end" : "@3xl:w-[200px]"}`}>
           {controls}
           {onEdit && (!expanded || columns) ? (
             <button
@@ -104,7 +108,9 @@ export function SettingsListRow({
           ) : null}
           {href ? (
             <DashboardLink
-              href={href}
+              href={destination ?? href}
+              prefetch={settingsSearch !== null && new URLSearchParams(settingsSearch).get("panel") === "reminders" ? false : undefined}
+              scroll={settingsSearch !== null && href.startsWith("/dashboard/settings?") ? false : undefined}
               aria-label={`開啟${title}`}
               className="inline-flex min-h-11 min-w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
@@ -114,7 +120,7 @@ export function SettingsListRow({
         </div>
       </div>
       {(showChildren || keepMounted) && children ? (
-        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : ""}`}>{children}</div>
+        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : "@3xl:ml-[216px]"}`}>{children}</div>
       ) : null}
     </section>
   );
@@ -124,48 +130,58 @@ export function SettingsModuleWorkspace({
   moduleLabel,
   storeName,
   sections,
-  initialSection,
 }: {
   moduleLabel: string;
   storeName: string;
   sections: Array<{ id: string; label: string; content: ReactNode }>;
-  initialSection?: string;
 }) {
-  const validIds = useMemo(() => new Set(sections.map(section => section.id)), [sections]);
-  const firstId = sections[0]?.id ?? "";
-  const [activeId, setActiveId] = useState(
-    initialSection && validIds.has(initialSection) ? initialSection : firstId,
-  );
-  const active = sections.find(section => section.id === activeId) ?? sections[0];
+  const pathname = usePathname();
+  const search = useSearchParams();
+  useRememberSettingsLocation();
+  const active = sections.find(section => section.id === search.get("section")) ?? sections[0];
+
+  function select(id: string) {
+    if (id === active?.id || !sections.some(section => section.id === id)) return;
+    const params = new URLSearchParams(search.toString());
+    params.set("section", id);
+    // Next's native-history integration updates useSearchParams without an RSC reload.
+    window.history.pushState(null, "", `${pathname}?${params}${window.location.hash}`);
+  }
 
   if (!active) return null;
 
   return (
-    <SettingsWorkspaceFrame
-      nav={
-        <>
-          <label className="flex flex-wrap items-center gap-2 text-sm xl:hidden">
-            設定分類
-            <select
-              value={active.id}
-              onChange={event => setActiveId(event.target.value)}
-              className="min-h-11 min-w-0 flex-1 rounded-lg border bg-white px-3"
-            >
-              {sections.map(section => (
-                <option key={section.id} value={section.id}>{section.label}</option>
-              ))}
-            </select>
-          </label>
-          <SettingsWorkspaceNav
-            items={sections.map(section => ({ id: section.id, label: section.label }))}
-            activeId={active.id}
-            onSelect={setActiveId}
-          />
-        </>
-      }
-      header={`${storeName} · ${moduleLabel}`}
-    >
-      <section aria-label={active.label}>{active.content}</section>
-    </SettingsWorkspaceFrame>
+    <SettingsNavigationContext.Provider value={search.toString()}>
+      <SettingsWorkspaceFrame
+        nav={
+          <>
+            <label className="block text-sm md:hidden">
+              設定分類
+              <select
+                value={active.id}
+                onChange={event => select(event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3"
+              >
+                {sections.map(section => (
+                  <option key={section.id} value={section.id}>{section.label}</option>
+                ))}
+              </select>
+            </label>
+            <SettingsWorkspaceNav
+              items={sections.map(section => ({ id: section.id, label: section.label }))}
+              activeId={active.id}
+              onSelect={select}
+            />
+          </>
+        }
+        header={`${storeName} · ${moduleLabel}`}
+      >
+        {sections.map(section => (
+          <section key={section.id} hidden={section.id !== active.id} aria-label={section.label}>
+            {section.content}
+          </section>
+        ))}
+      </SettingsWorkspaceFrame>
+    </SettingsNavigationContext.Provider>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 import {useMusicRevenueLive} from "./music-revenue-live";
 import {useEffect,useRef,useState} from "react";
-import {KpiStrip} from "@/components/desktop";
+
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
 type Totals={purchases:number;purchaseCount:number;trial:number;refunds:number;voids:number;gross:number;net:number};
@@ -38,7 +38,5 @@ export function MusicRevenueMetrics({initial,from,to,dataScope}:{initial:Totals;
  return <>
   {visibleStatus&&<p role="status" className="text-sm text-earth-600">{visibleStatus}</p>}
   <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 體驗沖銷 {money(totals.voids)} · <strong>淨收款 {money(totals.net)}</strong></p>
-  <details><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">收款分類與筆數</summary>  <KpiStrip items={[{label:"期間收款收入",value:money(totals.purchases),tone:"primary"},{label:"體驗淨收入",value:money(totals.trial-totals.voids)},{label:"期間退款",value:money(totals.refunds)},{label:"方案淨收入",value:money(totals.purchases-totals.refunds)},{label:"收款筆數",value:`${totals.purchaseCount} 筆`}]} />
-</details>
  </>;
 }

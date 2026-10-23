@@ -1,0 +1,37 @@
+"use client";
+import {useEffect,useId,useRef,useState} from "react";
+import dynamic from "next/dynamic";
+import {loadCourseStoreNotices,markCourseStoreNotice,loadCourseStoreNoticeTarget} from "@/server/actions/course-store-notices";
+import {COURSE_NOTICE_LABELS} from "@/lib/course-store-notices";
+import type {StoreNoticeItem} from "@/lib/store-notices";
+import {formatTWDateTime} from "@/lib/date-utils";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
+import {ModalPanel} from "./modal-panel";
+import {StoreNoticeBell} from "./store-notice-bell";
+const NoticeCourseRoster=dynamic(()=>import("@/app/(dashboard)/dashboard/courses/roster").then(m=>m.CourseRoster),{loading:()=> <p role="status" className="p-3 text-sm">讀取中…</p>});
+type TargetResult=Awaited<ReturnType<typeof loadCourseStoreNoticeTarget>>;
+type TargetData=Extract<TargetResult,{success:true}>["data"];
+export function CourseStoreNoticeBell({storeId,initialEnabled=false}:{storeId:string;initialEnabled?:boolean}) {
+ const courseHeading=useId(),generation=useRef(0),mounted=useRef(true);
+ const [course,setCourse]=useState<StoreNoticeItem|null>(null),[target,setTarget]=useState<TargetData|null>(null),[targetError,setTargetError]=useState("");
+ const [refreshKey,setRefreshKey]=useState(0);
+ const targetReader=usePanelReader("course-notice-target",loadCourseStoreNoticeTarget,storeId,0);
+ useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;};},[]);
+ function refresh(){setRefreshKey(k=>k+1);}
+ function closeCourse(){generation.current++;setCourse(null);setTarget(null);setTargetError("");refresh();}
+ async function openCourse(n:StoreNoticeItem){
+  const seq=++generation.current;setCourse(n);setTarget(null);setTargetError("");
+  try{const r=await targetReader.read({storeId,id:n.id});if(!mounted.current||seq!==generation.current)return;
+   if(!r.success){setTargetError(r.error);return;}if(r.storeId!==storeId){setTargetError("門市已切換");return;}setTarget(r.data);
+  }catch{if(mounted.current&&seq===generation.current)setTargetError("課程讀取失敗，請重試");}
+ }
+ return <>
+  <StoreNoticeBell initialEnabled={initialEnabled} storeId={storeId} namespace="course" labels={COURSE_NOTICE_LABELS} loadNotices={loadCourseStoreNotices} markNotice={markCourseStoreNotice} onViewTarget={n=>void openCourse(n)} targetLabel="查看課程" refreshKey={refreshKey}/>
+  {course&&<ModalPanel open onClose={closeCourse} labelledById={courseHeading} width={1100}>
+   <header className="flex items-center justify-between gap-2 border-b border-earth-200 p-3"><div className="min-w-0"><h2 id={courseHeading} className="text-base font-semibold text-primary-900">課程詳情</h2><p className="break-words text-sm text-earth-600">{target?.courseName??course.courseName}・{formatTWDateTime(new Date(target?.startsAt??course.startsAt))}</p></div><button type="button" className="min-h-11 shrink-0 px-3" onClick={closeCourse}>返回通知</button></header>
+   <div className="max-h-[75dvh] overflow-y-auto p-3">
+    {targetError?<div role="alert" className="text-sm text-red-700">{targetError}<button className="min-h-11 px-3" onClick={()=>void openCourse(course)}>重試</button></div>:target?<NoticeCourseRoster key={target.id} sessionId={target.id} {...target} onDone={()=>{targetReader.clear();refresh();}}/>:<p role="status" className="text-sm text-earth-500">讀取中…</p>}
+   </div>
+  </ModalPanel>}
+ </>;
+}

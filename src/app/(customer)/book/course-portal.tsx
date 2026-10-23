@@ -269,7 +269,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     memberEnabled
       ? coursePrisma.courseBookingRule.findUnique({
           where: { storeId },
-          select: { cancellationLeadMinutes: true, selfBookingEnabled: true },
+          select: { cancellationLeadMinutes: true, selfBookingEnabled: true, selfLeaveEnabled:true,selfRescheduleEnabled:true },
         })
       : null,
   ]);
@@ -343,7 +343,10 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
+    selfLeaveEnabled: bookingRule?.selfLeaveEnabled ?? true,
+    selfRescheduleEnabled: bookingRule?.selfRescheduleEnabled ?? bookingRule?.selfBookingEnabled ?? true,
     waitlistEnabled,
+    music: musicStore,
     companionBookingEnabled: !musicStore,
     sharedCardState,
     config,
@@ -362,7 +365,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           openingMakeup: isMusicOpeningMakeupBooking(nextBooking),
           name: nextBooking.session.nameSnapshot,
           startsAt: nextBooking.session.startsAt.toISOString(),
-          coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
+          coach: coachNames.get(nextBooking.session.coachId) ?? (musicStore?"教師待確認":"教練待確認"),
           room: nextBooking.session.room.name,
           participants: [...new Map(nextParticipants.map((participant) => [participant.id, {
             id: participant.id,
@@ -383,7 +386,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       templateId: s.templateId,
       name: s.nameSnapshot,
       startsAt: s.startsAt.toISOString(),
-      coach: coachNames.get(s.coachId) ?? "教練待確認",
+      coach: coachNames.get(s.coachId) ?? (musicStore?"教師待確認":"教練待確認"),
       room: s.room.name,
       cost: s.pointCost,
       capacity: s.capacity,
@@ -400,7 +403,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       sessionId: b.sessionId,
       name: b.session.nameSnapshot,
       startsAt: b.session.startsAt.toISOString(),
-      coach: coachNames.get(b.session.coachId) ?? "教練待確認",
+      coach: coachNames.get(b.session.coachId) ?? (musicStore?"教師待確認":"教練待確認"),
       room: b.session.room.name,
       customerName: b.customerName,
       customerId: b.customerId,

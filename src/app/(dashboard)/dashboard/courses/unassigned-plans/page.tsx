@@ -21,11 +21,11 @@ export default async function CourseUnassignedPlansPage({ searchParams }: { sear
   const { page } = await searchParams;
   const result = await getCourseUnassignedPlanPage(storeId, courseCustomerStaffScope(user, storeId), Number(page ?? 1)).catch(() => null);
   return <PageShell>
-    <PageHeader title="未指派方案" subtitle="站內待辦提醒，不會自動傳送 LINE。完成指派後，重新整理即會移出名單。" actions={<div className="flex flex-wrap gap-3"><Link href="/dashboard">返回首頁</Link><Link href="/dashboard/courses?view=settings&section=notifications">返回通知設定</Link></div>} />
+    <PageHeader title="未指派方案" subtitle="站內待辦提醒，不會自動傳送 LINE。完成指派後，重新整理即會移出名單。" actions={<div className="flex flex-wrap gap-3"><Link href="/dashboard">返回首頁</Link><Link href="/dashboard/courses/reminders?tab=manager">返回提醒管理</Link></div>} />
     <details className="mb-4 rounded-xl border border-earth-200 bg-white p-4 text-sm text-earth-600">
       <summary className="min-h-11 cursor-pointer py-3">哪些顧客會列入？</summary>
       <p>本店可見範圍內，沒有個人／共用課程方案紀錄、沒有待核帳訂單，也沒有已核帳／退款或持卡預約紀錄的顧客。</p>
-      <p className="mt-2">已到期、用完、結清的方案仍算曾指派，不列入此處。純教練帳號、停用帳號及已合併顧客亦排除。僅體驗、尚無正式方案的顧客可以列入；本名單不是欠款或必須購課名單。</p>
+      <p className="mt-2">已到期、用完、結清的方案仍算曾指派，不列入此處。純{music?"教師":"教練"}帳號、停用帳號及已合併顧客亦排除。僅體驗、尚無正式方案的顧客可以列入；本名單不是欠款或必須購課名單。</p>
     </details>
     {result ? <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><p>未指派方案：<strong>{result.total}</strong> 人</p><HomeRetry /></div>

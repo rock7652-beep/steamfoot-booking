@@ -1,3 +1,6 @@
+import { assertCourseSelfLeaveEnabled } from "./course-self-booking";
+import { recordCourseStoreNotice } from "./course-store-notices";
+import { bindMusicLesson } from "./music-lesson-periods";
 import {courseCardStartIssue} from "@/lib/course-card-start";
 import { syncNativeMakeupExpiry, nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
 import { courseCardMatchesItem } from "./music-item-compatibility";
@@ -162,6 +165,7 @@ export async function reserveCourseInTransaction(
   tx: Prisma.TransactionClient,
   actor: CourseActor,
   input: {
+    musicRescheduleFromBookingId?: string;
     sessionId: string;
     cardId: string | null;
     trialPrice?: number;
@@ -386,6 +390,7 @@ export async function reserveCourseInTransaction(
       ...(openingSlot ? {musicOpeningSourceLessonKey:openingSlot.sourceLessonKey,musicOpeningTermKey:openingSlot.sourceTermKey,musicOpeningLessonOrdinal:openingSlot.originalLessonOrdinal}:{}),
     },
   });
+  await bindMusicLesson(tx, storeId, booking, card, input.musicRescheduleFromBookingId);
   if (card) await tx.coursePointEntry.create({
     data: {
       storeId,
@@ -396,6 +401,7 @@ export async function reserveCourseInTransaction(
       actorUserId: actor.userId,
     },
   });
+  if(actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
   return booking;
 }
@@ -433,6 +439,7 @@ export async function settleCourseBooking(
     return fail("此預約已結算或取消，不能重複操作");
   if(actor.customerId && (target==="CANCELLED"||target==="STUDENT_LEAVE")){
     const rule=await tx.courseBookingRule.findUnique({where:{storeId:actor.storeId}});
+    if(!options.memberReschedule)assertCourseSelfLeaveEnabled(rule);
     if(booking.session.startsAt.getTime()<=Date.now()+(rule?.cancellationLeadMinutes??0)*60000)return fail("已超過取消截止時間，請聯絡店家");
   }
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
@@ -479,6 +486,7 @@ export async function settleCourseBooking(
     where: { id: booking.id },
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
+  if(!options.suppressNotice && (target === "STUDENT_LEAVE" || target === "CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:target==="STUDENT_LEAVE"?"LEAVE":"CANCEL",customerName:booking.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt});
   if(pilotLeave)await issueMusicPilotLeaveMakeup(tx,actor,booking);
   if(nativeLeave)await issueNativeMusicMakeup(tx,actor,booking);
   if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
@@ -610,6 +618,7 @@ export async function correctCourseAttendance(
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind, points: b.pointCost } });
   if(target==="CANCELLED")await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${correctionKey},${actor.userId},${actor.name},${actor.storeId},'COURSE','更正出席為取消，保留額度返還紀錄','CourseBooking',${b.id},'COURSE_ATTENDANCE_CANCEL_CORRECTION',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,absenceKind:null,returnedPoints:delta,entryKind:kind})}::jsonb,NOW())`;
   const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});
   if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
   return updated;
 }

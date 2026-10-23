@@ -91,7 +91,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
         <span className="text-xs text-earth-500">{draft.text.length} / {maxLength} 字</span>
         <div className="flex gap-2">
           <button type="button" disabled={saving} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50" onClick={() => {
-            if (dirty && !window.confirm("捨棄這次尚未儲存的備註？")) return;
+            
             setDraft(null); setConflict(null); setMessage("");
           }}>取消</button>
           <button type="button" disabled={saving || !!conflict} onClick={() => { void submit(); }} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>

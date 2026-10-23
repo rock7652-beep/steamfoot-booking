@@ -68,7 +68,7 @@ export async function CourseTodaySummary() {
         </Link>
       </div>
       {pendingPurchases > 0 && <div className="border-b border-earth-200 bg-secondary-50 px-4 py-2 text-sm"><Link href="/dashboard/revenue?status=PENDING" className="inline-flex min-h-11 items-center font-medium text-primary-800">待處理：{pendingPurchases} 筆方案待核帳 →</Link></div>}
-      <CourseTodayList
+      <CourseTodayList music={!!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}})}
         canCreate={canCreate}
         canEdit={canEdit}
         sessions={sessions.map((s) => ({

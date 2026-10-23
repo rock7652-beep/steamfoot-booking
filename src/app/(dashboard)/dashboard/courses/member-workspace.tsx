@@ -27,7 +27,7 @@ import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useRef, useState, type FormEvent } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -209,6 +209,9 @@ export function CourseMemberWorkspace({
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, music ? personTab : undefined);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
+  const studentScroll=useRef<HTMLDivElement>(null);
+  const studentScrollPositions=useRef<Record<string,number>>({});
+  useLayoutEffect(()=>{if(studentScroll.current)studentScroll.current.scrollTop=studentScrollPositions.current[`${person?.id}:${personTab}:${panel}`]??0;},[person?.id,personTab,panel]);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
@@ -408,8 +411,9 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={music && customerPanel ? 1100 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
-          maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
-          fitContent={(music && (panel === "person" || panel === "plan")) || (!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
+          fixedHeight={music && customerPanel}
+          maxHeight={music && customerPanel ? 900 : customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
+          fitContent={(music && panel === "plan") || (!music && !customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
@@ -421,7 +425,7 @@ export function CourseMemberWorkspace({
                   : panel === "assign"
                     ? music ? "新增學費" : "購買方案"
                     : panel === "coach"
-                      ? "加入為教練"
+                      ? music ? "加入為教師" : "加入為教練"
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
@@ -443,7 +447,7 @@ export function CourseMemberWorkspace({
             {(music ? [["info","基本資料"], ...(canReadCards ? [["plans","學費與堂數"]] : []), ...(canReadTransactions ? [["payments","付款紀錄"]] : []), ...(canReadBookings ? [["bookings","課表與出勤"],["makeups","請假與補課"]] : [])] : [ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && !music && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
-          <div className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
+          <div ref={studentScroll} onScroll={e=>{studentScrollPositions.current[`${person?.id}:${personTab}:${panel}`]=e.currentTarget.scrollTop;}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
             {music && panel === "person" && person && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (

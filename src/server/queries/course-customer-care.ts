@@ -1,3 +1,4 @@
+import { Prisma as RetirementPrisma } from "@prisma/client";
 import { musicCustomerWhere } from "@/server/services/music-data-scope";
 import { musicCardWhere } from "@/server/services/music-plan-scope";
 import { musicPurchaseWhere, musicTrialBookingWhere } from "@/server/services/music-finance-scope";
@@ -24,10 +25,10 @@ export async function getCourseCustomerCare(storeId: string, now = new Date(), s
       include: { musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { lowBalanceEnabled: true, lowBalanceThreshold: true } }, members: { where: { storeId } }, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } },
       orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
     }),
-    coursePrisma.$queryRaw<Array<{ customerId: string; lastVisitAt: Date }>>`
+    coursePrisma.$queryRaw<Array<{ customerId: string; lastVisitAt: Date }>>(RetirementPrisma.sql`
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
       FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
-      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' ${musicAttendanceScopeSql(storeId,dataScope)} GROUP BY b."customerId"`,
+      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' ${musicAttendanceScopeSql(storeId,dataScope)} GROUP BY b."customerId"`),
     coursePrisma.courseTrialPayment.findMany({where:{storeId,status:"SUCCESS",booking:{storeId,...musicTrialBookingWhere(storeId,dataScope),bookingKind:"TRIAL",status:{not:"CANCELLED"}}},include:{booking:{select:{customerId:true,status:true,session:{select:{startsAt:true}}}}},orderBy:{createdAt:"desc"}}),
     coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,dataScope),status:{in:["CONFIRMED","REFUNDED"]}},select:{customerId:true}}),
   ]);

@@ -1,3 +1,4 @@
+vi.mock("@/server/services/course-store-notices",()=>({recordCourseStoreNotice:vi.fn()}));
 import {beforeEach,describe,expect,it,vi} from "vitest";
 vi.mock("server-only",()=>({}));
 vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:(storeId:string)=>storeId==="synthetic-store"}));
