@@ -56,7 +56,8 @@ it("retries only one cold pool lease timeout against the identical isolated targ
  const options=create.mock.calls[0][0];const url=new URL(options.datasources.db.url);
  expect(passed.$connect.mock.invocationCallOrder[0]).toBeLessThan(passed.$queryRawUnsafe.mock.invocationCallOrder[0]);
  expect(url.hostname).toBe(new URL(pooled).hostname);expect(url.username).toBe(new URL(pooled).username);
- expect(url.searchParams.get("connection_limit")).toBe("1");expect(url.searchParams.get("pool_timeout")).toBe("15");
+ expect(url.searchParams.get("connection_limit")).toBe("1");expect(url.searchParams.get("pool_timeout")).toBe("35");
+ expect(Number(url.searchParams.get("pool_timeout"))).toBeGreaterThan(Number(url.searchParams.get("connect_timeout")));
  for(const client of [failed,passed]) {expect(client.$queryRawUnsafe).toHaveBeenCalledExactlyOnceWith(MUSIC_OPENING_SCHEMA_SQL);expect(client.$disconnect).toHaveBeenCalledOnce();}
 });
 it.each([

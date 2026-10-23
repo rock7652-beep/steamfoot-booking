@@ -162,7 +162,9 @@ export async function readMusicOpeningSchemaConnection(value, createClient) {
   const url = new URL(value);
   url.searchParams.set("connection_limit", "1");
   url.searchParams.set("connect_timeout", "30");
-  url.searchParams.set("pool_timeout", "15");
+  // A cold connection may consume the full connect timeout. The pool lease
+  // must outlive that handshake, otherwise Prisma can report P2024 first.
+  url.searchParams.set("pool_timeout", "35");
   url.searchParams.set("socket_timeout", "30");
   const pooled = url.hostname.endsWith(".pooler.supabase.com");
   if (pooled) url.searchParams.set("pgbouncer", "true");
