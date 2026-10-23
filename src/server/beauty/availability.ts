@@ -1,0 +1,44 @@
+import 'server-only';
+import {prisma} from '@/lib/db';
+import {beautyPrisma} from '@/lib/beauty-db';
+import {AppError} from '@/lib/errors';
+import {memberPartyInput} from '@/lib/beauty/member-booking';
+import {partyInput} from '@/lib/beauty/contracts';
+import type {BeautyActor} from './access';
+import {loadAvailability,findAllocation,type BookingPartyInput} from './booking';
+import type {Prisma} from '../../../generated/beauty-client';
+export async function resolveBeautyBookingInput(mode:"manager"|"member",input:unknown,a:BeautyActor):Promise<BookingPartyInput>{
+  if(mode==='manager')return partyInput.parse(input);
+  const d=memberPartyInput.parse(input);
+  const person=await prisma.customer.findFirst({where:{storeId:a.storeId,id:a.customerId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}});
+  if(!person||!person.phone)throw new AppError('FORBIDDEN','請重新登入或聯絡店家核對會員資料');
+  return {...d,contactName:person.name,phone:person.phone,isTrial:false,people:d.people.map((p,i)=>({...p,preference:'ANY',customerId:i===0?person.id:null,name:i===0?person.name:`同行者 ${i}`,phone:i===0?person.phone:'',pendingIdentity:i>0}))};
+}
+
+export async function beautySlotsForActor(mode:"manager"|"member"|"public",input:unknown,a:BeautyActor){
+    const d=mode==='public'?partyInput.parse(input):await resolveBeautyBookingInput(mode,input,a);
+    const loaded = await loadAvailability(
+      beautyPrisma as unknown as Prisma.TransactionClient,
+      a,
+      d.date,
+    );
+    const slots: string[] = [];
+    // Public catalog reveals availability only, never names of other customers.
+    for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
+      if(mode==='member'&&!/:(00|30)$/.test(time))continue;
+      try {
+        await findAllocation(
+          beautyPrisma as unknown as Prisma.TransactionClient,
+          a,
+          { ...d, time },
+          [],
+          undefined,
+          loaded,
+        );
+        slots.push(time);
+      } catch (e) {
+        if (!(e instanceof AppError)) throw e;
+      }
+    }
+    return { slots };
+}

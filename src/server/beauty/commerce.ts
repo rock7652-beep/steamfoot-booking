@@ -115,14 +115,22 @@ export async function issueCard(
   a: BeautyActor,
   d: z.infer<typeof cardInput>,
   frozen?: Omit<BeautyPlan,"expiryReminder">,
+  options?: {expiresDate:string;expectedListPrice:number;transferLastFour?:string},
 ) {
-  return command(tx, a, d.requestKey, d, async () => {
+  return command(tx, a, d.requestKey, options?{...d,options}:d, async () => {
     const p =
       frozen ??
       (await tx.beautyPlan.findFirst({
         where: { id: d.planId, storeId: a.storeId, active: true },
       }));
     if (!p) throw new AppError("NOT_FOUND", "找不到有效方案");
+    if(options){
+      if(!a.manager)throw new AppError("FORBIDDEN","此到期日設定僅供後台使用");
+      if(options.expectedListPrice!==p.price)throw new AppError("CONFLICT","方案售價已更新，請重新核對");
+      const expiry=dayRange(options.expiresDate);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(options.expiresDate)||Number.isNaN(expiry.end.getTime())||toLocalDateStr(expiry.start)!==options.expiresDate||options.expiresDate<toLocalDateStr()||options.expiresDate>addTaiwanDuration(toLocalDateStr(),3650,"DAY"))throw new AppError("VALIDATION","請選擇有效到期日");
+      if(options.transferLastFour&&!/^\d{4}$/.test(options.transferLastFour))throw new AppError("VALIDATION","轉帳末四碼格式不正確");
+    }
     if (d.paid > p.price) throw new AppError("VALIDATION", "實收不能超過原價");
     const members = [...new Set([d.customerId, ...d.memberIds])];
     if (!p.allowShared && members.length !== 1)
@@ -145,9 +153,7 @@ export async function issueCard(
         paid: d.paid,
         serviceIds: p.serviceIds,
         allowShared: p.allowShared,
-        expiresAt: dayRange(
-          addTaiwanDuration(toLocalDateStr(), p.validDays, "DAY"),
-        ).end,
+        expiresAt: dayRange(options?.expiresDate??addTaiwanDuration(toLocalDateStr(), p.validDays, "DAY")).end,
       },
     });
     await tx.beautyLedger.create({
@@ -166,13 +172,13 @@ export async function issueCard(
         kind: "SALE",
         amount: d.paid,
         method: d.method,
-        note: `方案：${p.name}`,
+        note: `方案：${p.name}${options?.transferLastFour?` · 轉帳末四碼 ${options.transferLastFour}`:""}`,
         actorUserId: a.userId!,
       },
     });
     await cash(tx, a, d.method, d.paid, receipt.id, receipt.note);
     // Immutable sale attribution: later customer reassignment must not move revenue.
-    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d, revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
+    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d, ...(options?{checkout:options}:{}), revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
     return { cardId: card.id };
   });
 }
@@ -180,8 +186,9 @@ export async function refund(
   tx: Tx,
   a: BeautyActor,
   d: z.infer<typeof refundInput>,
+  expected?:{remaining:number|null;refundedAmount:number},
 ) {
-  return command(tx, a, d.requestKey, d, async () => {
+  return command(tx, a, d.requestKey, expected?{...d,expected}:d, async () => {
     const p = await tx.beautyPayment.findFirst({
       where: { id: d.paymentId, storeId: a.storeId, kind: "SALE" },
     });
@@ -190,6 +197,7 @@ export async function refund(
       where: { storeId: a.storeId, originalPaymentId: p.id, kind: "REFUND" },
       _sum: { amount: true },
     });
+    if(expected&&(!a.manager||expected.refundedAmount!==-(refunds._sum.amount??0)))throw new AppError("CONFLICT","退款紀錄已更新，請重新核對");
     if (d.amount > p.amount + (refunds._sum.amount ?? 0))
       throw new AppError("CONFLICT", "退款超過尚可退金額");
     if (p.cardId) {
@@ -202,6 +210,7 @@ export async function refund(
       const card = await tx.beautyCard.findFirstOrThrow({
         where: { id: p.cardId, storeId: a.storeId },
       });
+      if(expected&&expected.remaining!==card.remaining)throw new AppError("CONFLICT","方案額度已更新，請重新核對");
       if (!card.closedAt) {
         await tx.beautyCard.update({
           where: { id: card.id },

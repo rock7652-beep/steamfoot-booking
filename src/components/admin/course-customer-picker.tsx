@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef,useMemo } from "react";
 import { loadCourseCustomerSearchIndex, searchCourseCustomers } from "@/server/actions/course-browse";
 import { matchCustomerSearch, type CustomerSearchOption } from "@/lib/customer-search-index";
 import { usePathname } from "next/navigation";
 type Choice = { id: string; name: string; phone?: string };
 
-export function CourseCustomerPicker({ name, initial = [], multiple = false, required = false, onChange, enabled = true }: {
-  name: string; enabled?:boolean; onChange?:(selected: Choice[])=>void; initial?: Choice[]; multiple?: boolean; required?: boolean;
+export function CourseCustomerPicker({ choices, name, initial = [], multiple = false, required = false, onChange, enabled = true }: {
+  choices?:CustomerSearchOption[];name: string; enabled?:boolean; onChange?:(selected: Choice[])=>void; initial?: Choice[]; multiple?: boolean; required?: boolean;
 }) {
   const pathname=usePathname();
   const [result,setResult] = useState<{path:string;query:string;rows:Choice[];hasMore:boolean;error?:string} | null>(null);
@@ -21,12 +21,12 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
     return()=>{window.removeEventListener("focus",refresh);window.removeEventListener("customer-search-invalidated",refresh);};
   },[]);
   useEffect(()=>{
-    if(!enabled)return;
+    if(!enabled||choices)return;
     let active=true;
     loadCourseCustomerSearchIndex().then(r=>{if(active&&r.success)setIndex({path:pathname,rows:r.rows,complete:r.complete});}).catch(()=>{});
     return()=>{active=false;};
-  },[enabled,pathname,revision]);
-  const activeIndex=index?.path===pathname?index:null;
+  },[enabled,pathname,revision,choices]);
+  const activeIndex=useMemo(()=>choices?{rows:choices,complete:true}:index?.path===pathname?index:null,[choices,index,pathname]);
   const input=useRef<HTMLInputElement>(null);
   const [selected,setSelected] = useState(initial);
   const [composing,setComposing] = useState(false);

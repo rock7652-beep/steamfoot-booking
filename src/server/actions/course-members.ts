@@ -1,4 +1,6 @@
 "use server";
+import {requireStoreFeature} from "@/lib/feature-gate";
+import {FEATURES} from "@/lib/feature-flags";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsFeeSetup} from "@/lib/sports-staging-types";
@@ -104,19 +106,24 @@ const bookingInput = z.object({
   requestKey: z.string().uuid(),
 });
 
-export async function saveCourseCustomer(input: unknown) {
+export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"="course") {
   try {
-    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, expectedUpdatedAt: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional() }).parse(input);
-    const { storeId } = await courseManager(
-      data.id ? "customer.update" : "customer.create",
-    );
+    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, expectedUpdatedAt: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional(), requestKey:z.string().uuid().optional(),expectedStoreId:id.optional() }).parse(input);
+    module=z.enum(["course","beauty"]).parse(module);
+    const permission=data.id ? "customer.update" : "customer.create";
+    const context=module==='beauty'?await(await import('@/server/beauty/access')).beautyManager(permission,true):await courseManager(permission);
+    const storeId=context.storeId,actorUserId='user' in context?context.user.id:context.userId;
+    if(module==='beauty'&&data.expectedStoreId!==storeId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟顧客資料');
+    if(module==='beauty'&&data.id&&!data.expectedUpdatedAt)throw new AppError('CONFLICT','請重新開啟顧客資料後再儲存');
+    if(module==='beauty'&&!data.id&&!data.requestKey)throw new AppError('VALIDATION','缺少顧客建立請求，請重新開啟');
+    if(module==='beauty')await requireStoreFeature(storeId,FEATURES.CUSTOMER_MANAGEMENT);
     if (data.birthday && !parseTaipeiDateTime(data.birthday, "00:00")) throw new AppError("VALIDATION", "生日格式不正確");
     const profile = {
       name: data.name, phone: data.phone,
       email: data.email ?? null,
       gender: data.gender ?? null,
       birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null,
-      height: data.height ?? null,
+      ...(data.height!==undefined?{height:data.height??null}:{}),
       ...(data.emergencyContactName !== undefined ? { emergencyContactName: data.emergencyContactName || null } : {}),
       ...(data.emergencyContactPhone !== undefined ? { emergencyContactPhone: data.emergencyContactPhone || null } : {}),
       ...(data.address !== undefined ? { address: data.address || null } : {}),
@@ -136,6 +143,15 @@ export async function saveCourseCustomer(input: unknown) {
       const limits = await getStoreLimitsByStoreId(storeId);
       customerId = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
+        const receiptId=module==='beauty'?`beauty-customer:${createHash('sha256').update(JSON.stringify([storeId,data.requestKey])).digest('hex')}`:null;
+        const fingerprint=createHash('sha256').update(JSON.stringify(profile)).digest('hex');
+        if(receiptId){
+          const previous=await tx.auditLog.findUnique({where:{id:receiptId}});
+          if(previous){
+            if(previous.storeId!==storeId||previous.actorUserId!==actorUserId||previous.summary!==fingerprint)throw new AppError('CONFLICT','此建立請求已使用，請重新核對');
+            return previous.targetId;
+          }
+        }
         const count = await tx.customer.count({
           where: { storeId, mergedIntoCustomerId: null },
         });
@@ -145,11 +161,16 @@ export async function saveCourseCustomer(input: unknown) {
           data: { storeId, ...profile },
           select: { id: true },
         });
+        if(receiptId){
+          if(!actorUserId)throw new AppError('FORBIDDEN','請重新登入');
+          await tx.auditLog.create({data:{id:receiptId,actorUserId,storeId,module:'BEAUTY',targetType:'Customer',targetId:created.id,action:'CREATE',summary:fingerprint}});
+        }
         return created.id;
       });
     }
-    refresh();
-    return { success: true as const, data: { id: customerId } };
+    let syncWarning=false;
+    if(module==='beauty'){try{revalidatePath("/dashboard/beauty");}catch{syncWarning=true;}}else refresh();
+    return { success: true as const, data: { id: customerId },syncWarning };
   } catch (error) {
     return handleActionError(error);
   }

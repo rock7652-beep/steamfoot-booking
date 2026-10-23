@@ -26,11 +26,12 @@ export default async function FrontendPreviewDashboard({ searchParams }: { searc
   if (state === "HIDDEN") notFound();
   if (state !== "ENABLED") return <div className="space-y-3"><h1 className="admin-page-title">前台預覽</h1><FrontendPreviewSelector key={storeId} stores={stores} storeId={storeId} role="member" query="" people={[]} allowWork={false} previewHref={null} locked /></div>;
   const moduleId = await getStoreIndustryModule(storeId);
+  if(moduleId==='beauty')await (await import('@/server/beauty/access')).requireBeauty(storeId);
   const allowWork = moduleId !== "steamfoot" && (user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "staff.view");
   const role = p.role === "work" && allowWork ? "work" : "member";
   if (role === "member") await requirePermission("wallet.read");
   const q = (p.q ?? "").trim().slice(0, 80);
-  const people = role === "work" ? await prisma.staff.findMany({
+  const people = role === "work" && moduleId==='beauty'? await (await import('@/lib/beauty-db')).beautyPrisma.beautyTechnician.findMany({where:{storeId,active:true,...(q?{OR:[{name:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}}]}:{})},select:{id:true,name:true},orderBy:[{name:'asc'},{id:'asc'}],take:30}):role === "work" ? await prisma.staff.findMany({
     where: { storeId, status: "ACTIVE", ...(moduleId === "course" ? { courseCoachEnabled: true } : {}), ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { phone: { contains: q } }] } : {}) },
     select: { id: true, displayName: true }, orderBy: [{ displayName: "asc" }, { id: "asc" }], take: 30,
   }).then(rows => rows.map(row => ({ id: row.id, name: row.displayName }))) : await prisma.customer.findMany({

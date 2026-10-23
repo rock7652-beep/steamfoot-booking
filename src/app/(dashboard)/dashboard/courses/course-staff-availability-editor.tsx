@@ -11,7 +11,7 @@ import {
 } from "@/server/actions/course-availability";
 
 import {usePathname} from "next/navigation";
-import {useSettingsSave} from "@/components/admin/use-settings-save";
+import {useSettingsSave,type SettingsSaveTransport} from "@/components/admin/use-settings-save";
 import {savedCourseAvailability} from "@/lib/course-staff-availability-save";
 type Period={openTime:string;closeTime:string};
 type Day={dayOfWeek:number;periods:Period[]};
@@ -33,8 +33,9 @@ function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段"
   </div>;
 }
 
+export type CourseAvailabilitySource={reasonEnabled?:boolean;read:(id:string)=>Promise<ReturnType<typeof savedCourseAvailability.parse>>;save:SettingsSaveTransport};
 export type CourseAvailabilitySaveHandle={save:()=>Promise<boolean>};
-export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,onGuard,saveRef,externalSave=false}:{saveRef?:Ref<CourseAvailabilitySaveHandle>;externalSave?:boolean;storeId?:string;staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
+export function CourseStaffAvailabilityEditor({source,onEntityRevision,staffId,storeId="",fitness=false,onGuard,saveRef,externalSave=false}:{onEntityRevision?:(revision:number)=>void;source?:CourseAvailabilitySource;saveRef?:Ref<CourseAvailabilitySaveHandle>;externalSave?:boolean;storeId?:string;staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
   const [showWeeklyErrors,setShowWeeklyErrors]=useState(false);
   const [showExceptionErrors,setShowExceptionErrors]=useState(false);
   const [dirtyWeekly,setDirtyWeekly]=useState(false);
@@ -54,7 +55,7 @@ export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,
   const [message,setMessage]=useState("");
   const [transitionPending,start]=useTransition();
   const pathname=usePathname();
-  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff-availability`,storeId,savedCourseAvailability);
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff-availability`,storeId,savedCourseAvailability,source?.save);
   const pending=transitionPending||request.pending,locked=pending||request.uncertain;
   const saveLock=useRef(false);
   const attemptKind=useRef<"weekly"|"exception">("weekly");
@@ -65,13 +66,13 @@ export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,
    if(saveLock.current||!ready||!revisionRef.current)return false;
    if(request.uncertain)kind=attemptKind.current;else attemptKind.current=kind;
    saveLock.current=true;
-   try{const result=await request.save({kind,values,expectedRevision:revisionRef.current});if(!result.success){setConflicts("conflicts" in result?result.conflicts??[]:[]);feedback(result.error);return false;}adopt(result.data);if(kind==="weekly")setDirtyWeekly(false);else setDirtyException(false);feedback(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":kind==="weekly"?"授課時間已更新，已排課程不受影響":"單日例外已儲存",true);return true;}catch{feedback("儲存結果未確認，請重試核對");return false;}finally{saveLock.current=false;}
+   try{const result=await request.save({kind,values,expectedRevision:revisionRef.current});if(!result.success){setConflicts("conflicts" in result?result.conflicts??[]:[]);feedback(result.error);return false;}adopt(result.data);if(result.data.entityRevision!==undefined)onEntityRevision?.(result.data.entityRevision);if(kind==="weekly")setDirtyWeekly(false);else setDirtyException(false);feedback(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":kind==="weekly"?"授課時間已更新，已排課程不受影響":"單日例外已儲存",true);return true;}catch{feedback("儲存結果未確認，請重試核對");return false;}finally{saveLock.current=false;}
   }
 
   useEffect(()=>{onGuard?.({dirty:dirtyWeekly||dirtyException,pending:externalSave?pending:locked});},[dirtyWeekly,dirtyException,locked,pending,externalSave,onGuard]);
   useEffect(()=>{
     let active=true;
-    getCourseStaffAvailability(staffId).then(value=>{
+    (source?.read??getCourseStaffAvailability)(staffId).then(value=>{
       if(!active)return;
       revisionRef.current=value.revision;setRevision(value.revision);
       setInherit(value.inheritStoreHours);
@@ -84,7 +85,7 @@ export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,
       setExceptions(value.exceptions);setReady(true);
     }).catch(()=>active&&setMessage("可授課時間讀取失敗，請重試"));
     return()=>{active=false};
-  },[staffId]);
+  },[staffId,source?.read]);
 
   function feedback(text:string,success=false){
     setMessage(text);
@@ -145,7 +146,7 @@ export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,
           <option value="INHERIT">取消例外，恢復固定規則</option>
         </select>
         {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows label="單日" showErrors={showExceptionErrors} periods={exceptionPeriods} onChange={periods=>{setDirtyException(true);setExceptionPeriods(periods);}}/></div>}
-        <input className={field+" sm:col-span-2"} placeholder="原因（選填）" value={exceptionReason} onChange={e=>setExceptionReason(e.target.value)}/>
+        <input hidden={source?.reasonEnabled===false} className={field+" sm:col-span-2"} placeholder="原因（選填）" value={exceptionReason} onChange={e=>setExceptionReason(e.target.value)}/>
         {!externalSave&&<button type="button" disabled={pending} className={fitness?`${fitnessEditorSave} sm:col-span-2 justify-self-end bg-primary-700 text-white disabled:opacity-50`:button} onClick={()=>start(async()=>{await saveException();})}>{pending?"儲存中…":"儲存單日例外"}</button>}
       </fieldset>
       {!!exceptions.length&&<div className="mt-3 space-y-1 text-xs text-earth-600">

@@ -12,14 +12,14 @@ import {getCurrentStorePlan} from '@/lib/store-plan';
 import {SettingsListRow} from '@/components/settings';
 import {CARE_REASONS,type CareReason} from '@/lib/customer-care-lifecycle';
 import ScheduleSettingsPage from "../settings/hours/page";
-import PaymentSettingsPage from "../settings/payment/page";
-import LineOfficialAccountsPage from "../settings/line-official-accounts/page";
-import {SettingsPanel} from "@/components/settings";
+import {CourseSettingsPanel} from "../courses/settings-panel";
+import {CourseSettingsPanelContent} from "../courses/settings-panel-content";
+import {isCourseSettingsPanel} from "@/lib/course-settings-panels";
 import {courseAnalysisRange} from "@/lib/course-analytics";
 import {beautyAnalysisBounds} from "@/lib/beauty/analytics";
 import {BeautyAnalytics} from "@/components/beauty/analytics";
 import {BeautyCare} from "@/components/beauty/care";
-import {RevenueTabs} from "../revenue/_components/revenue-tabs";
+import {BeautyNativeOperations} from "@/components/beauty/native-operations-source";
 import { redirect } from "next/navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { BeautyDashboard } from "@/components/beauty/dashboard";
@@ -45,7 +45,7 @@ export default async function BeautyPage({
     calendar?: string;
     customerId?:string;bookingId?:string;
     action?:string;
-    panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;daily?:string;page?:string;
+    panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;daily?:string;page?:string;dateFrom?:string;dateTo?:string;status?:string;staff?:string;summary?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -103,7 +103,7 @@ export default async function BeautyPage({
         ? q.month
         : toLocalMonthStr();
   let financialDates:ReturnType<typeof courseAnalysisRange>|undefined;
-  if(tab==='營運'){try{financialDates=courseAnalysisRange(q);beautyAnalysisBounds(financialDates);}catch{return <PageShell><p role="alert">請選擇有效且不超過一年的收支日期。</p></PageShell>;}}
+  if(tab==='營運'){try{financialDates=courseAnalysisRange(q.dateFrom||q.dateTo?{startDate:q.dateFrom,endDate:q.dateTo}:q);beautyAnalysisBounds(financialDates);}catch{return <PageShell><p role="alert">請選擇有效且不超過一年的收支日期。</p></PageShell>;}}
   const [data, store, view] = await Promise.all([
     beautyDashboard(
       date,
@@ -111,6 +111,7 @@ export default async function BeautyPage({
       q.calendar === "week" || q.calendar === "month" ? q.calendar : "day",
       financialDates,
       tab==='技師管理',
+      tab==='班表',
     ),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },
@@ -123,7 +124,7 @@ export default async function BeautyPage({
   return (
     <PageShell compact className="course-workspace min-w-0">
       {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
-      {tab!=='首頁'&&<PageHeader compact title={tab} />}
+      {tab!=='首頁'&&tab!=='班表'&&tab!=='顧客管理'&&tab!=='營運'&&<PageHeader compact title={tab} />}
       <BeautyDashboard
         homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
@@ -134,13 +135,12 @@ export default async function BeautyPage({
         initialBooking={q.action==='booking'||q.action==='schedule'}
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
         careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
-        operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
+        operationsContent={tab==='營運'?<BeautyNativeOperations data={data} query={q} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         settingsContent={tab==='設定'?<BeautySettingsWorkspace bank={{bankName:sharedSettings?.bankName??"",bankCode:sharedSettings?.bankCode??"",bankAccountNumber:sharedSettings?.bankAccountNumber??""}} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)} data={data} slug={store.slug} canPayment={await checkPermission(u.role,u.staffId,'plans.edit')} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}} labels={<CustomerLabelsSettings/>} subscription={<><SettingsListRow title="店家系統方案" summary={systemPlan?PRICING_PLAN_INFO[systemPlan].label:'請查看目前系統方案'} href="/dashboard/settings/plan" action="查看" expanded={false}/>{usage&&<SettingsListRow title="目前用量" summary={usage.metrics.map(m=>`${m.label} ${m.current.toLocaleString()}／${m.limit??'不限'}`).join('・')}/>}</>}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
-      {tab==='設定'&&q.panel==='reminders'&&<SettingsPanel title="提醒管理" sourceHref="/dashboard/beauty/reminders" width={1040}><BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/></SettingsPanel>}
-      {tab==='設定'&&['hours','payment','line'].includes(q.panel??'')&&<SettingsPanel title={q.panel==='hours'?'營業時間與公休':q.panel==='payment'?'銀行與收款資料':'LINE 官方帳號'} sourceHref={`/dashboard/beauty?tab=設定&section=${q.section??'store'}`}>{q.panel==='hours'?<ScheduleSettingsPage/>:q.panel==='payment'?<PaymentSettingsPage/>:(u.role==='OWNER'||u.role==='ADMIN')?<LineOfficialAccountsPage/>:<p role="alert">此設定僅供店主查看。</p>}</SettingsPanel>}
+      {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
     </PageShell>
   );
 }

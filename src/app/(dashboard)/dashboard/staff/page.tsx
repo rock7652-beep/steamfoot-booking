@@ -1,3 +1,9 @@
+import {BeautyNativeAccountWorkspace} from '@/components/beauty/native-account-source';
+import {nativeBeautyAccount} from '@/lib/beauty/native-staff';
+import {savedStaffPerson} from '@/lib/staff-settings-save';
+import {beautyPrisma} from '@/lib/beauty-db';
+import {getStoreLimitsByStoreId} from '@/lib/feature-gate';
+import type {CourseOrderSnapshot} from '@/lib/course-display-order';
 import {BEAUTY_PERMISSIONS} from '@/lib/beauty/permissions';
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { CourseStaffPage } from "../courses/staff-page";
@@ -152,6 +158,11 @@ export default async function StaffPage({
       redirect(`/dashboard/staff?createError=${encodeURIComponent(result.error || "新增人員失敗")}`);
     }
     redirect("/dashboard/staff");
+  }
+
+  if(industryModule==='beauty'&&activeStoreId){
+    const [limits,orders]=await Promise.all([getStoreLimitsByStoreId(activeStoreId),beautyPrisma.$queryRaw<CourseOrderSnapshot[]>`SELECT ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${activeStoreId} AND kind='staff'`]);
+    return <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT)}><PageShell><PageHeader title="人員管理"/><BeautyNativeAccountWorkspace storeId={activeStoreId} staff={people.map(person=>{const row=staffList.find(row=>row.id===person.id);return nativeBeautyAccount(savedStaffPerson.parse({...person,birthday:row?.courseBirthday?.toISOString().slice(0,10)??'',emergencyContactName:row?.emergencyContactName??'',emergencyContactPhone:row?.emergencyContactPhone??'',emergencyContactRelation:row?.emergencyContactRelation??''}));})} canManage={canManage&&['OWNER','MANAGER','ADMIN'].includes(user.role)} canAssignRoles={user.role==='OWNER'||user.role==='ADMIN'} maxStaff={limits.maxStaff} displayOrder={orders[0]} editablePermissions={Array.from(actorPermissions).filter(p=>BEAUTY_PERMISSIONS.includes(p))} rolePresets={Object.fromEntries((['OWNER','MANAGER','STAFF'] as const).map(role=>[role,getDefaultPermissionsForRole(role).filter(p=>BEAUTY_PERMISSIONS.includes(p))]))} permissionGroups={Object.values(PERMISSION_GROUPS).map(group=>({label:group.label.replaceAll('教師','技師'),codes:group.codes.filter(code=>BEAUTY_PERMISSIONS.includes(code)).map(code=>({code,label:PERMISSION_LABELS[code].replaceAll('教師','技師')}))})).filter(group=>group.codes.length)}/></PageShell></FeatureGate>;
   }
 
   return (

@@ -1,5 +1,6 @@
 "use server";
 
+import {parseTaiwanDateToDbDate,parseTaipeiDateTime} from "@/lib/date-utils";
 import {replaceStaffPermissionGrants,writeStaffPermissionChanges} from "@/server/services/staff-permission-write";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
@@ -95,7 +96,14 @@ async function assertCanManageStaff(
 // Schemas
 // ============================================================
 
+const staffPersonalFields={
+ birthday:z.string().refine(value=>!value||!!parseTaipeiDateTime(value,"00:00"),"生日日期不正確").optional(),
+ emergencyContactName:z.string().trim().max(100).optional(),emergencyContactPhone:z.string().trim().max(30).optional(),emergencyContactRelation:z.string().trim().max(100).optional(),
+};
 const createStaffSchema = z.object({
+  ...staffPersonalFields,
+  status:z.enum(["ACTIVE","INACTIVE"]).optional(),
+  permissions:z.record(z.enum(ALL_PERMISSIONS),z.boolean()).optional(),
   name: z.string().min(1).max(100),
   email: z.preprocess(
     (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
@@ -135,6 +143,8 @@ const createStaffSchema = z.object({
 });
 
 const updateStaffSchema = z.object({
+  ...staffPersonalFields,
+  password:z.string().min(8).max(100).optional(),
   displayName: z.string().min(1).max(100).optional(),
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
@@ -192,7 +202,7 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
 
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
-    if(!receipt){
+    if(!receipt&&data.status!=="INACTIVE"){
     const currentStaffCount = await prisma.staff.count({
       where: { storeId: writeStoreId, status: "ACTIVE" },
     });
@@ -231,7 +241,7 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
       if(receiptId){const committed=await tx.auditLog.findUnique({where:{id:receiptId}});if(committed){if(committed.actorUserId!==sessionUser.id||committed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {staff:{id:staffId!}};}}
       const managerGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
-      await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId, tx);
+      if(data.status!=="INACTIVE")await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId, tx);
       if(receipt){
         if(normalizedEmail&&await tx.user.findUnique({where:{email:normalizedEmail}}))throw new AppError("CONFLICT","此 Email 已被使用");
         if(await tx.user.findFirst({where:{phone:data.phone,role:staffRole},select:{id:true}}))throw new AppError("CONFLICT","此手機號碼已建立相同身分的帳號");
@@ -243,11 +253,17 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
           email: normalizedEmail,
           phone: data.phone,
           passwordHash,
+          ...(data.status?{status:data.status==="ACTIVE"?"ACTIVE":"SUSPENDED"}:{}),
           role: staffRole,
           staff: {
             create: {
               ...(staffId?{id:staffId}:{}),
               displayName: data.displayName,
+              ...(data.status?{status:data.status}:{}),
+              ...(data.birthday!==undefined?{courseBirthday:data.birthday?parseTaiwanDateToDbDate(data.birthday):null}:{}),
+              ...(data.emergencyContactName!==undefined?{emergencyContactName:data.emergencyContactName}:{}),
+              ...(data.emergencyContactPhone!==undefined?{emergencyContactPhone:data.emergencyContactPhone}:{}),
+              ...(data.emergencyContactRelation!==undefined?{emergencyContactRelation:data.emergencyContactRelation}:{}),
               colorCode: data.colorCode ?? "#6366f1",
               isOwner: false,
               monthlySpaceFee: data.monthlySpaceFee ?? 0,
@@ -259,7 +275,8 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
         include: { staff: true },
       });
       if (created.staff) {
-        const defaults = getDefaultPermissionsForRole(staffRole);
+        const defaults = data.permissions?ALL_PERMISSIONS.filter(permission=>data.permissions?.[permission]):getDefaultPermissionsForRole(staffRole);
+        if(data.permissions&&managerGrants&&defaults.some(permission=>!managerGrants.has(permission)))throw new AppError("FORBIDDEN","只能授予自己已獲授權的功能");
         await tx.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({ staffId: created.staff!.id, permission, granted: defaults.includes(permission) && (managerGrants === null || managerGrants.has(permission)) })) });
       }
       await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: created.staff!.id, action: "CREATE", summary: "建立人員帳號", after: { role: staffRole } }, tx);
@@ -317,7 +334,7 @@ async function updateStaffWork(staffId:string,input:unknown,receipt?:StaffReceip
     });
 
     const activationLimits = data.status === "ACTIVE" ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(writeStoreId) : null;
-    const { role: newRole, applyRolePreset, permissions, email, ...staffData } = data;
+    const { role: newRole, applyRolePreset, permissions, email, password,birthday, ...staffData } = data;
     if (permissions && applyRolePreset) throw new AppError("VALIDATION", "請選擇角色預設或自訂權限");
     if (newRole && newRole !== staff.user.role && !canAssignStaffRole(getEffectiveActorRole(sessionUser), newRole)) {
       throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
@@ -346,12 +363,13 @@ async function updateStaffWork(staffId:string,input:unknown,receipt?:StaffReceip
           if (granted) resultingPermissions.add(permission); else resultingPermissions.delete(permission);
         }
       }
-      await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: staffData });
+      await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: {...staffData,...(birthday===undefined?{}:{courseBirthday:birthday?parseTaiwanDateToDbDate(birthday):null})} });
       if (newRole && newRole !== current.user.role) {
         if (current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
         await tx.user.update({ where: { id: current.userId }, data: { role: newRole } });
       }
       if (data.status !== undefined && data.status !== current.status) await tx.user.update({ where: { id: current.userId }, data: { status: data.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED" } });
+      if(password!==undefined)await tx.user.update({where:{id:current.userId},data:{passwordHash:hashSync(password,10)}});
       if (email !== undefined) await tx.user.update({ where: { id: current.userId }, data: { email: normalizeEmail(email) } });
       if (permissions && !applyRolePreset) {
         await writeStaffPermissionChanges(tx,staffId,Object.entries(permissions).filter(([permission,granted])=>storedPermissions.includes(permission)!==granted).map(([permission,granted])=>({permission,granted})));

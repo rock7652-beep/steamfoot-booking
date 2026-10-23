@@ -1,3 +1,5 @@
+import {BeautyPreviewPortal} from "@/components/beauty/preview-portal";
+import {loadBeautyPreview} from "@/server/beauty/frontend-preview";
 import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -28,7 +30,10 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
   // Metadata only; never log balances, notes or phone numbers.
   console.info("[frontend-preview:view]", { viewerId: access.user.id, ...selection, moduleId: access.moduleId });
   let content;
-  if (access.moduleId === "course") {
+  if(access.moduleId==='beauty'){
+    const preview=await loadBeautyPreview(selection,p.month);
+    content=<BeautyPreviewPortal key={`${access.storeId}:${access.personId}:${p.role}`} {...preview} selection={selection} view={p.view}/>;
+  }else if (access.moduleId === "course") {
     const data = await loadCoursePortal(p.month ?? p.date?.slice(0, 7), selection);
     content = <CoursePortalClient key={`${access.storeId}:${access.personId}:${p.role}`} {...data} readOnly initialDate={p.date} initialCoach={p.role === "work"} initialView={p.role === "work" ? "schedule" : p.view === "bookings" ? "bookings" : p.view === "wallets" ? "plans" : p.view === "health" && data.healthEnabled ? "health" : "home"} />;
   } else if (p.role === "work") {

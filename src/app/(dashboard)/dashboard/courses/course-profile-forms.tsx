@@ -57,12 +57,13 @@ function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted
 }
 export type CustomerProfileWriter=(input:Record<string,unknown>)=>Promise<{success:boolean;error?:string}>;
 export function CourseCustomerDraftForm({save=saveCourseCustomer,draftScope="course-customer",person,canEdit,canCreate,hidden,...callbacks}:Callbacks&{save?:CustomerProfileWriter;draftScope?:string;person:Person|null;canEdit:boolean;canCreate:boolean;hidden:boolean}){
+ const [profileRequestKey]=useState(()=>crypto.randomUUID());
  const [year="1970",month="",day=""]=(person?.birthday??"").split("-");
  const draft=useFormDraft(`${draftScope}:${person?.id??"new"}`,{name:person?.name??"",phone:person?.phone??"",email:person?.email??"",gender:person?.gender??"",serviceNote:person?.serviceNote??"",address:person?.address??"",emergencyContactName:person?.emergencyContactName??"",emergencyContactPhone:person?.emergencyContactPhone??"",birthYear:year||"1970",birthMonth:month,birthDay:day},person?.updatedAt??null);
  const {submit,error,pending,committedWarning}=useSaveForm(draft,callbacks);
  return <form id="course-member-form" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${hidden?"hidden":""}`} onSubmit={e=>{
   if(person?!canEdit:!canCreate){e.preventDefault();return;}
-  void submit(e,d=>save({id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
+  void submit(e,d=>save({requestKey:profileRequestKey,id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
  }}>
  <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty&&!committedWarning} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  <fieldset disabled={pending||committedWarning} className="contents">

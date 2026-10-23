@@ -6,6 +6,7 @@ import {beautyStaffAvailability} from './calendar';
 export function beautyNativeCalendar(data:BeautyCalendarData,technicians:Parameters<typeof beautyStaffAvailability>[0],assignedStaff:Record<string,string|null>={}):CourseCalendarSnapshot{
  const sessions:Session[]=data.items.filter(b=>b.status!=='CANCELLED').map(b=>({
   id:b.id,templateId:b.serviceId,nameSnapshot:b.serviceName,startsAt:b.startsAt,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,
+  service:{groupId:b.groupId,personName:b.personName,status:b.status,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,buffer:b.buffer},
   coachId:b.technicianId,roomId:b.locationId,capacity:1,pointCost:b.cardId?1:0,isTrial:b.isTrial,
   bookings:[{id:b.id,customerId:b.customerId,customerName:b.personName,assignedCoachId:b.customerId?assignedStaff[b.customerId]??null:null,status:b.status==='COMPLETED'?'ATTENDED':b.status,bookingKind:b.isTrial?'TRIAL':'REGULAR'}],
  }));

@@ -16,7 +16,7 @@ class PanelError extends Component<{ children: ReactNode; retry: () => void }, {
   }
 }
 
-export function CourseSettingsPanel({ panel, children }: { panel: CourseSettingsPanel; children: ReactNode }) {
+export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/courses" }: { panel: CourseSettingsPanel; children: ReactNode;workspaceHref?:string }) {
   const router = useRouter(), pathname = usePathname(), search = useSearchParams();
   const searchString = search.toString();
   const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
@@ -53,11 +53,12 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
       if (mapped !== localPath + url.search) {
         const params = new URLSearchParams(searchString); params.delete("panelQuery");
         new URLSearchParams(mapped.split("?")[1]).forEach((value, key) => params.set(key, value));
-        request(resolveDashboardHref(`/dashboard/courses?${params}`, pathname)); return;
+        if(workspaceHref!=="/dashboard/courses"){params.delete("view");params.set("tab","設定");}
+        request(resolveDashboardHref(`${workspaceHref}?${params}`, pathname)); return;
       }
     }
     request(url.href);
-  }, [config.href, closeHref, pathname, request, searchString]);
+  }, [config.href, closeHref, pathname, request, searchString,workspaceHref]);
   useEffect(() => {
     if (dismissed) return;
     const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };

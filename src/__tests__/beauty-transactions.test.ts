@@ -298,6 +298,14 @@ describe("financial reversals", () => {
     ).rejects.toThrow("占用");
     expect(tx.beautyPayment.create).not.toHaveBeenCalled();
   });
+  it("refuses stale original-UI refund snapshots without touching the ledger or money",async()=>{
+    vi.mocked(tx.beautyPayment.findFirst).mockResolvedValue({id:'original',kind:'SALE',amount:1000,cardId:'card'} as never);
+    const input={requestKey:crypto.randomUUID(),paymentId:'original',amount:500,method:'OTHER' as const,reason:'核對'};
+    await expect(refund(tx,a,input,{remaining:1,refundedAmount:0})).rejects.toThrow('方案額度已更新');
+    vi.mocked(tx.beautyPayment.aggregate).mockResolvedValue({_sum:{amount:-100}} as never);
+    await expect(refund(tx,a,input,{remaining:2,refundedAmount:0})).rejects.toThrow('退款紀錄已更新');
+    expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+  });
   it("refuses collecting a package-backed appointment or overcharging", async () => {
     await expect(
       collect(tx, a, {

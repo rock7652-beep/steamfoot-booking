@@ -1,4 +1,6 @@
 export const COURSE_SETTINGS_PANELS = {
+  line:{title:"LINE 官方帳號",section:"notifications",href:"/dashboard/settings/line-official-accounts",width:1040},
+  payment:{title:"銀行與收款資料",section:"payment",href:"/dashboard/settings/payment",width:880},
   labels: {title:"顧客標籤",section:"notifications",href:"/dashboard/settings/customer-labels",width:880},
   hours: { title: "營業、公休與預約開放", section: "booking", href: "/dashboard/courses/hours", width: 1040 },
   duty: { title: "值班聯動", section: "booking", href: "/dashboard/settings/duty", width: 760 },

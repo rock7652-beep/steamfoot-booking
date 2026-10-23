@@ -1,22 +1,23 @@
 "use client";
-import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
-import styles from "@/app/(dashboard)/dashboard/courses/schedule-layout.module.css";
-import {CourseScheduleBoard} from '@/app/(dashboard)/dashboard/courses/course-schedule-board';
-import {CourseScheduleToolbar} from '@/components/admin/course-schedule-toolbar';
+import {useCallback,useMemo} from 'react';
+import {CourseWorkspace,type CourseCalendarSource} from '@/app/(dashboard)/dashboard/courses/workspace';
+import {beautyNativeCalendar,readBeautyNativeCalendar} from '@/lib/beauty/native-calendar';
 import {beautyStaffAvailability} from '@/lib/beauty/calendar';
-import {courseMonthDays} from '@/lib/course-calendar';
-import {toLocalDateStr,addTaiwanDuration} from '@/lib/date-utils';
+import {orderCourseRows} from '@/lib/course-display-order';
+import {toLocalDateStr} from '@/lib/date-utils';
+import {beautyNativeScheduleSource} from './native-schedule-source';
+import type {BeautyCalendarData} from '@/lib/beauty/calendar-read';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
-import type {ReactNode} from 'react';
-export function BeautyScheduleWorkspace({data,onOpen,onCreate,pending,readOnly,actions,onChange}:{data:BeautyDashboardData;onOpen:(id:string)=>void;onCreate:(seed?:{date?:string;time?:string;technicianId?:string;locationId?:string})=>void;pending:boolean;readOnly:boolean;actions?:ReactNode;onChange:(date:string,calendar:BeautyDashboardData['calendar'])=>void}){
- const go=(date:string,calendar=data.calendar)=>{if(!pending)onChange(date,calendar);};
- const services=data.items.filter(b=>b.status!=='CANCELLED').map(b=>({id:b.id,templateId:b.serviceId,nameSnapshot:b.serviceName,startsAt:b.startsAt,endsAt:b.occupiedEndsAt,coachId:b.technicianId,roomId:b.locationId,capacity:1,pointCost:1,bookings:[{customerId:b.customerId,customerName:b.personName,status:b.status==='COMPLETED'?'ATTENDED':b.status,bookingKind:b.isTrial?'TRIAL':'REGULAR'}],service:{groupId:b.groupId,endsAt:b.endsAt,personName:b.personName,status:b.status,occupiedEndsAt:b.occupiedEndsAt,buffer:b.buffer}}));
- const sessions=[...services,...(data.rentals??[]).map(r=>({id:'rental:'+r.id,rentalId:r.id,templateId:'',nameSnapshot:`租借・${r.customerName}`,startsAt:r.occupiedStartsAt,endsAt:r.occupiedEndsAt,coachId:'',roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:'RENTAL' as const}))];
- const board=<CourseScheduleBoard serviceMode businessProfile="FITNESS" mode={data.calendar==='week'?'week':'day'} selectedDate={data.date} today={toLocalDateStr()} sessions={sessions} rooms={data.locations} coaches={data.techs.map(t=>({id:t.id,displayName:t.name,status:t.active?'ACTIVE':'INACTIVE',courseCoachEnabled:t.active,courseQualificationsConfirmed:true}))} templates={data.services} pending={pending} canCreate={!readOnly&&data.access.writeAccess} calendarDays={data.calendarDays} storePeriods={data.calendarDays[data.date]?.periods??[]} {...beautyStaffAvailability(data.techs)} onOpenEmpty={seed=>onCreate({date:seed.date??data.date,time:seed.time,technicianId:seed.coachId??undefined,locationId:seed.roomId??undefined})} onSelectDate={date=>go(date)} onOpenSession={id=>{if(!pending)onOpen(id);}} />;
- return <section className="min-w-0 space-y-2"><CourseScheduleToolbar className="flex-wrap gap-y-2">
- <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5">{(['day','week','month'] as const).map((mode,i)=><button className={`min-h-11 px-3 ${data.calendar===mode?'rounded-md bg-primary-50 font-semibold text-primary-900':''}`} key={mode} disabled={pending} aria-pressed={data.calendar===mode} onClick={()=>go(data.date,mode)}>{['日表','週表','月表'][i]}</button>)}</div>
- <button className="min-h-11 px-3" aria-label="上一期" onClick={()=>go(addTaiwanDuration(data.date,data.calendar==='month'?-1:data.calendar==='week'?-7:-1,data.calendar==='month'?'MONTH':'DAY'))}>‹</button><input aria-label="班表日期" type="date" value={data.date} onChange={e=>e.target.value&&go(e.target.value)} className="min-h-11 rounded border border-earth-200 px-2"/><button className="min-h-11 px-3" aria-label="下一期" onClick={()=>go(addTaiwanDuration(data.date,data.calendar==='month'?1:data.calendar==='week'?7:1,data.calendar==='month'?'MONTH':'DAY'))}>›</button><button className="min-h-11 px-3" onClick={()=>go(toLocalDateStr())}>今天</button><span className="ml-auto">{new Set(data.items.filter(b=>b.status!=='CANCELLED').map(b=>b.groupId)).size} 筆預約・{services.length} 人次</span>{!readOnly&&data.access.writeAccess&&<button className="min-h-11 rounded-lg bg-primary-700 px-3 text-white" disabled={pending} onClick={()=>onCreate({date:data.date})}>新增預約</button>}{actions}
- </CourseScheduleToolbar>
- {data.calendar!=='month'?<fieldset disabled={pending} className="min-w-0">{board}</fieldset>:<ScheduleMonthGrid offset={courseMonthDays(data.date.slice(0,7)).offset} pending={pending}>{courseMonthDays(data.date.slice(0,7)).dates.map(date=>{const rows=data.items.filter(b=>b.status!=='CANCELLED'&&toLocalDateStr(new Date(b.startsAt))===date);const rentals=(data.rentals??[]).filter(r=>toLocalDateStr(new Date(r.startsAt))===date);return <button disabled={pending} aria-label={`${date}，${new Set(rows.map(b=>b.groupId)).size}筆預約，${rows.length}人次，${rentals.length}筆租借`} className={`${styles.monthDay} flex h-24 min-w-0 flex-col items-start gap-1 border-t border-earth-100 px-2 py-2 text-left text-sm hover:bg-primary-50`} key={date} onClick={()=>go(date,'day')}><span className="text-primary-800">{Number(date.slice(-2))}</span>{rows.length>0&&<><strong className="text-sm text-primary-900">{new Set(rows.map(b=>b.groupId)).size} 筆預約</strong><span className="text-sm text-earth-600">{rows.length} 人次</span></>}{rentals.length>0&&<span className="text-sm text-earth-600">租借 {rentals.length} 筆</span>}</button>;})}</ScheduleMonthGrid>}
- </section>;
+
+/** Only data and authorized core ports; the original workspace owns calendar state and UI. */
+export function BeautyScheduleWorkspace({data,slug,onOpen,onRoster,onDateChange,readOnly,onLoaded}:{onLoaded:(data:BeautyCalendarData)=>void;data:BeautyDashboardData;slug:string;onOpen:(id:string)=>void;onRoster:()=>void;onDateChange:(date:string)=>void;readOnly:boolean}){
+ const assigned=useMemo(()=>Object.fromEntries(data.customers.map(c=>[c.id,c.assignedStaff?.id??null])),[data.customers]);
+ const initial=beautyNativeCalendar(data,data.techs,assigned);
+ const read=useCallback<CourseCalendarSource['read']>(async date=>{
+  const result=await readBeautyNativeCalendar(date,slug);
+  if(result.success)return {success:true,data:beautyNativeCalendar(result.data,data.techs,assigned),onAccepted:()=>onLoaded(result.data)};return result;
+ },[slug,data.techs,assigned,onLoaded]);
+ const native=beautyNativeScheduleSource(data);
+ const calendarSource=useMemo<CourseCalendarSource>(()=>({read,schedule:native.source,onOpen,onRoster,onDateChange,assignmentStaff:data.assignmentStaff.map(p=>({id:p.id,name:p.displayName}))}),[read,native.source,onOpen,onRoster,onDateChange,data.assignmentStaff]);
+ return <CourseWorkspace calendarSource={calendarSource} sportsNative sportsData={native.initial} view="schedule" businessProfile="FITNESS" storeId={data.storeId} selectedDate={data.date} today={toLocalDateStr()} nowIso={new Date(data.now).toISOString()} calendarDays={initial.calendarDays} rooms={orderCourseRows(data.locations,data.displayOrders?.room?.ids??[])} templates={orderCourseRows(data.services,data.displayOrders?.subject?.ids??[]).map(s=>({...s,isActive:s.active,durationMinutes:s.duration,bufferMinutes:s.buffer,capacity:1,pointCost:1,defaultRoomId:null,classType:'PRIVATE'}))} sessions={initial.sessions} cancelledBookings={initial.cancelledBookings} coaches={orderCourseRows(data.techs,data.displayOrders?.staff?.ids??[]).map(t=>({id:t.id,displayName:t.name,phone:t.phone,status:t.active?'ACTIVE':'INACTIVE',courseCoachEnabled:t.active,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:t.serviceIds}))} {...beautyStaffAvailability(data.techs)} canCreate={!readOnly&&data.access.writeAccess} canEdit={!readOnly&&data.manage.update} />;
 }

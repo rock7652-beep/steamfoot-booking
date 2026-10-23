@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type AssignmentSummary = { paid: number | null; valid: boolean };
-export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
-  profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
+export function CourseAssignmentPayment({cashReader=getCourseCheckoutCashStatus,profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
+  cashReader?:typeof getCourseCheckoutCashStatus;profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
 }) {
   const [offer,setOffer]=useState<"NONE"|"AMOUNT"|"RATE">("NONE"),[value,setValue]=useState(""),[method,setMethod]=useState(""),[lastFour,setLastFour]=useState("");
   const kind=offer==="RATE"&&canDiscount?"PERCENT":"AMOUNT";
@@ -24,7 +24,7 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
       const request=++sequence;
       setCashStatus("LOADING");
       try {
-        const result=await getCourseCheckoutCashStatus();
+        const result=await cashReader();
         if(active&&request===sequence)setCashStatus(result.success?result.status??"MISSING":"ERROR");
       } catch {if(active&&request===sequence)setCashStatus("ERROR");}
     }
@@ -33,7 +33,7 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
     window.addEventListener("focus",check);
     document.addEventListener("visibilitychange",visible);
     return ()=>{active=false;window.removeEventListener("focus",check);document.removeEventListener("visibilitychange",visible);};
-  },[needsCash,cashCheck]);
+  },[needsCash,cashCheck,cashReader]);
   const valid=(!needsCash||cashStatus==="OPEN")&&paid!==null&&(!profitEnabled||paid>=storeCost)&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);
   const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";

@@ -536,7 +536,7 @@ function BeautyDetailedBookingForm({
   );
 }
 
-export function BeautyBookingForm(props:Parameters<typeof BeautyDetailedBookingForm>[0]&{onViewBookings?:()=>void}){
+export function BeautyBookingForm(props:Parameters<typeof BeautyDetailedBookingForm>[0]&{onViewBookings?:()=>void;readOnly?:boolean;readSlots?:typeof readBeautySlots}){
  if(props.mode==='member')return <BeautyMemberBookingForm {...props}/>;
  return <BeautyDetailedBookingForm {...props}/>;
 }

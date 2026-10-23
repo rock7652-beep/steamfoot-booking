@@ -1,0 +1,16 @@
+{
+  "scope": "local synthetic only; not hosted",
+  "results": [
+    "native calendar click preserves service start",
+    "1366 native dialog confirms above fold",
+    "1024 native dialog confirms above fold",
+    "768 native dialog confirms above fold",
+    "same-month mode switches make no data requests",
+    "native month shows reservation and person counts",
+    "service month does not duplicate appointment lists",
+    "month date opens native day view",
+    "roster entry remains connected to true service rows",
+    "no browser errors"
+  ],
+  "errors": []
+}

@@ -1,4 +1,5 @@
 import {beautyScheduleRange,beautyNativeCalendarRange} from '@/lib/beauty/calendar';
+import {getManagerCustomerWhere} from "@/lib/manager-visibility";
 import {beautyHealthEnabled} from "./health";
 import {resolvedCourseHours} from "@/lib/course-business-hours";
 import "server-only";
@@ -21,6 +22,7 @@ import {
   beautyMember,
   beautyWorker,
   requireBeauty,
+  type BeautyActor,
 } from "./access";
 import { settings, publicReceipt } from "./booking";
 import { settlement } from "./commerce";
@@ -77,6 +79,12 @@ async function privateBeautyCatalog(store:{id:string;name:string;slug:string},wo
 export async function beautyPortal(work = false, month = toLocalMonthStr()) {
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))throw new AppError("VALIDATION","月份格式不正確");
   const a = work ? await beautyWorker() : await beautyMember();
+  return beautyPortalForActor(a,work,month);
+}
+/** Read-only core. Callers must first authorize a live member or a manager preview. */
+export async function beautyPortalForActor(a:BeautyActor,work:boolean,month=toLocalMonthStr()){
+  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))throw new AppError("VALIDATION","月份格式不正確");
+  if(work?!a.technicianId:!a.customerId)throw new AppError("FORBIDDEN","缺少已授權的前台身分");
   await requireStoreFeature(a.storeId, FEATURES.MEMBER_PORTAL);
   const store = a.verifiedStore ?? await prisma.store.findUniqueOrThrow({
     where: { id: a.storeId },
@@ -105,10 +113,10 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
         where: { storeId: a.storeId, memberIds: { has: a.customerId! } },
         orderBy: { createdAt: "desc" },
       }),
-    prisma.customer.findFirst({
+    a.customerId?prisma.customer.findFirst({
     where: { storeId: a.storeId, id: a.customerId },
     select: { id: true, name: true, phone: true,birthday:true },
-  }),
+  }):null,
     work
     ? []
     : beautyPrisma.beautyPlan.findMany({
@@ -124,7 +132,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
     where: { storeId: a.storeId },
     select: { bankName: true, bankAccountNumber: true, bankCode:true,address:true,mapUrl:true,shopPhone:true },
   }),
-    work || beautyPrisma.beautyTechnician.findFirst({where:{storeId:a.storeId,userId:a.userId,active:true},select:{id:true}}).then(Boolean),
+    work || (a.userId?beautyPrisma.beautyTechnician.findFirst({where:{storeId:a.storeId,userId:a.userId,active:true},select:{id:true}}).then(Boolean):false),
     !work && beautyHealthEnabled(a.storeId),
     work ? beautyPrisma.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "CourseRoom" WHERE "storeId"=${a.storeId}` : [],
   ]);
@@ -135,7 +143,7 @@ export async function beautyPortal(work = false, month = toLocalMonthStr()) {
   ]);
   return {
     ...catalog,
-    scopeKey:a.userId,
+    scopeKey:a.userId??`preview:${a.customerId??a.technicianId}`,
     readVersion:crypto.randomUUID(),
     incomeMonth:month,
     incomeConfirmed:false,
@@ -184,6 +192,7 @@ export async function beautyDashboard(
   calendar: "day" | "week" | "month" = "day",
   financialDates?:{startDate:string;endDate:string},
   includeTechnicianAssignments=false,
+  nativeCalendar=false,
 ) {
   const a = await beautyManager("booking.read"),
     u = await getCurrentUser();
@@ -246,7 +255,7 @@ export async function beautyDashboard(
     manage.technician &&
     feeAccess &&
     (await can("teacher.compensation.manage"));
-  const range=beautyScheduleRange(date,calendar),
+  const range=nativeCalendar?beautyNativeCalendarRange(date):beautyScheduleRange(date,calendar),
     financialRange = financialDates?{start:dayRange(financialDates.startDate).start,end:dayRange(financialDates.endDate).end}:monthRange(month);
   const reportAccess = await can("report.read");
   const analytics = reportAccess
@@ -293,13 +302,13 @@ export async function beautyDashboard(
       : [],
     customerAccess
       ? prisma.customer.findMany({
-          where: { storeId: a.storeId, mergedIntoCustomerId: null },
+          where: { ...(u?getManagerCustomerWhere(u.role,u.staffId,a.storeId):{id:"__IMPOSSIBLE__"}),storeId: a.storeId, mergedIntoCustomerId: null },
           select: {
             id: true,
             name: true,
             phone: true,
             userId: true,
-            notes: true,
+            notes: true,updatedAt:true,email:true,gender:true,address:true,serviceNote:true,emergencyContactName:true,emergencyContactPhone:true,
             lineName: true, lineUserId: true, customerStage: true, lineLinkStatus: true,
             lastVisitAt: true, birthday:true, createdAt: true, totalPoints: true, _count:{select:{sponsoredCustomers:true}},
             sponsor: {select:{id:true,name:true}}, assignedStaff:{select:{id:true,displayName:true,colorCode:true}},
@@ -360,11 +369,11 @@ export async function beautyDashboard(
     prisma.businessHours.findMany({where:{storeId:a.storeId}}),
     prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
     customerAccess&&customers.length?beautyPrisma.beautyAppointment.groupBy({by:["customerId"],where:{storeId:a.storeId,customerId:{in:customers.map(c=>c.id)},status:"COMPLETED",startsAt:{lte:new Date()}},_max:{startsAt:true}}):[],
-    beautyPrisma.$queryRaw<Array<{kind:"room"|"subject"|"plan";ids:string[];revision:number}>>`SELECT kind,ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind IN ('room','subject','plan')`,
+    beautyPrisma.$queryRaw<Array<{kind:"room"|"subject"|"plan"|"staff";ids:string[];revision:number}>>`SELECT kind,ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind IN ('room','subject','plan','staff')`,
   ]);
-  const calendarDates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
+  const calendarDates=Array.from({length:nativeCalendar?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
   const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
-  const displayOrders=Object.fromEntries(orderRows.filter(r=>r.kind!=="plan"||planAccess).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
+  const displayOrders=Object.fromEntries(orderRows.filter(r=>(r.kind!=="plan"||planAccess)&&(r.kind!=="staff"||staffAccess)).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
   const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
   const technicianAssignments=includeTechnicianAssignments&&staffAccess?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[];
   const assignmentStaff=customerAccess?await prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[];
@@ -378,6 +387,7 @@ export async function beautyDashboard(
       createdAt: p.createdAt.toISOString(),
     })),
     storeId:a.storeId,
+    customerHealthEnabled:customerAccess&&await beautyHealthEnabled(a.storeId),
     calendarDays,
     now: Date.now(),
     calendar,

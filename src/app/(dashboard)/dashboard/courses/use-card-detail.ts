@@ -4,8 +4,8 @@ import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import type { CourseCardView } from "./member-workspace";
 
-export function useCardDetail(open: boolean, cardId: string, opening: number) {
-  const reader = usePanelReader("course-card", browseCourseCards);
+export function useCardDetail(open: boolean, cardId: string, opening: number,load?:typeof browseCourseCards) {
+  const reader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ key: string; data?: CourseCardView; error?: string }>();
   const key = JSON.stringify([cardId, opening, revision]);

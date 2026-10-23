@@ -1,0 +1,15 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "native account creation returns confirmed person",
+    "1366 native account editor contained",
+    "1024 native account editor contained",
+    "768 native account editor contained",
+    "birthday persists through shared account core",
+    "emergency contact persists through shared account core",
+    "login email survives reopen",
+    "account editor does not create an unsupported service identity",
+    "no browser errors"
+  ],
+  "errors": []
+}

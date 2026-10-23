@@ -1,0 +1,18 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),tx:vi.fn(),find:vi.fn(),refund:vi.fn(),confirm:vi.fn(),settlement:vi.fn()}));
+vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.tx}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('@/server/beauty/commerce',()=>({refund:m.refund}));
+vi.mock('@/server/actions/beauty',()=>({confirmBeautyPurchase:m.confirm,confirmBeautySettlement:m.settlement}));
+import {refundBeautyNativeTransaction,confirmBeautyNativeTransaction,confirmBeautyNativeSettlement} from '@/server/actions/beauty-native-transactions';
+const a={storeId:'a',userId:'owner',manager:true},key='00000000-0000-4000-8000-000000000001';
+const input={purchaseId:'payment',expectedStoreId:'a',requestKey:key,amount:500,method:'OTHER',reason:'協商退款',expectedRemaining:5,expectedRefundedAmount:0};
+const tx={beautyPayment:{findFirst:m.find}};
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue(a);m.feature.mockResolvedValue(undefined);m.find.mockResolvedValue({cardId:'card'});m.tx.mockImplementation((_a,work)=>work(tx));m.refund.mockResolvedValue({});m.confirm.mockResolvedValue({success:true});m.settlement.mockResolvedValue({success:true});});
+it('delegates actual refund and both snapshots to the existing financial transaction',async()=>{expect(await refundBeautyNativeTransaction(input)).toMatchObject({success:true});expect(m.refund).toHaveBeenCalledWith(tx,a,{paymentId:'payment',requestKey:key,amount:500,method:'OTHER',reason:'協商退款'},{remaining:5,refundedAmount:0});expect(m.manager.mock.calls.map(c=>c[0])).toEqual(['transaction.refund','wallet.read']);});
+it('rejects a switched store before entering the transaction',async()=>{expect(await refundBeautyNativeTransaction({...input,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.tx).not.toHaveBeenCalled();expect(m.refund).not.toHaveBeenCalled();});
+it('cannot refund a foreign sale or a card without its read permission',async()=>{m.find.mockResolvedValueOnce(null);expect(await refundBeautyNativeTransaction(input)).toMatchObject({success:false});m.manager.mockImplementation(async permission=>{if(permission==='wallet.read')throw Error('denied');return a;});expect(await refundBeautyNativeTransaction(input)).toMatchObject({success:false});expect(m.refund).not.toHaveBeenCalled();});
+it('keeps transaction and feature checks on all native commands',async()=>{m.manager.mockRejectedValue(Error('denied'));expect(await refundBeautyNativeTransaction(input)).toMatchObject({success:false});expect(await confirmBeautyNativeTransaction(input)).toMatchObject({success:false});expect(await confirmBeautyNativeSettlement({expectedStoreId:'a',requestKey:key,month:'2026-10',fingerprint:'a'.repeat(64)})).toMatchObject({success:false});expect(m.refund).not.toHaveBeenCalled();expect(m.confirm).not.toHaveBeenCalled();expect(m.settlement).not.toHaveBeenCalled();});
+it('routes pending-order confirmation through the existing idempotent issuer',async()=>{await confirmBeautyNativeTransaction(input);expect(m.confirm).toHaveBeenCalledWith({id:'payment',requestKey:key});expect(await confirmBeautyNativeTransaction({...input,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.confirm).toHaveBeenCalledTimes(1);});
+it('preserves the fingerprint and stable request key for monthly confirmation',async()=>{const payload={expectedStoreId:'a',requestKey:key,month:'2026-10',fingerprint:'a'.repeat(64)};await confirmBeautyNativeSettlement(payload);expect(m.settlement).toHaveBeenCalledWith(payload);expect(m.manager).toHaveBeenCalledWith('teacher.settlement.confirm',true);});

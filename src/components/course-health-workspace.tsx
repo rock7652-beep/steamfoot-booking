@@ -10,11 +10,11 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import type { SaveCustomerHealthRecordState } from "@/server/actions/customer-health-record";
 
 type Data = Extract<Awaited<ReturnType<typeof loadCourseHealth>>, { success: true }>['data'];
-type Props = ({ member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean }) & { compact?:boolean; scope?:"beauty"; onDirtyChange?: (value: boolean) => void; onPending?: (value: boolean) => void };
+type Props = ({ member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean }) & { readOnly?:boolean;read?:()=>ReturnType<typeof loadCourseHealth>;compact?:boolean; scope?:"beauty"; onDirtyChange?: (value: boolean) => void; onPending?: (value: boolean) => void };
 
 /** Mature measurement form + assessment/history/trend, with explicit scoped adapters. */
 export function CourseHealthWorkspace(props: Props) {
-  const { member, customerId, onDirtyChange, onPending,scope } = props;
+  const { member, customerId, onDirtyChange, onPending,scope,read } = props;
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   function markDirty(value: boolean) { setDirty(value); onDirtyChange?.(value); }
@@ -22,13 +22,13 @@ export function CourseHealthWorkspace(props: Props) {
     if (saving || (dirty && !window.confirm("尚有未儲存的變更，確定離開？"))) return;
     markDirty(false); setEdit(undefined);
   }
-  const canEdit = member || props.canEdit;
+  const canEdit = !props.readOnly&&(member || props.canEdit);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [edit, setEdit] = useState<Data['records'][number] | null | undefined>();
   const [requestId, setRequestId] = useState("");
-  const load = useCallback(() => member ? (scope==="beauty"?loadBeautyMemberHealth():loadCourseMemberHealth()) : loadCourseHealth(customerId!), [member, customerId,scope]);
+  const load = useCallback(() => read?read():member ? (scope==="beauty"?loadBeautyMemberHealth():loadCourseMemberHealth()) : loadCourseHealth(customerId!,scope??"course"), [member, customerId,scope,read]);
   const refresh = useCallback(async () => {
     setError("");
     try {
@@ -53,10 +53,11 @@ export function CourseHealthWorkspace(props: Props) {
     void refresh();
   }, [refresh, onDirtyChange]);
   async function submit(_state: SaveCustomerHealthRecordState, form: FormData) {
+    if(!canEdit)return {error:"預覽不會儲存量測紀錄"};
     const values = { ...healthRecordFormData(form), id: edit?.id };
     setSaving(true); onPending?.(true);
     try {
-      const result = member ? await (scope==="beauty"?saveBeautyMemberHealth(values):saveCourseMemberHealth(values)) : await saveCourseHealth({ ...values, customerId });
+      const result = member ? await (scope==="beauty"?saveBeautyMemberHealth(values):saveCourseMemberHealth(values)) : await saveCourseHealth({ ...values, customerId },scope??"course");
       return result.success ? { error: null, saved: true } : { error: result.error };
     } catch { return { error: "連線中斷，已填資料仍保留，請重試" }; }
     finally { setSaving(false); onPending?.(false); }

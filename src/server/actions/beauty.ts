@@ -1,9 +1,10 @@
 "use server";
+import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
+import {persistBeautyCatalog} from '@/server/beauty/catalog';
 import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
-import { memberPartyInput, cardAllowsRecipient } from "@/lib/beauty/member-booking";
-import type { BookingPartyInput } from "@/server/beauty/booking";
+import { cardAllowsRecipient } from "@/lib/beauty/member-booking";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -13,10 +14,7 @@ import { requirePermission,checkPermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature,hasStoreFeature } from "@/lib/feature-gate";
 import {updateCustomerSchema} from "@/lib/validators/customer";
-import { toLocalDateStr } from "@/lib/date-utils";
 import {
-  serviceInput,
-  technicianInput,
   planInput,
   settingsInput,
   partyInput,
@@ -83,113 +81,7 @@ export async function saveBeautyCatalog(
       await requirePermission("teacher.compensation.manage");
     }
     return beautyTransaction(a, async (tx) => {
-      let record:unknown;
-      if (kind === "service") {
-        const { id, revision, ...d } = serviceInput.parse(input);
-        if (id) {
-          const prior = await tx.beautyService.findFirst({
-            where: { storeId: a.storeId, id, revision },
-          });
-          if (!prior) throw new AppError("CONFLICT", "服務已更新，請重新開啟");
-          if (
-            !d.active &&
-            (await tx.beautyAppointment.count({
-              where: { storeId: a.storeId, serviceId: id, status: "RESERVED" },
-            }))
-          )
-            throw new AppError("CONFLICT", "請先處理未來預約再下架");
-          record = await tx.beautyService.update({
-            where: { id },
-            data: { ...d, revision: { increment: 1 } },
-          });
-        } else
-          record = await tx.beautyService.create({ data: { ...d, storeId: a.storeId } });
-      } else if (kind === "plan") {
-        const { id, revision, ...d } = planInput.parse(input);
-        if (
-          (await tx.beautyService.count({
-            where: { storeId: a.storeId, id: { in: d.serviceIds } },
-          })) !== new Set(d.serviceIds).size
-        )
-          throw new AppError("FORBIDDEN", "方案包含非本店服務");
-        if (id) {
-          if (
-            !(await tx.beautyPlan.findFirst({
-              where: { storeId: a.storeId, id, revision },
-            }))
-          )
-            throw new AppError("CONFLICT", "方案已更新");
-          record = await tx.beautyPlan.update({
-            where: { id },
-            data: { ...d, revision: { increment: 1 } },
-          });
-        } else
-          record = await tx.beautyPlan.create({ data: { ...d, storeId: a.storeId } });
-      } else {
-        const { id, revision, ...d } = technicianInput.parse(input);
-        if (
-          (await tx.beautyService.count({
-            where: { storeId: a.storeId, id: { in: d.serviceIds } },
-          })) !== new Set(d.serviceIds).size
-        )
-          throw new AppError("FORBIDDEN", "包含非本店服務");
-        if (d.serviceIds.some((id) => !d.rates[id]))
-          throw new AppError(
-            "VALIDATION",
-            "每項可服務項目須設定計酬，無報酬可填固定0元",
-          );
-        if (
-          d.userId &&
-          !(await tx.$queryRaw<
-            Array<{ id: string }>
-          >`SELECT c.id FROM "Customer" c WHERE c."storeId"=${a.storeId} AND c."userId"=${d.userId} AND c."mergedIntoCustomerId" IS NULL`.then(
-            (r) => r.length,
-          ))
-        )
-          throw new AppError("FORBIDDEN", "請選擇本店已連結會員帳號");
-        if (id) {
-          if (
-            !(await tx.beautyTechnician.findFirst({
-              where: { storeId: a.storeId, id, revision },
-            }))
-          )
-            throw new AppError("CONFLICT", "技師設定已更新");
-          const future = await tx.beautyAppointment.findMany({
-            where: {
-              storeId: a.storeId,
-              technicianId: id,
-              status: "RESERVED",
-              occupiedEndsAt: { gt: new Date() },
-            },
-          });
-          const { availableTechnician } =
-            await import("@/lib/beauty/allocation");
-          if (
-            future.some(
-              (b) =>
-                !d.active ||
-                !d.serviceIds.includes(b.serviceId) ||
-                (b.preference !== "ANY" && b.preference !== d.gender) ||
-                !availableTechnician(
-                  { ...d, id },
-                  toLocalDateStr(b.startsAt),
-                  +b.startsAt,
-                  +b.occupiedEndsAt,
-                ),
-            )
-          )
-            throw new AppError("CONFLICT", "設定影響既有預約，請先處理班表");
-          record=await tx.beautyTechnician.update({
-            where: { id },
-            data: { ...d, revision: { increment: 1 } },
-          });
-        } else
-          record=await tx.beautyTechnician.create({
-            data: { ...d, storeId: a.storeId },
-          });
-      }
-      await audit(tx, a, "CATALOG", JSON.stringify({ kind, input }));
-      return { saved: true, record };
+      return persistBeautyCatalog(tx,a,kind,input);
     });
   });
 }
@@ -262,20 +154,13 @@ async function bookingActor(mode: "manager" | "member" | "work", write = true) {
       ? beautyWorker(write)
       : beautyMember(write);
 }
-async function bookingInput(mode:"manager"|"member",input:unknown,a:BeautyActor):Promise<BookingPartyInput>{
-  if(mode==='manager')return partyInput.parse(input);
-  const d=memberPartyInput.parse(input);
-  const person=await prisma.customer.findFirst({where:{storeId:a.storeId,id:a.customerId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}});
-  if(!person||!person.phone)throw new AppError('FORBIDDEN','請重新登入或聯絡店家核對會員資料');
-  return {...d,contactName:person.name,phone:person.phone,isTrial:false,people:d.people.map((p,i)=>({...p,preference:'ANY',customerId:i===0?person.id:null,name:i===0?person.name:`同行者 ${i}`,phone:i===0?person.phone:'',pendingIdentity:i>0}))};
-}
 export async function bookBeautyParty(
   mode: "manager" | "member",
   input: unknown,
 ) {
   return result(async () => {
     const a = await bookingActor(mode),
-      d = await bookingInput(mode,input,a);
+      d = await resolveBeautyBookingInput(mode,input,a);
     if (d.people.some((p) => p.cardId))
       await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     const booked=await beautyTransaction(a, (tx) => reserveParty(tx, a, d));
@@ -368,31 +253,7 @@ export async function readBeautySlots(
       await requireBeauty(s.id);
       a = { storeId: s.id, userId: null };
     } else a = await bookingActor(mode, false);
-    const d=mode==='public'?partyInput.parse(input):await bookingInput(mode,input,a);
-    const loaded = await loadAvailability(
-      beautyPrisma as unknown as Prisma.TransactionClient,
-      a,
-      d.date,
-    );
-    const slots: string[] = [];
-    // Public catalog reveals availability only, never names of other customers.
-    for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
-      if(mode==='member'&&!/:(00|30)$/.test(time))continue;
-      try {
-        await findAllocation(
-          beautyPrisma as unknown as Prisma.TransactionClient,
-          a,
-          { ...d, time },
-          [],
-          undefined,
-          loaded,
-        );
-        slots.push(time);
-      } catch (e) {
-        if (!(e instanceof AppError)) throw e;
-      }
-    }
-    return { slots };
+    return beautySlotsForActor(mode,input,a);
   });
 }
 export async function changeBeautyStatus(

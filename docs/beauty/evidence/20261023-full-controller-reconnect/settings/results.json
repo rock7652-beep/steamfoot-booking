@@ -1,0 +1,16 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "unsupported course duty is not shown as a Beauty control",
+    "original settings body renders cutoff rules",
+    "hours controls stay in Beauty settings",
+    "1366 settings has no page overflow",
+    "1024 settings has no page overflow",
+    "768 settings has no page overflow",
+    "LINE setting stays off",
+    "notification links do not escape to Course controllers",
+    "settings subpage uses original modal panel",
+    "no browser errors"
+  ],
+  "errors": []
+}

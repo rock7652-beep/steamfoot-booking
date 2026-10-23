@@ -8,12 +8,12 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({ native=false, compact=false, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
-  native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
+export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", native=false, compact=false, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+  load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;
 }) {
-  const browseReader = usePanelReader("course-card-browse", browseCourseCards, String(revision));
-  const detailReader = usePanelReader("course-card", browseCourseCards);
+  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??browseCourseCards, String(revision));
+  const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
   const key=JSON.stringify([customerId,state,revision,retry]);
@@ -37,15 +37,15 @@ export function CourseCardBrowser({ native=false, compact=false, customerId, sta
       <div className="divide-y divide-earth-100 bg-white">
 
         {visible?.rows.map(c=>{
-          const unit=c.unit==="SESSION"?"堂":"點";
+          const unit=c.unit==="SESSION"?sessionUnitLabel:"點";
           const inactive=c.closed||c.expired;
           const status=c.closed?"已停用":c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
           return <div key={c.id} className="px-3 py-2 text-sm">
             <button type="button" onPointerEnter={()=>detailReader.prefetch({cardId:c.id})} onFocus={()=>detailReader.prefetch({cardId:c.id})} onTouchStart={()=>detailReader.prefetch({cardId:c.id})} onClick={()=>onSelect(c)} className={native?"flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 text-left":"grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-left"}>
-              <span className="min-w-0 flex-1 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`還可預約 ${c.available} 堂`:`可用 ${c.available} 點`}</span>
+              <span className="min-w-0 flex-1 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`還可預約 ${c.available} ${sessionUnitLabel}`:`可用 ${c.available} 點`}</span>
               {(!native||c.members.length>1)&&<span className="min-w-0 break-words text-xs text-earth-500">{c.members.length>1?`共同餘額 · 共卡人：${c.members.map(m=>m.name).join("、")}`:`持有人：${c.members[0]?.name??"未設定"}`}</span>}<span className="text-xs text-earth-500">{c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}</span>
             </button>
-            {(!native||c.held>0||!!status)&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:<span>已預約 {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}
+            {(!native||c.held>0||!!status)&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations load={reservations} sessionUnitLabel={sessionUnitLabel} cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:<span>已預約 {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}
           </div>;
         })}
 

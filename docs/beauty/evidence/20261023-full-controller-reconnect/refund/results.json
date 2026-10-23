@@ -1,0 +1,10 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original transaction form commits the service refund",
+    "refund history survives reopen",
+    "remaining service quota is reclaimed once",
+    "no browser errors"
+  ],
+  "errors": []
+}

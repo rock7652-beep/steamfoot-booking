@@ -1,4 +1,5 @@
 "use client";
+import {serviceScheduleTotals} from "@/lib/service-schedule-counts";
 import {courseWeekStart as weekStart} from '@/lib/course-calendar';
 import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {sportsCalendarPresentation} from "@/lib/sports-calendar-presentation";
@@ -15,6 +16,7 @@ import {
   addTaiwanDuration,
   formatTWDateTime,
   parseLocalDate,
+  parseTaipeiDateTime,
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
@@ -35,6 +37,7 @@ type Booking = {
 };
 
 type Session = {
+  occupiedStartsAt?:string;occupiedEndsAt?:string;
   service?: {groupId?:string;personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
   id: string;
   templateId: string;
@@ -564,7 +567,7 @@ export function CourseScheduleBoard({
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':'選擇週表技師'):resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
-          <span className="text-sm font-medium">{serviceMode?`本週 ${new Set(weekSessions.map(s=>s.service?.groupId??s.id)).size} 筆預約・${weekSessions.length} 人次`:<>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
+          <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:<>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
@@ -574,7 +577,7 @@ export function CourseScheduleBoard({
               const daySessions=scheduleOnDate(weekSessions,date),total = scheduleTotals(daySessions);
               return <button data-schedule-sticky-header key={date} type="button" onClick={() => onSelectDate(date)} className={`${styles.touchControl} sticky top-0 z-20 border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
                 <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}{date === today && <span className="ml-1 text-[10px] font-normal">今天</span>}</strong>
-                {serviceMode?daySessions.length>0&&<span className="block text-xs tabular-nums">{new Set(daySessions.map(s=>s.service?.groupId??s.id)).size}筆・{daySessions.length}人次</span>:businessProfile === "MUSIC" ? (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span> : (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span className="block whitespace-nowrap text-[11px] tabular-nums">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
+                {serviceMode?daySessions.length>0&&<span className="block text-xs tabular-nums">{serviceScheduleTotals(daySessions).groups}筆・{serviceScheduleTotals(daySessions).people}人次</span>:businessProfile === "MUSIC" ? (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span> : (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span className="block whitespace-nowrap text-[11px] tabular-nums">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
@@ -592,7 +595,8 @@ export function CourseScheduleBoard({
                     const time = `${String(hour).padStart(2,"0")}:${minute}`;
                     const day = calendarDays?.[date];
                     const periods = normalizeAvailabilityPeriods(day ? day.periods : storePeriods);
-                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && matchesResource(session) && sessionDate(session) === date && minuteOfDay(time) < minuteOfDay(hhmm(session.endsAt)) && minuteOfDay(time) + 30 > minuteOfDay(hhmm(session.startsAt)));
+                    const slotStart=parseTaipeiDateTime(date,time)!;
+                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && matchesResource(session) && +slotStart < +new Date(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt) && +slotStart+30*60000 > +new Date(session.occupiedStartsAt??session.startsAt));
                     const exception = staffAvailabilityExceptions.find(item=>item.staffId===roomId && item.date===date);
                     const availability = staffAvailability.filter(item=>item.staffId===roomId);
                     const coachSegments = exception?.type === "UNAVAILABLE" ? [] : exception?.type === "CUSTOM" ? normalizeAvailabilityPeriods(exception.segments) : availability.length ? normalizeAvailabilityPeriods(availability.find(item=>item.dayOfWeek===parseLocalDate(date).getDay())?.segments) : periods;
@@ -643,7 +647,7 @@ export function CourseScheduleBoard({
                     onClick={() => onSelectDate(date)}
                   >
                     <span className="block text-xs">{date === today ? "今天 · " : ""}{shortDate(date)}</span>
-                    <strong className="text-sm">{serviceMode?`${new Set(list.map(s=>s.service?.groupId??s.id)).size} 筆預約・${list.length} 人次`:businessProfile === "MUSIC" ? `${scheduleTotals(list).classes} 堂｜${scheduleTotals(list).people} 人次` : `${list.length} 堂`}</strong>
+                    <strong className="text-sm">{serviceMode?`${serviceScheduleTotals(list).groups} 筆預約・${serviceScheduleTotals(list).people} 人次`:businessProfile === "MUSIC" ? `${scheduleTotals(list).classes} 堂｜${scheduleTotals(list).people} 人次` : `${list.length} 堂`}</strong>
                   </button>
                   <div className="space-y-2 p-2">
                     {list.length ? (
@@ -675,9 +679,6 @@ export function CourseScheduleBoard({
     );
   }
 
-  const daySessions = (occupiedSessions ?? sessions)
-    .filter((session) => sessionDate(session) === selectedDate)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const dayTotals = scheduleTotals(scheduleOnDate(sessions, selectedDate));
   const filtered = sessions.filter(session => sessionDate(session) === selectedDate && filterSession(session, quickFilter));
   const resources =
@@ -705,23 +706,21 @@ export function CourseScheduleBoard({
     ? normalizedStorePeriods
     : coachPeriods(resourceId);
   const slotConflict=(resourceId:string,startTime:string,durationMinutes:number=availabilityDuration)=>{
-    const start=minuteOfDay(startTime),end=start+durationMinutes;
-    return daySessions.some(session=>{
+    return (occupiedSessions??sessions).some(session=>{
       if(session.previewFaded) return false;
       const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
       if(!same) return false;
-      const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
-      return start<sessionEnd&&end>sessionStart;
+      const slotStart=parseTaipeiDateTime(selectedDate,startTime)!;
+      return +slotStart<+new Date(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt)&&+slotStart+durationMinutes*60000>+new Date(session.occupiedStartsAt??session.startsAt);
     });
   };
   const pairConflict=(roomId:string,coachId:string,startTime:string,durationMinutes:number)=>{
-    const start=minuteOfDay(startTime),end=start+durationMinutes;
-    return daySessions.some(session=>{
+    return (occupiedSessions??sessions).some(session=>{
       if(session.previewFaded) return false;
       if(session.id===moveClipboard?.sessionId) return false;
       if(session.roomId!==roomId&&session.coachId!==coachId) return false;
-      const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
-      return start<sessionEnd&&end>sessionStart;
+      const slotStart=parseTaipeiDateTime(selectedDate,startTime)!;
+      return +slotStart<+new Date(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt)&&+slotStart+durationMinutes*60000>+new Date(session.occupiedStartsAt??session.startsAt);
     });
   };
   const matchedPair = (roomId:string,time:string) => matchedSlots?.find(s => s.roomId === roomId && s.time === time);
@@ -747,7 +746,7 @@ export function CourseScheduleBoard({
     0,
   );
 
-  const filters: Array<{ id: QuickFilter; label: string; value: number }> = serviceMode?[{id:"all",label:"今日安排",value:visibleDaySessions.length},{id:"trial",label:"體驗",value:trials},{id:"pending",label:"待服務",value:visibleDaySessions.filter(s=>s.service?.status==="RESERVED").length}]:[
+  const filters: Array<{ id: QuickFilter; label: string; value: number }> = serviceMode?[{id:"all",label:"今日安排",value:serviceScheduleTotals(visibleDaySessions).groups},{id:"trial",label:"體驗",value:trials},{id:"pending",label:"待服務",value:visibleDaySessions.filter(s=>s.service?.status==="RESERVED").length}]:[
     { id: "all", label: "今日安排", value: visibleDaySessions.length },
     { id: "trial", label: "體驗客", value: trials },
     { id: "near-full", label: "快滿", value: nearFull },

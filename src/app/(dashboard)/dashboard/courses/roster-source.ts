@@ -1,0 +1,18 @@
+import type {ReactNode} from 'react';
+import type {getCourseRoster} from '@/server/queries/course-members';
+import type {loadCourseSessionDetail,saveCourseRosterNote,updateCourseRosterBatch} from '@/server/actions/course-members';
+import type {CourseRosterDisplayRow} from './roster-list';
+export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string;occupiedEndsAt:string;serviceName:string;technicianName:string;locationName:string;price:number;debit:boolean;available:number|null};
+export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
+type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
+export type CourseRosterSource={
+ read:(id:string)=>Promise<{success:true;data:Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null}}|{success:false;error:string}>;
+ note:typeof saveCourseRosterNote;
+ batch?:typeof updateCourseRosterBatch;
+ onOpen?:(row:NativeRosterBooking)=>void;
+ actions:(row:NativeRosterBooking)=>{label:string;onSelect:()=>void;danger?:boolean}[];
+ batchAction?:{label:string;selectable:(row:NativeRosterBooking)=>boolean;onSubmit:(rows:NativeRosterBooking[])=>void};
+ detailActions?:(row:NativeRosterBooking)=>ReactNode;
+ labels:{list:string;pending:string;attended:string;unit:string};
+ row?:(row:NativeRosterBooking)=>Partial<CourseRosterDisplayRow>;
+};

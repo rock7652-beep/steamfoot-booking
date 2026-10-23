@@ -1,0 +1,17 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "Beauty member preview renders the actual Beauty portal",
+    "preview profile fields are disabled",
+    "preview profile cannot save",
+    "preview card ledger uses an authorized GET reader",
+    "member preview makes no POST or mutation requests",
+    "work selector reads actual Beauty technicians",
+    "backend accounts are not substituted for technicians",
+    "work history reads the selected technician through GET",
+    "work preview makes no POST or mutation requests",
+    "no browser errors"
+  ],
+  "errors": [],
+  "writes": []
+}
