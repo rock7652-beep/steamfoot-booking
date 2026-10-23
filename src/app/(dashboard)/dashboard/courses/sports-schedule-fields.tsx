@@ -1,4 +1,5 @@
 "use client";
+import {ServiceReservationForm,type ServiceReservationSource} from "@/components/admin/service-reservation-form";
 import {useEffect,useRef,useState,useTransition} from "react";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import {CourseOptionSelect} from "@/components/admin/course-option-select";
@@ -9,11 +10,12 @@ import {DashboardLink} from "@/components/dashboard-link";
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 /** Data/action ports only. The complete original scheduling form is shared. */
 export type SportsScheduleSource = {
+ reservation?:ServiceReservationSource;
  command: typeof sportsStagingCommand;
  createCustomer: typeof createRentalCustomer;
  catalogHref: string;
 };
-export function SportsScheduleFields({source,initial,date,seed={},requestKey,onGuard,onCreated,onCustomerAdded,waitlistEnabled=false,waitlistDefaultLimit=5,waitlistDefaultStopMinutes=240}:{source?:SportsScheduleSource;initial:SportsSnapshot;date:string;seed?:{single?:boolean;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onCustomerAdded?:(customer:SportsSnapshot["customers"][number])=>void;waitlistEnabled?:boolean;waitlistDefaultLimit?:number;waitlistDefaultStopMinutes?:number}){
+function SportsLessonFields({source,initial,date,seed={},requestKey,onGuard,onCreated,onCustomerAdded,waitlistEnabled=false,waitlistDefaultLimit=5,waitlistDefaultStopMinutes=240}:{source?:SportsScheduleSource;initial:SportsSnapshot;date:string;seed?:{single?:boolean;time?:string;roomId?:string;customerId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onCustomerAdded?:(customer:SportsSnapshot["customers"][number])=>void;waitlistEnabled?:boolean;waitlistDefaultLimit?:number;waitlistDefaultStopMinutes?:number}){
  const live=initial,ready=true;
  const [query,setQuery]=useState(""),[customers,setCustomers]=useState(initial.customers),[rentalMode,setRentalMode]=useState("existing"),[rentalCustomerId,setRentalCustomerId]=useState(""),[customerNotice,setCustomerNotice]=useState(""),[newRentalName,setNewRentalName]=useState(""),[newRentalPhone,setNewRentalPhone]=useState("");const [error,setError]=useState("");
  const [kind,setKind]=useState(seed.single?"單次":"每週固定"),[enrollment,setEnrollment]=useState("指定學員");
@@ -54,4 +56,10 @@ export function SportsScheduleFields({source,initial,date,seed={},requestKey,onG
  {error&&<p role="alert" className="col-span-full text-red-700">{error}</p>}
  <div className="sticky bottom-0 flex justify-end border-t border-earth-100 bg-white py-3 col-span-full"><button className="min-h-11 rounded-lg bg-primary-700 px-6 text-white disabled:opacity-50" disabled={!ready||pending||(rental&&(!rentalCustomerId||rentalMode!=="existing"))||(!rental&&(!templateId||!coach||enrollment==="指定學員"&&!students.length))}>{pending?"新增中…":"新增"}</button></div>
  </form>;
+}
+
+
+export function SportsScheduleFields(props:Parameters<typeof SportsLessonFields>[0]){
+ if(props.source?.reservation)return <ServiceReservationForm source={props.source.reservation} date={props.date} seed={props.seed} onGuard={props.onGuard} onCreated={props.onCreated}/>;
+ return <SportsLessonFields {...props}/>;
 }

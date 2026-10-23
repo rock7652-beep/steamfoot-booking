@@ -1,0 +1,9 @@
+{
+  "syntheticOnly": true,
+  "queryRetained": true,
+  "explicitCustomerCreate": true,
+  "selectedReturnedCustomer": true,
+  "singlePaymentDue": 1000,
+  "reservationSubmitted": false,
+  "errors": []
+}
