@@ -18,7 +18,7 @@ import {BeautyHome} from './home';
 import {BeautyScheduleWorkspace} from './schedule-workspace';
 import {BeautyManagementList} from './management-list';
 
-import { useState, useTransition, useRef,useCallback,type ReactNode } from "react";
+import { useState, useTransition, useRef,useCallback,useEffect,type ReactNode } from "react";
 import { useRouter,useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { BeautyCustomerPanel } from "./customer-panel";
@@ -96,6 +96,7 @@ export function BeautyDashboard({
   function closeBooking(){if(bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定離開？"))return;setBooking(false);setBookingState({dirty:false,pending:false});}
   function closeMoney(){if(pending||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
+    setError("");
     setMoneyDirty(false);
     setPurchasePlanId("");setPurchaseCustomerId(v?.kind==='card'?v.ids[0]??"":"");
     moneyRequest.current = crypto.randomUUID();
@@ -112,8 +113,14 @@ export function BeautyDashboard({
   const financialDates=courseAnalysisRange(tab==='營運'?Object.fromEntries(params):{month:data.month});
   const [bookingSeed,setBookingSeed]=useState<{date?:string;time?:string;technicianId?:string;locationId?:string}>({});
   const [selectedId,setSelectedId]=useState<string|null>(initialAppointmentId&&data.items.some(row=>row.id===initialAppointmentId)?initialAppointmentId:null);
+  const requestedBookingId=params.get('bookingId'),previousBookingId=useRef(requestedBookingId);
+  useEffect(()=>{if(previousBookingId.current!==requestedBookingId){previousBookingId.current=requestedBookingId;setSelectedId(requestedBookingId);}},[requestedBookingId]);
+  function closeRoster(keepList=false){
+    if(pending)return;setListOpen(keepList);setSelectedId(null);setChecked([]);
+    const query=new URLSearchParams(window.location.search);if(query.has('bookingId')){query.delete('bookingId');window.history.replaceState(null,'',`${window.location.pathname}?${query}`);}
+  }
   const navigate=(tab:string)=>router.push(`?tab=${encodeURIComponent(tab)}`,{scroll:false});
-  function run(work: () => Promise<{ success: boolean; error?: string }>) {
+  function run(work: () => Promise<{ success: boolean; error?: string }>,afterSaved?:()=>void) {
     if (pending) return;
     start(async () => {
       setError("");
@@ -122,7 +129,7 @@ export function BeautyDashboard({
         if (r.success) {
           setMoneyPanel(null);
           setCustomerPanel(false);
-          router.refresh();
+          if(afterSaved)afterSaved();else router.refresh();
         } else setError(r.error ?? "操作失敗");
       } catch {
         setError("連線失敗，請核對後重試");
@@ -161,7 +168,7 @@ export function BeautyDashboard({
     )[tab] ?? false;
   return (
     <div className="course-workspace min-w-0 space-y-3">
-      {error && (
+      {error && !moneyPanel && !statusDraft && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">
           {error}
         </p>
@@ -170,8 +177,8 @@ export function BeautyDashboard({
       {tab==='首頁'&&<BeautyHome data={data} readOnly={readOnly} onBook={()=>setBooking(true)} onNavigate={navigate}/>}
       {tab==='班表'&&!readOnly&&data.access.writeAccess&&data.access.customerAccess&&data.locations.some(r=>r.isActive&&r.rentalEnabled)&&<div className="flex justify-end"><button type="button" className={button} disabled={pending||calendarPending} onClick={()=>setRental({})}>新增租借</button></div>}
       {tab==='班表'&&<><BeautyScheduleWorkspace data={data} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onCreate={seed=>{setBookingSeed(seed??{date:data.date});setBooking(true);}} pending={pending||calendarPending} onChange={changeCalendar} readOnly={readOnly} actions={<button className={button} disabled={calendarPending} onClick={()=>setListOpen(true)}>預約清單</button>}/>{calendarPending&&<p role="status" className="text-sm text-earth-500">更新班表中…</p>}</>}
-      {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&!detailId&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>{if(!pending){setListOpen(false);setSelectedId(null);setChecked([]);}}}>
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>setSelectedId(null)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>{setListOpen(false);setSelectedId(null);setChecked([]);}}>關閉</button></header>
+      {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&!detailId&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending} onClose={()=>closeRoster()}>
+      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>closeRoster()}>關閉</button></header>
       <section className="flex min-h-0 flex-col gap-2 p-4" aria-label="預約清單">
         {!selectedId&&<input className={field} aria-label="搜尋預約" placeholder="搜尋顧客或服務" value={search} onChange={e=>setSearch(e.target.value)}/>}
         <RosterToolbar label="預約名單操作">{!readOnly&&data.manage.collect&&checked.length>0&&<button className={button} disabled={pending} onClick={()=>setMoneyPanel({kind:'collect',ids:checked})}>選取服務合併收款（{checked.length}位）</button>}</RosterToolbar>
@@ -442,6 +449,7 @@ export function BeautyDashboard({
                     locationId: f.get("locationId") || null,
                     reason: note,
                   }),
+                  ()=>{setSelectedId(null);setListOpen(false);const query=new URLSearchParams(params.toString());query.set('tab','班表');query.set('date',String(f.get('date')));query.set('bookingId',b.id);router.push(`?${query}`);},
                 );
               }
             }}

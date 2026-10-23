@@ -15,6 +15,7 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+const BeautyStoreNoticeBell=dynamic(()=>import("./admin/beauty-store-notice-bell").then(m=>m.BeautyStoreNoticeBell),{ssr:false});
 import { usePathname, useSearchParams } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
@@ -1299,6 +1300,7 @@ export default function DashboardShell({
           <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
             {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
             {!isHqPlatformView && industryModule==="steamfoot" && courseNoticeStoreId && permissions.includes("booking.read") && <SteamfootStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
+            {!isHqPlatformView && industryModule==="beauty" && noticeInitiallyEnabled && courseNoticeStoreId && permissions.includes("booking.read") && <BeautyStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */

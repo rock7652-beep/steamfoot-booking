@@ -1,0 +1,48 @@
+{
+  "results": [
+    {
+      "operation": "shared-customer-profile-save-reopen",
+      "passed": true
+    },
+    {
+      "operation": "plan-purchase-card-and-initial-ledger",
+      "passed": true,
+      "cardId": "cmvkgxkrp0001mz8e1ex2pgiq",
+      "remaining": 5,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        }
+      ]
+    },
+    {
+      "operation": "real-reschedule-writes-shared-notice",
+      "passed": true,
+      "bookingId": "cmvkfdkys000imzf8zw5k88ke"
+    },
+    {
+      "operation": "real-reschedule-follows-new-date-and-shared-notice",
+      "passed": true,
+      "bookingId": "cmvkfdkys000imzf8zw5k88ke"
+    },
+    {
+      "operation": "shared-bell-pending-to-handled",
+      "passed": true
+    },
+    {
+      "operation": "shared-bell-restore-and-current-booking-target",
+      "passed": true
+    },
+    {
+      "operation": "single-service-payment",
+      "passed": true,
+      "amount": 1000
+    },
+    {
+      "operation": "backend-notice-switch-persists-independent-of-LINE",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

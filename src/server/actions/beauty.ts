@@ -1,4 +1,5 @@
 "use server";
+import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
 import { memberPartyInput, cardAllowsRecipient } from "@/lib/beauty/member-booking";
@@ -499,6 +500,7 @@ export async function moveBeautyAppointment(
             revision: { increment: 1 },
           },
         });
+        await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,{...b,technicianId:next.technicianId,startsAt:allocation.startsAt},"MOVE",{startsAt:b.startsAt,technicianId:b.technicianId});
         await tx.beautyEvent.updateMany({
           where: {
             storeId: a.storeId,

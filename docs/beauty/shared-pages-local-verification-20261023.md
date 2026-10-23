@@ -1,5 +1,7 @@
 # 美業共用頁面接回：本機驗證（2026-10-23）
 
+> 後續補驗：本頁保留前批結果；當時列出的後台通知缺口已由 [通知與交易完整對照](backend-notices-and-transactions-verification-20261023.md) 補齊。遠端部署狀態仍未改變。
+
 本輪在 `preview/beauty-ui-alignment-20261021` 接續已合併的主線 `7cb8c261`。未推送、未部署；對外測試站仍為原版。LINE 全域維持關閉。既有測試庫、正式庫、真實帳號與資料均未更動。
 
 驗證另建 `steamfoot-beauty-shared-pages-20261023` PostgreSQL 容器及 `beauty_shared_pages_qa` 合成庫，限定 loopback。僅此新庫安裝 schema／候選 SQL 並建立合成帳號、預約、租借、方案及設定。這是本機真實登入及交易驗證，並非 hosted、獨立雙角色、實體手機／平板或店家簽收。

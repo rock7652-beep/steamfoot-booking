@@ -1,0 +1,43 @@
+{
+  "results": [
+    {
+      "operation": "real-low-privilege-notice-redaction-and-disabled-handling",
+      "passed": true
+    },
+    {
+      "operation": "low-privilege-direct-mark-rejected",
+      "passed": true
+    },
+    {
+      "operation": "cross-store-direct-mark-rejected",
+      "passed": true
+    },
+    {
+      "operation": "stale-direct-mark-rejected",
+      "passed": true
+    },
+    {
+      "operation": "low-privilege-target-read-rejected",
+      "passed": true
+    },
+    {
+      "operation": "notice-layout-and-repeated-current-target",
+      "width": 1366,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "operation": "notice-layout-and-repeated-current-target",
+      "width": 1024,
+      "height": 768,
+      "passed": true
+    },
+    {
+      "operation": "notice-layout-and-repeated-current-target",
+      "width": 768,
+      "height": 1024,
+      "passed": true
+    }
+  ],
+  "errors": []
+}

@@ -12,6 +12,7 @@ datasource db {
 // Additive independent module. Shared identities and CourseRoom spaces are
 // referenced by store-scoped SQL FKs in the reviewed candidate, never copied.
 model BeautySetting {
+  backendNoticesEnabled Boolean @default(true)
   bookableUntilDate String?
   storeId           String  @id
   revision          Int     @default(0)

@@ -14,6 +14,7 @@ import type { Prisma } from "../../../generated/beauty-client";
 export type BeautyActor = {
   storeId: string;
   userId: string | null;
+  name?:string;
   customerId?: string;
   technicianId?: string;
   grants?: string[];
@@ -64,7 +65,7 @@ export async function beautyManager(
     }))
   )
     throw new AppError("FORBIDDEN", "本店工作權限已停用");
-  return { storeId, userId: user.id, manager: true };
+  return { storeId, userId: user.id, name:user.name, manager: true };
 }
 export async function beautyMember(write = false): Promise<BeautyActor> {
   const [user,ctx]=await Promise.all([requireSession(),getStoreContext()]);

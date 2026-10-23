@@ -155,7 +155,7 @@ async function readDashboardLayout({
     try {
       return industryModule==="course"
         ? (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false
-        : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
+        : industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1" ? (await (await import("@/lib/beauty-db")).beautyPrisma.beautySetting.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
     } catch { /* The authenticated background summary retries without blocking the dashboard. */ }
   }
   return false;

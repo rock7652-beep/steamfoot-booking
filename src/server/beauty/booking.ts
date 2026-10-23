@@ -1,4 +1,5 @@
 import "server-only";
+import {recordBeautyStoreNotice} from "./store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import { cardAllowsRecipient,halfHourRule } from "@/lib/beauty/member-booking";
 import { AppError } from "@/lib/errors";
@@ -54,6 +55,7 @@ export async function settings(tx: Tx, storeId: string) {
       storeId,
       revision: 0,
       notifications: false,
+      backendNoticesEnabled:true,
       selfBooking: true,
       selfCancel: true,
       selfReschedule: true,
@@ -390,6 +392,7 @@ export async function reserveParty(
         },
       });
       ids.push(item.id);
+      await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,item,"BOOKING");
       if (p.cardId)
         await tx.beautyLedger.create({
           data: {
@@ -588,6 +591,7 @@ export async function transition(
     where: { id: b.id },
     data: { status: input.target, debit, fee, revision: { increment: 1 } },
   });
+  await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,b,({COMPLETED:"COMPLETE",CANCELLED:"CANCEL",NO_SHOW:"NO_SHOW",RESERVED:"RESTORE"} as const)[input.target as "COMPLETED"|"CANCELLED"|"NO_SHOW"|"RESERVED"]);
   await audit(
     tx,
     a,

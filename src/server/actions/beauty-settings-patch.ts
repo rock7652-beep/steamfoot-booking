@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {beautyManager,beautyTransaction,audit} from '@/server/beauty/access';
 import {settings} from '@/server/beauty/booking';
 import {AppError,handleActionError} from '@/lib/errors';
-const input=z.object({storeId:z.string().min(1),key:z.enum(['selfBooking','selfCancel','selfReschedule','cancelDeduct','noShowDeduct','notifications']),enabled:z.boolean(),previous:z.boolean()}).strict();
+const input=z.object({storeId:z.string().min(1),key:z.enum(['selfBooking','selfCancel','selfReschedule','cancelDeduct','noShowDeduct','notifications','backendNoticesEnabled']),enabled:z.boolean(),previous:z.boolean()}).strict();
 export async function saveBeautyOperationSwitch(raw:unknown){
  try{const d=input.parse(raw),a=await beautyManager('business_hours.manage',true);if(a.storeId!==d.storeId)throw new AppError('FORBIDDEN','店家已切換');
  return await beautyTransaction(a,async tx=>{const current=await settings(tx,a.storeId);if(current[d.key]!==d.previous&&current[d.key]!==d.enabled)throw new AppError('CONFLICT','設定已更新，請重新整理');

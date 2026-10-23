@@ -29,6 +29,7 @@ const member: BeautyActor = {
 const r = { mode: "PERCENT", value: 50, base: "PAID" };
 const b = {
   id: "b",
+  personName:"合成顧客",serviceName:"合成服務",
   serviceId: "svc",
   storeId: "s",
   revision: 0,
@@ -65,6 +66,7 @@ beforeEach(() => {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
     },
+    beautyTechnician:{findMany:vi.fn().mockResolvedValue([{id:"t",name:"合成技師"}])},
     beautyEvent: { create: vi.fn(), upsert: vi.fn() },
     beautyAppointment: {
       findFirst: vi.fn().mockResolvedValue({ ...b }),

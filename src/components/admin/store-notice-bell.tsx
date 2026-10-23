@@ -8,12 +8,12 @@ import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
-export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
- storeId:string;namespace:"course"|"steamfoot";initialEnabled?:boolean;
+export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
+ storeId:string;namespace:"course"|"steamfoot"|"beauty";initialEnabled?:boolean;
  loadNotices:(input:{storeId:string;handled:boolean;offset:number;summaryOnly?:boolean})=>Promise<StoreNoticeLoadResult>;
  markNotice:(input:{storeId:string;id:string;handled:boolean;revision:number})=>Promise<StoreNoticeMarkResult>;
  labels?:Partial<Record<StoreNoticeItem["kind"],string>>;
- onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;targetLabel?:string;refreshKey?:number;
+ onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;closeOnViewTarget?:boolean;targetLabel?:string;refreshKey?:number;
 }) {
  const [enabled,setEnabled]=useState(initialEnabled),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
  const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
@@ -22,6 +22,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  const [undo,setUndo]=useState<StoreNoticeItem|null>(null);const heading=useId();
  const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
  const [countKnown,setCountKnown]=useState(false);
+ const skipTargetCloseRead=useRef(false);
  const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(true);
  const audio=useRef<AudioContext|null>(null);const soundKey=`${namespace}-notice-sound:${storeId}`;
  // Audio can only be unlocked inside a browser user gesture. Retry on later
@@ -36,6 +37,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
   } catch { /* Unsupported or blocked audio must not break notifications. */ }
  },[]);
  const load=useCallback(async()=>{
+  if(!open&&skipTargetCloseRead.current){skipTargetCloseRead.current=false;return;}
   if(busy.current)return;const seq=++generation.current;setLoading(true);
   try{const r=await reader.read({storeId,handled:open?handled:false,offset:open?offset:0,summaryOnly:!open});if(!mounted.current||seq!==generation.current)return;
    if(!r.success){setError(r.error);return;}if(r.storeId!==storeId)return;
@@ -104,7 +106,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
        </button>
       </div>
       {rowError[n.id]&&<p role="alert" className="px-3 pb-2 text-red-700">{rowError[n.id]}</p>}
-      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600"><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p>{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>onViewTarget(n,canHandle)}>{targetLabel}</button>}</div>}
+      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600"><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p>{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>{if(closeOnViewTarget){skipTargetCloseRead.current=true;setOpen(false);}onViewTarget(n,canHandle);}}>{targetLabel}</button>}</div>}
      </div>)}
      {(offset>0||more)&&<div className="flex justify-between p-2"><button disabled={offset===0||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>Math.max(0,v-50))}>上一頁</button><button disabled={!more||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>v+50)}>下一頁</button></div>}
     </div>
