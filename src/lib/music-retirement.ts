@@ -47,7 +47,8 @@ type Args = Record<string, any>;
  */
 export function retirementReadArgs(model: string, args: Args, models: readonly DmmfModel[], registry: RetirementRegistry): Args {
   const condition = musicRetirementWhere(model, registry);
-  const next: Args = { ...args, where: { ...args.where, AND: [args.where?.AND ?? {}, condition] } };
+  const existingAnd = args.where?.AND == null ? [] : Array.isArray(args.where.AND) ? args.where.AND : [args.where.AND];
+  const next: Args = { ...args, where: { ...args.where, AND: [...existingAnd, condition] } };
   for (const selection of ["include", "select"] as const) {
     if (!args[selection]) continue;
     next[selection] = { ...args[selection] };

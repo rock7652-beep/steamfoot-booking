@@ -20,8 +20,13 @@ it("fails closed when the private sealed registry is incomplete",async()=>{
 it.each([{VERCEL_ENV:"production"},{VERCEL_GIT_COMMIT_REF:"main"},{DIRECT_URL:"postgresql://postgres:x@db.other.supabase.co/postgres"},{VERCEL:"0"}])("never enables the boundary in another deployment: %j",override=>expect(musicRetirementEnabled({...preview,...override})).toBe(false));
 it("preserves caller filters, unique identities, nested roster filters and counts",()=>{
  const args=retirementReadArgs("CourseSession",{where:{id:"native",storeId:"store-lubymusic",AND:[{cancelledAt:null}]},include:{bookings:{where:{status:"RESERVED"}},_count:{select:{bookings:true}}}},Prisma.dmmf.datamodel.models,registry);
- expect(args.where.id).toBe("native");expect(args.where.AND[0]).toEqual([{cancelledAt:null}]);expect(args.where.AND[1]).toEqual(musicRetirementWhere("CourseSession",registry));
- expect(args.include.bookings.where.status).toBe("RESERVED");expect(args.include.bookings.where.AND[1]).toEqual(musicRetirementWhere("CourseBooking",registry));expect(args.include._count.select.bookings.where.AND[1]).toEqual(musicRetirementWhere("CourseBooking",registry));
+ expect(args.where.id).toBe("native");expect(args.where.AND[0]).toEqual({cancelledAt:null});expect(args.where.AND[1]).toEqual(musicRetirementWhere("CourseSession",registry));
+ expect(args.include.bookings.where.status).toBe("RESERVED");expect(args.include.bookings.where.AND[0]).toEqual(musicRetirementWhere("CourseBooking",registry));expect(args.include._count.select.bookings.where.AND[1]).toEqual(musicRetirementWhere("CourseBooking",registry));
+});
+it("keeps an existing multi-condition AND flat for Prisma validation",()=>{
+ const conditions=[{OR:[{roomId:"native-room"},{coachId:"native-coach"}]},{OR:[{startsAt:{lt:new Date()}},{endsAt:{gt:new Date()}}]}];
+ const result=retirementReadArgs("CourseSession",{where:{storeId:"store-lubymusic",AND:conditions}},Prisma.dmmf.datamodel.models,registry);
+ expect(result.where.AND.slice(0,2)).toEqual(conditions);expect(result.where.AND.every((item:unknown)=>!Array.isArray(item))).toBe(true);expect(result.where.AND[2]).toEqual(musicRetirementWhere("CourseSession",registry));
 });
 it("keeps SQL filters bound and preserves other stores",()=>{
  env();expect(musicRetirementSql("other","CourseSession").text).toBe("");const sql=musicRetirementSql("store-lubymusic","CourseSession","s.id");expect(sql.text).toContain('"MusicOperationalArchive"');expect(sql.values).toEqual(["store-lubymusic","music-operational-retirement-20261023","CourseSession"]);expect(sql.text).toContain('"rowKey"=s.id');
