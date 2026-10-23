@@ -15,7 +15,7 @@ import type { loadCourseCustomerPurchases } from "@/server/actions/course-custom
 type Result = Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
 export type TuitionOrder = Extract<Result, { success: true }>["data"][number];
 
-export function MusicTuitionDetails({ order, onUpdated, receiptPeriod }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number }) {
+export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsButton=false }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; detailsButton?: boolean }) {
   const router = useRouter();
   const titleId = useId();
   const submitting = useRef(false);
@@ -35,7 +35,7 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod }: { order
   const close = () => { if (submitting.current) return; setMode(null); };
   const open = (next: "details" | "receipt") => { setError(""); setMethod(""); setMode(next); };
   return <>
-    {receiptPeriod ? tuition.canReceive && receiptLimit > 0 && firstUnpaid === receiptPeriod && <button type="button" className={button} onClick={() => open("receipt")}>補登收款</button> : <ExclusiveMenu label={`${order.name} 收款操作`} triggerText="⋯">
+    {receiptPeriod ? tuition.canReceive && receiptLimit > 0 && firstUnpaid === receiptPeriod && <button type="button" className={button} onClick={() => open("receipt")}>補登收款</button> : detailsButton ? <button type="button" className="min-h-11 w-full text-left text-sm" onClick={()=>open("details")}>交易明細</button> : <ExclusiveMenu label={`${order.name} 收款操作`} triggerText="⋯">
       <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("details")}>查看明細</button>
       {tuition.canReceive && outstanding > 0 && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("receipt")}>補繳學費</button>}
     </ExclusiveMenu>}
