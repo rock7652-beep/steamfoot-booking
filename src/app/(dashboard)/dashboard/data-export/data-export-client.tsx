@@ -85,16 +85,23 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
       <p className="mt-2 text-sm text-gray-600">依目前可存取的店別匯出；健康評估、內部備註、LINE／Messenger ID 與任何憑證均不會輸出。</p>
       <section className="mt-3 grid gap-3 rounded-xl border p-3 @min-[32rem]/export:grid-cols-2 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
         {isAdmin ? (
-          <label className="block text-sm font-medium">店別（選填，總部可選擇）
+          <label className="col-span-full block text-sm font-medium">店別（選填，總部可選擇）
             <select className="mt-1 block w-full rounded border p-2" value={storeId} onChange={(event) => setStoreId(event.target.value)}>
               {stores.map((store) => <option value={store.id} key={store.id}>{store.name}</option>)}
             </select>
           </label>
-        ) : <p className="text-sm text-gray-600">店別：您的目前門市</p>}
+        ) : <p className="col-span-full text-sm text-gray-600">店別：您的目前門市</p>}
 
         <label className="block text-sm font-medium">匯出類型（必填）
           <select className="mt-1 block w-full rounded border p-2" value={type} onChange={(event) => { setType(event.target.value as DataExportType); setStatus(""); }}>
             {availableTypes.map((value) => <option value={value} key={value}>{labels[value]}</option>)}
+          </select>
+        </label>
+
+        <label className="block text-sm font-medium">狀態（選填）
+          <select className="mt-1 block w-full rounded border p-2" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="">全部狀態</option>
+            {statuses[type].map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
           </select>
         </label>
 
@@ -110,12 +117,6 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
           <label className="text-sm font-medium">{isCustomerExport ? "結束建立日期（必填）" : "結束日期（必填）"}<input className="mt-1 block w-full rounded border p-2" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         </div> : null}
 
-        <label className="block text-sm font-medium">狀態（選填）
-          <select className="mt-1 block w-full rounded border p-2" value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">全部狀態</option>
-            {statuses[type].map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-          </select>
-        </label>
         <button className="col-span-full justify-self-end rounded bg-green-700 px-4 py-2 font-medium text-white disabled:opacity-50" onClick={download} disabled={loading || (isAdmin && !storeId)}>{loading ? "匯出中…" : "匯出 Excel"}</button>
         {feedback && <p role="status" className="mt-3 text-sm">{feedback}</p>}
       </section>

@@ -105,7 +105,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
           </header>
 
           <div className={compact ? styles.compactFields : "space-y-4"}>
-            <label className={`${styles.switchLabel} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
+            <label className={`${styles.switchLabel} ${compact ? "self-start" : ""} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
               <span>
                 <span className="text-sm font-medium text-earth-800">啟用體驗單功能</span>
                 <span className="hidden">
@@ -137,7 +137,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               </p>
             </div>
 
-            <label className={`${styles.switchLabel} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
+            <label className={`${styles.switchLabel} ${compact ? "self-start" : ""} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
               <span>
                 <span className="text-sm font-medium text-earth-800">
                   允許建立時調整價格
@@ -154,7 +154,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               />
             </label>
 
-            <div className={`${styles.priceRange} ${compact ? styles.fullWidth : ""}`}>
+            <div className={styles.priceRange}>
               <div>
                 <label htmlFor={`${formId}-最低可輸入價格`} className={labelCls}>最低可輸入價格</label>
 
