@@ -43,3 +43,14 @@ it("prefers a usable matching card over expired or wrong-subject cards",async()=
  function Harness(){const [value,onChange]=React.useState([{customerId:"a",cardId:"wrong",name:"學員"}]);return React.createElement(CourseScheduleLearners,{templateId:"teaching:group",pointCost:1,capacity:8,value,onChange,onValidityChange:validity,allowDeferred:true,scheduleDate:"2026-10-17",scheduleTime:"16:00"});}
  await act(async()=>root.render(React.createElement(Harness)));expect((div.querySelector('select') as HTMLSelectElement).value).toBe("valid");expect(validity).toHaveBeenLastCalledWith(true);expect(div.querySelector('[role="alert"]')).toBeNull();await act(async()=>root.unmount());
 });
+
+
+it.each([null,"2026-10-17T08:00:00Z"])("shows first-use validity instead of the sentinel date until activation (%s)",async musicActivatedAt=>{
+ reader.read.mockResolvedValue({success:true,customers:[{id:"validity-student",name:"期限驗收",phone:""}],cards:[{id:"validity-card",name:"兩期八堂",unit:"SESSION",available:8,expiresAt:musicActivatedAt?"2026-12-25T15:59:59.999Z":"2099-12-31T15:59:59.999Z",musicValidityDays:70,musicActivatedAt,members:[{id:"validity-student",name:"期限驗收",phone:""}]}]});
+ const div=document.createElement("div");const root=createRoot(div);
+ try {
+  await act(async()=>root.render(React.createElement(CourseScheduleLearners,{templateId:`validity-${musicActivatedAt}`,pointCost:1,capacity:1,value:[{customerId:"validity-student",cardId:"validity-card",name:"期限驗收"}],onChange:vi.fn(),allowDeferred:true,scheduleDate:"2026-10-23",scheduleTime:"16:00"})));
+  expect(div.textContent).toContain(musicActivatedAt?"有效至 2026-12-25":"首次扣堂起 70 天");
+  expect(div.textContent).not.toContain("2099-12-31");
+ }finally{await act(async()=>root.unmount());}
+});
