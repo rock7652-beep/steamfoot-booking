@@ -35,3 +35,12 @@ it('immediately resaves an authoritative returned plan before the parent RSC ref
  expect(m.catalog).toHaveBeenLastCalledWith('plan',expect.objectContaining({id:'scheme',revision:4,sessions:10}));
 });
 it.each([true,'yes'])('preserves the shared room editor rental toggle %s and numeric capacity',async enabled=>{m.location.mockImplementation(async input=>({success:true,data:{record:{...input,id:input.id??'new-room',isActive:input.active}}}));const a=createBeautyCatalogAdapter('位置管理',data,true,m.refresh);expect(await a.save('room',{id:'room',name:'床位',capacity:2,rentalEnabled:enabled,rentalHourlyRate:360,rentalBufferMinutes:15})).toMatchObject({success:true,data:{capacity:2,rentalEnabled:true,rentalHourlyRate:360}});expect(m.location).toHaveBeenCalledWith(expect.objectContaining({capacity:2,rentalEnabled:true,rentalBufferMinutes:15}));});
+
+it('defaults blank shared room capacity to one on creation and preserves existing capacity on edit',async()=>{
+ m.location.mockImplementation(async input=>({success:true,data:{record:{...input,id:input.id??'new-room',isActive:input.active}}}));
+ const a=createBeautyCatalogAdapter('位置管理',{...data,locations:[{...data.locations[0],capacity:3}]},true,m.refresh);
+ expect(await a.save('room',{name:'新床位',roomCapacity:'',rentalEnabled:true,rentalHourlyRate:360})).toMatchObject({success:true,data:{capacity:1}});
+ expect(m.location).toHaveBeenLastCalledWith(expect.objectContaining({capacity:1}));
+ expect(await a.save('room',{id:'room',name:'既有床位',roomCapacity:''})).toMatchObject({success:true,data:{capacity:3}});
+ await a.save('room',{name:'保留驗證',roomCapacity:0});expect(m.location).toHaveBeenLastCalledWith(expect.objectContaining({capacity:0}));
+});

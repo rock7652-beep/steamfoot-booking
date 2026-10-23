@@ -55,7 +55,8 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
   if(kind==='room'){
    const prior=input.catalogSnapshot?savedBeautyLocation.parse(input.catalogSnapshot):data.locations.find(r=>r.id===input.id);
    if(input.id&&(!prior||prior.id!==input.id))return {success:false,error:'位置已更新，請重新整理'};
-   const r=await saveBeautyLocation({id:prior?.id,name:input.name,active:prior?.isActive??true,category:input.category??'',details:input.details??'',equipment:input.equipment??'',location:input.location??'',capacity:Number(input.capacity??input.roomCapacity??prior?.capacity??1),rentalEnabled:input.rentalEnabled===true||input.rentalEnabled==='yes',rentalHourlyRate:Number(input.rentalHourlyRate??prior?.rentalHourlyRate??0),rentalBufferMinutes:Number(input.rentalBufferMinutes??prior?.rentalBufferMinutes??0)});
+   const rawCapacity=input.capacity??input.roomCapacity;
+   const r=await saveBeautyLocation({id:prior?.id,name:input.name,active:prior?.isActive??true,category:input.category??'',details:input.details??'',equipment:input.equipment??'',location:input.location??'',capacity:rawCapacity==null||rawCapacity===''?prior?.capacity??1:Number(rawCapacity),rentalEnabled:input.rentalEnabled===true||input.rentalEnabled==='yes',rentalHourlyRate:Number(input.rentalHourlyRate??prior?.rentalHourlyRate??0),rentalBufferMinutes:Number(input.rentalBufferMinutes??prior?.rentalBufferMinutes??0)});
    if(!r.success)return r;return {success:true,data:{...savedBeautyLocation.parse(r.data.record),catalogSnapshot:{...savedBeautyLocation.parse(r.data.record)},capacity:savedBeautyLocation.parse(r.data.record).capacity??1}};
   }
   const prior=input.catalogSnapshot?savedBeautyService.parse(input.catalogSnapshot):services.find(s=>s.id===input.id);

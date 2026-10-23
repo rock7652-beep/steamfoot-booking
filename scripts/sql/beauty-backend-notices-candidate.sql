@@ -9,3 +9,12 @@ BEGIN
  EXECUTE format('GRANT SELECT, INSERT, UPDATE ON TABLE public."CourseStoreNotice" TO %I',app_role);
 END $$;
 COMMIT;
+
+-- Preserve the six existing course kinds. Additional service outcomes are
+-- accepted only for Beauty namespaced subjects; no existing rows are rewritten.
+BEGIN;
+ALTER TABLE public."CourseStoreNotice" DROP CONSTRAINT IF EXISTS "CourseStoreNotice_kind_check";
+ALTER TABLE public."CourseStoreNotice" ADD CONSTRAINT "CourseStoreNotice_kind_check"
+ CHECK (kind IN ('BOOKING','LEAVE','CANCEL','MOVE','STOP','RESTORE')
+ OR ("subjectKey" LIKE 'beauty:%' AND kind IN ('COMPLETE','NO_SHOW')));
+COMMIT;
