@@ -6,6 +6,7 @@ import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedSelfBooking } from "@/lib/course-self-booking-save";
 import { usePathname, useRouter } from "next/navigation";
+import {NotificationSwitch} from "@/components/admin/notification-switch";
 import { SettingsListRow } from "@/components/settings";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
@@ -58,15 +59,16 @@ export function CourseSelfBookingSettings({
     onClose();
   }
 
-  function save() {
-    if (!canEdit || saving.current || (!dirty && !saveRequest.uncertain)) return;
+  function save(nextEnabled = enabled) {
+    if (!canEdit || saving.current || (nextEnabled === savedEnabled && !saveRequest.uncertain)) return;
     saving.current = true;
     setError("");
     setSaved(false);
     startTransition(async () => {
       try {
-        const result = await saveRequest.save({ enabled,expectedRevision:revision });
+        const result = await saveRequest.save({ enabled:nextEnabled,expectedRevision:revision });
         if (!result.success) {
+          if(music&&!result.uncertain)setState(current=>({...current,enabled:current.savedEnabled}));
           setError(result.error ?? "儲存失敗，請重試");
           return;
         }
@@ -90,6 +92,11 @@ export function CourseSelfBookingSettings({
       }
     });
   }
+
+  if(music)return <SettingsListRow compact title="允許學員自行預約" summary={savedEnabled?"開啟":"關閉"} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label="允許學員自行預約" checked={savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={e=>{const next=e.target.checked;setState(current=>({...current,enabled:next}));save(next);}}/></label>}>
+    {error&&<p role="alert" className="py-1 text-sm text-red-700">{error}</p>}
+    {saveRequest.uncertain&&<button type="button" disabled={pending} className="min-h-11 rounded-lg border px-3 text-sm" onClick={()=>save()}>重試確認</button>}
+  </SettingsListRow>;
 
   return (
     <SettingsListRow
