@@ -1,3 +1,4 @@
+import {lockBeautyCustomerMerge,moveBeautyCustomerRelations} from './beauty-customer-merge';
 import { prisma } from "@/lib/db";
 import type { AuthSource, LineLinkStatus, Prisma } from "@prisma/client";
 import { lockCourseStore } from "./course-store-lock";
@@ -351,6 +352,7 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 // healthProfileId 僅是 Customer 上的字串欄位（非外鍵），由 identity-merge 區段處理。
 
 export type CustomerMergeMovedCounts = {
+  beautyMembers?:number;beautyBookings?:number;beautyGroups?:number;beautyPurchases?:number;
   inventoryOrders?: number;
   inventoryPayments?: number;
   courseMembers?: number;
@@ -393,6 +395,7 @@ export type CustomerMergeInput = {
   performedByUserId: string;
   /** Set by the authorized action after resolving the active course store. */
   courseStoreId?: string;
+  beautyStoreId?: string;
 };
 
 // 身份欄位：unique 限制下 source 必須讓位（搬到 target 後在 source 清空）
@@ -503,6 +506,8 @@ export async function mergeCustomerIntoCustomer(
   input: CustomerMergeInput,
 ): Promise<CustomerMergeOutcome> {
   const { sourceCustomerId, targetCustomerId, performedByUserId } = input;
+  if(input.courseStoreId&&input.beautyStoreId)throw new Error("不可混用不同模組的合併接點");
+  const moduleStoreId=input.courseStoreId??input.beautyStoreId;
 
   if (!sourceCustomerId || !targetCustomerId) {
     throw new Error("mergeCustomer: sourceCustomerId 和 targetCustomerId 皆為必填");
@@ -515,9 +520,9 @@ export async function mergeCustomerIntoCustomer(
   }
 
   return prisma.$transaction(async (tx) => {
-    if (input.courseStoreId) {
-      await lockCourseStore(tx, input.courseStoreId);
-      await tx.$queryRaw`SELECT id FROM "Customer" WHERE "storeId"=${input.courseStoreId}
+    if (moduleStoreId) {
+      if(input.beautyStoreId)await lockBeautyCustomerMerge(tx,input.beautyStoreId);else await lockCourseStore(tx, moduleStoreId);
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE "storeId"=${moduleStoreId}
         AND id IN (${sourceCustomerId},${targetCustomerId}) ORDER BY id FOR UPDATE`;
     }
     let [source, target] = await Promise.all([
@@ -539,9 +544,10 @@ export async function mergeCustomerIntoCustomer(
     const store = await tx.store.findUniqueOrThrow({
       where: { id: source.storeId }, select: { industryModule: true },
     });
-    if (store.industryModule === "BEAUTY") {
+    if (store.industryModule === "BEAUTY" && input.beautyStoreId!==source.storeId) {
       throw new Error("美業暫不開放顧客合併，請保留兩筆資料並使用顧客資料更正");
     }
+    if(input.beautyStoreId&&store.industryModule!=="BEAUTY")throw new Error("不可從美業接點合併其他模組顧客");
     const inventoryAvailable = await lockInventoryCustomerMerge(tx, source.storeId);
     if (inventoryAvailable) {
       [source, target] = await Promise.all([
@@ -551,8 +557,8 @@ export async function mergeCustomerIntoCustomer(
       if (!source || !target || source.storeId !== target.storeId)
         throw new Error("顧客資料已異動，請重新開啟合併");
     }
-    if (input.courseStoreId && source.storeId !== input.courseStoreId) throw new Error("顧客不屬於目前課程店家");
-    if (input.courseStoreId) {
+    if (moduleStoreId && source.storeId !== moduleStoreId) throw new Error("顧客不屬於目前課程店家");
+    if (moduleStoreId) {
       for (const field of ["googleId", "healthProfileId"] as const) {
         if (source[field] && target[field] && source[field] !== target[field]) throw new Error(`顧客的 ${field === "googleId" ? "Google 身分" : "健康帳戶"}不同，未合併或覆蓋既有綁定`);
       }
@@ -623,17 +629,17 @@ export async function mergeCustomerIntoCustomer(
     }
 
     const sourceIdentityLinks = identityLinks.filter((link) => link.customerId === source.id);
-    if (input.courseStoreId && identityLinks.some(link => link.storeId !== input.courseStoreId || link.userId !== effectiveUserId)) {
+    if (moduleStoreId && identityLinks.some(link => link.storeId !== moduleStoreId || link.userId !== effectiveUserId)) {
       throw new Error("固定帳號連結與顧客身分不一致，請先核對；未合併或覆蓋綁定。");
     }
     const targetIdentityLinks = identityLinks.filter((link) => link.customerId === target.id);
-    if (!input.courseStoreId && (sourceIdentityLinks.length > 1 || targetIdentityLinks.length > 1)) {
+    if (!moduleStoreId && (sourceIdentityLinks.length > 1 || targetIdentityLinks.length > 1)) {
       throw new Error(
         "mergeCustomer: CustomerIdentityLink 資料異常；同一 Customer 出現多筆 identity link，請先人工修復",
       );
     }
     if (sourceIdentityLinks.length > 0 && targetIdentityLinks.length > 0 &&
-      (!input.courseStoreId || sourceIdentityLinks.some(sourceLink => targetIdentityLinks.some(targetLink => sourceLink.provider === targetLink.provider)))) {
+      (!moduleStoreId || sourceIdentityLinks.some(sourceLink => targetIdentityLinks.some(targetLink => sourceLink.provider === targetLink.provider)))) {
       throw new Error(
         "mergeCustomer: 來源與目標皆有 CustomerIdentityLink；customerId 為唯一鍵，請先人工決定保留哪一筆 identity link",
       );
@@ -659,6 +665,7 @@ export async function mergeCustomerIntoCustomer(
     const courseCounts = input.courseStoreId
       ? await moveCourseCustomerRelations(tx, input.courseStoreId, source.id, target.id)
       : {};
+    const beautyCounts=input.beautyStoreId?await moveBeautyCustomerRelations(tx,input.beautyStoreId,source.id,target.id):{};
     // ── Step 1: FK relocation ──
     // 注意：每個 updateMany 在跨店資料下也是安全的，因為 source/target 同 storeId 已驗證；
     // 直接以 customerId === sourceId 找出所有 row 搬到 targetId。
@@ -749,6 +756,7 @@ export async function mergeCustomerIntoCustomer(
     const movedCounts: CustomerMergeMovedCounts = {
       ...(inventoryAvailable ? await moveInventoryCustomerRelations(tx, source.storeId, source.id, target.id) : {}),
       ...courseCounts,
+      ...beautyCounts,
       bookings: bookingsResult.count,
       transactions: transactionsResult.count,
       customerPlanWallets: walletsResult.count,
@@ -769,7 +777,7 @@ export async function mergeCustomerIntoCustomer(
 
     // ── Step 2: 身份欄位合併 ──
     const { targetUpdate, sourceClear, mergedFields } = buildIdentityMerge(source, target);
-    if (input.courseStoreId) {
+    if (moduleStoreId) {
       for (const field of ["emergencyContactName", "emergencyContactPhone", "serviceNote", "assignedStaffId"] as const) {
         if (!target[field] && source[field]) { targetUpdate[field] = source[field]; mergedFields.push(field); }
       }

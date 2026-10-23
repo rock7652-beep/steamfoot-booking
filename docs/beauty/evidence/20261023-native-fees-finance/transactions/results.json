@@ -1,0 +1,14 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original checkout issues actual 8-session card",
+    "native metadata survives authoritative reopen",
+    "edit changes metadata only and records same-store manager",
+    "void preserves original receipt and closes unused card",
+    "actual ledger contains grant plus one reversal",
+    "original-date cash entries net to zero",
+    "native transaction list reopens with void status",
+    "no browser errors"
+  ],
+  "errors": []
+}

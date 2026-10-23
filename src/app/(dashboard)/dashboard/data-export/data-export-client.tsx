@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toLocalDateStr } from "@/lib/date-utils";
+import {BEAUTY_EXPORT_LABELS,BEAUTY_EXPORT_PERIOD_LABELS,BEAUTY_EXPORT_STATUSES} from "@/lib/beauty/data-export";
 import { COURSE_EXPORT_LABELS, COURSE_EXPORT_PERIOD_LABELS, COURSE_EXPORT_STATUSES } from "@/lib/course-data-export";
 import {
   DATA_EXPORT_STATUS_OPTIONS,
@@ -23,7 +24,7 @@ function previousMonth(month: string): string {
   return monthNumber === 1 ? `${year - 1}-12` : `${year}-${String(monthNumber - 1).padStart(2, "0")}`;
 }
 
-export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport, courseMode = false }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean; courseMode?: boolean }) {
+export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport, courseMode = false, serviceMode = false }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean; courseMode?: boolean; serviceMode?: boolean }) {
   const today = toLocalDateStr();
   const thisMonth = today.slice(0, 7);
   const currentMonthDates = { startDate: `${thisMonth}-01`, endDate: today };
@@ -37,8 +38,8 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
   const [storeId, setStoreId] = useState(initialStoreId);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const labels = courseMode ? COURSE_EXPORT_LABELS : DATA_EXPORT_TYPE_LABELS;
-  const statuses = courseMode ? COURSE_EXPORT_STATUSES : DATA_EXPORT_STATUS_OPTIONS;
+  const labels = serviceMode ? BEAUTY_EXPORT_LABELS : courseMode ? COURSE_EXPORT_LABELS : DATA_EXPORT_TYPE_LABELS;
+  const statuses = serviceMode ? BEAUTY_EXPORT_STATUSES : courseMode ? COURSE_EXPORT_STATUSES : DATA_EXPORT_STATUS_OPTIONS;
   const isCustomerExport = type === "customers";
 
   function selectPeriod(preset: PeriodPreset) {
@@ -99,7 +100,7 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
         </label>
 
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium">{courseMode ? COURSE_EXPORT_PERIOD_LABELS[type] : isCustomerExport ? "顧客建立期間（預設本月）" : "期間（預設本月）"}</legend>
+          <legend className="text-sm font-medium">{serviceMode ? BEAUTY_EXPORT_PERIOD_LABELS[type] : courseMode ? COURSE_EXPORT_PERIOD_LABELS[type] : isCustomerExport ? "顧客建立期間（預設本月）" : "期間（預設本月）"}</legend>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {(["thisMonth", "lastMonth", "custom"] as const).map((preset) => <button type="button" key={preset} onClick={() => selectPeriod(preset)} className={`rounded border px-3 py-2 text-sm ${periodPreset === preset ? "border-green-700 bg-green-50 text-green-800" : "border-gray-300"}`}>{({ thisMonth: "本月", lastMonth: "上月", custom: "自訂期間" } as const)[preset]}</button>)}
           </div>

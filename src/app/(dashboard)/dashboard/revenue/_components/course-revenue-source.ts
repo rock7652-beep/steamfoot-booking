@@ -8,5 +8,6 @@ export type CourseRevenueSource={
  summary:(from:string,to:string)=>Promise<{totals:CourseRevenueSnapshot['receiptTotals'];rows:{id:string;createdAt:string;customerName:string;planName:string;netAmount:number}[]}>;
  href:(original:string)=>string;
  actions:(row:CourseRevenueRow)=>ReactNode;queryFields?:Record<string,string>;
+ statusLabels?:Record<string,string>;
  tabs?:ReactNode;fees?:ReactNode;
 };

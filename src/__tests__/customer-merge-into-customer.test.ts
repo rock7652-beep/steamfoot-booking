@@ -18,6 +18,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Customer } from "@prisma/client";
 const store = vi.hoisted(() => ({ findUniqueOrThrow: vi.fn() }));
+const beauty = vi.hoisted(()=>({lock:vi.fn(),move:vi.fn()}));
+vi.mock("@/server/services/beauty-customer-merge",()=>({lockBeautyCustomerMerge:beauty.lock,moveBeautyCustomerRelations:beauty.move}));
 const course = vi.hoisted(() => ({ lock: vi.fn(), move: vi.fn() }));
 const inventory = vi.hoisted(() => ({ query: vi.fn(), orders: vi.fn(), payments: vi.fn() }));
 vi.mock("@/server/services/course-store-lock", () => ({ lockCourseStore: course.lock }));
@@ -793,4 +795,15 @@ it("rejects direct Beauty merge before inventory or identity/operational writes"
   expect(JSON.stringify(tables)).toBe(before);
   expect(inventory.query).not.toHaveBeenCalled();
   expect(customerModel.update).not.toHaveBeenCalled();
+});
+
+it('uses the original customer merge and identity checks with an explicitly authorized Beauty store',async()=>{
+ const {mergeCustomerIntoCustomer}=await import('@/server/services/customer-merge');store.findUniqueOrThrow.mockResolvedValue({industryModule:'BEAUTY'});
+ tables.customer.push(makeCustomer({id:'src',userId:'existing',emergencyContactName:'合成聯絡人'}) as Customer,makeCustomer({id:'tgt'}) as Customer);
+ beauty.move.mockResolvedValue({beautyBookings:2,beautyMembers:1});const result=await mergeCustomerIntoCustomer({sourceCustomerId:'src',targetCustomerId:'tgt',performedByUserId:PERFORMER,beautyStoreId:STORE_A});
+ expect(beauty.lock).toHaveBeenCalledWith(expect.any(Object),STORE_A);expect(beauty.move).toHaveBeenCalledWith(expect.any(Object),STORE_A,'src','tgt');expect(course.move).not.toHaveBeenCalled();expect(result.movedCounts).toMatchObject({beautyBookings:2,beautyMembers:1});expect(tables.customer.find(c=>c.id==='tgt')).toMatchObject({userId:'existing',emergencyContactName:'合成聯絡人'});
+});
+it.each(['userId','lineUserId','googleId','healthProfileId'] as const)('rejects conflicting Beauty %s identities before moving anything',async field=>{
+ const {mergeCustomerIntoCustomer}=await import('@/server/services/customer-merge');store.findUniqueOrThrow.mockResolvedValue({industryModule:'BEAUTY'});tables.customer.push(makeCustomer({id:'src',[field]:'one'}) as Customer,makeCustomer({id:'tgt',[field]:'two'}) as Customer);
+ await expect(mergeCustomerIntoCustomer({sourceCustomerId:'src',targetCustomerId:'tgt',performedByUserId:PERFORMER,beautyStoreId:STORE_A})).rejects.toThrow();expect(beauty.move).not.toHaveBeenCalled();expect(auditLogModel.create).not.toHaveBeenCalled();
 });

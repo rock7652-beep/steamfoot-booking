@@ -54,13 +54,14 @@ export default async function StoreRevenuePage() {
     );
   }
 
-  if (reportsStoreId && await getStoreIndustryModule(reportsStoreId) === "course") {
+  const reportIndustry=reportsStoreId?await getStoreIndustryModule(reportsStoreId):null;
+  if (reportsStoreId && (reportIndustry === "course"||reportIndustry==="beauty")) {
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId:reportsStoreId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
     const store = await prisma.store.findUniqueOrThrow({ where: { id: reportsStoreId }, select: { id: true, name: true } });
     const month = toLocalMonthStr();
-    return <div className="space-y-4"><Link href="/dashboard/revenue" className="text-sm text-primary-700">← 返回營運</Link><h1 className="admin-page-title">課程收入總覽</h1>
+    return <div className="space-y-4"><Link href={reportIndustry==="beauty"?"/dashboard/beauty?tab=營運":"/dashboard/revenue"} className="text-sm text-primary-700">← 返回營運</Link><h1 className="admin-page-title">{reportIndustry==="beauty"?"服務收入總覽":"課程收入總覽"}</h1>
       <p className="text-sm text-earth-600">方案依核帳日、體驗依收款日；退款與體驗作廢／更正沖銷依發生日另列，淨收入為兩者差額。收款紀錄數包含更正前原單，付款顧客數去重，不是上課人次。實付快照不隨改價更動，現金帳連動不重複加計；手動收支請查看現金帳。</p>
-      <RevenueReportClient courseMode musicMode={music} mode="store" stores={[store]} coaches={[]} isAdmin={false} isViewMode={isViewMode} canExportData={canExportData && canReportExport} dataExportLockedMessage={dataExportLockedMessage} defaultStartDate={month+"-01"} defaultEndDate={toLocalDateStr(monthRange(month).end)} />
+      <RevenueReportClient canReadDetails={reportIndustry!=="beauty"||(await checkPermission(user.role,user.staffId,"transaction.read")&&await hasStoreFeature(reportsStoreId,FF.TRANSACTION_MANAGEMENT))} serviceMode={reportIndustry==="beauty"} courseMode musicMode={music} mode="store" stores={[store]} coaches={[]} isAdmin={false} isViewMode={isViewMode} canExportData={canExportData && canReportExport} dataExportLockedMessage={dataExportLockedMessage} defaultStartDate={month+"-01"} defaultEndDate={toLocalDateStr(monthRange(month).end)} />
     </div>;
   }
 

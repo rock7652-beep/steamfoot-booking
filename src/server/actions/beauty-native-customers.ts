@@ -1,4 +1,5 @@
 "use server";
+import {beautyTransactionRevisions} from "@/server/beauty/transaction-revisions";
 
 import {z} from 'zod';
 import {prisma} from '@/lib/db';
@@ -86,7 +87,7 @@ export async function readBeautyNativeCustomerPurchases(input:unknown,offset=0,r
       AND (p."cardId"=ANY(${cards.map(c=>c.id)}::text[]) OR p."appointmentId"=ANY(${appointments.map(b=>b.id)}::text[]))
       UNION ALL
       SELECT q.id,'REQUEST'::text AS kind,q."createdAt" FROM "BeautyPurchase" q
-      WHERE q."storeId"=${s.storeId} AND q."customerId"=${customerId} AND q.status<>'CONFIRMED'
+      WHERE q."storeId"=${s.storeId} AND q."customerId"=${customerId} AND q.status<>'CONFIRMED' AND q."cardId" IS NULL
       AND q."createdAt">=${from} AND q."createdAt"<=${to}
     ) history ORDER BY "createdAt" DESC,id DESC LIMIT 11 OFFSET ${skip}`;
   const [payments,requests]=await Promise.all([
@@ -94,8 +95,9 @@ export async function readBeautyNativeCustomerPurchases(input:unknown,offset=0,r
     beautyPrisma.beautyPurchase.findMany({where:{storeId:s.storeId,customerId,id:{in:page.filter(p=>p.kind==='REQUEST').map(p=>p.id)}}}),
   ]);
   const refunds=await beautyPrisma.beautyPayment.findMany({where:{storeId:s.storeId,kind:'REFUND',originalPaymentId:{in:payments.map(p=>p.id)}},orderBy:{createdAt:'desc'}});
-  const sales=payments.map(p=>{const c=cards.find(c=>c.id===p.cardId),b=appointments.find(b=>b.id===p.appointmentId),rs=refunds.filter(r=>r.originalPaymentId===p.id);return {id:p.id,name:c?.name??b?.serviceName??'服務收款',price:p.amount,points:c?.sessions??0,unit:c?'SESSION':'TRIAL',status:rs.reduce((n,r)=>n-r.amount,0)>=p.amount&&rs.length?'REFUNDED':'CONFIRMED',listPrice:c?.listPrice??b?.price??p.amount,discountKind:null,discountValue:null,paymentMethod:p.method,transferLastFour:p.note.match(/轉帳末四碼 (\d{4})/)?.[1]??null,createdAt:p.createdAt.toISOString(),confirmedAt:p.createdAt.toISOString(),note:p.note,voidReason:null,refunds:rs.map(r=>({id:r.id,amount:-r.amount,method:r.method,reason:r.note,createdAt:r.createdAt.toISOString()}))};});
-  const pending=requests.map(q=>{const p=planInput.parse(q.snapshot);return {id:q.id,name:p.name,price:p.price,points:p.sessions,unit:'SESSION',status:q.status==='PENDING'?'PENDING':'VOIDED',listPrice:p.price,discountKind:null,discountValue:null,paymentMethod:'BANK_TRANSFER',transferLastFour:q.lastFour,createdAt:q.createdAt.toISOString(),confirmedAt:null,note:'',voidReason:null,refunds:[]};});
+  const revisions=await beautyTransactionRevisions(beautyPrisma,s.storeId,page.map(row=>row.id));
+  const sales=payments.map(p=>{const c=cards.find(c=>c.id===p.cardId),b=appointments.find(b=>b.id===p.appointmentId),rs=refunds.filter(r=>r.originalPaymentId===p.id);return {id:p.id,name:c?.name??b?.serviceName??'服務收款',price:p.amount,points:c?.sessions??0,unit:c?'SESSION':'TRIAL',status:revisions.get(p.id)?.voidedAt?'VOIDED':rs.reduce((n,r)=>n-r.amount,0)>=p.amount&&rs.length?'REFUNDED':'CONFIRMED',listPrice:c?.listPrice??b?.price??p.amount,discountKind:null,discountValue:null,paymentMethod:p.method,transferLastFour:p.note.match(/轉帳末四碼 (\d{4})/)?.[1]??null,createdAt:p.createdAt.toISOString(),confirmedAt:p.createdAt.toISOString(),note:revisions.get(p.id)?.note??p.note,voidReason:revisions.get(p.id)?.voidReason??null,refunds:rs.map(r=>({id:r.id,amount:-r.amount,method:r.method,reason:r.note,createdAt:r.createdAt.toISOString()}))};});
+  const pending=requests.map(q=>{const p=planInput.parse(q.snapshot);return {id:q.id,name:p.name,price:p.price,points:p.sessions,unit:'SESSION',status:q.status==='PENDING'?'PENDING':'VOIDED',listPrice:p.price,discountKind:null,discountValue:null,paymentMethod:'BANK_TRANSFER',transferLastFour:q.lastFour,createdAt:q.createdAt.toISOString(),confirmedAt:null,note:revisions.get(q.id)?.note??'',voidReason:revisions.get(q.id)?.voidReason??null,refunds:[]};});
   return {success:true as const,hasMore:page.length>10,data:page.slice(0,10).flatMap(p=>[...sales,...pending].filter(r=>r.id===p.id))};
  }catch(error){return failure(error);}
 }

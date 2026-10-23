@@ -1,4 +1,5 @@
 import "server-only";
+import {beautyPaymentVisibility} from "./transaction-revisions";
 import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
 import {
@@ -54,6 +55,7 @@ export async function collect(
           storeId: a.storeId,
           appointmentId: id,
           kind: { in: ["SALE", "REFUND"] },
+          ...(await beautyPaymentVisibility(tx,a.storeId)),
         },
       });
       if (existing.reduce((s, p) => s + p.amount, 0) + d.amounts[i] > b.price)
@@ -190,7 +192,7 @@ export async function refund(
 ) {
   return command(tx, a, d.requestKey, expected?{...d,expected}:d, async () => {
     const p = await tx.beautyPayment.findFirst({
-      where: { id: d.paymentId, storeId: a.storeId, kind: "SALE" },
+      where: { id: d.paymentId, storeId: a.storeId, kind: "SALE",...(await beautyPaymentVisibility(tx,a.storeId)) },
     });
     if (!p) throw new AppError("NOT_FOUND", "找不到原收款");
     const refunds = await tx.beautyPayment.aggregate({

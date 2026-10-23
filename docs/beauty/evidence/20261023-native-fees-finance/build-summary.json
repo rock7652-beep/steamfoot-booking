@@ -1,0 +1,10 @@
+{
+  "localSyntheticOnly": true,
+  "command": "next build (strict shared-pages build QA, no migration command)",
+  "exitCode": 0,
+  "compiled": true,
+  "typeCheck": true,
+  "staticPages": 240,
+  "warning": "Prisma/Turbopack NFT project tracing warning; inspected trace lists, no .env/.git/.aws/.codex/.agents or /tmp files",
+  "hostedDeployment": false
+}

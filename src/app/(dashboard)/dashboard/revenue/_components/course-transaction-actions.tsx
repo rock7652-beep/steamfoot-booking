@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { refundCoursePurchase } from "@/server/actions/course-refund";
@@ -8,6 +8,7 @@ import { confirmCoursePurchase } from "@/server/actions/course-portal";
 import { COURSE_REFUND_METHOD_LABELS, courseRefundReference } from "@/lib/course-refund-display";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type CourseTransactionDetail = {
+  revision?:number;
   paymentMethod?: string | null; transferLastFour?: string | null; listPrice?: number | null;
   note: string; revenueStaffId: string | null; voidReason: string | null;
   id: string; name: string; customerName: string; status: string; price: number;
@@ -16,7 +17,7 @@ export type CourseTransactionDetail = {
   unit: string; expiresAt: string | null; transferLastFive: string;
   refunds: { amount: number; reason: string; date: string; method: string }[];
 };
-export type CourseTransactionSource={cardBased:boolean;quotaVisible?:boolean;unitLabel:string;maxReason?:number;confirm?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean}>;refund?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean}>};
+export type CourseTransactionSource={cardBased:boolean;quotaVisible?:boolean;unitLabel:string;maxReason?:number;edit?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean;uncertain?:boolean}>;void?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean;uncertain?:boolean}>;confirm?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean}>;refund?:(input:unknown)=>Promise<{success:boolean;error?:string;syncWarning?:boolean}>};
 export function CourseTransactionActions({ source,quiet=false, order, allocationSummary, canRefund, canConfirm, canEdit, canVoid, staffOptions }: {
   source?:CourseTransactionSource;quiet?:boolean; canEdit: boolean; canVoid: boolean; staffOptions: {id:string;name:string}[];
   order: CourseTransactionDetail; allocationSummary: string; canRefund: boolean; canConfirm: boolean;
@@ -25,6 +26,8 @@ export function CourseTransactionActions({ source,quiet=false, order, allocation
   const [open, setOpen] = useState(false); const [mode, setMode] = useState<"detail" | "refund" | "edit" | "void">("detail");
   const [note, setNote] = useState(order.note); const [staffId, setStaffId] = useState(order.revenueStaffId ?? "");
   const [reason, setReason] = useState(""); const [requestKey, setRequestKey] = useState("");
+  const frozen=useRef<{action:string;payload:unknown}|null>(null);
+  const [uncertain,setUncertain]=useState(false);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"" | "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER">("");
   const [giftQuota, setGiftQuota] = useState("0");
@@ -43,25 +46,27 @@ export function CourseTransactionActions({ source,quiet=false, order, allocation
     if (pending) return;
     setMessage(""); start(async () => {
       try {
-        if(source&&action!=='refund'&&action!=='confirm'){setMessage('此交易不支援這項操作');return;}
-        const payload=action==='refund'?{purchaseId:order.id,reason,requestKey,amount:Number(amount),method,expectedRemaining:order.remaining,expectedRefundedAmount:refunded}:{purchaseId:order.id,requestKey};
-        const writer=source?(action==='refund'?source.refund:source.confirm):null;
+        const payload=action==='refund'?{purchaseId:order.id,reason,requestKey,amount:Number(amount),method,expectedRemaining:order.remaining,expectedRefundedAmount:refunded}:action==='edit'?{purchaseId:order.id,requestKey,reason,note,revenueStaffId:staffId||null,expectedRevision:order.revision}:action==='void'?{purchaseId:order.id,requestKey,reason,expectedRevision:order.revision}:{purchaseId:order.id,requestKey};
+        const writer=source?source[action]:null;
         if(source&&!writer){setMessage('目前沒有這項操作權限');return;}
-        const result = writer?await writer(payload):action === "refund" ? await refundCoursePurchase({ purchaseId: order.id, reason, requestKey, amount:Number(amount), method, expectedRemaining:order.remaining, expectedRefundedAmount:refunded })
+        if(source&&frozen.current&&frozen.current.action!==action){setMessage('前次操作尚未確認，請先用原內容重試');return;}
+        if(source&&!frozen.current)frozen.current={action,payload};
+        const result = writer?await writer(frozen.current!.payload):action === "refund" ? await refundCoursePurchase({ purchaseId: order.id, reason, requestKey, amount:Number(amount), method, expectedRemaining:order.remaining, expectedRefundedAmount:refunded })
           : action === "void" ? await voidCoursePurchase({ purchaseId: order.id, reason })
           : action === "edit" ? await editCoursePurchase({ purchaseId: order.id, reason, note, revenueStaffId: staffId || null })
           : await confirmCoursePurchase({ purchaseId: order.id });
-        if (!result.success) { setMessage(result.error??"操作失敗"); return; }
+        if (!result.success) { const unknown="uncertain" in result&&result.uncertain===true;setUncertain(unknown);if(!unknown)frozen.current=null;setMessage(result.error??"操作失敗");return; }
+        frozen.current=null;setUncertain(false);
         if("syncWarning" in result&&result.syncWarning){setMessage("已儲存，畫面待同步；請重新整理核對。");return;}
         setMessage(action === "refund" ? cardBased?"退款已登錄，方案已停用。":"退款已登錄。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); router.refresh();
-      } catch { setMessage("送出失敗，已保留內容；請稍後重試。"); }
+      } catch { if(source)setUncertain(true);setMessage("送出失敗，已保留內容；請稍後重試。"); }
     });
   }
   const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
     <button className={quiet?"min-h-11 whitespace-nowrap px-3 text-sm text-primary-700 hover:underline":btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
-    {open && <RightSheet presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
-      <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
+    {open && <RightSheet presentation="centered" open onClose={() => { if (!pending&&!uncertain) setOpen(false); }} labelledById={title}>
+      <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending||uncertain} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <h3 className="font-semibold">{order.customerName}・{order.name}</h3>
         <details key={mode} open={mode === "detail"} className="text-sm"><summary className="min-h-11 cursor-pointer py-2">原交易明細</summary>
@@ -73,25 +78,26 @@ export function CourseTransactionActions({ source,quiet=false, order, allocation
         {mode === "refund" && <><h3 className="font-semibold">登錄退款</h3>
           <p className="text-sm">已退款 NT$ {refunded.toLocaleString()} · 尚可退款 NT$ {maximum.toLocaleString()}</p>
 
-          <label className="block text-sm">退款金額（元）<input type="number" inputMode="numeric" min="1" max={maximum} step="1" value={amount} onChange={e=>setAmount(e.target.value)} className="mt-1 min-h-11 w-full rounded border p-2"/></label>
+          <label className="block text-sm">退款金額（元）<input type="number" inputMode="numeric" min="1" max={maximum} step="1" disabled={pending||uncertain} value={amount} onChange={e=>setAmount(e.target.value)} className="mt-1 min-h-11 w-full rounded border p-2"/></label>
           {amount.trim()&&!amountValid&&<p role="alert" className="text-sm text-red-700">請輸入大於零且不超過 NT$ {maximum.toLocaleString()} 的整數金額。</p>}
-          <label className="block text-sm">退款方式<select value={method} onChange={e=>setMethod(e.target.value as typeof method)} className="mt-1 min-h-11 w-full rounded border p-2"><option value="">請選擇</option>{Object.entries(methods).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="block text-sm">退款原因<textarea className="mt-1 min-h-24 w-full rounded border p-2" value={reason} onChange={e=>setReason(e.target.value)} maxLength={source?.maxReason??1000}/></label>
+          <label className="block text-sm">退款方式<select disabled={pending||uncertain} value={method} onChange={e=>setMethod(e.target.value as typeof method)} className="mt-1 min-h-11 w-full rounded border p-2"><option value="">請選擇</option>{Object.entries(methods).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="block text-sm">退款原因<textarea className="mt-1 min-h-24 w-full rounded border p-2" disabled={pending||uncertain} value={reason} onChange={e=>setReason(e.target.value)} maxLength={source?.maxReason??1000}/></label>
           {cardBased&&<details className="rounded border p-3 text-sm"><summary className="min-h-11 cursor-pointer py-2">退款試算（選用）</summary><label>剩餘額度內的贈送部分（僅供試算，請核對紀錄）<input type="number" min="0" max={order.remaining??0} value={giftQuota} onChange={e=>setGiftQuota(e.target.value)} className="my-2 min-h-11 w-full rounded border p-2"/></label><p>贈送額度不折算現金。以原購買 {order.points} {unit} 為付費額度，參考：{reference===null?"請核對額度":`NT$ ${reference.toLocaleString("zh-TW",{maximumFractionDigits:2})}`}。此試算不會自動填入退款金額；若原購買額度含贈送，請依原紀錄另行核對。</p></details>}
           <p className="rounded border border-gold-300 bg-gold-50 p-3 text-sm">登錄退款 NT$ {amountValid?Number(amount).toLocaleString():"—"}{cardBased?`，並收回全部剩餘 ${order.remaining??0} ${unit}、停用方案。`:"。"}歷史紀錄保留。</p>
           <p className="text-sm">系統不會自動轉帳或退刷。{method === "CASH" && "現金退款計入今日支出，需先開啟現金抽屜。"}</p>
           {blocked&&<p role="alert" className="text-red-700">{blocked}</p>}
           </>}
-        {mode === "edit" && <><h3 className="font-semibold">更正交易</h3><label className="block text-sm">交易備註<textarea className="mt-1 min-h-24 w-full rounded border p-2" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}/></label><label className="block text-sm">歸屬人員<select className="min-h-11 w-full rounded border p-2" value={staffId} onChange={(e) => setStaffId(e.target.value)}><option value="">未指定</option>{staffOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label></>}
+        {mode === "edit" && <><h3 className="font-semibold">更正交易</h3><label className="block text-sm">交易備註<textarea className="mt-1 min-h-24 w-full rounded border p-2" disabled={pending||uncertain} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}/></label><label className="block text-sm">歸屬人員<select className="min-h-11 w-full rounded border p-2" disabled={pending||uncertain} value={staffId} onChange={(e) => setStaffId(e.target.value)}><option value="">未指定</option>{staffOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label></>}
         {mode === "void" && <><h3 className="font-semibold">作廢誤建交易</h3><p className="text-sm">適用於建錯或重複交易；方案須無預約及額度異動。作廢會收回額度、沖銷原收款並保留紀錄。實際退還款項請使用「登錄退款」。</p></>}
-        {(mode === "void" || mode === "edit") && <label className="block text-sm">{mode === "void" ? "作廢原因（必填）" : "更正原因（必填）"}<textarea className="mt-1 min-h-24 w-full rounded border p-2" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500}/></label>}
+        {(mode === "void" || mode === "edit") && <label className="block text-sm">{mode === "void" ? "作廢原因（必填）" : "更正原因（必填）"}<textarea className="mt-1 min-h-24 w-full rounded border p-2" disabled={pending||uncertain} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500}/></label>}
+        {uncertain&&<p role="alert" className="text-sm">結果尚未確認；內容已保留，請以相同內容重試。</p>}
         {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
       </div>
       <footer className="flex flex-wrap gap-2 border-t bg-white p-4">
-        {mode !== "detail" ? <><button disabled={pending} className={btn} onClick={() => setMode("detail")}>返回</button><button disabled={pending || (mode === "refund" && (!!blocked || !amountValid || !method)) || !reason.trim()} className={btn} onClick={() => submit(mode === "refund" ? "refund" : mode === "void" ? "void" : "edit")}>{pending ? "處理中…" : mode === "refund" ? cardBased?"登錄退款並停用方案":"登錄退款" : mode === "void" ? "確認作廢" : "儲存更正"}</button></> : <>
+        {mode !== "detail" ? <><button disabled={pending||uncertain} className={btn} onClick={() => setMode("detail")}>返回</button><button disabled={pending || (mode === "refund" && (!!blocked || !amountValid || !method)) || !reason.trim()} className={btn} onClick={() => submit(mode === "refund" ? "refund" : mode === "void" ? "void" : "edit")}>{pending ? "處理中…" : mode === "refund" ? cardBased?"登錄退款並停用方案":"登錄退款" : mode === "void" ? "確認作廢" : "儲存更正"}</button></> : <>
           {order.status === "PENDING" && canConfirm && <button className={btn} disabled={pending} onClick={() => submit("confirm")}>{pending ? "處理中…" : "確認核帳並發卡"}</button>}
-          {["PENDING", "CONFIRMED"].includes(order.status) && canEdit && <button className={btn} onClick={() => { setMessage(""); setReason(""); setMode("edit"); }}>更正</button>}
-          {["PENDING", "CONFIRMED"].includes(order.status) && canVoid && <button className={btn} onClick={() => { setMessage(""); setReason(""); setMode("void"); }}>作廢誤建交易</button>}
+          {["PENDING", "CONFIRMED"].includes(order.status) && canEdit && <button className={btn} onClick={() => { setMessage(""); setReason(""); setRequestKey(crypto.randomUUID());setMode("edit"); }}>更正</button>}
+          {["PENDING", "CONFIRMED"].includes(order.status) && canVoid && <button className={btn} onClick={() => { setMessage(""); setReason(""); setRequestKey(crypto.randomUUID());setMode("void"); }}>作廢誤建交易</button>}
           {["CONFIRMED","REFUNDED"].includes(order.status) && maximum>0 && canRefund && <button className={btn} onClick={() => { setMessage(""); setAmount(""); setMethod(""); setReason(""); setRequestKey(crypto.randomUUID()); setMode("refund"); }}>登錄退款</button>}
         </>}
       </footer>

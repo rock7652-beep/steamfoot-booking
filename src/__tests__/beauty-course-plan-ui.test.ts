@@ -33,3 +33,13 @@ it('keeps the complete native sports fee markup unchanged when a Beauty writer i
  await act(async()=>root.render(React.createElement(OperationScope,{scope:'parity:beauty'},React.createElement(CoursePlanDraftForm,{...props,catalog:{save:m.save}}))));
  expect(host.innerHTML).toBe(sports);expect(m.course).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();
 });
+it('keeps the original form and retries an uncertain native save with the same payload and receipt key',async()=>{
+ const {nativeBeautyPlan,savedBeautyFee}=await import('@/lib/beauty/native-plan');
+ const transport=vi.fn().mockRejectedValueOnce(Error('response lost')).mockResolvedValueOnce({success:true,storeId:'store',data:nativeBeautyPlan({id:'real-plan',revision:1,name:'原版六次服務',sessions:6,price:5400,validDays:90,active:true,allowShared:true,customerPurchasable:false,serviceIds:['s']})});const saved=vi.fn();
+ const props={storeId:'store',plan:null,subjectLabel:'服務項目',templates:[{id:'s',name:'保養',category:'',isActive:true}],subjects:[{id:'s',name:'保養',category:'',isActive:true}],sportsData:{storeId:'store',subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[],date:'2026-10-23'},termSessions:[],profitEnabled:false,catalog:{save:m.save,transport,rowSchema:savedBeautyFee,units:['SESSION'],sportsModes:['ASSIGNED'],sessionLabel:'次數'},onPending:()=>{},onSaved:saved};
+ await act(async()=>root.render(React.createElement(OperationScope,{scope:'native:retry'},React.createElement(CoursePlanDraftForm,props))));
+ expect(host.querySelector<HTMLInputElement>('[name="unit"]')!.value).toBe('SESSION');expect(host.querySelector<HTMLOptionElement>('option[value="POINT"]')!.disabled).toBe(true);expect(host.querySelector<HTMLOptionElement>('option[value="OPEN"]')!.disabled).toBe(true);
+ await set('[name="name"]','原版六次服務');await set('[name="points"]','6');await set('[name="price"]','5400');await set('[name="days"]','90');await submit();
+ expect(host.textContent).toContain('尚未確認儲存結果');expect(saved).not.toHaveBeenCalled();expect(host.querySelector('fieldset')?.disabled).toBe(true);
+ await submit();expect(transport).toHaveBeenCalledTimes(2);expect(transport.mock.calls[1][0]).toEqual(transport.mock.calls[0][0]);expect(transport.mock.calls[0][0]).toMatchObject({expectedStoreId:'store',requestKey:expect.any(String),unit:'SESSION',points:6});expect(saved).toHaveBeenCalledWith(expect.objectContaining({id:'plan:real-plan',catalogRevision:1}));expect(m.course).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();
+});

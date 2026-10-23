@@ -1,5 +1,5 @@
+import {beautyCareId} from '@/lib/beauty/care-id';
 import "server-only";
-import {createHash} from "node:crypto";
 import type {Prisma} from "@prisma/client";
 import {prisma} from "@/lib/db";
 import {beautyPrisma} from "@/lib/beauty-db";
@@ -25,9 +25,8 @@ export function beautyCareMessages(body:string,slug:string):LineMessage[] {
     {type:"button",style:"link",action:{type:"uri",label:"停止／管理此類提醒",uri:new URL(path+"/reminders",deriveBaseUrl()).toString()}},
   ]}}}];
 }
-export function beautyCareId(storeId:string,customerId:string,subject:string,kind:string) {
-  return "beauty-care:"+createHash("sha256").update(JSON.stringify([storeId,customerId,subject,kind])).digest("hex");
-}
+export {beautyCareId} from '@/lib/beauty/care-id';
+
 async function lockStore(tx:Prisma.TransactionClient,storeId:string) {
   const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Store" WHERE id=${storeId} AND "industryModule"::text='BEAUTY' AND "operatingStatus"::text='ACTIVE' AND "isDemo"=false FOR UPDATE`;
   return rows.length===1;

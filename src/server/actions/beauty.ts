@@ -571,6 +571,11 @@ export async function confirmBeautyPurchase(input: unknown) {
           where: { id: order.id },
           data: { cardId: receipt.cardId, status: "CONFIRMED" },
         });
+        const corrected=await tx.beautyTransactionRevision.findFirst({where:{storeId:a.storeId,transactionId:order.id},orderBy:{revision:'desc'}});
+        if(corrected){
+          const payment=await tx.beautyPayment.findFirstOrThrow({where:{storeId:a.storeId,cardId:receipt.cardId,kind:'SALE'}});
+          await tx.beautyTransactionRevision.create({data:{storeId:a.storeId,transactionId:payment.id,revision:1,note:corrected.note,revenueStaffId:corrected.revenueStaffId,actorUserId:a.userId!}});
+        }
         return receipt;
       }),
     );

@@ -84,6 +84,8 @@ interface PaymentMethodSummary { paymentMethod: string; amount: number }
 type ReportMode = "store" | "coach";
 
 interface Props {
+  canReadDetails?:boolean;
+  serviceMode?:boolean;
   courseMode?: boolean;
   musicMode?: boolean;
   mode: ReportMode;
@@ -127,7 +129,7 @@ function fmtStatus(s: string): string {
 
 function fmtRole(r: string | null): string {
   if (!r) return "-";
-  const map: Record<string, string> = { ADMIN: "總部", OWNER: "店長", PARTNER: "合作店長" };
+  const map: Record<string, string> = { ADMIN: "總部", OWNER: "店長", MANAGER:"店長", STAFF:"門市人員", PARTNER: "合作店長" };
   return map[r] ?? r;
 }
 
@@ -142,6 +144,8 @@ function fmtDate(iso: string): string {
 
 export function RevenueReportClient({
   mode,
+  canReadDetails=true,
+  serviceMode=false,
   courseMode = false,
   musicMode = false,
   stores,
@@ -231,6 +235,7 @@ export function RevenueReportClient({
         setCoachSummary(summaryData.summary);
       }
 
+      if(!canReadDetails){setDetails([]);setDetailTotal(0);return;}
       // Fetch details page 1
       params.set("level", "details");
       params.set("page", "1");
@@ -248,7 +253,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, courseMode, buildParams, startDate, endDate]);
+  }, [mode, courseMode, canReadDetails, buildParams, startDate, endDate]);
 
   // Fetch details page
   const fetchDetailsPage = useCallback(async (page: number) => {
@@ -314,14 +319,14 @@ export function RevenueReportClient({
   const buildExportUrl = useCallback(() => {
     const params = buildParams();
     params.set("reportType", mode);
-    params.set("level", "all");
+    params.set("level", canReadDetails?"all":"summary");
     params.set("periodType", periodType);
     const storeName = stores.find(s => s.id === storeId)?.name ?? "全部";
     const coachName = coaches.find(c => c.id === coachId)?.name ?? "全部";
     params.set("storeName", storeName);
     params.set("coachName", coachName);
     return `/api/reports/export?${params.toString()}`;
-  }, [buildParams, mode, periodType, storeId, coachId, stores, coaches]);
+  }, [canReadDetails, buildParams, mode, periodType, storeId, coachId, stores, coaches]);
 
   const totalPages = Math.ceil(detailTotal / pageSize);
 
@@ -385,7 +390,7 @@ export function RevenueReportClient({
           {mode === "coach" && coaches.length > 0 && (
             <>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"所屬店長":"教練"}</label>
                 <select
                   value={coachId}
                   onChange={(e) => setCoachId(e.target.value)}
@@ -396,7 +401,7 @@ export function RevenueReportClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練角色</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"角色":"教練角色"}</label>
                 <select
                   value={coachRole}
                   onChange={(e) => setCoachRole(e.target.value)}
@@ -404,7 +409,7 @@ export function RevenueReportClient({
                 >
                   <option value="">全部</option>
                   <option value="OWNER">店長</option>
-                  <option value="PARTNER">合作店長</option>
+                  <option value="PARTNER">合作店長</option>{serviceMode&&<><option value="MANAGER">店長</option><option value="STAFF">門市人員</option></>}
                 </select>
               </div>
             </>
@@ -418,7 +423,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              {courseMode ? <>{!musicMode && <option value="POINT">點數方案</option>}<option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
+              {courseMode ? <>{!musicMode&&!serviceMode && <option value="POINT">點數方案</option>}<option value="SESSION">{serviceMode?"次數方案":"堂數方案"}</option>{serviceMode&&<option value="SINGLE">單次服務</option>}<option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
             </select>
           </div>
 
@@ -505,18 +510,18 @@ export function RevenueReportClient({
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收總表" : "教練營收總表"}
+          {mode === "store" ? "店營收總表" : serviceMode?"店長歸屬收入總表":"教練營收總表"}
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("details")}
+          disabled={!canReadDetails} onClick={() => setActiveTab("details")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === "details"
               ? "border-primary-600 text-primary-700"
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收明細" : "教練營收明細"}
+          {mode === "store" ? "店營收明細" : serviceMode?"店長歸屬收入明細":"教練營收明細"}
         </button>
       </div>
 
@@ -538,7 +543,7 @@ export function RevenueReportClient({
           )}
           {mode === "store" && storeSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
                     {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
@@ -582,14 +587,14 @@ export function RevenueReportClient({
           )}
 
           {mode === "coach" && coachSummary.length === 0 && (
-            <EmptyState title="無資料" description="所選條件下無教練營收資料" />
+            <EmptyState title="無資料" description={serviceMode?"所選條件下無店長歸屬營收資料":"所選條件下無教練營收資料"} />
           )}
           {mode === "coach" && coachSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
-                    {["教練姓名", "教練角色", "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
+                    {[serviceMode?"所屬店長":"教練姓名", serviceMode?"角色":"教練角色", "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -630,12 +635,12 @@ export function RevenueReportClient({
           {details.length > 0 && (
             <>
               <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-                <table className="min-w-full text-sm">
+                <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
                         ? (courseMode ? ["入帳日期", "分店", "客戶", "電話", "方案", "類型", "收退款金額", "收款方式", "狀態", "備註", "操作人員", "入帳時間"] : ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"])
-                        : ["交易日期", "交易單號", "分店", "教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
+                        : ["交易日期", "交易單號", "分店", serviceMode?"所屬店長":"教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
                       ).map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                       ))}

@@ -1,3 +1,4 @@
+import {beautyPaymentVisibility} from "./transaction-revisions";
 import "server-only";
 import {recordBeautyStoreNotice} from "./store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
@@ -572,6 +573,7 @@ export async function transition(
       storeId: a.storeId,
       appointmentId: b.id,
       kind: { in: ["SALE", "REFUND"] },
+      ...(await beautyPaymentVisibility(tx,a.storeId)),
     },
   });
   const paid = payments.reduce((s, p) => s + p.amount, 0);

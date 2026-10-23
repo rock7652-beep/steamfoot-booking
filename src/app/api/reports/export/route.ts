@@ -1,3 +1,6 @@
+import {formatTWTime} from "@/lib/date-utils";
+import {moduleStaffRevenueSummary,type ModuleRevenueRow} from "@/lib/module-revenue-report";
+import type {StoreRevenueSummary} from "@/lib/report-queries";
 import { AppError } from "@/lib/errors";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
@@ -9,6 +12,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
+import {getManagerReadFilter} from "@/lib/manager-visibility";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
@@ -84,8 +88,22 @@ export async function GET(req: NextRequest) {
   try {
     const workbook = new ExcelJS.Workbook();
 
-    if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
-      const report = await getCourseRevenueReport(analysisStoreId, filters);
+    const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
+    if (analysisStoreId && (industry === "course"||industry==="beauty")) {
+      if(industry==="beauty"){
+        const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
+        if(typeof scope.revenueStaffId==="string"){
+          if(filters.coachId&&filters.coachId!==scope.revenueStaffId)return new NextResponse("Forbidden",{status:403});
+          filters.coachId=scope.revenueStaffId;
+        }
+      }
+      if(industry==="beauty"&&level!=="summary"&&(!(await checkPermission(user.role,user.staffId,"transaction.read"))||!(await hasStoreFeature(analysisStoreId,FEATURES.TRANSACTION_MANAGEMENT))))return new NextResponse("Forbidden",{status:403});
+      const report = industry==="beauty"?await (await import("@/server/queries/beauty-revenue-report")).getBeautyRevenueReport(analysisStoreId,filters,{customers:await checkPermission(user.role,user.staffId,"customer.read")}):await getCourseRevenueReport(analysisStoreId, filters);
+      if(industry==="beauty"){
+        if(report.data.length>10000)return new NextResponse("單次最多匯出 10,000 筆，請縮小篩選範圍",{status:413});
+        if(reportType==="store")await buildStoreRevenueWorkbook(workbook,filters,level,report);
+        else await buildCoachRevenueWorkbook(workbook,filters,level,report);
+      }else{
       const summary = workbook.addWorksheet("課程收入總覽");
       summary.addRow(["收款登錄","退款／沖銷","淨收入","收款紀錄數","付款顧客數"]);
       summary.addRow([report.kpi.totalRevenue,report.kpi.refundAmount,report.kpi.netRevenue,report.kpi.txCount,report.kpi.customerCount]);
@@ -93,7 +111,8 @@ export async function GET(req: NextRequest) {
       sheet.addRow(["發生日","類型","顧客","方案","點數／堂數制","金額","歸屬人員","備註"]);
       for (const row of report.data) sheet.addRow([row.transactionDate,row.refund?(row.unit==="TRIAL"?"體驗收款沖銷":"退款"):(row.unit==="TRIAL"?"體驗收款":"核帳收入"),row.customerName,row.planName,row.unit==="TRIAL"?"體驗（不使用方案）":row.unit==="SESSION"?"堂數":"點數",row.netAmount,row.coachName??"",row.note??""]);
       sheet.views=[{state:"frozen",ySplit:1,xSplit:0}];
-      autoFitColumns(sheet); autoFitColumns(summary);
+      autoFitColumns(sheet);autoFitColumns(summary);
+      }
     } else if (reportType === "store") {
       await buildStoreRevenueWorkbook(workbook, filters, level);
     } else {
@@ -117,6 +136,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Cache-Control":"private, no-store",
         "Content-Disposition": `attachment; filename*=UTF-8''${encodedFilename}`,
       },
     });
@@ -134,11 +154,12 @@ export async function GET(req: NextRequest) {
 async function buildStoreRevenueWorkbook(
   workbook: ExcelJS.Workbook,
   filters: ReportFilters,
-  level: string
+  level: string,
+  source?:{data:ModuleRevenueRow[];summary:StoreRevenueSummary[]}
 ) {
   if (level === "summary" || level === "all") {
-    const summary = await getStoreRevenueSummary(filters);
-    const ws = workbook.addWorksheet("店營收總表");
+    const summary = source?.summary ?? await getStoreRevenueSummary(filters);
+    const ws = workbook.addWorksheet(source?"服務收入總表":"店營收總表");
 
     const headers = [
       "分店名稱", "總營收", "退款金額", "淨營收", "交易筆數",
@@ -161,8 +182,8 @@ async function buildStoreRevenueWorkbook(
   }
 
   if (level === "details" || level === "all") {
-    const details = await getTransactionDetails(filters, 1, 10000);
-    const ws = workbook.addWorksheet("店營收明細");
+    const details = source ? {data:source.data} : await getTransactionDetails(filters, 1, 10000);
+    const ws = workbook.addWorksheet(source?"服務收退款明細":"店營收明細");
 
     const headers = [
       "交易日期", "交易單號", "分店名稱", "客戶姓名", "客戶電話",
@@ -176,10 +197,10 @@ async function buildStoreRevenueWorkbook(
       ws.addRow([
         formatDate(d.transactionDate), d.transactionNo ?? "",
         d.storeName, d.customerName, d.customerPhone,
-        d.planName ?? "", formatPlanType(d.planType),
+        d.planName ?? "", source&&d.planType==="SESSION"?"次數":formatPlanType(d.planType),
         d.grossAmount, d.discountAmount, d.netAmount,
         formatPaymentMethod(d.paymentMethod), formatStatus(d.status),
-        d.note ?? "", d.createdByName ?? "", formatDate(d.createdAt),
+        d.note ?? "", d.createdByName ?? "", source?formatTWTime(new Date(d.createdAt)):formatDate(d.createdAt),
       ]);
     }
 
@@ -196,14 +217,15 @@ async function buildStoreRevenueWorkbook(
 async function buildCoachRevenueWorkbook(
   workbook: ExcelJS.Workbook,
   filters: ReportFilters,
-  level: string
+  level: string,
+  source?:{data:ModuleRevenueRow[];summary:StoreRevenueSummary[]}
 ) {
   if (level === "summary" || level === "all") {
-    const summary = await getCoachRevenueSummary(filters);
-    const ws = workbook.addWorksheet("教練營收總表");
+    const summary = source ? moduleStaffRevenueSummary({...source,kpi:{totalRevenue:0,refundAmount:0,netRevenue:0,txCount:0,customerCount:0,avgPerCustomer:0},paymentMethods:[]}) : await getCoachRevenueSummary(filters);
+    const ws = workbook.addWorksheet(source?"店長歸屬收入總表":"教練營收總表");
 
     const headers = [
-      "教練姓名", "教練角色", "分店名稱", "歸屬總收入", "退款金額",
+      source?"所屬店長":"教練姓名", source?"角色":"教練角色", "分店名稱", "歸屬總收入", "退款金額",
       "淨收入", "交易筆數", "客戶數", "平均單筆收入",
       "新客收入", "舊客收入", "體驗收入", "正式方案收入", "票券收入", "商品收入",
     ];
@@ -226,11 +248,11 @@ async function buildCoachRevenueWorkbook(
   }
 
   if (level === "details" || level === "all") {
-    const details = await getTransactionDetails(filters, 1, 10000);
-    const ws = workbook.addWorksheet("教練營收明細");
+    const details = source ? {data:source.data} : await getTransactionDetails(filters, 1, 10000);
+    const ws = workbook.addWorksheet(source?"店長歸屬收入明細":"教練營收明細");
 
     const headers = [
-      "交易日期", "交易單號", "分店名稱", "教練姓名", "教練角色",
+      "交易日期", "交易單號", "分店名稱", source?"所屬店長":"教練姓名", source?"角色":"教練角色",
       "客戶姓名", "客戶電話", "方案名稱", "方案類型", "實收金額",
       "收款方式", "狀態", "是否新客", "備註", "建立時間",
     ];
@@ -242,10 +264,10 @@ async function buildCoachRevenueWorkbook(
         formatDate(d.transactionDate), d.transactionNo ?? "",
         d.storeName, d.coachName ?? "", formatCoachRole(d.coachRole),
         d.customerName, d.customerPhone,
-        d.planName ?? "", formatPlanType(d.planType),
+        d.planName ?? "", source&&d.planType==="SESSION"?"次數":formatPlanType(d.planType),
         d.netAmount, formatPaymentMethod(d.paymentMethod),
         formatStatus(d.status), d.isFirstPurchase ? "是" : "否",
-        d.note ?? "", formatDate(d.createdAt),
+        d.note ?? "", source?formatTWTime(new Date(d.createdAt)):formatDate(d.createdAt),
       ]);
     }
 
@@ -275,6 +297,7 @@ function formatMoneyColumns(ws: ExcelJS.Worksheet, cols: number[]) {
 }
 
 function autoFitColumns(ws: ExcelJS.Worksheet) {
+  ws.eachRow(row=>row.eachCell(cell=>{if(typeof cell.value==="string"&&/^[=+\-@]/.test(cell.value.trimStart()))cell.value="'"+cell.value;}));
   ws.columns.forEach((col) => {
     let maxLen = 10;
     col.eachCell?.({ includeEmpty: true }, (cell) => {

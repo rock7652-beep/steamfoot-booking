@@ -4,8 +4,9 @@ import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
-import type { ReportFilters, TransactionDetail, StoreRevenueSummary } from "@/lib/report-queries";
-import { paymentMethodReportAmount, type PaymentSplitInput } from "@/lib/payment-splits";
+import {moduleRevenueReport,type ModuleRevenueRow} from "@/lib/module-revenue-report";
+import type { ReportFilters } from "@/lib/report-queries";
+import { type PaymentSplitInput } from "@/lib/payment-splits";
 import { AppError } from "@/lib/errors";
 export async function getCourseRevenueReport(storeId: string, filters: ReportFilters) {
   await requireCourseStore(storeId);
@@ -29,7 +30,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
     prisma.staff.findMany({ where: { storeId }, select: { id:true,userId:true,displayName:true,user:{select:{role:true}} } }),
     tx.coursePurchase.findMany({ where: { storeId, customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
   ]);
-  type Row = TransactionDetail & { customerId: string | null; staffId: string | null; refund: boolean; unit: string; paymentSplits: PaymentSplitInput[] };
+  type Row = ModuleRevenueRow;
   const rows: Row[] = [];
   const peopleById = new Map(people.map((person) => [person.id,person]));
   const staffById = new Map(staff.map((person) => [person.id,person]));
@@ -53,16 +54,6 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
     if(receipt.createdAt>=range.gte && receipt.createdAt<=range.lte) add(order,receipt.amount,receipt.createdAt,receipt.id,receipt.note,false,receipt.actorUserId,receipt.paymentMethod,splits);
     if(receipt.voidedAt && receipt.voidedAt>=range.gte && receipt.voidedAt<=range.lte) add(order,-receipt.amount,receipt.voidedAt,`${receipt.id}:void`,receipt.voidReason??"體驗收款更正沖銷",true,receipt.actorUserId,receipt.paymentMethod,splits.map(s=>({...s,amount:-s.amount})));
   }
-  const keyword=filters.keyword?.trim().toLocaleLowerCase();
-  const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)!==0)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).map(r=>filters.paymentMethod ? {...r,netAmount:paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)} : r).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
-  const totalRevenue=data.filter((r)=>!r.refund).reduce((n,r)=>n+r.netAmount,0);
-  const refundAmount=Math.abs(data.filter((r)=>r.refund).reduce((n,r)=>n+r.netAmount,0));
-  const netRevenue=totalRevenue-refundAmount;
-  const customerCount=new Set(data.filter((r)=>!r.refund).map((r)=>r.customerId).filter((id): id is string => !!id)).size;
-  const kpi={totalRevenue,refundAmount,netRevenue,txCount:data.filter((r)=>!r.refund).length,customerCount,avgPerCustomer:customerCount?Math.round(netRevenue/customerCount):0};
-  const summary:StoreRevenueSummary[] = data.length ? [{...kpi,storeId,storeName:store.name,trialRevenue:data.filter(r=>r.unit==="TRIAL").reduce((n,r)=>n+r.netAmount,0),packageRevenue:data.filter(r=>r.unit!=="TRIAL"&&!r.refund).reduce((n,r)=>n+r.netAmount,0),singleRevenue:0,otherRevenue:0}] : [];
-  const methods = new Map<string,number>();
-  for (const row of data.filter(r=>!r.refund)) for (const split of filters.paymentMethod ? [{paymentMethod:filters.paymentMethod,amount:row.netAmount}] : row.paymentSplits.length ? row.paymentSplits : [{paymentMethod:row.paymentMethod,amount:row.netAmount}]) methods.set(split.paymentMethod,(methods.get(split.paymentMethod)??0)+split.amount);
-  return {data,summary,kpi,paymentMethods:[...methods].map(([paymentMethod,amount])=>({paymentMethod,amount}))};
+  return moduleRevenueReport(rows,storeId,store.name,filters);
   }, { isolationLevel: "RepeatableRead", timeout: 15000 });
 }

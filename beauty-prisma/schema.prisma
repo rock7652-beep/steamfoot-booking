@@ -245,3 +245,18 @@ model BeautyPurchase {
 
   @@unique([storeId, id])
 }
+
+// Append-only corrections; original BeautyPayment financial rows stay immutable.
+model BeautyTransactionRevision {
+ storeId String
+ transactionId String
+ revision Int
+ note String
+ revenueStaffId String?
+ voidedAt DateTime? @db.Timestamptz(3)
+ voidReason String?
+ actorUserId String
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@id([storeId, transactionId, revision])
+ @@index([storeId, voidedAt])
+}

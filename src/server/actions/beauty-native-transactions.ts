@@ -34,3 +34,20 @@ export async function confirmBeautyNativeTransaction(input:unknown){
 export async function confirmBeautyNativeSettlement(input:unknown){
  try{const d=z.object({month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),fingerprint:z.string().length(64),expectedStoreId:key,requestKey:z.string().uuid()}).parse(input),a=await beautyManager('teacher.settlement.confirm',true);if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟月結');return confirmBeautySettlement(d);}catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'月結尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
 }
+
+const correction=z.object({purchaseId:key,expectedStoreId:key,requestKey:z.string().uuid(),expectedRevision:z.number().int().nonnegative(),reason:z.string().trim().min(1).max(500)});
+async function correct(input:unknown,operation:'edit'|'void'){
+ try{
+  const d=(operation==='edit'?correction.extend({note:z.string().trim().max(500),revenueStaffId:key.nullable()}):correction).parse(input);
+  const a=await beautyManager(operation==='edit'?'transaction.create':'transaction.void',true);await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
+  if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟交易');
+  await beautyTransaction(a,async tx=>{
+   const sale=await tx.beautyPayment.findFirst({where:{storeId:a.storeId,id:d.purchaseId,kind:'SALE'},select:{cardId:true}});
+   if(sale?.cardId){await beautyManager('wallet.read');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);}
+   return (await import('@/server/beauty/transaction-correction')).correctBeautyTransaction(tx,a,{...d,operation});
+  });
+  let syncWarning=false;try{for(const path of ['/dashboard/beauty','/dashboard/store-revenue','/dashboard/coach-revenue','/dashboard/cashbook'])revalidatePath(path);}catch{syncWarning=true;}return {success:true as const,syncWarning};
+ }catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'操作尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
+}
+export async function editBeautyNativeTransaction(input:unknown){return correct(input,'edit');}
+export async function voidBeautyNativeTransaction(input:unknown){return correct(input,'void');}

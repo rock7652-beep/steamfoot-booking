@@ -12,6 +12,8 @@ import type {BeautyDashboardData} from '@/server/beauty/queries';
 import type {CatalogStatusDriver} from '@/lib/course-catalog-driver';
 import {saveBeautyCatalog,saveBeautyLocation} from '@/server/actions/beauty';
 import {beautySessionProduct,savedBeautyPlan,savedBeautyService,savedBeautyLocation} from '@/lib/beauty/catalog-adapter';
+import {savedBeautyFee} from '@/lib/beauty/native-plan';
+import {saveBeautyNativePlan} from '@/server/actions/beauty-native-plan';
 import {nativeBeautyService,savedBeautySubject} from '@/lib/beauty/native-service';
 import {saveBeautyNativeService} from '@/server/actions/beauty-native-service';
 import {toLocalDateStr} from '@/lib/date-utils';
@@ -45,25 +47,15 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
   }
   return {success:true,succeeded,failed};
  }};
- const form:CoursePlanCatalogPort={save:async(input,plan)=>{
+ const form:CoursePlanCatalogPort={units:['SESSION'],sportsModes:['ASSIGNED','LEGACY'],sessionLabel:'次數',canEditCoaches:!!data.manage?.technician,rowSchema:savedBeautyFee,transport:async input=>{const r=await saveBeautyNativePlan(input);if(r.success)refresh();return r;},values:(input,plan)=>{
+  const prior=plan?.catalogSnapshot?savedBeautyPlan.parse(plan.catalogSnapshot):undefined;
+  const subjectId=input.subjectId??(input.templateIds as string[]|undefined)?.[0]??prior?.serviceIds[0];
+  const service=services.find(s=>s.id===subjectId);
+  return {id:prior?.id,revision:prior?.revision,unit:input.unit??'SESSION',sportsMode:input.sportsMode??(prior&&prior.serviceIds.length>1?'LEGACY':'ASSIGNED'),subjectId,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,active:input.isActive,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,...(input.lowBalanceEnabled===undefined?{}:{lowBalanceEnabled:input.lowBalanceEnabled}),...(input.lowBalanceThreshold===undefined?{}:{lowBalanceThreshold:input.lowBalanceThreshold===null?null:Number(input.lowBalanceThreshold)}),...(input.sportsMode==='LEGACY'&&data.manage?.technician&&service?{qualification:{coachIds:input.coachIds,expectedCoachIds:data.techs.filter(t=>t.serviceIds.includes(service.id)).map(t=>t.id),serviceRevision:service.revision}}:{})};
+ },save:async(input,plan)=>{
   if(!canEdit)return {success:false,error:'沒有管理權限'};
-  if(input.sportsMode!==undefined){
-   if(input.unit!=='SESSION')return {success:false,error:'美業核心尚未支援點數方案，本次未儲存；不可將點數當作次數扣除。'};
-   if(input.sportsMode==='OPEN')return {success:false,error:'美業核心尚未支援開放選課通用卡，本次未儲存。'};
-   if(!services.some(s=>s.id===input.subjectId))return {success:false,error:'請選擇本店服務項目'};
-  }
-  const prior=plan?(plan.catalogSnapshot?savedBeautyPlan.parse(plan.catalogSnapshot):data.plans.find(p=>'plan:'+p.id===plan.id)):undefined;
-  if(plan&&(!prior||'plan:'+prior.id!==plan.id||plan.catalogRevision!==prior.revision))return {success:false,error:'方案已更新，請關閉後重新開啟'};
-  if(input.sportsMode==='LEGACY'&&prior&&Array.isArray(input.coachIds)){
-   const expected=data.techs.filter(t=>t.serviceIds.includes(prior.serviceIds[0])).map(t=>t.id).sort();
-   if(JSON.stringify([...input.coachIds].sort())!==JSON.stringify(expected))return {success:false,error:'原版可服務技師的修改接點尚未完成，本次未儲存；不會忽略此修改。'};
-  }
-  const serviceIds=input.sportsMode==='LEGACY'&&prior&&input.subjectId===prior.serviceIds[0]?prior.serviceIds:input.templateIds;
-  const lowBalanceEnabled=input.lowBalanceEnabled??prior?.lowBalanceEnabled??false;
-  const rawThreshold=input.lowBalanceThreshold===undefined?prior?.lowBalanceThreshold??null:input.lowBalanceThreshold;
-  const lowBalanceThreshold=input.lowBalanceEnabled===undefined&&input.lowBalanceThreshold===undefined?prior?.lowBalanceThreshold??null:lowBalanceEnabled&&rawThreshold!=null?Number(rawThreshold):null;
-  const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled,lowBalanceThreshold});
-  if(!r.success)return r;const record=savedBeautyPlan.parse(r.data.record);const saved={...beautySessionProduct(record),sportsMode:record.serviceIds.length===1?'ASSIGNED':'LEGACY',sportsSubjectId:record.serviceIds[0]??null,sportsCost:1};refresh();return {success:true,data:saved};
+  const result=await saveBeautyNativePlan({...form.values!(input,plan),expectedStoreId:data.storeId,requestKey:typeof input.requestKey==='string'?input.requestKey:crypto.randomUUID()});
+  if(!result.success)return result;refresh();return {success:true,data:savedBeautyFee.parse(result.data)};
  }};
  const templates:Template[]=services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,catalogSnapshot:{...s},capacity:1,pointCost:1,defaultRoomId:null}));
 

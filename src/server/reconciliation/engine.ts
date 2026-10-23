@@ -9,6 +9,7 @@
 
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { checkInventoryAccounts, checkClosedCashDrawers } from "./finance-checks";
+import {checkBeautyAccounts} from "./beauty-checks";
 import { checkCourseAccounts } from "./course-checks";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr, toLocalMonthStr, todayRange, monthRange, parseTaiwanDateToDbDate } from "@/lib/date-utils";
@@ -73,13 +74,18 @@ export async function runReconciliation(
     },
   });
 
-  const isCourse = (await getStoreIndustryModule(storeId)) === "course";
+  const industry = await getStoreIndustryModule(storeId);
+  const isCourse = industry === "course", isBeauty = industry === "beauty";
   const results: CheckResult[] = [];
   if (isCourse) {
     try { results.push(...await checkCourseAccounts(storeId)); }
     catch { results.push({ checkCode: "course_accounts", checkName: "課程對帳", status: "error", sources: {}, errorMessage: "課程資料讀取失敗，請稍後重試；本次不算通過。", debugPayload: {} }); }
   }
 
+  if(isBeauty){
+    try { results.push(...await checkBeautyAccounts(storeId)); }
+    catch { results.push({checkCode:"beauty_accounts",checkName:"美業對帳",status:"error",sources:{},errorMessage:"美業資料讀取失敗，請稍後重試；本次不算通過。",debugPayload:{}}); }
+  }
   try { results.push(...await checkInventoryAccounts(storeId)); }
   catch (error) { results.push({ checkCode: "inventory_receipt_ledger", checkName: "銷貨／進貨收付款與收支帳", status: "error", sources: {}, errorMessage: error instanceof Error ? error.message : "帳務讀取失敗，本次不算通過", debugPayload: {} }); }
 
@@ -87,7 +93,7 @@ export async function runReconciliation(
   catch (error) { results.push({ checkCode: "cash_drawer_ledger", checkName: "結帳快照與現金收支", status: "error", sources: {}, errorMessage: error instanceof Error ? error.message : "帳務讀取失敗，本次不算通過", debugPayload: {} }); }
 
   // 執行各項對帳檢查
-  const checks = isCourse ? [] : [
+  const checks = isCourse || isBeauty ? [] : [
     checkTodayRevenue,
     checkMonthRevenue,
     checkTodayBookingCount,

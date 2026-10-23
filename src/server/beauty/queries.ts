@@ -251,6 +251,7 @@ export async function beautyDashboard(
       ]),
     ),
   );
+  manage.customerMerge=manage.customerEdit&&customerAccess&&(u?.role==="OWNER"||u?.role==="ADMIN");
   manage.customerExport=manage.customerExport&&customerAccess&&(await hasStoreFeature(a.storeId,FEATURES.DATA_EXPORT));
   manage.card = manage.card && manage.collect;
   manage.technician =

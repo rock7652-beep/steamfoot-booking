@@ -21,6 +21,7 @@ function beautyRevenueHref(original:string){
 }
 export async function BeautyNativeOperations({data,query,readOnly}:{data:BeautyDashboardData;query:{dateFrom?:string;dateTo?:string;status?:string;staff?:string;page?:string;summary?:string;area?:string};readOnly:boolean}){
  const u=await getCurrentUser();
+ const canEdit=!readOnly&&!!u&&await checkPermission(u.role,u.staffId,'transaction.create'),canVoid=!readOnly&&!!u&&await checkPermission(u.role,u.staffId,'transaction.void');
  const canFees=!!u&&data.access.feeAccess&&await checkPermission(u.role,u.staffId,'teacher.settlement.read');
  let fees=null;
  if(canFees&&data.report){
@@ -30,5 +31,5 @@ export async function BeautyNativeOperations({data,query,readOnly}:{data:BeautyD
   fees=<section className="space-y-3"><PageHeader compact title="技師拆帳月結" actions={<IncomeMonthFilter month={data.month}/>}/><BeautyNativeFeeReport storeId={data.storeId} lines={lines} month={data.month} fingerprint={data.report.fingerprint} confirmed={last?.fingerprint===data.report.fingerprint} previous={!!last} canConfirm={!readOnly&&data.manage.feeConfirm}/></section>;
  }
  if(query.area==='fees'||!data.access.financeAccess)return <PageShell compact><RevenueTabs readOnly={readOnly}/>{fees??<p role="alert">目前沒有技師拆帳檢視權限。</p>}</PageShell>;
- return <CourseRevenue storeId={data.storeId} params={query} readOnly={readOnly} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card} canEdit={false} canVoid={false} source={{read:readBeautyRevenue,summary:readBeautyReceiptSummary,href:beautyRevenueHref,queryFields:{tab:'營運'},fees,actions:order=><BeautyNativeTransaction storeId={data.storeId} order={order} cardAccess={data.access.planAccess} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card}/>}}/>;
+ return <CourseRevenue storeId={data.storeId} params={query} readOnly={readOnly} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card} canEdit={canEdit} canVoid={canVoid} source={{statusLabels:{CONFIRMED:"已收款"},read:readBeautyRevenue,summary:readBeautyReceiptSummary,href:beautyRevenueHref,queryFields:{tab:'營運'},fees,actions:order=><BeautyNativeTransaction canEdit={canEdit} canVoid={canVoid} staffOptions={data.assignmentStaff.map(s=>({id:s.id,name:s.displayName}))} storeId={data.storeId} order={order} cardAccess={data.access.planAccess} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card}/>}}/>;
 }

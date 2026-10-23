@@ -53,7 +53,7 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
   const staff = params.staff?.slice(0, 100) || undefined;
   const snapshot=source?await source.read({from,to,status,staff,page:Math.max(1,Math.floor(Number(params.page)||1))}):await readOriginalRevenue(storeId,range,status,staff,Math.floor(Number(params.page)||1),from,to,native);
   const {rows,count,page,pages,receiptTotals,staffRows,pendingCount,confirmationActors}=snapshot;
-  const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已登錄退款", VOIDED: "已作廢" };
+  const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已登錄退款", VOIDED: "已作廢",...source?.statusLabels };
   const columns: Column<(typeof rows)[number]>[] = [
     { key: "date", header: "購買日期", accessor: (r) => r.date },
     { key: "customer", header: "顧客", accessor: (r) => <span className="block max-w-32 truncate" title={r.customerName}>{r.customerName}</span> },

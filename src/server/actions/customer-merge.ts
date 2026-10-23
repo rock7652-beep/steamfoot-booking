@@ -11,6 +11,9 @@ import {
 } from "@/server/services/customer-merge";
 import type { ActionResult } from "@/types";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import {beautyManager} from "@/server/beauty/access";
+import {requireStoreFeature} from "@/lib/feature-gate";
+import {FEATURES} from "@/lib/feature-flags";
 import { courseManager } from "@/server/services/course-access";
 
 // ============================================================
@@ -70,9 +73,8 @@ export async function mergeCustomerAction(
     assertStoreAccess(user, target.storeId);
 
     const industry = await getStoreIndustryModule(source.storeId);
-    if (industry === "beauty") {
-      throw new AppError("BUSINESS_RULE", "美業暫不開放顧客合併，請保留兩筆資料並使用顧客資料更正");
-    }
+    let beautyStoreId:string|undefined;
+    if(industry==="beauty"){const actor=await beautyManager("customer.update",true);await requireStoreFeature(actor.storeId,FEATURES.CUSTOMER_MANAGEMENT);if(actor.storeId!==source.storeId||actor.storeId!==target.storeId)throw new AppError("FORBIDDEN","只能合併目前美業店家的顧客");beautyStoreId=actor.storeId;}
     let courseStoreId: string | undefined;
     if (industry === "course") {
       await requireWritablePermission("customer.update");
@@ -86,11 +88,13 @@ export async function mergeCustomerAction(
       targetCustomerId: target.id,
       performedByUserId: user.id,
       courseStoreId,
+      beautyStoreId,
     });
 
     // 列表 + 兩筆 customer 詳情頁全部失效
     revalidatePath("/dashboard/customers");
     if (courseStoreId) revalidatePath("/dashboard/courses");
+    if(beautyStoreId)revalidatePath("/dashboard/beauty");
     revalidatePath(`/dashboard/customers/${target.id}`);
     revalidatePath(`/dashboard/customers/${source.id}`);
 

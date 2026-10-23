@@ -1,16 +1,18 @@
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({catalog:vi.fn(),location:vi.fn(),refresh:vi.fn()}));
+const m=vi.hoisted(()=>({catalog:vi.fn(),plan:vi.fn(),location:vi.fn(),refresh:vi.fn()}));
+vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:m.plan}));
 vi.mock('@/server/actions/beauty-native-service',()=>({saveBeautyNativeService:vi.fn()}));
 vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({saveBeautyCatalog:m.catalog,saveBeautyLocation:m.location}));
 vi.mock('@/app/(dashboard)/dashboard/courses/workspace',()=>({CourseWorkspace:()=>null}));
 vi.mock('@/app/(dashboard)/dashboard/courses/member-workspace',()=>({CourseMemberWorkspace:()=>null}));
+import {nativeBeautyPlan} from '@/lib/beauty/native-plan';
 import {createBeautyCatalogAdapter} from '@/components/beauty/catalog-adapter';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const service={id:'service',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true};
 const plan={storeId:'store',expiryReminder:{enabled:false,days:[14,7]},id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
 const data={storeId:'store',services:[service],plans:[plan],locations:[{id:'room',name:'空間',isActive:true,category:'A',details:'備註',equipment:'設備',location:'二樓'}]} as unknown as BeautyDashboardData;
-beforeEach(()=>{vi.resetAllMocks();m.catalog.mockImplementation(async(_kind,input)=>({success:true,data:{saved:true,record:{...input,id:input.id??'new',revision:input.revision+1}}}));});
+beforeEach(()=>{vi.resetAllMocks();m.plan.mockImplementation(async input=>{if(input.unit!=='SESSION'||input.sportsMode==='OPEN')return {success:false,error:'unsupported'};return {success:true,storeId:'store',data:nativeBeautyPlan({...plan,...input,id:input.id??'new',revision:(input.revision??0)+1,serviceIds:[input.subjectId]})};});m.catalog.mockImplementation(async(_kind,input)=>({success:true,data:{saved:true,record:{...input,id:input.id??'new',revision:input.revision+1}}}));});
 it('changing service duration preserves both prices, returns the authoritative revision, and rejects stale source',async()=>{
  const a=createBeautyCatalogAdapter('服務項目',data,true,m.refresh);const r=await a.save('template',{id:'service',catalogRevision:4,name:'新做臉',category:'保養',durationMinutes:90,bufferMinutes:20});
  expect(m.catalog).toHaveBeenCalledWith('service',expect.objectContaining({revision:4,duration:90,buffer:20,price:1000,trialPrice:500}));expect(r).toMatchObject({success:true,data:{catalogRevision:5,durationMinutes:90}});
@@ -25,7 +27,7 @@ it('saves the original sports assigned-service fee through the Beauty core and p
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);
  const r=await a.form.save({sportsMode:'ASSIGNED',subjectId:'service',unit:'SESSION',name:'服務收費',points:6,price:5000,validDays:90,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true},a.products[0]);
  expect(r.success).toBe(true);
- expect(m.catalog).toHaveBeenCalledWith('plan',expect.objectContaining({serviceIds:['service'],sessions:6,lowBalanceEnabled:true,lowBalanceThreshold:2}));
+ expect(m.plan).toHaveBeenCalledWith(expect.objectContaining({subjectId:'service',sessions:6,revision:3}));expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceEnabled');
 });
 it.each([{sportsMode:'ASSIGNED',unit:'POINT'},{sportsMode:'OPEN',unit:'SESSION'}])('rejects unsupported original-core semantics without silently writing a different scheme: %j',async native=>{
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);
@@ -34,7 +36,7 @@ it.each([{sportsMode:'ASSIGNED',unit:'POINT'},{sportsMode:'OPEN',unit:'SESSION'}
 });
 it('saving a new arbitrary session plan keeps family sharing, service scope and reminder settings',async()=>{
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);const r=await a.form.save({catalogKind:'plan',name:'九次方案',points:9,price:8000,validDays:120,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true,lowBalanceEnabled:true,lowBalanceThreshold:'3'},null);
- expect(m.catalog).toHaveBeenCalledWith('plan',expect.objectContaining({sessions:9,validDays:120,serviceIds:['service'],allowShared:true,lowBalanceThreshold:3}));expect(r).toMatchObject({success:true,data:{id:'plan:new',points:9,catalogRevision:1}});
+ expect(m.plan).toHaveBeenCalledWith(expect.objectContaining({sessions:9,validDays:120,subjectId:'service',allowShared:true,lowBalanceThreshold:3}));expect(r).toMatchObject({success:true,data:{id:'plan:new',points:9,catalogRevision:1}});
 });
 it('keeps successful and rejected batch IDs separate and blocks every write in readonly mode',async()=>{
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);const r=await a.status.apply({kind:'plan',ids:['plan:scheme','single:service'],active:false});expect(r).toMatchObject({success:true,succeeded:['plan:scheme'],failed:[{id:'single:service'}]});
@@ -45,7 +47,7 @@ it('immediately resaves an authoritative returned plan before the parent RSC ref
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh),prior=a.products.find(p=>p.id==='plan:scheme')!;
  const input={catalogKind:'plan',name:prior.name,points:9,price:8000,validDays:120,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true};
  const first=await a.form.save(input,prior);expect(first.success).toBe(true);if(!first.success)return;await a.form.save({...input,points:10},first.data);
- expect(m.catalog).toHaveBeenLastCalledWith('plan',expect.objectContaining({id:'scheme',revision:4,sessions:10}));
+ expect(m.plan).toHaveBeenLastCalledWith(expect.objectContaining({id:'scheme',revision:4,sessions:10}));
 });
 it.each([true,'yes'])('preserves the shared room editor rental toggle %s and numeric capacity',async enabled=>{m.location.mockImplementation(async input=>({success:true,data:{record:{...input,id:input.id??'new-room',isActive:input.active}}}));const a=createBeautyCatalogAdapter('位置管理',data,true,m.refresh);expect(await a.save('room',{id:'room',name:'床位',capacity:2,rentalEnabled:enabled,rentalHourlyRate:360,rentalBufferMinutes:15})).toMatchObject({success:true,data:{capacity:2,rentalEnabled:true,rentalHourlyRate:360}});expect(m.location).toHaveBeenCalledWith(expect.objectContaining({capacity:2,rentalEnabled:true,rentalBufferMinutes:15}));});
 
@@ -61,5 +63,5 @@ it('defaults blank shared room capacity to one on creation and preserves existin
 it.each([{lowBalanceEnabled:true,lowBalanceThreshold:null},{lowBalanceEnabled:false,lowBalanceThreshold:3}])('does not rewrite untouched reminder metadata through the native fee form: %j',async reminder=>{
  const a=createBeautyCatalogAdapter('收費方式',{...data,plans:[{...plan,...reminder}]},true,m.refresh);
  await a.form.save({sportsMode:'ASSIGNED',subjectId:'service',unit:'SESSION',name:plan.name,points:7,price:6500,validDays:80,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true},a.products[0]);
- expect(m.catalog).toHaveBeenCalledWith('plan',expect.objectContaining(reminder));
+ expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceEnabled');expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceThreshold');
 });

@@ -62,6 +62,7 @@ const card = {
 };
 beforeEach(() => {
   tx = {
+    beautyTransactionRevision:{findMany:vi.fn().mockResolvedValue([])},
     beautyCommand: {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),

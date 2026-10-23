@@ -1,6 +1,7 @@
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),updateRoom:vi.fn(),roomUse:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn()}));
-vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
+vi.mock("@/lib/auth",()=>({auth:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:m.revalidate,unstable_cache:(fn:unknown)=>fn}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.access,courseTransaction:m.transaction}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{count:async()=>0}}}));

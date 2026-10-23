@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import {resolveDashboardHref} from "@/components/dashboard-link";
+import { useRouter, usePathname } from "next/navigation";
 import { mergeCustomerAction } from "@/server/actions/customer-merge";
 
 /**
@@ -21,6 +22,7 @@ export function MergeConfirmForm({
   targetCustomerId: string;
 }) {
   const router = useRouter();
+  const pathname=usePathname();
   const [acknowledged, setAcknowledged] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +41,12 @@ export function MergeConfirmForm({
         `已將 source ${sourceCustomerId} 合併進 target ${targetCustomerId}。`,
         `搬移：bookings=${counts.bookings} / wallets=${counts.customerPlanWallets} / transactions=${counts.transactions} / points=${counts.pointRecords} / makeup=${counts.makeupCredits}`,
         `推薦：referrer=${counts.referralsAsReferrer} converted=${counts.referralsAsConverted} sponsored=${counts.sponsoredCustomers}`,
+        ...(counts.beautyBookings!==undefined?[`服務：預約 ${counts.beautyBookings}、聯絡關聯 ${counts.beautyGroups}、共用方案 ${counts.beautyMembers}、購買 ${counts.beautyPurchases}、健康紀錄 ${counts.healthRecords}。卡片餘額及交易金額未變更。`]:[]),
         ...(counts.courseBookings !== undefined ? [`課程：預約 ${counts.courseBookings}、代約關聯 ${counts.courseOperators}、共卡成員 ${counts.courseMembers}（同卡重複授權 ${counts.sharedMemberships}）、購買 ${counts.coursePurchases}、健康紀錄 ${counts.healthRecords}。卡片餘額及交易金額未變更。`] : []),
         `合併欄位：${result.data.mergedIdentityFields.join(", ") || "（無）"}`,
       ].join("\n");
       const url = `/dashboard/customers/merge?result=${encodeURIComponent(summary)}`;
-      router.replace(url);
+      router.replace(resolveDashboardHref(url,pathname));
       router.refresh();
     });
   };

@@ -543,6 +543,7 @@ export async function getCustomerDrawerDetailForUser(
 // ============================================================
 
 export type CustomerMergePreviewRow = {
+  serviceMode?:boolean;
   courseMode?: boolean;
   healthCount?: number;
   id: string;
@@ -632,6 +633,13 @@ export async function getCustomerMergePreview(
         prisma.customerHealthRecord.count({ where: { storeId: row.storeId, customerId: row.id } }),
       ]);
       Object.assign(row, { courseMode: true, bookingCount: bookings, walletCount: members, transactionCount: purchases, healthCount: health });
+    }));
+  }
+  if(source.store.industryModule==="BEAUTY"&&source.storeId===target.storeId){
+    const {beautyPrisma}=await import("@/lib/beauty-db");
+    await Promise.all([sourceRow,targetRow].map(async row=>{
+      const [bookings,cards,purchases,health]=await Promise.all([beautyPrisma.beautyAppointment.count({where:{storeId:row.storeId,customerId:row.id}}),beautyPrisma.beautyCard.count({where:{storeId:row.storeId,OR:[{customerId:row.id},{memberIds:{has:row.id}}]}}),beautyPrisma.beautyPurchase.count({where:{storeId:row.storeId,customerId:row.id}}),prisma.customerHealthRecord.count({where:{storeId:row.storeId,customerId:row.id}})]);
+      Object.assign(row,{courseMode:true,serviceMode:true,bookingCount:bookings,walletCount:cards,transactionCount:purchases,healthCount:health});
     }));
   }
   return { source: sourceRow, target: targetRow };

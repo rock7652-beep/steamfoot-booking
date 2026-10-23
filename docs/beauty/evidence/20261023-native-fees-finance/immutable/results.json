@@ -1,0 +1,9 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original receipt cannot be updated by real app role",
+    "original ledger cannot be updated by real app role",
+    "append-only metadata cannot be updated by real app role",
+    "full original receipt unchanged"
+  ]
+}

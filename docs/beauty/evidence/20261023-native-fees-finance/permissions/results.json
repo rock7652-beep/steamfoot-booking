@@ -1,0 +1,21 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "actual limited STAFF session authenticated",
+    "limited native fee save blocked by real backend",
+    "owner switched-store native fee blocked",
+    "owner foreign plan id blocked",
+    "owner foreign service link blocked",
+    "limited editBeautyNativeTransaction blocked",
+    "owner switched-store editBeautyNativeTransaction blocked",
+    "owner foreign receipt editBeautyNativeTransaction blocked",
+    "limited voidBeautyNativeTransaction blocked",
+    "owner switched-store voidBeautyNativeTransaction blocked",
+    "owner foreign receipt voidBeautyNativeTransaction blocked",
+    "limited report/export independently forbidden: /api/reports/store-revenue",
+    "limited report/export independently forbidden: /api/reports/coach-revenue",
+    "limited report/export independently forbidden: /api/data-export",
+    "limited technician write controls absent",
+    "denied direct requests left both stores plans, cards, receipts, revisions and ledger untouched"
+  ]
+}
