@@ -1,0 +1,52 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "origin": "https://steamfoot-booking-55l2fryx7-rock7652-2111s-projects.vercel.app",
+  "fixture": {
+    "groupId": "cmvk7h8lk0000jv08w4cm8snl",
+    "ids": [
+      "cmvk7h8mr0006jv08ngr2jq3s",
+      "cmvk7h8m40002jv08u24k0j3s"
+    ],
+    "date": "2026-11-07",
+    "moved": "2026-11-08",
+    "time": "09:00",
+    "mark": "QA獨立驗收-aaebc1ba"
+  },
+  "results": [
+    {
+      "case": "two people different services share the service/time page and show full per-service ranges",
+      "passed": true
+    },
+    {
+      "case": "booking confirmation return preserves service, date and notes",
+      "passed": true
+    },
+    {
+      "case": "real double click creates one group with two service items, confirmed by scoped database read",
+      "passed": true
+    },
+    {
+      "case": "member reschedules one service using visible date/time buttons, other date remains",
+      "passed": true
+    },
+    {
+      "case": "member partial cancellation needs confirmation only, leaves face reservation",
+      "passed": true
+    },
+    {
+      "case": "authorized technician completes own service with double-click guard and no correction control",
+      "passed": true
+    },
+    {
+      "case": "manager corrects completed service through authorized confirmation",
+      "passed": true
+    },
+    {
+      "case": "new QA services end cancelled and original card balance can be reconciled",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "cleaned": true,
+  "physicalDevice": false
+}

@@ -1,0 +1,178 @@
+{
+  "comparison": {
+    "originalAppointmentsUnchanged": true,
+    "originalPaymentsUnchanged": true,
+    "cardsUnchanged": true,
+    "catalogAndTechniciansUnchanged": true,
+    "newAppointments": [
+      {
+        "id": "cmvk7h8m40002jv08u24k0j3s",
+        "status": "CANCELLED",
+        "revision": 4,
+        "groupId": "cmvk7h8lk0000jv08w4cm8snl",
+        "cardId": "cmvhztrmn0001jp08i5zg59f9",
+        "customerId": "beauty-hosted-member-customer",
+        "technicianId": "beauty-hosted-female",
+        "startsAt": "2026-11-08T01:00:00+00:00",
+        "endsAt": "2026-11-08T02:00:00+00:00",
+        "debit": false,
+        "fee": 0
+      },
+      {
+        "id": "cmvk7h8mr0006jv08ngr2jq3s",
+        "status": "CANCELLED",
+        "revision": 1,
+        "groupId": "cmvk7h8lk0000jv08w4cm8snl",
+        "cardId": null,
+        "customerId": null,
+        "technicianId": "beauty-hosted-male",
+        "startsAt": "2026-11-07T01:00:00+00:00",
+        "endsAt": "2026-11-07T02:30:00+00:00",
+        "debit": false,
+        "fee": 0
+      },
+      {
+        "id": "cmvk7m4tw0004js08bn0tje9b",
+        "status": "CANCELLED",
+        "revision": 1,
+        "groupId": "cmvk7m4tn0002js08qc2pizrq",
+        "cardId": null,
+        "customerId": "beauty-hosted-member-customer",
+        "technicianId": "beauty-hosted-female",
+        "startsAt": "2026-11-10T01:00:00+00:00",
+        "endsAt": "2026-11-10T02:00:00+00:00",
+        "debit": false,
+        "fee": 0
+      },
+      {
+        "id": "cmvk7m4uk0007js08z6xvcz4n",
+        "status": "CANCELLED",
+        "revision": 1,
+        "groupId": "cmvk7m4tn0002js08qc2pizrq",
+        "cardId": null,
+        "customerId": null,
+        "technicianId": "beauty-hosted-male",
+        "startsAt": "2026-11-10T01:00:00+00:00",
+        "endsAt": "2026-11-10T02:30:00+00:00",
+        "debit": false,
+        "fee": 0
+      }
+    ],
+    "newPayments": [
+      {
+        "id": "cmvk7ohcg000jjv08d8d62et2",
+        "kind": "SALE",
+        "amount": 1000
+      },
+      {
+        "id": "cmvk7ohdp000kjv08q7lb0j1y",
+        "kind": "SALE",
+        "amount": 1500
+      },
+      {
+        "id": "cmvk7opl7000ojv08kfwvm4u6",
+        "kind": "REFUND",
+        "amount": -1500
+      },
+      {
+        "id": "cmvk7p030000sjv08b3ldbwap",
+        "kind": "REFUND",
+        "amount": -1000
+      }
+    ],
+    "ledgerBefore": 15,
+    "ledgerAfter": 18,
+    "notifications": false,
+    "sends": 0,
+    "managerSends": 0,
+    "careSends": 0,
+    "newPaymentNet": 0
+  },
+  "flow": {
+    "items": [
+      {
+        "id": "cmvk7h8m40002jv08u24k0j3s",
+        "status": "CANCELLED",
+        "revision": 4,
+        "debit": false,
+        "fee": 0
+      },
+      {
+        "id": "cmvk7h8mr0006jv08ngr2jq3s",
+        "status": "CANCELLED",
+        "revision": 1,
+        "debit": false,
+        "fee": 0
+      }
+    ],
+    "ledger": [
+      {
+        "kind": "RESERVE",
+        "delta": 0,
+        "appointmentId": "cmvk7h8m40002jv08u24k0j3s"
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": -1,
+        "appointmentId": "cmvk7h8m40002jv08u24k0j3s"
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": 1,
+        "appointmentId": "cmvk7h8m40002jv08u24k0j3s"
+      }
+    ],
+    "cards": [
+      {
+        "id": "cmvhztrmn0001jp08i5zg59f9",
+        "remaining": 2
+      },
+      {
+        "id": "cmvi6lc260006lf07z7862prb",
+        "remaining": 5
+      }
+    ]
+  },
+  "money": {
+    "paymentRows": [
+      {
+        "id": "cmvk7ohcg000jjv08d8d62et2",
+        "kind": "SALE",
+        "amount": 1000,
+        "method": "BANK_TRANSFER",
+        "appointmentId": "cmvk7m4tw0004js08bn0tje9b",
+        "originalPaymentId": null,
+        "createdAt": "2026-10-23T00:08:05.584+00:00"
+      },
+      {
+        "id": "cmvk7ohdp000kjv08q7lb0j1y",
+        "kind": "SALE",
+        "amount": 1500,
+        "method": "BANK_TRANSFER",
+        "appointmentId": "cmvk7m4uk0007js08z6xvcz4n",
+        "originalPaymentId": null,
+        "createdAt": "2026-10-23T00:08:05.629+00:00"
+      },
+      {
+        "id": "cmvk7opl7000ojv08kfwvm4u6",
+        "kind": "REFUND",
+        "amount": -1500,
+        "method": "BANK_TRANSFER",
+        "appointmentId": "cmvk7m4uk0007js08z6xvcz4n",
+        "originalPaymentId": "cmvk7ohdp000kjv08q7lb0j1y",
+        "createdAt": "2026-10-23T00:08:16.268+00:00"
+      },
+      {
+        "id": "cmvk7p030000sjv08b3ldbwap",
+        "kind": "REFUND",
+        "amount": -1000,
+        "method": "BANK_TRANSFER",
+        "appointmentId": "cmvk7m4tw0004js08bn0tje9b",
+        "originalPaymentId": "cmvk7ohcg000jjv08d8d62et2",
+        "createdAt": "2026-10-23T00:08:29.869+00:00"
+      }
+    ],
+    "cashbookRows": 4,
+    "cashbookNet": 0
+  }
+}

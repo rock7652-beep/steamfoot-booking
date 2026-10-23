@@ -1,0 +1,26 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "stage": "cash-party",
+  "date": "2026-11-10",
+  "mark": "QA合併收退款-1d6f7f49",
+  "fixture": {
+    "groupId": "cmvk7m4tn0002js08qc2pizrq",
+    "ids": [
+      "cmvk7m4tw0004js08bn0tje9b",
+      "cmvk7m4uk0007js08z6xvcz4n"
+    ],
+    "date": "2026-11-10",
+    "mark": "QA合併收退款-1d6f7f49"
+  },
+  "paid": false,
+  "cancelled": false,
+  "results": [
+    {
+      "case": "new isolated two-service single-payment group is visible in manager calendar",
+      "passed": true
+    }
+  ],
+  "errors": [
+    "locator.selectOption: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').last().getByLabel('付款方式', { exact: true })\u001b[22m\n"
+  ]
+}

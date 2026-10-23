@@ -1,0 +1,40 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "origin": "https://steamfoot-booking-55l2fryx7-rock7652-2111s-projects.vercel.app",
+  "fixture": {
+    "groupId": "cmvk7m4tn0002js08qc2pizrq",
+    "ids": [
+      "cmvk7m4tw0004js08bn0tje9b",
+      "cmvk7m4uk0007js08z6xvcz4n"
+    ],
+    "date": "2026-11-10",
+    "mark": "QA合併收退款-1d6f7f49"
+  },
+  "results": [
+    {
+      "case": "new isolated two-service single-payment group is visible in manager calendar",
+      "passed": true
+    },
+    {
+      "case": "shared roster selects two services and real merged collection confirms exact 1000/1500 amounts",
+      "passed": true
+    },
+    {
+      "case": "paid group partial cancellation retains the other service",
+      "passed": true
+    },
+    {
+      "case": "cancelled companion gets a separate 1500 refund record through shared receipt details",
+      "passed": true
+    },
+    {
+      "case": "remaining QA service cancelled and separately refunded, ready for zero-net ledger reconciliation",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "paid": false,
+  "cancelled": true,
+  "physicalDevice": false,
+  "externalPayment": false
+}
