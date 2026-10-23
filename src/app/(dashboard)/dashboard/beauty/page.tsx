@@ -39,7 +39,7 @@ export default async function BeautyPage({
     date?: string;
     month?: string;
     calendar?: string;
-    customerId?:string;
+    customerId?:string;bookingId?:string;
     action?:string;
     panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
   }>;
@@ -96,6 +96,7 @@ export default async function BeautyPage({
       month,
       q.calendar === "week" || q.calendar === "month" ? q.calendar : "day",
       financialDates,
+      tab==='技師管理',
     ),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },
@@ -103,22 +104,23 @@ export default async function BeautyPage({
     }),
     resolveStoreViewContextFromCookie(u),
   ]);
-  const sharedSettings=tab==='設定'?await prisma.shopConfig.findUnique({where:{storeId:a.storeId},select:{address:true,shopPhone:true,mapUrl:true,lineOfficialId:true,lineOfficialUrl:true}}):null;
+  const sharedSettings=tab==='設定'?await prisma.shopConfig.findUnique({where:{storeId:a.storeId},select:{address:true,shopPhone:true,mapUrl:true,lineOfficialId:true,lineOfficialUrl:true,bankName:true,bankCode:true,bankAccountNumber:true}}):null;
   const [systemPlan,usage]=tab==='設定'?await Promise.all([getCurrentStorePlan(),getStoreUsage(a.storeId)]):[null,null];
   return (
     <PageShell compact className="course-workspace min-w-0">
       {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
       <PageHeader compact title={tab} />
       <BeautyDashboard
-        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
+        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
         data={data}
         tab={tab}
+        initialAppointmentId={q.bookingId}
         initialCustomerId={q.customerId}
         initialBooking={q.action==='booking'}
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
         careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
-        settingsContent={tab==='設定'?<BeautySettingsWorkspace readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)} data={data} slug={store.slug} canPayment={await checkPermission(u.role,u.staffId,'plans.edit')} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}} labels={<CustomerLabelsSettings/>} subscription={<><SettingsListRow title="店家系統方案" summary={systemPlan?PRICING_PLAN_INFO[systemPlan].label:'請查看目前系統方案'} href="/dashboard/settings/plan" action="查看" expanded={false}/>{usage&&<SettingsListRow title="目前用量" summary={usage.metrics.map(m=>`${m.label} ${m.current.toLocaleString()}／${m.limit??'不限'}`).join('・')}/>}</>}/>:undefined}
+        settingsContent={tab==='設定'?<BeautySettingsWorkspace bank={{bankName:sharedSettings?.bankName??"",bankCode:sharedSettings?.bankCode??"",bankAccountNumber:sharedSettings?.bankAccountNumber??""}} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)} data={data} slug={store.slug} canPayment={await checkPermission(u.role,u.staffId,'plans.edit')} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}} labels={<CustomerLabelsSettings/>} subscription={<><SettingsListRow title="店家系統方案" summary={systemPlan?PRICING_PLAN_INFO[systemPlan].label:'請查看目前系統方案'} href="/dashboard/settings/plan" action="查看" expanded={false}/>{usage&&<SettingsListRow title="目前用量" summary={usage.metrics.map(m=>`${m.label} ${m.current.toLocaleString()}／${m.limit??'不限'}`).join('・')}/>}</>}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />

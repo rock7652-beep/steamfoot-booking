@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {serviceInput,planInput,key} from './contracts';
 import type {Plan} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';
-export const savedBeautyLocation=z.object({id:key,name:z.string(),isActive:z.boolean(),category:z.string(),details:z.string(),equipment:z.string(),location:z.string()});
+export const savedBeautyLocation=z.object({capacity:z.number().nullable().optional(),rentalEnabled:z.boolean().optional(),rentalHourlyRate:z.number().optional(),rentalBufferMinutes:z.number().optional(),id:key,name:z.string(),isActive:z.boolean(),category:z.string(),details:z.string(),equipment:z.string(),location:z.string()});
 export const savedBeautyService=serviceInput.extend({id:key,revision:z.number().int()});
 export const savedBeautyPlan=planInput.extend({id:key,revision:z.number().int()});
 export type ServiceProduct=z.infer<typeof savedBeautyService>;

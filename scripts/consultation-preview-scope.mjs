@@ -1,3 +1,4 @@
+import {assertBeautySharedPagesLocalQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
 import { assertBeautyLocalQaEnvironment } from "./beauty-local-qa-scope.mjs";
 import { assertBeautySandboxQaEnvironment } from "./beauty-sandbox-qa-scope.mjs";
@@ -79,7 +80,7 @@ export function assertBeautyHostedPreviewEnvironment(env) {
       ![BEAUTY_HOSTED_PREVIEW_BRANCH,'preview/beauty-ui-alignment-20261021'].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
       env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
       env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
-      env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||
+      env.BEAUTY_SHARED_PAGES_LOCAL_QA || env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||
       !['0','1'].includes(env.BEAUTY_MODULE_ENABLED) || env.BEAUTY_NOTIFICATIONS_ENABLED !== '0' ||
       (env.BEAUTY_DATABASE_MODE && env.BEAUTY_DATABASE_MODE !== 'legacy') || env.BEAUTY_DATABASE_URL ||
       !isIsolatedConsultationDatabaseUrl(env.DATABASE_URL) || !env.AUTH_SECRET ||
@@ -277,6 +278,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"beauty-hosted-preview" | "mocked-unit-test" | "production" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if(env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'){assertBeautySharedPagesLocalQaEnvironment(env);return 'local-beauty-qa';}
   if (env.BEAUTY_HOSTED_PREVIEW === '1' || env.VERCEL_GIT_COMMIT_REF === BEAUTY_HOSTED_PREVIEW_BRANCH) {
     assertBeautyHostedPreviewEnvironment(env);
     return 'beauty-hosted-preview';

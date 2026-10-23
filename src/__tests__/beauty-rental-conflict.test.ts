@@ -1,0 +1,12 @@
+import {PGlite} from '@electric-sql/pglite';
+import {beforeAll,afterAll,it,expect,vi} from 'vitest';
+vi.mock('@/server/services/sports-permanent-series',()=>({assertSportsSeriesFree:vi.fn()}));
+vi.mock('@/server/services/cash-day',()=>({lockCashDay:vi.fn()}));
+import {rentalConflict} from '@/server/services/course-rental';
+import type {Prisma} from '../../generated/course-client';
+let db:PGlite;
+beforeAll(async()=>{db=new PGlite();await db.exec(`CREATE TABLE "BeautyAppointment"(id text,"storeId" text,"locationId" text,status text,"startsAt" timestamptz,"occupiedEndsAt" timestamptz);INSERT INTO "BeautyAppointment" VALUES('service','s','bed','COMPLETED','2099-01-01T15:30Z','2099-01-01T16:45Z'),('cancel','s','bed','CANCELLED','2099-01-01T17:00Z','2099-01-01T18:00Z'),('other','other','bed','RESERVED','2099-01-01T17:00Z','2099-01-01T18:00Z');`);},30000);
+afterAll(async()=>db.close());
+const tx={courseSession:{findFirst:async()=>null},courseRental:{findFirst:async()=>null},$queryRaw:async(strings:TemplateStringsArray,...args:unknown[])=>{let sql=strings[0];for(let i=0;i<args.length;i++)sql+='$'+(i+1)+strings[i+1];return (await db.query(sql,args)).rows;}} as unknown as Prisma.TransactionClient;
+it('blocks a rental through a completed service buffer across local midnight',async()=>{await expect(rentalConflict(tx,'s','bed',new Date('2099-01-01T16:30Z'),new Date('2099-01-01T17:00Z'),undefined,true)).rejects.toThrow('美業預約');});
+it('allows the exact occupied-end boundary and ignores cancelled or other-store services',async()=>{await expect(rentalConflict(tx,'s','bed',new Date('2099-01-01T16:45Z'),new Date('2099-01-01T18:00Z'),undefined,true)).resolves.toBeUndefined();});

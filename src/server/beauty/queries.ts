@@ -183,6 +183,7 @@ export async function beautyDashboard(
   month = toLocalMonthStr(),
   calendar: "day" | "week" | "month" = "day",
   financialDates?:{startDate:string;endDate:string},
+  includeTechnicianAssignments=false,
 ) {
   const a = await beautyManager("booking.read"),
     u = await getCurrentUser();
@@ -281,8 +282,8 @@ export async function beautyDashboard(
         })
       : [],
     beautyPrisma.$queryRaw<
-      Array<{ id: string; name: string; isActive: boolean; category:string;details:string;equipment:string;location:string }>
-    >`SELECT id,name,"isActive",category,details,equipment,location FROM "CourseRoom" WHERE "storeId"=${a.storeId} ORDER BY name`,
+      Array<{ id: string; name: string; isActive: boolean; category:string;details:string;equipment:string;location:string;capacity:number|null;rentalEnabled:boolean;rentalHourlyRate:number;rentalBufferMinutes:number }>
+    >`SELECT id,name,"isActive",category,details,equipment,location,capacity,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes" FROM "CourseRoom" WHERE "storeId"=${a.storeId} ORDER BY name`,
     planAccess
       ? beautyPrisma.beautyPlan.findMany({
           where: { storeId: a.storeId },
@@ -363,8 +364,12 @@ export async function beautyDashboard(
   const calendarDates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
   const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
   const displayOrders=Object.fromEntries(orderRows.filter(r=>r.kind!=="plan"||planAccess).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
+  const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
+  const technicianAssignments=includeTechnicianAssignments&&staffAccess?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[];
   return {
     displayOrders,
+    rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),
+    technicianAssignments:technicianAssignments.map(row=>({id:row.id,technicianId:row.technicianId,name:row.serviceName,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),capacity:1,bookedCount:1,locationLabel:locations.find(location=>location.id===row.locationId)?.name??'未指定'})),
     purchases: purchases.map((p) => ({
       ...p,
       createdAt: p.createdAt.toISOString(),
@@ -436,6 +441,7 @@ export async function beautyCalendar(date:string,calendar:'day'|'week'|'month'){
   prisma.businessHours.findMany({where:{storeId:a.storeId}}),
   prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
  ]);
+ const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
  const dates=Array.from({length:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
- return {date,calendar,calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
+ return {date,calendar,rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
 }

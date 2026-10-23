@@ -1,0 +1,7 @@
+import {it,expect} from 'vitest';
+import {assertBeautySharedPagesLocalQaEnvironment as assertScope} from '../../scripts/beauty-shared-pages-local-qa-scope.mjs';
+const db='postgresql://beauty_shared_pages_app:synthetic@127.0.0.1:32771/beauty_shared_pages_qa';
+const valid={BEAUTY_SHARED_PAGES_LOCAL_QA:'1',NODE_ENV:'development',AUTH_URL:'http://localhost:3123',NEXTAUTH_URL:'http://localhost:3123',BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',DATABASE_URL:db,DIRECT_URL:db};
+it('allows only the new unpublished synthetic loopback runtime',()=>expect(()=>assertScope(valid)).not.toThrow());
+it.each([{VERCEL:'1'},{VERCEL_ENV:'preview'},{VERCEL_GIT_REPO_OWNER:'any'},{NODE_ENV:'production'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{BEAUTY_LOCAL_QA:'1'},{AUTH_URL:'https://example.invalid'},{DATABASE_URL:db.replace('127.0.0.1','remote.invalid')},{DIRECT_URL:db.replace('32771','5432')},{DATABASE_URL:db.replace('beauty_shared_pages_app','postgres')},{DIRECT_URL:db+'?sslmode=require'},{BEAUTY_DATABASE_URL:db},{BEAUTY_DATABASE_MODE:'dedicated'}])('rejects mismatched or hosted configuration %j',patch=>expect(()=>assertScope({...valid,...patch})).toThrow());
+it('refuses to dispatch mixed synthetic and hosted QA modes through another runtime gate',async()=>{const {assertReviewedReleaseEnvironment}=await import('../../scripts/consultation-preview-scope.mjs');expect(()=>assertReviewedReleaseEnvironment({...valid,BEAUTY_RELEASE_QA:'1'})).toThrow();expect(()=>assertReviewedReleaseEnvironment({...valid,BEAUTY_HOSTED_PREVIEW:'1'})).toThrow();});

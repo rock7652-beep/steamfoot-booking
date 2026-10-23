@@ -10,7 +10,7 @@ it('keeps disabled technicians collapsed, searchable and reachable without chang
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host),onEdit=vi.fn();
  const data={techs:[{id:'on',name:'啟用技師',active:true},{id:'off',name:'停用測試技師',active:false}],services:[]} as unknown as BeautyDashboardData;
  const name=(value:string)=>[...host.querySelectorAll('button')].find(b=>b.textContent===value);
- const toggle=()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('停用技師（'))!;
+ const toggle=()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('停用人員（'))!;
  try{
   await act(async()=>root.render(h(BeautyManagementList,{tab:'技師管理',data,canEdit:false,onEdit})));
   expect(name('啟用技師')).toBeTruthy();expect(name('停用測試技師')).toBeUndefined();expect(toggle().getAttribute('aria-expanded')).toBe('false');

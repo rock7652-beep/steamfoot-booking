@@ -178,12 +178,12 @@ export async function saveBeautyCatalog(
             )
           )
             throw new AppError("CONFLICT", "設定影響既有預約，請先處理班表");
-          await tx.beautyTechnician.update({
+          record=await tx.beautyTechnician.update({
             where: { id },
             data: { ...d, revision: { increment: 1 } },
           });
         } else
-          await tx.beautyTechnician.create({
+          record=await tx.beautyTechnician.create({
             data: { ...d, storeId: a.storeId },
           });
       }
@@ -218,6 +218,7 @@ export async function saveBeautyLocation(input: unknown) {
           id: key.optional(),
           name: z.string().trim().min(1).max(100),
           active: z.boolean(),
+          capacity:z.number().int().min(1).max(500).optional(),rentalEnabled:z.boolean().optional(),rentalHourlyRate:z.number().int().min(0).max(1000000).optional(),rentalBufferMinutes:z.number().int().min(0).max(120).optional(),
           category:z.string().max(100).optional(),details:z.string().max(1000).optional(),equipment:z.string().max(500).optional(),location:z.string().max(300).optional(),
         })
         .parse(input);
@@ -240,11 +241,15 @@ export async function saveBeautyLocation(input: unknown) {
           }))
         )
           throw new AppError("CONFLICT", "請先處理此位置的預約");
-        await tx.$executeRaw`UPDATE "CourseRoom" SET name=${d.name},"isActive"=${d.active},category=COALESCE(${d.category??null},category),details=COALESCE(${d.details??null},details),equipment=COALESCE(${d.equipment??null},equipment),location=COALESCE(${d.location??null},location) WHERE id=${d.id} AND "storeId"=${a.storeId}`;
+        if (!d.active || d.rentalEnabled === false) {
+          const rentals=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "roomId"=${d.id} AND "cancelledAt" IS NULL AND "occupiedEndsAt">NOW() LIMIT 1`;
+          if(rentals.length)throw new AppError("CONFLICT","請先處理此位置的租借");
+        }
+        await tx.$executeRaw`UPDATE "CourseRoom" SET name=${d.name},"isActive"=${d.active},capacity=COALESCE(${d.capacity??null},capacity),"rentalEnabled"=COALESCE(${d.rentalEnabled??null},"rentalEnabled"),"rentalHourlyRate"=COALESCE(${d.rentalHourlyRate??null},"rentalHourlyRate"),"rentalBufferMinutes"=COALESCE(${d.rentalBufferMinutes??null},"rentalBufferMinutes"),category=COALESCE(${d.category??null},category),details=COALESCE(${d.details??null},details),equipment=COALESCE(${d.equipment??null},equipment),location=COALESCE(${d.location??null},location) WHERE id=${d.id} AND "storeId"=${a.storeId}`;
       } else
-        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${savedId},${a.storeId},${d.name},1,${d.details??''},${d.category??''},${d.active},NOW(),${d.equipment??''},${d.location??''},false,0,0)`;
+        await tx.$executeRaw`INSERT INTO "CourseRoom" (id,"storeId",name,capacity,details,category,"isActive","createdAt",equipment,location,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes") VALUES (${savedId},${a.storeId},${d.name},${d.capacity??1},${d.details??''},${d.category??''},${d.active},NOW(),${d.equipment??''},${d.location??''},${d.rentalEnabled??false},${d.rentalHourlyRate??0},${d.rentalBufferMinutes??0})`;
       await audit(tx, a, "LOCATION", JSON.stringify(d));
-      const records=await tx.$queryRaw<Array<{id:string;name:string;isActive:boolean;category:string;details:string;equipment:string;location:string}>>`SELECT id,name,"isActive",category,details,equipment,location FROM "CourseRoom" WHERE id=${savedId} AND "storeId"=${a.storeId}`;
+      const records=await tx.$queryRaw<Array<{id:string;name:string;isActive:boolean;category:string;details:string;equipment:string;location:string;capacity:number|null;rentalEnabled:boolean;rentalHourlyRate:number;rentalBufferMinutes:number}>>`SELECT id,name,"isActive",category,details,equipment,location,capacity,"rentalEnabled","rentalHourlyRate","rentalBufferMinutes" FROM "CourseRoom" WHERE id=${savedId} AND "storeId"=${a.storeId}`;
       return { saved: true, record:records[0] };
     });
   });

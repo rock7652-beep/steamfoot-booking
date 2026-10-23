@@ -1,5 +1,8 @@
 "use client";
-import {CourseStaffBasicFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
+import {CourseStaffBasicFields,CourseStaffPersonalFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
+import {CourseStaffAssignments} from "@/components/admin/course-staff-assignments";
+import {usePathname} from "next/navigation";
+import {toLocalDateStr} from "@/lib/date-utils";
 import { useState, useTransition } from "react";
 import {fitnessEditorFooter,fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import {CourseStaffEditorFrame,courseStaffEditorButton} from "@/app/(dashboard)/dashboard/courses/staff-editor-frame";
@@ -12,6 +15,7 @@ import type { BeautyDashboardData } from "@/server/beauty/queries";
 export type EditorKind =
   "service" | "pricing" | "plan" | "technician" | "location" | "settings";
 type Draft = {
+  phone?:string;contactEmail?:string;birthday?:string;emergencyContactName?:string;emergencyContactPhone?:string;emergencyContactRelation?:string;
   pricingType?: "single" | "trial";
   id?: string;
   revision?: number;
@@ -42,7 +46,7 @@ const field =
 export function BeautyCatalogEditor({
   kind,
   data,
-  draft = {},
+  draft:initialDraft = {},
   onClose,
   onSaved,
   readOnly=false,
@@ -56,6 +60,10 @@ export function BeautyCatalogEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [draft,setConfirmedDraft]=useState(initialDraft);
+  const [saveNotice,setSaveNotice]=useState("");
+  const pathname=usePathname();
+  const prefix=(pathname??"").split("/dashboard")[0];
   const [techTab,setTechTab]=useState("basic");
   const [error, setError] = useState(""),
     [pending, start] = useTransition(),
@@ -103,12 +111,12 @@ export function BeautyCatalogEditor({
   return (
     <CourseStaffEditorFrame titleId="beauty-editor-title" title={<>{readOnly?'查看':draft.id?'編輯':'新增'}{kind==='technician'?'技師':title}{draft.id&&draft.name&&<span>・{draft.name}</span>}</>}
       onClose={close} locked={pending} width={kind==='technician'?920:640} fixedHeight={kind==='technician'}
-      items={kind==='technician'?[["basic","基本資料"],["services","服務設定"],["work","LINE 與權限"],["availability","服務時間"]]:[]}
+      items={kind==='technician'?[["basic","基本資料"],["services","服務設定"],["work","LINE 與權限"],...(draft.id?[["schedule","服務明細"]]:[]),["availability","服務時間"]]:[]}
       value={techTab} onTabChange={setTechTab}>
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
         id="beauty-catalog-form" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
-        onChange={() => setDirty(true)}
+        onChange={() => {setDirty(true);setSaveNotice("");}}
         onSubmit={(e) => {
           e.preventDefault();
           if (pending||readOnly) return;
@@ -190,6 +198,7 @@ export function BeautyCatalogEditor({
                   revision: draft.revision ?? 0,
                   name: str("name"),
                   gender: str("gender"),
+                  phone:str("phone"),contactEmail:str("contactEmail"),birthday:str("birthday"),emergencyContactName:str("emergencyContactName"),emergencyContactPhone:str("emergencyContactPhone"),emergencyContactRelation:str("emergencyContactRelation"),
                   userId: str("userId") || null,
                   serviceIds,
                   sort: num("sort"),
@@ -214,6 +223,7 @@ export function BeautyCatalogEditor({
                     : await saveBeautyCatalog(kind==='pricing'?'service':kind, payload);
               if (r.success) {
                 setDirty(false);
+                if(kind==='technician'&&"record" in r.data&&r.data.record){setConfirmedDraft(r.data.record as Draft);setSaveNotice("已儲存 ✓");}
                 onSaved();
               } else setError(r.error);
             } catch {
@@ -361,8 +371,8 @@ export function BeautyCatalogEditor({
           )}
           {kind === "technician" && (
             <>
-              <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}><CourseStaffBasicFields name={draft.name??''} active={draft.active!==false} showPhone={false}/>
-              <label className="max-w-48">
+              <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}><CourseStaffBasicFields name={draft.name??''} active={draft.active!==false} phone={draft.phone??''}/>
+              <CourseStaffPersonalFields beforeDetails={<label className="max-w-48">
                 性別（必填）
                 <select
                   className={field}
@@ -376,8 +386,7 @@ export function BeautyCatalogEditor({
                   <option value="FEMALE">女性</option>
                   <option value="MALE">男性</option>
                 </select>
-              </label>
-              <label className="max-w-32">
+              </label>} email={draft.contactEmail??''} birthday={draft.birthday??''} emergencyContactName={draft.emergencyContactName??''} emergencyContactPhone={draft.emergencyContactPhone??''} emergencyContactRelation={draft.emergencyContactRelation??''}>{              <label className="max-w-32">
                 固定排序
                 <input
                   className={field}
@@ -386,7 +395,7 @@ export function BeautyCatalogEditor({
                   name="sort"
                   defaultValue={draft.sort ?? 0}
                 />
-              </label>
+              </label>}</CourseStaffPersonalFields>
               </div><div data-tech-tab="work" className={techTab==='work'?'contents':'hidden'}>
               <label>
                 連結會員帳號
@@ -516,6 +525,7 @@ export function BeautyCatalogEditor({
               </div>
             </>
           )}
+          {kind==='technician'&&draft.id&&<section data-tech-tab="schedule" hidden={techTab!=='schedule'} className="sm:col-span-2"><CourseStaffAssignments fitness service label="已排服務" items={(data.technicianAssignments??[]).filter(row=>row.technicianId===draft.id)} itemHref={item=>`${prefix}/dashboard/beauty?tab=班表&date=${toLocalDateStr(new Date(item.startsAt))}&bookingId=${encodeURIComponent(item.id)}`}/></section>}
           {kind === "technician" && (
             <fieldset data-tech-tab="availability" className={"@container/hours space-y-3 sm:col-span-2 "+(techTab==='availability'?'':'hidden')}>
               <legend>指定日期休假／調班</legend>
@@ -613,7 +623,7 @@ export function BeautyCatalogEditor({
               </legend>
               {data.services.filter(s=>s.active||serviceIds.includes(s.id)).map((s) => (
                 <CourseStaffServiceRow key={s.id} name={s.name} selected={serviceIds.includes(s.id)} inactiveLabel={!s.active?'已停用':undefined} wide onSelect={value=>{setServiceIds(ids=>value?[...ids,s.id]:ids.filter(id=>id!==s.id));setDirty(true);}}>
-                  {kind === "technician" && serviceIds.includes(s.id) && (
+                  {kind === "technician" && data.access?.feeAccess!==false && serviceIds.includes(s.id) && (
                     <div className="grid min-w-0 gap-2 @min-[28rem]/service:grid-cols-[minmax(0,1fr)_8rem]">
                       <label className="space-y-1 text-sm">拆帳方式<select
                         aria-label={`${s.name}拆帳方式`}
@@ -730,7 +740,7 @@ export function BeautyCatalogEditor({
           </p>
         )}
       </form>
-      {!readOnly&&<footer className={fitnessEditorFooter}><div className="flex items-center justify-end gap-2"><span role="status" className="mr-auto text-sm text-earth-600">{pending?'儲存中…':dirty?'未儲存':''}</span><button type="button" className={courseStaffEditorButton} disabled={pending} onClick={close}>取消</button><button type="submit" form="beauty-catalog-form" className={courseStaffEditorButton+' '+fitnessEditorSave+' !border-primary-700 !bg-primary-700 !text-white'} disabled={pending}>{pending?'儲存中…':'儲存'}</button></div></footer>}
+      {!readOnly&&<footer className={fitnessEditorFooter}><div className="flex items-center justify-end gap-2"><span role="status" className="mr-auto text-sm text-earth-600">{pending?'儲存中…':dirty?'未儲存':saveNotice}</span><button type="button" className={courseStaffEditorButton} disabled={pending} onClick={close}>取消</button><button type="submit" form="beauty-catalog-form" className={courseStaffEditorButton+' '+fitnessEditorSave+' !border-primary-700 !bg-primary-700 !text-white'} disabled={pending}>{pending?'儲存中…':'儲存'}</button></div></footer>}
     </CourseStaffEditorFrame>
   );
 }

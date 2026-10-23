@@ -33,6 +33,12 @@ export const serviceInput = z.object({
   active: z.boolean().default(true),
 });
 export const technicianInput = z.object({
+  phone: z.string().trim().max(30).optional(),
+  contactEmail: z.union([z.string().trim().email().max(254),z.literal("")]).optional(),
+  birthday: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.literal("")]).refine(value=>!value||!!parseTaipeiDateTime(value,"00:00"),"生日日期不正確").optional(),
+  emergencyContactName: z.string().trim().max(100).optional(),
+  emergencyContactPhone: z.string().trim().max(30).optional(),
+  emergencyContactRelation: z.string().trim().max(100).optional(),
   id: key.optional(),
   revision: z.number().int().nonnegative().default(0),
   name: z.string().trim().min(1).max(100),

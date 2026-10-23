@@ -12,6 +12,7 @@ datasource db {
 // Additive independent module. Shared identities and CourseRoom spaces are
 // referenced by store-scoped SQL FKs in the reviewed candidate, never copied.
 model BeautySetting {
+  bookableUntilDate String?
   storeId           String  @id
   revision          Int     @default(0)
   notifications     Boolean @default(false)
@@ -42,6 +43,12 @@ model BeautyService {
 }
 
 model BeautyTechnician {
+  phone String @default("")
+  contactEmail String @default("")
+  birthday String @default("")
+  emergencyContactName String @default("")
+  emergencyContactPhone String @default("")
+  emergencyContactRelation String @default("")
   id         String   @id @default(cuid())
   storeId    String
   name       String

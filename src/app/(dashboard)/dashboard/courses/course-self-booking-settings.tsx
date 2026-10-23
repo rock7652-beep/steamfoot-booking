@@ -11,6 +11,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 
 export function CourseSelfBookingSettings({
   storeId,
+  savePath,title="允許學員自行預約",description,
   music = false,
   initialEnabled = true,
   initialRevision = 0,
@@ -19,7 +20,7 @@ export function CourseSelfBookingSettings({
   onEdit,
   onClose,
 }: {
-  storeId:string;
+  storeId:string;savePath?:string;title?:string;description?:string;
   music?: boolean;
   initialEnabled?: boolean;
   initialRevision?: number;
@@ -35,7 +36,7 @@ export function CourseSelfBookingSettings({
   const [pending, startTransition] = useTransition();
   const saving = useRef(false);
   const router = useRouter(), pathname=usePathname();
-  const saveRequest=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/self-booking`,storeId,savedSelfBooking);
+  const saveRequest=useSettingsSave(savePath??`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/self-booking`,storeId,savedSelfBooking);
   const dirty = enabled !== savedEnabled;
   useSettingsPanelGuard(dirty, pending || saveRequest.uncertain);
   const latestRevision = useRef(revision);
@@ -93,7 +94,7 @@ export function CourseSelfBookingSettings({
 
   return (
     <SettingsListRow
-      title="允許學員自行預約"
+      title={title}
       summary={savedEnabled ? "開啟" : "關閉"}
       expanded={expanded && canEdit}
       keepMounted
@@ -103,9 +104,9 @@ export function CourseSelfBookingSettings({
       <form onSubmit={event => { event.preventDefault(); save(); }} className="space-y-3">
         <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-earth-800">
           <input type="checkbox" checked={enabled} disabled={!canEdit || pending || saveRequest.uncertain} onChange={event => { const checked = event.target.checked; setState(current => ({ ...current, enabled: checked })); setError(""); setSaved(false); }} />
-          允許學員自行預約
+          {title}
         </label>
-        <p className="text-sm leading-6 text-earth-600">{courseDisplayText("關閉後暫停新增預約與候補遞補；請假、改期分別設定。", music)}</p>
+        <p className="text-sm leading-6 text-earth-600">{description??courseDisplayText("關閉後暫停新增預約與候補遞補；請假、改期分別設定。", music)}</p>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" disabled={pending || saveRequest.uncertain} onClick={cancel} className="min-h-11 rounded-lg border border-earth-200 px-4 text-sm disabled:opacity-40">取消</button>

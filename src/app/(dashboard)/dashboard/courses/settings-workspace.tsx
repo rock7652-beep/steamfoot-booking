@@ -47,7 +47,7 @@ export type CourseSettingsWorkspaceProps = {
   waitlistFeatureAvailable?: boolean;
   waitlistSettings?: { enabled: boolean; defaultLimit: number; autoPromoteStopMinutes: number };
 };
-function Row({
+export function CourseSettingsRow({
   title,
   summary,
   href,
@@ -81,6 +81,7 @@ function Row({
     </SettingsListRow>
   );
 }
+const Row=CourseSettingsRow;
 function SectionGuard({ section, context, children }: { section: string; context: NonNullable<ContextType<typeof SettingsPanelContext>>; children: ReactNode }) {
   const report = context.report;
   const navigate = context.navigate;
@@ -122,10 +123,6 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
     : panel === "referral" ? props.canReferralShare && referralState !== "HIDDEN" && referralState !== "LOCKED"
     : panel === "butler" ? props.canDigitalButler && butlerState !== "HIDDEN" && butlerState !== "LOCKED"
     : true;
-  const hasNotificationEntries = props.canUnassignedPlans || props.canCare
-    || (props.canReminders && reminderState !== "HIDDEN")
-    || (props.canReferralShare && referralState !== "HIDDEN")
-    || (props.canDigitalButler && butlerState !== "HIDDEN");
   const [status, setStatus] = useState<Record<string, { dirty: boolean; pending: boolean }>>({});
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -233,14 +230,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
         ><TrialSettingsForm onSaved={(values,syncWarning)=>{confirmed.confirm({id:"trial",values});closeSavedRow("trial",syncWarning);}} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
        </>}</SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">{props.moduleContent ? props.moduleContent.sections.notifications : <>
-        <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>
-        <CustomerLabelsSettings />
-        {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="尚無方案顧客待辦" action="查看" href="/dashboard/courses/unassigned-plans" />}
-        {props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music)} action="管理" href="/dashboard/courses/reminders?tab=customer" /></FeatureEntry>}
-        {props.canCare && <Row title="顧客關懷" summary="生日・未回課・方案關懷" action="查看" href="/dashboard/growth" />}
-        {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href="/dashboard/settings/referral-share" /></FeatureEntry>}
-        {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href="/dashboard/settings/digital-butler" /></FeatureEntry>}
-        {!hasNotificationEntries && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
+        <CourseNotificationSettings {...props}/>
        </>}</section>
       <section hidden={active !== "subscription"} aria-label="系統方案與用量">{props.moduleContent ? props.moduleContent.sections.subscription : <>
         <Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
@@ -249,4 +239,23 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
     {!props.moduleContent && isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
+}
+
+/** Same notification rows and feature/permission presentation for every module. */
+export function CourseNotificationSettings(props:CourseSettingsWorkspaceProps&{backendControl?:ReactNode;labels?:ReactNode;careSummary?:string;links?:{reminders?:string;care?:string;referral?:string;butler?:string}}){
+ const reminderState=useFeaturePresentation(FEATURES.LINE_REMINDER),referralState=useFeaturePresentation(FEATURES.REFERRAL_SHARE),butlerState=useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
+  const hasNotificationEntries = props.canUnassignedPlans || props.canCare
+    || (props.canReminders && reminderState !== "HIDDEN")
+    || (props.canReferralShare && referralState !== "HIDDEN")
+    || (props.canDigitalButler && butlerState !== "HIDDEN");
+ return <>
+        {props.backendControl??<CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>}
+        {props.labels??<CustomerLabelsSettings />}
+        {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="尚無方案顧客待辦" action="查看" href="/dashboard/courses/unassigned-plans" />}
+        {props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music)} action="管理" href={props.links?.reminders??"/dashboard/courses/reminders?tab=customer"} /></FeatureEntry>}
+        {props.canCare && <Row title="顧客關懷" summary={props.careSummary??"生日・未回課・方案關懷"} action="查看" href={props.links?.care??"/dashboard/growth"} />}
+        {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href={props.links?.referral??"/dashboard/settings/referral-share"} /></FeatureEntry>}
+        {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href={props.links?.butler??"/dashboard/settings/digital-butler"} /></FeatureEntry>}
+        {!hasNotificationEntries && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
+ </>;
 }

@@ -62,6 +62,7 @@ export async function settings(tx: Tx, storeId: string) {
       leadMinutes: 0,
       cancelLeadMinutes: 240,
       bookableDays: 30,
+      bookableUntilDate:null,
     }
   );
 }
@@ -81,6 +82,7 @@ export async function loadAvailability(
     specials,
     policy,
     overrides,
+    rentalOccupancy,
   ] = await Promise.all([
     tx.beautyService.findMany({
       where: { storeId: a.storeId, active: true },
@@ -110,6 +112,7 @@ export async function loadAvailability(
     tx.$queryRaw<
       SlotOverrideRow[]
     >`SELECT date,"startTime",type,capacity,reason FROM "SlotOverride" WHERE "storeId"=${a.storeId} AND date=${new Date(date + "T00:00:00Z")}::date`,
+    tx.$queryRaw<{id:string;roomId:string;occupiedStartsAt:Date;occupiedEndsAt:Date}[]>`SELECT id,"roomId","occupiedStartsAt","occupiedEndsAt" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start}`,
   ]);
   const rule=serviceDayRule({hours,specials:specials.map((s,i)=>({...s,id:String(i)})),overrides},date);
   const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.inRange&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
@@ -122,6 +125,7 @@ export async function loadAvailability(
     specials,
     policy,
     memberSlots,
+    rentalOccupancy,
     slots: applySlotOverrides(
       serviceDayRule(
         {
@@ -159,11 +163,12 @@ export async function findAllocation(
     policy,
     slots,
     memberSlots,
+    rentalOccupancy=[],
   } = loaded ?? (await loadAvailability(tx, a, d.date, excludeIds));
   if (
     !allowPast &&
     (startsAt.getTime() <= Date.now() + policy.leadMinutes * 60000 ||
-      d.date > addTaiwanDuration(toLocalDateStr(), policy.bookableDays, "DAY"))
+      d.date > (policy.bookableUntilDate??addTaiwanDuration(toLocalDateStr(), policy.bookableDays, "DAY")))
   )
     throw new AppError("VALIDATION", "此時間尚未開放或已超過預約截止");
   if (!allowPast && !slots.includes(d.time) && !memberSlots.includes(d.time))
@@ -177,14 +182,14 @@ export async function findAllocation(
     locationIds: locations
       .filter((l) => !onlyLocation || l.id === onlyLocation)
       .map((l) => l.id),
-    occupied: occupied.map((o) => ({
+    occupied: [...occupied.map((o) => ({
       start: +o.startsAt,
       end: +o.occupiedEndsAt,
       technicianId: o.technicianId,
       locationId: o.locationId,
       duration: o.duration,
       status: o.status,
-    })),
+    })),...rentalOccupancy.map(r=>({start:+r.occupiedStartsAt,end:+r.occupiedEndsAt,technicianId:"rental:"+r.id,locationId:r.roomId,duration:0,status:"RESERVED"}))],
     hours: resolvedCourseHours(d.date, hours, specials).periods.map((p) => ({
       start: p.openTime,
       end: p.closeTime,

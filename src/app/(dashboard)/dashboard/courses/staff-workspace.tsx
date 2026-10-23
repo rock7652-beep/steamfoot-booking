@@ -1,5 +1,5 @@
 "use client";
-import {CourseStaffBasicFields,CourseStaffPermissionFields,CourseStaffServiceRow} from "./staff-editor-fields";
+import {CourseStaffBasicFields,CourseStaffPersonalFields,CourseStaffPermissionFields,CourseStaffServiceRow} from "./staff-editor-fields";
 import {CourseStaffList,type CourseStaffDisplayRow} from "./staff-list";
 import { SportsCoachFeeFields } from "@/components/admin/sports-coach-fee-fields";
 import { compensationRule } from "@/lib/course-compensation";
@@ -462,16 +462,12 @@ export function CourseStaffWorkspace({
               <fieldset disabled={readOnly || locked} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               <CourseStaffBasicFields key={`basic:${linkedStaffId}`} name={person?.name??selectedCounterpart?.name??""} active={person?.active!==false} phone={person?.phone??selectedCounterpart?.phone}/>
-              {kind==="coach"&&<label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label>}
+
               {kind === "manager" && coachEnabled && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任授課</label>}
-              <details className="col-span-full"><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多資料（選填）</summary><div className="grid gap-3 sm:grid-cols-3">
-                <label className="block">生日<input key={`birthday:${linkedStaffId}`} className={field} type="date" name="birthday" defaultValue={person?.birthday??selectedCounterpart?.birthday}/></label>
-                <fieldset className="col-span-full grid gap-3 sm:grid-cols-3"><legend className="py-2 text-sm font-medium">緊急聯絡人</legend>
-                  {([["emergencyContactName","姓名"],["emergencyContactPhone","電話"],["emergencyContactRelation","關係"]] as const).map(([name,label])=><label className="block" key={name}>{label}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone")?"tel":"text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} /></label>)}
-                </fieldset>
+              <CourseStaffPersonalFields email={kind==='coach'?person?.contactEmail??'':undefined} scopeKey={linkedStaffId} birthday={person?.birthday??selectedCounterpart?.birthday} emergencyContactName={person?.emergencyContactName??selectedCounterpart?.emergencyContactName} emergencyContactPhone={person?.emergencyContactPhone??selectedCounterpart?.emergencyContactPhone} emergencyContactRelation={person?.emergencyContactRelation??selectedCounterpart?.emergencyContactRelation}>
                 <label className="col-span-full block">{kind==="coach"?"連結後台人員（同一人）":music?"連結教師（同一人）":"連結教練（同一人）"}<select className={field} aria-label="連結既有身分" value={linkedStaffId} onChange={e=>{setLinkedStaffId(e.target.value);setDirty(true);}}><option value="">不連結</option>{counterpartChoices.filter(c=>!c.linked||c.id===person?.linkedStaffId).map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?`（${c.phone}）`:""}</option>)}</select></label>
                 {person?.linkedStaffId&&<p className="col-span-full text-sm text-earth-600">已連結：{person.linkedStaffName}・權限各自獨立</p>}
-              </div></details>
+              </CourseStaffPersonalFields>
               </div>
               <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
                 <section className="space-y-2">

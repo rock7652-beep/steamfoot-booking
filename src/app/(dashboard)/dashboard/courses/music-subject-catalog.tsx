@@ -19,10 +19,10 @@ import { savedMusicSubject, SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { DashboardLink } from "@/components/dashboard-link";
-export type MusicSubjectView={sportsRule?:SportsTeachingRule;id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
+export type MusicSubjectView={catalogSnapshot?:unknown;sportsRule?:SportsTeachingRule;id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-export type SubjectCatalogPort={label:string;status:CatalogStatusDriver;order:CourseOrderWriter;feeHref:(id:string)=>string;fields:(subject:MusicSubjectView|null)=>ReactNode;save:(data:FormData,subject:MusicSubjectView|null)=>Promise<{success:true;data:MusicSubjectView}|{success:false;error:string}>};
+export type SubjectCatalogPort={label:string;status:CatalogStatusDriver;order:CourseOrderWriter;feeHref:(id:string)=>string;fields:(subject:MusicSubjectView|null)=>ReactNode;save:(data:FormData,subject:MusicSubjectView|null)=>Promise<{success:true;data:MusicSubjectView;syncWarning?:boolean}|{success:false;error:string}>};
 export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,storeId,displayOrder,subjects:sourceSubjects,canCreate,canEdit,initialCreate=false}:{catalog?:SubjectCatalogPort;sportsCoaches?:{id:string;name:string}[];sportsNative?:boolean;storeId:string;displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean;initialCreate?:boolean}){
  const itemLabel=catalog?.label??"教學項目";
  const [receipts,setReceipts]=useState<MusicSubjectView[]>([]);

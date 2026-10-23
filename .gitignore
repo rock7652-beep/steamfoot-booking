@@ -71,3 +71,5 @@ tsconfig.beauty-production-qa.json
 tsconfig.beauty-release-qa.json
 
 /generated
+
+.next-beauty-shared-pages-qa/
