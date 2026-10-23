@@ -105,8 +105,8 @@ export function BeautyCatalogEditor({
       open
       className="fitness-management-editor"
       presentation="centered"
-      width={kind==='technician'?900:640}
-      fitContent={kind!=='technician'}
+      width={kind==='technician'?(techTab==='services'||techTab==='availability'?900:720):640}
+      fitContent
       onClose={close}
       labelledById="beauty-editor-title"
       closeOnEscape={!pending}
@@ -125,7 +125,7 @@ export function BeautyCatalogEditor({
         </button>
       </header>
       {kind==='technician'&&<CourseStaffEditorTabs label="技師編輯分類" disabled={pending} value={techTab} items={[["basic","基本資料"],["services","服務與拆帳"],["availability","可服務時間"],["work","會員與工作權限"]]} onChange={setTechTab}/>}
-      {kind==='technician'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'} · 已選 {serviceIds.length} 項服務 · {inheritHours?'沿用店家時段':'自訂服務時間'}</p>}
+      {kind==='technician'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'}</p>}
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
         className="min-h-0 overflow-y-auto p-4"
@@ -383,7 +383,7 @@ export function BeautyCatalogEditor({
           {kind === "technician" && (
             <>
               <div data-tech-tab="basic" className={techTab==='basic'?'contents':'hidden'}><CourseStaffBasicFields name={draft.name??''} active={draft.active!==false} showPhone={false}/>
-              <label>
+              <label className="max-w-48">
                 性別（必填）
                 <select
                   className={field}
@@ -398,7 +398,7 @@ export function BeautyCatalogEditor({
                   <option value="MALE">男性</option>
                 </select>
               </label>
-              <label>
+              <label className="max-w-32">
                 固定排序
                 <input
                   className={field}
@@ -455,7 +455,7 @@ export function BeautyCatalogEditor({
                 {weekly.map((p, i) => (
                   <div
                     key={i}
-                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                    className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[7rem_1fr_1fr_auto]"
                   >
                     <select
                       aria-label={`時段${i + 1}星期`}
@@ -512,12 +512,12 @@ export function BeautyCatalogEditor({
                         setDirty(true);
                       }}
                     >
-                      移除此時段
+                      移除
                     </button>
                   </div>
                 ))}
                 <button
-                  className={field}
+                  className={field+" !w-auto mt-2"}
                   type="button"
                   onClick={() => {
                     setWeekly((ps) => [
@@ -635,7 +635,7 @@ export function BeautyCatalogEditor({
               {data.services.filter(s=>s.active||serviceIds.includes(s.id)).map((s) => (
                 <CourseStaffServiceRow key={s.id} name={s.name} selected={serviceIds.includes(s.id)} inactiveLabel={!s.active?'已停用':undefined} wide onSelect={value=>{setServiceIds(ids=>value?[...ids,s.id]:ids.filter(id=>id!==s.id));setDirty(true);}}>
                   {kind === "technician" && serviceIds.includes(s.id) && (
-                    <div className="grid min-w-0 gap-3">
+                    <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_8rem]">
                       <label className="space-y-1 text-sm">拆帳方式<select
                         aria-label={`${s.name}拆帳方式`}
                         className={field}
@@ -676,7 +676,7 @@ export function BeautyCatalogEditor({
                         }
                       /></label>
                       {rates[s.id]?.mode === "PERCENT" && (
-                        <label className="space-y-1 text-sm">計算基準<select
+                        <label className="space-y-1 text-sm sm:col-span-2">計算基準<select
                           aria-label={`${s.name}拆帳基準`}
                           className={field}
                           required

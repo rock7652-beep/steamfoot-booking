@@ -27,11 +27,11 @@ beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSys
 afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
  const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',customer:data.customer}));
- expect(field(host,'共同日期').value).toBe('2026-10-27');set(field(host,'技師性別'),'FEMALE');await act(async()=>button(host,'查詢共同可用時間').click());
- expect(m.slots.mock.calls[0][2].date).toBe('2026-10-27');expect(field(host,'共同開始時間').value).toBe('10:00');expect(m.book).not.toHaveBeenCalled();
+ expect(field(host,'日期').value).toBe('2026-10-27');await act(async()=>button(host,'查詢時段').click());
+ expect(m.slots.mock.calls[0][2].date).toBe('2026-10-27');expect(button(host,'10:00').getAttribute('aria-pressed')).toBe('true');expect(m.book).not.toHaveBeenCalled();
 });
 it('does not accept a seeded time absent from the authoritative slot response',async()=>{
- const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'12:00',customer:data.customer}));set(field(host,'技師性別'),'FEMALE');await act(async()=>button(host,'查詢共同可用時間').click());expect(field(host,'共同開始時間').value).toBe('');
+ const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'12:00',customer:data.customer}));await act(async()=>button(host,'查詢時段').click());expect(host.querySelector('[aria-pressed="true"]')).toBeNull();
 });
 it('keeps a multi-person draft and selected day when visiting another member page',async()=>{
  const host=mount(h(BeautyPortal,{data}));act(()=>button(host,'立即預約').click());set(field(host,'預約人數'),'2');const notes=host.querySelectorAll('textarea');set(notes[0],'保留第一人');set(notes[1],'保留第二人');await act(async()=>button(host,'查詢可用時段').click());await act(async()=>set(field(host,'日期'),'2026-10-27'));act(()=>button(host,'我的').click());act(()=>button(host,'預約').click());expect(field(host,'日期').value).toBe('2026-10-27');expect(field(host,'預約人數').value).toBe('2');expect((host.querySelectorAll('textarea')[0] as HTMLTextAreaElement).value).toBe('保留第一人');expect((host.querySelectorAll('textarea')[1] as HTMLTextAreaElement).value).toBe('保留第二人');
@@ -115,6 +115,19 @@ it('carries the calendar technician and location into authoritative slot queries
  const seededCatalog={...catalog,techs:[{id:'tech',name:'技師',gender:'FEMALE',serviceIds:['service']}],locations:[{id:'room-selected',name:'指定位置'}]};
  const host=mount(h(BeautyBookingForm,{catalog:seededCatalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',initialTechnicianId:'tech',initialLocationId:'room-selected',customer:data.customer}));
  expect((host.querySelector('[aria-label="第1位位置"]') as HTMLSelectElement).value).toBe('room-selected');
- await act(async()=>button(host,'查詢共同可用時間').click());
+ await act(async()=>button(host,'查詢時段').click());
  expect(m.slots.mock.calls[0][2].people[0]).toMatchObject({specifiedTechnicianId:'tech',specifiedLocationId:'room-selected'});
+});
+
+it('uses the chosen first customer as contact without duplicate inputs, and invalidates slots when opting into another contact',async()=>{
+ const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',members:[data.customer!]}));
+ set(field(host,'服務者'),'person');
+ expect([...host.querySelectorAll('label')].some(l=>l.textContent?.trim()==='聯絡人姓名')).toBe(false);
+ await act(async()=>button(host,'查詢時段').click());
+ expect(m.slots.mock.calls[0][2]).toMatchObject({contactName:'顧客',phone:'0900000000',people:[expect.objectContaining({customerId:'person',preference:'ANY'})]});
+ act(()=>field(host,'另設聯絡人').click());
+ expect(host.textContent).toContain('聯絡人姓名');expect([...host.querySelectorAll('button')].some(b=>b.textContent==='09:00')).toBe(false);
+ await act(async()=>button(host,'查詢時段').click());expect(m.slots).toHaveBeenCalledOnce();
+ set(field(host,'聯絡人姓名'),'代約人');set(field(host,'聯絡人手機'),'0911111111');
+ await act(async()=>button(host,'查詢時段').click());expect(m.slots.mock.calls[1][2]).toMatchObject({contactName:'代約人',phone:'0911111111'});expect(m.book).not.toHaveBeenCalled();
 });

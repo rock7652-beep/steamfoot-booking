@@ -104,6 +104,7 @@ function BeautyDetailedBookingForm({
       customerId: customer?.id ?? null,
     },
   ]);
+  const [separateContact,setSeparateContact]=useState(false);
   const [contactName, setContactName] = useState(customer?.name ?? ""),
     [phone, setPhone] = useState(customer?.phone ?? "");
   const request = useRef(crypto.randomUUID()),
@@ -127,8 +128,8 @@ function BeautyDetailedBookingForm({
       requestKey: request.current,
       date,
       time: time || "00:00",
-      contactName,
-      phone,
+      contactName: mode === "manager" && !separateContact ? people[0]?.name ?? "" : contactName,
+      phone: mode === "manager" && !separateContact ? people[0]?.phone ?? "" : phone,
       isTrial: trial,
       policyRevision: catalog.policy?.revision ?? 0,
       people: people.map((p) => ({
@@ -147,13 +148,12 @@ function BeautyDetailedBookingForm({
           p.name.trim() &&
           /^09\d{8}$/.test(p.phone),
       ) &&
-      contactName.trim() &&
-      /^09\d{8}$/.test(phone)
+      (mode === "manager" && !separateContact || contactName.trim() && /^09\d{8}$/.test(phone))
     );
   }
   function readSlots() {
     if (!validate()) {
-      setError("請填姓名、手機，並逐人選擇服務與技師性別");
+      setError("請逐人填寫姓名、手機及服務項目");
       return;
     }
     const version = ++generation.current;
@@ -311,7 +311,7 @@ function BeautyDetailedBookingForm({
                   </select>
                 </label>
               )}
-              <label>
+              {mode === "manager" && p.customerId ? <details className="self-end"><summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">{p.name} · {p.phone}</summary><p className="py-2 text-sm text-earth-500">顧客資料如需更正，請至顧客管理修改。</p></details> : <>              <label>
                 姓名
                 <input
                   required
@@ -332,6 +332,7 @@ function BeautyDetailedBookingForm({
                   onChange={(e) => change(i, { phone: e.target.value })}
                 />
               </label>
+</>}
               <label>
                 服務項目
                 <select
@@ -356,7 +357,7 @@ function BeautyDetailedBookingForm({
                     ))}
                 </select>
               </label>
-              <label>
+              {mode !== "manager" && <>              <label>
                 技師性別（必選）
                 <select
                   required
@@ -377,8 +378,9 @@ function BeautyDetailedBookingForm({
                   <option value="ANY">男女皆可</option>
                 </select>
               </label>
-              <label>
-                指定技師（選填）
+</>}
+              <details className="self-end" open={p.specifiedTechnicianId?true:undefined}><summary className="flex min-h-11 cursor-pointer items-center text-sm text-primary-800">技師：{catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.name ?? '不指定'} · 修改</summary>              <label>
+                <span className="sr-only">指定技師（選填）</span>
                 <select
                   className={control}
                   value={p.specifiedTechnicianId ?? ""}
@@ -391,7 +393,7 @@ function BeautyDetailedBookingForm({
                     .filter(
                       (t) =>
                         t.serviceIds.includes(p.serviceId) &&
-                        (p.preference === "ANY" || p.preference === t.gender),
+                        (mode === "manager" || p.preference === "ANY" || p.preference === t.gender),
                     )
                     .map((t) => (
                       <option key={t.id} value={t.id}>
@@ -400,6 +402,7 @@ function BeautyDetailedBookingForm({
                     ))}
                 </select>
               </label>
+</details>
               {!trial && cards.length > 0 && (
                 <label>
                   付款／方案
@@ -445,7 +448,9 @@ function BeautyDetailedBookingForm({
             </div>
           </section>
         ))}
+        {mode === "manager" && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={separateContact} onChange={e=>{setSeparateContact(e.target.checked);invalidate();}}/>另設聯絡人</label>}
         <div className="grid gap-3 sm:grid-cols-2">
+          {(mode !== "manager" || separateContact) && <>
           <label>
             聯絡人姓名
             <input
@@ -472,8 +477,9 @@ function BeautyDetailedBookingForm({
               }}
             />
           </label>
+</>}
           <label>
-            共同日期
+            日期
             <input
               required
               type="date"
@@ -487,34 +493,19 @@ function BeautyDetailedBookingForm({
             />
           </label>
           <button type="button" className={button} onClick={readSlots}>
-            查詢共同可用時間
+            查詢時段
           </button>
         </div>
-        {!!slots.length && (
-          <label>
-            共同開始時間
-            <select
-              className={control}
-              required
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            >
-              <option value="">請選擇時間</option>
-              {slots.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        {!!slots.length && <fieldset><legend className="mb-2 text-sm">可用時段</legend><div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{slots.map(s=><button key={s} type="button" aria-pressed={time===s} className={`${button} ${time===s?'bg-primary-700 text-white':''}`} onClick={()=>setTime(s)}>{s}</button>)}</div></fieldset>}
         <p>
           共{people.length}位，{trial ? "體驗" : "一般"}原價合計 NT$
           {people.reduce((sum, p) => {
             const s = catalog.services.find((s) => s.id === p.serviceId);
             return sum + (s ? (trial ? (s.trialPrice ?? 0) : s.price) : 0);
           }, 0)}
-          。方案使用者依授權預留次數，服務完成後扣除；各人結束時間依服務時長不同。
+          {time&&` · ${time}`}
         </p>
-        {catalog.policy && (
+        <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">預約規則</summary>        {catalog.policy && (
           <p>
             取消{catalog.policy.cancelDeduct ? "扣1次" : "不扣次"}；未到
             {catalog.policy.noShowDeduct ? "扣1次" : "不扣次"}。
@@ -528,6 +519,7 @@ function BeautyDetailedBookingForm({
             每人每項服務限體驗一次；有效預約、完成或未到占用資格，取消後可重新預約。
           </p>
         )}
+</details>
         <button
           className={`${button} bg-primary-700 text-white`}
           disabled={!time || !catalog.services.length}

@@ -82,7 +82,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
     } catch { setError("儲存失敗，請重試；輸入內容已保留。"); }
     finally { submitLock.current=false; }
   }
-  return createPortal(<RightSheet open presentation="centered" width={920} maxHeight={680}
+  return createPortal(<RightSheet open presentation="centered" width={800} maxHeight={680} fitContent
     className={`${styles.panel} fitness-management-editor`} labelledById={titleId} onClose={close} closeOnEscape={!locked}>
     <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
       <h2 id={titleId} className="font-semibold">{person.canEdit ? "編輯人員" : "查看人員"}</h2>

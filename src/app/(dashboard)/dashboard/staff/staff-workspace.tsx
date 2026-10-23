@@ -1,4 +1,5 @@
 "use client";
+import {RightSheet} from "@/components/admin/right-sheet";
 import {CourseStaffList} from "../courses/staff-list";
 import { createPortal } from "react-dom";
 
@@ -288,7 +289,7 @@ export function StaffWorkspace({
             {canManage && <button type="button" onClick={() => setEditor({ type: "create" })} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800">＋ 新增人員</button>}
           </div>
           <p className="text-sm text-earth-500">
-            共 {filteredPeople.length} 位／全部 {people.length} 位
+            共 {filteredPeople.length} 位{filteredPeople.length!==people.length&&`／全部 ${people.length} 位`}
           </p>
           {beauty?<CourseStaffList empty={<p className="p-8 text-center text-earth-500">沒有符合條件的人員。</p>} rows={filteredPeople.map(person=>({
             id:person.id,name:person.displayName,phone:person.phone,email:person.email,active:person.status==='ACTIVE',onOpen:()=>setEditor({type:'details',personId:person.id}),
@@ -583,6 +584,7 @@ export function StaffWorkspace({
       ) : null}
       {editor?.type === "create" ? (
         <CreatePersonDrawer
+          compact={beauty}
           canAssignRoles={canAssignRoles}
           createAction={createAction}
           storeId={storeId}
@@ -1012,7 +1014,7 @@ function SpaStaffSetupDrawer({
                 type="color"
                 value={colorCode}
                 onChange={(event) => setColorCode(event.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-earth-300"
+                className="mt-1 h-11 w-20 rounded-lg border border-earth-300"
               />
             </Field>
           </div>
@@ -1403,6 +1405,7 @@ function PersonDrawer({
 }
 
 function CreatePersonDrawer({
+  compact=false,
   canAssignRoles,
   storeId="",
   onSaved,
@@ -1410,7 +1413,7 @@ function CreatePersonDrawer({
   showSpaCompensation,
   onClose,
 }: {
-  storeId?:string;
+  compact?:boolean;storeId?:string;
   onSaved:(person:StaffWorkspacePerson,syncWarning:boolean)=>void;
   canAssignRoles: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
@@ -1456,18 +1459,18 @@ function CreatePersonDrawer({
     );
   }
   return (
-    <Drawer title="新增人員" onClose={close}>
+    <Drawer title="新增人員" centered={compact} onClose={close}>
       <form onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className="space-y-6">
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         <fieldset disabled={locked} className="contents">
-        <section className="space-y-4">
+        <section className={compact?"grid grid-cols-1 gap-3 sm:grid-cols-2":"space-y-4"}>
           <Field label="人員類型">
             <select name="role" defaultValue="STAFF" className={inputClass}>
               <option value="STAFF">Staff／門市人員</option>
               {canAssignRoles && <><option value="MANAGER">Manager／店長</option><option value="OWNER">Owner／老闆</option></>}
             </select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={compact?"contents":"grid grid-cols-2 gap-3"}>
             <Field label="真實姓名">
               <input name="name" required className={inputClass} />
             </Field>
@@ -1493,7 +1496,7 @@ function CreatePersonDrawer({
               placeholder="09xxxxxxxx"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={compact?"contents":"grid grid-cols-2 gap-3"}>
             <Field label="初始密碼">
               <input
                 name="password"
@@ -1764,15 +1767,17 @@ function DrawerActions({
   );
 }
 function Drawer({
+  centered=false,
   title,
   onClose,
   children,
 }: {
-  title: string;
+  centered?:boolean;title: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   const guard=useContext(StaffSaveGuardContext);
+  if(centered)return createPortal(<RightSheet open presentation="centered" fitContent width={800} labelledById="staff-create-title" onClose={onClose} closeOnEscape={!guard.pending&&!guard.uncertain}><header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2"><h2 id="staff-create-title" className="font-semibold">{title}</h2><button type="button" className="min-h-11 rounded-lg border px-3" disabled={guard.pending||guard.uncertain} onClick={onClose}>關閉</button></header><div className="min-h-0 overflow-y-auto overscroll-contain p-4">{guard.error&&<p role="alert" className="mb-3 text-sm text-red-700">{guard.error}</p>}{children}</div></RightSheet>,document.body);
   return createPortal(
     <div data-rwd-panel className={`${styles.panel} fixed inset-0 z-50 flex justify-end`}>
       <button
