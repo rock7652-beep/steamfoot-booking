@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "case": "顧客真實登入與手機／平板尺寸",
+      "passed": true
+    },
+    {
+      "case": "技師真實登入與手機／平板尺寸",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "technician",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d"
+}

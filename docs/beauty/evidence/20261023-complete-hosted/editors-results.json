@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "case": "共用技師五分類、聯絡資料保存重開與平板版面",
+      "passed": true
+    },
+    {
+      "case": "共用新增次數方案保存重開",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "plan",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d",
+  "executionCommit": "5079ac2c",
+  "note": "最終版只變更位置容量 adapter；技師及方案程式不變。"
+}

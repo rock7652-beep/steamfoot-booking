@@ -1,0 +1,73 @@
+{
+  "scope": "new QA records only",
+  "executionCommit": "5079ac2c; notice constraint migration applied before completion passed",
+  "finalReadbackCommit": "eca98f9c",
+  "results": [
+    {
+      "case": "新建顧客：資料保存重開",
+      "passed": true
+    },
+    {
+      "case": "新建顧客：購買五次方案並收款",
+      "passed": true
+    },
+    {
+      "case": "新建顧客：方案預約成功",
+      "passed": true
+    },
+    {
+      "case": "改期後跟隨新日期",
+      "passed": true
+    },
+    {
+      "case": "通知待處理、已處理、復原與明細",
+      "passed": true
+    },
+    {
+      "case": "服務完成（限本輪新預約）",
+      "passed": true
+    },
+    {
+      "case": "完成服務後顧客方案顯示四次",
+      "passed": true
+    },
+    {
+      "case": "更正回預約（限本輪新預約）",
+      "passed": true
+    },
+    {
+      "case": "取消預約（限本輪新預約）",
+      "passed": true
+    },
+    {
+      "case": "新方案全額退款",
+      "passed": true
+    },
+    {
+      "case": "新建單次預約",
+      "passed": true
+    },
+    {
+      "case": "單次收款1000",
+      "passed": true
+    },
+    {
+      "case": "單次部分退款400",
+      "passed": true
+    },
+    {
+      "case": "超額退款700遭拒且錯誤只顯示一次",
+      "passed": true
+    },
+    {
+      "case": "單次剩餘退款600",
+      "passed": true
+    }
+  ],
+  "initialDefects": [
+    "Completion was rolled back by the old shared notice-kind constraint; corrected in additive migration.",
+    "Blank optional room capacity was converted to zero; corrected in final application adapter."
+  ],
+  "net": 0,
+  "cashbookEntriesMatched": 5
+}
