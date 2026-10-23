@@ -26,7 +26,9 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const received=ledger?musicReceiptAmount(total.paid,data.musicReceived):total.paid;
   const paidAt=ledger?musicPaymentDate(data.musicPaymentDate):new Date();
   const fingerprint=JSON.stringify({...data,musicReceived:received,musicPaymentDate:toLocalDateStr(paidAt),musicDiscountTeacherFee:data.musicDiscountTeacherFee??false});
-  const method=received===0?(total.paid===0?"DISCOUNT":"OTHER"):data.paymentMethod;
+  // Legacy CoursePurchase_checkout_valid requires DISCOUNT whenever price is zero.
+  // Music receivables distinguish unpaid tuition through due/receipts and the note.
+  const method=received===0?"DISCOUNT":data.paymentMethod;
   const lastFour=method==="BANK_TRANSFER"?data.transferLastFour:null;
   if(method==="BANK_TRANSFER"&&!/^\d{4}$/.test(lastFour??"")) throw new AppError("VALIDATION","請填寫轉帳帳號後四碼");
   const previous=await tx.coursePurchase.findUnique({where:{storeId_requestKey:{storeId,requestKey:data.requestKey}}});

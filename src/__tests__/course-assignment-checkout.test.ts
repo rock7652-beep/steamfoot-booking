@@ -66,7 +66,8 @@ it.each([false,true])("distinguishes an unpaid music receivable from a fully dis
  tx.coursePointPlan.findFirst.mockResolvedValue({...musicPlan(),points:4,price:3200,validDays:35,musicTermSizes:[4],musicBonusLessons:0});
  const order=await assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:6400,discountValue:fullDiscount?6400:0,musicPurchaseTerms:2,musicReceived:0,transferLastFour:""});
  expect(order.price).toBe(0);expect(order.points).toBe(8);expect(order.validDays).toBe(70);
- expect(order.paymentMethod).toBe(fullDiscount?"DISCOUNT":"OTHER");
+ // Preserve the database's zero-price invariant, including unpaid receivables.
+ expect(order.paymentMethod).toBe("DISCOUNT");
  expect(order.note).toContain(fullDiscount?"全額折抵":"本次未收款");
  if(!fullDiscount)expect(order.note).not.toContain("全額折抵");
  const writes=tx.$executeRaw.mock.calls;
