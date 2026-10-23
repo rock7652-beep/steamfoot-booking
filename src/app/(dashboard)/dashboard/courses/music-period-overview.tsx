@@ -5,8 +5,8 @@ import { formatTWDateTime } from "@/lib/date-utils";
 type Data = Extract<Awaited<ReturnType<typeof loadMusicPeriods>>, {success:true}>;
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";
 const status=(b:Data["data"][number]["bookings"][number])=> b.absenceKind==="STUDENT_LEAVE"?"請假／補課依原規則":b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假・扣堂":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":b.status==="ATTENDED"?"已出席":b.status==="NO_SHOW"?"曠課":b.status==="CANCELLED"?"已取消":b.status==="CHECKED_IN"?"已報到":"待上課";
-export function MusicPeriodOverview({customerId}:{customerId:string}) {
- const [data,setData]=useState<Data|null>(null),[error,setError]=useState(""),[cardId,setCardId]=useState(""),[period,setPeriod]=useState("all"),[edit,setEdit]=useState(""),[slot,setSlot]=useState(""),[reason,setReason]=useState("");
+export function MusicPeriodOverview({customerId,initialCardId=""}:{customerId:string;initialCardId?:string}) {
+ const [data,setData]=useState<Data|null>(null),[error,setError]=useState(""),[cardId,setCardId]=useState(initialCardId),[period,setPeriod]=useState("all"),[edit,setEdit]=useState(""),[slot,setSlot]=useState(""),[reason,setReason]=useState("");
  const [revision,setRevision]=useState(0),[pending,start]=useTransition();
  useEffect(()=>{let active=true;void loadMusicPeriods(customerId).then(result=>{if(!active)return;if(result.success){setData(result);setError("");}else setError(result.error);}).catch(()=>{if(active)setError("逐期資料讀取失敗，請重試");});return()=>{active=false;};},[customerId,revision]);
  if(error&&!data)return <div role="alert" className="py-3"><p>{error}</p><button className={field} onClick={()=>setRevision(n=>n+1)}>重新讀取</button></div>;

@@ -23,17 +23,17 @@ describe("student makeup return context", () => {
     expect(url.searchParams.get("session")).toBe("session:1");
     expect(url.searchParams.get("action")).toBe("booking");
     const back=new URL(studentReturnHref(url.searchParams.get("returnStudentId")!,url.searchParams.get("returnStudentQuery")!,"bookings"),"https://example.test");
-    expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"abc",page:"2",customerId:"student-1",studentTab:"bookings"});
+    expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"abc",page:"2",customerId:"student-1",studentTab:"courses"});
   });
   it("round trips search, filters and page while retaining the selected student", () => {
     const href=studentMakeupsHref("student-1","search=hello%20world&status=active&page=3&sort=name&label=VIP");
     const query=new URL(href,"https://example.test").searchParams;
     const result=new URL(studentReturnHref("student-1",query.get("returnQuery")!),"https://example.test");
-    expect(Object.fromEntries(result.searchParams)).toEqual({view:"customers",search:"hello world",status:"active",page:"3",sort:"name",label:"VIP",customerId:"student-1",studentTab:"makeups"});
+    expect(Object.fromEntries(result.searchParams)).toEqual({view:"customers",search:"hello world",status:"active",page:"3",sort:"name",label:"VIP",customerId:"student-1",studentTab:"courses"});
   });
   it("does not accept external redirects, unrelated actions or a different student", () => {
     const result=studentReturnHref("correct","returnTo=https://evil.test&action=delete&customerId=wrong&view=plans&studentTab=info");
-    expect(result).toBe("/dashboard/courses?view=customers&customerId=correct&studentTab=makeups");
+    expect(result).toBe("/dashboard/courses?view=customers&customerId=correct&studentTab=courses");
   });
 });
 
@@ -48,7 +48,7 @@ describe("student cohort navigation", () => {
       const target = new URL(href, "https://example.test");
       expect(target.searchParams.get("dataScope")).toBe("legacy");
       const back = new URL(studentReturnHref("student-1", target.searchParams.get(returnKey)!, tab), "https://example.test");
-      expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"demo",page:"2",dataScope:"legacy",customerId:"student-1",studentTab:tab});
+      expect(Object.fromEntries(back.searchParams)).toEqual({view:"customers",search:"demo",page:"2",dataScope:"legacy",customerId:"student-1",studentTab:"courses"});
     }
   });
   it("does not propagate unknown classification values", () => {

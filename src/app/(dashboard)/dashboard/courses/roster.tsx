@@ -31,7 +31,8 @@ import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 
-import { useRouter } from "next/navigation";
+import { DashboardLink } from "@/components/dashboard-link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   updateCourseRosterBatch,
   loadCourseSessionDetail,
@@ -135,6 +136,7 @@ export function CourseRoster({
   initialAssignedCoach?: string;
 }) {
   const router = useRouter();
+  const rosterParams = useSearchParams();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
   const mutationLock = useRef(false);
@@ -1229,7 +1231,7 @@ export function CourseRoster({
       {musicLayout ? (
         <div ref={node=>{if(node && node.scrollTop===0)node.scrollTop=rosterScroll;}} onScroll={event=>setRosterScroll(Math.round(event.currentTarget.scrollTop))} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3 [overflow-anchor:none]">
           <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white" aria-label="學員">
-            <div className={`${musicRoster.header} sticky top-0 z-10 border-b border-earth-200 bg-earth-50 text-sm font-medium text-earth-600`}><span aria-hidden="true"/><span>姓名</span><span>電話</span><span>本期第幾堂</span><span>標籤</span><span>備註</span><span>本次備註</span><span>更多</span></div>
+            <div className={`${musicRoster.header} sticky top-0 z-10 border-b border-earth-200 bg-earth-50 text-sm font-medium text-earth-600`}><span aria-hidden="true"/><span>姓名</span><span>電話</span><span>本期第幾堂</span><span>標籤／備註</span><span>更多</span></div>
             <ul className="divide-y divide-earth-100">
               {searchedRows.map((booking) => <li key={booking.id} className={`${musicRoster.row} ${rosterRowClassName} ${booking.status === "ATTENDED" ? "border-l-emerald-500" : booking.status === "NO_SHOW" ? "border-l-rose-500" : "border-l-slate-200"}`}>
                 <div className="flex min-w-0 items-center gap-1">
@@ -1242,9 +1244,11 @@ export function CourseRoster({
                   <button type="button" className="min-h-11 text-left" aria-expanded={expandedLessonIds.includes(booking.id)} onClick={()=>setExpandedLessonIds(ids=>ids.includes(booking.id)?[]:[booking.id])}>{booking.bookingKind === "TRIAL" ? "體驗" : booking.termIndex !== null && booking.termCount > 0 ? `${booking.bonusPeriod ? "贈課 " : ""}${booking.termIndex} / ${booking.termCount} 堂` : "—"}</button>
                   {booking.status !== "RESERVED" && <span className="block text-earth-600">{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "曠課・扣堂" : booking.absenceKind === "TEACHER_ABSENT" ? "本堂免扣" : booking.absenceKind === "STUDENT_LEAVE" ? (booking.leaveDeductsWithMakeup ? "請假・扣堂另補" : "請假・不扣堂") : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : "已取消"}</span>}
                 </div>
-                <div className="min-w-0">{booking.customerId ? <button type="button" className="min-h-11 max-w-full text-left" aria-label={`${booking.customerName} 標籤`} onClick={()=>setInfoBookingId(booking.id)}><CustomerLabels customerId={booking.customerId} readOnly={!canEdit} variant="summary" maxVisible={1} /></button> : "—"}</div>
-                <button type="button" className="min-h-11 min-w-0 truncate text-left" aria-label={`${booking.customerName} 備註`} onClick={()=>setInfoBookingId(booking.id)}>{booking.serviceNote?.trim() || "—"}</button>
-                <button type="button" className="min-h-11 min-w-0 truncate text-left text-primary-700" aria-label={`${booking.customerName} 本次備註`} onClick={()=>{if(canEdit && booking.status !== "CANCELLED"){setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}else setInfoBookingId(booking.id);}}>{booking.notes?.trim() || (canEdit && booking.status !== "CANCELLED" ? "＋新增" : "—")}</button>
+                <div aria-label={`${booking.customerName} 標籤與備註`} className="flex min-w-0 flex-col">
+                <div className="min-w-0">{booking.customerId ? <button type="button" className="min-h-8 max-w-full text-left" aria-label={`${booking.customerName} 標籤`} onClick={()=>setInfoBookingId(booking.id)}><CustomerLabels customerId={booking.customerId} readOnly={!canEdit} variant="summary" maxVisible={1} /></button> : "—"}</div>
+                <button type="button" className="min-h-8 min-w-0 truncate text-left" aria-label={`${booking.customerName} 備註`} onClick={()=>setInfoBookingId(booking.id)}><span className="text-earth-500">備註：</span>{booking.serviceNote?.trim() || "—"}</button>
+                <button type="button" className="min-h-8 min-w-0 truncate text-left text-primary-700" aria-label={`${booking.customerName} 本次備註`} onClick={()=>{if(canEdit && booking.status !== "CANCELLED"){setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}else setInfoBookingId(booking.id);}}><span className="text-earth-500">本次：</span>{booking.notes?.trim() || (canEdit && booking.status !== "CANCELLED" ? "＋新增" : "—")}</button>
+                </div>
                 <div>{savingBookingIds.includes(booking.id) ? <span role="status">儲存中…</span> : canEdit && <button type="button" className="min-h-11 min-w-11 text-earth-600" aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget,booking.id)} aria-label={`${booking.customerName} 更多操作`}>⋯</button>}</div>
                 {booking.openingIssue && <p className="col-span-full text-sm text-amber-800">{booking.openingIssue}</p>}
                 {booking.termClosedBeforeCutoff > 0 && <p className="col-span-full text-sm text-earth-600">切點前已處理 {booking.termClosedBeforeCutoff} 堂，僅保留期初進度</p>}
@@ -1254,7 +1258,7 @@ export function CourseRoster({
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{lesson.ordinal ?? (booking.openingImported ? "待核對" : index+1)}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {remainingTermOrdinals(booking).map(ordinal => <span key={`upcoming-${ordinal}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{ordinal}. 尚未排課</span>)}
-                    {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
+                    {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{rosterParams.get("date") ?? toLocalDateStr()} 請假・不扣堂</span>)}
                     {booking.termMakeups?.map((item,index)=><span key={`makeup-${index}`} className="rounded-md bg-primary-50 px-2 py-1 text-primary-800">{toLocalDateStr(new Date(item.originalDate))} 請假 → {toLocalDateStr(new Date(item.date))} {item.status}</span>)}
                   </div>
                   {booking.nextPaidLessons !== null && <p>下期已繳 {booking.nextPaidLessons} 堂</p>}
@@ -1586,7 +1590,7 @@ export function CourseRoster({
             {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName,deductSeparate:actionBooking.leaveDeductsWithMakeup});}}>缺席・不扣堂</button></>}
             {canEdit && !musicLayout && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);run(() => updateCourseRosterBatch({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}
             <button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>標籤與備註</button>
-            <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約紀錄</button>{canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={actionBooking.id} />}
+            {musicLayout ? actionBooking.customerId && <DashboardLink role="menuitem" className={`${button} flex items-center`} onClick={()=>setOpenActionMenu(null)} href={`/dashboard/courses?${new URLSearchParams({view:"customers",customerId:actionBooking.customerId,studentTab:"info",returnCourseSession:sessionId,returnCourseDate:rosterParams.get("date") ?? toLocalDateStr()})}`}>學員資料</DashboardLink> : <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約紀錄</button>}{canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={actionBooking.id} />}
 
             {musicLayout && canEdit && actionBooking.status === "RESERVED" && !teacherAbsent && <><button role="menuitem" className={button} disabled={pending} onClick={() => {setOpenActionMenu(null);run(() => updateCourseBookingStatus({bookingId:actionBooking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),`已記錄 ${actionBooking.customerName} 曠課`,{bookingId:actionBooking.id,status:"NO_SHOW"});}}>曠課・扣堂</button><button role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName,deductSeparate:actionBooking.leaveDeductsWithMakeup});}}>請假</button></>}
             {musicLayout && canEdit && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button role="menuitem" className={button} disabled={pending} onClick={() => {setOpenActionMenu(null);run(() => updateCourseRosterBatch({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}

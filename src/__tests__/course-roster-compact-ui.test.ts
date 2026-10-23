@@ -6,7 +6,7 @@ import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
 const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null),cancel:vi.fn()}));
 
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>"/hq/dashboard/courses",useSearchParams:()=>new URLSearchParams("date=2026-10-23")}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:m.cancel}));
@@ -566,4 +566,21 @@ it.each([true,false])("closes a cancelled session only after success without rel
    expect(host.textContent).toContain("已取消本堂課");
   }else expect(host.textContent).toContain("取消失敗");
  } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+it("stacks music labels and both note actions in one column and links to the exact learner",async()=>{
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const roster=[{id:"row-ui",customerId:"student-ui",customerName:"合成學員",customerPhone:"0999001000",status:"RESERVED",bookingKind:"CARD",trialPayments:[],available:2,unit:"SESSION",notes:"本堂提醒",serviceNote:"長期提醒",pointCost:1,termIndex:1,termCount:4,termLessons:[],termPrivateLeaves:[],absenceHistory:[]}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-23T04:30:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session-ui",capacity:1,canCreate:false,canEdit:true,musicLayout:true})));
+  const column=host.querySelector('[aria-label="合成學員 標籤與備註"]')!;expect(column.children.length).toBe(3);expect(column.textContent).toContain("長期提醒");expect(column.textContent).toContain("本堂提醒");
+  expect(column.querySelector('[aria-label="合成學員 本次備註"]')).toBeTruthy();
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="合成學員 更多操作"]')!.click());
+  const link=[...document.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')].find(a=>a.textContent==="學員資料")!;
+  const href=new URL(link.href);expect(href.pathname).toBe("/hq/dashboard/courses");expect(href.searchParams.get("customerId")).toBe("student-ui");expect(href.searchParams.get("returnCourseSession")).toBe("session-ui");
+  expect([...document.querySelectorAll('[role="menuitem"]')].some(e=>e.textContent==="預約紀錄")).toBe(false);
+ }finally{await act(async()=>root.unmount());host.remove();}
 });

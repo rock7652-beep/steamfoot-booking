@@ -34,7 +34,7 @@ async function readPurchases(input: unknown, offset: number, range: {from?:strin
     const orders = await measure("orders",()=>coursePrisma.coursePurchase.findMany({
       where: { storeId, customerId, createdAt: courseHistoryRange(range) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take: 11,
       select: {
-        musicTermSizes:true, cardId:true, id: true, name: true, price: true, points: true, unit: true, status: true,
+        musicTermSizes:true, planId:true, templateIds:true, cardId:true, id: true, name: true, price: true, points: true, unit: true, status: true,
         listPrice: true, discountKind: true, discountValue: true, paymentMethod: true, transferLastFour: true,
         createdAt: true, confirmedAt: true, note: true, voidReason: true,
         refunds: { where: { storeId }, orderBy: { createdAt: "desc" }, select: { id: true, amount: true, method: true, reason: true, createdAt: true } },

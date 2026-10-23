@@ -1,5 +1,5 @@
 const listKeys = ["search", "status", "visit", "referral", "staff", "sort", "label", "page"] as const;
-export function studentReturnHref(customerId: string, query = "", tab: "makeups" | "bookings" = "makeups") {
+export function studentReturnHref(customerId: string, query = "", _tab: "makeups" | "bookings" | "courses" = "courses") {
   const source = new URLSearchParams(query);
   const next = new URLSearchParams({ view: "customers" });
   for (const key of listKeys) {
@@ -8,7 +8,7 @@ export function studentReturnHref(customerId: string, query = "", tab: "makeups"
   }
   if (source.get("dataScope") === "legacy") next.set("dataScope", "legacy");
   next.set("customerId", customerId);
-  next.set("studentTab", tab);
+  next.set("studentTab", "courses");
   return `/dashboard/courses?${next}`;
 }
 export function studentCourseHref(customerId: string, date: string, sessionId: string, query: string) {
