@@ -41,3 +41,10 @@ it("keeps errors and the same request key on retry",async()=>{
  for(let i=0;i<2;i++)await act(async()=>{form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
  expect(host.textContent).toContain("收款資料已更新");expect(mock.save.mock.calls[0][1].requestKey).toBe(mock.save.mock.calls[1][1].requestKey);
 });
+
+it("closes a changed receipt draft silently without recording money",async()=>{
+ await render();await click("補繳學費");
+ const method=host.querySelector<HTMLSelectElement>('[name="method"]')!;
+ await act(async()=>{method.value="OTHER";method.dispatchEvent(new Event("change",{bubbles:true}));});
+ await click("關閉");expect(host.querySelector('[role="dialog"]')).toBeNull();expect(mock.save).not.toHaveBeenCalled();
+});

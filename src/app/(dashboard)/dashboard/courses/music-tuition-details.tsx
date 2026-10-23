@@ -23,16 +23,14 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [method, setMethod] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [discard, setDiscard] = useState(false);
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const tuition = order.tuition;
   if (!tuition) return null;
   const outstanding = order.status === "CONFIRMED" ? Math.max(0, tuition.due - order.price) : 0;
   const field = "min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
   const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
-  const close = () => { if (submitting.current) return; if (dirty) setDiscard(true); else setMode(null); };
-  const open = (next: "details" | "receipt") => { setError(""); setDirty(false); setDiscard(false); setMethod(""); setMode(next); };
+  const close = () => { if (submitting.current) return; setMode(null); };
+  const open = (next: "details" | "receipt") => { setError(""); setMethod(""); setMode(next); };
   return <>
     <ExclusiveMenu label={`${order.name} 收款操作`} triggerText="⋯">
       <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("details")}>查看明細</button>
@@ -44,11 +42,7 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
         <button type="button" className={button} disabled={busy} onClick={close}>關閉</button>
       </header>
       <div className="@container/tuition min-h-0 min-w-0 overflow-y-auto p-3 text-sm">
-        {discard && <div role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p>放棄尚未儲存的收款資料？</p>
-          <div className="mt-2 flex gap-2"><button type="button" className={button} onClick={() => setDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={() => { setDirty(false); setDiscard(false); setMode(null); }}>放棄修改</button></div>
-        </div>}
-        {mode === "receipt" ? <form className="space-y-3" onChange={() => setDirty(true)} onSubmit={async event => {
+        {mode === "receipt" ? <form className="space-y-3" onSubmit={async event => {
           event.preventDefault();
           if (submitting.current) return;
           const data = new FormData(event.currentTarget);
@@ -59,7 +53,7 @@ export function MusicTuitionDetails({ order, onUpdated }: { order: TuitionOrder;
               method: String(data.get("method")), lastFour: String(data.get("lastFour") ?? ""), requestKey, expectedReceived: order.price,
             }, recordMusicTuitionReceipt);
             if (!result.success) { setError(result.error ?? "收款未完成"); return; }
-            setRequestKey(crypto.randomUUID()); setDirty(false); setMode(null);
+            setRequestKey(crypto.randomUUID()); setMode(null);
             if (!isMusicPreviewPage()) { onUpdated(); router.refresh(); }
           } catch { setError("尚未確認收款結果，可用相同資料重試。"); }
           finally { submitting.current = false; setBusy(false); }
