@@ -28,7 +28,7 @@ function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段"
       {periods.length>1&&<button type="button" aria-label="移除時段" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>×</button>}
       {errors[index]&&<span role="alert" className="w-full text-xs text-red-700">第 {index+1} 段：{errors[index]}</span>}
     </div>)}
-    {periods.length<8&&<button type="button" aria-label="新增時段" title="新增時段" className={compact?`${button} min-w-8 px-1`:button} onClick={()=>onChange([...periods,{openTime:"18:00",closeTime:"21:00"}])}>{compact?"＋":"＋ 時段"}</button>}
+    {periods.length<8&&<button type="button" aria-label="新增時段" title="新增時段" className={compact?`${button} min-w-8 px-1`:button} onClick={()=>onChange([...periods,{openTime:"18:00",closeTime:"21:00"}])}>{compact||!fitness?"＋":"＋ 時段"}</button>}
   </div>;
 }
 
