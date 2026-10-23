@@ -1,5 +1,5 @@
 "use client";
-import {CourseStaffEditorTabs,CourseStaffBasicFields,CourseStaffPermissionFields,CourseStaffServiceRow} from "./staff-editor-fields";
+import {CourseStaffBasicFields,CourseStaffPermissionFields,CourseStaffServiceRow} from "./staff-editor-fields";
 import {CourseStaffList,type CourseStaffDisplayRow} from "./staff-list";
 import { SportsCoachFeeFields } from "@/components/admin/sports-coach-fee-fields";
 import { compensationRule } from "@/lib/course-compensation";
@@ -29,7 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { ModalPanel } from "@/components/admin/modal-panel";
-import { RightSheet } from "@/components/admin/right-sheet";
+import {CourseStaffEditorFrame} from "./staff-editor-frame";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 
 import {usePathname,useSearchParams} from "next/navigation";
@@ -345,30 +345,9 @@ export function CourseStaffWorkspace({
         <footer className="flex flex-wrap justify-end gap-2 p-4"><button type="button" className={button} onClick={()=>setConfirmDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={()=>{setConfirmDiscard(false);setOpen(false);}}>放棄修改</button></footer>
       </ModalPanel>
       {open && mounted && createPortal(
-        <RightSheet className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} presentation="centered"
-          fixedHeight
-          maxHeight={680}
-          open
-          onClose={close}
-          width={920}
-          labelledById="course-staff-title"
-        >
-          <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-primary-50/60 px-4 py-2">
-            <h2 id="course-staff-title" className="min-w-0 flex-1 break-words font-semibold">
-              {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":courseDisplayText("查看教練", music)):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":courseDisplayText("編輯教練", music)):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":courseDisplayText("新增教練", music)):"新增人員")}
+        <CourseStaffEditorFrame className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} titleId="course-staff-title" title={<>{person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":courseDisplayText("查看教練", music)):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":courseDisplayText("編輯教練", music)):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":courseDisplayText("新增教練", music)):"新增人員")}
               {person&&<span>・{person.name}</span>}
-              {accountKind === "coach" && <CourseSetupStepBadge step="coach" />}
-            </h2>
-            {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" label={music?"預覽老師工作頁":"預覽教練工作頁"} />}
-            <button
-              className={button}
-              disabled={locked}
-              onClick={close}
-            >
-              關閉
-            </button>
-          </header>
-          <CourseStaffEditorTabs value={tab} disabled={locked} items={[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])]} onChange={id=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}}/>
+              {accountKind === "coach" && <CourseSetupStepBadge step="coach" />}</>} headerAction={<>{person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" label={music?"預覽老師工作頁":"預覽教練工作頁"} />}</>} onClose={close} locked={locked} value={tab} items={[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])]} onTabChange={id=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}}>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount} 位。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
@@ -611,7 +590,7 @@ export function CourseStaffWorkspace({
               }}>{transitionPending||request.pending||availabilityGuard.pending?"儲存中…":request.uncertain?"重試確認儲存結果":!person?(accountKind==="coach"?(music?"新增教師":"新增教練"):"新增人員"):"儲存"}</button>
             </div>}
           </footer>
-        </RightSheet>, document.body
+        </CourseStaffEditorFrame>, document.body
       )}
     </div>
   );

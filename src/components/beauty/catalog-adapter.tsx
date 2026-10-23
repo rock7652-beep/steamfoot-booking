@@ -1,4 +1,5 @@
 "use client";
+import {MusicSubjectCatalog,type MusicSubjectView} from "@/app/(dashboard)/dashboard/courses/music-subject-catalog";
 import {saveBeautyDisplayOrder} from "@/server/actions/beauty-display-order";
 import {useRouter} from 'next/navigation';
 import type {Room,Template,CourseCatalogSource} from '@/app/(dashboard)/dashboard/courses/workspace';
@@ -64,7 +65,16 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
  return {products,status,form,templates,rooms,save};
 }
 export function BeautyCourseCatalog({tab,data,canEdit}:{tab:string;data:BeautyDashboardData;canEdit:boolean}){
- const router=useRouter();const {products,status,form,templates,rooms,save}=createBeautyCatalogAdapter(tab,data,canEdit,()=>router.refresh());
+ const router=useRouter();const services=data.services.map(s=>savedBeautyService.parse(s));const {products,status,form,templates,rooms,save}=createBeautyCatalogAdapter(tab,data,canEdit,()=>router.refresh());
+ if(tab==='服務項目'){
+  const subject=(s:typeof services[number]):MusicSubjectView=>({id:s.id,name:s.name,category:s.category,description:'',isActive:s.active,updatedAt:new Date(s.revision).toISOString()});
+  return <MusicSubjectCatalog storeId={data.storeId} subjects={services.map(subject)} displayOrder={data.displayOrders?.subject} canCreate={canEdit} canEdit={canEdit} catalog={{label:'服務項目',status,order:saveBeautyDisplayOrder,feeHref:id=>`?tab=收費方式&serviceId=${encodeURIComponent(id)}`,fields:row=>{const service=services.find(s=>s.id===row?.id);return <><label>服務時長（分鐘）<input className="min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2" name="duration" type="number" min={5} max={720} required defaultValue={service?.duration}/></label><label>整理時間（分鐘，選填）<input className="min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2" name="buffer" type="number" min={0} max={240} defaultValue={service?.buffer??0}/></label></>;},save:async(form,row)=>{
+   const current=services.find(s=>s.id===row?.id);
+   if(row&&(!current||subject(current).updatedAt!==row.updatedAt))return {success:false,error:'服務已更新，請重新開啟'};
+   const result=await saveBeautyCatalog('service',{id:current?.id,revision:current?.revision??0,name:String(form.get('name')??''),category:String(form.get('category')??''),duration:Number(form.get('duration')),buffer:Number(form.get('buffer')||0),active:form.get('active')==='yes',price:current?.price??0,trialPrice:current?.trialPrice??null});
+   if(!result.success)return result;const saved=savedBeautyService.parse(result.data.record);router.refresh();return {success:true,data:subject(saved)};
+  }}}/>;
+ }
  if(tab==='收費方式')return <CourseMemberWorkspace view="plans" catalogSource={{status,form,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.plan} previewStoreId={data.storeId} templates={templates} people={[]} plans={products} cards={[]} canEdit={canEdit} canCreate={canEdit} canManageStaff={false} canAssign={false} canReadBookings={false} canReadTransactions={false} healthEnabled={false} customerRows={[]} canReadCards={false} assignmentStaff={[]} canAssignManager={false} profitEnabled={false}/>;
  return <CourseWorkspace catalogSource={{status,save,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.[tab==='位置管理'?'room':'subject']} view={tab==='位置管理'?'rooms':'catalog'} businessProfile="FITNESS" storeId={data.storeId} selectedDate={data.date} today={toLocalDateStr()} nowIso={new Date(data.now).toISOString()} calendarDays={{}} rooms={rooms} templates={templates} sessions={[]} coaches={[]} cancelledBookings={[]} staffAvailability={[]} staffAvailabilityExceptions={[]} canCreate={canEdit} canEdit={canEdit}/>;
 }

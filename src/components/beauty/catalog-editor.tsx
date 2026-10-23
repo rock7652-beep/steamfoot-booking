@@ -1,8 +1,8 @@
 "use client";
-import {CourseStaffEditorTabs,CourseStaffBasicFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
+import {CourseStaffBasicFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
 import { useState, useTransition } from "react";
 import {fitnessEditorFooter,fitnessEditorSave} from "@/components/admin/course-editor-styles";
-import { RightSheet } from "@/components/admin/right-sheet";
+import {CourseStaffEditorFrame,courseStaffEditorButton} from "@/app/(dashboard)/dashboard/courses/staff-editor-frame";
 import {
   saveBeautyCatalog,
   saveBeautyLocation,
@@ -101,34 +101,13 @@ export function BeautyCatalogEditor({
       onClose();
   }
   return (
-    <RightSheet
-      open
-      className="fitness-management-editor"
-      presentation="centered"
-      width={kind==='technician'?(techTab==='services'||techTab==='availability'?900:720):640}
-      fitContent
-      onClose={close}
-      labelledById="beauty-editor-title"
-      closeOnEscape={!pending}
-    >
-      <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
-        <h2 id="beauty-editor-title">
-          {readOnly ? "查看" : draft.id ? "編輯" : "新增"}
-          {title}
-        </h2>
-        <button
-          className={field + " !w-auto"}
-          disabled={pending}
-          onClick={close}
-        >
-          關閉
-        </button>
-      </header>
-      {kind==='technician'&&<CourseStaffEditorTabs label="技師編輯分類" disabled={pending} value={techTab} items={[["basic","基本資料"],["services","服務與拆帳"],["availability","可服務時間"],["work","會員與工作權限"]]} onChange={setTechTab}/>}
-      {kind==='technician'&&techTab!=='basic'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'}</p>}
+    <CourseStaffEditorFrame titleId="beauty-editor-title" title={<>{readOnly?'查看':draft.id?'編輯':'新增'}{kind==='technician'?'技師':title}{draft.id&&draft.name&&<span>・{draft.name}</span>}</>}
+      onClose={close} locked={pending} width={kind==='technician'?920:640} fixedHeight={kind==='technician'}
+      items={kind==='technician'?[["basic","基本資料"],["services","服務設定"],["work","LINE 與權限"],["availability","服務時間"]]:[]}
+      value={techTab} onTabChange={setTechTab}>
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
-        className="min-h-0 overflow-y-auto p-4"
+        id="beauty-catalog-form" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
         onChange={() => setDirty(true)}
         onSubmit={(e) => {
           e.preventDefault();
@@ -744,14 +723,6 @@ export function BeautyCatalogEditor({
               ))}
             </>
           )}
-          {!readOnly&&<div className={fitnessEditorFooter+" sticky bottom-0 flex justify-end gap-3 sm:col-span-2"}>
-            <button className={fitnessEditorSave+" bg-primary-700 text-white"}>
-              {pending ? "儲存中…" : "儲存"}
-            </button>
-            <button type="button" className={fitnessEditorSave+" border border-earth-200"} onClick={close}>
-              取消
-            </button>
-          </div>}
         </fieldset>
         {error && (
           <p role="alert" className="text-red-700">
@@ -759,6 +730,7 @@ export function BeautyCatalogEditor({
           </p>
         )}
       </form>
-    </RightSheet>
+      {!readOnly&&<footer className={fitnessEditorFooter}><div className="flex items-center justify-end gap-2"><span role="status" className="mr-auto text-sm text-earth-600">{pending?'儲存中…':dirty?'未儲存':''}</span><button type="button" className={courseStaffEditorButton} disabled={pending} onClick={close}>取消</button><button type="submit" form="beauty-catalog-form" className={courseStaffEditorButton+' '+fitnessEditorSave+' !border-primary-700 !bg-primary-700 !text-white'} disabled={pending}>{pending?'儲存中…':'儲存'}</button></div></footer>}
+    </CourseStaffEditorFrame>
   );
 }

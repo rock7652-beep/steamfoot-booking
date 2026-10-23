@@ -134,6 +134,7 @@ export function StaffWorkspace({
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showInactive, setShowInactive] = useState(false);
   const filteredPeople = people.filter(
     (p) =>
       [p.displayName, p.legalName, p.phone ?? "", p.email].some((value) =>
@@ -143,6 +144,10 @@ export function StaffWorkspace({
       (statusFilter === "all" || p.status === statusFilter),
   );
   if (accountListOnly) filteredPeople.sort((a, b) => Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE"));
+  const inactivePeople = filteredPeople.filter(person => person.status !== "ACTIVE");
+  const inactiveForced = statusFilter === "INACTIVE" || !!search.trim() || roleFilter !== "all";
+  const inactiveExpanded = inactiveForced || showInactive;
+  const visiblePeople = filteredPeople.filter(person => person.status === "ACTIVE" || inactiveExpanded);
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const pathname=usePathname();
@@ -291,7 +296,7 @@ export function StaffWorkspace({
           <p className="text-sm text-earth-500">
             共 {filteredPeople.length} 位{filteredPeople.length!==people.length&&`／全部 ${people.length} 位`}
           </p>
-          {beauty?<CourseStaffList empty={<p className="p-8 text-center text-earth-500">沒有符合條件的人員。</p>} rows={filteredPeople.map(person=>({
+          {beauty?<CourseStaffList inactiveCount={inactivePeople.length} inactiveForced={inactiveForced} inactiveExpanded={inactiveExpanded} onToggleInactive={()=>setShowInactive(value=>!value)} empty={<p className="p-8 text-center text-earth-500">沒有符合條件的人員。</p>} rows={visiblePeople.map(person=>({
             id:person.id,name:person.displayName,phone:person.phone,email:person.email,active:person.status==='ACTIVE',onOpen:()=>setEditor({type:'details',personId:person.id}),
             identity:<>{person.roleLabel}{person.status!=='ACTIVE'&&<span className="text-earth-500">停用</span>}</>,notifications:<span className="text-earth-500">—</span>,
             actions:<ExclusiveMenu quiet triggerText="⋯" label={`${person.displayName}操作`}><button className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setEditor({type:'details',personId:person.id})}>{person.canEdit?'編輯':'查看'}</button>{person.canEdit&&<StaffStatusToggle staffId={person.id} currentStatus={person.status} quiet/>}</ExclusiveMenu>

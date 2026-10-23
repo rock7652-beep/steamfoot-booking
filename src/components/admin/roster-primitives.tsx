@@ -43,3 +43,8 @@ export function RosterMoreMenu({ name, disabled, onOpen, openLabel="查看／編
     }} style={position} className="fixed z-[160] w-40 rounded-lg border border-earth-200 bg-white p-1 shadow-lg"><button type="button" role="menuitem" className="min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50" disabled={disabled} onClick={() => {setPosition(null); trigger.current?.focus(); onOpen();}}>{openLabel}</button>{actions.map(action => <button key={action.label} type="button" role="menuitem" disabled={disabled} className={`min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50 disabled:opacity-50 ${action.danger ? "text-red-700" : "text-earth-700"}`} onClick={() => {setPosition(null); trigger.current?.focus(); action.onSelect();}}>{action.label}</button>)}</div>, document.body)}
   </>;
 }
+
+/** Same inactive-group control for course and Beauty management lists. */
+export function InactiveRosterToggle({label="停用人員",count,expanded,forced=false,onToggle}:{label?:string;count:number;expanded:boolean;forced?:boolean;onToggle:()=>void}) {
+ return <button type="button" disabled={forced} aria-expanded={expanded} className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-medium text-earth-600 disabled:cursor-default" onClick={onToggle}><span>{label}（{count}）</span><span>{forced?'篩選結果':expanded?'收合':'展開'}</span></button>;
+}

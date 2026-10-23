@@ -153,3 +153,24 @@ it("uses the course contact/identity list for Beauty and opens the existing guar
  const name=[...host.querySelectorAll('button')].find(b=>b.textContent==='QA 門市')!;expect(name).toBeTruthy();await act(async()=>name.click());expect(document.body.textContent).toContain('後台帳號／權限');
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+
+it("collapses Beauty inactive people with the course group control and preserves explicit search/status access",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const active={...person,id:'active',displayName:'啟用店務',status:'ACTIVE'};
+ const render=(activeStatus='ACTIVE',onlyInactive=false)=>root.render(createElement(StaffWorkspace,{people:onlyInactive?[person]:[{...active,status:activeStatus},person],today:'2026-10-23',canManage:true,showSpaCompensation:false,createAction:vi.fn(),beauty:true,accountListOnly:true}));
+ const name=(value:string)=>[...host.querySelectorAll('button')].find(b=>b.textContent===value);
+ const toggle=()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('停用人員（'))!;
+ try {
+  await act(async()=>render());expect(name('啟用店務')).toBeTruthy();expect(name(person.displayName)).toBeUndefined();expect(toggle().getAttribute('aria-expanded')).toBe('false');
+  await act(async()=>toggle().click());expect(name(person.displayName)).toBeTruthy();
+  await act(async()=>toggle().click());expect(name(person.displayName)).toBeUndefined();
+  const search=host.querySelector<HTMLInputElement>('input[aria-label="搜尋人員"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(search,'QA');search.dispatchEvent(new Event('input',{bubbles:true}));});expect(name(person.displayName)).toBeTruthy();expect((toggle() as HTMLButtonElement).disabled).toBe(true);
+  await act(async()=>name('清除篩選')!.click());expect(name(person.displayName)).toBeUndefined();
+  const status=host.querySelector<HTMLSelectElement>('select[aria-label="篩選人員狀態"]')!;
+  await act(async()=>{status.value='INACTIVE';status.dispatchEvent(new Event('change',{bubbles:true}));});expect(name(person.displayName)).toBeTruthy();expect(name('啟用店務')).toBeUndefined();
+  await act(async()=>name('清除篩選')!.click());await act(async()=>render('INACTIVE'));expect(name('啟用店務')).toBeUndefined();expect(toggle().textContent).toContain('2');
+  await act(async()=>render('ACTIVE',true));expect(toggle().textContent).toContain('1');expect(host.textContent).not.toContain('沒有符合條件');await act(async()=>toggle().click());expect(name(person.displayName)).toBeTruthy();
+ }finally {await act(async()=>root.unmount());host.remove();}
+});
