@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { assertMusicOpeningPreviewEnvironment, MUSIC_OPENING_BRANCH } from "../../scripts/music-opening-preview-scope.mjs";
 
 /** Compose this feature's exact Preview gate with the existing shared client guard. */
@@ -29,8 +30,15 @@ export function withMusicOpeningRuntimeSchema<T extends object>(client: T): T {
   return (client as unknown as { $extends(extension: object): T }).$extends({
     name: "music-preview-schema-readiness",
     query: {
-      async $allOperations({ args, query }: { args: unknown; query: (args: unknown) => unknown }) {
+      async $allOperations({ model, args, query }: { model?: string; args: unknown; query: (args: unknown) => unknown }) {
         await ensureMusicOpeningRuntimeSchema();
+        // Prisma query extensions clone Sql instances from another generated
+        // runtime as plain objects. Restore the tag without interpolating values.
+        const raw = args as { strings?: unknown; values?: unknown } | null;
+        if (!model && raw && !Array.isArray(args) && Array.isArray(raw.strings) &&
+            raw.strings.every(part => typeof part === "string") && Array.isArray(raw.values) &&
+            raw.strings.length === raw.values.length + 1)
+          return query(Prisma.sql(raw.strings as unknown as TemplateStringsArray, ...raw.values));
         return query(args);
       },
     },
