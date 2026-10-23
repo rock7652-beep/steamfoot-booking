@@ -24,6 +24,7 @@ export async function ensureMusicOpeningRuntimeSchema() {
 }
 /** Covers model and raw queries; no business query can run before readiness. */
 export function withMusicOpeningRuntimeSchema<T extends object>(client: T): T {
+  if (process.env.NODE_ENV === "test" && process.env.VERCEL !== "1") return client;
   if (process.env.VERCEL_GIT_COMMIT_REF !== MUSIC_OPENING_BRANCH) return client;
   return (client as unknown as { $extends(extension: object): T }).$extends({
     name: "music-preview-schema-readiness",
