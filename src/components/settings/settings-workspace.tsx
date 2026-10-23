@@ -144,12 +144,12 @@ export function SettingsModuleWorkspace({
     <SettingsWorkspaceFrame
       nav={
         <>
-          <label className="block text-sm xl:hidden">
+          <label className="flex flex-wrap items-center gap-2 text-sm xl:hidden">
             設定分類
             <select
               value={active.id}
               onChange={event => setActiveId(event.target.value)}
-              className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border bg-white px-3"
             >
               {sections.map(section => (
                 <option key={section.id} value={section.id}>{section.label}</option>

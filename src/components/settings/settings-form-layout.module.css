@@ -80,7 +80,7 @@
   .bankFields { grid-template-columns: minmax(0, 1fr) 100px minmax(0, 1.4fr); }
 }
 
-@container settings-form (min-width: 48rem) {
-  .statusRow { grid-template-columns: 200px minmax(0, 1fr) 200px; }
-  .indented { margin-left: 216px; }
+@container settings-form (min-width: 30rem) {
+  .statusRow { grid-template-columns: minmax(7rem,1fr) minmax(0,2fr) auto; }
+  .indented { margin-left: 0; }
 }

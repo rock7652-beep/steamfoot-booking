@@ -140,7 +140,7 @@ export function CourseSettingsWorkspace(props: Props) {
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
     nav={<>
-      <label className="block text-sm xl:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
+      <label className="flex flex-wrap items-center gap-2 text-sm xl:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="min-h-11 min-w-0 flex-1 rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
       <SettingsWorkspaceNav
         items={COURSE_SETTINGS_SECTIONS.map(section => ({ id: section.id, label: section.label, status: sectionDirty(section.id) ? "未儲存" : undefined }))}
         activeId={active}

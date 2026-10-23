@@ -7,7 +7,7 @@ import type { CourseSettingsSectionInput } from "@/lib/course-settings-sections"
 
 type Field = { key: string; label: string; type?: "text" | "url" | "number"; max?: number };
 const fields: Record<CourseSettingsSectionInput["section"], Field[]> = {
-  store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "shopPhone", label: "店家電話", max: 50 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialId", label: "官方 LINE ID", max: 100 }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
+  store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "shopPhone", label: "店家電話", max: 50 }, { key: "address", label: "店家地址", max: 300 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialId", label: "官方 LINE ID", max: 100 }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
   booking: [{ key: "bookingLeadMinutes", label: "預約截止時間", type: "number" }, { key: "cancellationLeadMinutes", label: "自行取消截止時間", type: "number" }],
   payment: [{ key: "bankName", label: "銀行名稱", max: 100 }, { key: "bankCode", label: "銀行代號", max: 20 }, { key: "bankAccountNumber", label: "銀行帳號", max: 50 }],
 };
@@ -60,13 +60,13 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
     });
   }}>
     <fieldset disabled={pending} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
-      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" || field.key === "address" ? styles.fullWidth : ""}`}>
+      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.key === "mapUrl" || field.key === "address" ? styles.fullWidth : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}
     </fieldset>
     {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
     {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
-    <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
       <button type="button" disabled={pending || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : "儲存"}</button>

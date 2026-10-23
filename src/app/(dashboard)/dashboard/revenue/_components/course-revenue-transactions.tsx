@@ -50,7 +50,7 @@ export function CourseRevenueTransactions({initial,input,staffRows,basePath,live
   const href = (p: number) => `${basePath}?${new URLSearchParams({ ...scopeQuery, dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
  return <>
 <p className="p-3 text-sm text-earth-600">共 {count} 筆購買紀錄{sync&&<span role="status"> · {sync}</span>}</p>
-      {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
+      {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0 [&_th]:whitespace-nowrap [&_th]:py-2" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
  </>;
 }
