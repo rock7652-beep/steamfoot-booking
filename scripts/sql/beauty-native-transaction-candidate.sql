@@ -19,11 +19,16 @@ DO $$ BEGIN
  END IF;
 END $$;
 ALTER TABLE "BeautyTransactionRevision" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "BeautyTransactionRevision" FROM PUBLIC;
 DO $$
 DECLARE app_role text:=current_setting('beauty_migration.app_role',true);
 BEGIN
+ -- The isolated hosted Preview retains its existing postgres connection. Do not
+ -- create an app role or grant browser access merely to install this table.
+ IF app_role IS NULL
+ AND current_setting('beauty_migration.connection_mode',true)='isolated-preview-legacy'
+ AND current_user='postgres' AND current_database()='postgres' THEN RETURN; END IF;
  IF app_role IS NULL OR app_role IN ('anon','authenticated','service_role') OR NOT EXISTS(SELECT FROM pg_roles WHERE rolname=app_role AND NOT rolsuper AND NOT rolbypassrls) THEN RAISE EXCEPTION 'Explicit existing backend app role required'; END IF;
- REVOKE ALL ON "BeautyTransactionRevision" FROM PUBLIC;
  EXECUTE format('GRANT SELECT, INSERT ON "BeautyTransactionRevision" TO %I',app_role);
  IF NOT EXISTS(SELECT FROM pg_policies WHERE schemaname='public' AND tablename='BeautyTransactionRevision' AND policyname='beauty_revision_read') THEN
   EXECUTE format('CREATE POLICY beauty_revision_read ON "BeautyTransactionRevision" FOR SELECT TO %I USING(true)',app_role);

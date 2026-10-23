@@ -1,0 +1,33 @@
+{
+  "localSyntheticOnly": true,
+  "productionBuild": true,
+  "results": [
+    "actual checkout: one shared card with 8 sessions",
+    "isolated synthetic member has no prior bookings",
+    "1 people: original confirmation shows each person's service and time",
+    "1 people: real Beauty bookings use the same authorized shared card",
+    "1 people: unique technicians and beds",
+    "1 people: simultaneous start, duration and buffer snapshots",
+    "1 people: booking holds quota without debiting",
+    "1 people: member cancellation releases all remaining holds",
+    "1 people: tablet portal contained",
+    "2 people: original confirmation shows each person's service and time",
+    "2 people: real Beauty bookings use the same authorized shared card",
+    "2 people: unique technicians and beds",
+    "2 people: simultaneous start, duration and buffer snapshots",
+    "2 people: booking holds quota without debiting",
+    "completion and identical retry debit exactly one session",
+    "2 people: member cancellation releases all remaining holds",
+    "2 people: tablet portal contained",
+    "4 people: original confirmation shows each person's service and time",
+    "4 people: real Beauty bookings use the same authorized shared card",
+    "4 people: unique technicians and beds",
+    "4 people: simultaneous start, duration and buffer snapshots",
+    "4 people: booking holds quota without debiting",
+    "4 people: member cancellation releases all remaining holds",
+    "4 people: tablet portal contained",
+    "final ledger reconciles to 7, booking and status changes create no payment",
+    "no member browser errors"
+  ],
+  "errors": []
+}
