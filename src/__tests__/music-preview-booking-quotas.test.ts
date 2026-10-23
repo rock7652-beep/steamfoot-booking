@@ -274,3 +274,13 @@ describe("unlimited subscription bookings preserve lesson safeguards", () => {
     expect(f.bookings[0].status).toBe("RESERVED");
   });
 });
+
+// Music scheduling uses a teaching identity; the purchased tuition version may differ.
+it.each([true,false])("music teaching-item compatibility remains authoritative (same item=%s)",async matches=>{
+ const f=setup();f.session.templateId="teaching:synthetic-subject";
+ Object.assign(f.session.template,{musicSubjectId:"synthetic-subject"});
+ Object.assign(f.card,{templateIds:["synthetic-tuition-version"]});
+ Object.assign(f.tx,{courseTemplate:{findFirst:vi.fn().mockResolvedValue(matches?{id:"synthetic-tuition-version"}:null)}});
+ if(matches){await expect(f.reserve()).resolves.toBeDefined();expect(f.tx.courseBooking.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({pointCost:1})}));}
+ else {await expect(f.reserve()).rejects.toThrow("此方案不適用本堂課");expect(f.tx.courseBooking.create).not.toHaveBeenCalled();}
+});

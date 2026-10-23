@@ -292,7 +292,7 @@ export async function reserveCourseInTransaction(
     const rule=await readSportsSessionRule(tx,storeId,input.sessionId);
     if(input.companionIndex&&rule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
     if(actor.customerId&&rule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
-    if (card && session) {
+    if (card && session && !(await isMusicCourseStore(tx,storeId))) {
       const rights = resolveSportsEntitlement(
         { ...card, templateRestricted: card.requestKey?.startsWith("no-show-makeup:") ?? false },
         { templateId: session.templateId, subjectId: session.template.musicSubjectId ?? null,
@@ -363,7 +363,7 @@ export async function reserveCourseInTransaction(
     if (!music || !source || source.session.template.classType === "GROUP" || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }
-  const bookingCost = card ? entitlementCost! : 0;
+  const bookingCost = card ? (entitlementCost ?? (card.unit === "SESSION" ? 1 : session.pointCost)) : 0;
   if (!card && !deferred && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || (actor.customerId&&!options.sportsMemberTrial))) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
