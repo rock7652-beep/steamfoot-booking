@@ -97,6 +97,7 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onSessionCancelled,
   onAttendanceOptimistic,
   onTeacherAttendanceOptimistic,
   onCreateCustomer,
@@ -118,6 +119,7 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onSessionCancelled?: () => void;
   onAttendanceOptimistic?: (bookingId: string, status: "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED" | null, leave?:boolean) => void;
   onTeacherAttendanceOptimistic?: (status: "SCHEDULED" | "LEAVE" | "NO_SHOW" | null) => void;
   onCreateCustomer?: () => void;
@@ -137,6 +139,7 @@ export function CourseRoster({
   const readVersion = useRef(0);
   const mutationLock = useRef(false);
   const currentSession = useRef(sessionId);
+  const cancelledSession = useRef<string | null>(null);
   currentSession.current = sessionId;
   const [transitionPending, start] = useTransition();
   const quickInFlight = useRef(new Set<string>());
@@ -270,7 +273,7 @@ export function CourseRoster({
     let initialDetailLoaded = false;
 
     const refresh = (quick = false) => {
-      if (mutationLock.current || quickInFlight.current.size > 0) return Promise.resolve();
+      if (cancelledSession.current === sessionId || mutationLock.current || quickInFlight.current.size > 0) return Promise.resolve();
       if (quick && isMusicPreviewPage() && view === "roster" && initialDetailLoaded) return load().catch(() => {
         if (active) setMessage("讀取失敗，現有名單已保留，請重試");
       });
@@ -327,6 +330,7 @@ export function CourseRoster({
     successMessage = "已完成",
     optimistic?: {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string} | {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string}[],
     teacherStatus?:"SCHEDULED"|"LEAVE"|"NO_SHOW",
+    sessionCancelled = false,
   ) {
     if (teacherStatus) { setStatusFilter("all"); setRetainedRows([]); setSelected([]); }
     const updates = optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
@@ -408,6 +412,15 @@ export function CourseRoster({
         }
         publishMusicFinanceChange();
         setMessage(successMessage);
+        if (sessionCancelled) {
+          // Cancelled sessions no longer belong to the active roster query.
+          // Leave the detail before a refresh can read that removed session.
+          cancelledSession.current = sessionId;
+          setRoster([]);
+          onSessionCancelled?.();
+          if(!isMusicPreviewPage())router.refresh();
+          return;
+        }
         if (!bookingId) {
           setSelected([]);
           setRequestKey(crypto.randomUUID());
@@ -1620,7 +1633,7 @@ export function CourseRoster({
           <p className="mt-2 text-sm text-earth-600">將取消這一堂課，影響 {count} 位學員；未完成預約會釋放額度，紀錄保留。後續堂數不受影響。</p>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" className={button} disabled={pending} onClick={() => setConfirmCancel(false)}>返回</button>
-            <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => { setConfirmCancel(false); run(() => cancelCourseSession({ sessionId, expectedBookings: roster.filter(booking => booking.status !== "CANCELLED").length }), "已取消本堂課"); }}>確認取消本堂課</button>
+            <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => { setConfirmCancel(false); run(() => cancelCourseSession({ sessionId, expectedBookings: roster.filter(booking => booking.status !== "CANCELLED").length }), "已取消本堂課", undefined, undefined, true); }}>確認取消本堂課</button>
           </div>
         </div>
       </div>}

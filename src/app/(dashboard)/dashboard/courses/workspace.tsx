@@ -2385,6 +2385,7 @@ export function CourseWorkspace({
                   roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog({sessionId:dialogSession.id,kind:"roster"})}
+                  onSessionCancelled={() => setCourseDialog(null)}
                   onAttendanceOptimistic={showPendingAttendance}
                   onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}

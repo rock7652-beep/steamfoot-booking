@@ -4,12 +4,12 @@ vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollmen
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
+const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null),cancel:vi.fn()}));
 
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:m.cancel}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
@@ -537,5 +537,33 @@ it.each(["HIDDEN","LOCKED"] as const)("does not offer new companions from stale 
   expect(document.querySelector('[role="menu"]')?.textContent).not.toContain("新增同行");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="既有同行 更多操作"]')!.click());
   expect(document.querySelector('[role="menu"]')?.textContent).toContain("變更使用方式");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+
+it.each([true,false])("closes a cancelled session only after success without reloading its removed roster (success=%s)",async success=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-23T07:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster:[],cards:[],trial:null}});
+ m.quick.mockClear();m.load.mockClear();m.cancel.mockReset();
+ m.quick.mockResolvedValue({success:true,data:{roster:[],teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
+ m.cancel.mockResolvedValue({success,error:success?undefined:"取消失敗"});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const onSessionCancelled=vi.fn();
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`cancel-${success}`,capacity:1,canCreate:false,canEdit:true,musicLayout:true,onSessionCancelled})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="課程更多操作"]')!.click());
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="取消本堂")!.click());
+  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="確認取消本堂課")!.click());
+  expect(m.cancel).toHaveBeenCalledWith({sessionId:`cancel-${success}`,expectedBookings:0});
+  expect(onSessionCancelled).toHaveBeenCalledTimes(success?1:0);
+  if(success){
+   expect(m.quick).not.toHaveBeenCalled();
+   expect(m.load).toHaveBeenCalledTimes(1);
+   await act(async()=>window.dispatchEvent(new Event("focus")));
+   expect(m.load).toHaveBeenCalledTimes(1);
+   expect(m.quick).not.toHaveBeenCalled();
+   expect(host.textContent).toContain("已取消本堂課");
+  }else expect(host.textContent).toContain("取消失敗");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
