@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { notFound, redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
@@ -28,7 +29,9 @@ export default async function StaffPage({
   const { createError } = await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
-  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
+  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) {
+    return <PageShell><PageHeader title="人員管理" /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
+  }
 
   const activeStoreId = await getActiveStoreForRead(user);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;

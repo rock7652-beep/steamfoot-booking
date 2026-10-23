@@ -30,7 +30,7 @@ export function CareRowActions({ item }: { item: CareItem }) {
   const related = Array.from(new Map((context?.items.filter(row => row.customerId === item.customerId) ?? [item]).map(row => [row.careReason ?? row.reason, row])).values());
   function close() {
     if (pending || lock.current) return;
-    if ((note || result !== "CONTACTED" || nextDate !== initialNextDate) && !window.confirm("尚有未儲存的關懷紀錄，要捨棄嗎？")) return;
+    
     setOpen(false); setNote(""); setResult("CONTACTED"); setNextDate(initialNextDate); setError(null);
   }
   function save() {

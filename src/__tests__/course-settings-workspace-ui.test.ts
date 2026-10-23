@@ -14,6 +14,7 @@ vi.mock("@/components/desktop", () => ({ InfoList: ({ items }: { items: { label:
 vi.mock("@/server/actions/shop", () => ({ updateTrialSettings: vi.fn(), updateDutyScheduling: vi.fn(), updateBookableUntilDate: vi.fn(), updateCustomerBookingWindow: vi.fn() }));
 vi.mock("@/server/actions/course-booking-window", () => ({ saveCourseBookingWindow: m.windowSave }));
 vi.mock("@/server/actions/course-trial", () => ({ saveCourseTrialSettings: m.trialSave }));
+vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
 import { courseSettingsSectionRevision } from "@/lib/course-settings-sections";
 import { CourseSettingsWorkspace } from "@/app/(dashboard)/dashboard/courses/settings-workspace";
 import { FeaturePresentationProvider, type FeaturePresentationMap } from "@/components/feature-presentation";
@@ -127,9 +128,9 @@ describe("five-section course settings", () => {
     expect(host.textContent).toContain("暫時失敗"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名"); expect(m.refresh).not.toHaveBeenCalled();
     await submit(); expect(m.refresh).not.toHaveBeenCalled(); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名"); expect(host.textContent).toContain("已儲存");
   });
-  it("requires an explicit discard and does not discard another section", async () => {
+  it("discards only the selected section silently and preserves other drafts", async () => {
     await render(); await input("name", "店名草稿"); await select("收款與體驗"); await input("bankCode", "999"); await click("取消");
-    expect(host.textContent).toContain("要捨棄本區修改嗎"); await click("繼續編輯"); expect((host.querySelector('input[name="bankCode"]') as HTMLInputElement).value).toBe("999"); await click("取消"); await click("捨棄本區修改"); expect((host.querySelector('input[name="bankCode"]') as HTMLInputElement).value).toBe("123");
+    expect(host.textContent).not.toContain("要捨棄本區修改嗎"); expect((host.querySelector('input[name="bankCode"]') as HTMLInputElement).value).toBe("123");
     await select("店家資料未儲存"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("店名草稿");
   });
   it("sends only bank fields and blocks repeated submissions while saving", async () => {
@@ -138,13 +139,13 @@ describe("five-section course settings", () => {
     expect(m.save).toHaveBeenCalledExactlyOnceWith({ section: "payment", bankName: "新銀行", bankCode: "123", bankAccountNumber: "0001234567" }); expect(host.querySelector('form[aria-label="編輯銀行資訊"] fieldset')?.hasAttribute("disabled")).toBe(true);
     await act(async () => finish({ success: true })); expect(host.textContent).toContain("已儲存");
   });
-  it("guards in-app links with a custom dialog and lets the user keep editing", async () => {
+  it("allows leaving a dirty settings section without a confirmation dialog", async () => {
     await render(); await input("name", "草稿"); await select("營業與預約");
     const outside = document.createElement("a"); outside.href = "/dashboard/revenue"; host.append(outside);
+    let prevented=true;outside.addEventListener("click",event=>{prevented=event.defaultPrevented;event.preventDefault();});
     await act(async () => outside.click());
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("尚有未儲存的修改");
-    const keep = [...document.querySelectorAll("button")].find(b => b.textContent === "繼續編輯")!; await act(async () => keep.click());
-    expect(document.querySelector('[role="dialog"]')).toBeNull(); await select("店家資料未儲存"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("草稿");
+    expect(prevented).toBe(false);expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await select("店家資料未儲存"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("草稿");
   });
   it("hides unavailable features and shows real subscription summary without the mock plan center", async () => {
     await render({ ...defaults, canEdit: false, canPayment: false, canReminders: false, canCare: false, canTrial: false });
@@ -158,24 +159,23 @@ describe("five-section course settings", () => {
     await act(async () => { selector.value = "subscription"; selector.dispatchEvent(new Event("change", { bubbles: true })); }); await render();
     expect(selector.value).toBe("subscription"); expect(host.querySelector('section[aria-label="系統方案與用量"]')?.hasAttribute("hidden")).toBe(false);
   });
-  it("preserves input when the connection throws and guards a browser reload", async () => {
+  it("preserves failed input but allows a browser reload without a discard warning", async () => {
     m.save.mockRejectedValueOnce(new Error("network")); await render(); await input("name", "斷線草稿"); await submit();
-    expect(host.textContent).toContain("尚未確認儲存結果"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
-    const before = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
-    expect([...host.querySelectorAll("button")].find(b=>b.textContent==="取消"&&!b.closest("[hidden]"))?.disabled).toBe(true);
-    await submit();const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after); expect(after.defaultPrevented).toBe(false);
+    expect(host.textContent).toContain("尚未確認儲存結果，請重試核對同一次送出；輸入已保留。"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
+    const before = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(false);
+    await click("取消"); const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after); expect(after.defaultPrevented).toBe(false);
   });
   it("shows enabled notification features at scoped destinations", async () => {
     await render({ ...defaults, canDigitalButler: true, canReferralShare: true });
     expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=butler"]')).not.toBeNull(); expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=referral"]')).not.toBeNull();
   });
-  it("shows the basic unassigned-plan reminder even without the customer-care add-on", async () => {
+  it("keeps only reminder management as the notification entry", async () => {
     await render({ ...defaults, canUnassignedPlans: true, canCare: false, canReminders: false });
-    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=unassigned"]')).not.toBeNull(); expect(host.textContent).toContain("尚無方案顧客待辦");
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=unassigned"]')).toBeNull(); expect(host.textContent).not.toContain("尚無方案顧客待辦"); expect(host.textContent).toContain("提醒管理");
   });
 });
 
-it("edits the booking window directly and guards its draft when leaving", async () => {
+it("edits the booking window and retains drafts across sections without a reload warning", async () => {
  await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); await click("營業與預約"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14});
  const windowRow=[...host.querySelectorAll("h2")].find(heading=>heading.textContent==="預約開放期限")?.closest("section");
  expect(windowRow).toBeTruthy();
@@ -183,7 +183,7 @@ it("edits the booking window directly and guards its draft when leaving", async 
  expect(modify).toBeTruthy(); await act(async()=>modify!.click());
  const days=windowRow!.querySelector('select[aria-label="自動開放天數"]')!;
  await act(async()=>{(days as HTMLSelectElement).value="30";days.dispatchEvent(new Event("change",{bubbles:true}));});
- await click("店家資料"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); const before=new Event("beforeunload",{cancelable:true}); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
+ await click("店家資料"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); const before=new Event("beforeunload",{cancelable:true}); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(false);
  await click("營業與預約未儲存"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); expect((days as HTMLSelectElement).value).toBe("30"); m.windowSave.mockResolvedValueOnce({success:true}); await click("儲存設定"); expect(m.windowSave).toHaveBeenCalledExactlyOnceWith({mode:"rolling",days:30}); expect(m.selfBookingSave).not.toHaveBeenCalled();
 });
 it("edits trial price directly, keeps failed drafts and restores without losing bank edits", async()=>{
@@ -207,7 +207,7 @@ it("converts hours without changing saved minutes on unit switches, validates an
   await changeUnit("60"); await input("bookingLeadMinutes", "1.5"); await submit();
   expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 90, cancellationLeadMinutes: 30 });
   await input("bookingLeadMinutes", "0.01"); await submit(); expect(m.save).toHaveBeenCalledTimes(1); expect(field.validationMessage).toContain("整數分鐘");
-  await click("取消"); await click("捨棄本區修改"); expect(field.value).toBe("1.5"); expect(field.checkValidity()).toBe(true);
+  await click("取消"); expect(field.value).toBe("1.5"); expect(field.checkValidity()).toBe(true);
   await input("bookingLeadMinutes", ""); await submit(); expect(m.save).toHaveBeenCalledTimes(1);
   await input("bookingLeadMinutes", "0"); await submit(); expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 0, cancellationLeadMinutes: 30 });
 });

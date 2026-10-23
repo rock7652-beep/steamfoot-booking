@@ -43,3 +43,9 @@ it("rejects stale remaining balance and overpayment",async()=>{
  await expect(recordCourseFeePayment(tx,actor,{...input,...extra})).rejects.toThrow();
  }expect(execute).not.toHaveBeenCalled();
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"}])("blocks fixed teacher fee payout for opening rights before financial writes: %j",async marker=>{
+ raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([{id:"opening",sessionId:"class",customerName:"學員",status:"ATTENDED",absenceKind:null,cardId:null,pointCost:0,...marker}]);
+ await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow("需人工核對");
+ expect(execute).not.toHaveBeenCalled();expect(m.cash).not.toHaveBeenCalled();
+});

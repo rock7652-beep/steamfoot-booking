@@ -49,7 +49,6 @@ it("keeps unknown amounts, expanded labels and LINE prerequisite explicit",()=>{
  expect(monthly).not.toContain('CourseProfitPay');
  expect(monthly).toContain('歷史付款紀錄');
  expect(client).toContain("收合 －");
- expect(client).toContain("divide-earth-100");
  const reminder=readFileSync("src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view.tsx","utf8");
  expect(reminder).toContain('lineHealth?.status==="NOT_CONFIGURED"');
  expect(reminder).toContain("請先聯絡總部管理者完成串接");

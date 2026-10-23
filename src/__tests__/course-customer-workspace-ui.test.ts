@@ -5,6 +5,7 @@ import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced",()=>({CustomerPanelAdvanced:()=>null}));
+vi.mock("@/server/actions/music-student-workspace",()=>({loadMusicStudentWorkspace:vi.fn().mockResolvedValue({success:true,data:{balance:null,next:null,tuition:null,opening:null,canReadBookings:false}})}));
 vi.mock("@/server/actions/course-display-order",()=>({saveCourseDisplayOrder:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
 vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));
@@ -118,4 +119,17 @@ it("combines purchase and shared-card filters immediately without changing purch
  await filter("購買方式篩選","customer");expect(names()).toEqual(["公開共卡"]);
  await filter("共卡篩選","disabled");expect(names()).toEqual(["舊方案"]);
  expect(plans[0]).toMatchObject({customerPurchasable:true});
+});
+
+it("keeps exactly one music summary when entering and leaving checkout repeatedly",async()=>{
+ const errors=vi.spyOn(console,"error");
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
+ for(let i=0;i<3;i++){
+  await click("學費與堂數");
+  const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="新增學費");
+  await act(async()=>{(add as HTMLButtonElement).click();});
+  await click("‹ 返回 測試學員 詳情");
+  expect(host.querySelectorAll('[aria-label="學員概況"]').length).toBe(1);
+ }
+ expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
 });

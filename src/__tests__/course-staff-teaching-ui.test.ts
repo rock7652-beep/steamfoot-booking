@@ -116,8 +116,8 @@ it("music qualification editors with read-only pay access can change qualificati
  expect(phone.value).toBe("0912345678");
  await click("授課設定");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
- expect((document.body.querySelector('[aria-label="教師拆帳比例"]') as HTMLInputElement).disabled).toBe(true);
-
+ expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
+ await click("編輯項目");
  const qualification=Array.from(document.body.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
  expect(qualification.disabled).toBe(false);
  await act(async()=>qualification.click());
@@ -182,15 +182,6 @@ it("adopts the confirmed server row immediately, without refresh, and keeps it t
  await render();expect(host.textContent).toContain("伺服器確認教師");
 });
 
-it("music close protects only actual edits and can continue or discard",async()=>{
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:true,permissionGroups:[]})));
- await click("編輯");await click("授課設定");
- const search=document.body.querySelector('[aria-label="搜尋課程"]') as HTMLInputElement;
- await inputValue(search,"吉他");await click("關閉");expect(document.body.querySelector('[role="dialog"]')).toBeNull();
- await click("編輯");const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;await inputValue(phone,"0912345678");
- await click("關閉");expect(document.body.textContent).toContain("放棄未儲存的修改？");await click("繼續編輯");expect(phone.value).toBe("0912345678");
- await click("關閉");await click("放棄修改");expect(document.body.querySelector('[role="dialog"]')).toBeNull();
-});
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
  await click("編輯");await click("LINE 與權限");
@@ -269,4 +260,17 @@ it("運動教練載入個別鐘點、改拆帳及清除恢復沿用，保存正�
  await act(async()=>{select().value="INHERIT";select().dispatchEvent(new Event("change",{bubbles:true}));});
  expect(document.body.textContent).toContain("拆帳 60%");expect(document.body.querySelector('[aria-label="瑜珈計酬數值"]')).toBeNull();
  await click("儲存");expect(m.save).toHaveBeenLastCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:null,revision:4}]}));
+});
+it("closes a changed music teacher without a leave-confirmation popup or save",async()=>{
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
+ try {
+  await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
+  await click("老師");
+  await click("編輯資料");
+  await inputValue(document.body.querySelector('input[name="phone"]') as HTMLInputElement,"0911222333");
+  await click("取消");
+  expect(confirm).not.toHaveBeenCalled();
+  expect(document.body.querySelector('[aria-labelledby="course-staff-title"]')).toBeNull();
+  expect(m.save).not.toHaveBeenCalled();
+ } finally { confirm.mockRestore(); }
 });

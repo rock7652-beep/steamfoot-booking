@@ -1,3 +1,4 @@
+import {auditRateState as lastAuditByActorAndStore} from "@/server/services/messenger-route-rate-limit-state";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { createMessengerAuditRun } from "@/server/services/messenger-production-audit";
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MIN_INTERVAL_MS = 60_000;
-const lastAuditByActorAndStore = new Map<string, number>();
+
 
 function noStoreJson(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -62,6 +63,3 @@ export async function POST(request: Request) {
   }
 }
 
-export function resetMessengerAuditRateLimitForTests(): void {
-  lastAuditByActorAndStore.clear();
-}

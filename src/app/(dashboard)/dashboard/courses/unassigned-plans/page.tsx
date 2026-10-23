@@ -22,7 +22,7 @@ export default async function CourseUnassignedPlansPage({ searchParams }: { sear
   const { page } = await searchParams;
   const result = await getCourseUnassignedPlanPage(storeId, courseCustomerStaffScope(user, storeId), Number(page ?? 1)).catch(() => null);
   return <PageShell>
-    <PageHeader title="未指派方案" subtitle="站內待辦提醒，不會自動傳送 LINE。完成指派後，重新整理即會移出名單。" actions={<div className="flex flex-wrap gap-3"><Link href="/dashboard">返回首頁</Link><Link href="/dashboard/courses?view=settings&section=notifications">返回通知設定</Link></div>} />
+    <PageHeader title="未指派方案" subtitle="站內待辦提醒，不會自動傳送 LINE。完成指派後，重新整理即會移出名單。" actions={<div className="flex flex-wrap gap-3"><Link href="/dashboard">返回首頁</Link><Link href="/dashboard/courses/reminders?tab=manager">返回提醒管理</Link></div>} />
     <details className="mb-4 rounded-xl border border-earth-200 bg-white p-4 text-sm text-earth-600">
       <summary className="min-h-11 cursor-pointer py-3">哪些顧客會列入？</summary>
       <p>本店可見範圍內，沒有個人／共用課程方案紀錄、沒有待核帳訂單，也沒有已核帳／退款或持卡預約紀錄的顧客。</p>

@@ -268,6 +268,13 @@ describe("course scheduling action", () => {
     ).toBe(true);
     expect(mocks.permission).toHaveBeenCalledWith("booking.create");
   });
+  it("persists the chosen audience for every occurrence and rejects unknown modes",async()=>{
+    expect(await createCourseSchedule({...input,bookingAudience:"ASSIGNED"})).toMatchObject({success:true});
+    expect(mocks.create.mock.calls[0][0].data.every((s:{bookingAudience:string})=>s.bookingAudience==="ASSIGNED")).toBe(true);
+    mocks.create.mockClear();
+    expect(await createCourseSchedule({...input,bookingAudience:"INVALID"})).toMatchObject({success:false});
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
   it("does not write any occurrence if a later week conflicts", async () => {
     mocks.conflict.mockResolvedValue({
       startsAt: new Date("2026-09-29T10:00:00Z"),
@@ -292,6 +299,7 @@ describe("course scheduling action", () => {
         ...range,
         ...input,
         createdById: "owner-a",
+        bookingAudience: "OPEN",
         isTrial: false,
       })),
     );
@@ -301,7 +309,7 @@ describe("course scheduling action", () => {
     });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(
-      await createCourseSchedule({ ...input, capacity: 11 }),
+      await createCourseSchedule({ ...input, bookingAudience: "ASSIGNED" }),
     ).toMatchObject({ success: false });
   });
   it("blocks writes when store access or module authorization fails", async () => {

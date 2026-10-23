@@ -763,4 +763,6 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     : authenticatedProxy(...args);
 }
 
-export const config = { matcher: ["/:path*"] };
+// Match the existing application region in vercel.json. This proxy also runs
+// the isolated schema preflight and auth checks; it must stay near the database.
+export const config = { matcher: ["/:path*"], regions: ["hnd1"] };

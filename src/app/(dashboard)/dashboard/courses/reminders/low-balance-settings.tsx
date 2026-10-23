@@ -62,7 +62,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   const [editing, setEditing] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [discard, setDiscard] = useState(false);
+  const [, setDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
@@ -234,7 +234,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         </span>
       </summary>
 
-      <div className="flex max-h-[64vh] min-h-0 flex-col border-t border-earth-100">
+      <div className="flex max-h-[min(48dvh,420px)] min-h-0 flex-col border-t border-earth-100">
         <div className="flex shrink-0 flex-wrap items-center gap-2 p-3">
           <input
             aria-label="搜尋提醒方案"
@@ -414,18 +414,10 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         <div className="shrink-0 border-t bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p role="status" className="text-sm text-primary-800">{message || (changes.length ? `${changes.length} 項尚未儲存` : "所有設定已儲存")}</p>
-            {discard ? (
-              <div role="alert" className="flex flex-wrap items-center gap-2">
-                <span className="text-sm">捨棄全部未儲存修改？</span>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => setDiscard(false)}>繼續編輯</button>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }}>捨棄修改</button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button type="button" disabled={pending || !changes.length} onClick={() => setDiscard(true)} className="min-h-10 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
-                <button type="button" disabled={pending || !changes.length} onClick={saveAll} className="min-h-10 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button type="button" disabled={pending || !changes.length} onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }} className="min-h-10 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
+              <button type="button" disabled={pending || !changes.length} onClick={saveAll} className="min-h-10 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
+            </div>
           </div>
         </div>
       </div>

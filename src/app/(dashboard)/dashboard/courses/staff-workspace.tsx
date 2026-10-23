@@ -6,7 +6,12 @@ import { SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { CourseOwnIncomeSwitch, type CourseWorkPermissionFeedback } from "@/components/admin/course-own-income-switch";
 import { courseDisplayText } from "@/lib/course-display-text";
+import { toast } from "sonner";
+import { CustomerDetailFields } from "@/components/customer-detail-fields";
+import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { createPortal } from "react-dom";
+import { DashboardLink } from "@/components/dashboard-link";
 import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
@@ -66,7 +71,7 @@ type Person = {
 };
 function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId"|"role">,music=false) {
   const accountRole = p.role === "OWNER" ? "老闆" : p.role === "STAFF" ? "門市人員" : "店長";
-  return p.kind === "manager" ? (p.coachEnabled ? `${accountRole}兼${music?"老師":courseDisplayText("教練", music)}` : accountRole) : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? (music?"老師兼顧客":courseDisplayText("教練兼顧客", music)):(music?"老師":courseDisplayText("教練", music));
+  return p.kind === "manager" ? (p.coachEnabled ? `${accountRole}兼${music?"教師":"教練"}` : accountRole) : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? (music?"教師兼顧客":"教練兼顧客"):(music?"教師":"教練");
 }
 const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 const button =
@@ -75,6 +80,8 @@ export function CourseStaffWorkspace({
   sportsNative=false,
   sportsDefaultFees:initialSportsDefaultFees=[],
   initialCreate=false,
+  salaryHref = null,
+  salaryLabel = "月結／發薪紀錄",
   previewStoreId,
   counterpartChoices:sourceCounterpartChoices=[],
   displayOrder,
@@ -98,6 +105,7 @@ export function CourseStaffWorkspace({
   initialCreate?:boolean;
   sportsNative?:boolean; previewStoreId?: string;
   sportsDefaultFees?:{templateId:string;rules:unknown}[];
+  salaryHref?: string | null; salaryLabel?: string;
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
   teacherChoices?:{id:string;name:string}[];
@@ -141,7 +149,7 @@ export function CourseStaffWorkspace({
   });
   const [linkedStaffId,setLinkedStaffId]=useState("");
   const selectedCounterpart=counterpartChoices.find(c=>c.id===linkedStaffId);
- const [hideTestData,setHideTestData]=useState(false);
+ const [hideTestData,setHideTestData]=useState(music);
   const [selected,setSelected]=useState<string[]>([]);
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -161,7 +169,8 @@ export function CourseStaffWorkspace({
   const [qualificationSearch,setQualificationSearch]=useState("");
   const [qualificationScope,setQualificationScope]=useState("all");
   const [qualificationPage,setQualificationPage]=useState(0);
-  const matchingTemplates=templates.filter(t=>(t.currentTeaching!==false||qualificationIds.includes(t.id)||qualificationScope==="other")&&courseTemplateLabel(t).toLocaleLowerCase().includes(qualificationSearch.trim().toLocaleLowerCase()) && (qualificationScope!=="selected" || qualificationIds.includes(t.id)));
+  const qualificationItems=music?Array.from(new Map(templates.map(t=>[t.musicSubjectId??t.id,{...t,name:t.subjectName??t.name}])).values()):templates;
+  const matchingTemplates=qualificationItems.filter(t=>(t.currentTeaching!==false||qualificationIds.includes(t.id)||qualificationScope==="other")&&(music?t.name:courseTemplateLabel(t)).toLocaleLowerCase().includes(qualificationSearch.trim().toLocaleLowerCase()) && (qualificationScope!=="selected" || qualificationIds.includes(t.id)));
   const qualificationPages=Math.max(1,Math.ceil(matchingTemplates.length/10));
   const visibleQualificationPage=Math.min(qualificationPage,qualificationPages-1);
   const [qualificationsTouched,setQualificationsTouched]=useState(false);
@@ -171,13 +180,13 @@ export function CourseStaffWorkspace({
   const availabilitySave=useRef<CourseAvailabilitySaveHandle>(null);
   const [scheduleVisited,setScheduleVisited]=useState(false);
   const [availabilityVisited,setAvailabilityVisited]=useState(false);
+  const [availabilityOpened,setAvailabilityOpened]=useState(false);
   const [availabilityGuard,setAvailabilityGuard]=useState({dirty:false,pending:false});
   const [incomePending,setIncomePending]=useState(false);
   const [permissionFeedback,setPermissionFeedback]=useState<CourseWorkPermissionFeedback|null>(null);
   const updateAvailabilityGuard=useCallback((value:{dirty:boolean;pending:boolean})=>setAvailabilityGuard(value),[]);
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
-  const [confirmDiscard,setConfirmDiscard]=useState(false);
   const [selectedCustomerId,setSelectedCustomerId]=useState("");
   const [linePickerOpen,setLinePickerOpen]=useState(true);
   const [teachingDirty,setTeachingDirty]=useState(false);
@@ -191,6 +200,8 @@ export function CourseStaffWorkspace({
   const [invalidTemplateId,setInvalidTemplateId]=useState<string>();
   const [savedStaffId,setSavedStaffId]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
+  const syncRevision = useMusicDataRevision();
+  const [loadedFeeRevision,setLoadedFeeRevision] = useState(0);
   const [backendRole, setBackendRole] = useState("STAFF");
   const [applyRolePreset, setApplyRolePreset] = useState(false);
   const [permissionDraft, setPermissions] = useState<string[]>([]);
@@ -201,7 +212,7 @@ export function CourseStaffWorkspace({
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
   useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(locked||availabilityGuard.pending));
   useEffect(() => {
-    if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
+    if (!open || tab!=="qualifications" || (dirty && feesReady) || pending || (feesReady && loadedFeeRevision===syncRevision) || !person || (!canManage && !feeEnabled)) return;
     let active = true;
     readTeaching.read(person.id).then(result => {
       if (!active) return;
@@ -227,6 +238,7 @@ export function CourseStaffWorkspace({
       setTeachingVersion(result.version);
       setQualificationIds(result.qualificationIds);
       setFeesReady(true);
+      setLoadedFeeRevision(syncRevision);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
   }, [open, tab, feesReady, person, canManage, reloadFees, music, sportsNative, feeEnabled, templates, readTeaching]);
@@ -263,14 +275,16 @@ export function CourseStaffWorkspace({
   function edit(p: Person | null) {
     if(locked)return;request.reset();setPermissionFeedback(null);
     setAvailabilityGuard({dirty:false,pending:false});setScheduleVisited(false);setAvailabilityVisited(false);
+    setAvailabilityOpened(false);
+    setAvailabilityGuard({dirty:false,pending:false});
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
     setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setSportsDefaults(initialSportsDefaultFees);setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");setInvalidTemplateId(undefined);
-    setSelectedCustomerId(p?.customerId??"");setLinePickerOpen(!p?.customerId);setConfirmDiscard(false);
+    setSelectedCustomerId(p?.customerId??"");setLinePickerOpen(!p?.customerId);
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage || p?.canEdit === false);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setBackendRole(p?.role ?? "STAFF"); setApplyRolePreset(false);
-    setPermissions((p?.permissions ?? rolePresets.STAFF ?? []).filter((permission) => allowed.has(permission)));
+    setPermissions((p?.role==="OWNER" ? allowedPermissionCodes : p?.permissions ?? rolePresets.STAFF ?? []).filter((permission) => allowed.has(permission)));
     setFinanceTeacherIds(p?.financeTeacherIds??financeScope);
     setPermissionSearch("");
     setKind(p?.kind ?? accountKind ?? "coach");
@@ -280,9 +294,6 @@ export function CourseStaffWorkspace({
   }
   function close() {
     if (locked || availabilityGuard.pending) return;
-    if (dirty || availabilityGuard.dirty) {
-      setConfirmDiscard(true); return;
-    }
     setOpen(false);
   }
   return (
@@ -307,7 +318,7 @@ export function CourseStaffWorkspace({
         >
           <option value="all">全部角色</option>
           <option value="OWNER">老闆</option><option value="MANAGER">店長</option><option value="STAFF">門市人員</option>
-          <option value="coach">{music?"老師":courseDisplayText("教練", music)}</option>{staff.some(s=>s.kind==="manager"&&s.coachEnabled)&&<option value="both">舊資料兼任（待拆分）</option>}
+          <option value="coach">{music?"教師":"教練"}</option>{staff.some(s=>s.kind==="manager"&&s.coachEnabled)&&<option value="both">舊資料兼任（待拆分）</option>}
         </select>
         <select
           className={button}
@@ -351,11 +362,11 @@ export function CourseStaffWorkspace({
                 {...order.rowProps(p.id)}
                 className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
               >
-                <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && p.canEdit !== false && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage || p?.canEdit === false);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && p.canEdit !== false && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(music || !canManage || p?.canEdit === false);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="px-3 py-2"><a className="block min-h-11 whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"—"}</a><span className="block max-w-64 break-words text-earth-600">{(p.kind==="manager"?p.email:p.contactEmail)||""}</span></td>
                 <td className="px-3 py-2"><div className="flex flex-wrap items-center gap-x-3">{identity(p,music)}{p.coachEnabled&&<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab("qualifications");}} className="min-h-11 text-left text-sm text-primary-800">{p.qualificationsConfirmed&&p.qualificationIds.length?`可教 ${p.qualificationIds.length} 項`:"授課待設定"}</button>}{!p.active&&<span className="text-earth-500">停用</span>}</div></td>
                 <td className="px-3 py-2">{p.coachEnabled?<button type="button" disabled={busyIds.includes(p.id)} onClick={()=>{edit(p);setTab("work");}} className="min-h-11 text-left text-primary-800">{p.coachLoginReady?(p.notificationsEnabled===false?"LINE 已綁定・通知關閉":"LINE 已綁定"):"LINE 未綁定"}</button>:<span className="text-earth-500">{p.notificationsEnabled===false?"通知已關閉":p.coachLoginReady?"通知已開啟":"待連結 LINE"}</span>}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage&&p.canEdit!==false?"編輯":"查看"}</button>{canManage&&p.canEdit!==false&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}</ExclusiveMenu></td>
+                <td className="whitespace-nowrap px-3 py-2 text-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage&&p.canEdit!==false?"編輯":"查看"}</button>{canManage&&p.canEdit!==false&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}{music&&p.coachEnabled&&salaryHref&&(financeScope===null||financeScope.includes(p.id))&&<DashboardLink className="flex min-h-11 w-full items-center px-3 text-left text-sm" href={`${salaryHref}?teacherId=${encodeURIComponent(p.id)}`}>薪資</DashboardLink>}{music&&p.coachEnabled&&previewStoreId&&<FrontendPreviewQuickLink storeId={previewStoreId} personId={p.id} role="work" label="預覽教師工作台"/>}</ExclusiveMenu></td>
               </tr>
               </Fragment>
             ))}
@@ -364,10 +375,6 @@ export function CourseStaffWorkspace({
         </table>
       </div>
       {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
-      <ModalPanel open={confirmDiscard} onClose={()=>setConfirmDiscard(false)} labelledById="teacher-discard-title" pending={locked||availabilityGuard.pending}>
-        <header className="border-b border-earth-100 p-4"><h2 id="teacher-discard-title" className="font-medium">放棄未儲存的修改？</h2></header>
-        <footer className="flex flex-wrap justify-end gap-2 p-4"><button type="button" className={button} onClick={()=>setConfirmDiscard(false)}>繼續編輯</button><button type="button" className={button} onClick={()=>{setConfirmDiscard(false);setOpen(false);}}>放棄修改</button></footer>
-      </ModalPanel>
       {open && mounted && createPortal(
         <RightSheet className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} presentation="centered"
           fixedHeight
@@ -383,7 +390,7 @@ export function CourseStaffWorkspace({
               {person&&<span>・{person.name}</span>}
               {accountKind === "coach" && <CourseSetupStepBadge step="coach" />}
             </h2>
-            {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" label={music?"預覽老師工作頁":"預覽教練工作頁"} />}
+
             <button
               className={button}
               disabled={locked}
@@ -392,8 +399,8 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="availability")setAvailabilityVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <nav aria-label={music?"教師資料分區":"人員編輯分類"} className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",music?"授課與拆帳":"授課設定"],["work",music?"工作與授課安排":"LINE 與權限"],...(person ? (sportsNative?[["schedule","授課明細"],["availability","授課時間"]]:[["schedule","課表與時間"]]) : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);if(id==="work"&&music)setAvailabilityOpened(true);if(id==="availability")setAvailabilityVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <div className="@container/staff min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount} 位。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
             {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section className="mb-4 border-b border-earth-100 pb-4"><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3><div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-2">{([
@@ -412,8 +419,21 @@ export function CourseStaffWorkspace({
               </p>
             )}
             {readOnly && person && <section className="space-y-3">
+              {music ? <>
+              {tab === "basic" && music && <><CustomerDetailFields className="@min-[44rem]/staff:grid-cols-3" items={[
+                {label:"姓名",value:person.name},{label:"身分",value:identity(person,music)},{label:"狀態",value:person.active?"啟用":"停用"},
+                {label:"電話",value:person.phone||"未填"},{label:"Email",value:person.kind==="manager"?person.email:person.contactEmail||"未填"},{label:"生日",value:person.birthday||"未填"},
+                {label:"系統通知",value:person.notificationsEnabled===false?"關閉":"開啟"},
+              ]}/><details><summary className="min-h-11 cursor-pointer py-2">緊急聯絡資料</summary><CustomerDetailFields items={[{label:"姓名",value:person.emergencyContactName||"未填"},{label:"關係",value:person.emergencyContactRelation||"未填"},{label:"電話",value:person.emergencyContactPhone||"未填"}]}/></details></>}
+              {tab === "basic" && !music && <dl className={music?"divide-y divide-earth-100":"grid gap-x-6 sm:grid-cols-2"}>{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["Email",person.kind==="manager"?person.email:person.contactEmail||"未填"],["系統通知",person.notificationsEnabled===false?"關閉":"開啟"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名未填",person.emergencyContactRelation || "關係未填",person.emergencyContactPhone || "電話未填"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-2 border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
+              {(tab === "qualifications" || tab === "work") && <>
+                {tab === "qualifications" && <><p className="rounded-lg bg-primary-50 px-3 py-2 text-sm">授課設定：{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "待補"}</p>{!music && <details><summary className="min-h-11 cursor-pointer py-2">可教授課程</summary><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、")||"尚未設定"}</p></details>}</>}
+                {tab === "work" && <><details><summary className="min-h-11 cursor-pointer py-2">會員連結 · {person.coachLoginReady?"已開通工作入口":"尚未開通工作入口"}</summary><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name??"已連結會員":"尚未連結會員"}</p><p className="py-2 text-sm text-earth-600">授課資格與登入分開管理；編輯會員連結後開通工作入口。</p></details>{music&&<CourseStaffAvailabilityEditor staffId={person.id} readOnly/>}{person.assignments.length?<CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/>:<p>沒有未結束且未取消的課次。</p>}</>}
+              </>}
+</> : <>
               {tab === "basic" && <dl className={music?"divide-y divide-earth-100":"grid gap-x-6 sm:grid-cols-2"}>{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["Email",person.kind==="manager"?person.email:person.contactEmail||"未填"],["系統通知",person.notificationsEnabled===false?"關閉":"開啟"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名待補",person.emergencyContactRelation || "關係待補",person.emergencyContactPhone || "電話待補"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-2 border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
               {(tab === "qualifications" || tab === "work") && <><h3 className="font-medium">授課設定狀態</h3><p>{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}</p><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(courseTemplateLabel).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">{music?"老師登入狀態":courseDisplayText("教練登入狀態", music)}</h3><p>{person.coachLoginReady ? (music?"已開通老師登入":courseDisplayText("已開通教練登入", music)) : (music?"尚未開通老師登入":courseDisplayText("尚未開通教練登入", music))}</p>{!person.coachLoginReady && <p className="text-sm text-earth-600">先由授課人員完成本店會員登入，再編輯此頁「連結既有顧客」並儲存。授課設定與登入分開，不影響店長依資格排課。</p>}<h3 className="pt-3 font-medium">會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
+</>}
               {tab === "qualifications" && music && feeEnabled && feesReady && <MusicTeacherFeeEditor readOnly templates={templates.filter(t=>qualificationIds.includes(t.id))} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} onSettings={()=>{}} onFees={()=>{}} onQualification={()=>{}}/>}
               {tab === "schedule" && <CourseStaffAssignments items={person.assignments} label="已排課程" fitness/>}
               {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
@@ -452,7 +472,7 @@ export function CourseStaffWorkspace({
                       coachEnabled,
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
                       qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
-                      teachingVersion,
+                      teachingVersion:teachingVersion??person?.updatedAt,
 
                       musicSettings: teachingDirty && music && coachEnabled && feeEnabled && canEditFees ? musicSettings : undefined,
                       teachingFees: teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: !fees[templateId] || fees[templateId].mode==="INHERIT" ? null : {mode: fees[templateId].mode, value: Number(fees[templateId].value)}, revision: fees[templateId]?.revision ?? 0})) : undefined,
@@ -505,7 +525,7 @@ export function CourseStaffWorkspace({
               }}
             >
               <fieldset disabled={readOnly || locked} className="contents">
-              <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
+              <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? music?"grid grid-cols-1 gap-2 @min-[28rem]/staff:grid-cols-3":"grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               <label className="block">姓名 *<input className={field} name="name" key={`name:${linkedStaffId}`} defaultValue={person?.name??selectedCounterpart?.name} required /></label>
               <label className="block">狀態<select className={field} name="active" defaultValue={person?.active === false ? "no" : "yes"}><option value="yes">啟用</option><option value="no">停用</option></select></label>
               <label className="block">電話（選填）<input key={`phone:${linkedStaffId}`} className={field} name="phone" type="tel" defaultValue={person?.phone??selectedCounterpart?.phone}/></label>
@@ -533,9 +553,10 @@ export function CourseStaffWorkspace({
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">目前課程</option><option value="other">包含其他項目</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>}
                   {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} invalidTemplateId={invalidTemplateId} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setInvalidTemplateId(undefined);setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
-                      const selected = qualificationIds.includes(t.id);
+                      const groupIds=music&&t.musicSubjectId?templates.filter(v=>v.musicSubjectId===t.musicSubjectId).map(v=>v.id):[t.id];
+                      const selected = groupIds.some(id=>qualificationIds.includes(id));
                       return <div key={t.id} className={sportsNative?"grid grid-cols-1 items-center gap-x-3 px-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)]":"grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3"}>
-                        <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{courseTemplateLabel(t)}{t.currentTeaching===false&&<span className="text-earth-500">（{t.isActive===false?"停用":"未販售"}）</span>}</label>
+                        <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...new Set([...ids,...groupIds])]:ids.filter(id=>!groupIds.includes(id)));}}/>{music?t.name:courseTemplateLabel(t)}{t.currentTeaching===false&&<span className="text-earth-500">（{t.isActive===false?"停用":"未販售"}）</span>}</label>
 
                         {selected && feeEnabled && sportsNative ? <SportsCoachFeeFields name={courseTemplateLabel(t)} draft={fees[t.id]} defaultRules={sportsDefaults.find(f=>f.templateId===t.id)?.rules} disabled={!canEditFees} onChange={value=>setFees(old=>({...old,[t.id]:value}))}/> : selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${courseTemplateLabel(t)}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
@@ -543,7 +564,7 @@ export function CourseStaffWorkspace({
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
                   </div>}
-                  {!music&&qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
+                  {qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
                 </section>
               </div>
               <div data-staff-tab="work" hidden={tab!=="work" || !coachEnabled} className="space-y-3">
@@ -577,7 +598,9 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
-
+                {music && person && coachEnabled && !readOnly && availabilityOpened && <div data-browse-control><CourseStaffAvailabilityEditor staffId={person.id} onGuard={updateAvailabilityGuard}/></div>}
+                {music && person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
+                {music && person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
               {coachEnabled && person && scheduleVisited && <div data-browse-control data-staff-tab="schedule" hidden={tab!=="schedule"} className="space-y-3">
                 <CourseStaffAssignments items={person.assignments} label={person.active?"已排課程":"待交接課次"} fitness/>
@@ -586,10 +609,9 @@ export function CourseStaffWorkspace({
               {sportsNative&&coachEnabled&&person&&availabilityVisited&&<div data-browse-control data-staff-tab="availability" hidden={tab!=="availability"} className="space-y-3"><CourseStaffAvailabilityEditor key={person.id} storeId={previewStoreId} staffId={person.id} fitness externalSave saveRef={availabilitySave} onGuard={updateAvailabilityGuard}/></div>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
                 {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
-                  onRole={value => { setBackendRole(value); setDirty(true); }}
-                  onPreset={value => { setPermissions(value); setApplyRolePreset(true); setDirty(true); }}/>}
-                <fieldset className="space-y-2 rounded-lg border border-earth-200 p-3" disabled={unrestrictedRole}><legend className="px-1 text-sm font-medium">薪酬權限</legend><div className="flex flex-wrap gap-3">{permissionGroups.flatMap(g=>g.codes).filter(p=>["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay"].includes(p.code)).map(({code,label})=><label key={code} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={permissions.includes(code)} onChange={e=>{setPermissions(values=>e.target.checked?[...new Set([...values,code])]:values.filter(v=>v!==code));setDirty(true);}}/>{label}</label>)}</div></fieldset>
-                {music&&permissions.some(code=>code.startsWith("teacher.compensation.")||code.startsWith("teacher.settlement."))&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="rounded bg-earth-50 p-2 text-sm text-earth-700">目前可查看：{financeTeacherIds===null?"全店教師":financeTeacherIds.length?teacherChoices.filter(t=>financeTeacherIds.includes(t.id)).map(t=>t.name).join("、"):"尚未選擇教師"}。實際能查看或操作哪些資料，仍以下方拆帳／月結權限為準。</p>{financeTeacherIds!==null&&permissions.includes("teacher.settlement.confirm")&&<p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-900">「確認全店月結」需要全店教師範圍；目前指定教師範圍只可查看授權教師，請改選全店或關閉該權限。</p>}</fieldset>}
+                  onRole={value => { setBackendRole(value); if(value === "OWNER") { setPermissions(allowedPermissionCodes); setFinanceTeacherIds(null); } setDirty(true); }}
+                  onPreset={value => { setPermissions(backendRole==="OWNER"?allowedPermissionCodes:value); setApplyRolePreset(true); setDirty(true); toast.success("已套用角色預設權限；儲存後生效"); }}/>}
+                
 
               {kind === "manager" && (
                   <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
@@ -648,6 +670,7 @@ export function CourseStaffWorkspace({
                             {music ? g.label : g.label.replaceAll("教師", courseDisplayText("教練", music))} <span className="font-normal text-earth-500">{selectedCount}／{g.codes.length}</span>
                           </summary>
                           <div className="border-t border-earth-100 pb-2 pt-1">
+{music && g.codes.some(item=>item.code.startsWith("teacher.")) && <fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="rounded bg-earth-50 p-2 text-sm text-earth-700">目前可查看：{financeTeacherIds===null?"全店教師":financeTeacherIds.length?teacherChoices.filter(t=>financeTeacherIds.includes(t.id)).map(t=>t.name).join("、"):"尚未選擇教師"}。實際能查看或操作哪些資料，仍以下方拆帳／月結權限為準。</p>{financeTeacherIds!==null&&permissions.includes("teacher.settlement.confirm")&&<p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-900">「確認全店月結」需要全店教師範圍；目前指定教師範圍只可查看授權教師，請改選全店或關閉該權限。</p>}</fieldset>}
                             <div className="flex justify-end gap-1 pb-1">
                               <button type="button" className="rounded-md px-2 py-1 text-xs text-primary-800 hover:bg-primary-50" onClick={()=>{setPermissions((current)=>[...new Set([...current,...groupCodes])]);setDirty(true);}}>整組開啟</button>
                               <button type="button" className="rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-50" onClick={()=>{setPermissions((current)=>current.filter((code)=>!groupCodes.includes(code)));setDirty(true);}}>清除</button>

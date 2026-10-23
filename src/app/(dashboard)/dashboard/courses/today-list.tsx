@@ -96,6 +96,7 @@ export function CourseTodayList({
               capacity={session.capacity}
               canCreate={canCreate}
               canEdit={canEdit}
+              onSessionCancelled={() => setSelected(null)}
             />
           </div>
         </RightSheet>

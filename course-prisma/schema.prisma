@@ -78,12 +78,19 @@ model CourseTemplate {
   updatedAt       DateTime @updatedAt
   defaultRoom     CourseRoom? @relation(fields: [defaultRoomId, storeId], references: [id, storeId])
   sessions        CourseSession[]
+  musicOpeningMakeupEntitlements CourseMusicOpeningMakeupEntitlement[]
 
   @@unique([id, storeId])
   @@unique([storeId, name])
 }
 
 model CourseSession {
+  scheduleType String @default("LEGACY")
+  scheduleFrequency String @default("NONE")
+  enrollmentMode String @default("OPEN")
+  enrollmentFingerprint String?
+  rescheduleShadowHidden Boolean @default(false)
+  bookingAudience String @default("OPEN")
   isTrial Boolean @default(false)
   id             String @id @default(cuid())
   storeId        String
@@ -188,6 +195,9 @@ model CoursePointCard {
   sportsMode String @default("LEGACY")
   sportsSubjectId String?
   sportsCost Int?
+  // Durable discriminator: a missing opening row must never become a native card.
+  musicOpeningStateRequired Boolean @default(false)
+  musicOpeningState CourseMusicOpeningState?
   musicJoinSessionId String?
   musicManualBonus Int @default(0)
   musicTermSizes Int[] @default([])
@@ -203,7 +213,9 @@ model CoursePointCard {
   templateIds String[] @default([])
   remaining Int
   closedAt DateTime? @db.Timestamptz(3)
-  expiresAt DateTime @db.Timestamptz(3)
+  // null is permitted only for source-verified NO_EXPIRY opening cards.
+  // Unknown expiry stays staged; native first-use 2099 semantics are unchanged.
+  expiresAt DateTime? @db.Timestamptz(3)
   requestKey String
   createdAt DateTime @default(now())
   plan CoursePointPlan @relation(fields: [planId, storeId], references: [id, storeId])
@@ -224,6 +236,14 @@ model CourseCardMember {
 }
 
 model CourseBooking {
+  musicOpeningMakeupEntitlementId String?
+  musicOpeningMakeupEntitlement CourseMusicOpeningMakeupEntitlement? @relation(fields: [musicOpeningMakeupEntitlementId, storeId, customerId], references: [id, storeId, customerId], onDelete: Restrict)
+  // Source identity only; ordinary reservation APIs never accept these fields.
+  musicOpeningTermKey String?
+  musicOpeningLessonOrdinal Int?
+  musicOpeningSourceLessonKey String?
+  @@unique([storeId, cardId, musicOpeningSourceLessonKey], map: "CourseBooking_opening_source_key")
+  @@unique([storeId, cardId, musicOpeningTermKey, musicOpeningLessonOrdinal], map: "CourseBooking_opening_ordinal_key")
   makeupForBookingId String?
   @@index([makeupForBookingId, storeId], map: "CourseBooking_makeup_source_idx")
   id String @id @default(cuid())
@@ -564,6 +584,76 @@ model CourseRentalPayment {
   rental CourseRental @relation(fields:[rentalId,storeId],references:[id,storeId])
   @@unique([storeId,requestKey])
   @@index([storeId,rentalId])
+}
+
+// Local design only. SQL draft is outside prisma/migrations; do not deploy before approval.
+// This is immutable opening state, not a purchase, cash receipt, attendance or payroll event.
+model CourseMusicOpeningState {
+  id String @id @default(cuid())
+  storeId String
+  cardId String
+  customerId String
+  sourceKey String @unique
+  contentHash String
+  snapshot Json
+  appliedBatchId String
+  teacherFeePolicy String @default("UNVERIFIED")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId], onDelete: Restrict)
+  @@unique([cardId, storeId])
+  @@index([storeId, customerId])
+}
+
+// Draft only: docs/sql/music-opening-makeup-20261008.sql owns identity FKs,
+// partial live-booking uniqueness, shape checks, source immutability and RLS.
+// Independent source-backed rights, never paid card credit or historical attendance.
+model CourseMusicOpeningMakeupEntitlement {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  templateId String
+  sourceKey String @unique
+  sourceSlotKey String @unique
+  contentHash String
+  snapshot Json
+  appliedBatchId String
+  version Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  template CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId], onDelete: Restrict)
+  bookings CourseBooking[]
+  @@unique([id, storeId, customerId], map: "CourseMusicOpeningMakeupEntitlement_identity_key")
+  @@index([storeId, customerId, templateId], map: "CourseMusicOpeningMakeupEntitlement_member_idx")
+}
+
+model CourseScheduleSeries {
+  id           String   @id @default(cuid())
+  storeId      String
+  requestKey   String
+  templateId   String
+  nameSnapshot String
+  roomId       String
+  coachId      String
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  pointCost    Int
+  capacity     Int
+  frequency    String
+  enrollmentMode String @default("OPEN")
+  learnerSnapshot Json @default("[]")
+  untilDate    DateTime? @db.Date
+  generatedThrough DateTime @db.Date
+  excludedDates String[] @default([])
+  generationError String?
+  cancelledAt  DateTime? @db.Timestamptz(3)
+  createdById  String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([storeId, requestKey])
+  @@index([storeId, cancelledAt, startsAt])
+  @@index([storeId, roomId, startsAt])
+  @@index([storeId, coachId, startsAt])
 }
 
 // Shared by all authorized staff of one course store; never an attendance flag.

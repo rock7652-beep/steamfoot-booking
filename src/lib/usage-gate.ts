@@ -14,6 +14,7 @@ import {
 } from "@/lib/store-plan";
 import { getPlanLimits, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import type { Prisma } from "@prisma/client";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 
 /**
  * 取得用量檢查所需的 store + limits。
@@ -108,7 +109,7 @@ export function checkReportLimit(
   store: StorePlanFields,
   currentMonthCount: number
 ): { allowed: boolean; current: number; limit: number | null } {
-  const limits = getPlanLimits(store);
+  const limits = getEffectivePlanLimits(store);
   if (limits.maxMonthlyReports === null) {
     return { allowed: true, current: currentMonthCount, limit: null };
   }

@@ -1,5 +1,7 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
+import { canViewCourseMonthly } from "@/lib/course-monthly-access";
+import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import {readCourseOrders} from "@/server/services/course-display-order";
@@ -9,6 +11,7 @@ import {
   COURSE_PERMISSIONS,
   COURSE_PERMISSION_LABELS,
 } from "@/lib/course-permissions";
+import { EmptyState } from "@/components/ui/empty-state";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
@@ -25,13 +28,15 @@ import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
+import { DashboardLink } from "@/components/dashboard-link";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 export async function CourseStaffPage({teachers=false,initialCreate=false}:{teachers?:boolean;initialCreate?:boolean}={}) {
   const user = await getCurrentUser();
-  if (
-    !user ||
-    !(await checkPermission(user.role, user.staffId, "staff.view"))
-  )
-    notFound();
+  if (!user) notFound();
+  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) {
+    return <PageShell><PageHeader title={teachers ? "教師管理" : "人員管理"} /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
+  }
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   const isChildStoreView = !!user.storeId && storeId !== user.storeId;
@@ -62,6 +67,11 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const presentedTemplates=presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
+  const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");
+  const salaryHref = canReadSalary && canViewCourseMonthly(user.role,musicNativeWorkflowEnabled(storeId)) && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
+    ? "/dashboard/service-fee-calculator"
+    : null;
+  const salaryLabel = "月結／發薪紀錄";
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
@@ -69,12 +79,12 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
+      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} subtitle={musicEntitlement ? teachers ? "查看老師、授課安排與鐘點費；後台帳號權限請至人員管理。" : "管理後台登入與權限；授課與鐘點費請至教師管理。" : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : "教師與授課"}</DashboardLink></div>} />
 
       <CourseStaffWorkspace sportsNative={nativeSports} sportsDefaultFees={sportsDefaultFees} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))}
         canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}
         personalIncomeEnabled={settlementSettings.personalIncomeEnabled}
-        financeScope={financeScope}
+        financeScope={financeScope} salaryHref={salaryHref} salaryLabel={salaryLabel}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}
         accountKind={teachers?"coach":"manager"}

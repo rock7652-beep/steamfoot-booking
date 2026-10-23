@@ -1,3 +1,4 @@
+import { MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
 import { courseTransaction } from "@/server/services/course-access";
 import type { CheckResult } from "./engine";
@@ -22,6 +23,8 @@ export async function checkCourseAccounts(storeId: string): Promise<CheckResult[
           - COALESCE((SELECT sum(e.points) FROM "CoursePointEntry" e WHERE e."cardId"=c.id AND e."storeId"=c."storeId" AND e.kind IN ('REFUND','VOID')),0) AS expected,
           COALESCE((SELECT sum(b."pointCost") FROM "CourseBooking" b WHERE b."cardId"=c.id AND b."storeId"=c."storeId" AND b.status='RESERVED'),0) AS held
         FROM "CoursePointCard" c WHERE c."storeId"=${storeId}
+          AND NOT c."musicOpeningStateRequired"
+          AND NOT EXISTS(SELECT 1 FROM "CourseMusicOpeningState" os WHERE os."cardId"=c.id AND os."storeId"=c."storeId")
       ), trial_checks AS (
         SELECT p.id,p.amount,p.status,
           COALESCE((SELECT sum(c.amount) FROM "CashbookEntry" c WHERE c."storeId"=p."storeId" AND c.type='INCOME' AND starts_with(c.id,'course-trial:'||p.id||':')),0) AS income,
@@ -42,6 +45,29 @@ export async function checkCourseAccounts(storeId: string): Promise<CheckResult[
       course_trial_cash: "體驗收款／更正與帳務", course_purchase_cash: "購買核帳與收入連動", course_refund_cash: "退款支出與實付上限",
       course_card_balance: "額度餘額與授予／出席／退款", course_card_holds: "預約占用與可用額度", course_capacity: "課程容量與取消狀態",
     };
+    const openingCards = await tx.coursePointCard.findMany({
+      where:{storeId,OR:[{musicOpeningStateRequired:true},{musicOpeningState:{isNot:null}}]},
+      include:{musicOpeningState:{select:MUSIC_OPENING_SELECT},members:true,entries:true,
+        bookings:{include:{session:{select:{startsAt:true}}}}},
+    });
+    let openingMismatches = 0;
+    for (const card of openingCards) {
+      const state = readMusicOpeningCard(card,storeId);
+      if (state.kind !== "OPENING" || musicOpeningOperationIssue(state,card)) { openingMismatches++; continue; }
+      const lessons = card.bookings.map(booking=>readMusicOpeningLesson(state,booking));
+      const sourceKeys = card.bookings.map(booking=>booking.musicOpeningSourceLessonKey);
+      const ordinalKeys = card.bookings.map(booking=>JSON.stringify([booking.musicOpeningTermKey,booking.musicOpeningLessonOrdinal]));
+      // No synthetic GRANT, old purchase, refund or void may mask a bad opening balance.
+      const unsupportedEntries = card.entries.some(entry=>entry.kind==="GRANT" || entry.kind==="REFUND" || entry.kind==="VOID");
+      const hasPurchase = await tx.coursePurchase.count({where:{storeId,cardId:card.id}});
+      const deducted = card.bookings.filter(b=>b.status==="ATTENDED" || b.status==="NO_SHOW" || b.absenceKind==="GROUP_LEAVE_FORFEITED").reduce((sum,b)=>sum+b.pointCost,0);
+      const held = card.bookings.filter(b=>b.status==="RESERVED").reduce((sum,b)=>sum+b.pointCost,0);
+      if (lessons.some(lesson=>lesson.kind!=="OPENING") || new Set(sourceKeys).size!==sourceKeys.length || new Set(ordinalKeys).size!==ordinalKeys.length ||
+          unsupportedEntries || hasPurchase>0 || card.remaining!==state.record.balance.remainingAtCutoff-deducted || card.remaining<held ||
+          (card.closedAt!==null && (card.remaining!==0 || held!==0))) openingMismatches++;
+    }
+    if (openingCards.length) rows.push({code:"course_opening_balance",checked:BigInt(openingCards.length),mismatches:BigInt(openingMismatches)});
+    names.course_opening_balance="期初餘堂與切點後扣堂／預留核對";
     return rows.map((row) => ({ checkCode: row.code, checkName: names[row.code],
       status: Number(row.mismatches) === 0 ? "pass" : "mismatch",
       sources: { "已檢查筆數": Number(row.checked), "不一致筆數": Number(row.mismatches) },

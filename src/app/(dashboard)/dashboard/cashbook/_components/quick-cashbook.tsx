@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
 import { readQuickCashbook, type QuickCashbookData } from "@/lib/quick-cashbook-client-transport";
+
+import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
 type Data = QuickCashbookData;
 type Entry = Data["entries"][number];
@@ -27,6 +29,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact 
   const [error, setError] = useState("");
   const [detail,setDetail]=useState<Entry|null>(null);
   const [editing, setEditing] = useState<Entry | "new" | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const currentPage = useRef(1);
@@ -34,19 +37,36 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact 
   const createRequestId = useRef<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
   const closeRef = useRef<() => void>(() => undefined);
-  async function refresh(page = 1) {
+  const [syncRevision, setSyncRevision] = useState(0);
+  const needsSync = useRef(false);
+  const refresh = useCallback(async (page = 1, background = false) => {
     const version = ++request.current;
     currentPage.current = page;
-    setLoading(true); setError(""); setData(null);
+    setLoading(true); setError(""); if (!background) setData(null);
     try { const result = await reader.read(storeId, page); if (version === request.current) setData(result); }
     catch { if (version === request.current) setError("收支紀錄暫時無法讀取，請重試。"); }
     finally { if (version === request.current) setLoading(false); }
-  }
+  }, [reader, storeId]);
   useEffect(() => () => { request.current++; reader.clear(); }, [reader]);
+  useEffect(() => {
+    if (storeId !== "store-lubymusic" || !isMusicPreviewPage()) return;
+    return subscribeMusicFinanceChange(() => {
+      request.current++;
+      reader.clear();
+      needsSync.current = true;
+      setSyncRevision(value => value + 1);
+    });
+  }, [reader, storeId]);
+  useEffect(() => {
+    // Leave a draft mounted; catch up after editing/saving finishes.
+    if (!open || editing || busy || !needsSync.current) return;
+    needsSync.current = false;
+    void refresh(currentPage.current, true);
+  }, [syncRevision, open, editing, busy, refresh]);
   function close() {
     if (locked.current) return;
-    if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
-    request.current++; reader.clear(); setOpen(false); setEditing(null);
+    if (editing && !isMusicPreviewPage() && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
+    request.current++; reader.clear(); setOpen(false); setEditing(null); setDeleteEntry(null);
   }
   closeRef.current = close;
   useEffect(() => {
@@ -72,17 +92,18 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact 
       if (editing === "new") form.set("requestId", createRequestId.current ?? (createRequestId.current = crypto.randomUUID()));
       const result = await saveQuickCashbook(storeId, editing && editing !== "new" ? editing.id : null, form);
       if (!result.success) { toast.error(result.error ?? "儲存失敗"); return; }
-      reader.clear(); createRequestId.current = null; setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
+      publishMusicFinanceChange(); reader.clear(); createRequestId.current = null; setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
     } catch { toast.error("儲存失敗，請重試，表單內容已保留"); }
     finally { locked.current = false; setBusy(false); }
   }
-  async function remove(entry: Entry) {
-    if (locked.current || !window.confirm(`刪除 ${entry.category || "收支"} ${money(entry.amount)}？${data?.closedDates.length ? "這一天已結帳，刪除不會重算關帳快照。" : ""}此操作無法復原。`)) return;
+  async function remove(entry: Entry, accepted = false) {
+    if (!accepted && isMusicPreviewPage()) { setDeleteEntry(entry); return; }
+    if (locked.current || (!accepted && !window.confirm(`刪除 ${entry.category || "收支"} ${money(entry.amount)}？${data?.closedDates.length ? "這一天已結帳，刪除不會重算關帳快照。" : ""}此操作無法復原。`))) return;
     locked.current = true; setBusy(true);
     try {
       const result = await deleteQuickCashbook(storeId, entry.id);
       if (!result.success) { toast.error(result.error ?? "刪除失敗"); return; }
-      reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
+      setDeleteEntry(null); publishMusicFinanceChange(); reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
     } catch { toast.error("刪除失敗，請重試"); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -101,6 +122,11 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact 
         <button type="button" className={button} disabled={busy} onClick={close} aria-label="關閉現金收支">關閉</button>
       </header>
       <div className="flex-1 overflow-y-auto bg-earth-50/40 p-5">
+        {deleteEntry && <div role="alertdialog" aria-label="確認刪除收支" className="mb-3 rounded-lg border border-red-200 p-3">
+          <p>刪除 {deleteEntry.category || "收支"} {money(deleteEntry.amount)}？此操作無法復原。</p>
+          <button type="button" className={button} disabled={busy} onClick={()=>void remove(deleteEntry,true)}>確認刪除</button>
+          <button type="button" className={button} disabled={busy} onClick={()=>setDeleteEntry(null)}>取消刪除</button>
+        </div>}
         {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" disabled={loading} onClick={() => { reader.invalidate(storeId, currentPage.current); void refresh(currentPage.current); }} className={button}>重試</button></div>}
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
@@ -135,7 +161,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch, compact 
           </>}
         </>}
       </div>
-      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
+      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (isMusicPreviewPage() || window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
       </section>
     </div>, document.body)}
   </>;

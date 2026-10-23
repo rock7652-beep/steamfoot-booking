@@ -1,0 +1,22 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({manager:vi.fn(),finance:vi.fn(),isolation:vi.fn(),run:vi.fn(),feature:vi.fn(),subscription:vi.fn()}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
+vi.mock("@/server/services/music-finance-access",()=>({requireMusicFinance:m.finance}));
+vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:m.subscription}));
+vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:m.feature}));
+vi.mock("../../scripts/music-opening-preview-scope.mjs",()=>({assertMusicOpeningPreviewEnvironment:m.isolation}));
+vi.mock("@/server/services/music-pilot-monthly-test",()=>({runMusicPilotMonthlyTest:m.run}));
+import {testMusicPilotMonthly} from "@/server/actions/music-pilot-monthly-test";
+const state={success:false,message:""};
+const form=()=>{const f=new FormData();f.set("confirmed","yes");return f;};
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"store-lubymusic",user:{id:"admin",role:"ADMIN",staffId:null,name:"測試管理者"}});m.run.mockResolvedValue({restored:true});});
+it("exact Preview gate rejects before resolving an actor or opening a transaction",async()=>{m.isolation.mockImplementation(()=>{throw new Error("production forbidden");});expect((await testMusicPilotMonthly(state,form())).success).toBe(false);expect(m.manager).not.toHaveBeenCalled();expect(m.run).not.toHaveBeenCalled();});
+it.each([{role:"OWNER",storeId:"store-lubymusic"},{role:"MANAGER",storeId:"store-lubymusic"},{role:"ADMIN",storeId:"other"}])("cannot broaden normal financial access: %j",async a=>{m.manager.mockResolvedValue({storeId:a.storeId,user:{id:"x",role:a.role}});expect((await testMusicPilotMonthly(state,form())).success).toBe(false);expect(m.run).not.toHaveBeenCalled();});
+it("retired sample payroll rejects even a formerly authorized administrator",async()=>{
+  const r=await testMusicPilotMonthly(state,form());
+  expect(r).toMatchObject({success:false,message:expect.stringContaining("已移除")});
+  for(const query of Object.values(m))expect(query).not.toHaveBeenCalled();
+});
+it("denied teacher financial scope prevents the transaction",async()=>{m.finance.mockRejectedValue(new Error("denied"));expect((await testMusicPilotMonthly(state,form())).success).toBe(false);expect(m.run).not.toHaveBeenCalled();});
+it("returns no success or financial report after rollback/readback failure",async()=>{m.run.mockRejectedValue(new Error("driver detail must not leak"));const r=await testMusicPilotMonthly(state,form());expect(r.success).toBe(false);expect(r.report).toBeUndefined();expect(r.message).not.toContain("driver detail");});
+it("requires the explicit test form and ignores arbitrary client IDs/amounts",async()=>{expect((await testMusicPilotMonthly(state,new FormData())).success).toBe(false);expect(m.run).not.toHaveBeenCalled();const f=form();f.set("storeId","production");f.set("amount","1");await testMusicPilotMonthly(state,f);expect(m.run).not.toHaveBeenCalled();});

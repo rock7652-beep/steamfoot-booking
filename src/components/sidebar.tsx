@@ -825,17 +825,17 @@ export default function DashboardShell({
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
-      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
-      { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
+      { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
+      { ...entry("/dashboard/revenue"), label: "營運", requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
       { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "收費方式" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
@@ -865,8 +865,13 @@ export default function DashboardShell({
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
       permission: course ? "booking.read" : undefined,
     });
+    if (course && musicEnabled) {
+      management.push({ ...entry("/dashboard/settings"), href:"/dashboard/image-announcements", label: "圖文公告", permission:"business_hours.view", requiredFeature:undefined });
+      const order = ["空間管理", "教學項目", "收費方式", "教師管理", "人員管理", "圖文公告", "設定"];
+      management.sort((a,b) => (order.indexOf(a.label) < 0 ? 99 : order.indexOf(a.label)) - (order.indexOf(b.label) < 0 ? 99 : order.indexOf(b.label)));
+    }
     return [
-      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
+      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
   }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings]);
@@ -1276,7 +1281,7 @@ export default function DashboardShell({
             <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={isHqPlatformView ? undefined : activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />
             </div>
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
-              <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.pendingActivation ? `待啟用・${trialStatus.trialDays} 天試用` : trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.trialExpired ? " · 到期提醒" : ""}</summary>
+              <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.pendingActivation ? (musicEnabled ? "待啟用" : `待啟用・${trialStatus.trialDays} 天試用`) : trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.trialExpired ? " · 到期提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
             <div className={industryModule === "course" && guideEnabled ? "hidden" : (industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>

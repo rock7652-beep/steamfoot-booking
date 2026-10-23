@@ -1,0 +1,6 @@
+{
+  "unresolvedTextConflicts": 0,
+  "typescript": "passed",
+  "frameworkBuild": "passed-webpack-local",
+  "hostedAcceptance": "pending"
+}
