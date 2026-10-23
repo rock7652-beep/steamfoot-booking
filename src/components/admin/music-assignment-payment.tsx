@@ -7,7 +7,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 
 type MusicPlan={id:string;validDays:number;points:number;price:number;storeCost?:number;musicTerms?:number|null;musicTermSizes?:number[];musicBonusLessons?:number};
 const field="min-h-11 w-full min-w-0 max-w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
-export function MusicAssignmentPayment({plan,canDiscount,onSummary}:{plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
+export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false}:{split?:boolean;plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
  const [terms,setTerms]=useState(String(plan.musicTerms??1));
  const [validity,setValidity]=useState("");
  const [manual,setManual]=useState("0"),[join,setJoin]=useState("");
@@ -22,11 +22,12 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary}:{plan:MusicP
  try {const first=options.find(s=>s.id===join);quote=musicCheckoutQuote(plan,Number(terms),Number(manual),join&&first?first.remaining:undefined,validity===""?undefined:Number(validity));}catch{}
  const valid=!!quote && manual!=="" && terms!=="" && (!join||options.some(s=>s.id===join));
  const paymentSummary=useCallback((summary:AssignmentSummary)=>onSummary(valid?summary:{paid:null,valid:false}),[valid,onSummary]);
- return <div className="min-w-0 space-y-2">
+ return <div className={split ? "contents" : "min-w-0 space-y-2"}>
   <input type="hidden" name="musicPurchaseTerms" value={terms}/>
   <input type="hidden" name="musicValidityDays" value={quote?.validDays??""}/>
   <input type="hidden" name="musicManualBonus" value={manual}/>
   <input type="hidden" name="musicJoinSessionId" value={join}/>
+  <section aria-label="購課期數與堂數" className={split ? "col-start-1 min-w-0 space-y-2 @min-[40rem]/member:row-start-2" : "space-y-2"}>
   <label className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-2">購買期數<input className={`${field} max-w-28`} type="number" min="1" max="100" step="1" required disabled={!!join} value={terms} onChange={e=>{setTerms(e.target.value);setValidity("");}}/></label>
   {valid&&quote?<dl className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-earth-50 p-2 text-sm" aria-live="polite">
     <div className="flex flex-wrap gap-x-2"><dt>堂數</dt><dd>{quote.musicTermSizes.length} 期 · 共 {quote.points} 堂</dd></div>
@@ -47,6 +48,7 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary}:{plan:MusicP
     </div>
   </details>
   </div>
-  <div hidden={!valid}><CourseAssignmentPayment musicPeriods={quote?.musicTermSizes} price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
+  </section>
+  <div className={split ? "col-start-1 min-w-0 @min-[40rem]/member:col-start-2 @min-[40rem]/member:row-start-1 @min-[40rem]/member:row-span-2 @min-[40rem]/member:border-l @min-[40rem]/member:border-earth-200 @min-[40rem]/member:pl-3" : undefined} hidden={!valid}><CourseAssignmentPayment musicPeriods={quote?.musicTermSizes} price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
  </div>;
 }
