@@ -1301,7 +1301,7 @@ export function CourseWorkspace({
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {(view === "rooms"
-                    ? ["空間名稱", "分類", ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? [] : ["容納人數", "開放租借", "每小時租金"]), ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? ["狀態"] : []), "操作"]
+                    ? ["空間名稱", "分類", ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? [] : [...(catalogSource?.rentalModule==="beauty"?[]:["容納人數"]), "開放租借", "每小時租金"]), ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? ["狀態"] : []), "操作"]
                     : [
                         (catalogSource?"服務項目":"課程名稱"),
                         ...(businessProfile==="MUSIC"||catalogSource?["分類"]:["班別"]),
@@ -1327,7 +1327,7 @@ export function CourseWorkspace({
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <Fragment key={item.id}>
-                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?4:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"||catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
                       data-new-room={item.id === newRoomId ? "true" : undefined}
                       {...order.rowProps(item.id)}
@@ -1359,7 +1359,7 @@ export function CourseWorkspace({
                           </td></>}
                         </>
                       ) : (!catalogSource||!!catalogSource.rentalModule) && businessProfile !== "MUSIC" && (<>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums">{item.capacity ?? "—"}</td>
+                        {catalogSource?.rentalModule!=="beauty"&&<td className="whitespace-nowrap px-3 py-2 tabular-nums">{item.capacity ?? "—"}</td>}
                         <td className="whitespace-nowrap px-3 py-2">{item.rentalEnabled ? "開放" : "未開放"}</td>
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{item.rentalHourlyRate == null ? "—" : item.rentalHourlyRate === 0 ? (item.rentalEnabled ? "免費" : "—") : `$${item.rentalHourlyRate.toLocaleString("zh-TW")}／時`}</td>
                       </>)}
@@ -1409,7 +1409,7 @@ export function CourseWorkspace({
                     </Fragment>
                   );
                 })}
-                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?4:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
+                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"||catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
               </tbody>
             </table>
             {!filteredItems.length && (
@@ -1678,7 +1678,7 @@ export function CourseWorkspace({
                             placeholder="輸入或選擇分類"
                           />
                         </label>)}
-                        <RoomMore service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"} />
+                        <RoomMore hideCapacity={catalogSource?.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"} />
                       </fieldset>
                       </form>
                     )}
@@ -1914,7 +1914,7 @@ export function CourseWorkspace({
                   </label>
                 )}
                 {editing.kind === "room" && (
-                  <RoomMore service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"}
+                  <RoomMore hideCapacity={catalogSource?.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"}
                     capacity={editing.value.capacity}
                     equipment={editing.value.equipment} location={editing.value.location}
                     details={editing.value.details}
@@ -2561,17 +2561,17 @@ export function CourseWorkspace({
 }
 
 export function RoomMore({ rentalEnabled=false,rentalHourlyRate=0,rentalBufferMinutes=0,category,
-  music=false, service=false, capacity,
+  music=false, service=false, hideCapacity=false, capacity,
   details, equipment, location,
 }: {
-  service?:boolean;music?:boolean; capacity?: number | null;
+  service?:boolean;music?:boolean; hideCapacity?:boolean; capacity?: number | null;
   details?: string;
   equipment?:string;location?:string;visibility?:string;classType?:string|null;rentalEnabled?:boolean;rentalHourlyRate?:number;rentalBufferMinutes?:number;category?:string;
 }) {
   return (
     <>
       {!music && <label>分類<input className={field} name="category" maxLength={service?100:40} defaultValue={category}/></label>}
-      {!music && !service && <label>
+      {!music && !service && !hideCapacity && <label>
         容納人數
         <input
           className={field}

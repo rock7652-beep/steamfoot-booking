@@ -11,13 +11,26 @@ import type {Plan,CoursePlanCatalogPort} from '@/app/(dashboard)/dashboard/cours
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 import type {CatalogStatusDriver} from '@/lib/course-catalog-driver';
 import {saveBeautyCatalog,saveBeautyLocation} from '@/server/actions/beauty';
-import {beautySessionProduct,beautySingleProduct,beautyPricePatch,savedBeautyPlan,savedBeautyService,savedBeautyLocation} from '@/lib/beauty/catalog-adapter';
+import {beautySessionProduct,savedBeautyPlan,savedBeautyService,savedBeautyLocation} from '@/lib/beauty/catalog-adapter';
 import {toLocalDateStr} from '@/lib/date-utils';
+import type {SportsSnapshot} from '@/lib/sports-staging-types';
+
+/** Read shape of the original sports fee page; no synthetic single/trial products. */
+export function beautyFeeSnapshot(data:BeautyDashboardData,products:Plan[]):SportsSnapshot {
+ return {
+  storeId:data.storeId,date:data.date,
+  subjects:data.services.map(s=>({id:s.id,name:s.name,category:s.category,active:s.active,updatedAt:String(s.revision),templateId:s.id})),
+  fees:products.map(p=>({id:p.id,name:p.name,subject:p.sportsSubjectId??'',sportsMode:p.sportsMode,unit:'堂數',amount:p.points,price:p.price,days:p.validDays,cost:1,shared:!!p.allowShared,templateId:p.templateIds[0]??'',snapshot:JSON.stringify(p.catalogSnapshot)})),
+  lessons:[],students:[],customers:[],
+  coaches:data.techs.map(t=>({id:t.id,name:t.name,templates:t.serviceIds})),
+  rooms:data.locations.map(r=>({id:r.id,name:r.name,capacity:r.capacity??1,rental:!!r.rentalEnabled})),
+ };
+}
 
 /** Data and mutation wiring only: the course components own all page UI. */
 export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,canEdit:boolean,refresh:()=>void){
  const services=data.services.map(s=>savedBeautyService.parse(s));
- const products:Plan[]=[...services.flatMap(s=>[beautySingleProduct(s,'single'),beautySingleProduct(s,'trial')]),...data.plans.map(p=>beautySessionProduct(savedBeautyPlan.parse(p)))];
+ const products:Plan[]=data.plans.map(p=>({...beautySessionProduct(savedBeautyPlan.parse(p)),sportsMode:p.serviceIds.length===1?'ASSIGNED':'LEGACY',sportsSubjectId:p.serviceIds[0]??null,sportsCost:1}));
  const status:CatalogStatusDriver={impact:async()=>({success:true,count:0}),apply:async({ids,active})=>{
   if(!canEdit)return {success:false,error:'沒有管理權限'};
   const succeeded:string[]=[],failed:{id:string;error:string}[]=[];
@@ -25,27 +38,28 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
    let result:{success:boolean;error?:string};
    if(tab==='位置管理'){const row=data.locations.find(r=>r.id===id);result=row?await saveBeautyLocation({...row,active}):{success:false,error:'位置已更新，請重新整理'};}
    else if(tab==='服務項目'){const row=services.find(r=>r.id===id);result=row?await saveBeautyCatalog('service',{...row,active}):{success:false,error:'服務已更新，請重新整理'};}
-   else{const row=data.plans.find(r=>'plan:'+r.id===id);result=row?await saveBeautyCatalog('plan',{...row,active}):{success:false,error:'單次與體驗費用請從編輯調整，服務狀態由服務項目管理'};}
+   else{const row=data.plans.find(r=>'plan:'+r.id===id);result=row?await saveBeautyCatalog('plan',{...row,active}):{success:false,error:'收費方式已更新，請重新整理'};}
    if(result.success)succeeded.push(id);else failed.push({id,error:result.error??'儲存失敗'});
   }
   return {success:true,succeeded,failed};
  }};
  const form:CoursePlanCatalogPort={save:async(input,plan)=>{
   if(!canEdit)return {success:false,error:'沒有管理權限'};
-  const kind=plan?.catalogKind??input.catalogKind;
-  if(kind==='single'||kind==='trial'){
-   const ids=input.templateIds as string[];const current=plan?.catalogSnapshot?savedBeautyService.parse(plan.catalogSnapshot):services.find(s=>s.id===(plan?.templateIds[0]??ids[0]));
-   if(!current||plan&&current.id!==plan.templateIds[0])return {success:false,error:'請選擇本店服務'};
-   if(plan&&plan.catalogRevision!==current.revision)return {success:false,error:'服務已更新，請關閉後重新開啟'};
-   const r=await saveBeautyCatalog('service',beautyPricePatch(current,kind,input.catalogPriceValue));
-   if(!r.success)return r;
-   const saved=beautySingleProduct(savedBeautyService.parse(r.data.record),kind);refresh();return {success:true,data:saved};
+  if(input.sportsMode!==undefined){
+   if(input.unit!=='SESSION')return {success:false,error:'美業核心尚未支援點數方案，本次未儲存；不可將點數當作次數扣除。'};
+   if(input.sportsMode==='OPEN')return {success:false,error:'美業核心尚未支援開放選課通用卡，本次未儲存。'};
+   if(!services.some(s=>s.id===input.subjectId))return {success:false,error:'請選擇本店服務項目'};
   }
-  if(kind!=='plan')return {success:false,error:'請選擇收費類型'};
   const prior=plan?(plan.catalogSnapshot?savedBeautyPlan.parse(plan.catalogSnapshot):data.plans.find(p=>'plan:'+p.id===plan.id)):undefined;
   if(plan&&(!prior||'plan:'+prior.id!==plan.id||plan.catalogRevision!==prior.revision))return {success:false,error:'方案已更新，請關閉後重新開啟'};
-  const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds:input.templateIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled:input.lowBalanceEnabled,lowBalanceThreshold:input.lowBalanceEnabled?Number(input.lowBalanceThreshold):null});
-  if(!r.success)return r;const saved=beautySessionProduct(savedBeautyPlan.parse(r.data.record));refresh();return {success:true,data:saved};
+  if(input.sportsMode==='LEGACY'&&prior&&Array.isArray(input.coachIds)){
+   const expected=data.techs.filter(t=>t.serviceIds.includes(prior.serviceIds[0])).map(t=>t.id).sort();
+   if(JSON.stringify([...input.coachIds].sort())!==JSON.stringify(expected))return {success:false,error:'原版可服務技師的修改接點尚未完成，本次未儲存；不會忽略此修改。'};
+  }
+  const serviceIds=input.sportsMode==='LEGACY'&&prior&&input.subjectId===prior.serviceIds[0]?prior.serviceIds:input.templateIds;
+  const lowBalanceEnabled=input.lowBalanceEnabled??prior?.lowBalanceEnabled??false;
+  const r=await saveBeautyCatalog('plan',{id:prior?.id,revision:prior?.revision??0,name:input.name,sessions:input.points,price:input.price,validDays:input.validDays,serviceIds,allowShared:input.allowShared,customerPurchasable:input.customerPurchasable,active:input.isActive,lowBalanceEnabled,lowBalanceThreshold:lowBalanceEnabled?Number(input.lowBalanceThreshold??prior?.lowBalanceThreshold):null});
+  if(!r.success)return r;const record=savedBeautyPlan.parse(r.data.record);const saved={...beautySessionProduct(record),sportsMode:record.serviceIds.length===1?'ASSIGNED':'LEGACY',sportsSubjectId:record.serviceIds[0]??null,sportsCost:1};refresh();return {success:true,data:saved};
  }};
  const templates:Template[]=services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active,visibility:s.active?'PUBLIC':'OFF',durationMinutes:s.duration,bufferMinutes:s.buffer,catalogRevision:s.revision,catalogSnapshot:{...s},capacity:1,pointCost:1,defaultRoomId:null}));
 
@@ -77,6 +91,6 @@ export function BeautyCourseCatalog({tab,data,canEdit}:{tab:string;data:BeautyDa
    if(!result.success)return result;const saved=savedBeautyService.parse(result.data.record);router.refresh();return {success:true,data:subject(saved)};
   }}}/>;
  }
- if(tab==='收費方式')return <CourseMemberWorkspace view="plans" catalogSource={{status,form,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.plan} previewStoreId={data.storeId} templates={templates} people={[]} plans={products} cards={[]} canEdit={canEdit} canCreate={canEdit} canManageStaff={false} canAssign={false} canReadBookings={false} canReadTransactions={false} healthEnabled={false} customerRows={[]} canReadCards={false} assignmentStaff={[]} canAssignManager={false} profitEnabled={false}/>;
+ if(tab==='收費方式')return <CourseMemberWorkspace subjectLabel="服務項目" sportsNative sportsData={beautyFeeSnapshot(data,products)} subjects={services.map(s=>({id:s.id,name:s.name,category:s.category,isActive:s.active}))} view="plans" catalogSource={{status,form,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.plan} previewStoreId={data.storeId} templates={templates} people={[]} plans={products} cards={[]} canEdit={canEdit} canCreate={canEdit} canManageStaff={false} canAssign={false} canReadBookings={false} canReadTransactions={false} healthEnabled={false} customerRows={[]} canReadCards={false} assignmentStaff={[]} canAssignManager={false} profitEnabled={false}/>;
  return <CourseWorkspace rentalCustomers={data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone}))} rentalPermissions={{customerRead:data.access.customerAccess,customerCreate:!!data.manage.customer,collect:data.manage.collect,correct:!!data.manage.refund,edit:canEdit}} catalogSource={{rentalModule:"beauty",status,save,order:saveBeautyDisplayOrder}} displayOrder={data.displayOrders?.[tab==='位置管理'?'room':'subject']} view={tab==='位置管理'?'rooms':'catalog'} businessProfile="FITNESS" storeId={data.storeId} selectedDate={data.date} today={toLocalDateStr()} nowIso={new Date(data.now).toISOString()} calendarDays={{}} rooms={rooms} templates={templates} sessions={[]} coaches={[]} cancelledBookings={[]} staffAvailability={[]} staffAvailabilityExceptions={[]} canCreate={canEdit} canEdit={canEdit}/>;
 }

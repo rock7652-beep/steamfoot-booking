@@ -1,3 +1,7 @@
+import {BeautyHome} from '@/components/beauty/home';
+import {CourseUnassignedPlans} from '../courses/unassigned-plans-view';
+import {CourseTodos} from '../courses/todos-view';
+import {beautyDailyHref,getBeautyUnassignedPlanPage,getBeautyHomeTodos} from '@/server/beauty/home';
 import BeautyRemindersPage from "./reminders/page";
 import {CustomerGrowthNavigation} from '@/components/customer-growth-navigation';
 import {BeautySettingsWorkspace} from '@/components/beauty/settings-workspace';
@@ -41,7 +45,7 @@ export default async function BeautyPage({
     calendar?: string;
     customerId?:string;bookingId?:string;
     action?:string;
-    panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;
+    panel?:string;panelQuery?:string;perspective?:string;person?:string;area?:string;preset?:string;startDate?:string;endDate?:string;daily?:string;page?:string;
   }>;
 }) {
   const u = await getCurrentUser();
@@ -82,6 +86,16 @@ export default async function BeautyPage({
     } as Record<string, (typeof FEATURES)[keyof typeof FEATURES]>
   )[tab];
   if (feature) await requireStoreFeature(a.storeId, feature);
+  if(tab==='首頁'&&(q.daily==='unassigned'||q.daily==='todos')){
+    const authorize=async(storeId:string)=>{
+      const actor=await beautyManager(q.daily==='unassigned'?'wallet.read':'booking.read');
+      if(actor.storeId!==storeId)throw new Error('無權讀取其他店家');
+      if(q.daily==='unassigned')await requireStoreFeature(storeId,FEATURES.PLAN_MANAGEMENT);
+    };
+    if(q.daily==='unassigned')return <CourseUnassignedPlans searchParams={Promise.resolve({page:q.page})} source={{authorize,load:getBeautyUnassignedPlanPage,href:beautyDailyHref,service:true}}/>;
+    const view=await resolveStoreViewContextFromCookie(u);
+    return <CourseTodos searchParams={Promise.resolve({page:q.page})} source={{authorize,load:getBeautyHomeTodos,href:beautyDailyHref,service:true,readOnly:!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}}/>;
+  }
   const date =
       q.date && /^\d{4}-\d{2}-\d{2}$/.test(q.date) ? q.date : toLocalDateStr(),
     month =
@@ -109,14 +123,15 @@ export default async function BeautyPage({
   return (
     <PageShell compact className="course-workspace min-w-0">
       {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
-      <PageHeader compact title={tab} />
+      {tab!=='首頁'&&<PageHeader compact title={tab} />}
       <BeautyDashboard
+        homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
         data={data}
         tab={tab}
         initialAppointmentId={q.bookingId}
         initialCustomerId={q.customerId}
-        initialBooking={q.action==='booking'}
+        initialBooking={q.action==='booking'||q.action==='schedule'}
         analyticsContent={tab==='分析'?<BeautyAnalytics data={data} query={q}/>:undefined}
         careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsNavigation={tab==='營運'?<RevenueTabs readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}

@@ -17,7 +17,7 @@ vi.mock("@/server/services/central-member-resolver", () => ({
 }));
 import { command, type BeautyActor } from "@/server/beauty/access";
 import { assertCard, transition, assertCustomerAvailable } from "@/server/beauty/booking";
-import { refund, collect, voidFee } from "@/server/beauty/commerce";
+import { refund, collect, voidFee, issueCard } from "@/server/beauty/commerce";
 import type { Tx } from "@/server/beauty/booking";
 let tx: Tx;
 const a: BeautyActor = { storeId: "s", userId: "operator", manager: true };
@@ -408,5 +408,18 @@ describe("Beauty trial care enrollment boundaries",()=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,isTrial:true,customerId:null,cardId:null} as never);
   await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
   expect(tx.beautyEvent.upsert).not.toHaveBeenCalled();
+ });
+});
+
+describe('Beauty shared analytics sale attribution',()=>{
+ it.each(['manager-at-sale',null])('captures the purchaser attribution %s from the authorized store, never the cashier, companion or supplied value',async(manager)=>{
+  vi.mocked(tx.$queryRaw).mockResolvedValue([{id:'member',assignedStaffId:manager},{id:'family',assignedStaffId:'family-manager'}]);
+  tx.beautyCard.create=vi.fn().mockResolvedValue({id:'issued'});
+  const plan={id:'plan',storeId:'s',name:'方案',sessions:5,price:1000,validDays:90,serviceIds:['svc'],allowShared:true,customerPurchasable:true,active:true,revision:0,lowBalanceEnabled:false,lowBalanceThreshold:null};
+  await issueCard(tx,a,{requestKey:'11111111-1111-4111-8111-111111111111',planId:'plan',customerId:'member',memberIds:['family'],paid:1000,method:'BANK_TRANSFER',revenueStaffId:'forged'} as Parameters<typeof issueCard>[2],plan);
+  const event=vi.mocked(tx.beautyEvent.create).mock.calls[0][0].data;
+  expect(event.kind).toBe('ISSUE_CARD');expect(JSON.parse(String(event.body))).toMatchObject({cardId:'issued',revenueStaffId:manager});
+  const [sql,...values]=vi.mocked(tx.$queryRaw).mock.calls[0];
+  expect('sql' in sql?sql.sql:Array.from(sql).join('')).toContain('s."storeId"=c."storeId"');expect(values).toContain('s');
  });
 });

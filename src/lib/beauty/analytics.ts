@@ -1,5 +1,5 @@
 import {addTaiwanDuration,dayRange,toLocalDateStr} from '@/lib/date-utils';
-export type BeautyTrendRow={date:string;technicianId:string|null;reserved:number;completed:number;trial:number;revenue:number;newCard?:number;renewal?:number};
+export type BeautyTrendRow={date:string;technicianId:string|null;managerId?:string|null;reserved:number;completed:number;trial:number;revenue:number;newCard?:number;renewal?:number};
 export function beautyTrend(rows:BeautyTrendRow[],range:{startDate:string;endDate:string},period:'current'|'months'|'year',metric:'reserved'|'completed'|'trial'|'revenue'|'newCard'|'renewal',technicianId:string,createdDate:string,today:string){
  const monthly=period!=='current';const end=monthly?range.endDate.slice(0,7)+'-01':range.endDate;
  const start=monthly?addTaiwanDuration(end,period==='year'?-11:-5,'MONTH'):range.startDate;

@@ -1,0 +1,24 @@
+{
+  "results": [
+    "home renders original sports quick actions",
+    "home region readers return without errors",
+    "home 1920 no document overflow",
+    "home 1024 no document overflow",
+    "home 768 no document overflow",
+    "room create hides capacity",
+    "room create retains rental setting",
+    "room table hides capacity",
+    "no invented charging classification",
+    "original sports applicability control",
+    "original sports teaching item relation",
+    "native fee saved and reopened quota",
+    "native fee saved and reopened price",
+    "native fee saved and reopened service",
+    "fee page 1920 no document overflow",
+    "fee page 1366 no document overflow",
+    "fee page 1024 no document overflow",
+    "fee page 768 no document overflow",
+    "no browser errors"
+  ],
+  "errors": []
+}

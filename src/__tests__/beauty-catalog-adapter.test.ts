@@ -15,9 +15,21 @@ it('changing service duration preserves both prices, returns the authoritative r
  expect(m.catalog).toHaveBeenCalledWith('service',expect.objectContaining({revision:4,duration:90,buffer:20,price:1000,trialPrice:500}));expect(r).toMatchObject({success:true,data:{catalogRevision:5,durationMinutes:90}});
  m.catalog.mockClear();expect(await a.save('template',{id:'service',catalogRevision:3})).toMatchObject({success:false});expect(m.catalog).not.toHaveBeenCalled();
 });
-it.each(['single','trial'] as const)('changes %s price while preserving the other price, availability and full duration',async kind=>{
- const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh),p=a.products.find(p=>p.catalogKind===kind)!;await a.form.save({catalogKind:kind,catalogPriceValue:'750',templateIds:['service']},p);
- expect(m.catalog).toHaveBeenCalledWith('service',expect.objectContaining({id:'service',duration:60,buffer:15,active:true,price:kind==='single'?750:1000,trialPrice:kind==='trial'?750:500}));
+it('uses only real plan records in the original fee catalog, without invented single or trial products',()=>{
+ const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);
+ expect(a.products.map(p=>p.id)).toEqual(['plan:scheme']);
+ expect(a.products[0]).toMatchObject({sportsMode:'ASSIGNED',sportsSubjectId:'service',unit:'SESSION'});
+});
+it('saves the original sports assigned-service fee through the Beauty core and preserves reminders',async()=>{
+ const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);
+ const r=await a.form.save({sportsMode:'ASSIGNED',subjectId:'service',unit:'SESSION',name:'服務收費',points:6,price:5000,validDays:90,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true},a.products[0]);
+ expect(r.success).toBe(true);
+ expect(m.catalog).toHaveBeenCalledWith('plan',expect.objectContaining({serviceIds:['service'],sessions:6,lowBalanceEnabled:true,lowBalanceThreshold:2}));
+});
+it.each([{sportsMode:'ASSIGNED',unit:'POINT'},{sportsMode:'OPEN',unit:'SESSION'}])('rejects unsupported original-core semantics without silently writing a different scheme: %j',async native=>{
+ const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);
+ expect(await a.form.save({...native,subjectId:'service'},null)).toMatchObject({success:false});
+ expect(m.catalog).not.toHaveBeenCalled();
 });
 it('saving a new arbitrary session plan keeps family sharing, service scope and reminder settings',async()=>{
  const a=createBeautyCatalogAdapter('收費方式',data,true,m.refresh);const r=await a.form.save({catalogKind:'plan',name:'九次方案',points:9,price:8000,validDays:120,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true,lowBalanceEnabled:true,lowBalanceThreshold:'3'},null);

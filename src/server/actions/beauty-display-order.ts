@@ -15,8 +15,8 @@ export async function saveBeautyDisplayOrder(input:unknown){
   const a=await beautyManager(d.kind==="room"?"business_hours.manage":"plans.edit",true);
   if(d.kind!=="room")await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
   const revision=await beautyTransaction(a,async tx=>{
-   const rows=d.kind==="room"?await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseRoom" WHERE "storeId"=${a.storeId}`:await tx.beautyService.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:"asc"}});
-   const knownIds=d.kind==="plan"?[...rows.flatMap(r=>["single:"+r.id,"trial:"+r.id]),...(await tx.beautyPlan.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:"asc"}})).map(r=>"plan:"+r.id)]:rows.map(r=>r.id);
+   const rows=d.kind==="room"?await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseRoom" WHERE "storeId"=${a.storeId}`:d.kind==='plan'?await tx.beautyPlan.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:'asc'}}):await tx.beautyService.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:"asc"}});
+   const knownIds=rows.map(r=>d.kind==='plan'?'plan:'+r.id:r.id);
    const known=new Set(knownIds);
    if(d.ids.some(id=>!known.has(id)))throw new AppError("FORBIDDEN","排序只能包含本店現有項目，請重新整理");
    const [previous]=await tx.$queryRaw<CourseOrderSnapshot[]>`SELECT ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind=${d.kind} FOR UPDATE`;

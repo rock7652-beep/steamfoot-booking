@@ -20,10 +20,10 @@ it('commits and reloads real SQL order and revision, retaining omitted rows',asy
  expect(await saveBeautyDisplayOrder({kind:'room',ids:['a','b'],revision:1})).toEqual({success:true,revision:2});
  expect(m.manager).toHaveBeenCalledWith('business_hours.manage',true);
 });
-it('uses Beauty service and synthetic product IDs without Course catalog writes',async()=>{
+it('sorts only actual Beauty service and plan IDs without invented products or Course catalog writes',async()=>{
  expect(await saveBeautyDisplayOrder({kind:'subject',ids:['s2','s1'],revision:0})).toMatchObject({success:true});
- expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1','trial:s2'],revision:0})).toMatchObject({success:true});
- expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1','trial:s2','single:s1','trial:s1','single:s2']);
+ expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1'],revision:0})).toMatchObject({success:true});
+ expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1']);
  expect(m.manager).toHaveBeenCalledWith('plans.edit',true);expect(m.feature).toHaveBeenCalled();
 });
 it('rejects stale revision and foreign IDs without overwriting committed order',async()=>{
@@ -33,7 +33,7 @@ it('rejects stale revision and foreign IDs without overwriting committed order',
  expect((await db.query('SELECT ids,revision FROM "CourseDisplayOrder"')).rows).toEqual([{ids:['b','a'],revision:1}]);
 });
 it('rejects duplicate, injected store, staff kind and foreign product IDs',async()=>{
- for(const d of [{kind:'plan',ids:['plan:p1','plan:p1']},{kind:'room',ids:['a'],storeId:'B'},{kind:'staff',ids:['a']},{kind:'plan',ids:['plan:other']}])expect(await saveBeautyDisplayOrder({...d,revision:0})).toMatchObject({success:false});
+ for(const d of [{kind:'plan',ids:['plan:p1','plan:p1']},{kind:'room',ids:['a'],storeId:'B'},{kind:'staff',ids:['a']},{kind:'plan',ids:['plan:other']},{kind:'plan',ids:['single:s1']},{kind:'plan',ids:['trial:s2']}])expect(await saveBeautyDisplayOrder({...d,revision:0})).toMatchObject({success:false});
  expect((await db.query('SELECT count(*) FROM "CourseDisplayOrder"')).rows).toEqual([{count:0}]);
 });
 it('rolls back the preference if audit fails, including its revision',async()=>{

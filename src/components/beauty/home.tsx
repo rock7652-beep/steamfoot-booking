@@ -1,14 +1,26 @@
-"use client";
-import {ModuleHomePanel} from '@/components/admin/module-home-panel';
-import {toLocalDateStr} from '@/lib/date-utils';
+import {CourseHome, type CourseHomeSource} from '@/app/(dashboard)/dashboard/courses/home';
+import {getCurrentUser} from '@/lib/session';
+import {courseCustomerStaffScope} from '@/server/queries/course-home';
+import {readBeautyCareSections} from './care';
+import {beautyDailyHref,getBeautyHomeToday,getBeautyHomeReceipts,getBeautyHomeCustomers,getBeautyHomeTodos,getBeautyUnassignedPlanCount} from '@/server/beauty/home';
+import {toLocalMonthStr} from '@/lib/date-utils';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
-export function BeautyHome({data,onBook,onNavigate,readOnly}:{data:BeautyDashboardData;onBook:()=>void;onNavigate:(tab:string)=>void;readOnly:boolean}){
- const today=toLocalDateStr(),items=data.items.filter(b=>toLocalDateStr(new Date(b.startsAt))===today),receipts=data.payments.filter(p=>toLocalDateStr(new Date(p.createdAt))===today),gross=receipts.filter(p=>p.kind==='SALE').reduce((n,p)=>n+p.amount,0),refund=Math.abs(receipts.filter(p=>p.kind==='REFUND').reduce((n,p)=>n+p.amount,0));
- const style='inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-800 hover:bg-primary-50';
- return <div className="@container space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-earth-500">{today} · 今日工作</p><div className="flex gap-2">{data.access.writeAccess&&!readOnly&&<button className={style+' bg-primary-700 !text-white'} onClick={onBook}>新增預約</button>}<button className={style+' border border-earth-200'} onClick={()=>onNavigate('班表')}>查看班表 →</button></div></div>
- <ModuleHomePanel title="今日摘要" section="today" hideTitle><div className="flex flex-wrap items-center gap-x-5 gap-y-1">{[['今日預約',items.filter(b=>b.status==='RESERVED').length],['今日完成',items.filter(b=>b.status==='COMPLETED').length],['取消／未到',items.filter(b=>['CANCELLED','NO_SHOW'].includes(b.status)).length]].map(([label,value])=><button key={label} className="inline-flex min-h-11 items-baseline gap-2 py-2 text-sm" onClick={()=>onNavigate('班表')}><span className="text-earth-600">{label}</span><strong className="text-lg tabular-nums text-primary-900">{value}</strong><span>人次</span></button>)}</div></ModuleHomePanel>
- <div className="grid items-start gap-2 @min-[40rem]:grid-cols-2">{data.access.financeAccess&&<ModuleHomePanel title="今日收款" section="receipts"><button className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 text-sm" onClick={()=>onNavigate('營運')}><strong className="text-lg text-primary-900">NT$ {gross.toLocaleString('zh-TW')}</strong><span>退款 NT$ {refund.toLocaleString('zh-TW')}</span><span>淨收款 NT$ {(gross-refund).toLocaleString('zh-TW')}</span><span className="text-primary-700 underline">查看收款明細</span></button></ModuleHomePanel>}{data.access.customerAccess&&<ModuleHomePanel title="顧客概況 · 目前總數" section="customers"><button className={style} onClick={()=>onNavigate('顧客管理')}>全店顧客 <strong className="mx-2 tabular-nums">{data.customers.length}</strong> 人</button></ModuleHomePanel>}</div>
- <ModuleHomePanel title="今天待處理" section="todos"><div className="divide-y divide-earth-100">{data.access.financeAccess&&<button className="flex min-h-11 w-full items-center justify-between text-sm" onClick={()=>onNavigate('營運')}><span>待核帳</span><span>{data.purchases.length} 件 →</span></button>}<button className="flex min-h-11 w-full items-center justify-between text-sm" onClick={()=>onNavigate('班表')}><span>待完成服務</span><span>{items.filter(b=>b.status==='RESERVED'&&Date.parse(b.endsAt)<data.now).length} 件 →</span></button></div></ModuleHomePanel>
- {data.access.planAccess&&data.access.customerAccess&&<ModuleHomePanel title="顧客關懷" section="care"><div className="flex flex-wrap gap-3"><button className={style} onClick={()=>onNavigate('顧客經營')}>剩餘次數不足 <strong className="ml-3">{data.cards.filter(c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now&&c.remaining-c.held<=2).length}</strong></button><button className={style} onClick={()=>onNavigate('顧客經營')}>即將到期 <strong className="ml-3">{data.cards.filter(c=>!c.closedAt&&Date.parse(c.expiresAt)>data.now&&Date.parse(c.expiresAt)<data.now+14*86400000).length}</strong></button></div></ModuleHomePanel>}
- </div>;
+
+/** No Beauty home UI: render the current sports page using Beauty core readers. */
+export async function BeautyHome({data,readOnly}:{data:BeautyDashboardData;readOnly:boolean}){
+ const user=await getCurrentUser();
+ if(!user)return null;
+ const scope=courseCustomerStaffScope(user,data.storeId);
+ const source:CourseHomeSource={
+  service:true,readOnly,href:beautyDailyHref,
+  statistics:{today:'今日服務與預約人次排除取消；完成僅計已標記完成的服務。時間到不會自動完成或扣次。',receipts:'依收款與退款的入帳時間統計；淨收款為收款減退款，不重複加計現金帳。',todos:'列出有權處理的待核帳、已結束但仍待完成的服務及顧客跟進。'},
+  today:getBeautyHomeToday,receipts:getBeautyHomeReceipts,customers:getBeautyHomeCustomers,
+  todos:getBeautyHomeTodos,unassignedPlans:getBeautyUnassignedPlanCount,
+  care:async()=>{
+   const sections=await readBeautyCareSections({...data,month:toLocalMonthStr(),customers:scope?data.customers.filter(c=>c.assignedStaff?.id===scope):data.customers});
+   const count=(reason:string)=>sections.find(s=>s.reason===reason)?.items.length??0;
+   return {birthday:count('birthday'),trial:count('trial'),inactive:count('inactive'),expiring:count('expiring'),low:count('low')};
+  },
+ };
+ return <CourseHome user={user} storeId={data.storeId} source={source}/>;
 }

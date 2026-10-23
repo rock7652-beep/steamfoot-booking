@@ -128,8 +128,8 @@ export async function issueCard(
     if (!p.allowShared && members.length !== 1)
       throw new AppError("VALIDATION", "此方案不允許共用");
     const cs = await tx.$queryRaw<
-      Array<{ id: string }>
-    >`SELECT id FROM "Customer" WHERE "storeId"=${a.storeId} AND id=ANY(${members}::text[]) AND "mergedIntoCustomerId" IS NULL`;
+      Array<{ id: string; assignedStaffId: string | null }>
+    >`SELECT c.id,s.id AS "assignedStaffId" FROM "Customer" c LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId" WHERE c."storeId"=${a.storeId} AND c.id=ANY(${members}::text[]) AND c."mergedIntoCustomerId" IS NULL`;
     if (cs.length !== members.length)
       throw new AppError("FORBIDDEN", "共用成員包含非本店顧客");
     const card = await tx.beautyCard.create({
@@ -171,7 +171,8 @@ export async function issueCard(
       },
     });
     await cash(tx, a, d.method, d.paid, receipt.id, receipt.note);
-    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d }));
+    // Immutable sale attribution: later customer reassignment must not move revenue.
+    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d, revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
     return { cardId: card.id };
   });
 }
