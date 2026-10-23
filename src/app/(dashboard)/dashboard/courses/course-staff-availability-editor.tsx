@@ -114,6 +114,12 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,readOnly=fa
     });
   }
 
+  if(readOnly) return <section className="space-y-2 rounded-lg border border-earth-200 p-3" aria-label="每週可授課時間摘要">
+    <h3 className="font-medium text-primary-900">可授課時間</h3>
+    {!ready?<p role="status">{message||"讀取授課時間…"}</p>:<>{inherit?<p className="text-sm">沿用店家授課時間</p>:<dl className="grid gap-x-4 @min-[38rem]/staff:grid-cols-2">{days.map(day=><div key={day.dayOfWeek} className="flex min-h-11 min-w-0 items-start gap-3 border-b border-earth-100 py-2 text-sm"><dt className="shrink-0 font-medium">週{names[day.dayOfWeek]}</dt><dd className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 tabular-nums">{day.periods.length?day.periods.map((period,index)=><span key={index} className="whitespace-nowrap">{period.openTime}–{period.closeTime}</span>):"不授課"}</dd></div>)}</dl>}
+    {!!exceptions.length&&<details><summary className="min-h-11 cursor-pointer py-2 text-sm">單日例外 · {exceptions.length} 筆</summary><ul className="max-h-60 overflow-y-auto text-sm">{exceptions.map(item=><li key={item.date} className="border-b border-earth-100 py-2">{item.date} · {item.type==="UNAVAILABLE"?"不可授課":item.type==="CUSTOM"?item.periods.map(p=>`${p.openTime}–${p.closeTime}`).join("、"):"固定規則"}{item.reason?` · ${item.reason}`:""}</li>)}</ul></details>}</>}
+  </section>;
+
   return <section className={fitness?"space-y-3":"space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3"}>
     <div ref={outcomeRef} tabIndex={-1}>
       {!!conflicts.length&&<><p className="text-sm text-amber-900">尚未儲存，請先處理下列課程</p><CourseConflicts items={conflicts}/></>}
