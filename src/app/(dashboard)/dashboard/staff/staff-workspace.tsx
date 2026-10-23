@@ -1014,7 +1014,7 @@ function SpaStaffSetupDrawer({
                 type="color"
                 value={colorCode}
                 onChange={(event) => setColorCode(event.target.value)}
-                className="mt-1 h-11 w-20 rounded-lg border border-earth-300"
+                className="mt-1 h-10 w-full rounded-lg border border-earth-300"
               />
             </Field>
           </div>
@@ -1515,7 +1515,7 @@ function CreatePersonDrawer({
               name="colorCode"
               type="color"
               defaultValue="#8fa89b"
-              className="mt-1 h-10 w-full rounded-lg border border-earth-300"
+              className="mt-1 block h-11 w-20 rounded-lg border border-earth-300"
             />
           </Field>
           {!showSpaCompensation ? (

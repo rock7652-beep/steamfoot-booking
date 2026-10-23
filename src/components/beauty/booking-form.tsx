@@ -311,7 +311,7 @@ function BeautyDetailedBookingForm({
                   </select>
                 </label>
               )}
-              {mode === "manager" && p.customerId ? <details className="self-end"><summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">{p.name} · {p.phone}</summary><p className="py-2 text-sm text-earth-500">顧客資料如需更正，請至顧客管理修改。</p></details> : <>              <label>
+              {mode === "manager" && p.customerId ? <details className="self-end"><summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">手機：{p.phone}</summary><p className="py-2 text-sm text-earth-500">顧客資料如需更正，請至顧客管理修改。</p></details> : <>              <label>
                 姓名
                 <input
                   required

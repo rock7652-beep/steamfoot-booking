@@ -125,7 +125,7 @@ export function BeautyCatalogEditor({
         </button>
       </header>
       {kind==='technician'&&<CourseStaffEditorTabs label="技師編輯分類" disabled={pending} value={techTab} items={[["basic","基本資料"],["services","服務與拆帳"],["availability","可服務時間"],["work","會員與工作權限"]]} onChange={setTechTab}/>}
-      {kind==='technician'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'}</p>}
+      {kind==='technician'&&techTab!=='basic'&&<p className="border-b border-earth-100 px-4 py-2 text-sm text-earth-600">{draft.name||'新技師'}</p>}
       <form
         onInvalidCapture={e=>{const group=(e.target as HTMLElement).closest<HTMLElement>('[data-tech-tab]');if(group?.dataset.techTab){setTechTab(group.dataset.techTab);setError('請完成必填欄位後再儲存。');}}}
         className="min-h-0 overflow-y-auto p-4"

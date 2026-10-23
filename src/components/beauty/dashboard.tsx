@@ -274,15 +274,15 @@ export function BeautyDashboard({
         <RightSheet
           open
           presentation="centered"
-          width={1000}
+          width={840}
+          fitContent
+          className="fitness-management-editor"
           onClose={closeBooking}
           closeOnEscape={!bookingState.pending}
           labelledById="beauty-booking-title"
         >
-          <div className="min-h-0 overflow-y-auto p-4">
-            <h2 id="beauty-booking-title" className="mb-4 font-semibold">
-              新增預約
-            </h2>
+          <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2"><h2 id="beauty-booking-title" className="font-semibold">新增預約</h2><button className={button} disabled={bookingState.pending} onClick={closeBooking}>關閉</button></header>
+          <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
             <BeautyBookingForm
               catalog={catalog}
               mode="manager"
@@ -297,9 +297,6 @@ export function BeautyDashboard({
               members={data.customers}
               onBooked={() => router.refresh()}
             />
-            <button className={button} disabled={bookingState.pending} onClick={closeBooking}>
-              關閉
-            </button>
           </div>
         </RightSheet>
       )}
