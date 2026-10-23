@@ -35,7 +35,6 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
   const [saved, setSaved] = useState(draft);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
@@ -54,7 +53,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
       try {
         const result = await saveCourseSettingsSection(input);
         if (!result.success) { setMessage(result.error || "儲存失敗，輸入內容已保留"); return; }
-        setSaved(submitted); setConfirmDiscard(false); setMessage("已儲存"); router.refresh();
+        setSaved(submitted); setMessage("已儲存"); router.refresh();
       } catch { setMessage("連線失敗，輸入內容已保留，請重試"); }
       finally { saving.current = false; }
     });
@@ -65,10 +64,9 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
       </label>)}
     </fieldset>
     {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
     <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
-      <button type="button" disabled={pending || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
+      <button type="button" disabled={pending || !dirty} onClick={() => { if(saving.current)return;setDraft(saved);setMessage(""); }} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : "儲存"}</button>
     </div>
   </form>;

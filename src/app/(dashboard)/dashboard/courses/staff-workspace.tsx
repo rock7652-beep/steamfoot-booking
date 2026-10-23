@@ -160,11 +160,11 @@ export function CourseStaffWorkspace({
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
   const router = useRouter();
   useEffect(() => {
-    if (!open || !dirty) return;
+    if (!open || !pending) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [open, dirty]);
+  }, [open, pending]);
   useEffect(() => {
     if (!open || tab!=="qualifications" || (dirty && feesReady) || pending || (feesReady && loadedFeeRevision===syncRevision) || !person || (!canManage && !feeEnabled)) return;
     let active = true;
@@ -232,7 +232,7 @@ export function CourseStaffWorkspace({
     setOpen(true);
   }
   function close() {
-    if (pending || availabilityGuard.pending || (!music && (dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
+    if (pending || availabilityGuard.pending) return;
     setOpen(false);
   }
   return (

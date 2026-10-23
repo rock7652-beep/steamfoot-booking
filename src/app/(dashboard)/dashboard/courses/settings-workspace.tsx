@@ -111,7 +111,7 @@ export function CourseSettingsWorkspace(props: Props) {
   }, []);
   const context = useMemo(() => ({ report, navigate: (href: string) => router.push(href) }), [report, router]);
   useEffect(() => {
-    if (!hasDirty && !pending) return;
+    if (!pending) return;
     function intercept(event: MouseEvent) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
@@ -126,7 +126,7 @@ export function CourseSettingsWorkspace(props: Props) {
     document.addEventListener("click", intercept, true);
     window.addEventListener("beforeunload", unload);
     return () => { document.removeEventListener("click", intercept, true); window.removeEventListener("beforeunload", unload); };
-  }, [hasDirty, pending, pathname]);
+  }, [pending, pathname]);
   function openRow(id: string) {
     if (pending) return;
     setExpandedRow(id);
@@ -199,7 +199,7 @@ export function CourseSettingsWorkspace(props: Props) {
         <Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}
       </section>
-    {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
+    {leaveHref && pending && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
     {isCourseSettingsPanel(panel) && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
 }

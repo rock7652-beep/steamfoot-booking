@@ -19,12 +19,12 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  const [subjects,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceSubjects);
  const [hideTestData,setHideTestData]=useState(false);
  const [showInactive,setShowInactive]=useState(false);
- const [selected,setSelected]=useState<string[]>([]),[dirty,setDirty]=useState(false);
+ const [selected,setSelected]=useState<string[]>([]),[,setDirty]=useState(false);
  const router=useRouter(),pathname=usePathname();
  const [search,setSearch]=useState(""),[status,setStatus]=useState("all");
  const [editing,setEditing]=useState<MusicSubjectView|null|undefined>(undefined),[error,setError]=useState("");
  const [pending,start]=useTransition();
- function close(){if(!pending&&(!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
+ function close(){if(!pending){setDirty(false);setEditing(undefined);}}
  const order=useCourseDisplayOrder("subject",subjects,displayOrder,canEdit&&!search&&status==="all"&&!hideTestData&&!busyIds.length,s=>s.isActive);
  const rows=subjects.filter(s=>(!hideTestData||!isCourseTestData(s.name))&&(!search||s.name.includes(search))&&(status==="all"||s.isActive===(status==="active"))).sort((a,b)=>Number(b.isActive)-Number(a.isActive)||order.compare(a,b));
  const activeRows=rows.filter(s=>s.isActive),inactiveRows=rows.filter(s=>!s.isActive);

@@ -149,7 +149,7 @@ export function CourseMemberWorkspace({
   const person = people.find(p => p.id === selectedPerson?.id) ?? selectedPerson;
   const [personTab, setPersonTab] = useState<"info" | "plans" | "records" | "payments" | "bookings" | "makeups">(() => music && ["plans", "payments", "bookings", "makeups"].includes(params.get("studentTab") ?? "") ? params.get("studentTab") as "plans" | "payments" | "bookings" | "makeups" : "info");
   const [editingPerson, setEditingPerson] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [, setDirty] = useState(false);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
@@ -160,9 +160,7 @@ export function CourseMemberWorkspace({
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
   function canLeave() {
     if(pending || formPending)return false;
-    if(!dirty)return true;
-    if(music)return true;
-    return window.confirm("尚有未儲存的變更，確定離開？");
+    return true;
   }
   function changePurchaseSelection(action:()=>void){
     if(pending || formPending)return;

@@ -23,7 +23,6 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
   const [destination, setDestination] = useState<string | null>(null);
   const [navigating, startNavigation] = useTransition();
   const root = useRef<HTMLDivElement>(null);
-  const dirty = Object.values(states).some(state => state.dirty);
   const pending = Object.values(states).some(state => state.pending);
   const report = useCallback((id: string, state: SettingsPanelState | null) => setStates(previous => {
     if (state && previous[id]?.dirty === state.dirty && previous[id]?.pending === state.pending) return previous;
@@ -37,7 +36,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     setDestination(null);
     startNavigation(() => router.replace(href, { scroll: false }));
   }, [router]);
-  const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
+  const request = useCallback((href: string) => { if (pending) setDestination(href); else go(href); }, [pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
     const localPath = url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
@@ -53,7 +52,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     request(url.href);
   }, [config.href, closeHref, pathname, request, searchString]);
   useEffect(() => {
-    const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
+    const unload = (event: BeforeUnloadEvent) => { if (pending) { event.preventDefault(); event.returnValue = ""; } };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // Nested editors own Escape while they are open.
@@ -62,7 +61,8 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     };
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [pending, request, closeHref, destination]);
+  useEffect(()=>{if(!pending)setDestination(null);},[pending]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
   return <div ref={root} data-course-settings-panel>
@@ -71,7 +71,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>
       </header>
-      {destination && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
+      {destination && pending && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
         <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
         <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
       </div>}

@@ -325,7 +325,7 @@ export function CourseWorkspace({
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [panel, router, view]);
-  const [dirty, setDirty] = useState(false);
+  const [, setDirty] = useState(false);
   const restoreScrollY = useRef<number | null>(null);
   useEffect(() => {
     if (restoreScrollY.current === null) return;
@@ -339,7 +339,7 @@ export function CourseWorkspace({
   const rentalGuard=useRef({pending:false,dirty:false});
   const updateRentalGuard=useCallback((pending:boolean,dirty:boolean)=>{rentalGuard.current={pending,dirty};},[]);
   const [roomRentalHistory,setRoomRentalHistory]=useState(false);
-  function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
+  function closeRentalDialog(){if(rentalGuard.current.pending)return;setCourseDialog(null);}
   function closePanel() {
     if(musicScheduleGuard.current.pending)return;
     if(panel === "schedule" && businessProfile === "MUSIC") {
@@ -349,8 +349,8 @@ export function CourseWorkspace({
       return;
     }
     if(rentalGuard.current.pending)return;
-    if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
-    if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    
+    if (pending) return;
     setDirty(false);
     setPanel(null);
   }
@@ -1307,7 +1307,7 @@ export function CourseWorkspace({
                       : arrangement==="rental"?"新增租借":arrangement==="trial"?"新增體驗課":"新增排課"
                     : selectedDate}
             </h2>
-            <div className="flex items-center gap-2">{panel === "edit" && editing?.kind === "room" && <button type="button" className="min-h-11 px-3 text-sm text-primary-700 hover:underline" onClick={()=>{if(rentalGuard.current.pending)return;if((dirty||rentalGuard.current.dirty)&&!window.confirm("放棄未儲存修改？"))return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button> }
+            <div className="flex items-center gap-2">{panel === "edit" && editing?.kind === "room" && <button type="button" className="min-h-11 px-3 text-sm text-primary-700 hover:underline" onClick={()=>{if(rentalGuard.current.pending)return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button> }
             {
               <button
                 className={button}
@@ -1996,7 +1996,7 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && <>
-              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
+              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(rentalGuard.current.pending)return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
@@ -2241,7 +2241,7 @@ export function CourseWorkspace({
                 className={button}
                 disabled={pending}
                 onClick={() => {
-                  if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
+                  
                   open(editing.kind === "session" ? "day" : null);
                   setEditing(null);
                 }}
