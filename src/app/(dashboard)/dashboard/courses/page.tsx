@@ -379,6 +379,7 @@ export default async function CoursesPage({
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && writableStore}}
         cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
         sportsNative={sportsNative}
+        schedulingModes={await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined}
         sportsData={await sportsFormPromise}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}

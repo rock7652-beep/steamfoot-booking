@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 const tables=['CourseScheduleSeries','CourseMusicTuition','CourseMusicReceipt','CourseMusicLessonAssignment','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement'];
-const columns={CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointCard:['musicOpeningStateRequired'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
+const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointCard:['musicOpeningStateRequired'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
 export async function runMusicNativeSchemaPreflight(env=process.env){
  const target=assertMusicNativeReleaseEnvironment(env);
  const {Client}=await import('pg');

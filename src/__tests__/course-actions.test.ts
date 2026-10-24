@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  schedulingRule: vi.fn(),
   bookings: vi.fn(),
   permission: vi.fn(),
   store: vi.fn(),
@@ -41,7 +42,7 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
-    courseSession: { findFirst: async()=>({id:"session-created"}) },
+    courseSession: { findFirst: async()=>({id:"session-created"}), findMany:async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: mocks.raw,
@@ -52,6 +53,9 @@ vi.mock("@/lib/course-db", () => ({
           update: mocks.update,
           updateMany: mocks.cancelForMove,
         },
+        courseRental:{findFirst:async()=>null},
+        courseScheduleSeries: {findMany:async()=>[],findUnique:async()=>null},
+        courseBookingRule: {findUnique:mocks.schedulingRule},
         courseSessionMove: { create: mocks.move },
         courseBooking: { findMany: mocks.bookings },
         courseTemplate: {
@@ -84,6 +88,7 @@ const input = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.schedulingRule.mockResolvedValue(null);
   mocks.bookings.mockResolvedValue([]);
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
@@ -257,7 +262,7 @@ describe("course scheduling action", () => {
       storeId: "victim",
       pointCost: 0,
     });
-    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created" } });
+    expect(result).toMatchObject({ success: true, data: { count: 3, sessionId: "session-created" } });
     const rows = mocks.create.mock.calls[0][0].data;
     expect(rows).toHaveLength(3);
     expect(
@@ -303,7 +308,7 @@ describe("course scheduling action", () => {
         isTrial: false,
       })),
     );
-    expect(await createCourseSchedule(input)).toEqual({
+    expect(await createCourseSchedule(input)).toMatchObject({
       success: true,
       data: { count: 3, sessionId: "session-created" },
     });
@@ -413,4 +418,13 @@ describe("catalogue availability", () => {
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
   });
+});
+
+it.each([[true,true],[true,false],[false,true],[false,false]])("enforces both scheduling flags before creating occurrences (%s/%s)",async(open,assigned)=>{
+ mocks.schedulingRule.mockResolvedValue({selfBookingEnabled:open,assignedSchedulingEnabled:assigned});
+ for(const audience of ["OPEN","ASSIGNED"] as const){mocks.create.mockClear();const result=await createCourseSchedule({...input,bookingAudience:audience});expect(result.success).toBe(audience==="OPEN"?open:assigned);if(!result.success)expect(mocks.create).not.toHaveBeenCalled();}
+});
+
+it("does not apply learner scheduling mode switches to the separate rental class",async()=>{
+ mocks.schedulingRule.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:false});mocks.template.mockResolvedValue({id:"yoga",name:"租借",pointCost:0,isActive:true,visibility:"PUBLIC",classType:"RENTAL"});expect(await createCourseSchedule({...input,repeatUntil:undefined})).toMatchObject({success:true});
 });

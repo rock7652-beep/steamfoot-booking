@@ -80,7 +80,7 @@ describe("own independent opening makeup in the member portal", () => {
   it("marks the learner's own calendar without needing a paid card", async () => {
     const data = openingData(); data.selfBookingEnabled = false;
     await render(data);
-    const day = host.querySelector('button[aria-label="2099-01-20 1堂"]')!;
+    const day = host.querySelector('button[aria-label^="2099-01-20"]')!;
     expect(day.querySelector(".cp-dots .self")).not.toBeNull();
     expect(day.querySelector(".cp-dots .shared")).toBeNull();
     expect(data.cards).toEqual([]);
@@ -89,7 +89,7 @@ describe("own independent opening makeup in the member portal", () => {
   it.each(["ATTENDED", "CANCELLED"])("keeps %s history cardless and does not claim a paid-card deduction", async status => {
     const data = openingData(); data.bookings[0].status = status;
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
-    await click("歷史紀錄"); await click("查看明細 ⌄");
+    await click("查看明細 ⌄");
     expect(host.textContent).toContain("獨立補課權益，不使用方案額度");
     expect(host.textContent).not.toContain("已扣除"); expect(host.textContent).not.toContain("已釋放");
     expectNoOpeningMutation();

@@ -96,6 +96,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
         shopPhone={config?.shopPhone ?? ""} lineOfficialId={config?.lineOfficialId ?? ""} address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
+        assignedSchedulingEnabled={rule?.assignedSchedulingEnabled ?? true}
         selfBookingEnabled={rule?.selfBookingEnabled ?? true}
         selfBookingRevision={rule?.selfBookingRevision ?? 0}
         selfLeaveEnabled={rule?.selfLeaveEnabled ?? true}

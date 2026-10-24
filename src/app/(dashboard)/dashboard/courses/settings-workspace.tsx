@@ -24,7 +24,7 @@ import { BookableUntilForm } from "../settings/hours/bookable-until-form";
 import { DutySchedulingToggle } from "../settings/duty/duty-toggle";
 import { TrialSettingsForm } from "../settings/trial/trial-form";
 import type { TrialSettings } from "@/lib/shop-config";
-import { CourseSelfBookingSettings } from "./course-self-booking-settings";
+import { CourseSchedulingModeSettings } from "@/components/admin/course-scheduling-mode-settings";
 import {waitlistRevision} from "@/lib/course-waitlist-save";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@/components/settings";
@@ -41,6 +41,7 @@ type Props = {
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
   bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
+  assignedSchedulingEnabled?:boolean;
   selfBookingEnabled?: boolean; selfBookingRevision?: number;
   selfLeaveEnabled?:boolean;selfRescheduleEnabled?:boolean;backendNoticesEnabled?:boolean;
   waitlistFeatureAvailable?: boolean;
@@ -196,7 +197,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定")} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>
-        <CourseSelfBookingSettings storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
+        <CourseSchedulingModeSettings key={props.storeId} storeId={props.storeId} open={props.selfBookingEnabled??true} assigned={props.assignedSchedulingEnabled??true} revision={props.selfBookingRevision??0} canEdit={props.canEdit}/>
         <CourseOperationSwitch key={`leave:${props.storeId}:${props.selfLeaveEnabled}`} storeId={props.storeId} compact={props.music} expanded={expandedRow === "self-leave"} onEdit={props.music?undefined:()=>openRow("self-leave")} onClose={()=>setExpandedRow(null)} title="允許學員自行請假" setting="selfLeaveEnabled" initialEnabled={props.selfLeaveEnabled??true} canEdit={props.canEdit}/>
         <CourseOperationSwitch key={`move:${props.storeId}:${props.selfRescheduleEnabled}`} storeId={props.storeId} compact={props.music} expanded={expandedRow === "self-reschedule"} onEdit={props.music?undefined:()=>openRow("self-reschedule")} onClose={()=>setExpandedRow(null)} title="允許學員自行改期" setting="selfRescheduleEnabled" initialEnabled={props.selfRescheduleEnabled??props.selfBookingEnabled??true} canEdit={props.canEdit}/>
         {props.today && <BookableUntilForm key={`booking-window:${props.storeId}`} storeId={props.storeId} initialOpensAt={props.bookingOpensAt??null} course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}

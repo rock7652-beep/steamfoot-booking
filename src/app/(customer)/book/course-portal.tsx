@@ -15,6 +15,7 @@ import { resolveCustomerBookingWindow } from "@/lib/shop-config";
 import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
+import { getCourseMemberRecords } from "@/server/queries/course-member-records";
 import { getCoursePlanHistory } from "@/server/queries/course-plan-history";
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -100,6 +101,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  const memberRecordsPromise = memberEnabled ? getCourseMemberRecords(storeId,customer.id,musicStore) : Promise.resolve([]);
   const planHistory = await getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now);
   // Independent opening rights are visible only to their own learner. Shared
   // cards/reserver identity never grant access to another learner's entitlement.
@@ -175,14 +177,14 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            ...memberBookingAccess,
+            AND:[memberBookingAccess,{OR:[{customerId:customer.id},{reserverCustomerId:customer.id}]}],
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
             trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
             session: {
               select: {
-                nameSnapshot: true, templateId: true,
+                nameSnapshot: true, templateId: true, bookingAudience:true, cancelledAt:true,
                 template: { select: { classType: true } },
                 startsAt: true,
                 coachId: true,
@@ -245,14 +247,14 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            ...memberBookingAccess,
+            AND:[memberBookingAccess,{OR:[{customerId:customer.id},{reserverCustomerId:customer.id}]}],
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
           include: {
             session: {
               select: {
-                nameSnapshot: true, templateId: true,
+                nameSnapshot: true, templateId: true, bookingAudience:true, cancelledAt:true,
                 startsAt: true,
                 coachId: true,
                 room: { select: { name: true } },
@@ -272,7 +274,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           },
           select: {
             id: true,
-            nameSnapshot: true, templateId: true,
+            nameSnapshot: true, templateId: true, bookingAudience:true, cancelledAt:true,
             startsAt: true,
             room: { select: { name: true } },
           },
@@ -282,7 +284,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     memberEnabled
       ? coursePrisma.courseBookingRule.findUnique({
           where: { storeId },
-          select: { cancellationLeadMinutes: true, selfBookingEnabled: true, selfLeaveEnabled:true, selfRescheduleEnabled:true },
+          select: { cancellationLeadMinutes: true, assignedSchedulingEnabled:true, selfBookingEnabled: true, selfLeaveEnabled:true, selfRescheduleEnabled:true },
         })
       : null,
   ]);
@@ -323,7 +325,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             sessionId: nextBooking.sessionId,
             status: "RESERVED",
-            ...memberBookingAccess,
+            AND:[memberBookingAccess,{OR:[{customerId:customer.id},{reserverCustomerId:customer.id}]}],
           },
           select: { id: true, customerId: true, customerName: true },
           orderBy: { createdAt: "asc" },
@@ -357,6 +359,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
+    assignedSchedulingEnabled:bookingRule?.assignedSchedulingEnabled??true,
     selfLeaveEnabled:bookingRule?.selfLeaveEnabled??true,
     selfRescheduleEnabled:bookingRule?.selfRescheduleEnabled??bookingRule?.selfBookingEnabled??true,
     waitlistEnabled,
@@ -399,7 +402,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           room: nextWork.room.name,
         }
       : null,
-    sessions: sessions.map((s) => ({
+    memberRecords: await memberRecordsPromise,
+    sessions: (bookingRule?.selfBookingEnabled === false ? [] : sessions).map((s) => ({
       ...({sportsEnrollment:sportsRules.find(r=>r.sessionId===s.id)?.enrollment??null,sportsPlanId:sportsRules.find(r=>r.sessionId===s.id)?.planId??null,sportsSubjectId:s.template.musicSubjectId} as Partial<{sportsEnrollment:string|null;sportsPlanId:string|null;sportsSubjectId:string|null}>),
       sportsTrialPrice:s.isTrial?sportsRules.find(r=>r.sessionId===s.id)?.trialPrice??null:null,
       id: s.id,
@@ -428,6 +432,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       startsAt: b.session.startsAt.toISOString(),
       coach: coachNames.get(b.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
       room: b.session.room.name,
+      ...({bookingAudience: sportsRules.find(r=>r.sessionId===b.sessionId)?.enrollment??b.session.bookingAudience, sessionCancelled:!!b.session.cancelledAt} as Partial<{bookingAudience:string;sessionCancelled:boolean}>),
       customerName: b.customerName,
       customerId: b.customerId,
       operatorName: b.operatorName,
@@ -495,7 +500,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   };
 }
 type LoadedCoursePortalData=Awaited<ReturnType<typeof loadCoursePortal>>;
-export type CoursePortalData = Omit<LoadedCoursePortalData,"selfLeaveEnabled"|"selfRescheduleEnabled"|"teacherChangePermissions"> & Partial<Pick<LoadedCoursePortalData,"selfLeaveEnabled"|"selfRescheduleEnabled"|"teacherChangePermissions">>;
+export type CoursePortalData = Omit<LoadedCoursePortalData,"selfLeaveEnabled"|"selfRescheduleEnabled"|"teacherChangePermissions"|"assignedSchedulingEnabled"|"memberRecords"> & Partial<Pick<LoadedCoursePortalData,"selfLeaveEnabled"|"selfRescheduleEnabled"|"teacherChangePermissions"|"assignedSchedulingEnabled"|"memberRecords">>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
   const data = await loadCoursePortal(selectedDate?.slice(0,7) ?? month);
