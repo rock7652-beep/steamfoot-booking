@@ -314,6 +314,7 @@ export function CourseMemberWorkspace({
               ].filter(item => item.value != null && item.value !== "")}/>);
   return (
     <>
+      {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>安排課程</DashboardLink>}</div>}
       {view === "plans" && <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
         <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
