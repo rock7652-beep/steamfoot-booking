@@ -381,7 +381,7 @@ export function CourseMemberWorkspace({
             disabled={(view === "customers" && !people.length) || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
-            {music ? "新增學費" : "購買方案"}
+            {music ? "購課／續購" : "購買方案"}
           </button>
         )}
       </div>
@@ -465,7 +465,7 @@ export function CourseMemberWorkspace({
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? planReadOnly&&plan ? plan.name : plan ? sportsData ? "編輯收費方式" : music ? "編輯收費方式" : "編輯方案" : sportsData ? "新增收費方式" : music ? "新增收費方式" : "新增方案"
                   : panel === "assign"
-                    ? music ? "新增學費" : "購買方案"
+                    ? music ? "購課／續購" : "購買方案"
                     : panel === "coach"
                       ? courseDisplayText("加入為教練", music)
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
@@ -529,7 +529,7 @@ export function CourseMemberWorkspace({
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={()=>open("assign")} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
-              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "新增學費" : "購買方案"}</button>}
+              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
                 <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 

@@ -12,11 +12,12 @@ import {CourseRevenueTransactions} from "@/app/(dashboard)/dashboard/revenue/_co
 it("updates authoritative rows in place, preserves the draft and ignores older responses",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div"),root=createRoot(host);
- const data=(price:number)=>({count:1,page:1,pages:1,rows:[{id:"same",date:"2026/10/16",customerName:"測試學員",name:"方案",price,status:"CONFIRMED",refunds:[],tuitionDue:3200,storeCostSnapshot:null}]}) as any;
+ const data=(price:number)=>({count:1,page:1,pages:1,rows:[{id:"same",date:"2026/10/16",customerName:"測試學員",name:"方案商品1期",musicTermSizes:[4,4],points:8,remaining:2,price,status:"CONFIRMED",refunds:[],tuitionDue:3200,storeCostSnapshot:null}]}) as any;
  const resolve:Array<(v:unknown)=>void>=[];m.reader.read.mockImplementation(()=>new Promise(r=>resolve.push(r)));
  try{
  await act(async()=>root.render(createElement(CourseRevenueTransactions,{initial:data(0),input:{from:"2026-10-01",to:"2026-10-16",status:"CONFIRMED",dataScope:"operational",page:"2"},staffRows:[],basePath:"/dashboard/revenue",live:true,canRefund:false,canConfirm:false,canEdit:false,canVoid:false})));
  const draft=host.querySelector("input")!;draft.value="正在編輯";
+ expect(host.textContent).toContain("購買 2 期・共 8 堂");expect(host.textContent).toContain("方案商品1期");
  await act(async()=>m.signal());await act(async()=>m.signal());
  expect(m.reader.read).toHaveBeenLastCalledWith(expect.objectContaining({status:"CONFIRMED",dataScope:"operational",page:"2"}));
  await act(async()=>resolve[1]({success:true,data:data(3200)}));

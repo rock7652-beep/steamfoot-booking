@@ -65,9 +65,9 @@ it.each([false,true])("opens plan checkout without preloaded customers (music=%s
  const plans=[{id:"plan",name:"驗收方案",points:10,price:100,validDays:90,isActive:true,unit:music?"SESSION":"POINT",templateIds:[]}];
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",sportsNative:!music,music,people:[],plans})));
  await click("顧客持有方案");
- const purchase=[...host.querySelectorAll("button")].find(b=>b.textContent===(music?"新增學費":"購買方案"))!;
+ const purchase=[...host.querySelectorAll("button")].find(b=>b.textContent===(music?"購課／續購":"購買方案"))!;
  expect(purchase.disabled).toBe(false);
- await click(music?"新增學費":"購買方案");
+ await click(music?"購課／續購":"購買方案");
  expect(host.querySelector('input[aria-label="搜尋顧客姓名、電話或 LINE 名稱"]')).not.toBeNull();
  const form=host.querySelector<HTMLFormElement>('#course-member-form')!;
  expect(form).not.toBeNull();
@@ -127,7 +127,7 @@ it("keeps exactly one music summary when entering and leaving checkout repeatedl
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
  for(let i=0;i<3;i++){
   await click("課程與學費");
-  const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="新增學費");
+  const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="購課／續購");
   await act(async()=>{(add as HTMLButtonElement).click();});
   await click("‹ 返回 測試學員 詳情");
   expect(host.querySelectorAll('[aria-label="課程與學費"]').length).toBe(1);
