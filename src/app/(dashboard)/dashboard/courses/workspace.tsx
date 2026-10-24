@@ -872,7 +872,7 @@ export function CourseWorkspace({
           {!courseDialog&&monthlyReturnHref(params.toString())&&<DashboardLink className="inline-flex min-h-11 items-center px-3 text-primary-800" href={monthlyReturnHref(params.toString())!}>返回月結</DashboardLink>}
           {!courseDialog&&params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>學員資料</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className={businessProfile === "MUSIC" ? "contents" : "flex min-w-0 flex-wrap items-center gap-2"}>
               <div className="mr-1 shrink-0">
                 <h1 className="admin-page-title">{businessProfile === "MUSIC" ? "課表" : "課表排程"}</h1>
                 
