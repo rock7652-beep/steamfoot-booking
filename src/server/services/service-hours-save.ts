@@ -1,7 +1,7 @@
 import "server-only";
 import {z} from "zod";
 import {prisma} from "@/lib/db";
-import {spaPrisma} from "@/lib/spa-db";
+
 import {requireWritablePermission} from "@/lib/permissions";
 import {resolveWriteStoreId} from "@/lib/store";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
@@ -22,10 +22,11 @@ export async function saveServiceHours(input:unknown){
   const user=await requireWritablePermission("business_hours.manage"),storeId=await resolveWriteStoreId(user),{values:d,...receipt}=serviceHoursSaveInput.parse(input);
   if(receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");
   const industry=await getStoreIndustryModule(storeId);if(industry==="course")throw new AppError("FORBIDDEN","請使用課程營業設定");
+  if(!["steamfoot","beauty"].includes(industry))throw new AppError("FORBIDDEN","此模組已移除，無法修改時間設定");
   const open=d.status==="open"||d.status==="custom",periods=[...d.periods].map(p=>({...p,slotInterval:industry==="beauty"?30:p.slotInterval??60,defaultCapacity:p.defaultCapacity??6})).sort((a,b)=>a.openTime.localeCompare(b.openTime));
   if(!d.weeklyDays&&!["slots","undo"].includes(d.mode)&&open&&(d.status==="custom"||d.mode!=="day")){
    const validation=validateBusinessPeriods(periods);if(!validation.valid)throw new AppError("VALIDATION",validation.error!);
-   if(periods.some(p=>!(["spa","beauty"].includes(industry)?[15,30]:[30,60,90,120]).includes(p.slotInterval)))throw new AppError("VALIDATION","預約單位不符合門市模組");
+   if(periods.some(p=>!(industry==="beauty"?[15,30]:[30,60,90,120]).includes(p.slotInterval)))throw new AppError("VALIDATION","預約單位不符合門市模組");
   }
   if(d.weeklyDays){
    if(industry!=="beauty"||d.mode!=="weekly"||new Set(d.weeklyDays.map(day=>day.dayOfWeek)).size!==d.weeklyDays.length)throw new AppError("VALIDATION","每週設定資料不正確");
@@ -38,7 +39,7 @@ export async function saveServiceHours(input:unknown){
   const work=async(tx:Tx)=>{
    if(industry==="beauty") await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`business-hours:${storeId}`},0))`;
-   if(industry==="spa")await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
+
    const [logged]=await tx.$queryRaw<Array<{actorUserId:string;afterJson:{count:number;skipped:Array<{date:string;reason:string}>;operationId:string|null;date:string}}>>`SELECT "actorUserId","afterJson" FROM "AuditLog" WHERE id=${key} AND "targetId"=${storeId}`;
    const state=await readServiceHoursState(tx,storeId);
    if(logged){if(logged.actorUserId!==user.id||logged.afterJson.date!==d.date)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {...serviceHoursReceipt(state,d.date),...logged.afterJson};}
@@ -78,11 +79,11 @@ export async function saveServiceHours(input:unknown){
     const overrideDates=d.mode==="template"?dates.slice(1):d.mode==="copy"&&["closed","training"].includes(d.status)?[d.date]:dates;next.overrides=next.overrides.filter(o=>!overrideDates.includes(serviceDate(o)));
     if(d.mode==="dates"||d.mode==="template")for(const date of overrideDates)if(d.mode==="template"||date===d.date||d.includeSlotOverrides)next.overrides.push(...sourceOverrides.map(o=>({...o,date:new Date(date+"T00:00:00Z")})));
    }
-   const bookings=industry==="beauty"?await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime:string;people:number}>>`SELECT (("startsAt" AT TIME ZONE 'Asia/Taipei')::date)::timestamp AS "bookingDate",to_char("startsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') AS "startTime",CASE WHEN ("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei')::date>("startsAt" AT TIME ZONE 'Asia/Taipei')::date THEN '24:00' ELSE to_char("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') END AS "endTime",1 AS people FROM "BeautyAppointment" WHERE "storeId"=${storeId} AND status='RESERVED' AND "startsAt">=${new Date(toLocalDateStr()+"T00:00:00+08:00")}`:industry==="spa"?await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime:string;people:number}>>`SELECT "bookingDate","startTime","endTime",people FROM "SpaBooking" WHERE "storeId"=${storeId} AND status IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`:await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime?:string;people:number}>>`SELECT "bookingDate","slotTime" AS "startTime",people FROM "Booking" WHERE "storeId"=${storeId} AND "bookingStatus" IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`;
+   const bookings=industry==="beauty"?await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime:string;people:number}>>`SELECT (("startsAt" AT TIME ZONE 'Asia/Taipei')::date)::timestamp AS "bookingDate",to_char("startsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') AS "startTime",CASE WHEN ("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei')::date>("startsAt" AT TIME ZONE 'Asia/Taipei')::date THEN '24:00' ELSE to_char("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') END AS "endTime",1 AS people FROM "BeautyAppointment" WHERE "storeId"=${storeId} AND status='RESERVED' AND "startsAt">=${new Date(toLocalDateStr()+"T00:00:00+08:00")}`:await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime?:string;people:number}>>`SELECT "bookingDate","slotTime" AS "startTime",people FROM "Booking" WHERE "storeId"=${storeId} AND "bookingStatus" IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`;
    const grouped=new Map<string,number>();
    for(const b of bookings){const date=serviceDate({date:b.bookingDate});if(!dates.includes(date)&&!(["weekly","permanent","template"].includes(d.mode)&&(d.weeklyDays?d.weeklyDays.some(day=>day.dayOfWeek===b.bookingDate.getUTCDay()):b.bookingDate.getUTCDay()===dow)))continue;
     const rule=serviceDayRule(next,date),overrides=next.overrides.filter(o=>serviceDate(o)===date),slots=applySlotOverrides(rule,overrides),slot=slots.find(s=>s.startTime===b.startTime);
-    const fits=["spa","beauty"].includes(industry)?!rule.closed&&rule.periods.some(p=>b.startTime>=p.openTime&&b.endTime!<=p.closeTime)&&!slots.some(s=>{const minutes=(t:string)=>Number(t.slice(0,2))*60+Number(t.slice(3));const interval=rule.periods.find(p=>s.startTime>=p.openTime&&s.startTime<p.closeTime)?.slotInterval??rule.slotInterval;return !s.isEnabled&&s.startTime<b.endTime!&&minutes(s.startTime)+interval>minutes(b.startTime);}):!!slot?.isEnabled;
+    const fits=industry==="beauty"?!rule.closed&&rule.periods.some(p=>b.startTime>=p.openTime&&b.endTime!<=p.closeTime)&&!slots.some(s=>{const minutes=(t:string)=>Number(t.slice(0,2))*60+Number(t.slice(3));const interval=rule.periods.find(p=>s.startTime>=p.openTime&&s.startTime<p.closeTime)?.slotInterval??rule.slotInterval;return !s.isEnabled&&s.startTime<b.endTime!&&minutes(s.startTime)+interval>minutes(b.startTime);}):!!slot?.isEnabled;
     if(!fits)throw new AppError("VALIDATION",`${date} ${b.startTime} 已有預約，請先調整預約；本批尚未儲存`);
     if(industry==="steamfoot"){const key=date+" "+b.startTime,n=(grouped.get(key)??0)+b.people;grouped.set(key,n);if(n>slot!.capacity)throw new AppError("VALIDATION",`${key} 已預約 ${n} 人，名額不足；本批尚未儲存`);}
    }
@@ -94,6 +95,6 @@ export async function saveServiceHours(input:unknown){
    const metadata={date:d.date,count,skipped,operationId};await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"afterJson","createdAt") VALUES (${key},${user.id},'BusinessHours',${storeId},'SETTINGS_SAVE_CONFIRMED',${JSON.stringify(metadata)}::jsonb,now())`;
    return {...serviceHoursReceipt(confirmed,d.date),...metadata};
   };
-  const data=industry==="spa"?await spaPrisma.$transaction(work,{timeout:20000}):await prisma.$transaction(work,{timeout:20000});let syncWarning=false;try{revalidateBusinessHoursInRoute();}catch{syncWarning=true;}return {success:true as const,storeId,data,syncWarning};
+  const data=await prisma.$transaction(work,{timeout:20000});let syncWarning=false;try{revalidateBusinessHoursInRoute();}catch{syncWarning=true;}return {success:true as const,storeId,data,syncWarning};
  }catch(error){return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};}
 }

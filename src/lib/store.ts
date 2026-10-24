@@ -27,7 +27,7 @@ async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<stri
     const children = await prisma.store.findMany({
       where: {
         parentStoreId: { in: frontier },
-        operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+        industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
       },
       select: { id: true },
     });
@@ -52,14 +52,14 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   if (user.customerReviewStoreId) {
     const { prisma } = await import("@/lib/db");
     return prisma.store.findMany({
-      where: { id: user.customerReviewStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: user.customerReviewStoreId, industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true },
     });
   }
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     const rows=await prisma.store.findMany({
-      where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true, industryModule:true,shopConfig:{select:{address:true}} },
       orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
@@ -70,7 +70,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const [ownStore] = await prisma.store.findMany({
     where: {
       id: user.storeId,
-      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, parentStoreId: true, slug: true, name: true, isDefault: true },
     take: 1,
@@ -91,7 +91,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const stores = await prisma.store.findMany({
     where: {
       id: { in: ids },
-      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, slug: true, name: true, isDefault: true, createdAt: true },
     orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
@@ -142,7 +142,7 @@ async function resolveAuthorizedStoreAccess(
   if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
     const { prisma } = await import("@/lib/db");
     const [store] = await prisma.store.findMany({
-      where: { id: requestedStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: requestedStoreId, industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true },
       take: 1,
     });
@@ -218,9 +218,9 @@ async function resolveAuthorizedRouteStore(
   const { prisma } = await import("@/lib/db");
   const requested = await prisma.store.findUnique({
     where: { slug: routeSlug },
-    select: { id: true, slug: true, name: true, operatingStatus: true },
+    select: { id: true, slug: true, name: true, operatingStatus: true, industryModule: true },
   });
-  if (!requested) {
+  if (!requested || requested.industryModule === "SPA") {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
   }
   // The signed-in staff member's own active store needs no organization-tree
@@ -304,7 +304,7 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
 export async function getAllActiveStoreIds(): Promise<string[]> {
   const { prisma } = await import("@/lib/db");
   const stores = await prisma.store.findMany({
-    where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+    where: { industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
     select: { id: true },
     orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
