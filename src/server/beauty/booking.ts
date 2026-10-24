@@ -200,6 +200,13 @@ export async function findAllocation(
   });
   if (!result)
     throw new AppError("CONFLICT", "這個時段無法安排全部同行者，請重新選擇");
+  // Use the same customer occupancy window as reservation, including cleanup.
+  // Availability already has the scoped day snapshot; do not query per slot.
+  if (d.people.some((person, index) => person.customerId && occupied.some(o =>
+    o.customerId === person.customerId && o.status !== "CANCELLED" &&
+    !excludeIds.includes(o.id) && o.startsAt < result[index].occupiedEndsAt &&
+    o.occupiedEndsAt > startsAt,
+  ))) throw new AppError("CONFLICT", "服務者已有重疊預約，請改選其他時間");
   return { startsAt, services, policy, result };
 }
 export async function assertCard(

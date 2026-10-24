@@ -81,6 +81,25 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2099-10-19T02:00Z"));
 });
 afterEach(() => vi.useRealTimers());
+it("excludes a customer's own booking even when other technicians and beds are free", async () => {
+  const tx=transaction(),loaded=await loadAvailability(tx,actor,date);
+  const person={serviceId:"svc",preference:"FEMALE",customerId:"member",specifiedTechnicianId:null} as Parameters<typeof findAllocation>[2]["people"][number];
+  loaded.occupied=[{id:"existing",customerId:"member",technicianId:"other-tech",locationId:"other-bed",startsAt:new Date("2099-10-20T01:00Z"),occupiedEndsAt:new Date("2099-10-20T02:15Z"),duration:60,status:"RESERVED"} as typeof loaded.occupied[number]];
+  // 10:05 overlaps the existing cleanup; 10:20 touches neither window.
+  await expect(findAllocation(tx,actor,{date,time:"10:05",people:[person]},[],undefined,loaded)).rejects.toThrow("服務者已有重疊預約");
+  await expect(findAllocation(tx,actor,{date,time:"10:20",people:[person]},[],undefined,loaded)).resolves.toHaveProperty("result");
+  expect(tx.beautyAppointment.findMany).toHaveBeenCalledTimes(1);
+});
+it("respects cancellation, reschedule exclusions and the authenticated person's identity",async()=>{
+  const tx=transaction(),loaded=await loadAvailability(tx,actor,date);
+  const person={serviceId:"svc",preference:"FEMALE",customerId:"member",specifiedTechnicianId:null} as Parameters<typeof findAllocation>[2]["people"][number];
+  loaded.occupied=[{id:"moving",customerId:"member",technicianId:"other-tech",locationId:"other-bed",startsAt:new Date("2099-10-20T01:00Z"),occupiedEndsAt:new Date("2099-10-20T02:05Z"),duration:60,status:"COMPLETED"} as typeof loaded.occupied[number]];
+  await expect(findAllocation(tx,actor,{date,time:"10:05",people:[person]},[],undefined,loaded)).resolves.toHaveProperty("result");
+  await expect(findAllocation(tx,actor,{date,time:"09:35",people:[person]},["moving"],undefined,loaded)).resolves.toHaveProperty("result");
+  await expect(findAllocation(tx,actor,{date,time:"09:35",people:[{...person,customerId:null}]},[],undefined,loaded)).resolves.toHaveProperty("result");
+  loaded.occupied[0].status="CANCELLED";
+  await expect(findAllocation(tx,actor,{date,time:"09:35",people:[person]},[],undefined,loaded)).resolves.toHaveProperty("result");
+});
 it("uses shared opening segments and the store's interval anchor, including disabled slots", async () => {
   const loaded = await loadAvailability(transaction(), actor, date);
   expect(loaded.slots).toContain("09:05");
