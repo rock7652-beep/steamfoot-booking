@@ -1,0 +1,19 @@
+{
+  "deploymentId": "dpl_8dzk8w7tLT1LuEhcn4EMyq3xUcRq",
+  "url": "https://steamfoot-booking-83ebh9wbu-rock7652-2111s-projects.vercel.app",
+  "commit": "6d7dfd8ac8bb10542ac7d9fb1ab52afff92efc16",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "state": "READY",
+  "target": null,
+  "lineEnabled": false,
+  "migrationRequired": false,
+  "validation": {
+    "unitTests": 680,
+    "unitFiles": 86,
+    "localProductionManagerAssertions": 44,
+    "localProductionMemberAssertions": 24,
+    "localProductionIdentityAssertions": 14,
+    "hostedAuthenticatedAcceptanceThisRound": false,
+    "physicalDevices": false
+  }
+}

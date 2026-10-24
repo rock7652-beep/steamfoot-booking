@@ -25,4 +25,4 @@
 
 [前一版平板四人介面](evidence/20261023-service-reservation/four-person-768.png)；本輪：[桌機](evidence/20261024-party-alignment/manager-1440.png)、[平板](evidence/20261024-party-alignment/manager-768.png)、[窄視窗](evidence/20261024-party-alignment/manager-390.png)、[沿用蒸足建檔](evidence/20261024-party-alignment/companion-editor.png)、[既有顧客須明確確認](evidence/20261024-party-alignment/existing-customer-confirmation.png)。皆為合成資料；前後案例資料不同，主要比較欄位及操作。
 
-無 schema 變更或 migration；遠端既有資料不動。LINE 關閉，僅既有隔離支線／Preview，正式站不動。最終整站建置通過，前、後台 1／2／4 人正式模式驗收通過。會員四人查詢已獨立管理讀取狀態，最後連續驗收 1／2／4 人均正常選取與送出；後台 41 項、會員 24 項、混合收費與身分 14 項本機瀏覽器斷言通過。Preview 部署狀態另補記。
+無 schema 變更或 migration；遠端既有資料不動。LINE 關閉，僅既有隔離支線／Preview，正式站不動。最終整站建置通過，前、後台 1／2／4 人正式模式驗收通過。會員四人查詢已獨立管理讀取狀態，最後連續驗收 1／2／4 人均正常選取與送出；後台 44 項、會員 24 項、混合收費與身分 14 項本機瀏覽器斷言通過。完整程式 `6d7dfd8a` 已更新至 [隔離測試站](https://steamfoot-booking-83ebh9wbu-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty?tab=班表)，部署 `dpl_8dzk8w7tLT1LuEhcn4EMyq3xUcRq`，READY／Preview（target=null），完整遠端建置亦通過。此版未重新建立可分享的存取連結；本輪登入業務驗收在本機隔離庫，未冒稱新的遠端登入、真機或店家簽收。暫時本機登入狀態及本輪測試服務已收起，合成資料與歷史保留。
