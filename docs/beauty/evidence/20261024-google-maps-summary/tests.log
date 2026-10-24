@@ -1,0 +1,7 @@
+RUN  v4.1.4 /workspace/steamfoot-hq-beauty-repair
+
+
+ Test Files  3 passed (3)
+      Tests  58 passed (58)
+   Start at  14:46:02
+   Duration  3.26s (transform 752ms, setup 0ms, import 1.08s, tests 2.35s, environment 302ms)
