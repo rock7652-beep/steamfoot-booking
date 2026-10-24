@@ -118,3 +118,8 @@
   .musicToolbar [aria-label="課表課型圖例"] { column-gap: 4px; }
   .musicToolbar [aria-label="課表課型圖例"] > span { column-gap: 4px; }
 }
+
+.musicHeader :is(button, a) {
+  min-height: 44px;
+  padding-inline: 8px;
+}
