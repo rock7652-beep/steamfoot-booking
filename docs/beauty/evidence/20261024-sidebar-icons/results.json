@@ -1,0 +1,26 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "all 13 menu entries have standard 20px functional icons",
+    "expanded sidebar contained 1366",
+    "expanded sidebar contained 1024",
+    "collapsed icons retain accessible labels and tooltips",
+    "tablet menu drawer renders functional icons"
+  ],
+  "errors": [],
+  "iconLabels": [
+    "首頁",
+    "班表",
+    "顧客管理",
+    "顧客經營",
+    "營運",
+    "分析",
+    "位置管理",
+    "服務項目",
+    "收費方式",
+    "技師管理",
+    "人員管理",
+    "圖片公告",
+    "設定"
+  ]
+}

@@ -1,6 +1,7 @@
 "use client";
 import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
+import { ImageAnnouncementIcon, LocationIcon, PractitionerIcon, ServiceCatalogIcon } from "./admin/navigation-icons";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
@@ -819,10 +820,23 @@ export default function DashboardShell({
     if (isHqPlatformView || (isAdmin && !isStoreAdminRoute && !isHqStoreView)) return NAV_GROUPS;
     const entry = (href: string) => STORE_ADMIN_NAV.find(item => item.href === href)!;
     if (industryModuleId === "beauty") {
-      const beautyItem = (label:string, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({...STORE_ADMIN_NAV[0],label,href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
+      const icons = {
+        "首頁": entry("/dashboard").icon,
+        "班表": entry("/dashboard/bookings").icon,
+        "顧客管理": entry("/dashboard/customers").icon,
+        "顧客經營": entry("/dashboard/growth").icon,
+        "營運": entry("/dashboard/revenue").icon,
+        "分析": entry("/dashboard/reports").icon,
+        "位置管理": <LocationIcon />,
+        "服務項目": <ServiceCatalogIcon />,
+        "收費方式": entry("/dashboard/plans").icon,
+        "技師管理": <PractitionerIcon />,
+        "設定": entry("/dashboard/settings").icon,
+      };
+      const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label,icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
       return [
         {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),beautyItem("營運","transaction.read",FEATURES.TRANSACTION_MANAGEMENT),beautyItem("分析","report.read",FEATURES.BASIC_REPORTS)]},
-        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
+        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
       ];
     }
 
@@ -848,8 +862,8 @@ export default function DashboardShell({
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <ServiceCatalogIcon /> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <LocationIcon /> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
     if (course) {
