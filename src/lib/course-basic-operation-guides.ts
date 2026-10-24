@@ -4,11 +4,11 @@ import type { OperationGuide } from "./operation-guide-types";
 export const courseBasicOperationGuides: OperationGuide[] = [
   {
     id: "C126", category: "start", title: "第一次使用課程系統，設定順序是什麼？",
-    summary: "依六步進度設定營業與公休，建立空間、課程、方案、教練授課資格與第一堂課。", answer: "課程範本、販售方案、實際課次與學員持有方案是不同資料；設定引導可稍後提醒，但不會替你自動完成。",
-    path: "設定 → 店務設定 → 課表排程", keywords: "首次使用 新手 開店 設定順序 開始使用 教師 老師 教學項目 班型 學費",
-    steps: ["先設定營業時間與公休，再依序建立可使用的空間與課程；音樂店畫面稱教學項目。", "建立方案；音樂店稱班型與學費。接著啟用教練並設定授課資格，音樂店顯示教師。", "排第一堂課，核對日期、授課人員、空間與容量；需要學員購買時再從顧客管理處理方案與實際收款。"],
+    summary: "六步引導依模組分流；新版運動先建立教練基本資料，再完成收費與授課資格。", answer: "課程範本、販售方案、實際課次與學員持有方案是不同資料；設定引導可稍後提醒，但不會替你自動完成。",
+    path: "開始設定 → 依門市模組的六步引導", keywords: "首次使用 新手 開店 設定順序 開始使用 左側功能列 空間 課程 方案 教師 教練 人員 設定 教學項目 班型 學費",
+    steps: ["先完成營業時間與公休、空間與課程；新版運動與音樂店畫面稱教學項目。", "新版運動先建立啟用教練的基本資料，再建立收費方式與對應授課資格；音樂與舊課程仍先建立方案／班型與學費，再設定教練／教師授課資格。後台人員帳號與權限另依需要建立。", "排第一堂課，核對日期、授課人員、空間與容量；需要學員購買時再從顧客管理處理方案與實際收款。"],
     important: "建立課程範本不代表已排課，建立販售方案也不代表學員已持有方案。",
-    details: ["六步引導可稍後提醒或不再顯示，點選後會立即從清單移除；若儲存失敗會恢復。這只影響引導，不會替你完成或刪除設定；已有但停用的資料會提示修正或啟用。", "新增空間成功會原地加入清單，背景更新不需等待完整課表重載；失敗保留草稿，先核對現況再重試，詳見 C108、I21。", "排課需可用課程、空間與具資格的授課人員；方案用於購買與預約，建立課表本身不要求先有方案。", "未另設授課時間時沿用店家營業時間；已有自訂週表時，未設定星期視為不可授課。值班聯動開啟時，值班須涵蓋整堂課。", "轉帳、LINE 提醒與授課費需按需求另行設定，不是排第一堂課的通用前置。"],
+    details: ["新版運動六步依序為營業時間與公休、空間、教學項目、教練基本資料、收費方式與授課資格、第一堂課。第四步只需啟用教練；第五步仍須有效收費與對應授課資格，缺資格不能算完成。完整收費操作見 C172；不以側欄選單排列推定各模組的引導順序。", "六步引導可稍後提醒或不再顯示，點選後會立即從清單移除；若儲存失敗會恢復。這只影響引導，不會替你完成或刪除設定；已有但停用的資料會提示修正或啟用。", "新增空間成功會原地加入清單，背景更新不需等待完整課表重載；失敗保留草稿，先核對現況再重試，詳見 C108、I21。", "排課需可用課程、空間與具資格的授課人員；方案用於購買與預約，建立課表本身不要求先有方案。", "未另設授課時間時沿用店家營業時間；已有自訂週表時，未設定星期視為不可授課。值班聯動開啟時，值班須涵蓋整堂課。", "轉帳、LINE 提醒與授課費需按需求另行設定，不是排第一堂課的通用前置。"],
     success: "後台六步顯示實際進度，課表有正確課次；方案、排課與收款分別核對。",
     permission: "booking.read", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
     sources: ["src/lib/course-setup-progress.ts", "src/components/admin/course-setup-guide.tsx", "src/server/queries/course-setup.ts", "src/server/services/course-resources.ts", "src/server/services/course-availability.ts"],
@@ -36,15 +36,35 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     sources: ["src/server/actions/course-customer-attribution.ts", "src/app/(dashboard)/dashboard/courses/member-workspace.tsx"],
   },
   {
-    id: "C129", category: "customers", title: "哪裡查看學員的購買與上課紀錄？",
-    summary: "從顧客詳情切換持有方案或購買與上課，分開核對額度與交易。", answer: "上課紀錄、持有方案與購買紀錄各自反映不同狀態。",
-    path: "顧客管理 → 顧客詳情 → 持有方案／購買與上課", keywords: "購買紀錄 上課歷史 顧客詳情 交易 持有方案",
-    steps: ["搜尋並開啟學員，核對姓名與電話。", "在持有方案查看卡片；在購買與上課查看可見紀錄，核對日期與狀態。", "發現差異時回查原課次或原購買，不直接再指派一張方案。"],
-    important: "預約存在不代表已出席；待核帳購買也不代表已啟用方案。",
-    details: ["方案、交易與預約的查看權限分開，部分分頁或資料可能不顯示。", "退款、作廢與取消應回到對應原紀錄處理，不用刪除學員來消除歷史。"],
-    success: "能把同一學員的方案、購買狀態與上課紀錄對應起來。",
-    permission: "customer.read", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx"],
+    "id": "C129",
+    "category": "customers",
+    "title": "哪裡查看學員的購買與上課紀錄？",
+    "summary": "從顧客詳情切換持有方案或購買與上課，分開核對額度與交易。",
+    "answer": "上課紀錄、持有方案與購買紀錄各自反映不同狀態。",
+    "path": "顧客管理 → 顧客詳情 → 持有方案／購買與上課",
+    "keywords": "購買紀錄 上課歷史 顧客詳情 交易 持有方案 新版運動 點名時核對方案 未扣抵 單行展開",
+    "steps": [
+      "搜尋並開啟學員，核對姓名與電話。",
+      "在持有方案查看卡片；在購買與上課查看可見紀錄，核對日期與狀態。",
+      "發現差異時回查原課次或原購買，不直接再指派一張方案。"
+    ],
+    "important": "預約存在不代表已出席；待核帳購買也不代表已啟用方案。",
+    "details": [
+      "方案、交易與預約的查看權限分開，部分分頁或資料可能不顯示。",
+      "退款、作廢與取消應回到對應原紀錄處理，不用刪除學員來消除歷史。",
+      "新版運動購買與上課歷史採單行摘要，展開再看方案、期限、操作人及備註。永久指定位置尚未綁卡時顯示「點名時核對方案」與未扣抵，不代表體驗客、已付款或資料遺失，不要為此重發卡。"
+    ],
+    "success": "能把同一學員的方案、購買狀態與上課紀錄對應起來。",
+    "permission": "customer.read",
+    "feature": null,
+    "modules": [
+      "course"
+    ],
+    "kind": "howto",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/member-workspace.tsx"
+    ]
   },
   {
     id: "C130", category: "customers", title: "店內備註與本次上課備註有何不同？",
@@ -91,15 +111,41 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/server/actions/duty.ts", "src/lib/course-scheduling.ts"],
   },
   {
-    id: "C134", category: "plans", title: "剩餘、預約保留與可用額度怎麼看？",
-    summary: "先看全部有效方案合計，再展開正確卡片核對單位、期限及預約保留。", answer: "總剩餘、已預約與可用會分點數／堂數合計；同一共卡只算一次，個別卡仍保留自己的期限與限制。",
-    path: "顧客管理 → 顧客詳情 → 持有方案 → 卡片與預約明細", keywords: "剩餘 已預約 還可預約 點額度 共同餘額 額度已全數預約 紀錄剩餘 約不到",
-    steps: ["在後台學員持有方案先看全部有效方案的總剩餘、已預約與可用，點數／堂數分開。", "再展開個別方案核對名稱、單位、到期日、適用課程及持有人／共卡人。", "有保留額度時查看學員、課次、日期與占用額度；仍約不到再查效期、停用、容量及截止時間。"],
-    important: "有剩餘不代表可立即預約；額度可能已保留給其他課次。",
-    details: ["有效方案合計不受後台 20 筆清單分頁影響；21 張以上仍應計入。過期與停用不列入有效合計。", "「共同餘額」由共卡人一起使用，同一張共卡只算一次，不能當成每人各一份；點數與堂數不可相加。", "已全數預約與已用完不同；已到期／停用的紀錄剩餘只供查詢，不代表還能預約。", "後台預約明細需預約、方案及顧客查看權限；所屬店長僅看授權學員。固定期課綁指定課次，不可拿剩餘堂數約任意課程。"],
-    success: "可用額度與預約保留可對應，能確認不能預約的具體原因。",
-    permission: "wallet.read", feature: null, modules: ["course"], kind: "explanation", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/app/(customer)/book/course-portal-client.tsx", "src/app/(dashboard)/dashboard/courses/card-browser.tsx", "src/app/(dashboard)/dashboard/courses/card-reservations.tsx", "src/server/actions/course-card-reservations.ts"],
+    "id": "C134",
+    "category": "plans",
+    "title": "剩餘、預約保留與可用額度怎麼看？",
+    "summary": "先看全部有效方案合計，再展開正確卡片核對單位、期限及預約保留。",
+    "answer": "總剩餘、已預約與可用會分點數／堂數合計；同一共卡只算一次，個別卡仍保留自己的期限與限制。",
+    "path": "顧客管理 → 顧客詳情 → 持有方案 → 卡片與預約明細",
+    "keywords": "剩餘 已預約 還可預約 點額度 共同餘額 額度已全數預約 紀錄剩餘 約不到 永久固定位置 不預留 點名時核對方案",
+    "steps": [
+      "在後台學員持有方案先看全部有效方案的總剩餘、已預約與可用，點數／堂數分開。",
+      "再展開個別方案核對名稱、單位、到期日、適用課程及持有人／共卡人。",
+      "有保留額度時查看學員、課次、日期與占用額度；仍約不到再查效期、停用、容量及截止時間。"
+    ],
+    "important": "有剩餘不代表可立即預約；額度可能已保留給其他課次。",
+    "details": [
+      "有效方案合計不受後台 20 筆清單分頁影響；21 張以上仍應計入。過期與停用不列入有效合計。",
+      "「共同餘額」由共卡人一起使用，同一張共卡只算一次，不能當成每人各一份；點數與堂數不可相加。",
+      "已全數預約與已用完不同；已到期／停用的紀錄剩餘只供查詢，不代表還能預約。",
+      "後台預約明細需預約、方案及顧客查看權限；所屬店長僅看授權學員。固定期課綁指定課次，不可拿剩餘堂數約任意課程。",
+      "新版運動永久固定位置不預留課卡額度，不能以位置數直接扣減可用合計；出席或未到結算才核對有效適用方案。單次與舊預約仍可能保留額度，固定期課仍受指定課次限制。"
+    ],
+    "success": "可用額度與預約保留可對應，能確認不能預約的具體原因。",
+    "permission": "wallet.read",
+    "feature": null,
+    "modules": [
+      "course"
+    ],
+    "kind": "explanation",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "src/app/(customer)/book/course-portal-client.tsx",
+      "src/app/(dashboard)/dashboard/courses/card-browser.tsx",
+      "src/app/(dashboard)/dashboard/courses/card-reservations.tsx",
+      "src/server/actions/course-card-reservations.ts"
+    ]
   },
   {
     id: "C135", category: "health", title: "如何新增、修改與查看學員健康量測？",

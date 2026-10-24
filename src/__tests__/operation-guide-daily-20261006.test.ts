@@ -33,7 +33,7 @@ const guide = (id: string) => {
 
 describe("October 6 operation guide audit", () => {
   it("adds one inventory category and ten source-reviewed guides", () => {
-    expect(operationGuides).toHaveLength(205);
+    expect(operationGuides).toHaveLength(197);
     expect(guideCategoryForPath("/dashboard/inventory")).toBe("inventory");
     for (const id of ["A13", "G05", "O01", "O02", "O03", "O04", "O05", "O06", "O07", "O08"]) {
       expect(guide(id).verification).toBe("source-reviewed");
@@ -42,7 +42,7 @@ describe("October 6 operation guide audit", () => {
 
   it("gates inventory by feature and each operation permission", () => {
     expect(availableGuides(access("steamfoot")).filter((item) => item.id.startsWith("O"))).toHaveLength(10);
-    expect(availableGuides(access("spa")).map((item) => item.id)).toContain("O01");
+    expect(availableGuides(access("spa"))).toEqual([]);
     expect(availableGuides(access("course")).map((item) => item.id)).toContain("O08");
     expect(availableGuides(access("steamfoot", false)).some((item) => item.id.startsWith("O"))).toBe(false);
     expect(availableGuides({ module: "steamfoot", permissions: ["inventory.read"], features: { inventory: true } }).map((item) => item.id))
@@ -69,7 +69,7 @@ describe("October 6 operation guide audit", () => {
   });
 
   it("separates roles, permissions and service identities", () => {
-    expect(guide("G01").modules).toEqual(["steamfoot", "spa", "course"]);
+    expect(guide("G01").modules).toEqual(["steamfoot", "course"]);
     expect(guide("G01").important).toContain("三件事");
     expect(guide("G03").details.join(" ")).toContain("重新登入");
     expect(guide("G04").details.join(" ")).toContain("最後一位啟用中的 Owner");
