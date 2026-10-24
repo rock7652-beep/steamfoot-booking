@@ -216,7 +216,7 @@ export function CourseMemberWorkspace({
     if(value === "assign" || value === "card")setPersonTab(music ? "courses" : "plans");
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
-    if (value === "assign" && music) { setRenewal(false); setPurchaseCustomerId(person?.id??""); setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
+    if (value === "assign" && music) { setRenewal(false); setPurchaseCustomerId(""); setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
     if (value === "assign" && !music && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
       setPlanId(plans.find((p) => p.isActive && (!music || p.unit === "SESSION"))?.id ?? "");
     setError("");
