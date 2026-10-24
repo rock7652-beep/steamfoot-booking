@@ -2,7 +2,7 @@
 import {writeFileSync} from "node:fs";
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
-import {beforeEach,afterEach,expect,it,vi} from "vitest";
+import {beforeEach,afterEach,describe,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({fetch:vi.fn(),day:vi.fn(),summary:vi.fn(),specials:vi.fn(),toast:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/s/a/admin/dashboard/settings/hours"}));
 vi.mock("sonner",()=>({toast:{success:m.toast,error:vi.fn()}}));
@@ -10,9 +10,10 @@ vi.mock("@/app/(dashboard)/dashboard/courses/hours/weekly-hours-editor",()=>({Co
 vi.mock("@/server/actions/course-business-hours",()=>({getCourseDayHours:m.day,getCourseMonthScheduleSummary:m.summary,getCourseMonthSpecialDays:m.specials,saveCourseDayHours:vi.fn()}));
 vi.mock("@/server/actions/business-hours",()=>({getDaySlotDetails:m.day,getMonthScheduleSummary:m.summary,getMonthSpecialDays:m.specials,syncFromHeadquarters:vi.fn()}));
 import {ScheduleManager} from "@/app/(dashboard)/dashboard/settings/hours/schedule-manager";
-const periods=[{openTime:"09:00",closeTime:"18:00",slotInterval:60,defaultCapacity:6}];
-const weekly=["週日","週一","週二","週三","週四","週五","週六"].map((dayName,dayOfWeek)=>({dayName,dayOfWeek,isOpen:true,persisted:true,openTime:"09:00",closeTime:"18:00",slotInterval:60,defaultCapacity:6,periods}));
-const detail={status:"open",openTime:"09:00",closeTime:"18:00",reason:null,specialDayId:null,dayOfWeek:2,dayName:"週二",slots:[],slotInterval:60,defaultCapacity:6,periods,weeklyDefault:weekly[2],hoursRevision:"a".repeat(64)};
+describe.each([{module:"steamfoot",spa:false,interval:60},{module:"spa (archived compatibility only)",spa:true,interval:30}])("$module selected dates",({spa,interval})=>{
+const periods=[{openTime:"09:00",closeTime:"18:00",slotInterval:interval,defaultCapacity:6}];
+const weekly=["週日","週一","週二","週三","週四","週五","週六"].map((dayName,dayOfWeek)=>({dayName,dayOfWeek,isOpen:true,persisted:true,openTime:"09:00",closeTime:"18:00",slotInterval:interval,defaultCapacity:6,periods}));
+const detail={status:"open",openTime:"09:00",closeTime:"18:00",reason:null,specialDayId:null,dayOfWeek:2,dayName:"週二",slots:[],slotInterval:interval,defaultCapacity:6,periods,weeklyDefault:weekly[2],hoursRevision:"a".repeat(64)};
 const summary=Object.fromEntries(Array.from({length:31},(_,i)=>[`2030-10-${String(i+1).padStart(2,"0")}`,{status:"open" as const,openTime:"09:00",closeTime:"18:00",slotCount:0,overrideCount:1}]));
 const saved={date:"2030-10-01",day:{...detail,status:"custom",specialDayId:"special",hoursRevision:"b".repeat(64)},weekly,specials:[{id:"special",date:"2030-10-01",type:"custom",reason:null,openTime:null,closeTime:null}],summary:{...summary,"2030-10-01":{status:"custom",openTime:"09:00",closeTime:"18:00",slotCount:0,overrideCount:1}}};
 let host:HTMLDivElement,root:Root;
@@ -21,7 +22,7 @@ async function click(text:string){const b=[...host.querySelectorAll<HTMLButtonEl
 beforeEach(async()=>{
  vi.resetAllMocks();vi.stubGlobal("fetch",m.fetch);Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.day.mockResolvedValue(detail);
  host=document.createElement("div");document.body.append(host);root=createRoot(host);
- await act(async()=>root.render(createElement(ScheduleManager,{storeId:"s",weeklyHours:weekly,initialSpecialDays:[],initialSummary:summary,initialYear:2030,initialMonth:10,canManage:true,isHeadquarters:false,isSpaStore:false,isCourseStore:false})));
+ await act(async()=>root.render(createElement(ScheduleManager,{storeId:"s",weeklyHours:weekly,initialSpecialDays:[],initialSummary:summary,initialYear:2030,initialMonth:10,canManage:true,isHeadquarters:false,isSpaStore:spa,isCourseStore:false})));
  await act(async()=>calendarDay(1).click());await act(async()=>{host.querySelector<HTMLInputElement>('input[value="dates"]')!.click();});
 });
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
@@ -53,4 +54,6 @@ it("keeps selected dates and the draft when bookings prevent replacement",async(
  expect(host.textContent).toContain("已有預約；本批尚未儲存");
  expect(calendarDay(2).textContent).not.toContain("特殊時段");
  expect(m.toast).not.toHaveBeenCalled();
+});
+
 });

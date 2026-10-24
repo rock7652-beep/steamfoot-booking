@@ -1,7 +1,7 @@
 "use server";
 
 import {courseDayHoursValues,courseDayHoursReceipt} from "@/lib/course-day-hours-save";
-import {readCourseHoursState,courseHoursRevision,intendedCourseHours,courseDayDetail,courseHoursReceiptData} from "@/server/services/course-hours-save-receipt";
+import {readCourseHoursState,courseHoursRevision,intendedCourseHours,courseDayDetail,courseHoursReceiptData,courseHoursAffectedDates} from "@/server/services/course-hours-save-receipt";
 import {weeklyReceipt,weeklyRevision} from "@/lib/course-weekly-hours-save";
 import {parseBusinessPeriods} from "@/lib/business-periods";
 import {settingsSaveUncertain} from "@/server/services/settings-save-error";
@@ -15,7 +15,7 @@ import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidati
 import { revalidateTag,revalidatePath } from "next/cache";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { resolvedCourseHours, assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
-import { toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v, "日期無效");
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -56,8 +56,9 @@ export async function saveCourseDayHours(input:unknown) {
     const {storeId}=await courseManager("business_hours.manage"); const d=schema.parse(input);
     if(d.receipt&&d.receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟營業設定");
     const open=d.status==="open"||d.status==="custom";
+    if(d.mode==="dates"&&(!d.targetDates?.length||d.targetDates.includes(d.date)||d.targetDates.some(date=>date<toLocalDateStr())))throw new AppError("VALIDATION","請選擇未來的目標日期，且不可包含來源日");
     const periods=[...d.periods].sort((a,b)=>a.openTime.localeCompare(b.openTime));
-    if(open && (d.status==="custom"||d.mode==="permanent"||d.mode==="template"||d.mode==="weekly")) {
+    if(open && (d.status==="custom"||d.mode==="dates"||d.mode==="permanent"||d.mode==="template"||d.mode==="weekly")) {
       if(!periods.length||periods.some((p,i)=>p.openTime>=p.closeTime||(i>0&&periods[i-1].closeTime>p.openTime))) throw new AppError("VALIDATION","請設定不重疊的完整營業時間");
     }
     const interval=await courseStartInterval(storeId);
@@ -76,14 +77,13 @@ export async function saveCourseDayHours(input:unknown) {
         const dow=new Date(d.date+"T00:00:00Z").getUTCDay();
         await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
       }
-      const count=d.mode==="copy"||d.mode==="template"?d.weeks:0;
-      for(let week=0;d.mode!=="weekly" && week<=count;week++) {
-        const dateStr=addTaiwanDuration(d.date,week*7,"DAY"); affected.add(dateStr);
+      for(const dateStr of courseHoursAffectedDates(d)) {
+        affected.add(dateStr);
         const date=new Date(dateStr+"T00:00:00Z");
-        if(d.mode==="permanent"||d.mode==="template"||d.status==="open") {
+        if(d.mode==="permanent"||d.mode==="template"||d.status==="open"&&d.mode!=="dates") {
           await tx.$executeRaw`DELETE FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${date}::date`;
         } else {
-          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"slotInterval","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${d.status},${d.reason||null},${first},${last},${json}::jsonb,${interval},NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
+          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"slotInterval","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${open?"custom":d.status},${d.reason||null},${first},${last},${json}::jsonb,${interval},NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
         }
       }
       const sessions=await tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gte:new Date()}},select:{startsAt:true,endsAt:true}});

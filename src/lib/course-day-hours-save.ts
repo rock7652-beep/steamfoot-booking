@@ -3,7 +3,7 @@ const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.
 const time=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const period=z.object({openTime:time,closeTime:time,slotInterval:z.number().optional(),defaultCapacity:z.number().optional()});
 const status=z.enum(["open","closed","training","custom"]);
-export const courseDayHoursValues=z.object({date,status,mode:z.enum(["day","copy","permanent","template","weekly"]),weeks:z.number().int().min(0).max(104),reason:z.string().trim().max(300),periods:z.array(period).max(8)});
+export const courseDayHoursValues=z.object({date,status,mode:z.enum(["day","copy","dates","permanent","template","weekly"]),targetDates:z.array(date).max(62).optional(),weeks:z.number().int().min(0).max(104),reason:z.string().trim().max(300),periods:z.array(period).max(8)});
 export const courseDayHoursReceipt=z.object({expectedStoreId:z.string().min(1).max(100),requestKey:z.string().uuid(),expectedRevision:z.string().regex(/^[a-f0-9]{64}$/)});
 export const courseDayHoursSaveInput=z.object({values:courseDayHoursValues}).merge(courseDayHoursReceipt);
 const fullPeriod=period.extend({slotInterval:z.number(),defaultCapacity:z.number()});

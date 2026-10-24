@@ -18,6 +18,12 @@ export function courseHoursRevision(state:CourseHoursState){
  const specials=[...state.specials].sort((a,b)=>a.date.getTime()-b.date.getTime()).map(r=>[r.date.toISOString().slice(0,10),r.type,r.reason,r.openTime,r.closeTime,r.slotInterval,r.defaultCapacity,periods(r)]);
  return createHash("sha256").update(JSON.stringify([hours,specials])).digest("hex");
 }
+export function courseHoursAffectedDates(d:z.infer<typeof courseDayHoursValues>):string[]{
+ if(d.mode==="weekly")return [];
+ if(d.mode==="dates")return [d.date,...new Set(d.targetDates??[])];
+ const count=d.mode==="copy"||d.mode==="template"?d.weeks:0;
+ return Array.from({length:count+1},(_,week)=>addTaiwanDuration(d.date,week*7,"DAY"));
+}
 /** Simulate only fields written by the mutation, so lost-response retries do not write again. */
 export function intendedCourseHours(state:CourseHoursState,d:z.infer<typeof courseDayHoursValues>,interval:number):CourseHoursState{
  const open=d.status==="open"||d.status==="custom",sorted=[...d.periods].sort((a,b)=>a.openTime.localeCompare(b.openTime));
@@ -28,11 +34,10 @@ export function intendedCourseHours(state:CourseHoursState,d:z.infer<typeof cour
   const dayOfWeek=new Date(d.date+"T00:00:00Z").getUTCDay(),old=hours.find(h=>h.dayOfWeek===dayOfWeek);
   hours=[...hours.filter(h=>h.dayOfWeek!==dayOfWeek),{dayOfWeek,isOpen:open,openTime,closeTime,segments,slotInterval:interval,defaultCapacity:old?.defaultCapacity??6}];
  }
- const count=d.mode==="copy"||d.mode==="template"?d.weeks:0;
- for(let week=0;d.mode!=="weekly"&&week<=count;week++){
-  const dateStr=addTaiwanDuration(d.date,week*7,"DAY"),old=specials.find(s=>s.date.toISOString().slice(0,10)===dateStr);
+ for(const dateStr of courseHoursAffectedDates(d)){
+  const old=specials.find(s=>s.date.toISOString().slice(0,10)===dateStr);
   specials=specials.filter(s=>s.date.toISOString().slice(0,10)!==dateStr);
-  if(!["permanent","template"].includes(d.mode)&&d.status!=="open")specials.push({id:old?.id??"",date:new Date(dateStr+"T00:00:00Z"),type:d.status,reason:d.reason||null,openTime,closeTime,segments,slotInterval:interval,defaultCapacity:old?.defaultCapacity??null});
+  if(!["permanent","template"].includes(d.mode)&&(d.status!=="open"||d.mode==="dates"))specials.push({id:old?.id??"",date:new Date(dateStr+"T00:00:00Z"),type:open?"custom":d.status,reason:d.reason||null,openTime,closeTime,segments,slotInterval:interval,defaultCapacity:old?.defaultCapacity??null});
  }
  return {hours,specials};
 }
