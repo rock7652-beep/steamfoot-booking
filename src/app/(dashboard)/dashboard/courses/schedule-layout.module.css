@@ -71,19 +71,3 @@
     min-height: 160px;
   }
 }
-
-/* Compact desktop filters; retain full touch targets on narrow/coarse surfaces. */
-.compactFilters select,
-.compactFilters input {
-  min-height: 36px;
-  height: 36px;
-  padding-block: 2px;
-}
-@container course-schedule (max-width: 64rem) {
-  .compactFilters select,
-  .compactFilters input { min-height: 44px; height: 44px; }
-}
-@media (pointer: coarse) {
-  .compactFilters select,
-  .compactFilters input { min-height: 44px; height: 44px; }
-}
