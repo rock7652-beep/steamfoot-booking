@@ -842,7 +842,7 @@ export function CourseWorkspace({
     });
   }
   const template = templates.find((t) => t.id === chosen);
-  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(businessProfile === "MUSIC" ? [["每週固定","bg-blue-600"],["隔週固定","bg-violet-600"],["單次課","bg-emerald-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]] : sportsNative?sportsScheduleKinds.map(item=>[item.label,item.dot]):[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
+  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(businessProfile === "MUSIC" ? [["每週固定","bg-blue-600"],["隔週固定","bg-violet-600"],["單次課","bg-emerald-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]] : sportsNative?sportsScheduleKinds.map(item=>[item.label,item.dot]):[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
   const repeatControl = (
     <label className="min-w-0 flex-1">
       重複
@@ -966,18 +966,12 @@ export function CourseWorkspace({
                 }}
                 className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
               />
-              <span className="hidden text-sm font-medium text-earth-700 xl:inline">
-                {scheduleMode === "month"
-                  ? `${year} 年 ${mon} 月`
-                  : scheduleMode === "week"
-                    ? `${selectedDate} 當週`
-                    : selectedDate}
-              </span>
               {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex flex-wrap items-center gap-2">
                 <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
                 <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
               </div>}
             </div>
+            {businessProfile === "MUSIC" && <div className="min-w-0">{scheduleLegend}</div>}
             {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex shrink-0 gap-2">
                 {cashbookShortcut}
@@ -995,8 +989,8 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className={businessProfile==="MUSIC"?"relative z-10 grid min-w-0 grid-cols-1 items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 p-2 @min-[32rem]/course-schedule:grid-cols-2 @min-[48rem]/course-schedule:grid-cols-4":"relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1"}>
-            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課教師" : courseDisplayText("授課教練", businessProfile)}
+          {<div className={businessProfile==="MUSIC"?`${styles.compactFilters} relative z-10 grid min-w-0 grid-cols-1 items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-0.5 @min-[32rem]/course-schedule:grid-cols-2 @min-[48rem]/course-schedule:grid-cols-4`:"relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1"}>
+            <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課教師" : courseDisplayText("授課教練", businessProfile)}
             <select
               id="course-coach-filter"
               aria-label={courseDisplayText("教練篩選", businessProfile)}
@@ -1055,7 +1049,6 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {businessProfile === "MUSIC" && scheduleLegend}
             {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <strong>✂ {moveClipboard.label} · {moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)):""} · {moveClipboard.durationMinutes}分</strong>
