@@ -110,11 +110,11 @@ it("music qualification editors with read-only pay access can change qualificati
  await click("編輯");
  const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;
  await inputValue(phone,"0912345678");
- await click("授課設定");
- await click("LINE 與權限");
+ await click("授課與拆帳");
+ await click("工作與授課安排");
  await click("基本資料");
  expect(phone.value).toBe("0912345678");
- await click("授課設定");
+ await click("授課與拆帳");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
  expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
  await click("編輯項目");
@@ -184,7 +184,7 @@ it("adopts the confirmed server row immediately, without refresh, and keeps it t
 
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
- await click("編輯");await click("LINE 與權限");
+ await click("編輯");await click("工作與授課安排");
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).closest('label')!.hidden).toBe(true);
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).value).toBe("yes");
 });

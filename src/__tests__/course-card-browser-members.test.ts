@@ -57,9 +57,11 @@ it("shows shared-card members directly on an active plan row", async () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     });
-    expect(host.textContent).toContain("共卡人：Synthetic member A、Synthetic member B");
-    expect(host.textContent).toContain("剩餘 8 點");
-    expect(host.textContent).toContain("已預約 2 點額度");
+    const row = host.querySelector("tbody tr")!;
+    expect(row.textContent).toContain("Synthetic member A、Synthetic member B");
+    expect([...row.querySelectorAll("td")].map(cell => cell.textContent)).toEqual([
+      expect.stringContaining("運動十點方案"), "8 點", "2 點", "6 點", "2026-12-31", "明細",
+    ]);
     expect(host.textContent).toContain("共同餘額");
     expect(host.textContent).toContain("有效方案合計 · 21 個");
     expect(host.textContent).toContain("總剩餘 108 點 · 已預約 22 · 可用 86");

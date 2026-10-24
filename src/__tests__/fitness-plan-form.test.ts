@@ -48,7 +48,8 @@ it("does not submit an unsaved sharing addition after the gate changes",async()=
  await mount({plan,sharedCardState:"HIDDEN"});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(false);
 });
 it("preserves existing music sharing independently of the sports gate",async()=>{
- await mount({music:true,plan:sharedPlan,sharedCardState:"HIDDEN"});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(true);
+ await mount({music:true,plan:{...sharedPlan,templateIds:["t"]},sharedCardState:"HIDDEN",subjects:[{id:"guitar",name:"吉他",category:"",isActive:true}],templates:[{id:"t",name:"吉他",category:"",isActive:true,musicSubjectId:"guitar"}],musicTeachers:[{id:"teacher",name:"教師",active:true,qualificationIds:["t"]}]});
+ await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(true);
 });
 it("delivers the committed plan and retains the original payload after an ambiguous reply",async()=>{
  const saved=vi.fn();await mount({onSaved:saved});
