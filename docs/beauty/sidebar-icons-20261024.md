@@ -25,3 +25,5 @@
 [調整前：既有最終版班表](evidence/20261024-native-hosted/page-班表-1024.png)；調整後：[桌機](evidence/20261024-sidebar-icons/expanded-1366.png)、[平板](evidence/20261024-sidebar-icons/expanded-1024.png)、[收合](evidence/20261024-sidebar-icons/collapsed-1024.png)、[平板抽屜](evidence/20261024-sidebar-icons/drawer-768.png)。前圖為先前隔離站，後圖為本機合成店；比較圖示，非相同店家內容。
 
 本輪無資料庫升級或遠端資料異動。僅更新既有隔離支線；LINE關閉，正式站不動。
+
+完整版本 `0a6b8dbd` 已部署至[隔離測試站](https://steamfoot-booking-of29ce6gu-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty)，`dpl_HhKZjSPMdySD5dj5XhCunrEVkngy`，READY／Preview。完整編譯及TypeScript通過。本次視覺檢查在本機實際側欄完成；未重新建立遠端存取連結或冒稱已重驗遠端登入／業務流程。
