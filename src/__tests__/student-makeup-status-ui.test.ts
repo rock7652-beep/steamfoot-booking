@@ -28,3 +28,9 @@ it("shows the original and makeup dates directly on basic information",async()=>
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student"})));expect(host.textContent).toContain("已排補課 1 堂");expect(host.textContent).toContain("2026-10-01");expect(host.textContent).toContain("2026-10-20");expect([...host.querySelectorAll("button")].some(b=>b.textContent==="安排補課")).toBe(false);}finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("counts a second leave on a makeup once, without counting its historical source again",async()=>{
+ m.read.mockResolvedValue({success:true,data:{customerName:"測試學員",canArrange:true,rows:[{...row,state:"補課再次請假"},{...row,id:"makeup-leave",state:"待安排"}]}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student",compact:true})));expect(host.textContent).toBe("待補課 1 堂");}finally{await act(async()=>root.unmount());host.remove();}
+});

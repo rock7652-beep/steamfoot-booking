@@ -26,7 +26,7 @@ export async function correctMusicRosterAttendance(input:unknown){
    // A released leave must regain its seat before becoming a charged absence.
    if(booking.status==="CANCELLED"&&data.target==="NO_SHOW")await correctCourseAttendance(tx,actor,data.bookingId,"RESERVED","CANCELLED",{suppressNotice:true});
    await correctCourseAttendance(tx,actor,data.bookingId,data.target==="WAIVED"?"CANCELLED":data.target,booking.status==="CANCELLED"&&data.target==="NO_SHOW"?"RESERVED":booking.status,{suppressNotice:true,...(data.target==="WAIVED"?{waiveAbsence:true}:{})});
-   await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseBooking",targetId:data.bookingId,action:`ATTENDANCE_${data.target}`,summary:({RESERVED:"恢復待點名",WAIVED:"未出席不扣堂",NO_SHOW:"未出席扣堂"} as const)[data.target]},tx);
+   await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseBooking",targetId:data.bookingId,action:`ATTENDANCE_${data.target}`,summary:({RESERVED:"恢復待點名",WAIVED:"請假（不扣堂）",NO_SHOW:"曠課（扣堂）"} as const)[data.target]},tx);
   });
   revalidatePath("/dashboard/courses");revalidatePath("/book");
   return {success:true as const};

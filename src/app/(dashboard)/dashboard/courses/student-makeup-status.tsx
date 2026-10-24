@@ -20,10 +20,10 @@ export function StudentMakeupStatus({customerId,revision="",compact=false,onUpda
  const value=data?.customerId===customerId?data.value:null;
  if(error)return <button type="button" className="min-h-11 text-sm text-amber-800" onClick={()=>setTick(n=>n+1)}>補課紀錄：重試</button>;
  if(!value?.rows.length)return null;
- const pending=value.rows.filter(r=>r.state==="待安排"||r.state==="補課再次請假").length;
+ const pending=value.rows.filter(r=>r.state==="待安排").length;
  const scheduled=value.rows.filter(r=>r.state==="已安排").length;
  const issues=value.rows.filter(r=>r.state==="需處理"||r.state==="補課曠課").length;
- const summary=[pending?`待補課 ${pending} 堂`:"",scheduled?`已排補課 ${scheduled} 堂`:"",issues?`補課待核對 ${issues} 堂`:""].filter(Boolean).join("・")||"補課已完成";
+ const summary=[pending?`待補課 ${pending} 堂`:"",scheduled?`已排補課 ${scheduled} 堂`:"",issues?`補課待核對 ${issues} 堂`:""].filter(Boolean).join("・")||(value.rows.every(r=>r.state==="已補課")?"補課已完成":"查看補課紀錄");
  const records=<StudentMakeupRecords data={value} onPending={setBusy} onUpdated={()=>{setTick(n=>n+1);onUpdated?.();router.refresh();}}/>;
  return compact?<>
   <button type="button" className="min-h-11 text-left text-sm text-primary-700 underline" onClick={()=>setOpen(true)} aria-label={`${value.customerName}：${summary}`}>{summary}</button>
