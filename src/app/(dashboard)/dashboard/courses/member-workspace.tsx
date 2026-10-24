@@ -64,6 +64,7 @@ import { CourseCustomerList } from "./customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
+import {StudentMakeupStatus} from "./student-makeup-status";
 import { CourseCustomerDraftForm, CoursePlanDraftForm, type Person, type Plan } from "./course-profile-forms";
 import { CourseCustomerHealth } from "./customer-health";
 
@@ -142,6 +143,7 @@ export function CourseMemberWorkspace({
   music?: boolean;
   sharedCardState?: FeaturePresentationState;
 }) {
+  const IdentitySection = music ? "section" : "details";
   const supportGuard = useCustomerPanelGuard();
   const [noteReceipts,setNoteReceipts]=useState<Record<string,{source:string|null;value:string|null}>>({});
   const people=sourcePeople.map(p=>noteReceipts[p.id]&&p.serviceNote===noteReceipts[p.id].source?{...p,serviceNote:noteReceipts[p.id].value}:p);
@@ -555,11 +557,12 @@ export function CourseMemberWorkspace({
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
-              {personTab === "info" && <details className="border-b border-earth-100 pb-2"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
+              {music && <StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>}
+              {personTab === "info" && <IdentitySection className="border-b border-earth-100 pb-2">{!music && <summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary>}<dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>
                 {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>{music ? "加入為教師" : "加入為教練"}</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
-              </details>}
+              </IdentitySection>}
             </section>}
             {panel === "person" && (
               <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />

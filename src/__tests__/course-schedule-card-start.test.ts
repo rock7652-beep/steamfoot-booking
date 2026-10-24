@@ -25,6 +25,7 @@ it.each([
  [{expiresAt:"2026-10-16T15:59:59.999Z",expired:true,available:0},"有效至 2026-10-16"],
  [{available:0,remaining:8,held:8},"可用 0 堂，本次需 1 堂（已預約占用 8 堂）"],
  [{subjectMatches:false},"科目不符"],
+ [{unavailableReason:"方案期別待確認，請先核對各期堂數"},"方案期別待確認"],
 ])("displays a specific blocking reason for an unusable selected card: %j",async(overrides,reason)=>{
  reader.read.mockResolvedValue({success:true,customers:[{id:"a",name:"學員",phone:""}],cards:[{id:"card",name:"課卡",unit:"SESSION",available:2,expiresAt:"2027-01-13T15:59:59.999Z",subjectMatches:true,members:[{id:"a",name:"學員",phone:""}],...overrides}]});
  const div=document.createElement("div");const root=createRoot(div);const validity=vi.fn();

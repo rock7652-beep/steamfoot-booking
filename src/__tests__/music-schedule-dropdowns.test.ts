@@ -115,3 +115,23 @@ it('shows the calendar teacher before course selection and preserves assigned le
  expect(host.querySelector('[aria-label="搜尋排課學員"]')).not.toBeNull();
  }finally{await act(async()=>root.unmount());}
 });
+
+it('keeps save failures beside the submit button outside the scrolling fields and preserves the draft',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ vi.mocked(getMusicSlotMatches).mockResolvedValue({success:true,data:[{time:'18:00',roomId:'room',coachIds:['wu']}],unavailable:[],blocker:undefined});
+ vi.mocked(inspectCourseSchedule).mockResolvedValue({success:true,issues:[]});
+ vi.mocked(loadCourseScheduleEnrollmentOptions).mockResolvedValue({success:true,cards:[],customers:[{id:'student',name:'測試學員',phone:'0900000000'}],trialSettings:{enabled:false,price:0}});
+ const {createCourseSchedule}=await import('@/server/actions/course');
+ vi.mocked(createCourseSchedule).mockResolvedValue({success:false,error:'方案期別待確認，請先核對各期堂數',conflicts:[]});
+ const created=vi.fn(),host=document.createElement('div'),root=createRoot(host);
+ try{
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,{templates:[{id:'guitar',name:'吉他',durationMinutes:50,capacity:1,defaultRoomId:null,musicSubjectId:'guitar',musicSubject:{id:'guitar',name:'吉他',isActive:true}}],rooms:[{id:'room',name:'01'}],coaches:[{id:'wu',displayName:'教師'}],initialDate:'2026-10-27',seed:{time:'18:00',roomId:'room',coachId:'wu'},initialTemplateId:'guitar',initialLearner:{customerId:'student',name:'測試學員',cardId:''},initialScheduleKind:'FIXED',requestKey:'save-error',onCreated:created})));
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,160));});
+  const save=()=>Array.from(host.querySelectorAll('button')).find(button=>button.textContent==='新增')!;
+  expect(save().disabled).toBe(false);
+  await act(async()=>save().click());
+  expect(host.querySelector('footer [role="alert"]')?.textContent).toBe('方案期別待確認，請先核對各期堂數');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="排課日期"]')!.value).toBe('2026-10-27');
+  expect(host.textContent).toContain('測試學員');expect(created).not.toHaveBeenCalled();expect(save().disabled).toBe(false);
+ }finally{await act(async()=>root.unmount());}
+});
