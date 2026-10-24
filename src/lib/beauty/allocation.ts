@@ -1,4 +1,5 @@
 import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import {serviceDuration} from "./service-duration";
 import { rate, type Rate } from "./contracts";
 export type Range = { start: number; end: number };
 export type Service = {
@@ -6,6 +7,7 @@ export type Service = {
   id: string;
   name: string;
   duration: number;
+  trialDuration?:number|null;
   buffer: number;
   active: boolean;
   price: number;
@@ -28,6 +30,7 @@ export type Occupancy = Range & {
   status: string;
 };
 export type Person = {
+  isTrial?:boolean;
   serviceId: string;
   preference: "FEMALE" | "MALE" | "ANY";
   specifiedTechnicianId: string | null;
@@ -111,7 +114,8 @@ export function allocateParty(input: {
   const choices = input.people.map((p) => {
     const s = input.services.find((s) => s.id === p.serviceId && s.active);
     if (!s) return null;
-    const end = start + (s.duration + s.buffer) * 60000;
+    const duration=serviceDuration(s,p.isTrial);
+    const end = start + (duration + s.buffer) * 60000;
     if (!containsPeriod(day, start, end, input.hours)) return null;
     const techs = ordered.filter(
       (t) =>
@@ -132,7 +136,7 @@ export function allocateParty(input: {
             (o) => o.locationId === id && overlaps({ start, end }, o),
           ),
       );
-    return { s, end, techs, rooms };
+    return { s, duration, end, techs, rooms };
   });
   if (choices.some((c) => !c || !c.techs.length || !c.rooms.length))
     return null;
@@ -147,7 +151,7 @@ export function allocateParty(input: {
     technicianId: techIds[i],
     locationId: roomIds[i],
     serviceId: c.s.id,
-    endsAt: new Date(start + c.s.duration * 60000),
+    endsAt: new Date(start + c.duration * 60000),
     occupiedEndsAt: new Date(c.end),
     rate: rate.parse(
       (

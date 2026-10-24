@@ -37,6 +37,7 @@ model BeautyService {
   buffer     Int     @default(0)
   price      Int
   trialPrice Int?
+  trialDuration Int?
   active     Boolean @default(true)
   revision   Int     @default(0)
 

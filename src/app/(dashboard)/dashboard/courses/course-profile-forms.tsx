@@ -18,6 +18,7 @@ import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
 import { musicPlanQuote } from "@/lib/music-course-products";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { musicSchedulePatch } from "@/lib/music-plan-validity";
+import {savedCourseServicePrice,type CourseServicePrice} from '@/lib/course-service-price';
 export type Person = { id: string; updatedAt?: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 export type Plan = {
   catalogRevision?:number;catalogSnapshot?:Record<string,unknown>;lowBalanceEnabled?:boolean;lowBalanceThreshold?:number|null;
@@ -40,12 +41,12 @@ export type Plan = {
 
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-type Callbacks={onPending:(value:boolean)=>void;onSaved:(row?:Plan,syncWarning?:boolean)=>void;onUncertain?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void};
-function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear"|"dirty">, {onPending,onSaved,onDirtyChange}:Callbacks){
+type Callbacks<T=Plan>={onPending:(value:boolean)=>void;onSaved:(row?:T,syncWarning?:boolean)=>void;onUncertain?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void};
+function useSaveForm<T=Plan>(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear"|"dirty">, {onPending,onSaved,onDirtyChange}:Callbacks<T>){
  useEffect(()=>{onDirtyChange?.(draft.dirty);},[draft.dirty,onDirtyChange]);
  const router=useRouter();const [error,setError]=useState("");const [pending,setPending]=useState(false);
  const [committedWarning,setCommittedWarning]=useState(false);
- async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string;uncertain?:boolean;data?:unknown;confirmedPlan?:Plan;syncWarning?:boolean}>){
+ async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string;uncertain?:boolean;data?:unknown;confirmedPlan?:T;syncWarning?:boolean}>){
   event.preventDefault();if(draft.busy.current||draft.stale||committedWarning)return;
   const data=new FormData(event.currentTarget);draft.busy.current=true;setPending(true);onPending(true);setError("");
   try{const result=await save(data);if(!draft.mounted.current)return;
@@ -102,7 +103,29 @@ export function CourseCustomerDraftForm({save=saveCourseCustomer,draftScope="cou
                 </fieldset>
               </fieldset></form>;
 }
-export type CoursePlanCatalogPort={transport?:SettingsSaveTransport;rowSchema?:z.ZodType<Plan,z.ZodTypeDef,unknown>;values?:(input:Record<string,unknown>,plan:Plan|null)=>Record<string,unknown>;units?:readonly string[];sportsModes?:readonly string[];canEditCoaches?:boolean;sessionLabel?:string;save:(input:Record<string,unknown>,plan:Plan|null)=>Promise<{success:true;data:Plan}|{success:false;error:string}>};
+/** Service pricing uses the same draft, receipt, error and save lifecycle as the fee form. */
+export function CourseServicePriceDraftForm({row,rows,transport,storeId,onSelect,...callbacks}:Callbacks<CourseServicePrice>&{row:CourseServicePrice;rows:CourseServicePrice[];transport:SettingsSaveTransport;storeId:string;onSelect:(id:string)=>void}){
+ const draft=useFormDraft(`course-service-price:${row.id}`,{price:String(row.price),trialPrice:row.trialPrice===null?'':String(row.trialPrice),trialDuration:row.trialDuration===null?'':String(row.trialDuration)},String(row.revision));
+ const mutation=useSettingsSave('',storeId,savedCourseServicePrice,transport);
+ const {onUncertain}=callbacks;
+ useEffect(()=>{onUncertain?.(mutation.uncertain);},[onUncertain,mutation.uncertain]);
+ const {submit,error,pending,committedWarning}=useSaveForm<CourseServicePrice>(draft,callbacks);
+ return <form id="course-member-form" className={feeLayout.form} onSubmit={e=>void submit(e,async()=>{
+  const result=await mutation.save({id:row.id,revision:Number(draft.expectedRevision),price:Number(draft.values.price),trialPrice:draft.values.trialPrice.trim()===''?null:Number(draft.values.trialPrice),trialDuration:draft.values.trialDuration.trim()===''?null:Number(draft.values.trialDuration)});
+  return result.success?{...result,confirmedPlan:result.data}:result;
+ })}>
+  <div><FormDraftNotice dirty={draft.dirty&&!committedWarning} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
+  <fieldset className="contents" disabled={pending||mutation.uncertain||committedWarning}>
+   <label>服務項目<select aria-label="服務定價項目" className={field} value={row.id} onChange={e=>onSelect(e.target.value)}>{rows.map(s=><option key={s.id} value={s.id}>{s.name} · 一般 {s.duration} 分鐘</option>)}</select></label>
+   <label>一般價格（元）<input className={field} name="price" type="number" min="0" max="10000000" step="1" required value={draft.values.price} onChange={e=>draft.set('price',e.target.value)}/></label>
+   <label>體驗價格（元，選填）<input className={field} name="trialPrice" type="number" min="0" max="10000000" step="1" value={draft.values.trialPrice} onChange={e=>draft.set('trialPrice',e.target.value)}/></label>
+   <label>體驗服務時長（分鐘，選填）<input className={field} name="trialDuration" type="number" min="5" max="720" step="1" placeholder={`沿用一般 ${row.duration} 分鐘`} value={draft.values.trialDuration} onChange={e=>draft.set('trialDuration',e.target.value)}/></label>
+   <p className="text-sm text-earth-600">體驗時長留白沿用一般服務；整理時間沿用原設定。</p>
+   <p className="text-sm text-earth-600">體驗價留白表示不提供體驗；填 0 表示免費體驗。</p>
+  </fieldset>
+ </form>;
+}
+export type CoursePlanCatalogPort={servicePricing?:{rows:CourseServicePrice[];transport:SettingsSaveTransport};transport?:SettingsSaveTransport;rowSchema?:z.ZodType<Plan,z.ZodTypeDef,unknown>;values?:(input:Record<string,unknown>,plan:Plan|null)=>Record<string,unknown>;units?:readonly string[];sportsModes?:readonly string[];canEditCoaches?:boolean;sessionLabel?:string;save:(input:Record<string,unknown>,plan:Plan|null)=>Promise<{success:true;data:Plan}|{success:false;error:string}>};
 export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",sportsData,storeId,plan,templates,subjects=[],termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{catalog?:CoursePlanCatalogPort;subjectLabel?:string;sportsData?:SportsSnapshot;storeId:string;subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;displayName?:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){
  const [sportsRequestKey]=useState(()=>crypto.randomUUID());
  const initialSportsFee=sportsData?.fees.find(f=>f.id===plan?.id);

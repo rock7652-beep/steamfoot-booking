@@ -45,6 +45,7 @@ CREATE TABLE "BeautyService" (
     "buffer" INTEGER NOT NULL DEFAULT 0,
     "price" INTEGER NOT NULL,
     "trialPrice" INTEGER,
+    "trialDuration" INTEGER,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "revision" INTEGER NOT NULL DEFAULT 0,
 
@@ -296,6 +297,7 @@ CREATE UNIQUE INDEX "BeautyPurchase_storeId_id_key" ON "BeautyPurchase"("storeId
 -- AddForeignKey
 ALTER TABLE "BeautyAppointment" ADD CONSTRAINT "BeautyAppointment_storeId_groupId_fkey" FOREIGN KEY ("storeId", "groupId") REFERENCES "BeautyGroup"("storeId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+ALTER TABLE "BeautyService" ADD CONSTRAINT beauty_service_trial_duration CHECK ("trialDuration" IS NULL OR "trialDuration" BETWEEN 5 AND 720);
 ALTER TABLE "BeautyService" ADD CONSTRAINT beauty_service_values CHECK (duration BETWEEN 5 AND 720 AND buffer BETWEEN 0 AND 240 AND price >= 0 AND ("trialPrice" IS NULL OR "trialPrice">=0));
 ALTER TABLE "BeautyTechnician" ADD CONSTRAINT beauty_technician_gender CHECK (gender IN ('FEMALE','MALE'));
 ALTER TABLE "BeautyPlan" ADD CONSTRAINT beauty_plan_values CHECK (sessions>0 AND price>=0 AND "validDays">0 AND cardinality("serviceIds")>0);

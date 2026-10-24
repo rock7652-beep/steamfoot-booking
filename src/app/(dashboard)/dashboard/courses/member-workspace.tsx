@@ -2,6 +2,9 @@
 import {canCloseConfirmedSettingsSave} from "@/lib/settings-save-outcome";
 import type {CourseCustomerSource} from "./member-source";
 import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
+import {CourseServicePriceDraftForm} from "./course-profile-forms";
+import type {CourseServicePrice} from "@/lib/course-service-price";
+const emptyServicePrices:CourseServicePrice[]=[];
 import type {CoursePlanCatalogPort} from "./course-profile-forms";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
@@ -154,6 +157,9 @@ export function CourseMemberWorkspace({
   const initialPerson = view === "customers" ? people.find(p => p.id === (initialCustomerId??params.get("customerId"))) ?? null : null;
 
 
+  const confirmedPrices=useConfirmedSettingsRows(catalogSource?.form.servicePricing?.rows??emptyServicePrices,row=>String(row.revision));
+  const [pricingId,setPricingId]=useState("");
+  const pricingRow=confirmedPrices.rows.find(row=>row.id===pricingId);
   const confirmedPlans=useConfirmedSettingsRows(sourcePlans,row=>JSON.stringify(catalogSource?row:coursePlanSnapshot(row)));
   const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(confirmedPlans.rows);
   const [savedPlanId,setSavedPlanId]=useState<string|null>(null);
@@ -166,7 +172,7 @@ export function CourseMemberWorkspace({
   const [page, setPage] = useRetainedState(`course-${view}:page`, 0, retainedPage);
   const [status, setStatus] = useRetainedState(`course-${view}:status`, "all", retainedString);
   const [panel, setPanel] = useState<
-    "person" | "plan" | "assign" | "card" | "coach" | "health" | null
+    "person" | "plan" | "assign" | "card" | "coach" | "health" | "service-price" | null
   >(initialPerson ? initialAction==="assign"?"assign":"person" : canCreate&&view==="plans"&&params.get("action")==="create"?"plan":null);
   const [selectedPerson, setPerson] = useState<Person | null>(initialPerson);
   const person = people.find(p => p.id === selectedPerson?.id) ?? selectedPerson;
@@ -181,7 +187,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && !formUncertain && ((!source&&(sportsNative || sportsData)) || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
+  function canLeave() { return !pending && !formPending && !formUncertain && ((panel!=="service-price"&&!source&&(sportsNative || sportsData)) || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); onPanelClose?.(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -218,7 +224,7 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard((!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
+  useCourseDraftGuard((panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers"&&!sportsNative, panel && customerPanel ? person.id : null);
@@ -336,6 +342,7 @@ export function CourseMemberWorkspace({
           {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>}
         {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?`${subjectLabel}篩選`:"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?`全部${subjectLabel}`:"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
@@ -433,12 +440,12 @@ export function CourseMemberWorkspace({
           width={panel === "plan" && music ? 920 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
           fixedHeight={panel === "plan"&&!sportsData}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
-          fitContent={(!!sportsData&&panel==="plan")||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
+          fitContent={panel==="service-price"|| (!!sportsData&&panel==="plan")||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
             <h2 id="course-member-sheet" className="min-w-0 break-words text-base font-semibold text-primary-900">
-              {customerPanel ? person.name : panel === "person"
+              {panel==="service-price"?"一般／體驗設定":customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? planReadOnly&&plan ? plan.name : plan ? sportsData ? "編輯收費方式" : music ? "編輯班型與學費" : "編輯方案" : sportsData ? "新增收費方式" : music ? "新增班型與學費" : "新增方案"
@@ -475,6 +482,7 @@ export function CourseMemberWorkspace({
                 {error}
               </p>
             )}
+            {panel==='service-price'&&canEdit&&pricingRow&&catalogSource?.form.servicePricing&&<CourseServicePriceDraftForm key={pricingRow.id} row={pricingRow} rows={confirmedPrices.rows} storeId={previewStoreId??''} transport={catalogSource.form.servicePricing.transport} onSelect={id=>{if(canLeave()){setDirty(false);setPricingId(id);}}} onPending={setFormPending} onUncertain={setFormUncertain} onDirtyChange={setDirty} onSaved={(row,warning)=>{if(row)confirmedPrices.confirm(row);if(warning)return;setFormUncertain(false);setDirty(false);setPanel(null);setNotice('服務收費已儲存');router.refresh();}}/>}
             {panel === "coach" && person && (
               <form
                 id="course-member-form"

@@ -147,11 +147,12 @@ export async function loadAvailability(
 export async function findAllocation(
   tx: Tx,
   a: BeautyActor,
-  d: Pick<PartyInput, "date" | "time" | "people" | "expectedArrangement">,
+  d: Pick<PartyInput, "date" | "time" | "people" | "expectedArrangement"> & {isTrial?:boolean},
   excludeIds: string[] = [],
   onlyLocation?: string,
   loaded?: Awaited<ReturnType<typeof loadAvailability>>,
   allowPast = false,
+  serviceSnapshot?:{serviceId:string;duration:number;buffer:number},
 ) {
   if (!a.manager && d.people.some(p=>p.specifiedLocationId)) throw new AppError("FORBIDDEN", "位置由店家安排");
   const startsAt = parseTaipeiDateTime(d.date, d.time);
@@ -181,8 +182,8 @@ export async function findAllocation(
   const result = allocateParty({
     date: d.date,
     startsAt,
-    people: d.expectedArrangement?d.people.map((p,i)=>({...p,specifiedTechnicianId:d.expectedArrangement![i].technicianId,specifiedLocationId:d.expectedArrangement![i].locationId})):d.people,
-    services,
+    people:d.people.map((p,i)=>({...p,isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
+    services:serviceSnapshot?services.map(s=>s.id===serviceSnapshot.serviceId?{...s,duration:serviceSnapshot.duration,buffer:serviceSnapshot.buffer,trialDuration:null}:s):services,
     technicians,
     locationIds: locations
       .filter((l) => !onlyLocation || l.id === onlyLocation)
@@ -387,7 +388,7 @@ export async function reserveParty(
           startsAt,
           endsAt: allocation.endsAt,
           occupiedEndsAt: allocation.occupiedEndsAt,
-          duration: s.duration,
+          duration: Math.round((allocation.endsAt.getTime()-startsAt.getTime())/60000),
           buffer: s.buffer,
           price: (p.isTrial??d.isTrial) ? s.trialPrice! : s.price,
           isTrial: p.isTrial??d.isTrial,
@@ -518,6 +519,7 @@ export async function transition(
       b.locationId,
       undefined,
       !!a.manager,
+      {serviceId:b.serviceId,duration:b.duration,buffer:b.buffer},
     );
   }
   let card: null | Awaited<ReturnType<typeof assertCard>> = null;

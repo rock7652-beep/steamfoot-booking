@@ -279,3 +279,10 @@ it('freezes a service default only when no technician override exists',()=>{
  expect(allocate({services:[face],technicians:[inherited]})).toBeNull();
  expect(allocate({services:[{...face,defaultRate:{mode:'PERCENT',value:101,base:'PAID'}}],technicians:[inherited]})).toBeNull();
 });
+
+it('allocates trial duration with the original buffer and keeps general duration independent',()=>{
+ const service={...face,trialDuration:30};const at=start.getTime();const base={date,startsAt:start,services:[service],technicians:[tech('t')],locationIds:['r'],occupied:[{start:at+45*60000,end:at+120*60000,technicianId:'t',locationId:'r',duration:75,status:'RESERVED'}],hours:[{start:'09:00',end:'18:00'}]};
+ expect(allocateParty({...base,people:[{serviceId:'face',preference:'ANY',specifiedTechnicianId:null}]})).toBeNull();
+ const trial=allocateParty({...base,people:[{serviceId:'face',preference:'ANY',specifiedTechnicianId:null,isTrial:true}]});expect(trial?.[0].endsAt.getTime()).toBe(at+30*60000);expect(trial?.[0].occupiedEndsAt.getTime()).toBe(at+45*60000);
+ const inherited=allocateParty({...base,occupied:[],services:[{...service,trialDuration:null}],people:[{serviceId:'face',preference:'ANY',specifiedTechnicianId:null,isTrial:true}]});expect(inherited?.[0].endsAt.getTime()).toBe(at+60*60000);
+});

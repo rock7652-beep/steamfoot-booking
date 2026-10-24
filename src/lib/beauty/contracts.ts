@@ -31,6 +31,7 @@ export const serviceInput = z.object({
   buffer: z.number().int().min(0).max(240).default(0),
   price: money,
   trialPrice: money.nullable().default(null),
+  trialDuration:z.number().int().min(5).max(720).nullable().optional(),
   active: z.boolean().default(true),
 });
 export const technicianInput = z.object({

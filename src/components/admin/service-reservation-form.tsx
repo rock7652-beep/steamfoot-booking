@@ -1,4 +1,5 @@
 "use client";
+import {serviceDuration} from "@/lib/beauty/service-duration";
 import {useEffect,useRef,useState} from 'react';
 import {useCourseDraftGuard} from './use-course-draft-guard';
 import {CourseOptionSelect} from './course-option-select';
@@ -10,7 +11,7 @@ export type ReservationCard={id:string;name:string;memberIds:string[];serviceIds
 export type ReservationArrangement={technicianId:string;technicianName:string;locationId:string;locationName:string};
 type Availability={slots:string[];arrangement?:ReservationArrangement[]|null;arrangementError?:string};
 export type ServiceReservationSource={
- services:{id:string;name:string;duration:number;buffer:number;price:number;trialPrice:number|null;revision:number}[];
+ services:{id:string;name:string;duration:number;trialDuration?:number|null;buffer:number;price:number;trialPrice:number|null;revision:number}[];
  technicians:{id:string;name:string;serviceIds:string[]}[];
  locations:{id:string;name:string}[];customers:ReservationCustomer[];cards:ReservationCard[];policyRevision:number;
  readAvailability:(intent:PartyInput)=>Promise<{success:true;data:Availability}|{success:false;error:string}>;
@@ -50,7 +51,7 @@ export function ServiceReservationForm({source,date:initialDate,seed={},onGuard,
   return card?.id??'';
  });
  function cardsFor(p:Person,i:number){return orderedCards.filter(c=>eligible(c,p,i)&&c.remaining-c.held>(used.get(c.id)??0)-(charges[i]===c.id?1:0));}
- const resolved=people.map((p,i)=>({p,customer:customers.find(c=>c.id===p.customerId),service:source.services.find(s=>s.id===p.serviceId),charge:charges[i]}));
+ const resolved=people.map((p,i)=>{const service=source.services.find(s=>s.id===p.serviceId);return {p,customer:customers.find(c=>c.id===p.customerId),service:service?{...service,duration:serviceDuration(service,charges[i]===trialValue)}:undefined,charge:charges[i]};});
  const issues=resolved.map(({p,customer,service,charge},i)=>{
   if(i===0&&!customer)return '請選擇第 1 位顧客';
   if(p.query?.trim()&&!customer)return '請選擇搜尋結果，或清空姓名以資料後補';
@@ -112,7 +113,7 @@ export function ServiceReservationForm({source,date:initialDate,seed={},onGuard,
     <div className="flex items-center justify-between"><h3 className="font-medium">{index===0?'顧客':`同行者 ${index}`}</h3>{index>0&&<button type="button" className="min-h-11 px-2 text-earth-600" onClick={()=>change(()=>setPeople(rows=>rows.filter(row=>row.key!==p.key)))}>移除同行者 {index}</button>}</div>
     <div className="grid min-w-0 gap-2 @min-[28rem]/reservation:grid-cols-2 @min-[40rem]/reservation:grid-cols-3 @min-[52rem]/reservation:grid-cols-[1.3fr_1.1fr_1.2fr_1fr_1fr]">
      <div className="min-w-0"><label>姓名<CourseOptionSelect searchable required={index===0} label={`顧客姓名 ${index+1}`} placeholder={index===0?'搜尋姓名／電話':'同行者資料後補'} onCreate={source.createCustomer?query=>{setAdding(p.key);setCreateError('');setName(/^[\d\s-]+$/.test(query)?'':query);setPhone(/^[\d\s-]+$/.test(query)?query.replace(/\D/g,''):'');setDirty(true);}:undefined} value={p.customerId} onSearchChange={query=>update(p.key,{customerId:'',cardId:undefined,query})} onChange={id=>update(p.key,{customerId:id,cardId:undefined,query:''})} options={customers.map(c=>{const other=people.findIndex((q,j)=>j!==index&&q.customerId===c.id);return {id:c.id,label:`${c.name} · ${c.phone}${other>=0?`（已選為第 ${other+1} 位）`:''}`,disabled:other>=0};})}/></label></div>
-     <label>服務項目<select aria-label={`服務項目 ${index+1}`} className={field} required value={p.serviceId} onChange={e=>update(p.key,{serviceId:e.target.value,cardId:undefined})}>{source.services.map(s=><option key={s.id} value={s.id}>{s.name} · {s.duration} 分鐘</option>)}</select></label>
+     <label>服務項目<select aria-label={`服務項目 ${index+1}`} className={field} required value={p.serviceId} onChange={e=>update(p.key,{serviceId:e.target.value,cardId:undefined})}>{source.services.map(s=><option key={s.id} value={s.id}>{s.name} · {charges[index]===trialValue?'體驗 ':''}{serviceDuration(s,charges[index]===trialValue)} 分鐘</option>)}</select></label>
      <label>使用方案<select aria-label={`使用方案 ${index+1}`} className={field} disabled={index===0&&!customer} value={charge} onChange={e=>update(p.key,{cardId:e.target.value})}>{charge&&charge!==trialValue&&!cardsFor(p,index).some(c=>c.id===charge)&&<option value={charge}>{source.cards.find(c=>c.id===charge)?.name??'原方案'}（請重新核對）</option>}{cardsFor(p,index).map(c=><option key={c.id} value={c.id}>{c.name} · 可用 {c.remaining-c.held} 次 · {toLocalDateStr(new Date(c.expiresAt))} 到期</option>)}<option value="">單次付款 · NT$ {(service?.price??0).toLocaleString()}</option>{service?.trialPrice!=null&&<option value={trialValue}>體驗 · NT$ {service.trialPrice.toLocaleString()}</option>}</select></label>
      <label>位置<select aria-label={`此位位置 ${index+1}`} className={field} value={p.locationId} onChange={e=>update(p.key,{locationId:e.target.value})}><option value="">{arranged?.[index]?`自動 · ${arranged[index].locationName}`:'自動安排'}</option>{p.locationId&&!source.locations.some(r=>r.id===p.locationId)&&<option value={p.locationId}>原位置已停用，請重選</option>}{source.locations.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
      <label>技師<select aria-label={`此位技師 ${index+1}`} className={field} value={p.technicianId} onChange={e=>update(p.key,{technicianId:e.target.value})}><option value="">{arranged?.[index]?`自動 · ${arranged[index].technicianName}`:'自動安排'}</option>{p.technicianId&&!source.technicians.some(t=>t.id===p.technicianId&&t.serviceIds.includes(p.serviceId))&&<option value={p.technicianId}>原技師不適用，請重選</option>}{source.technicians.filter(t=>t.serviceIds.includes(p.serviceId)).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>

@@ -335,6 +335,7 @@ export async function moveBeautyAppointment(
             { date: d.date, time: d.time, people },
             [b.id],
             d.locationId ?? undefined,
+            undefined,false,{serviceId:b.serviceId,duration:b.duration,buffer:b.buffer},
           ),
           next = allocation.result[0];
         await assertCustomerAvailable(tx, a.storeId, b.customerId,

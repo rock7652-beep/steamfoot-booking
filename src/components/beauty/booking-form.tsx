@@ -1,4 +1,5 @@
 "use client";
+import {serviceDuration} from "@/lib/beauty/service-duration";
 import {BeautyMemberBookingForm} from "./member-booking-form";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
@@ -23,6 +24,7 @@ export type BeautyBookingCatalog = {
     id: string;
     name: string;
     duration: number;
+    trialDuration?:number|null;
     price: number;
     trialPrice: number | null;
     revision?: number;
@@ -351,7 +353,7 @@ function BeautyDetailedBookingForm({
                     .filter((s) => !trial || s.trialPrice !== null)
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}｜{s.duration}分鐘｜NT$
+                        {s.name}｜{serviceDuration(s,trial)}分鐘｜NT$
                         {trial ? s.trialPrice : s.price}
                       </option>
                     ))}

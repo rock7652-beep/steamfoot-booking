@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({catalog:vi.fn(),plan:vi.fn(),location:vi.fn(),refresh:vi.fn()}));
+vi.mock('@/server/actions/beauty-service-price',()=>({saveBeautyServicePrice:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:m.plan}));
 vi.mock('@/server/actions/beauty-native-service',()=>({saveBeautyNativeService:vi.fn()}));
 vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.fn()}));
