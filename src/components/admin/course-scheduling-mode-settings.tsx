@@ -29,7 +29,7 @@ export function CourseSchedulingModeSettings({ storeId, open, assigned, revision
     });
   }
   return <fieldset className="min-w-0" aria-label="排課模式"><legend className="py-2 font-semibold text-primary-900">排課模式</legend><div className="grid min-w-0 grid-cols-1 gap-x-4 sm:grid-cols-2">
-    {([['OPEN','開放選課','open'],['ASSIGNED','指定學員','assigned']] as const).map(([mode,label,key]) => <SettingsListRow key={mode} compact title={label} summary={state[key] ? "開啟" : "關閉"} controls={<NotificationSwitch aria-label={label} checked={state[key]} disabled={!canEdit || pending || request.uncertain} onChange={e => void save(mode, e.target.checked)}/>}/>)}
+    {([['OPEN','開放選課','open'],['ASSIGNED','指定學員','assigned']] as const).map(([mode,label,key]) => <SettingsListRow key={mode} compact title={label} summary={state[key] ? "開啟" : "關閉"} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label={label} checked={state[key]} disabled={!canEdit || pending || request.uncertain} onChange={e => void save(mode, e.target.checked)}/></label>}/>)}
     {error && <p role="alert" className="col-span-full py-1 text-sm text-red-700">{error}</p>}
     {request.uncertain && <button type="button" className="min-h-11 text-primary-700 underline" disabled={pending} onClick={() => void save("OPEN", state.open)}>重試確認</button>}
   </div></fieldset>;
