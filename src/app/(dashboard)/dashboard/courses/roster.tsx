@@ -1646,9 +1646,9 @@ export function CourseRoster({
           <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={pending} className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
         </form>
       </ModalPanel>}
-      {purchaseFor && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="學員繳費">
-        <div className="@container/member flex max-h-[90dvh] w-full max-w-[1100px] flex-col rounded-2xl bg-white shadow-xl">
-          <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
+      {purchaseFor && <ModalPanel open pending={purchasePending} width={1100} labelledById="course-roster-purchase-title" onClose={()=>{setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>
+        <div className="@container/member flex max-h-[calc(100dvh-3rem)] min-h-0 w-full flex-col">
+          <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 id="course-roster-purchase-title" className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
           <div className="min-h-0 overflow-y-auto p-4">
             {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
             {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
@@ -1693,7 +1693,7 @@ export function CourseRoster({
           </div>
           {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認購課與本次收款"}</button></div> : null}
         </div>
-      </div>}
+      </ModalPanel>}
       {payBooking && payBooking.id !== infoBookingId && paymentSettings && !correctPayment && (
         <CollectTrialModal
           key={payBooking.id}
