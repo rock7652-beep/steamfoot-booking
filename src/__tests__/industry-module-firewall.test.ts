@@ -11,10 +11,9 @@ describe("store industry module firewall", () => {
 
   it("isolates COURSE from both existing modules", async () => {
     queryRaw.mockResolvedValue([{ industryModule: "COURSE" }]);
-    const { requireCourseStore, requireSteamfootStore, requireSpaStore } = await import("@/lib/industry-module-server");
+    const { requireCourseStore, requireSteamfootStore } = await import("@/lib/industry-module-server");
     await expect(requireCourseStore("course")).resolves.toBeUndefined();
     await expect(requireSteamfootStore("course")).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(requireSpaStore("course")).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it.each(["STEAMFOOT", "SPA", "UNKNOWN"])("rejects course operations for %s", async industryModule => {
@@ -29,12 +28,9 @@ describe("store industry module firewall", () => {
     await expect(requireSteamfootStore("store-steamfoot")).resolves.toBeUndefined();
   });
 
-  it("rejects SPA actions for a Steamfoot store", async () => {
-    queryRaw.mockResolvedValue([{ industryModule: "STEAMFOOT" }]);
-    const { requireSpaStore } = await import("@/lib/industry-module-server");
-    await expect(requireSpaStore("store-steamfoot")).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    });
+  it("does not expose legacy SPA provisioning helpers", async () => {
+    const industry = await import("@/lib/industry-module-server");
+    expect(industry).not.toHaveProperty("requireSpaStore");
   });
 
   it("rejects Steamfoot actions for a SPA store", async () => {
@@ -47,9 +43,8 @@ describe("store industry module firewall", () => {
 
   it("rejects the retired SPA module even for its own store", async () => {
     queryRaw.mockResolvedValue([{ industryModule: "SPA" }]);
-    const { getStoreIndustryModule, requireSpaStore } = await import("@/lib/industry-module-server");
+    const { getStoreIndustryModule } = await import("@/lib/industry-module-server");
     await expect(getStoreIndustryModule("archived-spa")).rejects.toMatchObject({ code: "FORBIDDEN", message: "SPA 模組已移除" });
-    await expect(requireSpaStore("archived-spa")).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("fails closed when the store does not exist", async () => {
@@ -59,4 +54,13 @@ describe("store industry module firewall", () => {
       code: "NOT_FOUND",
     });
   });
+});
+
+it("preserves Beauty identity and rejects routing it through Steamfoot or Course operations",async()=>{
+ queryRaw.mockResolvedValue([{industryModule:"BEAUTY"}]);
+ const {getStoreIndustryModule,requireSteamfootStore,requireCourseStore,requireStoreIndustryModule}=await import("@/lib/industry-module-server");
+ expect(await getStoreIndustryModule("beauty-store")).toBe("beauty");
+ await expect(requireStoreIndustryModule("beauty-store","beauty")).resolves.toBeUndefined();
+ await expect(requireSteamfootStore("beauty-store")).rejects.toMatchObject({code:"FORBIDDEN"});
+ await expect(requireCourseStore("beauty-store")).rejects.toMatchObject({code:"FORBIDDEN"});
 });

@@ -19,17 +19,17 @@ beforeEach(()=>{
 });
 it("checks BeautyAppointment and rejects a conflicting selected date before data writes",async()=>{
  expect(await saveServiceHours(input())).toMatchObject({success:false,error:expect.stringContaining("已有預約")});
- const sql=m.read.mock.calls.map(([s]:[TemplateStringsArray])=>s.join("")).join("\n");
+ const sql=m.read.mock.calls.map(([s])=>s.join("")).join("\n");
  expect(sql).toContain('FROM "BeautyAppointment"');expect(sql).not.toMatch(/SpaBooking|FROM "Booking"/);
- expect(m.execute.mock.calls.some(([s]:[TemplateStringsArray])=>/\b(INSERT|DELETE|UPDATE)\b/.test(s.join("")))).toBe(false);
+ expect(m.execute.mock.calls.some(([s])=>/\b(INSERT|DELETE|UPDATE)\b/.test(s.join("")))).toBe(false);
 });
 it("reads Beauty shared hours through the supported client without any SPA model",async()=>{
  expect((await loadServiceHoursForSettings("beauty","2040-10-02")).day.status).toBe("open");
- expect(m.read.mock.calls.map(([s]:[TemplateStringsArray])=>s.join("")).join("\n")).not.toMatch(/Spa[A-Z]/);
+ expect(m.read.mock.calls.map(([s])=>s.join("")).join("\n")).not.toMatch(/Spa[A-Z]/);
 });
 it("Steamfoot conflict checks use only its own Booking table",async()=>{
  m.industry.mockResolvedValue("steamfoot");expect(await saveServiceHours(input())).toMatchObject({success:false,error:expect.stringContaining("已有預約")});
- const sql=m.read.mock.calls.map(([s]:[TemplateStringsArray])=>s.join("")).join("\n");expect(sql).toContain('FROM "Booking"');expect(sql).not.toMatch(/BeautyAppointment|SpaBooking/);
+ const sql=m.read.mock.calls.map(([s])=>s.join("")).join("\n");expect(sql).toContain('FROM "Booking"');expect(sql).not.toMatch(/BeautyAppointment|SpaBooking/);
 });
 it("rejects legacy SPA reads and writes before opening a transaction",async()=>{
  m.industry.mockResolvedValue("spa");expect(await saveServiceHours(input())).toMatchObject({success:false});
@@ -39,7 +39,7 @@ it.each(["beauty","steamfoot"])("binds every simulated %s hours mutation to its 
  m.industry.mockResolvedValue(industry);
  m.read.mockImplementation(async(strings:TemplateStringsArray)=>strings.join("").includes('FROM "BusinessHours"')?hours:[]);
  expect(await saveServiceHours(input())).toMatchObject({success:true,storeId:"beauty",data:{count:1}});
- const mutations=m.execute.mock.calls.filter(([s]:[TemplateStringsArray])=>/\b(INSERT|DELETE|UPDATE)\b/.test(s.join("")));
+ const mutations=m.execute.mock.calls.filter(([s])=>/\b(INSERT|DELETE|UPDATE)\b/.test(s.join("")));
  expect(mutations.length).toBeGreaterThan(0);
  for(const [s,...params] of mutations){
   const sql=(s as TemplateStringsArray).join("");

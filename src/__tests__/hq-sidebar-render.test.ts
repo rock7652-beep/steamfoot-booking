@@ -136,10 +136,7 @@ describe("actual HQ shell rendering", () => {
     const html = render(module, "a", "/s/store-a/admin/dashboard", music);
     expect(html.match(/href="\/s\/store-a\/admin\/dashboard\/staff"/g)).toHaveLength(1);
     expect(html).toContain("人員管理");
-    if (module === "spa") {
-      expect(html).toContain('href="/s/store-a/admin/dashboard/spa-staff"');
-      expect(html).toContain("服務與排班");
-    }
+
     if (module === "course") expect(html).toContain(music ? "教師管理" : "教練管理");
   });
   it.each(["steamfoot", "course", "spa"] as const)("retains a store navigation and HQ return for %s", module => {

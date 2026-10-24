@@ -14,7 +14,6 @@ interface Props {
   savePath?:string;
   dayOptions?:number[];
   course?: boolean;
-  spa?: boolean;
   storeId?: string;
   initialOpensAt?: string | null;
   direct?: boolean;
@@ -33,7 +32,6 @@ export function BookableUntilForm({
   today,
   canManage,
   course = false,
-  spa = false,
   direct = false,
 }: Props) {
   const radioGroup = useId();
@@ -47,7 +45,7 @@ export function BookableUntilForm({
   const [expanded, setExpanded] = useState(false);
   const [legacyPending, startTransition] = useTransition();
   const pathname=usePathname();
-  const request=useSettingsSave(savePath??`${(pathname??"/dashboard").split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":spa?"spa/":""}booking-window`,storeId??"",savedBookingWindow);
+  const request=useSettingsSave(savePath??`${(pathname??"/dashboard").split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":""}booking-window`,storeId??"",savedBookingWindow);
   const pending=legacyPending||request.pending;
   const locked=pending||request.uncertain;
   const [savedOpensAt,setSavedOpensAt]=useState(initialOpensAt);
@@ -202,4 +200,3 @@ export function BookableUntilForm({
     </section>
   );
 }
-

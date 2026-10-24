@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FormSection } from "@/components/desktop";
 import CustomerSearch from "./customer-search";
 import { useBookingFormValidation } from "./booking-create-form";
-import {
-  fetchCustomerActiveWalletsForBooking,
-  type ActiveWalletSummary,
-  type MakeupCreditSummary,
-} from "@/server/actions/customer-active-wallets";
+import { fetchCustomerActiveWalletsForBooking, type ActiveWalletSummary, type MakeupCreditSummary } from "@/server/actions/customer-active-wallets";
 
 /**
  * 後台「新增預約」右欄：顧客 + 服務/方案。
@@ -50,7 +46,6 @@ export function CustomerAndPlanFields({
   defaultMode,
   defaultCustomerId,
   defaultCustomerLabel,
-  spaMode = false,
 }: {
   /** 從「新增補課」入口帶入 mode=makeup 時為 "makeup"，預設選補課。 */
   defaultMode?: "makeup";
@@ -58,13 +53,13 @@ export function CustomerAndPlanFields({
   defaultCustomerId?: string;
   defaultCustomerLabel?: string;
   /** Demo SPA 店使用療程／次數用語；正式蒸足門市維持既有文字。 */
-  spaMode?: boolean;
+
 }) {
   const [customerId, setCustomerId] = useState<string | null>(defaultCustomerId ?? null);
   const { calendarDate, setCalendarCustomerId } = useBookingFormValidation();
   useEffect(() => {
-    if (!spaMode) setCalendarCustomerId(customerId);
-  }, [customerId, spaMode, setCalendarCustomerId]);
+    setCalendarCustomerId(customerId);
+  }, [customerId, setCalendarCustomerId]);
   const [wallets, setWallets] = useState<ActiveWalletSummary[]>([]);
   const [makeup, setMakeup] = useState<MakeupCreditSummary>(EMPTY_MAKEUP);
   const [walletsLoading, setWalletsLoading] = useState(false);
@@ -75,7 +70,7 @@ export function CustomerAndPlanFields({
   // 預約日期由左欄 DashboardBookingForm（同一 form 的 select[name="bookingDate"]）控制。
   // 補課券有效性需依「預約日期」判斷，故在此讀取並監聽其變化以重查。
   const [legacyBookingDate, setBookingDate] = useState<string | null>(null);
-  const bookingDate = spaMode ? legacyBookingDate : calendarDate;
+  const bookingDate = calendarDate;
   const [bookingPeople, setBookingPeople] = useState(1);
   const anchorRef = useRef<HTMLSpanElement>(null);
   // 記錄已套用「預設選擇」的顧客 → 同顧客改日期時不覆蓋店長手動選擇。
@@ -111,7 +106,7 @@ export function CustomerAndPlanFields({
   }, []);
 
   useEffect(() => {
-    if (spaMode || !customerId) return;
+    if (!customerId) return;
     let cancelled = false;
     void (async () => {
       setWalletsLoading(true);
@@ -160,33 +155,7 @@ export function CustomerAndPlanFields({
     return () => {
       cancelled = true;
     };
-  }, [customerId, bookingDate, defaultMode, spaMode]);
-
-  if (spaMode) {
-    return (
-      <FormSection
-        title="4. 留下顧客資料"
-        description="服務、時段與人員確認後，最後再輸入姓名與電話"
-      >
-        <input type="hidden" name="bookingType" value="SINGLE" />
-        <div>
-          <label className={labelCls}>
-            顧客 <span className="text-red-500">*</span>
-          </label>
-          <div className="mt-1">
-            <CustomerSearch
-              defaultCustomerId={defaultCustomerId}
-              defaultCustomerLabel={defaultCustomerLabel}
-              onSelect={handleCustomerSelect}
-            />
-          </div>
-          <p className="mt-2 text-xs text-earth-500">
-            預約時不處理付款；服務完成後再選現金、刷卡、儲值金或購買次數方案。
-          </p>
-        </div>
-      </FormSection>
-    );
-  }
+  }, [customerId, bookingDate, defaultMode]);
 
   const hasWallets = wallets.length > 0;
   const hasMakeup = makeup.count > 0;
@@ -223,8 +192,8 @@ export function CustomerAndPlanFields({
       </FormSection>
 
       <FormSection
-        title={spaMode ? "付款與權益" : "服務 / 方案"}
-        description={spaMode ? "服務已在左側選擇；這裡只決定本次如何結算" : undefined}
+        title={"服務 / 方案"}
+        description={undefined}
       >
         {/* 實際送出欄位：補課 → bookingType=PACKAGE_SESSION + isMakeup=on；
             其餘維持原行為。select 本身不帶 name（純 UI）。 */}
@@ -237,7 +206,7 @@ export function CustomerAndPlanFields({
 
         <div>
           <label className={labelCls}>
-            {spaMode ? "本次結算方式" : "預約類型"} <span className="text-red-500">*</span>
+            {"預約類型"} <span className="text-red-500">*</span>
           </label>
           <select
             value={uiType}
@@ -255,9 +224,9 @@ export function CustomerAndPlanFields({
               </option>
             )}
             <option value="PACKAGE_SESSION">
-              {spaMode ? "使用次數券" : "課程堂數"}
+              {"課程堂數"}
             </option>
-            <option value="FIRST_TRIAL">{spaMode ? "新客體驗" : "體驗"}</option>
+            <option value="FIRST_TRIAL">{"體驗"}</option>
             <option value="SINGLE">單次付費，不扣堂</option>
           </select>
         </div>
@@ -274,7 +243,7 @@ export function CustomerAndPlanFields({
 
         {customerId && hasWallets && needsWalletForSelectedType && (
           <div>
-            <label className={labelCls}>{spaMode ? "使用次數券" : "使用課程"}</label>
+            <label className={labelCls}>{"使用課程"}</label>
             <select
               name="customerPlanWalletId"
               value={walletId}
@@ -326,4 +295,3 @@ export function CustomerAndPlanFields({
     </>
   );
 }
-

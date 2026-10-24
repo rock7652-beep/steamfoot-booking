@@ -61,7 +61,7 @@ vi.mock("@/components/desktop", () => ({
 
 import DashboardHomePage from "@/app/(dashboard)/dashboard/page";
 import { CourseHome } from "@/app/(dashboard)/dashboard/courses/home";
-import { SpaHome } from "@/app/(dashboard)/dashboard/spa-home";
+
 import { StoreTodoCard } from "@/app/(dashboard)/dashboard/store-todo-card";
 
 type RegionProps = { id?: string; children?: ReactNode; footer?: ReactNode; load?: () => Promise<ReactNode> };
@@ -160,16 +160,6 @@ describe("HQ selected-store homepage visibility", () => {
     expect(renderToStaticMarkup(createElement(StoreTodoCard, { items: [], canCreateBooking: false }))).not.toContain("新增預約");
   });
 
-  it("passes entitlement-filtered capabilities into SPA without reading hidden summaries", async () => {
-    m.module = "spa";
-    for (const feature of [FEATURES.BASIC_BOOKING, FEATURES.CUSTOMER_MANAGEMENT, FEATURES.TRANSACTION_MANAGEMENT]) m.states[feature] = "HIDDEN";
-    const tree = await DashboardHomePage() as ReactElement<Parameters<typeof SpaHome>[0]>;
-    expect(tree.type).toBe(SpaHome);
-    expect(tree.props).toMatchObject({ storeId: "selected-store", canBookings: false, canCustomers: false, canRevenue: false });
-    const html = renderToStaticMarkup(await SpaHome(tree.props));
-    expect(m.spaSchedule).not.toHaveBeenCalled(); expect(m.spaRevenue).not.toHaveBeenCalled(); expect(m.customers).not.toHaveBeenCalled();
-    expect(html).not.toContain('href="/dashboard/');
-  });
 });
 
 describe("course homepage entitlement boundaries", () => {

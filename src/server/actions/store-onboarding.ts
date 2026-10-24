@@ -10,20 +10,9 @@ import { deriveBaseUrl } from "@/lib/base-url";
 import { deriveCourseBaseUrl } from "@/server/services/course-delivery-links";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types";
-import type {
-  CreateStoreInput,
-  StoreDeliverySummary,
-  ChecklistItem,
-  AccountSummary,
-  StoreIndustryModule,
-} from "@/types/store-onboarding";
+import type { CreateStoreInput, StoreDeliverySummary, ChecklistItem, AccountSummary, StoreIndustryModule } from "@/types/store-onboarding";
 import type { StoreOperatingStatus, UserRole } from "@prisma/client";
-import {
-  getBusinessProfileFeatureKey,
-  getStoreBusinessLabel,
-  resolveCourseBusinessProfile,
-  type CourseBusinessProfile,
-} from "@/lib/store-business-profile";
+import { getBusinessProfileFeatureKey, getStoreBusinessLabel, resolveCourseBusinessProfile, type CourseBusinessProfile } from "@/lib/store-business-profile";
 
 const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
   "TRIAL",
@@ -120,9 +109,8 @@ export async function createStoreAction(
           moduleInstallation: {
             create: {
               module: industryModule,
-              // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
-              status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
-              provisionedAt: industryModule !== "SPA" ? new Date() : null,
+              status: "ACTIVE",
+              provisionedAt: new Date(),
             },
           },
         },
@@ -193,7 +181,7 @@ export async function createStoreAction(
         });
       }
 
-      // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
+      // 4. 蒸足預設時段（8 slots × 7 days）。課程由自己的排課流程
       // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
       if (industryModule === "STEAMFOOT") {
         const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
@@ -216,7 +204,7 @@ export async function createStoreAction(
       //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
       // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
       // 確保不重複（此處為全新店，createMany 安全）。
-      if (industryModule !== "SPA") {
+      {
         const businessHoursData = [];
         const musicHours = businessProfile === "MUSIC";
         for (let dow = 0; dow <= 6; dow++) {
@@ -573,7 +561,7 @@ function buildDeliveryChecklist(
         ? [getBusinessProfileFeatureKey(input.businessProfile)]
         : undefined,
     )}已完成佈建`,
-      status: industryModule !== "SPA" ? "pass" : "fail" },
+      status: "pass" },
     // ② 路由入口
     { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
     // ③ OWNER / STAFF 登入

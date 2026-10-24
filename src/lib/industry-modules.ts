@@ -110,108 +110,6 @@ export const STEAMFOOT_INDUSTRY_MODULE: IndustryModule = {
   },
 };
 
-export const SPA_INDUSTRY_MODULE: IndustryModule = {
-  id: "spa",
-  displayName: "SPA／美容美體模組",
-  storeTypeLabel: "SPA／美容美體店",
-  roles: {
-    owner: "店長",
-    provider: "芳療師",
-    providerPlural: "芳療師",
-  },
-  customer: {
-    memberCenterLabel: "會員中心",
-    summaryTitle: "療程摘要",
-    sessionUnit: "次",
-    makeupLabel: "補做資格",
-    walletLabel: "我的療程",
-    buyLabel: "購買療程",
-  },
-  manager: {
-    dashboardLabel: "今日營運",
-    bookingLabel: "預約管理",
-    customerLabel: "顧客管理",
-    planLabel: "療程管理",
-    staffLabel: "芳療師管理",
-  },
-  booking: {
-    resourceModel: "provider_availability",
-    slotIntervalMinutes: 90,
-    defaultCapacity: 1,
-    openTime: "10:00",
-    closeTime: "21:00",
-    closedWeekdays: [1],
-  },
-  features: {
-    packages: true,
-    makeupCredits: true,
-    healthAssessment: false,
-    referralShare: true,
-    storedValue: false,
-  },
-  services: [
-    {
-      key: "trial",
-      name: "新客舒壓體驗 60 分鐘",
-      category: "TRIAL",
-      durationMinutes: 60,
-      price: 899,
-      sessions: 1,
-      validityDays: 30,
-    },
-    {
-      key: "single",
-      name: "全身芳療單次 90 分鐘",
-      category: "SINGLE",
-      durationMinutes: 90,
-      price: 1800,
-      sessions: 1,
-      validityDays: null,
-    },
-    {
-      key: "package_3",
-      name: "舒壓療程 3 次",
-      category: "PACKAGE",
-      durationMinutes: 90,
-      price: 5100,
-      sessions: 3,
-      validityDays: 60,
-    },
-    {
-      key: "package_5",
-      name: "舒壓療程 5 次",
-      category: "PACKAGE",
-      durationMinutes: 90,
-      price: 8000,
-      sessions: 5,
-      validityDays: 90,
-    },
-    {
-      key: "package_10",
-      name: "深層芳療 10 次",
-      category: "PACKAGE",
-      durationMinutes: 90,
-      price: 15000,
-      sessions: 10,
-      validityDays: 180,
-    },
-    {
-      key: "package_annual",
-      name: "年度保養 12 次",
-      category: "PACKAGE",
-      durationMinutes: 90,
-      price: 16800,
-      sessions: 12,
-      validityDays: 365,
-    },
-  ],
-  theme: {
-    accent: "#60704d",
-    accentSoft: "#edf0e8",
-    surface: "#faf8f4",
-  },
-};
-
 export const COURSE_INDUSTRY_MODULE: IndustryModule = {
   id: "course",
   displayName: "課程模組",
@@ -246,8 +144,9 @@ export function getIndustryModule(id: IndustryModuleId): IndustryModule {
 
 export function resolveIndustryModuleId(value: string | null | undefined): IndustryModuleId {
   if (value === "beauty" || value === "BEAUTY") return "beauty";
+  if (value === "spa" || value === "SPA") return "spa";
   if (value === "course" || value === "COURSE") return "course";
-  return value === "spa" || value === "SPA" ? "spa" : "steamfoot";
+  return "steamfoot";
 }
 
 export function toPersistedIndustryModule(

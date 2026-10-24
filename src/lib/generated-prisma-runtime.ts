@@ -5,9 +5,6 @@ import { join } from "node:path";
 // Keep Prisma native loaders out of Turbopack's unbounded cwd expansion.
 // Each exact generated directory is explicitly included in next.config.ts.
 const nativeRequire = createRequire(join(process.cwd(), "package.json"));
-export function loadSpaPrismaRuntime() {
-  return nativeRequire(/* turbopackIgnore: true */ "./generated/spa-client") as typeof import("../../generated/spa-client");
-}
 export function loadCoursePrismaRuntime() {
   return nativeRequire(/* turbopackIgnore: true */ "./generated/course-client") as typeof import("../../generated/course-client");
 }

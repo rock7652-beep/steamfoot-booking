@@ -14,7 +14,7 @@ const production = "postgresql://postgres:fixture@db.qijlnhtpbintanzpxkvf.supaba
 const clients = [
   { name: "main", key: "prisma", load: async () => (await import("@/lib/db")).prisma },
   { name: "course", key: "coursePrisma", load: async () => (await import("@/lib/course-db")).coursePrisma },
-  { name: "spa", key: "spaPrisma", load: async () => (await import("@/lib/spa-db")).spaPrisma },
+
 ];
 
 beforeEach(() => {
@@ -147,7 +147,6 @@ describe("provider build-command override defense", () => {
     expect(mocks.construct).not.toHaveBeenCalled();
   });
 });
-
 
 describe("reviewed production main release boundary", () => {
   beforeEach(() => vi.stubEnv("NODE_ENV", "production"));

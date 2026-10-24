@@ -1,8 +1,5 @@
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
-import {
-  monthlyStoreSummary,
-  monthlyRevenueByCategory,
-} from "@/server/queries/report";
+import { monthlyStoreSummary, monthlyRevenueByCategory } from "@/server/queries/report";
 import type { CustomerFlowComparison } from "@/server/queries/customer-flow-metrics";
 import type { ConversionComparison } from "@/server/queries/conversion-metrics";
 import { retentionPresentation } from "@/lib/retention-presentation";
@@ -16,35 +13,20 @@ import { checkPermission } from "@/lib/permissions";
 import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import {
-  DATA_EXPORT_LOCKED_MESSAGE,
-  DATA_EXPORT_SELECT_STORE_MESSAGE,
-  hasDataExportFeature,
-} from "@/lib/data-export-gate";
+import { DATA_EXPORT_LOCKED_MESSAGE, DATA_EXPORT_SELECT_STORE_MESSAGE, hasDataExportFeature } from "@/lib/data-export-gate";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import { getActiveStoreForRead } from "@/lib/store";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-} from "@/lib/store-view-context-server";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { toLocalDateStr, resolveAnalysisRange, analysisComparisonRanges, analysisRetentionCohort } from "@/lib/date-utils";
-import {
-  PageShell,
-  PageHeader,
-  KpiStrip,
-  DataTable,
-  EmptyRow,
-  type Column,
-} from "@/components/desktop";
+import { PageShell, PageHeader, KpiStrip, DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { DashboardLink } from "@/components/dashboard-link";
 import { PerformanceTrendChart } from "./performance-trend-chart";
 import { RevenueMixTrend } from "@/components/revenue-mix-trend";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { SpaAnalysisPage } from "./spa-analysis-page";
 
 interface PageProps {
   searchParams: Promise<{
@@ -84,7 +66,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   if(!await canReadInventoryFinance(reportsStoreId,user)) return <div className="p-4 text-sm">完整財務資料需有查看進貨成本的權限。一般商品收款請使用進銷存的收款單。</div>;
   if (reportsStoreId) {
     const industryModule = await getStoreIndustryModule(reportsStoreId);
-    if (industryModule === "spa") return <SpaAnalysisPage storeId={reportsStoreId} params={params} user={user} isViewMode={isViewMode} />;
+
     if (industryModule === "course") {
       const query = new URLSearchParams({ view: "analytics" });
       for (const key of ["preset", "startDate", "endDate", "month"] as const) {

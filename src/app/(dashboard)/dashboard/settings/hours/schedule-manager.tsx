@@ -1,21 +1,16 @@
 "use client";
-import {useSettingsSave} from "@/components/admin/use-settings-save";
-import {savedServiceHours} from "@/lib/service-hours-save";
-import {savedCourseDayHours} from "@/lib/course-day-hours-save";
-import {usePathname} from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedServiceHours } from "@/lib/service-hours-save";
+import { savedCourseDayHours } from "@/lib/course-day-hours-save";
+import { usePathname } from "next/navigation";
 import { CourseWeeklyHoursEditor } from "../../courses/hours/weekly-hours-editor";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import {
-  getMonthSpecialDays,
-  getMonthScheduleSummary,
-  getDaySlotDetails,
-  syncFromHeadquarters,
-} from "@/server/actions/business-hours";
-import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours} from "@/server/actions/course-business-hours";
-import {toLocalDateStr} from "@/lib/date-utils";
+import { getMonthSpecialDays, getMonthScheduleSummary, getDaySlotDetails, syncFromHeadquarters } from "@/server/actions/business-hours";
+import { getCourseMonthSpecialDays, getCourseMonthScheduleSummary, getCourseDayHours } from "@/server/actions/course-business-hours";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
@@ -123,7 +118,6 @@ interface Props {
   canManage: boolean;
   isHeadquarters: boolean;
   isCourseStore?: boolean;
-  isSpaStore: boolean;
   isBeautyStore?: boolean;
 }
 
@@ -149,15 +143,12 @@ export function ScheduleManager({
   initialMonth,
   canManage,
   isHeadquarters,
-  isSpaStore,
   isCourseStore = false,
   isBeautyStore = false,
 }: Props) {
-  // 蒸足採 30/60/90/120；SPA 保留既有 15/30 排程設定，不受此頁變更影響。
+  // 各模組保留自己的預約單位；新版美業固定 30 分鐘。
   const courseLayout=isCourseStore||isBeautyStore;
-  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : isSpaStore
-    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
-    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
+  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>(initialSpecialDays);
@@ -735,7 +726,6 @@ export function ScheduleManager({
           )}
         </div>
 
-
       </div>
 
       {/* ===== 右側：日設定面板 =====
@@ -1025,7 +1015,7 @@ export function ScheduleManager({
                     <details open={applyMode !== "day"}>
                       <summary className="cursor-pointer text-xs text-earth-700">套用其他日期</summary>
                       <div className="mt-3 space-y-3">
-                    {!courseLayout && (
+                    {!isCourseStore && (
                       <div className="rounded-lg border border-earth-200 bg-earth-50 p-2.5">
                         <label className="flex items-center gap-2 text-xs font-medium text-earth-700">
                           <input
@@ -1102,7 +1092,7 @@ export function ScheduleManager({
                                 一併複製來源日的 {sourceOverrideCount} 個單一時段調整
                               </label>
                             )}
-                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">選取的日期會更新為本次設定，取代原有服務時間、名額與單一時段調整。儲存後可復原。</p>
+                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">選取的日期會更新為本次設定，取代原有{isBeautyStore?"服務時間與單一時段開關":"服務時間、名額與單一時段調整"}。儲存後可復原。</p>
                           </div>
                         )}
                       </div>
@@ -1199,7 +1189,7 @@ export function ScheduleManager({
                         <div className="space-y-1 text-xs text-earth-700">
                           <p>來源：{selectedDate}；目標：{targetDates.join("、")}</p>
                           <p>只建立這些日期的特殊設定，不會變更每週固定規則。</p>
-                          <p>這 {targetDates.length} 個日期原有的服務時間、名額與單一時段調整，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>
+                          <p>這 {targetDates.length} 個日期原有的{isBeautyStore?"服務時間與單一時段開關":"服務時間、名額與單一時段調整"}，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>
                         </div>
                       )}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
@@ -1247,7 +1237,6 @@ export function ScheduleManager({
               }} className="mt-3 min-h-11 rounded border px-3 text-sm">重新核對日期</button>}
             </div>
 
-
           </div>
         ) : null}
       </div>
@@ -1286,7 +1275,7 @@ export function ScheduleManager({
                     canManage={canManage}
                     isPending={isPending}
                     uncertain={serviceRequest.uncertain}
-                    isSpaStore={isSpaStore} isCourseStore={isCourseStore} isBeautyStore={isBeautyStore}
+                    isCourseStore={isCourseStore} isBeautyStore={isBeautyStore}
                     onSave={saveWeeklyDay}
                   />
                 ))}
@@ -1315,7 +1304,6 @@ export function ScheduleManager({
           </details>
         )}
 
-
       </div>
     </div>
   );
@@ -1330,7 +1318,6 @@ function WeeklyDayRow({
   day,
   canManage,
   isPending,
-  isSpaStore,
   isCourseStore = false,
   isBeautyStore = false,
   onSave,
@@ -1340,13 +1327,10 @@ function WeeklyDayRow({
   canManage: boolean;
   isPending: boolean;
   isCourseStore?: boolean;
-  isSpaStore: boolean;
   isBeautyStore?: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => Promise<boolean>;
 }) {
-  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : isSpaStore
-    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
-    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
+  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [isOpen, setIsOpen] = useState(day.isOpen);
   const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods.map(p=>({...p,slotInterval:isBeautyStore?30:p.slotInterval})) : [{
     openTime: day.openTime ?? "10:00",

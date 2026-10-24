@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
 /** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
  * CSS layout, native browser history, Safari, or touch-device behavior. */
+// @vitest-environment jsdom
+/** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
+ * CSS layout, native browser history, Safari, or touch-device behavior. */
+// @vitest-environment jsdom
+/** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
+ * CSS layout, native browser history, Safari, or touch-device behavior. */
+// @vitest-environment jsdom
+/** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
+ * CSS layout, native browser history, Safari, or touch-device behavior. */
 import React, { act, createElement } from "react";
 import { jsx } from "react/jsx-runtime";
 import { createRoot, type Root } from "react-dom/client";
@@ -26,7 +35,7 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer", () => ({ St
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
 import { CustomerLabelsProvider } from "@/components/customer-labels";
 import { DayDetailPanel, type DayBooking } from "@/app/(dashboard)/dashboard/bookings/day-detail-panel";
-import { SpaBookingRoster } from "@/app/(dashboard)/dashboard/spa-schedule/booking-roster";
+
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 
 type Module = "steam" | "spa" | "sports" | "music";
@@ -56,7 +65,6 @@ async function renderModule(module: Module, { empty = false, count = 0, long = f
   m.load.mockResolvedValue({ success: true, data: { session, roster, cards: [], trial: null } });
   m.quick.mockResolvedValue({ success: true, data: { roster, teacherNote: "", teacherAttendance: "SCHEDULED", teacherAttendanceReason: "" } });
   const element = module === "steam" ? createElement(DayDetailPanel, { date: "2026-09-24", bookings: empty ? [] : [booking], slots: [], readOnly: readonly, onBookingClick: m.open })
-    : module === "spa" ? createElement(SpaBookingRoster, { bookings: empty ? [] : [{ id: "synthetic-spa", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成療程", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes, treatmentIds: [], updatedAt: "2026-09-24T02:00:00Z", receipt: { id: "receipt", amount: 1200, paymentMethod: "CASH", paidAt: "2026-09-24T02:00:00Z", refunded: false } }], customers: [{ id: "customer", name, serviceNote }], staff: [{ id: "staff", name: "合成技師" }], locations: [{ id: "room", name: "合成房間" }], canUpdate: !readonly, onOpen: m.open, storeId: "synthetic-store", date: "2026-09-24", onNotesSaved: vi.fn() })
     : createElement(CourseRoster, { sessionId: "synthetic-session", capacity: musicGroup ? 10 : 1, canCreate: false, canEdit: !readonly, musicLayout: module === "music", classType: musicGroup ? "GROUP" : "PRIVATE", teacherName: "合成老師" });
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial: labels, children: element })));
 }

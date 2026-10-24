@@ -320,7 +320,7 @@ export const getStoreOptions = cache(async (user: SessionLike): Promise<Accessib
   if (user.role !== "ADMIN") return stores;
   const { prisma } = await import("@/lib/db");
   const archived = await prisma.store.findMany({
-    where: { archivedAt: { not: null } }, select: { id: true },
+    where: { archivedAt: { not: null }, industryModule: { not: "SPA" } }, select: { id: true },
   });
   const ids = new Set(archived.map((store) => store.id));
   return stores.filter((store) => !ids.has(store.id));

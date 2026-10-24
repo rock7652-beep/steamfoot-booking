@@ -1,54 +1,34 @@
 import { BrandOverviewContent } from "@/components/hq-brand-overview";
 import { CourseHome } from "./courses/home";
-import { SpaHome } from "./spa-home";
+
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import {
-  bookingDateToday,
-  toLocalDateStr,
-  toLocalMonthStr,
-} from "@/lib/date-utils";
+import { bookingDateToday, toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
 import { getEffectiveStoreRole } from "@/lib/hq-store-view";
 import { getHqStoreViewContext, registerHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import {
-  resolveStoreViewContext,
-  type StoreViewContext,
-} from "@/lib/store-organization";
+import { resolveStoreViewContext, type StoreViewContext } from "@/lib/store-organization";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/db";
 import { getDashboardTodaySummaryForUser } from "@/server/queries/dashboard-summary";
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodosForUser } from "@/server/queries/store-todos";
-import {
-  getCustomerCareSummary,
-  type CustomerCareSummary,
-} from "@/server/queries/customer-care";
+import { getCustomerCareSummary, type CustomerCareSummary } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
 import { countPendingCentralMemberLinkReviews } from "@/server/queries/central-member-link-review";
 import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
-import {
-  CustomerCareSummaryCard,
-  type CustomerWorkspaceSummary,
-} from "./customer-care-summary-card";
-import {
-  PageShell,
-  PageHeader,
-  KpiStrip,
-  DataTable,
-  EmptyRow,
-  type Column,
-} from "@/components/desktop";
+import { CustomerCareSummaryCard, type CustomerWorkspaceSummary } from "./customer-care-summary-card";
+import { PageShell, PageHeader, KpiStrip, DataTable, EmptyRow, type Column } from "@/components/desktop";
 
 /** 店家首頁：今日摘要 → 待處理與顧客關懷 → 今日預約。 */
 
@@ -101,9 +81,6 @@ export default async function DashboardHomePage() {
   const canViewPlans = planPermission && planFeature;
   const canViewCustomerCare = canViewCustomers && customerCareState === "ENABLED";
   const showCustomerCare = canViewCustomers && customerCareState !== "HIDDEN";
-  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
-    return <SpaHome storeId={activeStoreId} canBookings={canViewBookings} canCustomers={canViewCustomers} canRevenue={canViewRevenue} />;
-  }
 
   const dashboardStoreId = activeStoreId;
   const dashboardUser = dashboardStoreId

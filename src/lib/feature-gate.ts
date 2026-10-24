@@ -6,8 +6,26 @@ import { resolveCourseSharedCardState } from "@/lib/course-shared-card-policy";
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
-import {cache} from "react";
-import {sportsNativePreview} from "@/lib/sports-native-preview";
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+import { cache } from "react";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -18,7 +36,6 @@ import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 const FEATURE_KEY_SET = new Set<string>(Object.values(FEATURES));
 
@@ -95,7 +112,6 @@ export async function hasStoreFeature(
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
     return inventoryFeatureAllowed(store.plan, grant);
   }
-  if (isSpaDemoStoreId(storeId)) return true;
 
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   // Explicit three-state controls are honored in trials; legacy DISABLED trial rules remain unchanged.
@@ -170,7 +186,7 @@ export async function getStoreFeaturePresentation(storeId: string, feature: Feat
     return resolution.enabled ? "ENABLED" : "HIDDEN";
   }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";
-  if (isSpaDemoStoreId(storeId)) return "ENABLED";
+
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   if (entitlement?.status === "HIDDEN") return "HIDDEN";
   return await hasStoreFeature(storeId, feature) ? "ENABLED" : "LOCKED";
@@ -184,7 +200,7 @@ export const getStoreFeaturePresentations = cache(async (storeId: string): Promi
     prisma.store.findUnique({ where: { id: storeId }, select: { plan: true, industryModule: true } }),
     prisma.storeFeatureEntitlement.findMany({ where: { storeId }, select: { featureKey: true, status: true, startsAt: true, expiresAt: true } }),
   ]);
-  const demo = isSpaDemoStoreId(storeId);
+  const demo = false;
   if (!store && !demo) throw new Error("Store not found");
   const plan = demo ? "ALLIANCE" : store!.plan;
   const now = new Date();

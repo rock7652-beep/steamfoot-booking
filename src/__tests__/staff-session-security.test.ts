@@ -61,7 +61,7 @@ function enableModuleReview() {
   return capability;
 }
 
-it.each(["spa", "exercise", "music"] as const)("pins %s review to its verified identity, store and module", async module => {
+it.each(["exercise", "music"] as const)("pins %s review to its verified identity, store and module", async module => {
   const capability = enableModuleReview();
   const target = CUSTOMER_REVIEW_TARGETS[module];
   const fixture = state({ id: target.userId, staff: { id: target.staffId, storeId: target.storeId, status: "ACTIVE", store: { slug: target.slug, industryModule: target.industryModule } } } as Partial<StaffSecurityState>);

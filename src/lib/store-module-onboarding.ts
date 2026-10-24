@@ -4,14 +4,15 @@ export function buildInitialBusinessHours(
   storeId: string,
   industryModule: PersistedIndustryModule,
 ) {
+  if (industryModule === "SPA") throw new Error("SPA 模組已移除");
   return Array.from({ length: 7 }, (_, dayOfWeek) => ({
     storeId,
     dayOfWeek,
-    isOpen: industryModule === "SPA" ? dayOfWeek !== 1 : true,
+    isOpen: true,
     openTime: "10:00",
     closeTime: "21:00",
-    slotInterval: industryModule === "SPA" ? 30 : 60,
-    defaultCapacity: industryModule === "SPA" ? 1 : 6,
+    slotInterval: 60,
+    defaultCapacity: 6,
   }));
 }
 
@@ -36,33 +37,3 @@ export function buildSteamfootBookingSlots(storeId: string) {
     })),
   ).flat();
 }
-
-export const SPA_STARTER_SKILLS = [
-  { key: "body", name: "身體芳療" },
-  { key: "face", name: "臉部護理" },
-  { key: "foot", name: "足部舒壓" },
-] as const;
-
-export const SPA_STARTER_TREATMENTS = [
-  {
-    key: "body-60",
-    name: "全身芳療",
-    price: 1800,
-    serviceMinutes: 60,
-    skillKey: "body",
-  },
-  {
-    key: "face-60",
-    name: "臉部保濕護理",
-    price: 2000,
-    serviceMinutes: 60,
-    skillKey: "face",
-  },
-  {
-    key: "foot-60",
-    name: "足部舒壓",
-    price: 900,
-    serviceMinutes: 60,
-    skillKey: "foot",
-  },
-] as const;

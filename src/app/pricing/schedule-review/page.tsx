@@ -3,9 +3,8 @@ import { ReviewViewport } from "./review-viewport";
 import { BookingReview } from "./booking-review";
 import DashboardShell from "@/components/sidebar";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
-import { SpaScheduleWorkspace } from "@/app/(dashboard)/dashboard/spa-schedule/workspace";
+
 import { parseTaipeiDateTime } from "@/lib/date-utils";
-import "../../spa-admin.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "課表 RWD 驗收", robots: { index: false, follow: false } };
@@ -13,8 +12,8 @@ export const metadata = { title: "課表 RWD 驗收", robots: { index: false, fo
 export default async function ScheduleReviewPage({ searchParams }: { searchParams: Promise<{ frame?: string; width?: string; module?: string; date?: string; scheduleView?: string }> }) {
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
-  const reviewModule = query.module === "steamfoot" ? "steamfoot" : query.module === "music" ? "music" : query.module === "spa" ? "spa" : "fitness";
-  const industryModule = reviewModule === "spa" ? "spa" : reviewModule === "steamfoot" ? "steamfoot" : "course";
+  const reviewModule = query.module === "steamfoot" ? "steamfoot" : query.module === "music" ? "music" : "fitness";
+  const industryModule = reviewModule === "steamfoot" ? "steamfoot" : "course";
   const widths = [360, 390, 768, 1024, 1366, 1920];
   const width = widths.find(value => String(value) === query.width) ?? 390;
   const date = query.date && parseTaipeiDateTime(query.date, "00:00") ? query.date : "2026-10-01";
@@ -29,7 +28,7 @@ export default async function ScheduleReviewPage({ searchParams }: { searchParam
     });
     return <DashboardShell industryModule={industryModule} industryModuleId={industryModule} isOwner operationGuidePreview permissions={["booking.read"]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel="系統管理者" logoutButton={null} storeName="虛擬驗收店家">
       <p className="mb-3 text-sm text-earth-500">虛擬資料，僅驗收排版與篩選；可開啟面板檢查排版；不送出新增、名單或儲存操作。</p>
-      {reviewModule === "steamfoot" ? <BookingReview /> : reviewModule === "spa" ? <SpaScheduleWorkspace storeId="synthetic-schedule-review" date={date} bookings={[]} staff={coaches.map(c => ({id: c.id, name: c.displayName}))} customers={[]} treatments={[{id:"rwd-treatment",name:"驗收服務",price:500,serviceMinutes:60,bufferMinutes:15,locationIds:rooms.map(r=>r.id)}]} locations={rooms.map(r=>({id:r.id,name:r.name}))} canCreate canUpdate={false} canCheckout={false} /> : <CourseWorkspace selectedDate={date} today="2026-10-01" nowIso={parseTaipeiDateTime("2026-10-01","10:00")!.toISOString()} calendarDays={{}} staffAvailability={[]} staffAvailabilityExceptions={[]} rooms={rooms} templates={templates} sessions={sessions} coaches={coaches} cancelledBookings={[]} canCreate={false} canEdit={false} businessProfile={reviewModule === "music" ? "MUSIC" : "FITNESS"} view="schedule" />}
+      {reviewModule === "steamfoot" ? <BookingReview /> : <CourseWorkspace selectedDate={date} today="2026-10-01" nowIso={parseTaipeiDateTime("2026-10-01","10:00")!.toISOString()} calendarDays={{}} staffAvailability={[]} staffAvailabilityExceptions={[]} rooms={rooms} templates={templates} sessions={sessions} coaches={coaches} cancelledBookings={[]} canCreate={false} canEdit={false} businessProfile={reviewModule === "music" ? "MUSIC" : "FITNESS"} view="schedule" />}
     </DashboardShell>;
   }
   const params = new URLSearchParams({module: reviewModule, date, scheduleView: query.scheduleView ?? "month"});
@@ -40,4 +39,3 @@ export default async function ScheduleReviewPage({ searchParams }: { searchParam
     <ReviewViewport src={`?frame=1&${params}`} initialWidth={width} />
   </main>;
 }
-

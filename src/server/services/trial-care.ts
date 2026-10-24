@@ -3,7 +3,7 @@ import { publicPlanMessages } from "./trial-care-plans";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { dayRange, monthRange, parseTaiwanDateToDbDate, toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
 import { pushMessage, probeStoreLineRecipient, type LineMessage } from "@/lib/line";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -21,13 +21,7 @@ async function candidates(storeId: string, module: string, activatedAt: Date): P
     });
     return rows.map(b => ({ id: b.id, customerId: b.customerId, completedAt: b.trialCareCompletedAt! }));
   }
-  if (module === "SPA") {
-    const rows = await spaPrisma.spaBooking.findMany({
-      where: { storeId, isTrial: true, status: "COMPLETED", guestIndex: 1, completedAt: { gte: activatedAt }, bookingDate: { gte: parseTaiwanDateToDbDate(toLocalDateStr(activatedAt)) } },
-      select: { id: true, customerId: true, completedAt: true }, orderBy: [{ completedAt: "asc" }, { id: "asc" }],
-    });
-    return rows.map(b => ({ ...b, completedAt: b.completedAt! }));
-  }
+
   return []; // Unknown/unreleased modules fail closed.
 }
 async function eligibility(storeId: string, module: string, candidate: Candidate, now: Date) {
@@ -45,19 +39,7 @@ async function eligibility(storeId: string, module: string, candidate: Candidate
     if (slots.length && !slots.some(p => p.service === "FIRST_TRIAL" && p.status === "COMPLETED")) return null;
   }
   const today = parseTaiwanDateToDbDate(toLocalDateStr(now));
-  if (module === "SPA") {
-    const [booking, purchased, booked] = await Promise.all([
-      spaPrisma.spaBooking.findFirst({ where: { id: candidate.id, storeId, customerId: candidate.customerId, status: "COMPLETED", isTrial: true } }),
-      spaPrisma.spaCreditSale.count({ where: { storeId, customerId: candidate.customerId } }),
-      spaPrisma.spaBooking.count({ where: { storeId, customerId: candidate.customerId, status: { in: ["PENDING", "CONFIRMED"] }, bookingDate: { gte: today } } }),
-    ]);
-    // Imported entitlements / stored-value wallets may predate the sales ledger.
-    const [entitlements, wallets] = await Promise.all([
-      spaPrisma.spaEntitlement.count({ where: { storeId, customerId: candidate.customerId } }),
-      spaPrisma.spaStoredValueEntry.count({ where: { storeId, customerId: candidate.customerId, entryType: "CREDIT" } }),
-    ]);
-    return booking ? { customer, purchased: purchased + entitlements + wallets > 0, pendingPayment: false, booked: booked > 0 } : null;
-  }
+
   const [booking, purchased, wallets, booked, pendingPayment] = await Promise.all([
     prisma.booking.findFirst({ where: { id: candidate.id, storeId, customerId: candidate.customerId, bookingStatus: "COMPLETED", bookingType: "FIRST_TRIAL" }, select: { id: true } }),
     prisma.transaction.count({ where: { storeId, customerId: candidate.customerId, transactionType: "PACKAGE_PURCHASE", status: { in: ["SUCCESS", "REFUNDED"] }, paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } } }),

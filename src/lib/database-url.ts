@@ -1,10 +1,9 @@
-import { configureSpaPreviewPool } from "./spa-preview-pool";
+
 /** Build the pooled Postgres URL shared by the physically separate clients. */
 export function buildDatabaseUrl(base = process.env.DATABASE_URL ?? ""): string {
   if (!base) return base;
 
   const url = new URL(base);
-  configureSpaPreviewPool(url);
   const isPooler =
     /pooler\.supabase\.com$/i.test(url.hostname) || url.port === "6543";
   const isServerless =

@@ -4,7 +4,7 @@ import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBooki
 import dynamic from "next/dynamic";
 const CustomerInlineDetail = dynamic(() => import("../customers/_components/customer-inline-detail").then(module => module.CustomerInlineDetail), { loading: () => <div><h2 id="booking-drawer-title" className="sr-only">顧客資料</h2><p role="status" className="p-4 text-sm text-earth-500">讀取顧客資料中…</p></div> });
 import { TrialCheckoutLoading } from "./trial-checkout-loading";
-import { LoadingStatus } from "@/components/loading-status";
+
 import { BookingGuideContext } from "@/components/operation-guide-shell";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -14,19 +14,11 @@ import { BookingActionFeedback } from "./booking-action-feedback";
 import { toast } from "sonner";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { RightSheet } from "@/components/admin/right-sheet";
-import {
-  StatusBadge,
-  bookingStatusMeta,
-} from "@/components/admin/status-badge";
-import {
-  type BookingDrawerPayload,
-} from "@/server/actions/booking-drawer";
+import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
+import { type BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
-import {
-  cancelBooking,
-  updateBooking,
-} from "@/server/actions/booking";
+import { cancelBooking, updateBooking } from "@/server/actions/booking";
 import { BookingNoteEditor } from "./booking-note-editor";
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 import { BookingParticipantCheckout } from "./booking-participant-checkout";
@@ -46,8 +38,8 @@ import { trialBookingSourceLabel } from "@/lib/trial-booking-source";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 /** Keep pending and loaded content in the same independently flowing columns. */
-function DetailBody({ spaMode = false, stacked = false, busy, appointment, customer, payment, notes }: {
-  spaMode?: boolean;
+function DetailBody({ stacked = false, busy, appointment, customer, payment, notes }: {
+
   stacked?: boolean;
   busy?: boolean;
   appointment: React.ReactNode;
@@ -56,7 +48,7 @@ function DetailBody({ spaMode = false, stacked = false, busy, appointment, custo
   notes?: React.ReactNode;
 }) {
   if (stacked) return <div aria-busy={busy} className="min-h-0 flex-1 overflow-y-auto">{appointment}{payment}{notes}</div>;
-  if (spaMode) return <div className="flex-1 overflow-y-auto">{appointment}{customer}{payment}{notes}</div>;
+
   return (
     <div aria-busy={busy} className="grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start">
       <div className="min-w-0">{appointment}{payment}</div>
@@ -174,7 +166,7 @@ interface BookingDetailDrawerProps {
   /** Industry-specific service duration when the core Booking row has no duration column. */
   durationMinutes?: number;
   /** SPA Demo uses one unified on-site checkout flow. */
-  spaMode?: boolean;
+
 }
 
 export function BookingDetailDrawer({
@@ -193,7 +185,6 @@ export function BookingDetailDrawer({
   readOnly = false,
   rebookHref,
   durationMinutes,
-  spaMode = false,
 }: BookingDetailDrawerProps) {
   const customerCloseGuard = useRef<() => boolean>(() => true);
   const registerCustomerCloseGuard = useCallback((guard: () => boolean) => {customerCloseGuard.current = guard;}, []);
@@ -349,7 +340,7 @@ export function BookingDetailDrawer({
     const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
     const source = originalData?.booking ?? (prefill?.id === id ? prefill : null);
     const wallet = source?.customerPlanWallet;
-    const projectedBalance = !spaMode && optimisticStatus === "COMPLETED" &&
+    const projectedBalance = optimisticStatus === "COMPLETED" &&
       source && ["PENDING", "CONFIRMED"].includes(source.bookingStatus) &&
       source.bookingType === "PACKAGE_SESSION" && source.people === 1 && !source.isMakeup &&
       (!originalData || originalData.booking.makeupCreditLinks.length === 0) &&
@@ -362,7 +353,7 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
-      timingLabel: !spaMode && opts?.optimistic
+      timingLabel: opts?.optimistic
         ? nextStatus === "COMPLETED" ? "complete" : nextStatus === "PENDING" ? "revert" : undefined
         : undefined,
       apply: () => {
@@ -631,7 +622,7 @@ export function BookingDetailDrawer({
     if (bookingId)
       onUpdated?.(
         bookingId,
-        spaMode ? null : serviceCompleted ? "COMPLETED" : null,
+        serviceCompleted ? "COMPLETED" : null,
       );
   }
 
@@ -673,16 +664,16 @@ export function BookingDetailDrawer({
   return (
     <>
       <RightSheet
-        className={spaMode ? "" : "customer-review-panel"}
-        presentation={spaMode ? "side" : "centered"}
+        className={"customer-review-panel"}
+        presentation={"centered"}
         open={open}
         onClose={() => { if (!participantBusy) onClose(); }}
         labelledById={attendanceOpen && !checkingResult ? "booking-attendance-title" : "booking-drawer-title"}
         fitContent={false}
-        width={spaMode ? undefined : 860}
+        width={860}
       >
         {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
-        {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
+        {open && operationGuidePreview && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
       {!readOnly &&
         data &&
         !data.participantCheckout &&
@@ -704,33 +695,7 @@ export function BookingDetailDrawer({
           />
         )}
         <div className={attendanceOpen && !checkingResult ? "hidden" : "contents"}>
-        {hasFullData &&
-        data &&
-        spaMode &&
-        collectSingleOpen &&
-        data.single &&
-        !data.single.collected ? (
-          <CollectSingleModal
-            key={data.booking.id}
-            open
-            embedded
-            onClose={() => setCollectSingleOpen(false)}
-            bookingId={data.booking.id}
-            customerName={data.booking.customer.name}
-            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
-            defaultPrice={data.single.defaultPrice}
-            spaMode
-            serviceName={
-              data.booking.treatmentNameSnapshot ??
-              data.booking.servicePlan?.name ??
-              "本次服務"
-            }
-            serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
-            wallets={data.checkout?.wallets ?? []}
-            storedValue={data.storedValue}
-            onCollected={handleSingleCollected}
-          />
-        ) : hasFullData && data ? (
+        {hasFullData && data ? (
           <DrawerContent
             openCustomerPlan={customerPlanShortcut}
             onCustomerPlanBack={() => setCustomerPlanShortcut(false)}
@@ -763,7 +728,7 @@ export function BookingDetailDrawer({
             readOnly={readOnly}
             rebookHref={rebookHref}
             durationMinutes={durationMinutes}
-            spaMode={spaMode}
+
             actions={{
               complete: handleComplete,
               noShow: () => setNoShowOpen(true),
@@ -777,10 +742,10 @@ export function BookingDetailDrawer({
               adjustToSingle: () => setAdjustToSingleOpen(true),
             }}
           />
-        ) : !spaMode && initialIntent === "collect" ? (
+        ) : initialIntent === "collect" ? (
           <TrialCheckoutLoading bookingDate={(prefill ?? summary)?.bookingDate} slotTime={(prefill ?? summary)?.slotTime} people={(prefill ?? summary)?.people} staffName={prefill?.revenueStaff?.displayName} error={error} onClose={onClose} />
-        ) : showPrefill && prefill && !spaMode ? (
-          <PendingSteamDetail collectionLoading={initialIntent === "collect"}
+        ) : showPrefill && prefill ? (
+          <PendingSteamDetail collectionLoading={false}
             prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED", customerPlanWallet: pendingBalance !== null && prefill.customerPlanWallet ? { ...prefill.customerPlanWallet, remainingSessions: pendingBalance } : prefill.customerPlanWallet } : prefill}
             durationMinutes={durationMinutes}
             error={error}
@@ -794,7 +759,7 @@ export function BookingDetailDrawer({
           />
         ) : showPrefill && prefill ? (
           <PrefillDrawerContent
-            spaMode={spaMode}
+
             prefill={prefill}
             durationMinutes={durationMinutes}
             loading={loading}
@@ -803,7 +768,7 @@ export function BookingDetailDrawer({
           />
         ) : showHeaderFromSummary && summary ? (
           <SummaryDrawerContent
-            spaMode={spaMode}
+
             summary={summary}
             durationMinutes={durationMinutes}
             loading={loading}
@@ -811,7 +776,7 @@ export function BookingDetailDrawer({
             onClose={onClose}
           />
         ) : (
-          spaMode ? <DrawerSkeleton onClose={onClose} error={error} /> : <PendingSteamDetail collectionLoading={initialIntent === "collect"} onClose={onClose} error={error} />
+          <PendingSteamDetail collectionLoading={false} onClose={onClose} error={error} />
         )}
         </div>
       </RightSheet>
@@ -907,7 +872,6 @@ export function BookingDetailDrawer({
           />
         )}
       {!readOnly &&
-        !spaMode &&
         data &&
         data.single &&
         !data.single.collected && (
@@ -919,7 +883,7 @@ export function BookingDetailDrawer({
             customerName={data.booking.customer.name}
             dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
             defaultPrice={data.single.defaultPrice}
-            spaMode={spaMode}
+
             people={data.booking.people}
             serviceName={
               data.booking.treatmentNameSnapshot ??
@@ -997,7 +961,6 @@ function DrawerContent({
   readOnly = false,
   rebookHref,
   durationMinutes,
-  spaMode = false,
   onParticipantsUpdated,
   onParticipantBusy,
   openCustomerPlan = false,
@@ -1012,7 +975,7 @@ function DrawerContent({
   readOnly?: boolean;
   rebookHref?: string;
   durationMinutes?: number;
-  spaMode?: boolean;
+
   onParticipantsUpdated: () => void;
   onParticipantBusy: (busy: boolean) => void;
   openCustomerPlan?: boolean;
@@ -1032,35 +995,27 @@ function DrawerContent({
   const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(
     booking.bookingStatus,
-    spaMode ? false : booking.isCheckedIn,
+    booking.isCheckedIn,
   );
-  const statusLabel = spaMode
-    ? booking.bookingStatus === "COMPLETED"
-      ? "已完成"
-      : booking.bookingStatus === "NO_SHOW"
-        ? "未到"
-        : booking.bookingStatus === "CANCELLED"
-          ? "已取消"
-          : "待服務"
-    : meta.label;
+  const statusLabel = meta.label;
   const amount = computeAmount(booking, trial);
   const planExpiry = bookingPlanExpiry(booking.customerPlanWallet?.expiryDate);
   const duration =
-    durationMinutes ?? (spaMode ? (booking.servicePlan?.category === "TRIAL" ? 30 : 60) : null);
+    durationMinutes ?? (null);
   const endTime = duration != null ? computeEndTime(booking.slotTime, duration) : null;
   const dateLabel = formatDateLabel(booking.bookingDate);
 
-  const participantMode = !spaMode && !!payload.participantCheckout;
+  const participantMode = !!payload.participantCheckout;
   const primaryCustomerDetails = (
-        <Section readable={!spaMode} title="顧客資訊">
-          {spaMode && <KV label="姓名" value={booking.customer.name} />}
-          <KV readable={!spaMode}
+        <Section readable={true} title="顧客資訊">
+
+          <KV readable={true}
             label="電話"
             value={
               booking.customer.phone ? (
                 <a
                   href={`tel:${booking.customer.phone}`}
-                  className={spaMode ? "text-primary-600 hover:text-primary-700" : "inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
+                  className={"inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
                 >
                   {booking.customer.phone}
                 </a>
@@ -1069,7 +1024,7 @@ function DrawerContent({
               )
             }
           />
-          {!spaMode ? (
+          {(
             <BookingServiceNoteEditor
               key={booking.customer.id}
               customerId={booking.customer.id}
@@ -1077,12 +1032,10 @@ function DrawerContent({
               canEdit={!readOnly && payload.canEditServiceNote === true}
               onSaved={(value) => onNoteSaved({ kind: "customer", bookingId: booking.id, customerId: booking.customer.id, value })}
             />
-          ) : null}
-          {spaMode && booking.customer.serviceNote ? (
-            <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
-          ) : null}
-          <KV readable={!spaMode} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
-          <KV readable={!spaMode}
+          )}
+          {null}
+          <KV readable={true} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
+          <KV readable={true}
             label="最近到店"
             value={
               customerSummary.lastVisit
@@ -1092,14 +1045,14 @@ function DrawerContent({
                   : "—"
             }
           />
-          {spaMode ? <Link href={`/dashboard/customers/${booking.customer.id}`} className="inline-flex min-h-11 items-center text-sm text-primary-700">顧客資料</Link> : <button type="button" onClick={() => setShowCustomer(booking.customer.id)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
+          {<button type="button" onClick={() => setShowCustomer(booking.customer.id)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
 
         </Section>
   );
   return (
     <>
-      {visibleCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
-      <div hidden={!!visibleCustomer && !spaMode} className={visibleCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+      {visibleCustomer && <CustomerInlineDetail labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      <div hidden={!!visibleCustomer} className={visibleCustomer ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
         <div className="min-w-0 flex-1">
@@ -1111,14 +1064,14 @@ function DrawerContent({
             </span>}
           </div>
           <h2
-            id={showCustomer && !spaMode ? undefined : "booking-drawer-title"}
-            className={spaMode ? "mt-1 truncate text-lg font-bold text-earth-900" : "mt-2 break-words text-xl font-bold text-earth-900"}
+            id={showCustomer ? undefined : "booking-drawer-title"}
+            className={"mt-2 break-words text-xl font-bold text-earth-900"}
           >
             {participantMode ? "預約詳情" : booking.customer.name}
             {booking.people > 1 && <PeopleBadge people={booking.people} />}
           </h2>
-          {!participantMode && <p className={spaMode ? "mt-0.5 truncate text-sm text-earth-500" : "mt-1 break-words text-base text-earth-600"}>
-            {!spaMode && booking.bookingType === "FIRST_TRIAL"
+          {!participantMode && <p className={"mt-1 break-words text-base text-earth-600"}>
+            {booking.bookingType === "FIRST_TRIAL"
               ? (duration != null ? "首次體驗 · " : "首次體驗")
               : booking.isMakeup
               ? (duration != null ? "補課 · " : "補課")
@@ -1143,24 +1096,17 @@ function DrawerContent({
       </div>
 
       {/* Body — scrollable */}
-      <DetailBody spaMode={spaMode} stacked={participantMode} appointment={
+      <DetailBody  stacked={participantMode} appointment={
         participantMode ? <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-2 text-base">
           <div className="flex flex-wrap gap-x-4 gap-y-1"><span>{dateLabel} {booking.slotTime}{endTime ? ` - ${endTime}` : ""}</span><span className="text-earth-600">{booking.revenueStaff?.displayName ?? "未指派教練"}</span></div>
           <div className="flex items-center gap-2">
             <details><summary className="min-h-11 cursor-pointer px-2 py-2 text-sm text-earth-600">預約資訊</summary><div className="py-2 text-sm"><p>來源：{trialBookingSourceLabel(booking.bookingSource)}</p>{booking.serviceStaff && booking.serviceStaff.id !== booking.revenueStaff?.id && <p>值班店長：{booking.serviceStaff.displayName}</p>}<OperationHistoryButton targetType="Booking" targetId={booking.id}/></div></details>
             {!readOnly && payload.canEditBookingNote && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && payload.participantCheckout!.slots.every(slot=>slot.status === "PENDING" && slot.collectedAmount === null) && <button type="button" disabled={isActing} onClick={actions.reschedule} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">改期</button>}
           </div>
-        </div> : <Section readable={!spaMode} title="預約摘要">
-          <KV readable={!spaMode} label={spaMode ? "日期" : "日期時間"} value={spaMode ? dateLabel : `${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
-          {spaMode && <KV readable={!spaMode}
-            label="時間"
-            value={
-              <span className="tabular-nums">
-                {booking.slotTime}{endTime ? ` - ${endTime}` : ""}
-              </span>
-            }
-          />}
-          <KV readable={!spaMode}
+        </div> : <Section readable={true} title="預約摘要">
+          <KV readable={true} label={"日期時間"} value={`${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
+
+          <KV readable={true}
             label="教練"
             value={booking.revenueStaff?.displayName ?? "未指派"}
             icon={
@@ -1174,40 +1120,40 @@ function DrawerContent({
           />
           {booking.serviceStaff &&
             booking.serviceStaff.id !== booking.revenueStaff?.id && (
-              <KV readable={!spaMode} label="值班店長" value={booking.serviceStaff.displayName} />
+              <KV readable={true} label="值班店長" value={booking.serviceStaff.displayName} />
             )}
-          {!participantMode && <KV readable={!spaMode}
+          {!participantMode && <KV readable={true}
             label="服務"
             value={
-              !spaMode && booking.bookingType === "FIRST_TRIAL"
+              booking.bookingType === "FIRST_TRIAL"
                 ? "首次體驗"
                 : booking.isMakeup
                 ? "補課"
                 : (booking.treatmentNameSnapshot ??
                   booking.servicePlan?.name ??
-                  (booking.bookingType === "SINGLE" ? "單次蒸足" : !spaMode && booking.bookingType === "PACKAGE_SESSION" ? "方案服務" : "—"))
+                  (booking.bookingType === "SINGLE" ? "單次蒸足" : booking.bookingType === "PACKAGE_SESSION" ? "方案服務" : "—"))
             }
           />
           }
-          {!spaMode && booking.bookingType === "FIRST_TRIAL" && (
+          {booking.bookingType === "FIRST_TRIAL" && (
             <KV readable label="預約來源" value={trialBookingSourceLabel(booking.bookingSource)} />
           )}
-          {!participantMode && <KV readable={!spaMode} label="人數" value={`${booking.people} 人`} />}
+          {!participantMode && <KV readable={true} label="人數" value={`${booking.people} 人`} />}
           {participantMode && !readOnly && payload.canEditBookingNote && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && payload.participantCheckout!.slots.every(slot => slot.status === "PENDING" && slot.collectedAmount === null) && <div className="col-span-2"><button type="button" disabled={isActing} onClick={actions.reschedule} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">改期</button></div>}
-          {!spaMode && (
+          {(
             <div className="col-span-2 mt-1 border-t border-earth-100 pt-2">
               <OperationHistoryButton targetType="Booking" targetId={booking.id} />
             </div>
           )}
           {booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (
-              <KV readable={!spaMode}
+              <KV readable={true}
                 label="實際到店"
                 value={`${booking.attendedPeople} / ${booking.people} 人`}
               />
             )}
-          {(spaMode || (booking.bookingType !== "FIRST_TRIAL" && booking.bookingType !== "PACKAGE_SESSION")) && (
-            <KV readable={!spaMode} label="金額" value={amount} />
+          {((booking.bookingType !== "FIRST_TRIAL" && booking.bookingType !== "PACKAGE_SESSION")) && (
+            <KV readable={true} label="金額" value={amount} />
           )}
         </Section>
 
@@ -1215,34 +1161,34 @@ function DrawerContent({
         primaryCustomerDetails
 
         } payment={
-        !spaMode && payload.participantCheckout ? <BookingParticipantCheckout onOpenCustomer={setShowCustomer} bookingId={booking.id} checkout={payload.participantCheckout}
+        payload.participantCheckout ? <BookingParticipantCheckout onOpenCustomer={setShowCustomer} bookingId={booking.id} checkout={payload.participantCheckout}
           readOnly={readOnly} blocked={isActing} onUpdated={onParticipantsUpdated} onBusy={onParticipantBusy} companions={payload.companions}
           primaryCustomer={booking.customer} canEditNote={payload.canEditServiceNote} onPersonNoteSaved={(customerId, value) => onNoteSaved({ kind: "customer", bookingId: booking.id, customerId, value })} /> :
-        <Section readable={!spaMode} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
-          {!spaMode && booking.bookingType === "FIRST_TRIAL" ? (
+        <Section readable={true} title={"收款與扣堂"}>
+          {booking.bookingType === "FIRST_TRIAL" ? (
             <KV readable label="金額" value={amount} />
-          ) : (spaMode || booking.bookingType !== "PACKAGE_SESSION") ? (
-            <KV readable={!spaMode} label="類型" value={formatBookingType(booking)} />
+          ) : (booking.bookingType !== "PACKAGE_SESSION") ? (
+            <KV readable={true} label="類型" value={formatBookingType(booking)} />
           ) : null}
-          {(spaMode || booking.bookingType === "PACKAGE_SESSION") && (
-            <KV readable={!spaMode}
+          {(booking.bookingType === "PACKAGE_SESSION") && (
+            <KV readable={true}
               label="方案"
               value={booking.customerPlanWallet?.plan.name ?? booking.servicePlan?.name ?? "—"}
             />
           )}
-          {!spaMode && booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup && (
+          {booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup && (
             <KV readable label="到期日" value={<span className={planExpiry.className}>{planExpiry.detail}</span>} />
           )}
           {booking.customerPlanWallet && (
-            <KV readable={!spaMode}
-              label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "剩餘堂數" : "套餐剩餘"}
+            <KV readable={true}
+              label={booking.bookingType === "PACKAGE_SESSION" ? "剩餘堂數" : "套餐剩餘"}
               value={`${booking.customerPlanWallet.remainingSessions} / ${booking.customerPlanWallet.totalSessions} 堂`}
             />
           )}
-          <KV readable={!spaMode}
-            label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (["PENDING", "CONFIRMED"].includes(booking.bookingStatus) ? "本次使用" : "結帳方式") : "付款狀態"}
+          <KV readable={true}
+            label={booking.bookingType === "PACKAGE_SESSION" ? (["PENDING", "CONFIRMED"].includes(booking.bookingStatus) ? "本次使用" : "結帳方式") : "付款狀態"}
             value={
-              !spaMode && booking.bookingType === "PACKAGE_SESSION"
+              booking.bookingType === "PACKAGE_SESSION"
                 ? ["PENDING", "CONFIRMED"].includes(booking.bookingStatus)
                   ? packageUsageSummary(booking)
                   : booking.isMakeup ? "使用補課資格" : "依方案扣堂"
@@ -1263,12 +1209,12 @@ function DrawerContent({
                         : "—"
             }
           />
-          {!spaMode && booking.bookingType === "PACKAGE_SESSION" && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && (
+          {booking.bookingType === "PACKAGE_SESSION" && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && (
             <details className="col-span-2 text-sm leading-relaxed text-earth-500"><summary className="cursor-pointer py-1">扣堂說明</summary><p>依本筆預約名額顯示，完成時仍會核對方案與堂數；部分未到依選擇的處理方式辦理。</p></details>
           )}
           {trial && trial.collected && (
             <>
-              <KV readable={!spaMode}
+              <KV readable={true}
                 label="付款方式"
                 value={
                   trial.collectedMethod
@@ -1277,7 +1223,7 @@ function DrawerContent({
                     : "—"
                 }
               />
-              <KV readable={!spaMode}
+              <KV readable={true}
                 label="收款金額"
                 value={
                   trial.collectedAmount == null
@@ -1286,13 +1232,13 @@ function DrawerContent({
                 }
               />
               {trial.collectedAt && (
-                <KV readable={!spaMode} label="收款日期" value={trial.collectedAt} />
+                <KV readable={true} label="收款日期" value={trial.collectedAt} />
               )}
             </>
           )}
           {single && single.collected && (
             <>
-              <KV readable={!spaMode}
+              <KV readable={true}
                 label="付款方式"
                 value={
                   single.collectedMethod
@@ -1301,7 +1247,7 @@ function DrawerContent({
                     : "—"
                 }
               />
-              <KV readable={!spaMode}
+              <KV readable={true}
                 label="收款金額"
                 value={
                   single.collectedAmount == null
@@ -1311,13 +1257,13 @@ function DrawerContent({
               />
               {single.collectedDiscountAmount != null &&
                 single.collectedDiscountAmount > 0 && (
-                  <KV readable={!spaMode}
+                  <KV readable={true}
                     label="折扣"
                     value={`NT$ ${single.collectedDiscountAmount.toLocaleString()}`}
                   />
                 )}
               {single.collectedAt && (
-                <KV readable={!spaMode} label="收款日期" value={single.collectedAt} />
+                <KV readable={true} label="收款日期" value={single.collectedAt} />
               )}
             </>
           )}
@@ -1330,30 +1276,21 @@ function DrawerContent({
               </div>
             )}
           {trial && !trial.collected && booking.expectedAmount != null && (
-            <KV readable={!spaMode}
+            <KV readable={true}
               label="預計收款"
               value={`NT$ ${booking.expectedAmount.toLocaleString()}`}
             />
           )}
           {single && !single.collected && (
-            <KV readable={!spaMode}
+            <KV readable={true}
               label="預計收款"
               value={`NT$ ${single.defaultPrice.toLocaleString()}`}
             />
           )}
-          {spaMode && storedValue ? (
-            <KV readable={!spaMode}
-              label="儲值金餘額"
-              value={`NT$ ${storedValue.balance.toLocaleString("zh-TW")}`}
-            />
-          ) : null}
+          {null}
         </Section>
 
-        } notes={spaMode ? (booking.notes ? (
-          <Section title="備註">
-            <div className="col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700">{booking.notes}</div>
-          </Section>
-        ) : null) : (
+        } notes={(
           <div className="border-b border-earth-100 p-4">
             <BookingNoteEditor
               key={booking.id}
@@ -1380,7 +1317,7 @@ function DrawerContent({
           isActing={isActing}
           actions={actions}
           rebookHref={rebookHref}
-          spaMode={spaMode}
+
         />
       )}
       </div>
@@ -1521,82 +1458,22 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose,
 function SummaryDrawerContent({
   summary,
   durationMinutes,
-  spaMode,
   loading,
   error,
   onClose,
 }: {
   summary: BookingSummary;
   durationMinutes?: number;
-  spaMode: boolean;
+
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
-  const meta = bookingStatusMeta(summary.bookingStatus, false);
-  const duration =
-    durationMinutes ?? (spaMode ? (summary.servicePlanCategory === "TRIAL" ? 30 : 60) : null);
+  bookingStatusMeta(summary.bookingStatus, false);
 
-  if (!spaMode) return <PendingSteamDetail summary={summary} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
 
-  return (
-    <>
-      <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
-            <span className="text-sm font-semibold tabular-nums text-earth-700">
-              {summary.bookingDate.slice(5).replace("-", "/")}{" "}
-              {summary.slotTime}
-            </span>
-          </div>
-          <h2
-            id="booking-drawer-title"
-            className="mt-1 truncate text-lg font-bold text-earth-900"
-          >
-            {summary.customerName}
-            {summary.people > 1 && <PeopleBadge people={summary.people} />}
-          </h2>
-          <p className="mt-0.5 truncate text-sm text-earth-500">
-            {summary.isMakeup
-              ? (duration != null ? "補課 · " : "補課")
-              : summary.servicePlanName
-                ? `${summary.servicePlanName}${duration != null ? " · " : ""}`
-                : ""}
-            {duration != null ? `${duration} 分鐘` : ""}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
-          aria-label="關閉"
-        >
-          ✕
-        </button>
-      </div>
+  return <PendingSteamDetail summary={summary} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : (
-          <>
-            {loading && (
-              <LoadingStatus>讀取詳細資料中，請稍候…</LoadingStatus>
-            )}
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-md border border-earth-100 bg-earth-50"
-              />
-            ))}
-          </>
-        )}
-      </div>
-    </>
-  );
 }
 
 /**
@@ -1607,169 +1484,27 @@ function SummaryDrawerContent({
 function PrefillDrawerContent({
   prefill,
   durationMinutes,
-  spaMode,
   loading,
   error,
   onClose,
 }: {
   prefill: BookingPrefill;
   durationMinutes?: number;
-  spaMode: boolean;
+
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
-  const meta = bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
+  bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
   const duration =
-    durationMinutes ?? (spaMode ? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60) : null);
-  const endTime = duration != null ? computeEndTime(prefill.slotTime, duration) : null;
-  const dateLabel = formatDateLabel(prefill.bookingDate);
-  const amount = prefillAmount(prefill);
-  const showServiceStaff =
-    !!prefill.serviceStaffName &&
-    prefill.serviceStaffName !== prefill.revenueStaff?.displayName;
+    durationMinutes ?? (null);
 
-  if (!spaMode) return <PendingSteamDetail prefill={prefill} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
+  formatDateLabel(prefill.bookingDate);
+  prefillAmount(prefill);
 
-  return (
-    <>
-      {/* Header — 與完整抽屜同一條 band */}
-      <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
-            <span className="text-sm font-semibold tabular-nums text-earth-700">
-              {prefill.bookingDate.slice(5).replace("-", "/")}{" "}
-              {prefill.slotTime}
-            </span>
-          </div>
-          <h2
-            id="booking-drawer-title"
-            className="mt-1 truncate text-lg font-bold text-earth-900"
-          >
-            {prefill.customerName}
-            {prefill.people > 1 && <PeopleBadge people={prefill.people} />}
-          </h2>
-          <p className="mt-0.5 truncate text-sm text-earth-500">
-            {prefill.isMakeup
-              ? (duration != null ? "補課 · " : "補課")
-              : prefill.servicePlanName
-                ? `${prefill.servicePlanName}${duration != null ? " · " : ""}`
-                : prefill.bookingType === "SINGLE"
-                  ? (duration != null ? "單次蒸足 · " : "單次蒸足")
-                  : ""}
-            {duration != null ? `${duration} 分鐘` : ""}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
-          aria-label="關閉"
-        >
-          ✕
-        </button>
-      </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        {error && (
-          <p className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+  return <PendingSteamDetail prefill={prefill} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
 
-        {/* 預約資訊 — 全部來自當日清單，立即顯示 */}
-        <Section title="預約資訊">
-          <KV label="日期" value={dateLabel} />
-          <KV
-            label="時間"
-            value={
-              <span className="tabular-nums">
-                {prefill.slotTime}{endTime ? ` - ${endTime}` : ""}
-              </span>
-            }
-          />
-          <KV
-            label="教練"
-            value={prefill.revenueStaff?.displayName ?? "未指派"}
-            icon={
-              prefill.revenueStaff?.colorCode && (
-                <span
-                  className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: prefill.revenueStaff.colorCode }}
-                />
-              )
-            }
-          />
-          {showServiceStaff && (
-            <KV label="值班店長" value={prefill.serviceStaffName!} />
-          )}
-          <KV
-            label="服務"
-            value={
-              prefill.isMakeup
-                ? "補課"
-                : (prefill.servicePlanName ??
-                  (prefill.bookingType === "SINGLE" ? "單次蒸足" : "—"))
-            }
-          />
-          <KV label="人數" value={`${prefill.people} 人`} />
-          {prefill.attendedPeople != null &&
-            prefill.attendedPeople < prefill.people && (
-              <KV
-                label="實際到店"
-                value={`${prefill.attendedPeople} / ${prefill.people} 人`}
-              />
-            )}
-          <KV label="金額" value={amount} />
-        </Section>
-
-        {/* 顧客資訊 — name/phone 來自當日清單 */}
-        <Section title="顧客資訊">
-          <KV label="姓名" value={prefill.customerName} />
-          <KV
-            label="電話"
-            value={
-              prefill.customerPhone ? (
-                <a
-                  href={`tel:${prefill.customerPhone}`}
-                  className="text-primary-600 hover:text-primary-700"
-                >
-                  {prefill.customerPhone}
-                </a>
-              ) : (
-                "—"
-              )
-            }
-          />
-          {prefill.serviceNote ? (
-            <KV
-              label="服務備註"
-              value={
-                <span className="whitespace-pre-wrap text-amber-800">
-                  {prefill.serviceNote}
-                </span>
-              }
-            />
-          ) : null}
-        </Section>
-
-        {/* 顧客近況 / 完整付款明細 / 操作 —— 等 authoritative payload 補齊 */}
-        <div className="space-y-3 p-4">
-          {loading && (
-            <LoadingStatus>讀取完整資料中，請稍候…</LoadingStatus>
-          )}
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-16 animate-pulse rounded-md border border-earth-100 bg-earth-50"
-            />
-          ))}
-        </div>
-      </div>
-    </>
-  );
 }
 
 /**
@@ -1805,7 +1540,6 @@ function ActionFooter({
   isActing,
   actions,
   rebookHref,
-  spaMode = false,
 }: {
   booking: BookingDrawerPayload["booking"];
   trial: BookingDrawerPayload["trial"];
@@ -1815,7 +1549,7 @@ function ActionFooter({
   isActing: boolean;
   actions: DrawerActions;
   rebookHref?: string;
-  spaMode?: boolean;
+
 }) {
   const status = booking.bookingStatus;
   const primaries: Array<{ label: string; onClick: () => void }> = [];
@@ -1868,13 +1602,13 @@ function ActionFooter({
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({
-        label: spaMode ? "完成服務並收費" : "收款並完成服務",
+        label: "收款並完成服務",
         onClick: actions.collect,
       });
     }
     if (canCollectSingle) {
       primaries.push({
-        label: spaMode ? "完成服務並收費" : "收款並完成服務",
+        label: "收款並完成服務",
         onClick: actions.collectSingle,
       });
     }
@@ -1883,9 +1617,7 @@ function ActionFooter({
     if (!canCollect && !canCollectSingle) {
       primaries.push({
         label:
-          spaMode && booking.bookingType === "PACKAGE_SESSION"
-            ? "完成服務並扣次"
-            : !spaMode && booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup
+          booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup
               ? "完成服務並扣堂"
               : "完成服務",
         onClick: actions.complete,
@@ -1898,10 +1630,10 @@ function ActionFooter({
         tone: "danger",
       });
     }
-    if (canAdjustCheckout && !spaMode) {
+    if (canAdjustCheckout) {
       secondaries.push({ label: "補選方案", onClick: actions.adjustCheckout });
     }
-    if (canAdjustToSingle && !spaMode) {
+    if (canAdjustToSingle) {
       secondaries.push({ label: "改為單次", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
@@ -1921,7 +1653,7 @@ function ActionFooter({
   }
 
   return (
-    <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${spaMode ? "" : ["PENDING", "CONFIRMED"].includes(status) ? "min-h-[116px]" : "min-h-[76px]"}`}>
+    <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${["PENDING", "CONFIRMED"].includes(status) ? "min-h-[116px]" : "min-h-[76px]"}`}>
       {primaries.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {primaries.map((a, i) => (
@@ -1930,7 +1662,7 @@ function ActionFooter({
               type="button"
               onClick={a.onClick}
               disabled={isActing}
-              className={`inline-flex ${spaMode ? "h-9" : "min-h-11"} flex-1 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+              className={`inline-flex ${"min-h-11"} flex-1 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                 i === 0
                   ? "bg-primary-600 text-white hover:bg-primary-700"
                   : "border border-primary-300 bg-white text-primary-700 hover:bg-primary-50"
@@ -1942,7 +1674,7 @@ function ActionFooter({
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        {rebookHref && !spaMode ? (
+        {rebookHref ? (
           <Link
             href={rebookHref}
             className="inline-flex h-8 items-center rounded-md border border-primary-200 bg-white px-3 text-xs font-medium text-primary-700 hover:bg-primary-50"
@@ -1956,7 +1688,7 @@ function ActionFooter({
             type="button"
             onClick={a.onClick}
             disabled={isActing}
-            className={`inline-flex ${spaMode ? "h-8 text-xs" : "min-h-11 text-sm"} items-center rounded-md border px-3 font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
+            className={`inline-flex ${"min-h-11 text-sm"} items-center rounded-md border px-3 font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
               a.tone === "danger"
                 ? "border-red-200 bg-white text-red-600 hover:bg-red-50"
                 : "border-earth-300 bg-white text-earth-700 hover:bg-earth-50"
@@ -2013,48 +1745,6 @@ function KV({
       <div className={readable ? "flex min-w-0 items-start text-base leading-6 text-earth-800" : "flex items-center text-sm text-earth-800"}>
         {icon}
         <span className={readable ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}>{value}</span>
-      </div>
-    </>
-  );
-}
-
-function DrawerSkeleton({
-  onClose,
-  error,
-}: {
-  onClose: () => void;
-  error: string | null;
-}) {
-  return (
-    <>
-      <div className="flex items-start justify-between border-b border-earth-200 px-4 py-3">
-        <div className="flex-1 space-y-2">
-          <div className="h-5 w-32 animate-pulse rounded bg-earth-100" />
-          <div className="h-6 w-24 animate-pulse rounded bg-earth-100" />
-          <div className="h-4 w-28 animate-pulse rounded bg-earth-100" />
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
-          aria-label="關閉"
-        >
-          ✕
-        </button>
-      </div>
-      <div className="flex-1 space-y-4 p-4">
-        {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-md border border-earth-100 bg-earth-50"
-            />
-          ))
-        )}
       </div>
     </>
   );

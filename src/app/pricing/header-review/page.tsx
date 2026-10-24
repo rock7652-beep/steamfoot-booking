@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import DashboardShell from "@/components/sidebar";
 import type { TrialStatus } from "@/lib/shop-config";
-import "../../spa-admin.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "後台頂部 RWD 驗收", robots: { index: false, follow: false } };
@@ -10,7 +9,7 @@ const trial: TrialStatus = { isFree: true, course: true, staff: { current: 30, l
 export default async function HeaderReviewPage({ searchParams }: { searchParams: Promise<{ frame?: string; width?: string; module?: string; role?: string }> }) {
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
-  const industryModule = query.module === "spa" ? "spa" : query.module === "steamfoot" ? "steamfoot" : "course";
+  const industryModule = query.module === "steamfoot" ? "steamfoot" : "course";
   const admin = query.role !== "owner";
   const widths = [360, 390, 768, 1024, 1366, 1920];
   const width = widths.find(value => String(value) === query.width) ?? 390;

@@ -1,7 +1,7 @@
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { coursePrisma } from "@/lib/course-db";
 import { PERMISSION_LABELS } from "@/lib/permissions";
 import { auditRecord, auditSnapshotTarget, auditTargetLabel, auditText, type AuditReferences, type PresentedAudit } from "@/lib/audit-presentation";
@@ -36,11 +36,7 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
     (async () => { const OR = groups(["Transaction"]); if (!OR.length) return;
       const found = await prisma.transaction.findMany({ where: { OR }, select: { id: true, storeId: true, customer: { select: { name: true } }, amount: true } });
       found.forEach(r => set("Transaction",r.id,r.storeId,`${r.customer?.name ?? "未建檔同行者"} · NT$ ${Number(r.amount).toLocaleString("zh-TW")}`)); })(),
-    (async () => { const OR = groups(["SpaBooking"]); if (!OR.length) return;
-      const found = await spaPrisma.spaBooking.findMany({ where: { OR }, select: { id: true, storeId: true, customerId: true, serviceNameSnapshot: true, bookingDate: true, startTime: true } });
-      const customers = found.length ? await prisma.customer.findMany({ where: { OR: found.map(r=>({id:r.customerId,storeId:r.storeId})) }, select: { id: true, storeId: true, name: true } }) : [];
-      const names = new Map(customers.map(r=>[`${r.storeId}:${r.id}`,r.name]));
-      found.forEach(r => set("SpaBooking",r.id,r.storeId,`${names.get(`${r.storeId}:${r.customerId}`) ?? "顧客姓名未記錄"} · ${r.serviceNameSnapshot} · ${r.bookingDate.toISOString().slice(0,10)} ${r.startTime}`)); })(),
+
     (async () => { const OR = groups(["CourseBooking"]); if (!OR.length) return;
       const found = await coursePrisma.courseBooking.findMany({ where: { OR }, select: { id: true, storeId: true, customerName: true, session: { select: { nameSnapshot: true, startsAt: true } } } });
       found.forEach(r => set("CourseBooking",r.id,r.storeId,`${r.customerName} · ${courseDisplayName(r.session.nameSnapshot)} · ${r.session.startsAt.toLocaleString("zh-TW",{timeZone:"Asia/Taipei",hour12:false})}`)); })(),

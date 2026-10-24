@@ -4,11 +4,7 @@ import { loadBookingRosterLabels } from "@/server/queries/booking-roster-labels"
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import {
-  parseLocalDate,
-  toDateInputValue,
-  toLocalDateStr,
-} from "@/lib/date-utils";
+import { parseLocalDate, toDateInputValue, toLocalDateStr } from "@/lib/date-utils";
 import { OperationTiming } from "@/lib/operation-timing";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
@@ -16,7 +12,7 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
@@ -69,9 +65,6 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   // matched booking determine both data scope and read-only mode.
   const deepLinkedBooking = params.bookingId
     ? (await prisma.booking.findFirst({
-        where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
-        select: { id: true, storeId: true, bookingDate: true },
-      })) ?? (await spaPrisma.spaBooking.findFirst({
         where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
         select: { id: true, storeId: true, bookingDate: true },
       }))
@@ -152,7 +145,6 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   );
   } finally { timing.finish(); }
 }
-
 
 async function BookingWorkspaceData({
   userId, bookingsStoreId, year, month, isViewMode, canManageHours,

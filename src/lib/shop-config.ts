@@ -5,6 +5,24 @@
  * 方案來源為 Store.plan (PricingPlan)。
  */
 
+/**
+ * 店家設定 — Server-side helper
+ *
+ * ShopConfig 表用於非方案設定（如 dutySchedulingEnabled）。
+ * 方案來源為 Store.plan (PricingPlan)。
+ */
+/**
+ * 店家設定 — Server-side helper
+ *
+ * ShopConfig 表用於非方案設定（如 dutySchedulingEnabled）。
+ * 方案來源為 Store.plan (PricingPlan)。
+ */
+/**
+ * 店家設定 — Server-side helper
+ *
+ * ShopConfig 表用於非方案設定（如 dutySchedulingEnabled）。
+ * 方案來源為 Store.plan (PricingPlan)。
+ */
 import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { getTrialRetention, type TrialRetention } from "@/lib/trial-retention";
 import { prisma } from "@/lib/db";
@@ -331,7 +349,6 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     const [customers, bookings] = await Promise.all([
       prisma.customer.count({ where: { storeId } }),
       course ? (await import("@/lib/course-db")).coursePrisma.courseBooking.count({ where: courseMonthlyBookingWhere(storeId) })
-        : industry === "spa" ? (await import("@/lib/spa-db")).spaPrisma.spaBooking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } })
         : prisma.booking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } }),
     ]);
     const customerLimit = limits.maxCustomers ?? Infinity, bookingLimit = limits.maxMonthlyBookings ?? Infinity;

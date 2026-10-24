@@ -1,13 +1,10 @@
 import "server-only";
-import {cache} from "react";
-import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { cache } from "react";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-import {
-  resolveIndustryModuleId,
-  type IndustryModuleId,
-} from "@/lib/industry-modules";
+import { resolveIndustryModuleId, type IndustryModuleId } from "@/lib/industry-modules";
 
 const MODULE_LABELS: Record<IndustryModuleId, string> = {
   steamfoot: "蒸足",
@@ -57,10 +54,6 @@ export async function requireStoreIndustryModule(
 
 export function requireSteamfootStore(storeId: string): Promise<void> {
   return requireStoreIndustryModule(storeId, "steamfoot");
-}
-
-export function requireSpaStore(storeId: string): Promise<void> {
-  return requireStoreIndustryModule(storeId, "spa");
 }
 
 export function requireCourseStore(storeId: string): Promise<void> {

@@ -1,4 +1,4 @@
-import {steamfootNoticeGuides} from "./operation-guide-steamfoot-notices";
+import { steamfootNoticeGuides } from "./operation-guide-steamfoot-notices";
 import { imageAnnouncementGuides } from "./operation-guide-image-announcements";
 /** First batch: time-slot booking module only. Source reviewed at 44c1f1f0.
  * The guide is released; article interaction verification remains separate.
@@ -177,6 +177,6 @@ export function relatedOperationGuides(pathname: string, access: GuideAccess) {
     const ids = ["B01", "F01", "I02", "I03", "N01", "I09"];
     return ids.flatMap(id => guides.filter(g => g.id === id));
   }
-  const category = access.module === "spa" && path === "/dashboard/plans" ? "spa" : guideCategoryForPath(path);
+  const category = guideCategoryForPath(path);
   return guides.filter(g => g.category === category);
 }

@@ -27,49 +27,88 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
  *   - 不寫 inline 中文（一律從 liffMessages 取）
  */
 
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  getIDToken,
-  initLiff,
-  isInLineClient,
-} from "@/lib/liff/client";
+import { getIDToken, initLiff, isInLineClient } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import {
-  fetchLiffWallets,
-  type LiffWalletRow,
-  type LiffMakeupCreditRow,
-} from "@/server/actions/liff-my-wallets";
-import {
-  fetchLiffBookings,
-  type LiffBookingRow,
-} from "@/server/actions/liff-my-bookings";
+import { fetchLiffWallets, type LiffWalletRow, type LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
+import { fetchLiffBookings, type LiffBookingRow } from "@/server/actions/liff-my-bookings";
 import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
-import {
-  fetchLiffMemberStoreContext,
-  type LiffMemberStoreOption,
-} from "@/server/actions/liff-member-stores";
+import { fetchLiffMemberStoreContext, type LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
 import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
-import {
-  fetchLiffReferralShareContext,
-  type LiffReferralShareContext,
-} from "@/server/actions/liff-referral-share";
+import { fetchLiffReferralShareContext, type LiffReferralShareContext } from "@/server/actions/liff-referral-share";
 import { LiffBottomNav } from "./liff-bottom-nav";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
-import {
-  STEAMFOOT_INDUSTRY_MODULE,
-  type MemberHomeTerminology,
-} from "@/lib/industry-modules";
+import { STEAMFOOT_INDUSTRY_MODULE, type MemberHomeTerminology } from "@/lib/industry-modules";
 import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
-import {
-  fetchSpaLiffBookings,
-  fetchSpaLiffEntitlements,
-} from "@/server/actions/spa-liff-member";
+
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { STATUS_LABEL } from "@/lib/booking-constants";
-import { SpaIdentityModeSwitcher } from "@/components/spa-identity-mode-switcher";
 
 type State =
   | { kind: "initializing" }
@@ -146,12 +185,8 @@ export function LiffShell({
       const loadMemberHome = async () => {
         try {
           const [wallets, bookings, health, referralShare] = await Promise.all([
-            memberDataSource === "spa"
-              ? fetchSpaLiffEntitlements()
-              : fetchLiffWallets(),
-            memberDataSource === "spa"
-              ? fetchSpaLiffBookings()
-              : fetchLiffBookings(),
+            fetchLiffWallets(),
+            fetchLiffBookings(),
             healthAssessmentEnabled
               ? fetchLiffHealthSummary()
               : Promise.resolve(null),
@@ -539,9 +574,7 @@ export function WelcomeBack({
 
   return (
     <div className="flex flex-col gap-3">
-      {hasWorkAccess && (
-        <SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="member" />
-      )}
+
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>

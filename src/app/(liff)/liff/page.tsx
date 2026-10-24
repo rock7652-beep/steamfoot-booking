@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  resolveCentralMemberLiffId,
-  resolveStorePresentation,
-  resolveStoreSlugForLiff,
-} from "@/lib/store-resolver";
+import { resolveCentralMemberLiffId, resolveStorePresentation, resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -66,9 +62,7 @@ export default async function LiffEntryPage() {
       terminology={industryModule.customer}
       memberDataSource={industryModule.id}
       bookingHref={
-        industryModule.id === "spa"
-          ? `/s/${presentation.slug}/book/new`
-          : undefined
+        undefined
       }
     />
   );

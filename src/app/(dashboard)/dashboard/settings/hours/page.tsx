@@ -3,8 +3,7 @@ import {beautyPrisma} from "@/lib/beauty-db";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
-import {loadServiceHoursForSettings} from "@/server/services/service-hours-read";
-
+import { loadServiceHoursForSettings } from "@/server/services/service-hours-read";
 
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -67,7 +66,6 @@ export default async function ScheduleSettingsPage() {
   const isHeadquarters = currentStore?.isDefault ?? false;
   const hoursIndustry = await getStoreIndustryModule(effectiveStoreId);
   const isBeautyStore=hoursIndustry === "beauty";
-  const isSpaStore=hoursIndustry === "spa" || isBeautyStore;
 
   const schedule=(<ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
             weeklyHours={weeklyHours.map((h) => ({
@@ -87,7 +85,6 @@ export default async function ScheduleSettingsPage() {
             initialMonth={nowMonth}
             canManage={canManage}
             isHeadquarters={isHeadquarters}
-            isSpaStore={isSpaStore}
             isBeautyStore={isBeautyStore}
           />);
   if(isBeautyStore){
@@ -98,8 +95,8 @@ export default async function ScheduleSettingsPage() {
   return (
     <PageShell>
       <PageHeader
-        title={isSpaStore ? "營業與預約時間" : "服務時間與預約開放"}
-        subtitle={isBeautyStore ? "設定店家開放的服務時段、休假與特殊日期；預約間隔為30分鐘" : isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理當日服務時間、預約時段間隔與每時段可接人數"}
+        title="服務時間與預約開放"
+        subtitle="管理當日服務時間、預約時段間隔與每時段可接人數"
         actions={
           <Link
             href="/dashboard/settings?section=booking"
@@ -114,7 +111,6 @@ export default async function ScheduleSettingsPage() {
       {!isBeautyStore&&<BookableUntilForm
         key={`bookable-until-${effectiveStoreId}`}
         storeId={effectiveStoreId}
-        spa={isSpaStore}
         initialOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
         initialDate={bookableUntilInitial}
         initialDays={shopConfig?.bookingWindowDays ?? 14}

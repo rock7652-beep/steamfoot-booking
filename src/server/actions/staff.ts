@@ -6,32 +6,27 @@ import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import {
-  ALL_PERMISSIONS,
-  getDefaultPermissionsForRole,
-  checkPermission,
-  type PermissionCode,
-} from "@/lib/permissions";
+import { ALL_PERMISSIONS, getDefaultPermissionsForRole, checkPermission, type PermissionCode } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
-import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import { getStoreIndustryModule, requireSpaStore } from "@/lib/industry-module-server";
-import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
+
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+
 import { recordOperationAudit } from "@/server/services/operation-audit";
 
-import {staffSettingsSaveInput,staffSaveReceipt} from "@/lib/staff-settings-save";
-import {readSavedStaff} from "@/server/services/staff-save-snapshot";
-import {writeInitialSpaStaff} from "@/server/services/spa-initial-staff-write";
-import {settingsSaveUncertain} from "@/server/services/settings-save-error";
-import {revalidateStaffInRoute} from "@/lib/revalidation";
+import { staffSettingsSaveInput, staffSaveReceipt } from "@/lib/staff-settings-save";
+import { readSavedStaff } from "@/server/services/staff-save-snapshot";
+
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
+import { revalidateStaffInRoute } from "@/lib/revalidation";
 type StaffReceipt=z.infer<typeof staffSaveReceipt>;
 async function confirmedStaffResponse(storeId:string,staffId:string,user:Awaited<ReturnType<typeof requireStaffManageSession>>){
  const data=await readSavedStaff(storeId,staffId,user);let syncWarning=false;
@@ -132,14 +127,7 @@ const createStaffSchema = z.object({
   if (data.spaCompensation?.mode === "PERCENTAGE" && data.spaCompensation.value > 100) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaCompensation", "value"], message: "百分比不可超過 100" });
   }
-  if (data.spaWeeklyAvailability) {
-    if (new Set(data.spaWeeklyAvailability.map((item) => item.dayOfWeek)).size !== data.spaWeeklyAvailability.length) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaWeeklyAvailability"], message: "同一天只能設定一個固定班表" });
-    }
-    if (data.spaWeeklyAvailability.some((item) => item.startTime >= item.endTime)) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaWeeklyAvailability"], message: "結束時間必須晚於開始時間" });
-    }
-  }
+
 });
 
 const updateStaffSchema = z.object({
@@ -182,14 +170,10 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
       if(receipt.expectedStoreId!==writeStoreId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");
       if(await getStoreIndustryModule(writeStoreId)==="course")throw new AppError("FORBIDDEN","請使用課程人員設定");
     }
-    const hasSpaSetup = Boolean(data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability);
-    if (hasSpaSetup) await requireSpaStore(writeStoreId);
-    if (hasSpaSetup && !(await isSpaOperationalSchemaReady())) {
-      throw new AppError("CONFLICT", "SPA 人員設定功能更新中，請稍後再試");
+    if (data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability) {
+      throw new AppError("FORBIDDEN", "SPA 模組已移除");
     }
-    if (data.spaCompensation && !(await isSpaCompensationSchemaReady())) {
-      throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
-    }
+
     await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
 
     const receiptId=receipt?`staff-save-receipt:${writeStoreId}:${receipt.requestKey}`:null;
@@ -221,20 +205,6 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
 
     }
     const passwordHash = hashSync(data.password, 10);
-
-    if (data.spaSkillKeys && !receipt) {
-      await spaPrisma.$transaction(async (tx) => {
-        for (const [sortOrder, skill] of SPA_SKILLS.entries()) {
-          if (!data.spaSkillKeys?.includes(skill.key)) continue;
-          const id = spaSkillId(writeStoreId, skill.key);
-          await tx.spaSkill.upsert({
-            where: { id },
-            create: { id, storeId: writeStoreId, name: skill.name, sortOrder },
-            update: { name: skill.name, sortOrder, isActive: true },
-          });
-        }
-      });
-    }
 
     const user = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
@@ -281,19 +251,11 @@ async function createStaffWork(input:unknown,receipt?:StaffReceipt){
       }
       await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: created.staff!.id, action: "CREATE", summary: "建立人員帳號", after: { role: staffRole } }, tx);
       if(receiptId){
-        if(hasSpaSetup)await writeInitialSpaStaff(tx,writeStoreId,created.staff!.id,data);
+
         await tx.auditLog.create({data:{id:receiptId,actorUserId:sessionUser.id,targetType:"Staff",targetId:created.staff!.id,action:"SETTINGS_SAVE_CONFIRMED",afterJson:{storeId:writeStoreId}}});
       }
       return created;
     },receipt?{maxWait:5000,timeout:20000}:undefined);
-
-    if (user.staff && hasSpaSetup && !receipt) {
-      await spaPrisma.$transaction(async (tx) => {
-        if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: spaSkillId(writeStoreId, key) })) });
-        if (data.spaWeeklyAvailability?.length) await tx.spaStaffAvailability.createMany({ data: data.spaWeeklyAvailability.map((availability) => ({ ...availability, storeId: writeStoreId, staffId: user.staff!.id })) });
-        if (data.spaCompensation) await tx.spaStaffCompensation.create({ data: { storeId: writeStoreId, staffId: user.staff!.id, mode: data.spaCompensation.mode, value: data.spaCompensation.value } });
-      });
-    }
 
     if(receipt)return await confirmedStaffResponse(writeStoreId,user.staff!.id,sessionUser);
     revalidateStaff();

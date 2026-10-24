@@ -1,8 +1,8 @@
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
 import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
-import { retiredStoreResponse } from "@/lib/retired-store-response";
-import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
+
+import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -12,10 +12,7 @@ import { customerReviewConfig } from "@/lib/customer-review-access";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
-import {
-  buildStoreRewriteRequestHeaders,
-  legacyRedirectUrl,
-} from "@/lib/proxy-helpers";
+import { buildStoreRewriteRequestHeaders, legacyRedirectUrl } from "@/lib/proxy-helpers";
 
 // ============================================================
 // B7-4.5: 正式流程不依賴靜態 map
@@ -685,26 +682,7 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
-    if (isSpaRetirementUiPreview()) {
-      // Synthetic-only rendering of the same 410 document used for retired stores.
-      // The exact preview mode has already rejected writes and disabled all clients.
-      if (path === "/spa-retirement-preview" && req.nextUrl.searchParams.get("view") === "retired")
-        return retiredStoreResponse(true);
-      if (!isSpaRetirementPreviewPath(path))
-        return new NextResponse("Not available in module review", { status: 404, headers });
-      // Rewrite destinations may pass through Proxy again; serve the exact
-      // destination rather than redirecting it back to the canonical alias.
-      if (["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"].includes(path))
-        return NextResponse.next({ headers });
-      const marketing = marketingRoute(path);
-      if (!marketing) return NextResponse.next({ headers });
-      if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
-      const url = req.nextUrl.clone();
-      url.pathname = marketing.destination;
-      const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
-      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
-      return response;
-    }
+
     if (isMarketingStickyUiPreview()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);

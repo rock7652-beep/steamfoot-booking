@@ -7,14 +7,13 @@ import { getIndustryModule } from "@/lib/industry-modules";
 import { notFound } from "next/navigation";
 import { authorizeFrontendPreview } from "@/server/services/frontend-preview";
 import { prisma } from "@/lib/db";
-import { toLocalDateStr, formatTWDateTime } from "@/lib/date-utils";
+import { formatTWDateTime } from "@/lib/date-utils";
 import { readFetchLiffBookings } from "@/server/queries/liff-my-bookings";
 import { readFetchLiffWallets } from "@/server/queries/liff-my-wallets";
-import { readFetchSpaLiffBookings, readFetchSpaLiffEntitlements } from "@/server/queries/spa-liff-member";
-import { readLiffStaffWork } from "@/server/queries/spa-liff-staff-work";
+
 import { loadCoursePortal } from "@/app/(customer)/book/course-portal";
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
-import { StaffWorkScreen } from "@/app/(liff)/liff/spa-work/staff-work-screen";
+
 import { PreviewMemberScreen } from "@/components/frontend-preview/member-screen";
 import { ReadOnlyPreviewBoundary } from "@/components/frontend-preview/read-only-boundary";
 
@@ -36,9 +35,6 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
   }else if (access.moduleId === "course") {
     const data = await loadCoursePortal(p.month ?? p.date?.slice(0, 7), selection);
     content = <CoursePortalClient key={`${access.storeId}:${access.personId}:${p.role}`} {...data} readOnly initialDate={p.date} initialCoach={p.role === "work"} initialView={p.role === "work" ? "schedule" : p.view === "bookings" ? "bookings" : p.view === "wallets" ? "plans" : p.view === "health" && data.healthEnabled ? "health" : "home"} />;
-  } else if (p.role === "work") {
-    const data = await readLiffStaffWork({ storeId: access.storeId, staffId: access.personId, staffName: access.name }, { date: p.date });
-    content = data.status === "ok" ? <StaffWorkScreen storeName={store.name} storeSlug={store.slug} liffId="" today={toLocalDateStr()} preview={{ data, href }} /> : <p role="alert">目前無法讀取工作資料，請重新整理。</p>;
   } else {
     const healthEnabled = getIndustryModule(access.moduleId).features.healthAssessment && await hasStoreFeature(access.storeId, FEATURES.AI_HEALTH_SUMMARY);
     const healthSummary = healthEnabled ? await getNativeHealthSummary(access.personId, access.storeId) : null;
@@ -46,7 +42,7 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
     const customer = await prisma.customer.findFirstOrThrow({ where: { id: access.personId, storeId: access.storeId }, select: { id: true, name: true, phone: true, email: true, lineLinkStatus: true, lineName: true, lineUserId: true } });
     const lineStatus = customer.lineLinkStatus === "LINKED" && customer.lineUserId ? "linked" as const : customer.lineLinkStatus === "UNLINKED" && !customer.lineUserId ? "unlinked" as const : "needs_help" as const;
     const profile = { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email, lineStatus, lineName: customer.lineName, lineUserIdMasked: lineStatus === "linked" && customer.lineUserId && customer.lineUserId.length >= 7 ? `U******${customer.lineUserId.slice(-4)}` : null, storeName: store.name, storeSlug: store.slug };
-    const [bookings, wallets] = await Promise.all(access.moduleId === "spa" ? [readFetchSpaLiffBookings(context), readFetchSpaLiffEntitlements(context)] : [readFetchLiffBookings(context), readFetchLiffWallets(context)]);
+    const [bookings, wallets] = await Promise.all([readFetchLiffBookings(context), readFetchLiffWallets(context)]);
     content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} healthEnabled={healthEnabled} />;
   }
   return <ReadOnlyPreviewBoundary><header className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-3 text-sm text-amber-900">

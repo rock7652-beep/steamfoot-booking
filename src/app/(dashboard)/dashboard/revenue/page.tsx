@@ -3,36 +3,22 @@ import { InstantFilterForm } from "@/components/instant-filter-form";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { SpaRevenue } from "./_components/spa-revenue";
+
 import { RevenueTabs } from "./_components/revenue-tabs";
 import { CourseRevenue } from "./_components/course-revenue";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-} from "@/lib/store-view-context-server";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { monthlyStoreSummary } from "@/server/queries/report";
 import { toLocalDateStr, formatTWTime } from "@/lib/date-utils";
-import {
-  isVoidedTransaction,
-  transactionStatusLabel,
-} from "@/lib/transaction-display";
+import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { TransactionType } from "@prisma/client";
-import {
-  PageShell,
-  PageHeader,
-  KpiStrip,
-  SideCard,
-  DataTable,
-  EmptyRow,
-  type Column,
-} from "@/components/desktop";
+import { PageShell, PageHeader, KpiStrip, SideCard, DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { TransactionRowActions } from "../transactions/_components/TransactionRowActions";
 
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -113,20 +99,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
-  if (
-    revenueStoreId &&
-    (await getStoreIndustryModule(revenueStoreId)) === "spa"
-  )
-    return (
-      <SpaRevenue
-        storeId={revenueStoreId}
-        params={params}
-        canManage={
-          !isViewMode &&
-          (await checkPermission(user.role, user.staffId, "transaction.void"))
-        }
-      />
-    );
+
   if (revenueStoreId && (await getStoreIndustryModule(revenueStoreId)) === "course")
     return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode} canDataExport={canDataExport}
       canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}

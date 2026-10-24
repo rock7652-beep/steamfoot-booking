@@ -2,7 +2,7 @@
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { requireWritablePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
@@ -11,10 +11,6 @@ import { toLocalDateStr, addTaiwanDuration, dayRange } from "@/lib/date-utils";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { enumerateBookableDates } from "@/lib/bookable-window";
-import { resolveBookableUntilDate } from "@/lib/shop-config";
-import { inferSpaTreatmentKind } from "@/lib/spa-store-identifiers";
-import { inferSpaDemoResourceType } from "@/lib/spa-demo-catalog";
 
 export async function loadCustomerCareBooking(customerId: string) {
   try {
@@ -33,11 +29,7 @@ export async function loadCustomerCareBooking(customerId: string) {
       ]);
       return { success: true as const, data: { module: "course" as const, sessions: sessions.map(s => ({ id: s.id, name: courseDisplayName(s.nameSnapshot), at: s.startsAt.toISOString(), cardIds: cards.filter(c => c.expiresAt >= s.startsAt && (!c.templateIds.length || c.templateIds.includes(s.templateId)) && (!c.termSessionIds.length || c.termSessionIds.includes(s.id))).map(c => c.id) })).filter(s => s.cardIds.length), cards: cards.map(c => ({ id: c.id, name: c.nameSnapshot })) } };
     }
-    if (industry !== "spa") throw new AppError("VALIDATION", "請使用蒸足預約表單");
-    const [config, treatments] = await Promise.all([
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { bookableUntilDate: true } }),
-      spaPrisma.spaTreatment.findMany({ where: { storeId, isActive: true }, select: { id: true, name: true, variantLabel: true, price: true, serviceMinutes: true, bufferMinutes: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
-    ]);
-    return { success: true as const, data: { module: "spa" as const, days: enumerateBookableDates(today, resolveBookableUntilDate(config?.bookableUntilDate)), treatments: treatments.map(t => ({ ...t, price: t.price.toNumber(), kind: inferSpaTreatmentKind(t.name), resourceType: inferSpaDemoResourceType({ treatmentId: t.id, treatmentName: t.name }) })) } };
+    throw new AppError("VALIDATION", "請使用蒸足預約表單");
+
   } catch (error) { return handleActionError(error); }
 }

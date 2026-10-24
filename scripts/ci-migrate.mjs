@@ -351,7 +351,6 @@ export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
   TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
-  SPA_MEMBER_STAFF_RELEASE_TARGET,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -383,11 +382,6 @@ const RECURRING_CONFIRMATION_MIGRATION_FILE =
   `prisma/migrations/${RECURRING_CONFIRMATION_MIGRATION}/migration.sql`;
 const STAFF_MEMBER_LINK_MIGRATION_FILE =
   `prisma/migrations/${STAFF_MEMBER_LINK_MIGRATION}/migration.sql`;
-const SPA_PRODUCTION_READINESS_SCRIPT =
-  "scripts/spa-production-migration-readiness.mjs";
-const SPA_HISTORY_RECONCILIATION_CONFIRMATION =
-  "RECONCILE_SUPERSEDED_SPA_HISTORY";
-const SPA_MEMBER_STAFF_RELEASE_LOCK = 2026091309n;
 const recurringConfirmationColumns = [
   "confirmationNotificationClaimedAt",
   "confirmationNotificationError",
@@ -550,16 +544,12 @@ function assertApprovedMigrationTarget(value) {
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
     [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION]: [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE, TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM],
-    [SPA_MEMBER_STAFF_RELEASE_TARGET]: null,
   };
   const target = targetFiles[value];
   if (target && migrationChecksum(target[0]) !== target[1]) {
     abort("migration_target_checksum_mismatch");
   }
-  if (value === SPA_MEMBER_STAFF_RELEASE_TARGET && (
-    migrationChecksum(RECURRING_CONFIRMATION_MIGRATION_FILE) !== RECURRING_CONFIRMATION_CHECKSUM ||
-    migrationChecksum(STAFF_MEMBER_LINK_MIGRATION_FILE) !== STAFF_MEMBER_LINK_CHECKSUM
-  )) abort("migration_target_checksum_mismatch");
+
 }
 
 function runPrisma(args) {
@@ -581,39 +571,6 @@ function runPrisma(args) {
       output: `${error.stdout ?? ""}${error.stderr ?? ""}`,
     };
   }
-}
-
-function runSpaProductionReadiness(args, failureCode) {
-  try {
-    execFileSync(process.execPath, [SPA_PRODUCTION_READINESS_SCRIPT, ...args], {
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        PGOPTIONS: "-c lock_timeout=5s -c statement_timeout=120s",
-      },
-    });
-  } catch {
-    abort(failureCode);
-  }
-}
-
-function prepareSpaProductionHistory() {
-  log("spa_history_inspection_started");
-  runSpaProductionReadiness(
-    ["--inspect"],
-    "spa_history_inspection_failed",
-  );
-  log("spa_history_inspection_verified");
-
-  log("spa_history_reconciliation_started");
-  runSpaProductionReadiness(
-    [
-      "--reconcile-superseded",
-      `--confirm=${SPA_HISTORY_RECONCILIATION_CONFIRMATION}`,
-    ],
-    "spa_history_reconciliation_failed",
-  );
-  log("spa_history_reconciliation_verified");
 }
 
 export function migrationChecksum(path) {
@@ -1016,75 +973,6 @@ function isAppliedNamedMigration(row, checksum) {
   return row?.checksum === checksum && row.finishedAt !== null && row.rolledBackAt === null;
 }
 
-async function withProductionMigrationLock(prisma, action) {
-  return prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(${SPA_MEMBER_STAFF_RELEASE_LOCK}) AS "locked"`;
-    if (rows[0]?.locked !== true) abort("production_migration_lock_unavailable");
-    return action();
-  }, { maxWait: 5_000, timeout: 180_000 });
-}
-
-async function runSpaMemberStaffRelease(prisma) {
-  const initialStatus = runPrisma(["migrate", "status"]);
-  const [recurringBefore, staffBefore, recurringLedgerBefore, staffLedgerBefore] = await Promise.all([
-    readRecurringConfirmationSnapshot(prisma),
-    readStaffMemberLinkSnapshot(prisma),
-    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
-    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
-  ]);
-
-  if (isStatusUpToDate(initialStatus)) {
-    if (!hasExpectedRecurringConfirmationColumns(recurringBefore) ||
-        !hasExpectedStaffMemberLinkSchema(staffBefore) ||
-        !isAppliedNamedMigration(recurringLedgerBefore, RECURRING_CONFIRMATION_CHECKSUM) ||
-        !isAppliedNamedMigration(staffLedgerBefore, STAFF_MEMBER_LINK_CHECKSUM)) {
-      abort("spa_member_staff_applied_state_rejected");
-    }
-    log("spa_member_staff_already_applied_verified");
-    return;
-  }
-
-  if (initialStatus.exitCode !== 1 || !hasAllowedSpaMemberStaffReleasePending(initialStatus.output)) {
-    abort("spa_member_staff_pending_allowlist_rejected");
-  }
-
-  const recurringAlreadyApplied = isAppliedNamedMigration(
-    recurringLedgerBefore,
-    RECURRING_CONFIRMATION_CHECKSUM,
-  );
-  const recurringStateValid = recurringAlreadyApplied
-    ? hasExpectedRecurringConfirmationColumns(recurringBefore)
-    : hasNoRecurringConfirmationColumns(recurringBefore) && recurringLedgerBefore === null;
-  if (!recurringStateValid || !hasNoStaffMemberLinkObjects(staffBefore) || staffLedgerBefore !== null) {
-    abort("spa_member_staff_preflight_rejected");
-  }
-
-  log("spa_member_staff_preflight_verified");
-  log("spa_member_staff_deploy_started");
-  await withProductionMigrationLock(prisma, () => {
-    if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
-      abort("spa_member_staff_deploy_failed");
-    }
-  });
-  log("spa_member_staff_deploy_succeeded");
-
-  const finalStatus = runPrisma(["migrate", "status"]);
-  if (!isStatusUpToDate(finalStatus)) abort("spa_member_staff_final_status_rejected");
-  const [recurringAfter, staffAfter, recurringLedgerAfter, staffLedgerAfter] = await Promise.all([
-    readRecurringConfirmationSnapshot(prisma),
-    readStaffMemberLinkSnapshot(prisma),
-    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
-    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
-  ]);
-  if (!hasExpectedRecurringConfirmationColumns(recurringAfter) ||
-      !hasExpectedStaffMemberLinkSchema(staffAfter) || staffAfter.rowCount !== 0 ||
-      !isAppliedNamedMigration(recurringLedgerAfter, RECURRING_CONFIRMATION_CHECKSUM) ||
-      !isAppliedNamedMigration(staffLedgerAfter, STAFF_MEMBER_LINK_CHECKSUM)) {
-    abort("spa_member_staff_final_schema_rejected");
-  }
-  log("spa_member_staff_final_schema_verified");
-}
-
 export function isAppliedTransactionConversionSnapshotMigration(row) {
   return row?.checksum === TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM &&
     row.finishedAt !== null && row.rolledBackAt === null;
@@ -1245,9 +1133,6 @@ async function main() {
     abort("migration_checksum_mismatch");
   }
 
-  if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
-    prepareSpaProductionHistory();
-  }
 
   const prisma = new PrismaClient({
     datasources: { db: { url: process.env.DIRECT_URL } },
@@ -1272,10 +1157,6 @@ async function main() {
     }
     if (target === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION) {
       await runTransactionConversionSnapshotMigration(prisma);
-      return;
-    }
-    if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
-      await runSpaMemberStaffRelease(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);

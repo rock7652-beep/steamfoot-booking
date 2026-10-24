@@ -41,5 +41,5 @@ export default async function FrontendPreviewDashboard({ searchParams }: { searc
   const personId = p.personId;
   if (personId) { try { await authorizeFrontendPreview({ storeId, personId, role }); } catch { notFound(); } }
   const href = personId ? `/frontend-preview?${new URLSearchParams({ storeId, personId, role })}` : null;
-  return <div className="space-y-3"><h1 className="admin-page-title">前台預覽</h1><p className="text-sm text-earth-600">查看會員與工作前台・不會儲存或發送通知{moduleId === "spa" ? "・SPA 畫面尚未驗收" : ""}</p><FrontendPreviewSelector key={`${storeId}:${role}`} stores={stores} storeId={storeId} role={role} query={q} people={people} personId={personId} allowWork={!!allowWork} previewHref={href} /></div>;
+  return <div className="space-y-3"><h1 className="admin-page-title">前台預覽</h1><p className="text-sm text-earth-600">查看會員與工作前台・不會儲存或發送通知{""}</p><FrontendPreviewSelector key={`${storeId}:${role}`} stores={stores} storeId={storeId} role={role} query={q} people={people} personId={personId} allowWork={!!allowWork} previewHref={href} /></div>;
 }

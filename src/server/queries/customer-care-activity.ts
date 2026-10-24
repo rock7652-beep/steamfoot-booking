@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { CARE_REASONS, careDisposition, type CareActivity, type CareReason } from "@/lib/customer-care-lifecycle";
 import { bookingDateToday, formatTWTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import type { IndustryModuleId } from "@/lib/industry-modules";
@@ -40,9 +40,7 @@ export async function getCustomerCareActivity(storeId: string, module: IndustryM
     });
     for (const b of bookings) if (b.customerId && !nextBookings.has(b.customerId)) nextBookings.set(b.customerId, formatTWTime(b.session.startsAt));
   } else {
-    const bookings = module === "spa"
-      ? (await spaPrisma.spaBooking.findMany({ where: { storeId, customerId: { in: ids }, status: { in: ["PENDING", "CONFIRMED"] }, bookingDate: { gte: bookingDateToday() } }, select: { customerId: true, bookingDate: true, startTime: true }, orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }] })).map(b => ({ ...b, time: b.startTime }))
-      : (await prisma.booking.findMany({ where: { storeId, customerId: { in: ids }, bookingStatus: { in: ["PENDING", "CONFIRMED"] }, bookingDate: { gte: bookingDateToday() } }, select: { customerId: true, bookingDate: true, slotTime: true }, orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }] })).map(b => ({ ...b, time: b.slotTime }));
+    const bookings = (await prisma.booking.findMany({ where: { storeId, customerId: { in: ids }, bookingStatus: { in: ["PENDING", "CONFIRMED"] }, bookingDate: { gte: bookingDateToday() } }, select: { customerId: true, bookingDate: true, slotTime: true }, orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }] })).map(b => ({ ...b, time: b.slotTime }));
     for (const b of bookings) {
       const at = parseTaipeiDateTime(b.bookingDate.toISOString().slice(0, 10), b.time);
       if (at && at > now && !nextBookings.has(b.customerId)) nextBookings.set(b.customerId, formatTWTime(at));

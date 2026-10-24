@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -87,17 +87,6 @@ export async function fetchLiffConsumption(): Promise<FetchLiffConsumptionResult
         status: "已收款",
       })),
     ];
-
-    if (industryModule === "spa") {
-      const [sales, receipts] = await Promise.all([
-        spaPrisma.spaCreditSale.findMany({ where: { storeId, customerId }, select: { id: true, createdAt: true, name: true, amount: true, paymentMethod: true }, orderBy: { createdAt: "desc" }, take: 100 }),
-        spaPrisma.spaReceipt.findMany({ where: { storeId, booking: { customerId } }, select: { id: true, paidAt: true, amount: true, paymentMethod: true, booking: { select: { serviceNameSnapshot: true } } }, orderBy: { paidAt: "desc" }, take: 100 }),
-      ]);
-      rows.push(
-        ...sales.map((row) => ({ id: `spa-sale:${row.id}`, date: row.createdAt.toISOString(), sortAt: row.createdAt, item: row.name, amount: Number(row.amount), paymentMethod: paymentLabel(row.paymentMethod), status: "已收款" })),
-        ...receipts.map((row) => ({ id: `spa-receipt:${row.id}`, date: row.paidAt.toISOString(), sortAt: row.paidAt, item: row.booking.serviceNameSnapshot || "SPA 服務", amount: Number(row.amount), paymentMethod: paymentLabel(row.paymentMethod), status: "已收款" })),
-      );
-    }
 
     return {
       status: "ok",

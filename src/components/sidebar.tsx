@@ -12,7 +12,6 @@ import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-sh
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
-
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -841,14 +840,14 @@ export default function DashboardShell({
     }
 
     const course = industryModuleId === "course";
-    const spa = industryModule === "spa";
+
     const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };
     // When only the digital butler is enabled, its list remains directly reachable.
     const growthEntry = effectiveFeatures[FEATURES.CUSTOMER_CARE] === false && effectiveFeatures[FEATURES.DIGITAL_BUTLER] === true
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
-      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
       { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
@@ -878,10 +877,6 @@ export default function DashboardShell({
       ];
       management.sort((a, b) => setupOrder.indexOf(a.href) - setupOrder.indexOf(b.href));
     }
-    if (spa) management.push(
-      { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
-    );
     management.push({ ...entry("/dashboard/settings"), href: "/dashboard/image-announcements", label: "圖片公告", permission: "business_hours.view", requiredFeature: undefined });
     if (!course || canOpenCourseSettings) management.push({
       ...entry("/dashboard/settings"),
@@ -1177,7 +1172,7 @@ export default function DashboardShell({
 
   return (
     <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ hqScope: hqOperationGuide, music: industryModule === "course" && musicEnabled, module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
-    <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
+    <div data-spa-admin={undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
         className={`sidebar-transition ${(industryModule === "spa" || isAdmin) ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
@@ -1188,7 +1183,7 @@ export default function DashboardShell({
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : <SteamButlerLogo compact />}
+                {<SteamButlerLogo compact />}
               </Link>
               {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
             </div>
@@ -1221,7 +1216,7 @@ export default function DashboardShell({
         {renderNavGroups(collapsed)}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
-          {industryModule === "spa" && !collapsed && <div className="mb-2 flex justify-center"><PlanBadge plan={pricingPlan} /></div>}
+
           {collapsed ? (
             <span className="text-[9px] text-earth-300">v{APP_VERSION}</span>
           ) : (
@@ -1232,7 +1227,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div data-dashboard-navigation-overlay className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
+        <div data-dashboard-navigation-overlay className={"fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
@@ -1241,7 +1236,7 @@ export default function DashboardShell({
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
                 <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : <SteamButlerLogo compact />}
+                  {<SteamButlerLogo compact />}
                 </Link>
                 {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
               </div>
@@ -1268,7 +1263,7 @@ export default function DashboardShell({
               <StoreSwitcher stores={storeOptions} activeStoreId={activeStoreId ?? null} />
             )}
             {renderNavGroups(false)}
-            {industryModule === "spa" && <div className="flex justify-center border-t border-earth-100 px-3 py-3"><PlanBadge plan={pricingPlan} /></div>}
+
           </aside>
         </div>
       )}
@@ -1303,9 +1298,9 @@ export default function DashboardShell({
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
             <div className={industryModule === "course" && guideEnabled ? "hidden" : (industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>
-              {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
+              {<DashboardBreadcrumb mobile />}
             </div>
-            <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
+            <div className={"hidden lg:block"}>
               <DashboardBreadcrumb />
             </div>
           </div>

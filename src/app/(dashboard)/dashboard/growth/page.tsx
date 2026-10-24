@@ -13,22 +13,14 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
 import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
-import {
-  CUSTOMER_KPI_SEGMENTS,
-  getCustomerKpiSegmentCustomers,
-  isCustomerKpiSegment,
-} from "@/server/queries/customer-kpi-segments";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-  userForViewContext,
-} from "@/lib/store-view-context-server";
+import { CUSTOMER_KPI_SEGMENTS, getCustomerKpiSegmentCustomers, isCustomerKpiSegment } from "@/server/queries/customer-kpi-segments";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewContext } from "@/lib/store-view-context-server";
 import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { courseCustomerStaffScope } from "@/server/queries/course-home";
 import { CourseCare } from "./_components/course-care";
-import { SpaCare } from "./_components/spa-care";
+
 import { CareWorkspaceServer } from "./_components/care-workspace-server";
 
 /**
@@ -124,7 +116,7 @@ export default async function CustomerCarePage({
   const workspaceMonth = requestedMonth ?? toLocalMonthStr();
   const industryModule = viewedStoreId ? await getStoreIndustryModule(viewedStoreId) : "steamfoot";
   const [canFollowUp, canBook] = await Promise.all([checkPermission(user.role, user.staffId, "customer.update"), checkPermission(user.role, user.staffId, "booking.create")]);
-  if (viewedStoreId && industryModule === "spa") return <SpaCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
+
   if (viewedStoreId && industryModule === "course") {
     const [canFollowUp, canBook] = await Promise.all([
       checkPermission(user.role, user.staffId, "customer.update"),

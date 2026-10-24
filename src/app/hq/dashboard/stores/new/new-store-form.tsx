@@ -3,10 +3,7 @@
 import { useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { createStoreAction } from "@/server/actions/store-onboarding";
-import type {
-  CreateStoreInput,
-  StoreDeliverySummary,
-} from "@/types/store-onboarding";
+import type { CreateStoreInput, StoreDeliverySummary } from "@/types/store-onboarding";
 
 export default function NewStoreForm({ previewOnly = false }: { previewOnly?: boolean } = {}) {
   const [pending, startTransition] = useTransition();

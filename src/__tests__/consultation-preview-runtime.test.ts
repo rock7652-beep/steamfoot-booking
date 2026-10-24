@@ -18,7 +18,7 @@ const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const clients = [
   { name: "main", key: "prisma", load: async () => (await import("@/lib/db")).prisma },
-  { name: "spa", key: "spaPrisma", load: async () => (await import("@/lib/spa-db")).spaPrisma },
+
   { name: "course", key: "coursePrisma", load: async () => (await import("@/lib/course-db")).coursePrisma },
 ];
 const invalidSettings = [

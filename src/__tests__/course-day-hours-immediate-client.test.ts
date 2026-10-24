@@ -20,7 +20,7 @@ async function click(text:string){const b=[...host.querySelectorAll<HTMLButtonEl
 beforeEach(async()=>{
  vi.resetAllMocks();vi.stubGlobal("fetch",m.fetch);Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.day.mockResolvedValue(detail);
  host=document.createElement("div");document.body.append(host);root=createRoot(host);
- await act(async()=>root.render(createElement(ScheduleManager,{storeId:"s",weeklyHours:weekly,initialSpecialDays:[],initialSummary:summary,initialYear:2030,initialMonth:10,canManage:true,isHeadquarters:false,isSpaStore:false,isCourseStore:true})));
+ await act(async()=>root.render(createElement(ScheduleManager,{storeId:"s",weeklyHours:weekly,initialSpecialDays:[],initialSummary:summary,initialYear:2030,initialMonth:10,canManage:true,isHeadquarters:false,isCourseStore:true})));
  await act(async()=>calendarDay(1).click());await click("全天休息");await click("檢查變更");
 });
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});

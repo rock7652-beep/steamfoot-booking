@@ -8,15 +8,8 @@ import { MobileNav } from "./mobile-nav";
 import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
-import {
-  getCustomerFacingStoreName,
-  resolveStoreBySlug,
-} from "@/lib/store-resolver";
-import {
-  getStoreOperatingStatus,
-  getStoreUnavailableMessage,
-  isStoreCustomerPortalBlocked,
-} from "@/lib/store-operating-status";
+import { getCustomerFacingStoreName, resolveStoreBySlug } from "@/lib/store-resolver";
+import { getStoreOperatingStatus, getStoreUnavailableMessage, isStoreCustomerPortalBlocked } from "@/lib/store-operating-status";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
@@ -26,9 +19,8 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getCustomerPortalNavItems } from "@/lib/customer-portal-navigation";
 import { resolveActiveStaffMemberForStore } from "@/server/services/staff-member-access";
-import { IdentityModeSwitcher } from "./identity-mode-switcher";
+
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { SpaMemberReturnLink } from "./spa-member-return-link";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -261,7 +253,7 @@ export default async function CustomerLayout({
     redirect(`${prefix}/profile?${params.toString()}`);
   }
 
-  const activeStaffMember = await resolveActiveStaffMemberForStore(
+  await resolveActiveStaffMemberForStore(
     user.id,
     storeCtx.storeId,
   );
@@ -275,29 +267,7 @@ export default async function CustomerLayout({
 
   return (
     <div className="min-h-screen bg-earth-50 text-base leading-normal text-[color:var(--color-text-primary)]">
-      {isSpaMemberPortal ? (
-        <header className="sticky top-0 z-40 border-b border-earth-200/80 bg-white/95 px-4 py-2 backdrop-blur">
-          <div className="mx-auto flex min-h-11 max-w-md items-center justify-between gap-3">
-            <Link href={`${prefix}/book`} aria-label="返回會員專區" className="shrink-0">
-              <SteamButlerLogo compact />
-            </Link>
-            <div className="min-w-0 flex-1 text-center">
-              <CentralMemberStoreSwitcher
-                currentStoreName={customerFacingStoreName}
-                currentStoreSlug={storeCtx.storeSlug}
-                stores={membershipStores}
-                compact
-              />
-            </div>
-            <form action={logoutAction} className="shrink-0">
-              <input type="hidden" name="storeSlug" value={storeCtx.storeSlug} />
-              <button type="submit" className="min-h-11 rounded-xl px-2 text-sm font-medium text-earth-600">
-                登出
-              </button>
-            </form>
-          </div>
-        </header>
-      ) : (
+      {(
         <MobileNav
           userName={user.name ?? "顧客"}
           pathname={pathname}
@@ -308,7 +278,7 @@ export default async function CustomerLayout({
         />
       )}
 
-      <div className={isSpaMemberPortal ? "" : "lg:flex"}>
+      <div className={"lg:flex"}>
         {/* Desktop sidebar — fixed narrow design */}
         {!isSpaMemberPortal && <aside className="hidden lg:flex lg:w-[200px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-earth-100 lg:bg-white lg:min-h-screen">
           {/* Brand */}
@@ -368,16 +338,8 @@ export default async function CustomerLayout({
         </aside>}
 
         {/* Main content */}
-        <main className={`flex-1 px-4 pt-4 pb-20 ${isSpaMemberPortal ? "" : "lg:px-8 lg:py-8"}`}>
-          <div className={`mx-auto ${isSpaMemberPortal ? "max-w-md" : "max-w-2xl"}`}>
-            {activeStaffMember && (
-              <div className="mb-4">
-                <IdentityModeSwitcher storeSlug={storeCtx.storeSlug} />
-              </div>
-            )}
-            {isSpaMemberPortal && completion.isComplete && (
-              <SpaMemberReturnLink storeSlug={storeCtx.storeSlug} />
-            )}
+        <main className={`flex-1 px-4 pt-4 pb-20 ${"lg:px-8 lg:py-8"}`}>
+          <div className={`mx-auto ${"max-w-2xl"}`}>
             {children}
           </div>
         </main>

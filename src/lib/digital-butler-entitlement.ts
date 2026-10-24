@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { AppError } from "@/lib/errors";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 /**
  * Requires the shared feature entitlement. Full single-store trials include it;
@@ -20,7 +19,7 @@ export async function requireDigitalButlerConversationActivation(
   storeId: string,
 ): Promise<void> {
   await requireDigitalButlerEntitlement(storeId);
-  if (isSpaDemoStoreId(storeId)) return;
+
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { digitalButlerEnabled: true },

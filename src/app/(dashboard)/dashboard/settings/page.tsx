@@ -1,5 +1,5 @@
-import {SteamfootNoticeSetting} from "@/components/admin/steamfoot-notice-setting";
-import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
+import { SteamfootNoticeSetting } from "@/components/admin/steamfoot-notice-setting";
+import { readSteamfootNoticeEnabled } from "@/server/services/steamfoot-store-notices";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
@@ -15,15 +15,8 @@ import { FeatureEntry } from "@/components/feature-presentation";
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import {
-  PageShell,
-  PageHeader,
-} from "@/components/desktop";
-import {
-  SettingsListRow,
-  SettingsModuleWorkspace,
-  SettingsPanel,
-} from "@/components/settings";
+import { PageShell, PageHeader } from "@/components/desktop";
+import { SettingsListRow, SettingsModuleWorkspace, SettingsPanel } from "@/components/settings";
 import RemindersPage from "../reminders/page";
 
 /**
@@ -87,7 +80,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     );
   }
 
-
   const industry = await getStoreIndustryModule(activeStoreId);
   if (industry === "course") redirect("/dashboard/courses?view=settings");
   const canManageTrial = await checkPermission(
@@ -95,7 +87,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     user.staffId,
     "trial.manage",
   );
-  const isSpaStore = industry === "spa";
+
 
   const [
     plan,
@@ -189,43 +181,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     </>
   );
 
-  const sections = isSpaStore
-    ? [
-        {
-          id: "booking",
-          label: "營業與預約",
-          content: (
-            <>
-              {canHours ? <SettingsListRow title="營業與預約時間" summary={hoursLine} href="/dashboard/settings/hours" action="修改" /> : null}
-              {canBooking ? <SettingsListRow title="預約排程" summary="人員・服務・位置排程" href="/dashboard/spa-schedule" action="查看" /> : null}
-              {canDuty ? <SettingsListRow title="值班聯動" summary={dutyOn ? "開啟・未值班時段不開放" : "關閉"} href="/dashboard/settings/duty" action="設定" /> : null}
-            </>
-          ),
-        },
-        {
-          id: "payment",
-          label: "收款與體驗",
-          content: (
-            <>
-              {canPayment ? <SettingsListRow title="銀行轉帳資訊" summary={bankLine} href="/dashboard/settings/payment" action="修改" /> : null}
-              {canManageTrial ? <SettingsListRow title="體驗設定" summary={trialLine} href="/dashboard/settings/trial" action="修改" /> : null}
-            </>
-          ),
-        },
-        {
-          id: "notifications",
-          label: "通知與顧客經營",
-          content: commonNotificationRows,
-        },
-        {
-          id: "subscription",
-          label: "系統方案與用量",
-          content: (
-            <SettingsListRow title="店家系統方案" summary={planLabel} href="/dashboard/settings/plans" action="查看" />
-          ),
-        },
-      ]
-    : [
+  const sections = [
         {
           id: "booking",
           label: "營業與預約",
@@ -267,7 +223,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
         subtitle="店長控制台 · 查看狀態，需要修改時再進入"
       />
       <SettingsModuleWorkspace
-        moduleLabel={isSpaStore ? "SPA 模組" : "蒸足模組"}
+        moduleLabel={"蒸足模組"}
         storeName={storeName}
         sections={sections}
       />

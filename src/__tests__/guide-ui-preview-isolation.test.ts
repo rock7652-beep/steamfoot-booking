@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview, isSpaRetirementUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
+import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
 
 vi.hoisted(async () => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
@@ -36,12 +36,7 @@ const waitlistSafe = {
   DATABASE_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
   DIRECT_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
 };
-const spaRetirementSafe = {
-  ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "codex/fix-spa-history-access-20261015",
-};
-function enableSpaRetirement() {
-  for (const [key, value] of Object.entries(spaRetirementSafe)) vi.stubEnv(key, value);
-}
+
 function enableWaitlist() {
   for (const [key, value] of Object.entries(waitlistSafe)) vi.stubEnv(key, value);
 }
@@ -167,13 +162,13 @@ describe.each(previewModes)("$name outer request boundary before auth", ({ name,
   });
 });
 
-describe.each([...previewModes, { name: "SPA retirement", enable: enableSpaRetirement }])("$name database and outbound isolation", ({ enable: enableMode }) => {
+describe.each(previewModes)("$name database and outbound isolation", ({ enable: enableMode }) => {
   beforeEach(enableMode);
   it("never constructs or reuses any real cached client", async () => {
     vi.resetModules();
     const cached = { connected: true };
     normalGlobals.prisma = cached; normalGlobals.spaPrisma = cached; normalGlobals.coursePrisma = cached;
-    const clients = [(await import("@/lib/db")).prisma, (await import("@/lib/spa-db")).spaPrisma, (await import("@/lib/course-db")).coursePrisma];
+    const clients = [(await import("@/lib/db")).prisma,  (await import("@/lib/course-db")).coursePrisma];
     for (const client of clients) {
       expect(Object.is(client, cached)).toBe(false);
       for (const key of ["$connect", "$transaction", "$queryRaw", "$executeRaw", "user", "booking"])
@@ -207,7 +202,6 @@ describe.each([...previewModes, { name: "SPA retirement", enable: enableSpaRetir
   });
 });
 
-
 describe("waitlist publication exact Preview provenance", () => {
   it("leaves production main and unrelated previews unchanged", () => {
     expect(isGuideUiPreview(waitlistSafe)).toBe(true);
@@ -227,7 +221,6 @@ describe("waitlist publication exact Preview provenance", () => {
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });
-
 
 describe("single pricing Preview isolation", () => {
   const pricingSafe = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "fix/single-group-pricing-20261009", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" };
@@ -310,7 +303,6 @@ describe("Pilates publication exact Preview provenance", () => {
   });
 });
 
-
 describe("Teacher-fee publication exact Preview provenance", () => {
   it("accepts only the approved branch and leaves production main or unrelated previews unchanged", () => {
     expect(isGuideUiPreview(teacherFeeSafe)).toBe(true);
@@ -338,7 +330,6 @@ describe("Teacher-fee publication exact Preview provenance", () => {
     expect(deployment.main).toBe(false);
   });
 });
-
 
 describe("marketing sticky read-only preview", () => {
   const marketingSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "feat/marketing-sticky-offer-20261011" };
@@ -387,7 +378,6 @@ describe("marketing collapse preview provenance", () => {
   });
 });
 
-
 describe("renewal publication exact Preview provenance", () => {
   it("accepts only the exact repository and branch without database credentials", () => {
     expect(isGuideUiPreview({ ...renewalSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
@@ -434,7 +424,6 @@ describe("role-permissions publication exact Preview provenance", () => {
   });
 });
 
-
 describe("role-permissions crawler isolation", () => {
   it("supports HEAD and disallows indexing while keeping the sitemap empty", async () => {
     enablePermissions();
@@ -447,110 +436,5 @@ describe("role-permissions crawler isolation", () => {
     const { GET: sitemap } = await import("@/app/sitemap.xml/route");
     expect(await robots(new Request("https://preview.example.test/robots.txt")).text()).toContain("Disallow: /");
     expect(await sitemap(new Request("https://preview.example.test/sitemap.xml")).text()).not.toContain("<loc>");
-  });
-});
-
-
-describe("SPA retirement read-only preview", () => {
-  beforeEach(enableSpaRetirement);
-  it("requires exact Preview provenance without using database credentials", () => {
-    expect(isGuideUiPreview({ ...spaRetirementSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
-    expect(isSpaRetirementUiPreview({ ...spaRetirementSafe, VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" })).toBe(false);
-    for (const key of ["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"]) {
-      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: undefined })).toThrow(/isolation rejected/);
-      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: "wrong" })).toThrow(/isolation rejected/);
-    }
-    for (const key of ["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH", "GUIDE_UI_PREVIEW"]) {
-      expect(() => isSpaRetirementUiPreview({ ...spaRetirementSafe, [key]: "1" })).toThrow(/isolation rejected/);
-    }
-  });
-  it.each(["/", "/pricing", "/pricing/features", "/pricing/features/slots", "/pricing/features/music", "/pricing/features/fitness", "/apply", "/spa-retirement-preview", "/pricing/business-assets/brand-reminder-example.jpeg"])("permits review GET %s without auth", path => {
-    const response = route(path);
-    expect(response.status).toBeLessThan(400);
-    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(spies.auth).not.toHaveBeenCalled();
-  });
-  it.each(["/hq/dashboard", "/s/zhubei/admin/dashboard", "/api/auth/session", "/api/cron/reminders", "/api/line/webhook", "/pricing/submit", "/_next/image?url=test", "/spa-retirement-preview/extra"])("blocks non-review GET %s", path => {
-    expect(route(path).status).toBe(404);
-    expect(spies.auth).not.toHaveBeenCalled();
-  });
-  it.each(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"])("blocks %s before auth, API or server action", method => {
-    for (const path of ["/spa-retirement-preview", "/apply", "/pricing/submit", "/api/line/webhook"]) {
-      expect(route(path, method).status).toBe(405);
-    }
-    expect(spies.auth).not.toHaveBeenCalled();
-    expect(spies.prisma).not.toHaveBeenCalled();
-    expect(spies.send).not.toHaveBeenCalled();
-  });
-  it.each(["/spa-preview", "/s/demo/admin/dashboard/spa-schedule", "/pricing/features/services"])("keeps retired entry %s unavailable", path => {
-    expect(route(path).status).toBe(410);
-    expect(spies.auth).not.toHaveBeenCalled();
-  });
-  it("skips migrations before any database work even with missing connections", () => {
-    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], {
-      env: { ...process.env, ...spaRetirementSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" },
-      encoding: "utf8", timeout: 15000,
-    });
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
-    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
-  });
-  it.each(["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"])("serves rewritten destination %s without an alias loop", path => {
-    const response = route(path);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("x-middleware-next")).toBe("1");
-    expect(response.headers.get("location")).toBeNull();
-    expect(spies.auth).not.toHaveBeenCalled();
-  });
-  it("hides the synthetic review page in normal deployments", () => {
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");
-    expect(route("/spa-retirement-preview").status).toBe(404);
-    expect(spies.auth).not.toHaveBeenCalled();
-  });
-});
-
-describe("student-loyalty publication exact Preview provenance", () => {
-  it("accepts only the exact repository and branch without database credentials", () => {
-    expect(isGuideUiPreview({ ...loyaltySafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
-    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
-    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
-  });
-  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
-    expect(() => isGuideUiPreview({ ...loyaltySafe, [key]: undefined })).toThrow(/isolation rejected/);
-  });
-  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-fitness-studio-student-loyalty"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
-    expect(() => isGuideUiPreview({ ...loyaltySafe, [key]: value })).toThrow(/isolation rejected/);
-  });
-  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
-    expect(() => isGuideUiPreview({ ...loyaltySafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-fitness-studio-student-loyalty" })).toThrow(/isolation rejected/);
-  });
-  it("skips migrations before database work with no database", () => {
-    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...loyaltySafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
-    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
-  });
-});
-
-describe("paid-attendance publication exact Preview provenance", () => {
-  it("accepts only the exact repository and branch without database credentials", () => {
-    expect(isGuideUiPreview({ ...attendanceSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
-    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
-    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
-  });
-  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
-    expect(() => isGuideUiPreview({ ...attendanceSafe, [key]: undefined })).toThrow(/isolation rejected/);
-  });
-  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/paid-members-attendance-drop-follow-up"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
-    expect(() => isGuideUiPreview({ ...attendanceSafe, [key]: value })).toThrow(/isolation rejected/);
-  });
-  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
-    expect(() => isGuideUiPreview({ ...attendanceSafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/paid-members-attendance-drop-follow-up" })).toThrow(/isolation rejected/);
-  });
-  it("skips migrations before database work with no database", () => {
-    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...attendanceSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
-    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });

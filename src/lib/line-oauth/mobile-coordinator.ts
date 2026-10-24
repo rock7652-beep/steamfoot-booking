@@ -60,8 +60,7 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 function allowedReturnPath(storeSlug: string, returnPath: string): boolean {
-  return returnPath === `/s/${storeSlug}/book` ||
-    returnPath === `/s/${storeSlug}/liff/spa-work`;
+  return returnPath === `/s/${storeSlug}/book`;
 }
 
 function issueState(payload: StatePayload): string {
