@@ -45,6 +45,21 @@ it("continues scheduling with the teaching identity rather than the tuition vers
  const query=new URL(link.href,"https://example.test").searchParams;expect(query.get("scheduleTemplate")).toBe("teaching:guitar");expect(query.get("scheduleCustomer")).toBe("student-1");
 });
 
+it("carries the selected teaching item and charging method into renewal",async()=>{
+ await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ const button=[...host.querySelectorAll("button")].find(b=>b.textContent==="續購此方案")!;
+ await act(async()=>button.click());expect(props.onPurchase).toHaveBeenLastCalledWith({subjectId:"guitar",planId:"guitar-plan"});
+});
+
+it("shows cumulative periods while keeping receipt and lesson lookups local to each purchase",async()=>{
+ mock.periods.read.mockResolvedValue({success:true,data:[{...cards[0],purchaseBatch:2,periodStart:3}]});
+ await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ expect(host.textContent).toContain("第 2 次購課・第 3–4 期");
+ const first=host.querySelector('[data-music-period="1"]')!;
+ expect(first.querySelector("summary")?.textContent).toContain("第 3 期");expect(first.textContent).toContain("教師甲");expect(first.textContent).toContain("已收 NT$ 1,600");
+ expect(host.querySelector('[data-music-period="2"] summary')?.textContent).toContain("第 4 期");
+});
+
 it("shows a completed purchase in the mounted empty panel without a page reload",async()=>{
  mock.periods.read.mockResolvedValue({success:true,data:[]});mock.orders.read.mockResolvedValue({success:true,data:[],hasMore:false});
  await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:0})));
@@ -53,7 +68,7 @@ it("shows a completed purchase in the mounted empty panel without a page reload"
  await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:1})));
  expect(mock.periods.read).toHaveBeenCalledTimes(2);expect(mock.orders.read).toHaveBeenCalledTimes(2);
  expect(mock.periods.invalidate).toHaveBeenLastCalledWith("student-1");expect(mock.orders.clear).toHaveBeenCalledTimes(2);
- expect(host.textContent).not.toContain("尚無已購課程");expect(host.textContent).toContain("購課 2026-10-01・2 期・4 堂");
+ expect(host.textContent).not.toContain("尚無已購課程");expect(host.textContent).toContain("購課｜2026-10-01 08:00・2 期・4 堂");
  expect(host.querySelector('[data-music-period="1"]')?.textContent).toContain("已收 NT$ 1,600");
 });
 

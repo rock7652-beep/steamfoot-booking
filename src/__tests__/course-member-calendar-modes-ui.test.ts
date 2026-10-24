@@ -80,6 +80,16 @@ it("keeps multiple payments for one card together while distinct same-name cards
  expect(host.querySelectorAll(".cp-plan")).toHaveLength(2);expect(host.querySelectorAll(".cp-member-purchase")).toHaveLength(2);
  expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(0);
 });
+
+it("shows renewal periods 3 and 4 on the member portal while matching local lesson period 1",async()=>{
+ const data=paymentProps();data.memberRecords![0]={...data.memberRecords![0],purchaseBatch:2,periodStart:3};
+ await act(async()=>root.render(createElement(CoursePortalClient,data)));
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("第 2 次購課・第 3–4 期");
+ await act(async()=>host.querySelector<HTMLElement>(".cp-plan-row")!.click());
+ const periods=host.querySelectorAll(".cp-member-period");
+ expect(periods[0].querySelector("summary")?.textContent).toContain("第 3 期");
+ expect(periods[0].textContent).toContain("已出席");expect(periods[1].querySelector("summary")?.textContent).toContain("第 4 期");
+});
 it("retains shared-card lessons and orders without an accessible card",async()=>{
  const data=paymentProps();data.cards[0].history={cardId:"card",createdAt:date,count:2,lessons:[...data.cards[0].history!.lessons,{id:"family-class",name:"家人瑜珈",startsAt:date,customerId:"family",customerName:"家人",status:"已出席",used:1}]};
  data.memberRecords!.push({...data.memberRecords![0],id:"pending",cardId:null,status:"PENDING",lessonsAvailable:false,periods:[],lessons:[]});

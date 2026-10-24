@@ -66,3 +66,12 @@ it("separates one period from the purchase total without changing receipt limits
  await act(async()=>{host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
  expect(mock.save.mock.calls[0][1]).toMatchObject({purchaseId:"order",amount:2200,expectedReceived:1000});
 });
+
+it("labels a renewal receipt with the cumulative period while preserving its purchase-local balance",async()=>{
+ await act(async()=>root.render(createElement(MusicTuitionDetails,{order,onUpdated:mock.updated,receiptPeriod:1,displayPeriod:3})));
+ await click("補登收款");expect(host.querySelector("h3")?.textContent).toContain("補登第 3 期收款");
+ expect(host.querySelector('[name="amount"]')?.getAttribute("max")).toBe("2200");
+ mock.save.mockResolvedValue({success:true});
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(mock.save.mock.calls[0][1]).toMatchObject({purchaseId:"order",amount:2200,expectedReceived:1000});
+});

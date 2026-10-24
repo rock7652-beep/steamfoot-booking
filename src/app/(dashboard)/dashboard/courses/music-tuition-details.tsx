@@ -15,7 +15,7 @@ import type { loadCourseCustomerPurchases } from "@/server/actions/course-custom
 type Result = Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
 export type TuitionOrder = Extract<Result, { success: true }>["data"][number];
 
-export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsButton=false, closeLabel="關閉" }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; detailsButton?: boolean; closeLabel?: string }) {
+export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, displayPeriod, detailsButton=false, closeLabel="關閉" }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; displayPeriod?: number; detailsButton?: boolean; closeLabel?: string }) {
   const router = useRouter();
   const titleId = useId();
   const submitting = useRef(false);
@@ -42,7 +42,7 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsBu
     </ExclusiveMenu>}
     <ModalPanel open={mode !== null} onClose={close} labelledById={titleId} pending={busy} width={mode === "receipt" ? 520 : 880}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
-        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${receiptPeriod} 期收款` : "補登收款") : "學費明細"} · {order.name}</h3>
+        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${displayPeriod??receiptPeriod} 期收款` : "補登收款") : "學費明細"} · {order.name}</h3>
         <button type="button" className={`${button} shrink-0`} disabled={busy} onClick={close}>{closeLabel}</button>
       </header>
       <div className="@container/tuition min-h-0 min-w-0 overflow-y-auto p-3 text-sm">
