@@ -142,7 +142,9 @@ export function CourseMemberWorkspace({
   music?: boolean;
   sharedCardState?: FeaturePresentationState;
 }) {
-  const supportGuard = useCustomerPanelGuard();
+  const confirmDiscard=source?.confirmDiscard??catalogSource?.form.confirmDiscard??true;
+  const compactCatalog=!!catalogSource?.form.compact;
+  const supportGuard = useCustomerPanelGuard(confirmDiscard);
   const [noteReceipts,setNoteReceipts]=useState<Record<string,{source:string|null;value:string|null}>>({});
   const people=sourcePeople.map(p=>noteReceipts[p.id]&&p.serviceNote===noteReceipts[p.id].source?{...p,serviceNote:noteReceipts[p.id].value}:p);
   const visibleCustomerRows=customerRows.map(row=>noteReceipts[row.id]&&row.serviceNote===noteReceipts[row.id].source?{...row,serviceNote:noteReceipts[row.id].value}:row);
@@ -186,9 +188,10 @@ export function CourseMemberWorkspace({
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
-  const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
+  const [retainedPlanUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
+  const planUnit=compactCatalog?"all":retainedPlanUnit;
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && !formUncertain && ((panel!=="service-price"&&!source&&(sportsNative || sportsData)) || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
+  function canLeave() { return !pending && !formPending && !formUncertain && (!confirmDiscard || (panel!=="service-price"&&!source&&(sportsNative || sportsData)) || !dirty || window.confirm("尚有未儲存的變更，確定離開？")) && supportGuard.allowLeave(); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); onPanelClose?.(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -225,7 +228,7 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard((panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
+  useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers"&&!sportsNative, panel && customerPanel ? person.id : null);
@@ -295,9 +298,14 @@ export function CourseMemberWorkspace({
                 {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
                 {label:"地址",value:person.address,full:true},
               ].filter(item => item.value != null && item.value !== "")}/>);
+  const planFilters=view === "plans" && planArea === "catalog" && !music && (<>
+          <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
+          {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
+          {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
+        </>);
   return (
     <>
-      {view === "plans" && <div className="flex flex-wrap items-center gap-3">
+      {view === "plans" && !compactCatalog && <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
         <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
           <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
@@ -336,12 +344,8 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} ${sportsData?"!w-32":"max-w-40"}`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
-        {view === "plans" && planArea === "catalog" && !music && <>
-          <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
-          {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
-          {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
-        </>}
+        {view === "plans" && planArea === "catalog" && !music && !compactCatalog && <select className={`${field} ${sportsData?"!w-32":"max-w-40"}`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {!compactCatalog&&planFilters}
         {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?`${subjectLabel}篩選`:"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?`全部${subjectLabel}`:"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
@@ -374,7 +378,8 @@ export function CourseMemberWorkspace({
           {music&&!params.get("setupStep")&&notice==="班型與學費已儲存"&&<DashboardLink href="/dashboard/teachers" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定教師授課資格 →</DashboardLink>}
         </div>
       )}
-<div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${!music && view === "plans" && planArea === "catalog" ? "min-h-11" : ""}`}>
+<div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${!music && view === "plans" && planArea === "catalog" ? "min-h-11" : ""}`}>
+      {compactCatalog&&planFilters}
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar driver={catalogSource?.status} key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
@@ -518,7 +523,7 @@ export function CourseMemberWorkspace({
               <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
               {sportsNative&&<div className="sm:col-span-2">{attribution}{detailFields}</div>}
               </div>
-              <RetainedNoteEditor quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
+              <RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={async(serviceNote, expectedServiceNote) => {
                   const input={customerId:person.id,serviceNote,expectedServiceNote};

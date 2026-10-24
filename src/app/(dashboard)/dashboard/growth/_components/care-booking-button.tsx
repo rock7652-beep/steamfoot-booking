@@ -12,7 +12,7 @@ import { createCourseBooking } from "@/server/actions/course-members";
 
 import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import type { CareItem } from "./care-section";
-const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-earth-700 disabled:opacity-50";
+const button = "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm text-earth-700 disabled:opacity-50";
 type Options = Extract<Awaited<ReturnType<typeof loadCustomerCareBooking>>, { success: true }>["data"];
 export function CareBookingButton({ item }: { item: CareItem }) {
   const router = useRouter();

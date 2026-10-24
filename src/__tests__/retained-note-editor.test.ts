@@ -12,9 +12,9 @@ const save = vi.fn<(value: string | null, expected: string | null) => Promise<No
 const onSaved = vi.fn();
 beforeEach(() => { sessionStorage.clear(); save.mockReset(); onSaved.mockReset(); container=document.createElement("div"); document.body.append(container); root=createRoot(container); });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); });
-async function render(scope="user:store-a", id="a", value: string | null="original") {
+async function render(scope="user:store-a", id="a", value: string | null="original",confirmDiscard=true) {
   await act(async () => root.render(React.createElement(OperationScope, { key: scope, scope }, React.createElement(RetainedNoteEditor, {
-    key: id, stateKey: `note:${id}`, title:"店內備註", hint:"店內可見", placeholder:"備註", maxLength:1000, value, canEdit:true, save, onSaved,
+    confirmDiscard,key: id, stateKey: `note:${id}`, title:"店內備註", hint:"店內可見", placeholder:"備註", maxLength:1000, value, canEdit:true, save, onSaved,
   }))));
 }
 function button(text: string) { return [...container.querySelectorAll("button")].find(b => b.textContent === text)!; }
@@ -81,4 +81,10 @@ it("undoes only the saved note with a compare-and-set expectation", async () => 
   await act(async()=>button("復原").click());
   expect(save).toHaveBeenLastCalledWith("original","new note");
   expect(onSaved).toHaveBeenLastCalledWith("original"); expect(button("復原")).toBeUndefined();
+});
+
+it('allows Beauty to cancel a dirty note without confirmation or saving',async()=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await render('beauty:store-a','a','original',false);await enter('changed locally');await act(async()=>button('取消').click());
+ expect(container.querySelector('textarea')).toBeNull();expect(confirm).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
 });

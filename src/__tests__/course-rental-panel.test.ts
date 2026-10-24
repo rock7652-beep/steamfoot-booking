@@ -79,3 +79,14 @@ it("retains rental creation inside room history only when explicitly authorized"
  m.list.mockResolvedValue({rows:[],hasMore:false});await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions})));expect(host.textContent).not.toContain('新增租借');
  await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions:{...permissions,create:true}})));await click('新增租借');expect(host.querySelector('form')).toBeTruthy();expect(host.querySelector<HTMLInputElement>('input[name="date"]')!.value).toMatch(/^20\d{2}-\d{2}-\d{2}$/);await submit();expect(m.save.mock.calls[0][0]).toMatchObject({roomId:'room'});expect(m.save.mock.calls[0][1]).toBe('beauty');
 });
+
+it.each(['beauty','course'] as const)('%s retains its own discard policy without submitting rental changes',async module=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ try{
+  await act(async()=>root.render(React.createElement(RentalPanel,{module,id:'r',rooms,permissions,seed:{date:'2026-10-02',time:'10:00'}})));
+  await click('編輯租借');await input(host.querySelector<HTMLInputElement>('input[name="time"]')!,'10:30');await click('返回');
+  if(module==='beauty'){expect(host.querySelector('form')).toBeNull();expect(confirm).not.toHaveBeenCalled();}
+  else {expect(host.querySelector('form')).not.toBeNull();expect(confirm).toHaveBeenCalledOnce();}
+  expect(m.save).not.toHaveBeenCalled();expect(m.payment).not.toHaveBeenCalled();
+ }finally{confirm.mockRestore();}
+});

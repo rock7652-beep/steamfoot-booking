@@ -71,3 +71,11 @@ it("keeps the same outer window geometry across loading and different settings p
  expect(host.querySelector('[role="dialog"]')).toBe(dialog);
  expect(dialog.getAttribute('style')).toBe(geometry);
 });
+it('Beauty skips discard confirmation but keeps an in-flight panel mounted',async()=>{
+ window.history.replaceState(null,'','/s/a/admin/dashboard/beauty?tab=設定&panel=reminders');
+ const panel=(pending:boolean)=>el(CourseSettingsPanel,{panel:'reminders',workspaceHref:'/dashboard/beauty',confirmDiscard:false,children:el(Form,{pending})});
+ await act(async()=>root.render(panel(true)));await click('修改');await click('關閉視窗');
+ expect(window.location.search).toContain('panel=reminders');expect(host.textContent).not.toContain('放棄');
+ await act(async()=>root.render(panel(false)));await click('關閉視窗');
+ expect(window.location.search).not.toContain('panel=');expect(host.querySelector('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('true');
+});

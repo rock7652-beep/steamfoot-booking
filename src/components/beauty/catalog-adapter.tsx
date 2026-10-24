@@ -48,7 +48,7 @@ export function createBeautyCatalogAdapter(tab:string,data:BeautyDashboardData,c
   }
   return {success:true,succeeded,failed};
  }};
- const form:CoursePlanCatalogPort={servicePricing:{rows:services.map(s=>({id:s.id,name:s.name,revision:s.revision,price:s.price,trialPrice:s.trialPrice,duration:s.duration,trialDuration:s.trialDuration??null})),transport:saveBeautyServicePrice},units:['SESSION'],sportsModes:['ASSIGNED','LEGACY'],sessionLabel:'次數',canEditCoaches:!!data.manage?.technician,rowSchema:savedBeautyFee,transport:async input=>{const r=await saveBeautyNativePlan(input);if(r.success)refresh();return r;},values:(input,plan)=>{
+ const form:CoursePlanCatalogPort={compact:true,confirmDiscard:false,servicePricing:{rows:services.map(s=>({id:s.id,name:s.name,revision:s.revision,price:s.price,trialPrice:s.trialPrice,duration:s.duration,trialDuration:s.trialDuration??null})),transport:saveBeautyServicePrice},units:['SESSION'],sportsModes:['ASSIGNED','LEGACY'],sessionLabel:'次數',canEditCoaches:!!data.manage?.technician,rowSchema:savedBeautyFee,transport:async input=>{const r=await saveBeautyNativePlan(input);if(r.success)refresh();return r;},values:(input,plan)=>{
   const prior=plan?.catalogSnapshot?savedBeautyPlan.parse(plan.catalogSnapshot):undefined;
   const subjectId=input.subjectId??(input.templateIds as string[]|undefined)?.[0]??prior?.serviceIds[0];
   const service=services.find(s=>s.id===subjectId);

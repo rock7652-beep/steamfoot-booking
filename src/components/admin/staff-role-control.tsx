@@ -1,8 +1,8 @@
 "use client";
 
 /** Shared account role control; teaching identities are managed separately. */
-export function StaffRoleControl({ role, canAssignRoles, presets, onRole, onPreset, disabled = false, compact = false }: {
-  role: string; canAssignRoles: boolean; presets: Record<string, string[]>;
+export function StaffRoleControl({ role, canAssignRoles, presets, onRole, onPreset, disabled = false, compact = false,automaticPreset=false }: {
+  automaticPreset?:boolean;role: string; canAssignRoles: boolean; presets: Record<string, string[]>;
   onRole: (role: string) => void; onPreset: (permissions: string[]) => void; disabled?: boolean; compact?: boolean;
 }) {
   return <section className="space-y-2">
@@ -17,10 +17,10 @@ export function StaffRoleControl({ role, canAssignRoles, presets, onRole, onPres
           {role === "ADMIN" && <option value="ADMIN">系統管理者</option>}
         </select>
       </label>
-      {canAssignRoles && role !== "OWNER" && role !== "ADMIN" && <button type="button" disabled={disabled}
+      {!automaticPreset && canAssignRoles && role !== "OWNER" && role !== "ADMIN" && <button type="button" disabled={disabled}
         className="min-h-11 self-end rounded-xl border border-earth-200 px-3 text-sm text-primary-800 disabled:opacity-50"
         onClick={() => onPreset(presets[role] ?? [])}>套用角色預設權限</button>}
     </div>
-    {!compact && <p className="text-sm text-earth-600">{role === "OWNER" || role === "ADMIN" ? "此角色權限全開放。" : "切換角色保留目前權限；需要時可套用新角色預設，再逐項調整。"}</p>}
+    {!compact && <p className="text-sm text-earth-600">{role === "OWNER" || role === "ADMIN" ? "此角色權限全開放。" : automaticPreset?"切換角色即帶入預設權限，可再調整；儲存後生效。":"切換角色保留目前權限；需要時可套用新角色預設，再逐項調整。"}</p>}
   </section>;
 }

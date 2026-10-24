@@ -1,5 +1,4 @@
 import {CourseHoursWorkspace} from "../../courses/hours/hours-workspace";
-import {beautyPrisma} from "@/lib/beauty-db";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
@@ -15,7 +14,8 @@ import { BookableUntilForm } from "./bookable-until-form";
 
 const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
-export default async function ScheduleSettingsPage() {
+export default async function ScheduleSettingsPage({searchParams}:{searchParams?:Promise<{tab?:string}>}={}) {
+  const params=await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "business_hours.view"))) notFound();
@@ -88,8 +88,7 @@ export default async function ScheduleSettingsPage() {
             isBeautyStore={isBeautyStore}
           />);
   if(isBeautyStore){
-    const policy=await beautyPrisma.beautySetting.findUnique({where:{storeId:effectiveStoreId}});
-    return <PageShell><PageHeader title="營業與公休" actions={<Link href="/dashboard/beauty?tab=設定&section=booking">返回設定</Link>}/><CourseHoursWorkspace booking={<BookableUntilForm direct storeId={effectiveStoreId} initialDate={policy?.bookableUntilDate??null} initialDays={policy?.bookableDays??30} savePath="/api/beauty/settings/booking-window" today={todayStr} canManage={canManage}/>} schedule={schedule}/></PageShell>;
+    return <PageShell><PageHeader title="營業與公休" actions={<Link href="/dashboard/beauty?tab=設定&section=booking">返回設定</Link>}/><CourseHoursWorkspace initialSection={params?.tab} schedule={schedule}/></PageShell>;
   }
 
   return (

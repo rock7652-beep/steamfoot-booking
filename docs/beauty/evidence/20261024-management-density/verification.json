@@ -1,0 +1,33 @@
+{
+  "baseCommit": "98a5c5f0be905cacd1d55a6c51b7f6d7b87fdacf",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "verification": "offline mocks and static checks only",
+  "testFiles": 28,
+  "testsPassed": 278,
+  "newRegressionCases": 16,
+  "collectionIsolationCasesPassed": 5,
+  "rosterRetentionCasesPassed": 2,
+  "typeScript": "passed",
+  "eslint": "passed",
+  "staticCss": "passed without warnings",
+  "databaseReadOrWrite": false,
+  "databaseRetry": false,
+  "migration": false,
+  "dataCleanup": false,
+  "serverStarted": false,
+  "push": false,
+  "deployment": false,
+  "browserVisualAcceptance": false,
+  "physicalDeviceAcceptance": false,
+  "spaRetirementCommitIntegrated": false,
+  "testRuns": [
+    {
+      "files": 27,
+      "passed": 268
+    },
+    {
+      "files": 1,
+      "passed": 10
+    }
+  ]
+}

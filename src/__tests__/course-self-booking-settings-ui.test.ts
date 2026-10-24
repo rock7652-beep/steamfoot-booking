@@ -159,3 +159,21 @@ describe("per-store student self-booking settings", () => {
   });
 
 });
+it('Beauty exposes self-service settings as immediate switches using the existing scoped writer',async()=>{
+ const write=vi.fn().mockImplementation(async(input:{enabled:boolean})=>({success:true,data:{enabled:input.enabled}}));
+ const source={label:'美業模組',confirmDiscard:false,storeSavePath:'/unused',selfBookingSavePath:'/unused',bookingWindowSavePath:'/unused',href:(v:string)=>v,operationSave:write,operationEvent:'beauty-notices-setting',selfBookingTitle:'允許顧客自行預約',selfCancelTitle:'允許顧客自行取消',selfRescheduleTitle:'允許顧客自行改期',rules:'原規則',bookingSwitches:[],notificationSwitches:[],careSummary:'關懷'};
+ await render({source,selfBookingEnabled:false,selfLeaveEnabled:false,selfRescheduleEnabled:false});
+ const booking=host.querySelector<HTMLInputElement>('[aria-label="允許顧客自行預約"]')!;await act(async()=>booking.click());expect(booking.checked).toBe(true);expect(m.fetch).toHaveBeenCalledWith('/unused',expect.objectContaining({body:expect.stringContaining('\"expectedRevision\":0')}));
+ for(const [label,key]of[['允許顧客自行取消','selfLeaveEnabled'],['允許顧客自行改期','selfRescheduleEnabled']]){
+  const control=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;expect(control).toBeTruthy();await act(async()=>control.click());expect(write).toHaveBeenLastCalledWith({storeId:'store-a',enabled:true,previous:false,key});expect(control.checked).toBe(true);
+ }
+ expect(write).toHaveBeenCalledTimes(2);
+});
+it('the immediate booking switch retains the original revision receipt and rolls back a rejected change',async()=>{
+ const {CourseSelfBookingSettings}=await import('@/app/(dashboard)/dashboard/courses/course-self-booking-settings');
+ m.save.mockResolvedValue({success:false,error:'設定已更新'});
+ await act(async()=>root.render(el(CourseSelfBookingSettings,{immediate:true,storeId:'store-a',savePath:'/test-booking',title:'允許顧客自行預約',initialEnabled:false,initialRevision:7,canEdit:true,expanded:false,onEdit:vi.fn(),onClose:vi.fn()})));
+ const control=host.querySelector<HTMLInputElement>('[role=switch]')!;await act(async()=>control.click());
+ expect(control.checked).toBe(false);expect(host.textContent).toContain('設定已更新');expect(m.fetch).toHaveBeenCalledOnce();
+ expect(JSON.parse(m.fetch.mock.calls[0][1].body)).toMatchObject({enabled:true,expectedRevision:7,expectedStoreId:'store-a'});
+});

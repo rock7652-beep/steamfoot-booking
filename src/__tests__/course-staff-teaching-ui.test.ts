@@ -270,3 +270,20 @@ it("運動教練載入個別鐘點、改拆帳及清除恢復沿用，保存正�
  expect(document.body.textContent).toContain("拆帳 60%");expect(document.body.querySelector('[aria-label="瑜珈計酬數值"]')).toBeNull();
  await click("儲存");expect(m.save).toHaveBeenLastCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:null,revision:4}]}));
 });
+it('Beauty account roles immediately apply allowed preset permissions and close without discard confirmation',async()=>{
+ const {z}=await import('zod');
+ const manager={...staff,id:'manager',name:'美業帳號',kind:'manager' as const,role:'STAFF',coachEnabled:false,email:'qa@example.invalid',permissions:['customer.read']};
+ const codes=[{code:'customer.read',label:'查看顧客'},{code:'customer.update',label:'編輯顧客'},{code:'report.read',label:'查看分析'}];
+ const source={autoRolePermissions:true,confirmDiscard:false,editablePermissions:['customer.read','customer.update'],save:m.save,savedSchema:z.any(),readTeaching:m.read,status:{impact:vi.fn(),apply:vi.fn()},order:vi.fn(),personLabel:'人員',assignmentHref:()=>'',basicFields:()=>null,extraValues:()=>({}),customerChoices:[],workPermissions:[],savePermission:vi.fn()};
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{source,previewStoreId:'s',accountKind:'manager',staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,canAssignRoles:true,rolePresets:{STAFF:['customer.read'],MANAGER:['customer.read','customer.update','report.read']},permissionGroups:[{label:'功能',codes}]})));
+ await click('美業帳號');await click('後台帳號／權限');
+ const role=document.body.querySelector<HTMLSelectElement>('[aria-label="後台角色"]')!;
+ await act(async()=>{role.value='MANAGER';role.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(document.body.textContent).toContain('進階權限・已開啟 2／3 項');expect(document.body.textContent).toContain('新增 1 項');
+ expect(document.body.textContent).not.toContain('套用角色預設權限');
+ const read=document.body.querySelector<HTMLInputElement>('input[name=permission][value="customer.read"]')!,update=document.body.querySelector<HTMLInputElement>('input[name=permission][value="customer.update"]')!,report=document.body.querySelector<HTMLInputElement>('input[name=permission][value="report.read"]')!;
+ expect(read.checked&&update.checked).toBe(true);expect(report.checked).toBe(false);
+ await act(async()=>{role.value='STAFF';role.dispatchEvent(new Event('change',{bubbles:true}));});expect(update.checked).toBe(false);
+ await click('取消');expect(document.getElementById('course-staff-form')).toBeNull();expect(confirm).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();confirm.mockRestore();
+});

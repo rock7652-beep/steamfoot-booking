@@ -6,12 +6,13 @@ import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedSelfBooking } from "@/lib/course-self-booking-save";
 import { usePathname, useRouter } from "next/navigation";
+import {NotificationSwitch} from "@/components/admin/notification-switch";
 import { SettingsListRow } from "@/components/settings";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 export function CourseSelfBookingSettings({
   storeId,
-  savePath,title="允許學員自行預約",description,
+  immediate=false,savePath,title="允許學員自行預約",description,
   music = false,
   initialEnabled = true,
   initialRevision = 0,
@@ -20,7 +21,7 @@ export function CourseSelfBookingSettings({
   onEdit,
   onClose,
 }: {
-  storeId:string;savePath?:string;title?:string;description?:string;
+  immediate?:boolean;storeId:string;savePath?:string;title?:string;description?:string;
   music?: boolean;
   initialEnabled?: boolean;
   initialRevision?: number;
@@ -38,7 +39,7 @@ export function CourseSelfBookingSettings({
   const router = useRouter(), pathname=usePathname();
   const saveRequest=useSettingsSave(savePath??`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/self-booking`,storeId,savedSelfBooking);
   const dirty = enabled !== savedEnabled;
-  useSettingsPanelGuard(dirty, pending || saveRequest.uncertain);
+  useSettingsPanelGuard(!immediate&&dirty, pending || saveRequest.uncertain);
   const latestRevision = useRef(revision);
   useLayoutEffect(() => { latestRevision.current = revision; }, [revision]);
 
@@ -59,15 +60,17 @@ export function CourseSelfBookingSettings({
     onClose();
   }
 
-  function save() {
-    if (!canEdit || saving.current || (!dirty && !saveRequest.uncertain)) return;
+  function save(nextEnabled=enabled) {
+    if (!canEdit || saving.current || (nextEnabled===savedEnabled && !saveRequest.uncertain)) return;
     saving.current = true;
+    setState(current=>({...current,enabled:nextEnabled}));
     setError("");
     setSaved(false);
     startTransition(async () => {
       try {
-        const result = await saveRequest.save({ enabled,expectedRevision:revision });
+        const result = await saveRequest.save({ enabled:nextEnabled,expectedRevision:revision });
         if (!result.success) {
+          if(immediate&&!result.uncertain)setState(current=>({...current,enabled:current.savedEnabled}));
           setError(result.error ?? "儲存失敗，請重試");
           return;
         }
@@ -92,6 +95,7 @@ export function CourseSelfBookingSettings({
     });
   }
 
+  if(immediate)return <SettingsListRow title={title} summary={saveRequest.uncertain?'結果待核對':savedEnabled?'開啟':'關閉'} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label={title} checked={pending||saveRequest.uncertain?enabled:savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={event=>save(event.target.checked)}/></label>}>{error&&<p role="alert" className="py-1 text-sm text-red-700">{error}</p>}{saveRequest.uncertain&&<button type="button" className="min-h-11 px-3 text-sm text-primary-800" disabled={pending} onClick={()=>save()}>核對同次儲存結果</button>}</SettingsListRow>;
   return (
     <SettingsListRow
       title={title}

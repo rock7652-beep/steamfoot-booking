@@ -142,7 +142,7 @@ export default async function BeautyPage({
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
-      {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
+      {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel confirmDiscard={false} panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
     </PageShell>
   );
 }

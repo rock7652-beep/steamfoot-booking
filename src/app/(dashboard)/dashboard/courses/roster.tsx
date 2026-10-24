@@ -264,7 +264,7 @@ export function CourseRoster({
   const [noteError,setNoteError]=useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
-  const infoGuard = useCustomerPanelGuard();
+  const infoGuard = useCustomerPanelGuard(source?.confirmDiscard!==false);
   const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
   const [infoView, setInfoView] = useState<"notes" | "history">("notes");
   const infoBookingId=infoBooking?.sessionId===sessionId?infoBooking.id:null;
@@ -287,6 +287,7 @@ export function CourseRoster({
     };
     return {
       // OperationScope already isolates this retained editor by account/store.
+      confirmDiscard:source?.confirmDiscard,
       scopeKey: `course-roster:${sessionId}:booking:${bookingId}`,
       maxLength: 1000,
       save: async (notes, expected) => {
@@ -1419,7 +1420,7 @@ export function CourseRoster({
               {booking.sharedCard && <p className="text-earth-600">共卡：與授權成員共用餘額</p>}
               {!source&&booking.bookingKind === "TRIAL" && <div className="flex min-h-11 flex-wrap items-center justify-between gap-2"><span>{payment ? `已收 NT$ ${payment.amount.toLocaleString("zh-TW")}` : booking.trialPrice == null ? "待收款" : `待收 NT$ ${booking.trialPrice.toLocaleString("zh-TW")}`}</span>{!payment && trial?.canCollect && booking.status !== "CANCELLED" && <button type="button" className={primaryButton} onClick={() => { if (infoGuard.allowLeave()) { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); } }}>收款</button>}</div>}
             </section>
-            <RetainedNoteEditor quiet stateKey={`inline-roster-note:${note.scopeKey}`} title="本次備註" hint="" placeholder={source?"記錄本次服務需要留意的事項":"記錄本次上課需要留意的事項"} maxLength={note.maxLength} value={booking.notes || null} canEdit={canEdit && booking.status !== "CANCELLED"} save={note.save} onSaved={note.onSaved}/>
+            <RetainedNoteEditor confirmDiscard={source?.confirmDiscard} quiet stateKey={`inline-roster-note:${note.scopeKey}`} title="本次備註" hint="" placeholder={source?"記錄本次服務需要留意的事項":"記錄本次上課需要留意的事項"} maxLength={note.maxLength} value={booking.notes || null} canEdit={canEdit && booking.status !== "CANCELLED"} save={note.save} onSaved={note.onSaved}/>
             <div className="flex flex-wrap gap-2 border-t border-earth-100 pt-2">{source?source.actions(booking).map(action=><button key={action.label} type="button" className={reminderButton} onClick={()=>{if(infoGuard.allowLeave()){setInfoBookingId(null);action.onSelect();}}}>{action.label}</button>):<><button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setInfoView("history"); }}>預約紀錄</button>{payment && trial?.canCorrect && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setPaymentMenu(booking.id); }}>收款更正</button>}{canPurchase && booking.customerId && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) void openStudentPurchase(booking.id); }}>學員繳費</button>}</>}</div>
             {!source&&<details className="border-t border-earth-100"><summary className="min-h-11 cursor-pointer py-3 text-earth-600">預約來源</summary><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>{formatTWDateTime(new Date(booking.createdAt))}</p>}{!!booking.operatorCustomerId && booking.operatorCustomerId !== booking.customerId && !booking.companionIndex && <p>代約：{booking.operatorName || "已授權成員"} 替 {booking.customerName} 預約</p>}</details>}
           </div>}

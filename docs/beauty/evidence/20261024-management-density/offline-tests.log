@@ -1,0 +1,8 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-beauty-ui
+
+
+ Test Files  27 passed (27)
+      Tests  268 passed (268)
+   Start at  13:44:05
+   Duration  10.02s (transform 4.77s, setup 0ms, import 8.14s, tests 10.52s, environment 6.35s)

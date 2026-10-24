@@ -7,6 +7,7 @@ export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[numb
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
 export type CourseRosterData=Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={
+ confirmDiscard?:boolean;
  sync?:(id:string,version?:string)=>Promise<{success:true;version:string;unchanged:boolean;data?:CourseRosterData}|{success:false;error:string}>;
  readBlocked?:boolean;
  statusMenu?:boolean;

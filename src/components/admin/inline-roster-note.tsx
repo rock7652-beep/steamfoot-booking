@@ -6,6 +6,7 @@ import type { NoteSaveResult } from "@/components/operations/retained-note-edito
 import styles from "./roster-reminders.module.css";
 
 export type InlineRosterNote = {
+  confirmDiscard?:boolean;
   scopeKey: string;
   maxLength: number;
   save: (notes: string | null, expected: string | null) => Promise<NoteSaveResult>;
@@ -34,14 +35,14 @@ export function InlineRosterNoteEditor({ name, value, canEdit, config }: {
   useEffect(() => { if (expanded) textarea.current?.focus({ preventScroll: true }); }, [expanded]);
   const dirty = !!draft && (draft.text.trim() || null) !== (draft.base?.trim() || null);
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty||config.confirmDiscard===false) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty,config.confirmDiscard]);
   function cancel() {
     if (busy.current) return;
-    if (dirty && !window.confirm("捨棄這次尚未儲存的備註？")) return;
+    if (config.confirmDiscard!==false&&dirty && !window.confirm("捨棄這次尚未儲存的備註？")) return;
     setDraft(null); setError(""); setConflict(null);
     trigger.current?.focus({ preventScroll: true });
   }

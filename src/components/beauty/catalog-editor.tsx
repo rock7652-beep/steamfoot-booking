@@ -105,7 +105,7 @@ export function BeautyCatalogEditor({
     (Array.isArray(draft.weekly)?draft.weekly:[]) as { day: number; start: string; end: string }[],
   );
   function close() {
-    if (!pending && (!dirty || window.confirm("尚未儲存，確定離開？")))
+    if (!pending)
       onClose();
   }
   return (

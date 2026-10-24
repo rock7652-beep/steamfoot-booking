@@ -16,7 +16,7 @@ class PanelError extends Component<{ children: ReactNode; retry: () => void }, {
   }
 }
 
-export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/courses" }: { panel: CourseSettingsPanel; children: ReactNode;workspaceHref?:string }) {
+export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/courses",confirmDiscard=true }: { panel: CourseSettingsPanel; children: ReactNode;workspaceHref?:string;confirmDiscard?:boolean }) {
   const router = useRouter(), pathname = usePathname(), search = useSearchParams();
   const searchString = search.toString();
   const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
@@ -43,7 +43,7 @@ export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/
     if (reading) startNavigation(async () => { await reading; });
     else startNavigation(() => router.replace(href, { scroll: false }));
   }, [router, closeHref, dismiss, reader]);
-  const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
+  const request = useCallback((href: string) => { if(pending){if(confirmDiscard)setDestination(href);return;}if (confirmDiscard&&dirty) setDestination(href); else go(href); }, [confirmDiscard,dirty, pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
     const localPath = url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
@@ -61,7 +61,7 @@ export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/
   }, [config.href, closeHref, pathname, request, searchString,workspaceHref]);
   useEffect(() => {
     if (dismissed) return;
-    const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
+    const unload = (event: BeforeUnloadEvent) => { if (confirmDiscard&&dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // Nested editors own Escape while they are open.
@@ -70,7 +70,7 @@ export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/
     };
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
-  }, [dirty, pending, request, closeHref, destination, dismissed]);
+  }, [confirmDiscard,dirty, pending, request, closeHref, destination, dismissed]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate, registerReader: panel === "reminders" ? registerReader : undefined }), [report, navigate, registerReader, panel]);
   return <div ref={root} data-course-settings-panel>
