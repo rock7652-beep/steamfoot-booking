@@ -1,0 +1,27 @@
+{
+  "hosted": true,
+  "results": [
+    "首頁 real owner route rendered",
+    "班表 real owner route rendered",
+    "顧客管理 real owner route rendered",
+    "顧客經營 real owner route rendered",
+    "營運 real owner route rendered",
+    "分析 real owner route rendered",
+    "位置管理 real owner route rendered",
+    "服務項目 real owner route rendered",
+    "收費方式 real owner route rendered",
+    "技師管理 real owner route rendered",
+    "人員管理 real owner route rendered",
+    "設定 real owner route rendered",
+    "班表 contained 1024",
+    "收費方式 contained 1024",
+    "技師管理 contained 1024",
+    "人員管理 contained 1024",
+    "班表 contained 768",
+    "收費方式 contained 768",
+    "技師管理 contained 768",
+    "人員管理 contained 768"
+  ],
+  "errors": [],
+  "commit": "47cd56400aae2c53a026a52c4811446945a3b761"
+}

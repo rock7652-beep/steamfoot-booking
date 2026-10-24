@@ -1,0 +1,16 @@
+{
+  "done": [
+    "disabled QA1024-登入驗收技師1",
+    "disabled QA1024-登入驗收技師2",
+    "disabled QA1024-登入驗收技師3",
+    "disabled QA1024-登入驗收技師4",
+    "disabled new QA location",
+    "disabled new QA location",
+    "disabled new QA location",
+    "disabled new QA location",
+    "disabled QA plan after refund",
+    "inactive QA technicians collapsed"
+  ],
+  "deletedBusinessRows": false,
+  "commit": "47cd56400aae2c53a026a52c4811446945a3b761"
+}

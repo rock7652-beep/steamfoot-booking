@@ -1,0 +1,12 @@
+{
+  "hosted": true,
+  "date": "2026-10-27",
+  "excluded": [
+    "09:00",
+    "09:30",
+    "10:00"
+  ],
+  "available": "10:30",
+  "actualBookingTime": "10:30",
+  "commit": "47cd56400aae2c53a026a52c4811446945a3b761"
+}

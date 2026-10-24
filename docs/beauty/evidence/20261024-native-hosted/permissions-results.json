@@ -1,0 +1,19 @@
+{
+  "hosted": true,
+  "results": [
+    "low privilege cannot edit fee",
+    "switched store cannot edit fee",
+    "foreign customer bookings cannot be read",
+    "low privilege editBeautyNativeTransaction",
+    "switched store editBeautyNativeTransaction",
+    "low privilege voidBeautyNativeTransaction",
+    "switched store voidBeautyNativeTransaction",
+    "low privilege cannot refund",
+    "low export/report denied /api/reports/store-revenue",
+    "low export/report denied /api/reports/coach-revenue",
+    "low export/report denied /api/data-export",
+    "foreign staff write denied",
+    "low write controls absent"
+  ],
+  "commit": "47cd56400aae2c53a026a52c4811446945a3b761"
+}
