@@ -1,0 +1,112 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    {
+      "name": "reset baseline single",
+      "passed": true
+    },
+    {
+      "name": "single attendance uses one action and no roster reload loop",
+      "passed": true
+    },
+    {
+      "name": "pending acknowledgement shown before delayed write commits",
+      "passed": true
+    },
+    {
+      "name": "attendance deducts exactly one session",
+      "passed": true
+    },
+    {
+      "name": "未出席不扣次 authoritative ledger balance",
+      "passed": true
+    },
+    {
+      "name": "未出席扣次 authoritative ledger balance",
+      "passed": true
+    },
+    {
+      "name": "恢復待服務 authoritative ledger balance",
+      "passed": true
+    },
+    {
+      "name": "re-attendance deducts once",
+      "passed": true
+    },
+    {
+      "name": "more menu excludes attendance states",
+      "passed": true
+    },
+    {
+      "name": "purchase plan remains in more menu",
+      "passed": true
+    },
+    {
+      "name": "collection remains in original roster dialog",
+      "passed": true
+    },
+    {
+      "name": "collection expands in the selected row",
+      "passed": true
+    },
+    {
+      "name": "no page overflow 1366",
+      "passed": true
+    },
+    {
+      "name": "no page overflow 1024",
+      "passed": true
+    },
+    {
+      "name": "no page overflow 768",
+      "passed": true
+    },
+    {
+      "name": "no page overflow 390",
+      "passed": true
+    },
+    {
+      "name": "settled service cannot submit unchanged zero payment",
+      "passed": true
+    },
+    {
+      "name": "inline collection creates one payment",
+      "passed": true
+    },
+    {
+      "name": "reopened collection shows no remaining balance",
+      "passed": true
+    },
+    {
+      "name": "恢復待服務 authoritative ledger balance",
+      "passed": true
+    },
+    {
+      "name": "cut leaves original appointment unchanged",
+      "passed": true
+    },
+    {
+      "name": "shared board exposes paste targets",
+      "passed": true
+    },
+    {
+      "name": "paste preserves selected technician",
+      "passed": true
+    },
+    {
+      "name": "moving one companion preserves other person",
+      "passed": true
+    },
+    {
+      "name": "no browser runtime errors",
+      "passed": true
+    }
+  ],
+  "perf": {
+    "visibleMs": 214.16878299999962,
+    "actions": [
+      "updateBeautyRosterAttendance"
+    ]
+  },
+  "errors": []
+}

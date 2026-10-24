@@ -1,5 +1,8 @@
 "use server";
 import {z} from 'zod';
+import {changeBeautyAttendance,changeBeautyStatus} from './beauty';
+import {beautyCalendar} from '@/server/beauty/queries';
+import {attendanceInput} from '@/lib/beauty/contracts';
 import {beautyManager,beautyTransaction,audit} from '@/server/beauty/access';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {prisma} from '@/lib/db';
@@ -56,4 +59,37 @@ export async function saveBeautyNativeRosterNote(input:unknown){
    return {success:true as const,revision:current.revision+1};
   });
  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'儲存失敗':failure.error};}
+}
+
+/** Refresh only the open roster and affected business day, never the dashboard catalogs. */
+export async function readBeautyRosterOperation(input:unknown){
+ try{
+  const d=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/)}).parse(input);
+  const [roster,calendar]=await Promise.all([readBeautyNativeRoster(d.sessionId),beautyCalendar(d.date,'day')]);
+  if(!roster.success)return roster;
+  return {success:true as const,data:{roster:roster.data,calendar}};
+ }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'讀取失敗':failure.error};}
+}
+export async function updateBeautyRosterAttendance(input:unknown){
+ const at=performance.now();
+ const parsed=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/),attendance:attendanceInput}).safeParse(input);
+ if(!parsed.success)return {success:false as const,error:'出席資料格式不正確'};
+ const d=parsed.data,write=await changeBeautyAttendance(d.attendance),written=performance.now();
+ if(!write.success)return write;
+ const refreshed=await readBeautyRosterOperation(d);
+ return {success:true as const,refresh:refreshed,timing:{writeMs:written-at,readMs:performance.now()-written}};
+}
+export async function cancelBeautyRosterAppointment(input:unknown){
+ const at=performance.now();
+ const parsed=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/),id:z.string().min(1),revision:z.number().int(),requestKey:z.string().uuid()}).safeParse(input);
+ if(!parsed.success)return {success:false as const,error:'取消資料格式不正確'};
+ const d=parsed.data,write=await changeBeautyStatus('manager',{id:d.id,revision:d.revision,requestKey:d.requestKey,target:'CANCELLED',reason:'後台取消預約'}),written=performance.now();
+ if(!write.success)return write;
+ const refreshed=await readBeautyRosterOperation(d);
+ return {success:true as const,refresh:refreshed,timing:{writeMs:written-at,readMs:performance.now()-written}};
+}
+
+export async function readBeautyMoveResult(id:string){
+ try{const a=await beautyManager('booking.read'),row=await beautyPrisma.beautyAppointment.findFirst({where:{id:z.string().min(1).max(180).parse(id),storeId:a.storeId},select:{startsAt:true,endsAt:true,locationId:true,technicianId:true}});if(!row)throw new AppError('NOT_FOUND','找不到本店預約');return {success:true as const,data:{startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),roomId:row.locationId,coachId:row.technicianId}};}
+ catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'讀取失敗':failure.error};}
 }

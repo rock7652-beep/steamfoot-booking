@@ -156,6 +156,7 @@ export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
  snapshotVersion?:string;
+ move?:{clipboard:CourseMoveClipboard;onPaste:(target:{date:string;time:string;roomId:string;coachId:string})=>void;onCancel:()=>void};
  read:(date:string)=>Promise<{success:true;data:CourseCalendarSnapshot;onAccepted?:()=>void}|{success:false;error:string}>;
  schedule:SportsScheduleSource;
  onOpen:(id:string)=>void;
@@ -663,7 +664,8 @@ export function CourseWorkspace({
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
   const [moveChoice, setMoveChoice] = useState<Session | null>(null);
-  const [moveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
+  const [localMoveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
+  const moveClipboard=calendarSource?.move?.clipboard??localMoveClipboard;
   const [moveWeeksOpen, setMoveWeeksOpen] = useState(false);
   const [moveClipboardLoaded, setMoveClipboardLoaded] = useState(false);
   const moveStorageKey = `course-move:${pathname}`;
@@ -726,6 +728,7 @@ export function CourseWorkspace({
     setError("");
   }
   function pasteMove(value: {date?:string;time:string;roomId:string;coachId:string}) {
+    if(calendarSource?.move){calendarSource.move.onPaste({...value,date:value.date??selectedDate});return;}
     if(sportsNative&&moveClipboard){setMoveTarget({date:value.date??selectedDate,time:value.time,roomId:value.roomId,coachId:value.coachId});return;}
     if (!moveClipboard || pending) return;
     setError("");
@@ -1105,7 +1108,7 @@ export function CourseWorkspace({
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <strong>✂ {moveClipboard.label} · {moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)):""} · {moveClipboard.durationMinutes}分</strong>
                 <span className="text-xs text-indigo-700">選白格貼上</span>
-                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+                <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
           {scheduleMode === "month" ? (

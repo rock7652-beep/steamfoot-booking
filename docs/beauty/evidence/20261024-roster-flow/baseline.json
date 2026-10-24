@@ -1,0 +1,110 @@
+{
+  "visibleMs": 648.0112459999996,
+  "reqs": [
+    {
+      "method": "POST",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": true,
+      "rsc": false,
+      "ms": 79.001984
+    },
+    {
+      "method": "GET",
+      "url": "/favicon.ico",
+      "action": false,
+      "rsc": false,
+      "ms": 11.936927000000196
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 25.75918700000011
+    },
+    {
+      "method": "POST",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": true,
+      "rsc": false,
+      "ms": 121.61763199999996
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 23.853051999999934
+    },
+    {
+      "method": "POST",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": true,
+      "rsc": false,
+      "ms": 93.27369200000021
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 20.913778000000093
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 29.822294000000056
+    },
+    {
+      "method": "POST",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": true,
+      "rsc": false,
+      "ms": 140.26630699999987
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 26.9765910000001
+    },
+    {
+      "method": "POST",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": true,
+      "rsc": false,
+      "ms": 53.47377400000005
+    },
+    {
+      "method": "GET",
+      "url": "/favicon.ico",
+      "action": false,
+      "rsc": false,
+      "ms": 10.341799999999694
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty",
+      "action": false,
+      "rsc": true,
+      "ms": 24.253466000000117
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard",
+      "action": false,
+      "rsc": true,
+      "ms": 33.0661540000001
+    },
+    {
+      "method": "GET",
+      "url": "/s/beauty-shared-qa/admin/dashboard",
+      "action": false,
+      "rsc": true,
+      "ms": 23.388985000000048
+    }
+  ]
+}

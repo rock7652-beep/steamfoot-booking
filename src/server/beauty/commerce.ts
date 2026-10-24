@@ -68,7 +68,9 @@ export async function collect(
       if(offer&&!options.canDiscount)throw new AppError("FORBIDDEN","沒有調整優惠的權限");
       let quote;try{quote=calculateCourseCheckout(b.price,(offer??current.discount).kind,(offer??current.discount).value);}catch{throw new AppError("VALIDATION","請核對有效折扣或折抵金額");}
       if(current.collected+d.amounts[i]>quote.paid)throw new AppError("CONFLICT","收款超過本次應收");
-      if(offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value))await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
+      const discountChanged=!!offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value);
+      if(d.amounts[i]===0&&!discountChanged)continue;
+      if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
       const p = await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
