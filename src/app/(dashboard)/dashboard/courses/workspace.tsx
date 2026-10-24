@@ -475,7 +475,8 @@ export function CourseWorkspace({
   const [classFilter, setClassFilter] = useSportsCalendarState(sportsNative,"classFilter","all",calendarString);
   const [coachFilter, setCoachFilter] = useSportsCalendarState(sportsNative,"coachFilter","all",calendarString);
   const [assignedCoachFilter, setAssignedCoachFilter] = useSportsCalendarState(sportsNative,"assignedCoachFilter","all",calendarString);
-  const [scheduleStudentId,setScheduleStudentId]=useState("");
+  const [scheduleStudentSelection,setScheduleStudentSelection]=useState<{id:string;name:string;phone?:string}[]>([]);
+  const scheduleStudentId=scheduleStudentSelection[0]?.id??"";
   const [scheduleQuery, setScheduleQuery] = useSportsCalendarState(sportsNative,"scheduleQuery","",calendarString);
   const [hideTestData,setHideTestData]=useState(false);
   const [showInactive,setShowInactive]=useState(false);
@@ -847,7 +848,7 @@ export function CourseWorkspace({
     });
   }
   const template = templates.find((t) => t.id === chosen);
-  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(businessProfile === "MUSIC" ? [["每週固定","bg-blue-600"],["隔週固定","bg-violet-600"],["單次課","bg-emerald-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]] : sportsNative?sportsScheduleKinds.map(item=>[item.label,item.dot]):[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
+  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{(businessProfile === "MUSIC" ? [["每週固定","bg-blue-600"],["隔週固定","bg-violet-600"],["單次課","bg-emerald-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]] : sportsNative?sportsScheduleKinds.map(item=>[item.label,item.dot]):[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]]).map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5" title={label}><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} /><span className={businessProfile === "MUSIC" ? styles.legendFull : undefined}>{label}</span>{businessProfile === "MUSIC" && <span aria-hidden="true" className={styles.legendShort}>{label.replace("固定", "").replace("課", "").replace("空間", "")}</span>}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
   const repeatControl = (
     <label className="min-w-0 flex-1">
       重複
@@ -874,14 +875,14 @@ export function CourseWorkspace({
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
           {!courseDialog&&monthlyReturnHref(params.toString())&&<DashboardLink className="inline-flex min-h-11 items-center px-3 text-primary-800" href={monthlyReturnHref(params.toString())!}>返回月結</DashboardLink>}
           {!courseDialog&&params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>學員資料</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className={businessProfile === "MUSIC" ? styles.musicHeader : "flex flex-wrap items-center justify-between gap-2"}>
             <div className={businessProfile === "MUSIC" ? "contents" : "flex min-w-0 flex-wrap items-center gap-2"}>
-              <div className="mr-1 shrink-0">
+              <div className={businessProfile === "MUSIC" ? "sr-only" : "mr-1 shrink-0"}>
                 <h1 className="admin-page-title">{businessProfile === "MUSIC" ? "課表" : "課表排程"}</h1>
                 
               </div>
               <div
-                className="inline-flex rounded-lg border border-earth-200 bg-white p-1"
+                className="inline-flex shrink-0 rounded-lg border border-earth-200 bg-white p-1"
                 aria-label="課表視角"
               >
                 {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
@@ -890,7 +891,7 @@ export function CourseWorkspace({
                     type="button"
                     disabled={pending}
                     onClick={() => changeScheduleMode(mode)}
-                    className={`${styles.touchControl} min-h-8 rounded-md px-3 text-sm ${
+                    className={`${styles.touchControl} min-h-8 rounded-md px-2 text-sm ${
                       scheduleMode === mode
                         ? "bg-primary-50 font-medium text-primary-900"
                         : "text-earth-600"
@@ -971,14 +972,13 @@ export function CourseWorkspace({
                 }}
                 className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
               />
-              {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex flex-wrap items-center gap-2">
-                <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
-                <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
+              {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex shrink-0 items-center gap-1">
+                <button type="button" aria-label={`請假學員 ${leaveStudents.length}`} className={`${button} min-h-11 !px-2`} onClick={() => setDailyList("leave")}>請假 {leaveStudents.length}</button>
+                <button type="button" aria-label={`待點名學員 ${absentStudents.length}`} className={`${button} min-h-11 !px-2`} onClick={() => setDailyList("unmarked")}>待點名 {absentStudents.length}</button>
               </div>}
             </div>
-            {businessProfile === "MUSIC" && <><div className="w-60 min-w-0 max-w-full"><CourseCustomerPicker name="scheduleStudent" compact onChange={selected=>setScheduleStudentId(selected[0]?.id??"")}/></div><div className="min-w-0">{scheduleLegend}</div></>}
             {(cashbookShortcut || canCreate || canEdit) && (
-              <div className="flex shrink-0 gap-2">
+              <div className={businessProfile === "MUSIC" ? "ml-auto flex shrink-0 gap-1" : "flex shrink-0 gap-2"}>
                 {cashbookShortcut}
                 {sportsNative&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
                 {canCreate && (
@@ -994,6 +994,7 @@ export function CourseWorkspace({
             )}
           </div>
 
+            {businessProfile === "MUSIC" && scheduleMode === "month" && <div className="basis-full flex items-center gap-3"><div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div>{scheduleLegend}</div>}
           {businessProfile !== "MUSIC" && <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
             <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{courseDisplayText("授課教練", businessProfile)}
             <select
@@ -1138,6 +1139,8 @@ export function CourseWorkspace({
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard sportsNative={sportsNative}
               legend={scheduleLegend}
+              hideDateHeading={businessProfile === "MUSIC"}
+              searchControl={businessProfile === "MUSIC" ? <div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div> : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}

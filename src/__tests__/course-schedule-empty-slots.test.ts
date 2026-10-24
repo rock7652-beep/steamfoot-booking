@@ -104,3 +104,27 @@ it("music week pastes the actual 25-minute class on the chosen day without openi
   expect(paste).toHaveBeenCalledWith({date:"2026-10-02",time:"09:30",roomId:"room",coachId:"coach"});expect(open).not.toHaveBeenCalled();
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
+
+it("music prioritizes 09:00–22:00 without expanding for unused business hours", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"day",storePeriods:[{openTime:"07:00",closeTime:"23:00"}],onOpenEmpty:vi.fn()})));
+  expect(host.querySelector('button[aria-label^="09:00"]')).not.toBeNull();
+  expect(host.querySelector('button[aria-label^="07:00"]')).toBeNull();
+  expect(host.querySelector('button[aria-label^="22:00"]')).toBeNull();
+  expect(host.querySelector('[aria-label="課表結束時間"]')?.textContent).toBe("22:00");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+it("music keeps real lessons and original moved positions outside its default window visible", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const late={...session,startsAt:"2026-10-01T14:00:00Z",endsAt:"2026-10-01T14:30:00Z",rescheduledFromStartsAt:"2026-10-01T00:00:00Z",rescheduledFromEndsAt:"2026-10-01T00:30:00Z",rescheduledFromRoomId:"room",rescheduledFromCoachId:"coach"};
+ try {
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"day",sessions:[late],onOpenEmpty:vi.fn()})));
+  expect(host.querySelector('button[aria-label^="08:00"]')).not.toBeNull();
+  expect(host.querySelector('button[aria-label^="22:00"]')).not.toBeNull();
+  expect(host.querySelector('[aria-label="課表結束時間"]')?.textContent).toBe("23:00");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});

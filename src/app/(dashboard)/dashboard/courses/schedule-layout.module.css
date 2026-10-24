@@ -71,3 +71,40 @@
     min-height: 160px;
   }
 }
+
+/* Two operational rows; compact spacing, unchanged text and touch sizes. */
+.musicHeader {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.musicToolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-earth-700);
+  font-size: 14px;
+}
+
+.musicToolbar > * { flex-shrink: 0; }
+.scheduleSearch { position: relative; width: 144px; min-width: 120px; }
+.legendShort { display: none; }
+
+@container course-schedule (max-width: 60rem) {
+  .scheduleSearch { width: 120px; }
+  .legendFull { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .legendShort { display: inline; }
+  .musicToolbar { gap: 4px; }
+}
+
+@container course-schedule (max-width: 42rem) {
+  .musicToolbar { flex-wrap: wrap; }
+}

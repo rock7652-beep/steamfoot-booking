@@ -111,6 +111,8 @@ type Props = {
   selectedDate: string;
   initialWeekRoomId?: string;
   legend?: React.ReactNode;
+  searchControl?: React.ReactNode;
+  hideDateHeading?: boolean;
   initialResourceView?: "room" | "coach";
   onResourceChange?: (view:"room"|"coach",resourceId?:string)=>void;
   today: string;
@@ -425,6 +427,8 @@ function SessionCard({
 export function CourseScheduleBoard({
   sportsNative=false,
   legend,
+  searchControl,
+  hideDateHeading = false,
   assignedFiltered = false,
   businessProfile,
   mode,
@@ -535,8 +539,8 @@ export function CourseScheduleBoard({
   useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  // A half-hour remains a 44px touch target; music keeps its existing scale.
-  const hourHeight = sportsNative ? 88 : 96;
+  // A half-hour remains a 44px touch target at the denser music scale.
+  const hourHeight = sportsNative || businessProfile === "MUSIC" ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -553,11 +557,12 @@ export function CourseScheduleBoard({
     const weekTotals = scheduleTotals(weekSessions);
     const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
     const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
-    const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
+    const lastHour = Math.max(22, ...weekSessions.map(session => businessProfile === "MUSIC" ? Math.ceil(minuteOfDay(hhmm(session.endsAt)) / 60) : Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
-        <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
+        <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : undefined}>
+          {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "教師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
           <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : courseDisplayText("教練", businessProfile)}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
@@ -687,8 +692,12 @@ export function CourseScheduleBoard({
   const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
   const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
   const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
-  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...[9*60]);
-  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...[22*60]);
+  // Music starts with 09:00–22:00; actual lessons (including moved shadows)
+  // outside that window stay visible without expanding for unused opening hours.
+  const movedMinutes = sessions.flatMap(session => session.rescheduledFromStartsAt && session.rescheduledFromEndsAt && sessionDate({...session, startsAt:session.rescheduledFromStartsAt}) === selectedDate ? [minuteOfDay(hhmm(session.rescheduledFromStartsAt)), minuteOfDay(hhmm(session.rescheduledFromEndsAt))] : []);
+  const visibleMinutes = businessProfile === "MUSIC" ? [...sessionMinutes, ...movedMinutes] : boundaryMinutes.length ? boundaryMinutes : sessionMinutes;
+  const minMinute = Math.min(9*60, ...visibleMinutes);
+  const maxMinute = Math.max(22*60, ...visibleMinutes);
   const firstHour = Math.floor(minMinute/60);
   const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
   const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
@@ -777,9 +786,10 @@ export function CourseScheduleBoard({
   return (
     <section ref={boardRef} className="space-y-1" aria-label="日課表">
 
-      <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
+      <Toolbar className={musicDense ? styles.musicToolbar : undefined}>
+        {searchControl}
         {!musicDense && resourceViewControls}
-        {musicDense && !replica && <span className="text-sm text-earth-700">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
+        {musicDense && !replica && <span className="text-sm text-earth-700 whitespace-nowrap">{dayTotals.classes} 堂・{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
         {(!musicDense || quickFilter !== "all") && !replica && <div
           className={musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
           aria-label="今日狀態快速篩選"
@@ -803,7 +813,7 @@ export function CourseScheduleBoard({
         </div>}
 
         {!moveClipboard && !replica && (
-          <label className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
+          <label className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
               aria-label="找空位所需時長"
@@ -821,7 +831,7 @@ export function CourseScheduleBoard({
         </span>}
 
         {musicDense && resourceViewControls}
-        {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
+        {legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>
 
       {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? "目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>查看全部課程（含已點名）</button></div>}
@@ -833,8 +843,8 @@ export function CourseScheduleBoard({
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
             <div data-schedule-sticky-header className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
-              <div aria-label="日表日期" className="flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900">{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>
-              <div className="absolute bottom-0 left-0 top-9 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
+              <div aria-label="日表日期" className={hideDateHeading ? "sr-only" : "flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900"}>{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>
+              <div className={`absolute bottom-0 left-0 ${hideDateHeading ? "top-0" : "top-9"} z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500`}>
                 時間
               </div>
               <div
@@ -1035,6 +1045,7 @@ export function CourseScheduleBoard({
               </React.Fragment>
             ))}
               </div>
+              {musicDense && <div aria-label="課表結束時間" className="border-t border-earth-200 px-2 py-1 text-xs text-earth-600">{String(lastHour + 1).padStart(2, "0")}:00</div>}
             </div>
           </div>
         </div>
