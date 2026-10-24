@@ -23,7 +23,7 @@ import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge
 import { courseDisplayText } from "@/lib/course-display-text";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
-import { studentReturnHref } from "@/lib/music-student-navigation";
+import { monthlyReturnHref, studentReturnHref } from "@/lib/music-student-navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import styles from "./schedule-layout.module.css";
 import scheduleControls from "@/components/admin/schedule-controls.module.css";
@@ -364,7 +364,7 @@ export function CourseWorkspace({
   const inlineDirty=useRef(false);
   function changeBooking(kind:"roster"|"member-booking"|"trial-booking",sessionId:string){
     if(inlineBusy)return;
-    if(sportsNative&&inlineDirty.current&&!window.confirm("放棄尚未送出的新增內容？"))return;
+
     inlineDirty.current=false;setCourseDialog({sessionId,kind});
   }
   const [memberBookingReady, setMemberBookingReady] = useState(false);
@@ -410,7 +410,7 @@ export function CourseWorkspace({
   }
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
-  >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : businessProfile === "MUSIC" && params.get("returnStudentId") && sessions.some(session=>session.id===params.get("session")) ? null : params.get("action") === "booking" || params.get("session") ? "day" : null);
+  >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : params.get("returnStudentId") && sessions.some(session=>session.id===params.get("session")) ? null : params.get("action") === "booking" || params.get("session") ? "day" : null);
   const [dirty, setDirty] = useState(false);
   const backgroundRefreshRequestedAt = useRef(0);
   useEffect(() => {
@@ -867,7 +867,8 @@ export function CourseWorkspace({
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
-          {businessProfile === "MUSIC" && params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>從學員資料進入 · 返回後保留原搜尋與篩選</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
+          {monthlyReturnHref(params.toString())&&<DashboardLink className="inline-flex min-h-11 items-center px-3 text-primary-800" href={monthlyReturnHref(params.toString())!}>返回月結</DashboardLink>}
+          {params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>學員資料</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 shrink-0">
@@ -2117,7 +2118,7 @@ export function CourseWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && sportsNative && (sportsData?<SportsScheduleFields waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard
@@ -2138,7 +2139,8 @@ export function CourseWorkspace({
                 coaches={coaches}
                 seed={scheduleSeed}
                 initialDate={scheduleSeed.date ?? selectedDate}
-                initialTemplateId={copySource?.templateId}
+                initialTemplateId={copySource?.templateId??params.get("scheduleTemplate")??undefined}
+                initialLearner={rentalCustomers.find(c=>c.id===params.get("scheduleCustomer"))?{customerId:params.get("scheduleCustomer")!,name:rentalCustomers.find(c=>c.id===params.get("scheduleCustomer"))!.name,cardId:""}:undefined}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
                 onCreated={(_sessionId,date,savedSessions) => {

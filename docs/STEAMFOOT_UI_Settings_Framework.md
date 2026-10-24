@@ -498,6 +498,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 ---
 
+- 2026-10-24 運動／音樂流程串接：學員主視窗共用 1100px／900px 上限；交易操作共用 `CourseTransactionActions` 與 `ModalPanel`，個人交易入口由 `CustomerTransactionAction` 重新授權讀取。導覽共用 `music-student-navigation.ts`，保留課程來源、學員分區／篩選／期別與月結範圍。依使用者指示，捨棄未儲存草稿不彈確認；儲存中與結果未確認仍禁止離開。不改其他模組或帳務核心。
+
 # 35. 規範版本管理
 
 本文件需保留版本號，格式：\`UI / Settings Framework v1.x\`

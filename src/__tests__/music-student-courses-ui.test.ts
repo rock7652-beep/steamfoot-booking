@@ -1,3 +1,5 @@
+vi.mock("@/app/(dashboard)/dashboard/courses/customer-transaction-action",()=>({CustomerTransactionAction:()=>null}));
+vi.mock("@/server/actions/course-customer-transaction",()=>({loadCourseCustomerTransaction:vi.fn()}));
 // @vitest-environment jsdom
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";

@@ -8,13 +8,13 @@ import {sportsStagingCommand} from "@/server/actions/sports-staging";
 import {DashboardLink} from "@/components/dashboard-link";
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 /** Music's scheduling arrangement inside the existing course sheet, backed by sports transactions. */
-export function SportsScheduleFields({initial,date,seed={},requestKey,onGuard,onCreated,onCustomerAdded,waitlistEnabled=false,waitlistDefaultLimit=5,waitlistDefaultStopMinutes=240}:{initial:SportsSnapshot;date:string;seed?:{single?:boolean;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onCustomerAdded?:(customer:SportsSnapshot["customers"][number])=>void;waitlistEnabled?:boolean;waitlistDefaultLimit?:number;waitlistDefaultStopMinutes?:number}){
+export function SportsScheduleFields({initial,date,seed={},requestKey,onGuard,onCreated,onCustomerAdded,waitlistEnabled=false,waitlistDefaultLimit=5,waitlistDefaultStopMinutes=240}:{initial:SportsSnapshot;date:string;seed?:{customerId?:string;templateId?:string;single?:boolean;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};requestKey:string;onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onCustomerAdded?:(customer:SportsSnapshot["customers"][number])=>void;waitlistEnabled?:boolean;waitlistDefaultLimit?:number;waitlistDefaultStopMinutes?:number}){
  const live=initial,ready=true;
  const [query,setQuery]=useState(""),[customers,setCustomers]=useState(initial.customers),[rentalMode,setRentalMode]=useState("existing"),[rentalCustomerId,setRentalCustomerId]=useState(""),[customerNotice,setCustomerNotice]=useState(""),[newRentalName,setNewRentalName]=useState(""),[newRentalPhone,setNewRentalPhone]=useState("");const [error,setError]=useState("");
  const [kind,setKind]=useState(seed.single?"單次":"每週固定"),[enrollment,setEnrollment]=useState("指定學員");
- const [subject,setSubject]=useState(initial.subjects[0]?.id??"");
+ const [subject,setSubject]=useState(initial.subjects.find(s=>s.templateId===seed.templateId)?.id??initial.subjects[0]?.id??"");
  const [day,setDay]=useState(date),[time,setTime]=useState(seed.time??"09:00"),[duration,setDuration]=useState(seed.durationMinutes??60),[capacity,setCapacity]=useState(8);
- const [coach,setCoach]=useState(initial.coaches.find(c=>c.id===seed.coachId)?.id??""),[room,setRoom]=useState(initial.rooms.find(r=>r.id===seed.roomId)?.name??initial.rooms[0]?.name??""),[students,setStudents]=useState<string[]>([]);
+ const [coach,setCoach]=useState(initial.coaches.find(c=>c.id===seed.coachId)?.id??""),[room,setRoom]=useState(initial.rooms.find(r=>r.id===seed.roomId)?.name??initial.rooms[0]?.name??""),[students,setStudents]=useState<string[]>(initial.customers.some(c=>c.id===seed.customerId)?[seed.customerId!]:[]);
  const [price,setPrice]=useState(0),[customer,setCustomer]=useState(""),[phone,setPhone]=useState("");
  const [pending,start]=useTransition();const lock=useRef(false),[dirty,setDirty]=useState(false);
  const [waitlistLimit,setWaitlistLimit]=useState(waitlistEnabled?waitlistDefaultLimit:0);

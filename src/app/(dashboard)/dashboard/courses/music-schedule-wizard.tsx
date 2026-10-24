@@ -25,8 +25,8 @@ function schedulingLabel(template:Template) {
 }
 const field="mt-1 min-h-11 w-full max-w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
 
-export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange,initialScheduleKind,onArrangementChange,onCancel,active=true}:{
-  autoRoom?:boolean;subjects?:{id:string;name:string;isActive:boolean;category?:string}[];active?:boolean;templates:Template[];rooms:{id:string;name:string}[];coaches:{id:string;displayName:string}[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
+export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,initialLearner,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange,initialScheduleKind,onArrangementChange,onCancel,active=true}:{
+  autoRoom?:boolean;subjects?:{id:string;name:string;isActive:boolean;category?:string}[];active?:boolean;templates:Template[];rooms:{id:string;name:string}[];coaches:{id:string;displayName:string}[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;initialLearner?:ScheduleLearner;
   seed?:Partial<Position>;onCreated:(sessionId:string,date:string,sessions:unknown[])=>void;onGuard?:(dirty:boolean,pending:boolean)=>void;
   onPositionChange?:(position:Position)=>void;onRefresh?:()=>void;isTrial?:boolean;canCreateCustomer?:boolean;initialScheduleKind?:"FIXED"|"SINGLE";
   onArrangementChange?:(kind:Arrangement)=>void;onCancel?:()=>void;
@@ -46,7 +46,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const [trialTemplateId,setTrialTemplateId]=useState("");
   const templateId=isTrial?trialTemplateId:regularTemplateId;
   const setTemplateId=isTrial?setTrialTemplateId:setRegularTemplateId;
-  const [regularLearners,setRegularLearners]=useState<ScheduleLearner[]>([]);
+  const [regularLearners,setRegularLearners]=useState<ScheduleLearner[]>(initialLearner?[initialLearner]:[]);
   const [trialLearners,setTrialLearners]=useState<ScheduleLearner[]>([{customerId:`trial-draft:${crypto.randomUUID()}`,cardId:"",name:"",participantPhone:""}]);
   const learners=isTrial?trialLearners:regularLearners;
   const setLearners=isTrial?setTrialLearners:setRegularLearners;

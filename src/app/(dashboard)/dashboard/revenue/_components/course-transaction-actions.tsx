@@ -2,7 +2,7 @@
 import {publishMusicFinanceChange} from "@/lib/music-finance-sync";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RightSheet } from "@/components/admin/right-sheet";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { refundCoursePurchase } from "@/server/actions/course-refund";
 import { editCoursePurchase, voidCoursePurchase } from "@/server/actions/course-purchase-correction";
 import { confirmCoursePurchase } from "@/server/actions/course-portal";
@@ -18,14 +18,14 @@ export type CourseTransactionDetail = {
   unit: string; expiresAt: string | null; transferLastFive: string;
   refunds: { amount: number; reason: string; date: string; method: string }[];
 };
-export function CourseTransactionActions({ quiet=false, order, allocationSummary, canRefund, canConfirm, canEdit, canVoid, staffOptions }: {
-  quiet?:boolean; canEdit: boolean; canVoid: boolean; staffOptions: {id:string;name:string}[];
+export function CourseTransactionActions({ quiet=false, initialOpen=false, onClosed, onUpdated, order, allocationSummary, canRefund, canConfirm, canEdit, canVoid, staffOptions }: {
+  initialOpen?:boolean;onClosed?:()=>void;onUpdated?:()=>void;quiet?:boolean; canEdit: boolean; canVoid: boolean; staffOptions: {id:string;name:string}[];
   order: CourseTransactionDetail; allocationSummary: string; canRefund: boolean; canConfirm: boolean;
 }) {
   const title = useId(); const router = useRouter();
-  const [open, setOpen] = useState(false); const [mode, setMode] = useState<"detail" | "refund" | "edit" | "void">("detail");
+  const [open, setOpen] = useState(initialOpen); const [mode, setMode] = useState<"detail" | "refund" | "edit" | "void">("detail");
   const [note, setNote] = useState(order.note); const [staffId, setStaffId] = useState(order.revenueStaffId ?? "");
-  const [reason, setReason] = useState(""); const [requestKey, setRequestKey] = useState("");
+  const [reason, setReason] = useState(""); const [requestKey, setRequestKey] = useState(()=>crypto.randomUUID());
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"" | "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER">("");
   const [giftQuota, setGiftQuota] = useState("0");
@@ -48,15 +48,15 @@ export function CourseTransactionActions({ quiet=false, order, allocationSummary
           : action === "edit" ? await editCoursePurchase({ purchaseId: order.id, reason, note, revenueStaffId: staffId || null })
           : await confirmCoursePurchase({ purchaseId: order.id });
         if (!result.success) { setMessage(result.error); return; }
-        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); publishMusicFinanceChange(); router.refresh();
+        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); publishMusicFinanceChange(); onUpdated?.(); router.refresh();
       } catch { setMessage("送出失敗，已保留內容；請稍後重試。"); }
     });
   }
   const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
-    <button className={quiet?"min-h-11 whitespace-nowrap px-3 text-sm text-primary-700 hover:underline":btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
-    {open && <RightSheet fitContent width={720} maxHeight={680} presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
-      <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
+    {!initialOpen&&<button className={quiet?"min-h-11 whitespace-nowrap px-3 text-sm text-primary-700 hover:underline":btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>}
+    {open && <ModalPanel width={920} pending={pending} open onClose={() => { if (!pending) {setOpen(false);onClosed?.();} }} labelledById={title}>
+      <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => {setOpen(false);onClosed?.();}}>關閉</button></header>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         <h3 className="font-semibold">{order.customerName}・{order.name}</h3>
         <details key={mode} open={mode === "detail"} className="text-sm"><summary className="min-h-11 cursor-pointer py-2">原交易明細</summary>
@@ -91,6 +91,6 @@ export function CourseTransactionActions({ quiet=false, order, allocationSummary
           {["CONFIRMED","REFUNDED"].includes(order.status) && maximum>0 && canRefund && <button className={btn} onClick={() => { setMessage(""); setAmount(""); setMethod(""); setReason(""); setRequestKey(crypto.randomUUID()); setMode("refund"); }}>登錄退款</button>}
         </>}
       </footer>
-    </RightSheet>}
+    </ModalPanel>}
   </>;
 }

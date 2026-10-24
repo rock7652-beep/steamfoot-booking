@@ -5,10 +5,10 @@ import {dayRange,formatTWTime} from "@/lib/date-utils";
 import {musicPurchaseWhere} from "@/server/services/music-finance-scope";
 import {readMusicTuition,readMusicReceipts} from "@/server/services/music-tuition";
 import type {Prisma} from "../../../generated/course-client";
-export type RevenueTransactionsInput={from:string;to:string;dataScope?:string;status?:string;staff?:string;page?:string};
+export type RevenueTransactionsInput={from:string;to:string;dataScope?:string;status?:string;staff?:string;page?:string;purchaseId?:string;customerId?:string};
 export async function getMusicRevenueTransactions(storeId:string,input:RevenueTransactionsInput){
  const {from,to,status,staff}=input;
- const where:Prisma.CoursePurchaseWhereInput={storeId,...musicPurchaseWhere(storeId,input.dataScope),createdAt:{gte:dayRange(from).start,lte:dayRange(to).end},...(status?{status}:{}),...(staff?{confirmedBy:staff}:{})};
+ const where:Prisma.CoursePurchaseWhereInput={storeId,...musicPurchaseWhere(storeId,input.dataScope),...(input.purchaseId?{id:input.purchaseId}:{}),...(input.customerId?{customerId:input.customerId}:{}),createdAt:{gte:dayRange(from).start,lte:dayRange(to).end},...(status?{status}:{}),...(staff?{confirmedBy:staff}:{})};
   const requestedPage = Math.max(1, Math.floor(Number(input.page) || 1));
   const readOrders = (page:number) => coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 });
   const [count, requestedOrders] = await Promise.all([

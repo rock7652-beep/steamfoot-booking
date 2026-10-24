@@ -1,3 +1,5 @@
+vi.mock("@/lib/session",()=>({getCurrentUser:vi.fn(),requireSession:vi.fn()}));
+vi.mock("@/app/(dashboard)/dashboard/courses/customer-transaction-action",()=>({CustomerTransactionAction:()=>null}));
 vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 // @vitest-environment jsdom
 
@@ -40,8 +42,7 @@ it("preserves the edit draft across tabs and closes without redundant confirmati
  await click("紀錄");await click("顧客概況");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
  vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉");
- expect(window.confirm).toHaveBeenCalledOnce();expect(host.querySelector('input[name="name"]')).not.toBeNull();expect(m.save).not.toHaveBeenCalled();
- vi.mocked(window.confirm).mockReturnValue(true);await click("關閉");expect(host.querySelector("aside")).toBeNull();
+ expect(window.confirm).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(host.querySelector("aside")).toBeNull();
 });
 it("does not show unauthorized wallet, record, health, or edit controls",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,canEdit:false,canCreate:false,canAssign:false,canReadCards:false,canReadBookings:false,canReadTransactions:false,healthEnabled:false})));
@@ -64,9 +65,9 @@ it.each([false,true])("opens plan checkout without preloaded customers (music=%s
  const plans=[{id:"plan",name:"驗收方案",points:10,price:100,validDays:90,isActive:true,unit:music?"SESSION":"POINT",templateIds:[]}];
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",sportsNative:!music,music,people:[],plans})));
  await click("顧客持有方案");
- const purchase=[...host.querySelectorAll("button")].find(b=>b.textContent==="購買方案")!;
+ const purchase=[...host.querySelectorAll("button")].find(b=>b.textContent===(music?"新增學費":"購買方案"))!;
  expect(purchase.disabled).toBe(false);
- await click("購買方案");
+ await click(music?"新增學費":"購買方案");
  expect(host.querySelector('input[aria-label="搜尋顧客姓名、電話或 LINE 名稱"]')).not.toBeNull();
  const form=host.querySelector<HTMLFormElement>('#course-member-form')!;
  expect(form).not.toBeNull();
@@ -90,20 +91,20 @@ it("does not expose plan checkout without assignment permission",async()=>{
 it("keeps the customer shell and navigation stable across internal pages",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
  const shell=host.querySelector("aside");
- expect(shell?.getAttribute("data-width")).toBe("880");
+ expect(shell?.getAttribute("data-width")).toBe("1100");
  expect(shell?.getAttribute("data-fit-content")).toBe("false");
- expect(shell?.getAttribute("data-max-height")).toBe("720");
+ expect(shell?.getAttribute("data-max-height")).toBe("900");
  for(const label of ["購買方案","紀錄","健康追蹤","顧客概況"]){
   await click(label);
   expect(host.querySelector("aside")).toBe(shell);
-  expect(shell?.getAttribute("data-width")).toBe("880");
+  expect(shell?.getAttribute("data-width")).toBe("1100");
   expect(shell?.getAttribute("data-fit-content")).toBe("false");
   expect(host.querySelector("h2")?.textContent).toBe("測試學員");
   expect(host.querySelector('nav[aria-label="顧客詳細資料分區"]')).not.toBeNull();
  }
  await click("編輯顧客資料");
  expect(host.querySelector('input[name="name"]')).not.toBeNull();
- await click("返回顧客概況");
+ await click("返回基本資料");
  expect([...host.querySelectorAll("button")].map(b=>b.textContent)).toContain("編輯顧客資料");
  expect(host.querySelector("aside")).toBe(shell);
 });
@@ -125,11 +126,11 @@ it("keeps exactly one music summary when entering and leaving checkout repeatedl
  const errors=vi.spyOn(console,"error");
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
  for(let i=0;i<3;i++){
-  await click("學費與堂數");
+  await click("課程與學費");
   const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="新增學費");
   await act(async()=>{(add as HTMLButtonElement).click();});
   await click("‹ 返回 測試學員 詳情");
-  expect(host.querySelectorAll('[aria-label="學員概況"]').length).toBe(1);
+  expect(host.querySelectorAll('[aria-label="課程與學費"]').length).toBe(1);
  }
  expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
 });
