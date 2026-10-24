@@ -251,25 +251,27 @@ export function ScheduleManager({
   const sourceOverrideCount = dayDetail?.slots.filter((slot) => slot.override).length ?? 0;
 
   useEffect(() => {
-    if (applyMode !== "dates" || isCourseStore) return;
+    if (applyMode !== "dates") return;
+    const requestId = ++pickerRequestIdRef.current;
+    let cancelled = false;
     const cached = monthCacheRef.current.get(monthKey(pickerYear, pickerMonth));
     if (cached) {
       setPickerSummary(cached.summary);
       setPickerSpecialDays(cached.specialDays);
       return;
     }
-    const requestId = ++pickerRequestIdRef.current;
     void Promise.all([
-      getMonthSpecialDays(pickerYear, pickerMonth),
-      getMonthScheduleSummary(pickerYear, pickerMonth),
+      (isCourseStore ? getCourseMonthSpecialDays : getMonthSpecialDays)(pickerYear, pickerMonth),
+      (isCourseStore ? getCourseMonthScheduleSummary : getMonthScheduleSummary)(pickerYear, pickerMonth),
     ]).then(([pickerSpecialDays, summary]) => {
-      if (requestId !== pickerRequestIdRef.current) return;
+      if (cancelled || requestId !== pickerRequestIdRef.current) return;
       monthCacheRef.current.set(monthKey(pickerYear, pickerMonth), { specialDays: pickerSpecialDays, summary });
       setPickerSummary(summary);
       setPickerSpecialDays(pickerSpecialDays);
     }).catch(() => {
-      if (requestId === pickerRequestIdRef.current) toast.error("套用日期的設定標記載入失敗");
+      if (!cancelled && requestId === pickerRequestIdRef.current) toast.error("套用日期的設定標記載入失敗");
     });
+    return () => { cancelled = true; };
   }, [applyMode, isCourseStore, pickerMonth, pickerYear]);
 
 
@@ -564,7 +566,7 @@ export function ScheduleManager({
         const sortedPeriods = [...editPeriods].sort((a, b) => a.openTime.localeCompare(b.openTime));
         if (isCourseStore) {
           if(!storeId||!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
-          const result=await request.save({values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods},expectedRevision:dayDetail.hoursRevision});
+          const result=await request.save({values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates},expectedRevision:dayDetail.hoursRevision});
           if(!result.success){setSaveError(result.error);toast.error(result.error);return;}
           const saved=result.data;
           ++dayRequestIdRef.current;++monthRequestIdRef.current;
@@ -575,7 +577,7 @@ export function ScheduleManager({
           setEditStatus(saved.day.status);setEditReason(saved.day.reason??"");setEditOpenTime(saved.day.openTime??"10:00");setEditCloseTime(saved.day.closeTime??"22:00");
           setEditInterval(saved.day.slotInterval);setEditCapacity(saved.day.defaultCapacity);setEditPeriods(editablePeriods(saved.day.periods,saved.day.slotInterval,saved.day.defaultCapacity));
           setCopyWeeks(0);setApplyMode("day");setTargetDates([]);setLoadingDay(false);setIsMonthLoading(false);setSaveError(null);setReviewedDraft(null);
-          toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"營業設定已儲存");return;
+          toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":applyMode==="dates"?`來源日已儲存；已套用 ${new Set(targetDates).size} 個日期`:"營業設定已儲存");return;
         }
         if(!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
         const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:"replace",includeSlotOverrides}});
@@ -1010,7 +1012,6 @@ export function ScheduleManager({
                     <details open={applyMode !== "day"}>
                       <summary className="cursor-pointer text-xs text-earth-700">套用其他日期</summary>
                       <div className="mt-3 space-y-3">
-                    {!isCourseStore && (
                       <div className="rounded-lg border border-earth-200 bg-earth-50 p-2.5">
                         <label className="flex items-center gap-2 text-xs font-medium text-earth-700">
                           <input
@@ -1032,9 +1033,9 @@ export function ScheduleManager({
                         {applyMode === "dates" && (
                           <div className="mt-3 rounded-lg border border-earth-200 bg-white p-2.5">
                             <div className="mb-2 flex items-center justify-between">
-                              <button type="button" onClick={() => changePickerMonth(-1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">←</button>
+                              <button type="button" aria-label="套用日期上個月" onClick={() => changePickerMonth(-1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">←</button>
                               <span className="text-xs font-semibold text-earth-800">{pickerYear} 年 {pickerMonth} 月</span>
-                              <button type="button" onClick={() => changePickerMonth(1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">→</button>
+                              <button type="button" aria-label="套用日期下個月" onClick={() => changePickerMonth(1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">→</button>
                             </div>
                             <div className="grid grid-cols-7 gap-1">
                               {DAY_NAMES.map((name) => <span key={name} className="py-1 text-center text-[10px] text-earth-400">{name}</span>)}
@@ -1079,19 +1080,18 @@ export function ScheduleManager({
                             ) : <p className="mt-2 text-[10px] text-earth-500">可跨月複選；來源日期不會重複選取。</p>}
                             <div className="mt-2 flex flex-wrap gap-3 text-[9px] text-earth-500">
                               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />已有整日設定</span>
-                              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />已有單一時段調整</span>
+                              {!isCourseStore && <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />已有單一時段調整</span>}
                             </div>
-                            {sourceOverrideCount > 0 && (
+                            {!isCourseStore && sourceOverrideCount > 0 && (
                               <label className="mt-3 flex items-start gap-2 rounded bg-amber-50 p-2 text-[11px] text-amber-900">
                                 <input type="checkbox" checked={includeSlotOverrides} onChange={(event) => setIncludeSlotOverrides(event.target.checked)} className="mt-0.5 accent-primary-600" />
                                 一併複製來源日的 {sourceOverrideCount} 個單一時段調整
                               </label>
                             )}
-                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">選取的日期會更新為本次設定，取代原有服務時間、名額與單一時段調整。儲存後可復原。</p>
+                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">{isCourseStore?"選取的日期會更新為本次營業／授課時間，取代原有日期設定。已排課程若有衝突，整批不儲存。":"選取的日期會更新為本次設定，取代原有服務時間、名額與單一時段調整。儲存後可復原。"}</p>
                           </div>
                         )}
                       </div>
-                    )}
                     {applyMode !== "dates" && editStatus !== "open" && (
                       <label className="flex items-center gap-2 text-xs text-earth-700">
                         <input
@@ -1184,7 +1184,7 @@ export function ScheduleManager({
                         <div className="space-y-1 text-xs text-earth-700">
                           <p>來源：{selectedDate}；目標：{targetDates.join("、")}</p>
                           <p>只建立這些日期的特殊設定，不會變更每週固定規則。</p>
-                          <p>這 {targetDates.length} 個日期原有的服務時間、名額與單一時段調整，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>
+                          {isCourseStore?<p>這 {targetDates.length} 個日期原有的營業／授課時間與公休設定，將取代為本次設定。課程名額仍由各堂課與教室控制。</p>:<p>這 {targetDates.length} 個日期原有的服務時間、名額與單一時段調整，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>}
                         </div>
                       )}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}

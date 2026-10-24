@@ -4,15 +4,15 @@ import type { OperationGuide } from "./operation-guide-types";
 export const dailyOperationGuides20260930: OperationGuide[] = [
   {
     id: "B11", category: "hours", title: "同一組服務時段，怎麼套用到多個指定日期？",
-    summary: "先完成來源日設定，再跨月複選 1～62 個未來日期；選取日期會更新為本次設定。",
-    answer: "指定日期只建立各日特殊設定，不會改每週固定規則；儲存後可從完成提示立即復原本批操作。",
+    summary: "先完成來源日設定，再跨月複選 1～62 個未來日期；蒸足、運動、音樂皆選取日期後套用。",
+    answer: "指定日期只建立各日特殊設定，不會改每週固定規則；課程若與已排課程或教師值班衝突，整批不儲存。蒸足可從完成提示立即復原本批操作。",
     path: "設定 → 營業與預約 → 選來源日期 → 套用其他日期 → 套用到指定日期",
     keywords: "複製時段 套用指定日期 多選日期 跨月 來源日期 保留原設定 略過 覆蓋 單一時段調整 復原",
     steps: ["選已設定好的來源日期，核對營業／公休狀態、服務時段與名額。", "展開套用其他日期，選「套用到指定日期」並跨月勾選目標日；如需連同來源日的單一時段調整一起複製，可勾選對應選項。", "核對日期與服務時間後確認儲存，選取日期的舊設定會被取代；誤套用時從完成提示點「復原」。"],
-    important: "覆蓋會取代目標日整日設定與單一時段調整；既有預約不會自動取消。課程門市不使用此流程，需保留排課衝突檢查。",
+    important: "套用會取代目標日原有日期設定，既有預約不會自動取消。課程名額由各堂課與教室管理；課程與值班衝突會阻擋儲存。",
     success: "來源日與選取的目標日顯示本次設定，完成提示列出已套用日期數；每週固定規則與預約、收款、扣堂均未改變。",
-    details: ["不可選過去日期或來源日，單次最多 62 個目標日。目標日原有整日特殊設定與單一時段調整會被本次設定取代。", "整批由同一交易寫入；失敗不會只成功一半。復原只適用剛完成的同一批操作，若相關日期已被別人修改會拒絕覆蓋新版。", "蒸足與 SPA 服務時段可使用；課程模組應在課程營業設定與課表中處理。"],
-    modules: ["steamfoot", "spa"], permission: "business_hours.manage", feature: null, kind: "howto", verification: "source-reviewed",
+    details: ["不可選過去日期或來源日，單次最多 62 個目標日。目標日原有整日特殊設定與單一時段調整會被本次設定取代。", "整批由同一交易寫入；失敗不會只成功一半。復原只適用剛完成的同一批操作，若相關日期已被別人修改會拒絕覆蓋新版。", "蒸足與課程（運動／音樂）共用指定日期選取；運動依 60 分鐘、音樂依 30 分鐘安排，課程不複製蒸足的單一時段名額設定。"],
+    modules: ["steamfoot", "course"], permission: "business_hours.manage", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx", "src/server/actions/business-hours.ts"],
   },
   {

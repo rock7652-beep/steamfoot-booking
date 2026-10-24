@@ -15,7 +15,12 @@ async function query(sql:string,values:unknown[]=[]){
  const result=await (client??db).query<Record<string,unknown>>(sql,values.map(v=>v instanceof Date?v.toISOString():v));
  return result.rows.map(row=>{for(const key of ["date","startsAt","endsAt","createdAt","updatedAt"]){if(typeof row[key]==="string")row[key]=new Date(row[key] as string);}return row;});
 }
-const raw=vi.fn(async(strings:TemplateStringsArray,...values:unknown[])=>query(strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),values));
+async function runRaw(input:TemplateStringsArray|{strings:string[];values:unknown[]},...values:unknown[]){
+ const strings="strings" in input?input.strings:input;
+ const params="strings" in input?input.values:values;
+ return query(strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),params);
+}
+const raw=vi.fn(runRaw);
 const write=vi.fn(async(strings:TemplateStringsArray,...values:unknown[])=>{await raw(strings,...values);return 1;});
 beforeAll(async()=>{
  db=new PGlite();await db.exec(`
@@ -30,7 +35,7 @@ afterAll(async()=>db.close());
 beforeEach(async()=>{
  vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"s"});m.entitlement.mockResolvedValue({id:"music"});
  m.hours.mockImplementation(()=>query('SELECT * FROM "BusinessHours" WHERE "storeId"=\'s\''));m.specials.mockImplementation(()=>query('SELECT * FROM "SpecialBusinessDay" WHERE "storeId"=\'s\''));
- raw.mockImplementation(async(strings,...values)=>query(strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),values));write.mockImplementation(async(strings,...values)=>{await raw(strings,...values);return 1;});
+ raw.mockImplementation(runRaw);write.mockImplementation(async(strings,...values)=>{await raw(strings,...values);return 1;});
  const tx={$queryRaw:raw,$executeRaw:write,courseSession:{findMany:async()=>query('SELECT "startsAt","endsAt" FROM "CourseSession" WHERE "storeId"=\'s\' AND "cancelledAt" IS NULL AND "startsAt">NOW()')}};
  m.transaction.mockImplementation(async(_store,work)=>db.transaction(async connection=>{client=connection;try{return await work(tx);}finally{client=db;}}));
  await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","ShopConfig","CourseSession","DutyAssignment";
@@ -68,4 +73,25 @@ it("rolls back changed hours if the assigned teacher's duty no longer covers the
  INSERT INTO "CourseSession" VALUES ('s','2030-10-01T10:00:00+08:00','2030-10-01T11:00:00+08:00',NULL,'teacher','吉他');`);
  const custom={...base,status:"custom" as const,mode:"day" as const,weeks:0,periods:[{openTime:"09:00",closeTime:"18:00"}]};
  expect(await saveCourseDayHours(await input(custom))).toMatchObject({success:false,uncertain:false,error:expect.stringContaining("值班未涵蓋")});expect(await query('SELECT * FROM "SpecialBusinessDay"')).toEqual([]);
+});
+
+it.each([{module:"sports",entitlement:null,interval:60},{module:"music",entitlement:{id:"music"},interval:30}])("$module replaces arbitrary dates across months, including existing closures, and confirms retries",async({entitlement,interval})=>{
+ m.entitlement.mockResolvedValue(entitlement);
+ await db.exec(`INSERT INTO "SpecialBusinessDay" VALUES ('old','s','2030-11-03','closed','舊公休',NULL,NULL,NULL,NULL,NULL,NOW(),NOW());`);
+ const values={...base,status:"open" as const,mode:"dates" as const,targetDates:["2030-10-08","2030-11-03","2030-10-08"],periods:[{openTime:"09:30",closeTime:"12:00"},{openTime:"14:00",closeTime:"17:00"}]};
+ const attempt=await input(values),result=await saveCourseDayHours(attempt);
+ expect(result).toMatchObject({success:true,data:{day:{status:"custom",periods:[{openTime:"09:30",slotInterval:interval},{openTime:"14:00",slotInterval:interval}]},summary:{"2030-10-08":{status:"custom",openTime:"09:30",closeTime:"17:00"}}}});
+ const rows=await query('SELECT date,type,segments,"slotInterval" FROM "SpecialBusinessDay" ORDER BY date');
+ expect(rows.map(row=>({date:(row.date as Date).toISOString().slice(0,10),type:row.type,interval:row.slotInterval}))).toEqual(["2030-10-01","2030-10-08","2030-11-03"].map(date=>({date,type:"custom",interval})));
+ expect((await getCourseDayHours("2030-11-03")).periods.map(p=>[p.openTime,p.closeTime])).toEqual([["09:30","12:00"],["14:00","17:00"]]);
+ expect(await query('SELECT id FROM "BusinessHours"')).toEqual([{id:"h"}]);
+ const writes=write.mock.calls.length;expect(await saveCourseDayHours(attempt)).toEqual(result);expect(write).toHaveBeenCalledTimes(writes);
+});
+it("rolls back source and all arbitrary targets when a cross-month class conflicts",async()=>{
+ await db.exec(`INSERT INTO "CourseSession" VALUES ('s','2030-11-03T10:00:00+08:00','2030-11-03T11:00:00+08:00',NULL,'teacher','吉他');`);
+ expect(await saveCourseDayHours(await input({...base,mode:"dates",targetDates:["2030-10-08","2030-11-03"]}))).toMatchObject({success:false,uncertain:false,error:expect.stringContaining("衝突")});
+ expect(await query('SELECT * FROM "SpecialBusinessDay"')).toEqual([]);
+});
+it.each([[],["2030-10-01"],["2000-01-01"],Array.from({length:63},()=>"2030-11-03")])("rejects invalid arbitrary targets before a transaction (%j)",async(targetDates)=>{
+ expect(await saveCourseDayHours({...base,mode:"dates",targetDates})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
 });

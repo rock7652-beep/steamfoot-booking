@@ -2,9 +2,9 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({fetch:vi.fn(),day:vi.fn(),summary:vi.fn(),specials:vi.fn()}));
+const m=vi.hoisted(()=>({fetch:vi.fn(),day:vi.fn(),summary:vi.fn(),specials:vi.fn(),toast:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/s/a/admin/dashboard/courses/hours"}));
-vi.mock("sonner",()=>({toast:{success:vi.fn(),error:vi.fn()}}));
+vi.mock("sonner",()=>({toast:{success:m.toast,error:vi.fn()}}));
 vi.mock("@/app/(dashboard)/dashboard/courses/hours/weekly-hours-editor",()=>({CourseWeeklyHoursEditor:()=>null}));
 vi.mock("@/server/actions/course-business-hours",()=>({getCourseDayHours:m.day,getCourseMonthScheduleSummary:m.summary,getCourseMonthSpecialDays:m.specials,saveCourseDayHours:vi.fn()}));
 vi.mock("@/server/actions/business-hours",()=>Object.fromEntries(["updateBusinessHours","addSpecialDay","removeSpecialDayByDate","getMonthSpecialDays","getMonthScheduleSummary","getDaySlotDetails","copySettingsToFutureWeeks","copySettingsToDates","undoCopySettingsToDates","toggleSlotOverride","overrideSlotCapacity","applyWeeklyTemplate","syncFromHeadquarters"].map(key=>[key,vi.fn()])));
@@ -41,4 +41,22 @@ it("retains a rejected closure draft and allows an explicit revision reread with
  expect(host.querySelector('[role="alert"]')!.textContent).toBe("課程衝突");expect(calendarDay(1).textContent).not.toContain("休");expect(host.textContent).toContain("尚未儲存");
  m.day.mockResolvedValueOnce({...detail,hoursRevision:"c".repeat(64)});await click("重新核對日期");expect(host.textContent).toContain("尚未儲存");
  m.fetch.mockResolvedValueOnce({json:async()=>({success:true,storeId:"s",data:saved})});await click("確認並儲存");expect(JSON.parse(m.fetch.mock.calls[1][1].body).expectedRevision).toBe("c".repeat(64));
+});
+
+function pickerDay(n:number){return [...host.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')].find(b=>b.querySelector("span")?.textContent===String(n))!;}
+it.each([30,60])("uses the shared picker for course days (%i minute starts), persists cross-month selections and adopts the calendar receipt",async(interval)=>{
+ m.day.mockResolvedValueOnce({...detail,slotInterval:interval,periods:periods.map(p=>({...p,slotInterval:interval}))});
+ await act(async()=>calendarDay(3).click());await click("照常營業");
+ await act(async()=>host.querySelector<HTMLInputElement>('input[value="dates"]')!.click());
+ await act(async()=>pickerDay(2).click());
+ m.specials.mockResolvedValueOnce([]);m.summary.mockResolvedValueOnce({});
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="套用日期下個月"]')!.click());
+ expect(m.summary).toHaveBeenCalledWith(2030,11);expect(m.specials).toHaveBeenCalledWith(2030,11);
+ await act(async()=>pickerDay(4).click());await click("檢查變更");
+ expect(m.fetch).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="儲存前確認"]')!.textContent).toContain("這 2 個日期原有的營業／授課時間與公休設定");
+ expect(host.textContent).not.toContain("儲存後可從完成提示復原");
+ const receipt={...saved,date:"2030-10-03",day:{...saved.day,status:"custom",periods:periods.map(p=>({...p,slotInterval:interval}))},summary:{...summary,"2030-10-02":{...summary["2030-10-02"],status:"custom"}}};
+ m.fetch.mockResolvedValueOnce({json:async()=>({success:true,storeId:"s",data:receipt})});await click("確認並儲存");
+ expect(JSON.parse(m.fetch.mock.calls[0][1].body).values).toMatchObject({date:"2030-10-03",status:"open",mode:"dates",targetDates:["2030-10-02","2030-11-04"],periods:[{slotInterval:interval}]});
+ expect(calendarDay(2).textContent).toContain("特殊時段");expect(m.toast).toHaveBeenCalledWith("來源日已儲存；已套用 2 個日期");
 });
