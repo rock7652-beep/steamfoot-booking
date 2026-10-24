@@ -56,3 +56,34 @@ it("shows closures on the calendar only",async()=>{
  await act(async()=>root.render(createElement(CoursePortalClient,data)));
  expect(host.querySelector('.cp-days button.closed')?.textContent).toContain("公休");await click("首頁");expect(host.textContent).not.toContain("店家公告");
 });
+
+function paymentProps() {
+ const data=props();
+ data.memberRecords=[{id:"purchase",cardId:"card",name:"吉他課・個別 1 期",termSizes:[4,4],templateIds:[],date,unit:"SESSION",points:8,due:6400,received:3200,status:"CONFIRMED",periods:[{period:1,lessons:4,due:3200,received:3200,outstanding:0},{period:2,lessons:4,due:3200,received:0,outstanding:3200}],lessonsAvailable:true,lessons:[{id:"past",name:"吉他",date,learner:"虛構學員",status:"已出席",period:1,ordinal:1,used:1,unit:"SESSION"}],receipts:[{id:"receipt",date,method:"CASH",amount:3200}],refunds:[]}];
+ data.cards=[{id:"card",name:"吉他課・個別 1 期",unit:"SESSION",remaining:7,held:1,available:6,musicValidityDays:70,musicActivatedAt:null,openingImported:false,expiresAt:"2099-12-31",expired:false,closed:false,templateIds:[],members:[{id:"child",name:"虛構學員"}],entries:[],purchases:[{id:"purchase",points:8,createdAt:date,status:"CONFIRMED"}],history:{createdAt:date,count:1,lessons:[{id:"past",name:"吉他",startsAt:date,customerId:"child",customerName:"虛構學員",status:"已出席",used:1}]}}] as unknown as CoursePortalData["cards"];
+ return {...data,initialView:"plans" as const};
+}
+it("merges tuition and balance into one card and makes the purchased two periods authoritative",async()=>{
+ await act(async()=>root.render(createElement(CoursePortalClient,paymentProps())));
+ expect(host.querySelectorAll(".cp-plan")).toHaveLength(1);expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(0);
+ expect(host.querySelector(".cp-plan-row h2")?.textContent).toBe("吉他課・個別");
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("購買 2 期・共 8 堂");expect(host.querySelector(".cp-plan-row")?.textContent).not.toContain("1 期");
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("還可預約 6 堂");expect(host.querySelector(".cp-plan-row")?.textContent).toContain("首次上課起 70 天");
+ await act(async()=>host.querySelector<HTMLElement>(".cp-plan-row")!.click());
+ expect(host.querySelectorAll(".cp-member-records-embedded")).toHaveLength(1);expect(host.querySelectorAll(".cp-member-period")).toHaveLength(2);
+ expect(host.querySelector(".cp-plan-body")?.textContent).toContain("未收 NT$ 3,200");expect(host.querySelectorAll(".cp-plan-history")).toHaveLength(0);
+});
+it("keeps multiple payments for one card together while distinct same-name cards remain separate",async()=>{
+ const data=paymentProps();data.memberRecords!.push({...data.memberRecords![0],id:"renew",lessonsAvailable:false,periods:[],lessons:[]});
+ data.cards.push({...data.cards[0],id:"other-card",purchases:[]});
+ await act(async()=>root.render(createElement(CoursePortalClient,data)));
+ expect(host.querySelectorAll(".cp-plan")).toHaveLength(2);expect(host.querySelectorAll(".cp-member-purchase")).toHaveLength(2);
+ expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(0);
+});
+it("retains shared-card lessons and orders without an accessible card",async()=>{
+ const data=paymentProps();data.cards[0].history={cardId:"card",createdAt:date,count:2,lessons:[...data.cards[0].history!.lessons,{id:"family-class",name:"家人瑜珈",startsAt:date,customerId:"family",customerName:"家人",status:"已出席",used:1}]};
+ data.memberRecords!.push({...data.memberRecords![0],id:"pending",cardId:null,status:"PENDING",lessonsAvailable:false,periods:[],lessons:[]});
+ await act(async()=>root.render(createElement(CoursePortalClient,data)));
+ expect(host.querySelectorAll(".cp-plan")).toHaveLength(1);expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(1);
+ expect(host.querySelector(".cp-plan-history")?.textContent).toContain("家人瑜珈");expect(host.querySelectorAll(".cp-plan-history [data-lesson]")).toHaveLength(1);
+});
