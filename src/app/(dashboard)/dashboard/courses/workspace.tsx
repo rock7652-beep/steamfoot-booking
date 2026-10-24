@@ -1047,7 +1047,7 @@ export function CourseWorkspace({
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <strong>✂ {moveClipboard.label} · {moveClipboard.startsAt?formatTWDateTime(new Date(moveClipboard.startsAt)):""} · {moveClipboard.durationMinutes}分</strong>
                 <span className="text-xs text-indigo-700">選白格貼上</span>
-                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消剪下</button>
               </div>
             )}
           {scheduleMode === "month" ? (

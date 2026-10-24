@@ -198,6 +198,8 @@ export function CourseMemberWorkspace({
   const [revenueStaffId,setRevenueStaffId]=useState("");
   const [planId, setPlanId] = useState(music ? "" : plans.find((p) => p.isActive)?.id ?? "");
   const [purchaseSubjectId,setPurchaseSubjectId]=useState("");
+  const [renewal,setRenewal]=useState(false);
+  const [purchaseCustomerId,setPurchaseCustomerId]=useState("");
   const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
@@ -214,7 +216,7 @@ export function CourseMemberWorkspace({
     if(value === "assign" || value === "card")setPersonTab(music ? "courses" : "plans");
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
-    if (value === "assign" && music) { setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
+    if (value === "assign" && music) { setRenewal(false); setPurchaseCustomerId(person?.id??""); setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
     if (value === "assign" && !music && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
       setPlanId(plans.find((p) => p.isActive && (!music || p.unit === "SESSION"))?.id ?? "");
     setError("");
@@ -465,7 +467,7 @@ export function CourseMemberWorkspace({
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? planReadOnly&&plan ? plan.name : plan ? sportsData ? "編輯收費方式" : music ? "編輯收費方式" : "編輯方案" : sportsData ? "新增收費方式" : music ? "新增收費方式" : "新增方案"
                   : panel === "assign"
-                    ? music ? "購課／續購" : "購買方案"
+                    ? music ? renewal?"續購方案":"購課方案" : "購買方案"
                     : panel === "coach"
                       ? courseDisplayText("加入為教練", music)
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
@@ -527,7 +529,7 @@ export function CourseMemberWorkspace({
             )}
             {music ? <>
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
-            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} revision={cardRevision} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={selection=>{if(open("assign")&&selection&&activePlans.some(p=>p.id===selection.planId)){setPurchaseSubjectId(selection.subjectId);setPlanId(selection.planId);}}} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
+            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} revision={cardRevision} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={selection=>{if(open("assign")&&selection&&activePlans.some(p=>p.id===selection.planId)){setRenewal(true);setPurchaseSubjectId(selection.subjectId);setPlanId(selection.planId);}}} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
@@ -640,10 +642,10 @@ export function CourseMemberWorkspace({
                 }
               >
                 <fieldset disabled={pending} className={music ? "min-w-0 space-y-2 [&>label]:grid [&>label]:grid-cols-[5rem_minmax(0,1fr)] [&>label]:items-center [&>label]:gap-2" : "min-w-0 space-y-3"}>
-                <h3 className="font-semibold">{music?"收費方式":"方案資料"}</h3>
+                <h3 className="font-semibold">{music?(renewal?"續購方案":"購課方案"):"方案資料"}</h3>
                 {person ? <div><span className="text-sm text-earth-500">{music ? "學員" : "顧客"}</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   {music ? "學員" : "顧客"}
-                  <CourseCustomerPicker name="customerId" required onChange={customers=>{if(!music)setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
+                  <CourseCustomerPicker name="customerId" required onChange={customers=>{if(!music)setDirty(true);setPurchaseCustomerId(customers[0]?.id??"");setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
 
                 </label>}
                 {music&&<label className="block">教學項目<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
@@ -676,7 +678,7 @@ export function CourseMemberWorkspace({
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset data-purchase-details disabled={pending} className={music ? "contents" : "min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5"}>
-                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
+                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split customerId={person?.id??purchaseCustomerId} key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 </fieldset>
               </form>
             )}

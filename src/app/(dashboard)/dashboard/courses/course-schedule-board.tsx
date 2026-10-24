@@ -1053,7 +1053,7 @@ export function CourseScheduleBoard({
                 {coaches.find(coach => coach.id === pair.coachId)?.displayName} · 教室 {rooms.find(room => room.id === pair.roomId)?.name}
               </button>)}
             </div>
-            <button type="button" className="mt-3 min-h-10 w-full rounded-lg border border-earth-200" onClick={() => setTeacherChoice(null)}>取消</button>
+            <button type="button" className="mt-3 min-h-10 w-full rounded-lg border border-earth-200" onClick={() => setTeacherChoice(null)}>返回課表</button>
           </div>
         </div>
       )}
