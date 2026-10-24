@@ -23,7 +23,7 @@ it("does not generate or ship a legacy Prisma client or SPA API route",()=>{
   expect(existsSync(path)?files(path).filter(file=>/\.(ts|tsx)$/.test(file)):[],path).toEqual([]);
  }
 });
-it.each(["/api/spa/settings/staff","/api/cron/spa-demo-reminders","/dashboard/spa-schedule","/liff/spa-work"])("rejects legacy URLs including scoped forms: %s",path=>{
+it.each(["/api/spa/settings/staff","/api/cron/spa-demo-reminders","/dashboard/spa-schedule","/liff/spa-work","/liff/manager-preview","/liff/staff-preview"] )("rejects legacy URLs including scoped forms: %s",path=>{
  for(const prefix of ["","/s/old-store/admin"]){expect(isRetiredModuleRoute(prefix+path,new URLSearchParams())).toBe(true);}
 });
 it("refuses to resolve or provision a retired module as an active one",()=>{
@@ -53,4 +53,8 @@ it("keeps the retirement review branches out of automatic deployment",()=>{
  const disabled=JSON.parse(readFileSync("vercel.json","utf8")).git.deploymentEnabled;
  expect(disabled["fix/beauty-retire-spa-runtime"]).toBe(false);
  expect(disabled["fix/remove-legacy-spa"]).toBe(false);
+});
+
+it("does not leave legacy preview page shells without a default route export",()=>{
+ for(const path of ["src/app/(liff)/liff/manager-preview/page.tsx","src/app/(liff)/liff/staff-preview/page.tsx"])expect(existsSync(path),path).toBe(false);
 });

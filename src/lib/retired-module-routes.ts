@@ -3,7 +3,7 @@ export function isRetiredModuleRoute(pathname: string, search: URLSearchParams):
   const path = pathname.replace(/^\/s\/[^/]+(?:\/admin)?(?=\/|$)/, "").replace(/^\/hq(?=\/dashboard)/, "");
   const prefixes = [
     "/spa-preview", "/staff-login", "/staff-schedule", "/staff/login", "/staff/my-bookings", "/liff/spa-work",
-    "/liff/service-flow-preview", "/api/spa", "/api/export/spa-analysis",
+    "/liff/service-flow-preview", "/liff/manager-preview", "/liff/staff-preview", "/api/spa", "/api/export/spa-analysis",
     "/api/cron/spa-demo-reminders", "/dashboard/spa-schedule",
     "/dashboard/spa-staff", "/dashboard/spa-resources", "/dashboard/settings-save/spa",
     "/pricing/features/services",
