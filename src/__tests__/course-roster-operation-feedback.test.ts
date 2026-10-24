@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 /** Real CourseRoster failure/concurrency tests using synthetic data.

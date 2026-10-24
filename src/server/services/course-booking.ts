@@ -619,8 +619,10 @@ async function grantCourseNoShowMakeup(
 export async function correctCourseAttendance(
   tx: Prisma.TransactionClient, actor: CourseActor, bookingId: string,
   target: "RESERVED" | "ATTENDED" | "NO_SHOW" | "CANCELLED", expectedStatus: string,
-  options:{suppressNotice?:boolean}={},
+  options:{suppressNotice?:boolean;waiveAbsence?:boolean}={},
 ) {
+  if(options.waiveAbsence && target!=="CANCELLED") return fail("免扣堂更正目標不正確");
+  const absenceKind=options.waiveAbsence ? "STUDENT_LEAVE" as const : null;
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: { include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT } } } } });
   const nativeLeave = b?.absenceKind === "STUDENT_LEAVE" && await nativeLeaveWasDebited(tx,actor.storeId,b.id);
   const pilotLeave = b?.absenceKind === "STUDENT_LEAVE" && await isMusicPilotCard(tx,actor.storeId,b.card);
@@ -656,7 +658,7 @@ export async function correctCourseAttendance(
     if (b.card && !courseCardCoversDate(b.card, actor.storeId, b.session.startsAt)) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
   if (b.absenceKind === "TEACHER_ABSENT") await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','恢復授課：學員回到待點名，未重扣','CourseBooking',${b.id},'COURSE_TEACHER_ABSENCE_RESTORE',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,pointsUsed:0})}::jsonb,NOW())`;
-  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (sportsNativePreview(actor.storeId) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
+  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (sportsNativePreview(actor.storeId) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=courseBookingWasDebited(b)||pilotLeave||nativeLeave;
   const willDebit=correctedCourseBookingWillDebit(target);
@@ -686,12 +688,12 @@ export async function correctCourseAttendance(
   const correctionKey=crypto.randomUUID();
   const kind=target==="CANCELLED"?`RELEASE:${correctionKey}`:`CORRECT:${b.status}:${target}:${correctionKey}`;
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind, points: b.pointCost } });
-  if(target==="CANCELLED")await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${correctionKey},${actor.userId},${actor.name},${actor.storeId},'COURSE','更正出席為取消，保留額度返還紀錄','CourseBooking',${b.id},'COURSE_ATTENDANCE_CANCEL_CORRECTION',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,absenceKind:null,returnedPoints:delta,entryKind:kind})}::jsonb,NOW())`;
+  if(target==="CANCELLED")await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${correctionKey},${actor.userId},${actor.name},${actor.storeId},'COURSE',${options.waiveAbsence ? "更正為未出席不扣堂，保留額度返還紀錄" : "更正出席為取消，保留額度返還紀錄"},'CourseBooking',${b.id},'COURSE_ATTENDANCE_CANCEL_CORRECTION',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,absenceKind,returnedPoints:delta,entryKind:kind})}::jsonb,NOW())`;
   if (sportsNativePreview(actor.storeId) && target === "NO_SHOW" && b.status !== "NO_SHOW" && b.requestKey.startsWith("sports-fixed:") && !b.card.termSessionIds?.length) {
     await grantCourseNoShowMakeup(tx, actor, b);
   }
   const deferred=sportsNativePreview(actor.storeId)&&target==="RESERVED"&&(b.requestKey?.startsWith("sports-fixed:")||b.requestKey?.startsWith("sports-makeup:"))&&b.bookingKind!=="TRIAL";
-  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target,...(deferred?{cardId:null,bookingKind:"UNPAID",pointCost:0,makeupForBookingId:null}:{}), absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target,...(deferred?{cardId:null,bookingKind:"UNPAID",pointCost:0,makeupForBookingId:null}:{}), absenceKind, checkedInAt: target === "ATTENDED" ? new Date() : null } });
   if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});
   if (sportsNativePreview(actor.storeId) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
   return updated;

@@ -211,3 +211,11 @@ it.each(["ATTENDED", "NO_SHOW"] as const)("batch can mark and restore %s before 
   await correctCourseAttendance(tx, actor, "b", "RESERVED", target);
   expect(m.coursePointCard.update).toHaveBeenLastCalledWith({where: {id: "c"}, data: {remaining: {increment: 3}}});
 });
+
+ it("waives a charged absence once while preserving the lesson and restoration marker",async()=>{
+  m.courseBooking.findFirst.mockResolvedValue({...booking("ATTENDED"),sessionId:"session",absenceKind:null});
+  await correctCourseAttendance(tx,actor,"b","CANCELLED","ATTENDED",{waiveAbsence:true,suppressNotice:true});
+  expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:3}}});
+  expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE",checkedInAt:null}});
+  expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^RELEASE:/);
+ });
