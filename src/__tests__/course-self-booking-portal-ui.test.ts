@@ -147,7 +147,7 @@ describe("student booking switch portal", () => {
     const data = props(); data.selfBookingEnabled = false;
     data.sessions[0] = { ...data.sessions[0], waitlistPosition: 2, waitlistAllowed: false, occupied: 3, waitlistRemaining: 0 };
     data.bookingWindow.closesAt = "2099-01-01T00:00:00Z";
-    await render(data); await click("候補中・第 2 位");
+    await render(data); expect(host.textContent).not.toContain("當日沒有課程"); expect(host.textContent).not.toContain("當天沒有課程"); await click("候補中・第 2 位");
     expect(dialog().textContent).toContain("目前候補第 2 位"); expect(dialog().textContent).toContain("暫停自動遞補");
     data.sessions[0].waitlistPosition = 1; await render({ ...data });
     expect(dialog().textContent).toContain("目前候補第 1 位");
@@ -246,4 +246,10 @@ it("shows the fresh debit notice before confirming a cancellation deep link",asy
  expect(m.cancel).not.toHaveBeenCalled();
  await click("確認取消",dialog());
  expect(m.cancel).toHaveBeenCalledExactlyOnceWith({bookingId:"booking",status:"CANCELLED",member:true});
+});
+
+it("does not append an empty open-course message beneath an existing personal lesson",async()=>{
+ const data=props();data.selfBookingEnabled=false;
+ data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"ATTENDED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
+ await render(data);expect(host.textContent).toContain("已出席");expect(host.textContent).not.toContain("當天沒有課程");expect(host.textContent).not.toContain("當日沒有課程");
 });

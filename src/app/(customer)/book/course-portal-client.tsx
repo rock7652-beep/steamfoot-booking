@@ -903,6 +903,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const cancellationCutoff = (startsAt: string) =>
     Date.parse(startsAt) - p.cancellationLeadMinutes * 60000;
   const canSelfCancel = (startsAt: string) => selfLeaveEnabled && now < cancellationCutoff(startsAt);
+  const personalWaitlistSessions = p.sessions.filter(s => s.waitlistPosition != null && courseDate(s.startsAt) === selected);
   const personalBookingCards = <>
 {groups.slice(0, limit).map((id) => {
                 const list = bookings.filter((b) => b.sessionId === id),
@@ -981,7 +982,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   </article>
                 );
               })}
-              {!groups.length && (
+              {!groups.length && !personalWaitlistSessions.length && (
                 <p className="cp-empty">
                   {page === "schedule" ? "當日沒有課程" : `本月沒有${history ? "歷史" : "待上課"}預約`}
                 </p>
@@ -1188,7 +1189,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           (s) => courseDate(s.startsAt) === selected,
                         ),
                       )
-                    : personalCalendar ? <>{personalBookingCards}{lessonRows(p.sessions.filter(s => s.waitlistPosition != null && courseDate(s.startsAt) === selected))}</> : lessonRows(
+                    : personalCalendar ? <>{personalBookingCards}{personalWaitlistSessions.length > 0 && lessonRows(personalWaitlistSessions)}</> : lessonRows(
                         p.sessions.filter(
                           (s) => courseDate(s.startsAt) === selected && (!courseFilter || s.templateId === courseFilter) && (!teacherFilter || (s.coachId ?? s.coach) === teacherFilter),
                         ),
