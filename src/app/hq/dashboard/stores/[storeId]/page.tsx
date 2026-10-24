@@ -16,6 +16,7 @@ import {
 } from "@/lib/store-operating-status";
 import { ActivateTrialButton } from "./activate-trial-button";
 import { RenameStoreForm } from "./rename-store-form";
+import { getStoreBusinessLabel } from "@/lib/store-business-profile";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -39,6 +40,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
+  const businessLabel = getStoreBusinessLabel(summary.store.industryModule, summary.store.businessProfile === "MUSIC" ? ["business.music"] : []);
   const retired = summary.store.industryModule === "SPA";
   const coursePlan = summary.store.industryModule === "COURSE" && !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
     ? await getStoreForPlanByStoreId(storeId) : null;
@@ -54,13 +56,13 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <h1 className="admin-page-title">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
-            <span>{summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            <span>{businessLabel}</span>
             {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
             </span>
             {" · "}
-            <span>{STORE_OPERATING_STATUS_LABELS[summary.store.operatingStatus]}</span>
+            <span>{retired ? "模組已停用" : STORE_OPERATING_STATUS_LABELS[summary.store.operatingStatus]}</span>
             {summary.store.isDemo && <span className="ml-2 text-amber-600">(Demo)</span>}
           </p>
         </div>
@@ -99,7 +101,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         <Section title="業務與引擎">
           <InfoRow
             label="已選模組"
-            value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+            value={summary.store.industryModule === "COURSE" ? `${businessLabel}（COURSE 引擎）` : businessLabel}
           />
           {summary.store.industryModule === "SPA" && (
             <p role="status" className="mt-2 text-sm text-amber-700">SPA 模組已移除，既有資料保留封存。</p>
