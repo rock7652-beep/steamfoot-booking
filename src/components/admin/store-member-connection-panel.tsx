@@ -5,8 +5,8 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 type Result = Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>, { success: true; canConfirm: boolean }>;
-export function StoreMemberConnectionPanel({ customerId, compact=false }: { customerId: string;compact?:boolean }) {
-  const [result, setResult] = useState<Result | null>(null);
+export function StoreMemberConnectionPanel({ customerId, compact=false,initial }: { customerId: string;compact?:boolean;initial?:{customerId:string;value:Result} }) {
+  const [result, setResult] = useState<Result | null>(()=>initial?.customerId===customerId?initial.value:null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useSettingsPanelGuard(false, busy);
@@ -15,13 +15,14 @@ export function StoreMemberConnectionPanel({ customerId, compact=false }: { cust
   const reader = usePanelReader("store-member-connection", loadMemberConnectionAction, "", 0);
   useEffect(() => {
     const key = ++sequence.current;
+    if(initial?.customerId===customerId){setResult(initial.value);setError(null);return;}
     setResult(null); setError(null);
     void reader.read(customerId).then(value => {
       if (key !== sequence.current) return;
       if (value.success && "canConfirm" in value) setResult(value); else if (!value.success) setError(value.error);
     }).catch(() => { if (key === sequence.current) setError("目前無法讀取，請重新開啟"); });
     return () => { sequence.current = key + 1; };
-  }, [customerId, reader]);
+  }, [customerId, reader,initial?.customerId,initial?.value]);
   async function confirm(id: string, kind: "login" | "notification", verificationCode: string) {
     if (submitting.current) return;
     submitting.current = true; setBusy(true); setError(null);

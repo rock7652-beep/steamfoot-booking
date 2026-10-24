@@ -1,0 +1,77 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    {
+      "name": "bed conflict rejected",
+      "passed": true
+    },
+    {
+      "name": "failed paste preserves original bed",
+      "passed": true
+    },
+    {
+      "name": "technician conflict rejected",
+      "passed": true
+    },
+    {
+      "name": "failed paste preserves original technician",
+      "passed": true
+    },
+    {
+      "name": "attendance wrapper succeeds",
+      "passed": true
+    },
+    {
+      "name": "same request replay succeeds",
+      "passed": true
+    },
+    {
+      "name": "replay creates no duplicate ledger",
+      "passed": true
+    },
+    {
+      "name": "stale revision rejected",
+      "passed": true
+    },
+    {
+      "name": "restore after replay succeeds",
+      "passed": true
+    },
+    {
+      "name": "restoration returns original balance",
+      "passed": true
+    },
+    {
+      "name": "limited user really authenticated",
+      "passed": true
+    },
+    {
+      "name": "limited role has no collection control",
+      "passed": true
+    },
+    {
+      "name": "forged low permission attendance rejected",
+      "passed": true
+    },
+    {
+      "name": "denied write changes no revision",
+      "passed": true
+    },
+    {
+      "name": "real foreign store booking unavailable; scoped unit tests cover isolation",
+      "skipped": true
+    },
+    {
+      "name": "cancel succeeds from roster without reason form",
+      "passed": true
+    },
+    {
+      "name": "cancel does not double deduct",
+      "passed": true
+    },
+    {
+      "name": "attendance and cancellation create no payment",
+      "passed": true
+    }
+  ]
+}

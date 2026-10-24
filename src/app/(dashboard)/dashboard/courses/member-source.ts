@@ -1,3 +1,5 @@
+import type {loadMemberConnectionAction} from '@/server/actions/store-member-connection';
+import type {getCustomerPanelAdvanced} from '@/server/actions/customer-panel-advanced';
 import type {browseCourseCards} from '@/server/actions/course-browse';
 import type {loadCourseCardReservations} from '@/server/actions/course-card-reservations';
 import type {CustomerBookingHistoryReader} from './customer-bookings';
@@ -8,6 +10,7 @@ import type {getCourseCheckoutCashStatus} from '@/server/actions/course-checkout
 import type {CustomerProfileWriter} from './course-profile-forms';
 import type {CustomerSearchOption} from '@/lib/customer-search-index';
 export type CourseCustomerSource={previewEnabled?:boolean;
+ support?:(id:string)=>Promise<{success:true;data:{membership:Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>,{success:true;canConfirm:boolean}>;advanced:Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>}}|{success:false;error:string}>;
  saveProfile:CustomerProfileWriter;saveNote:typeof saveCourseCustomerNote;
  browseCards:typeof browseCourseCards;reservations:typeof loadCourseCardReservations;
  bookings:CustomerBookingHistoryReader;purchases:typeof loadCourseCustomerPurchases;

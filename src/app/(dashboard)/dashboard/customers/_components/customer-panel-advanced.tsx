@@ -7,10 +7,10 @@ import { CustomerStageForm } from "../[id]/customer-stage-form";
 import { formatTWTime } from "@/lib/date-utils";
 import { CUSTOMER_FOLLOW_UP_RESULT_LABEL } from "@/lib/customer-follow-up";
 type Data=Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>["data"];
-export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,embedded=false,active=false,managerSimple=false}:{managerSimple?:boolean;embedded?:boolean;active?:boolean;customerId:string;readOnly:boolean;canEdit:boolean;onMutated:()=>void}) {
+export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,embedded=false,active=false,managerSimple=false,initial}:{initial?:{customerId:string;value:Data};managerSimple?:boolean;embedded?:boolean;active?:boolean;customerId:string;readOnly:boolean;canEdit:boolean;onMutated:()=>void}) {
   const reader = usePanelReader("customer-support", getCustomerPanelAdvanced);
   const [revision, setRevision] = useState(0);
-  const [result, setResult] = useState<{ customerId: string; data?: Data; error?: string } | null>(null);
+  const [result, setResult] = useState<{ customerId: string; data?: Data; error?: string } | null>(()=>initial?.customerId===customerId?{customerId,data:initial.value}:null);
   const [requested, setRequested] = useState(false);
   const generation = useRef(0);
   const visible = result?.customerId === customerId ? result : null;
@@ -19,6 +19,7 @@ export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,emb
   const loading = (requested || ((embedded || managerSimple) && active)) && !visible;
   const load = useCallback(() => { reader.invalidate(customerId); setResult(null); setRequested(true); setRevision(value => value + 1); }, [reader, customerId]);
   useEffect(() => {
+    if(initial?.customerId===customerId&&!requested&&revision===0)return;
     if (!requested && !((embedded || managerSimple) && active)) return;
     const current = ++generation.current;
     let live = true;
@@ -27,7 +28,7 @@ export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,emb
       setResult(response.success ? { customerId, data: response.data } : { customerId, error: response.error ?? "讀取失敗" });
     }).catch(() => { if (live && current === generation.current) setResult({ customerId, error: "讀取失敗，請重試" }); });
     return () => { live = false; };
-  }, [reader, customerId, requested, embedded, managerSimple, active, revision]);
+  }, [reader, customerId, requested, embedded, managerSimple, active, revision,initial?.customerId,initial?.value]);
   const c=data?.customer;
   if(managerSimple) return <section aria-label="LINE 綁定" className="border-t border-earth-100 py-2 text-sm">{loading && <p role="status">讀取LINE狀態中…</p>}{error && <p role="alert">{error}<button type="button" onClick={()=>void load()} className="min-h-11 px-3">重試</button></p>}{c && (readOnly || !canEdit ? <p>LINE：{c.lineLinkStatus === "LINKED" ? "已綁定" : "未綁定"}</p> : <LineBindingSection compact customerId={customerId} lineLinkStatus={c.lineLinkStatus} lineUserId={c.lineUserId} lineLinkedAt={c.lineLinkedAt?.toISOString()??null} lineBindingCode={c.lineBindingCode?.startsWith("trial:")?null:c.lineBindingCode} lineBindingCodeCreatedAt={c.lineBindingCodeCreatedAt?.toISOString()??null} canManageLineRebind={data.canManageLineRebind} canRunLineRebindDryRun={data.canRunLineRebindDryRun} activeLineRebindRequest={data.activeLineRebindRequest} onUpdated={()=>{void load();onMutated();}}/>)}</section>;
   const body = <div className="space-y-3 border-t border-earth-100 p-3 text-sm">

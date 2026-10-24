@@ -119,7 +119,8 @@
       "feat/beauty-module-20261020": false,
       "release/beauty-candidate-20261021": false,
       "fix/beauty-retire-spa-runtime": false,
-      "fix/remove-legacy-spa": false
+      "fix/remove-legacy-spa": false,
+      "review/beauty-spa-integration-20261024": false
     }
   }
 }

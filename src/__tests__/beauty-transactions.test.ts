@@ -472,3 +472,9 @@ describe('explicit back-office attendance correction',()=>{
   await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('未使用方案');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
  });
 });
+it('does not append another receipt or revision for a zero payment with unchanged discount',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,status:'COMPLETED'} as never);
+ vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'paid',amount:1000}] as never);
+ await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'OTHER',note:'',quotes:[{id:'b',revision:0,price:1000,collected:1000,discount:{kind:'AMOUNT',value:0}}]},{canDiscount:true});
+ expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+});

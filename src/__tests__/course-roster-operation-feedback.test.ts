@@ -185,3 +185,19 @@ it("native background reads pause during an unconfirmed write and cannot paint a
   await act(async()=>write.resolve({success:true}));expect(attendance().getAttribute("aria-label")).toBe("甲同學：已出席");
  } finally {vi.useRealTimers();}
 });
+
+it('uses the version port in the background and retains the same rows when unchanged',async()=>{
+ vi.useFakeTimers();
+ const read=vi.fn().mockResolvedValue({...data(),data:{...data().data,readVersion:'version-a'}}),sync=vi.fn().mockResolvedValue({success:true,version:'version-a',unchanged:true});
+ const source={read,sync,note:vi.fn(),labels:{list:"名單",pending:"待服務",attended:"已完成",unit:"次"},actions:()=>[] } as unknown as import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterSource;
+ await act(async()=>root.render(createElement(CourseRoster,{source,sportsNative:true,sessionId:'day:a',capacity:0,canCreate:false,canEdit:true})));
+ const original=host.querySelector("li")!;expect(original).toBeTruthy();
+ await act(async()=>vi.advanceTimersByTimeAsync(3100));
+ expect(read).toHaveBeenCalledOnce();expect(sync).toHaveBeenCalledWith('day:a','version-a');expect(host.querySelector("li")).toBe(original);
+ await act(async()=>root.render(createElement(CourseRoster,{source:{...source,readBlocked:true},sportsNative:true,sessionId:'day:a',capacity:0,canCreate:false,canEdit:true})));
+ await act(async()=>vi.advanceTimersByTimeAsync(3100));expect(sync).toHaveBeenCalledOnce();
+ await act(async()=>root.render(createElement(CourseRoster,{source,sportsNative:true,sessionId:'day:a',capacity:0,canCreate:false,canEdit:true})));
+ sync.mockResolvedValueOnce({success:true,version:'version-b',unchanged:false,data:{...data('背景更新').data,readVersion:'version-b'}});
+ await act(async()=>vi.advanceTimersByTimeAsync(3100));expect(read).toHaveBeenCalledOnce();expect(host.textContent).toContain('背景更新');
+ vi.useRealTimers();
+});
