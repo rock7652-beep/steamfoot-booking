@@ -81,9 +81,12 @@
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
+  white-space: nowrap;
 }
 
 .musicToolbar {
+  position: relative;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -95,11 +98,11 @@
 }
 
 .musicToolbar > * { flex-shrink: 0; }
-.scheduleSearch { position: relative; width: 144px; min-width: 120px; }
+.scheduleSearch { position: relative; width: 196px; min-width: 120px; }
 .legendShort { display: none; }
 
 @container course-schedule (max-width: 60rem) {
-  .scheduleSearch { width: 120px; }
+  .scheduleSearch { width: 144px; }
   .legendFull { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .legendShort { display: inline; }
   .musicToolbar { gap: 4px; }
@@ -107,4 +110,11 @@
 
 @container course-schedule (max-width: 42rem) {
   .musicToolbar { flex-wrap: wrap; }
+}
+
+.musicHeader input[type="date"] { width: 124px; flex-shrink: 0; }
+.scheduleSearch [aria-label="學員搜尋結果"] { min-width: 240px; }
+@container course-schedule (max-width: 60rem) {
+  .musicToolbar [aria-label="課表課型圖例"] { column-gap: 4px; }
+  .musicToolbar [aria-label="課表課型圖例"] > span { column-gap: 4px; }
 }

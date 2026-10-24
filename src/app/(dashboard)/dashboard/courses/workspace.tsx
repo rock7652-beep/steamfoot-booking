@@ -882,7 +882,7 @@ export function CourseWorkspace({
                 
               </div>
               <div
-                className="inline-flex shrink-0 rounded-lg border border-earth-200 bg-white p-1"
+                className="inline-flex shrink-0 rounded-lg border border-earth-200 bg-white p-0.5"
                 aria-label="課表視角"
               >
                 {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
@@ -927,7 +927,7 @@ export function CourseWorkspace({
                   ‹
                 </button>
                 <button
-                  className={`${styles.touchControl} ${button} min-h-9 px-3`}
+                  className={`${styles.touchControl} ${button} min-h-9 px-2`}
                   disabled={pending}
                   onClick={() => go(today)}
                 >

@@ -564,11 +564,11 @@ export function CourseScheduleBoard({
         <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : undefined}>
           {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "教師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
-          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : courseDisplayText("教練", businessProfile)}</label>
+          <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : courseDisplayText("教練", businessProfile)}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
-          <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
+          <span className="whitespace-nowrap text-sm font-medium">{businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
