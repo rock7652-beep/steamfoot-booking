@@ -5,14 +5,15 @@ import type {CourseRosterDisplayRow} from './roster-list';
 export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string;occupiedEndsAt:string;serviceName:string;technicianName:string;locationName:string;price:number;debit:boolean;available:number|null};
 export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
-export type CourseRosterData=Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null};
+export type CourseRosterData=Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={
+ sync?:(id:string,version?:string)=>Promise<{success:true;version:string;unchanged:boolean;data?:CourseRosterData}|{success:false;error:string}>;
  readBlocked?:boolean;
  statusMenu?:boolean;
  statusActions?:(row:NativeRosterBooking)=>{label:string;onSelect:()=>void;danger?:boolean}[];
  snapshot?:{sessionId:string;data:CourseRosterData};
  hideDetailAction?:boolean;
- read:(id:string)=>Promise<{success:true;data:Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null}}|{success:false;error:string}>;
+ read:(id:string)=>Promise<{success:true;data:CourseRosterData}|{success:false;error:string}>;
  note:typeof saveCourseRosterNote;
  batch?:typeof updateCourseRosterBatch;
  onOpen?:(row:NativeRosterBooking)=>void;

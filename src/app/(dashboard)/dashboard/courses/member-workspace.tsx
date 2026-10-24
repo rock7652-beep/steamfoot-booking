@@ -1,4 +1,5 @@
 "use client";
+import {DeferredCustomerSupport} from "./deferred-customer-support";
 import {canCloseConfirmedSettingsSave} from "@/lib/settings-save-outcome";
 import type {CourseCustomerSource} from "./member-source";
 import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
@@ -532,8 +533,9 @@ export function CourseMemberWorkspace({
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
                 <CourseCardBrowser load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
+              {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
               <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
-              <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/>
+              <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/></>}
               {!sportsNative&&detailFields}
               {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button></ExclusiveMenu>}
             </section>}

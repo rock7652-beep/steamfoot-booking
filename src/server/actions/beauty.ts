@@ -1,4 +1,5 @@
 "use server";
+import {traceBeautyRead} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
 import {persistBeautyCatalog} from '@/server/beauty/catalog';
 import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
@@ -289,7 +290,8 @@ export async function changeBeautyAttendance(input:unknown){
   return beautyTransaction(a,tx=>command(tx,a,d.requestKey,intent,()=>transition(tx,a,intent)));
  });
 }
-export async function moveBeautyAppointment(
+export async function moveBeautyAppointment(mode:"manager"|"member"|"work",input:unknown){return (await traceBeautyRead('roster.move',()=>moveBeautyAppointmentCore(mode,input))).value;}
+async function moveBeautyAppointmentCore(
   mode: "manager" | "member" | "work",
   input: unknown,
 ) {
@@ -415,7 +417,8 @@ export async function moveBeautyAppointment(
     );
   });
 }
-export async function collectBeautyPayment(input: unknown) {
+export async function collectBeautyPayment(input:unknown){return (await traceBeautyRead('collection.write',()=>collectBeautyPaymentCore(input))).value;}
+async function collectBeautyPaymentCore(input: unknown) {
   return result(async () => {
     const a = await beautyManager("transaction.create", true);
     await requireStoreFeature(a.storeId, FEATURES.TRANSACTION_MANAGEMENT);
@@ -424,7 +427,8 @@ export async function collectBeautyPayment(input: unknown) {
     return beautyTransaction(a, (tx) => collect(tx,a,d,{canDiscount}));
   });
 }
-export async function readBeautyCollection(ids:unknown){
+export async function readBeautyCollection(ids:unknown){return (await traceBeautyRead('collection.read',()=>readBeautyCollectionCore(ids))).value;}
+async function readBeautyCollectionCore(ids:unknown){
  return result(async()=>{
   const a=await beautyManager("transaction.create");await requirePermission("booking.read");await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   const wanted=z.array(key).min(1).max(12).refine(a=>new Set(a).size===a.length).parse(ids);

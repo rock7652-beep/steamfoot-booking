@@ -1,0 +1,2260 @@
+[
+  {
+    "operation": "roster.full",
+    "traceId": "9181557e-c2fc-4e73-be09-6e89b0b0cd08",
+    "ok": true,
+    "totalMs": 175.5,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 84.3,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 15.3,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 7.4,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 4.3,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 18,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "cc36dce3-43bf-4555-8599-48c8c7d695ab",
+    "ok": true,
+    "totalMs": 56,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 44.4,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.4,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 7.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "bd36d812-e1d6-4976-9d1f-bbb752bf78af",
+    "ok": true,
+    "totalMs": 26.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 18.5,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.4,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "31e148db-9c05-4e7e-a1a0-47da54563a04",
+    "ok": true,
+    "totalMs": 56.7,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 14.8,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 13.5,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 11.2,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.4,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 3.3,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 41.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.support",
+    "traceId": "474b1582-7fa7-4c64-8c33-00d542798c88",
+    "ok": true,
+    "totalMs": 46.7,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.5,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 12.1,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "membership",
+        "durationMs": 15.5,
+        "ok": true
+      },
+      {
+        "name": "advanced",
+        "durationMs": 18,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "a9a35ab3-d8bb-4d7c-a217-b7d02accdd2e",
+    "ok": true,
+    "totalMs": 57.2,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 11.9,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 12.5,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 19.3,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 44.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "95df4409-d981-40f7-80ec-8094c9a61563",
+    "ok": true,
+    "totalMs": 52.9,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 14.4,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 12.1,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 12.6,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 2,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 2,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 0.9,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 38.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "8e309ce5-3ac4-4854-9e9b-f3c609a2ae7f",
+    "ok": true,
+    "totalMs": 35.6,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 24.7,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 3.5,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 5.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "4117f8d9-4bde-4a86-aa27-4ac82561eeec",
+    "ok": true,
+    "totalMs": 36.1,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 24.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "8e814b6f-e175-4045-ac8d-b57e66a2414f",
+    "ok": true,
+    "totalMs": 34.5,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.5,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 22,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "8b37b742-9194-475a-a49e-5104aadae103",
+    "ok": true,
+    "totalMs": 86.7,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 0.9,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 14,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 39.1,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 26.5,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 3.4,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 6.9,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.2,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 3,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 46.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "collection.write",
+    "traceId": "33bcf979-58b2-4bed-9723-f68524b4a9d7",
+    "ok": true,
+    "totalMs": 61,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 2.6,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 18.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "a9dab740-1199-4b8c-94e2-a1e5b812c4b6",
+    "ok": true,
+    "totalMs": 67.4,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 0.8,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 17.9,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 36.3,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 17,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 3.5,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 2.6,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 30.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "e1987e38-aa89-493b-808e-911c4dd9ce69",
+    "ok": true,
+    "totalMs": 54.7,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 20.8,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 16.9,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 6.3,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 1.9,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 3.1,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 33.6,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "6d02cdf4-9f80-42b2-bd07-e51581c25158",
+    "ok": false,
+    "totalMs": 35.9,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 4,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 4.3,
+        "ok": false
+      },
+      {
+        "name": "write",
+        "durationMs": 35.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "2a12d7ae-3cbf-47f3-94bf-4b2cc064404f",
+    "ok": true,
+    "totalMs": 81.3,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 0.7,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 31.8,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 49,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 16.2,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.9,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 7.1,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 2.4,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 32.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "3f436fa6-9880-4bcb-ab28-4bf62c107e20",
+    "ok": true,
+    "totalMs": 90.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 70.9,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 0.2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 6.7,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 4.5,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 5.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.attendance",
+    "traceId": "69dc233e-fbc7-4952-8981-e8e3109e6d71",
+    "ok": false,
+    "totalMs": 14.8,
+    "spans": [
+      {
+        "name": "write",
+        "durationMs": 14.6,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "206e2b3e-05b4-43d7-a531-9b7de55d1dcf",
+    "ok": true,
+    "totalMs": 75.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 48.6,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 3.1,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.8,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 5.6,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 8.6,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.cancel",
+    "traceId": "282219cf-de94-4e47-937e-1075c918a7a2",
+    "ok": true,
+    "totalMs": 69.4,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 0.7,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 14.9,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 34.5,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 18.4,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 6.5,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 1.9,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 34.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "cb8db76f-c557-40ae-a669-4c51d1f4d234",
+    "ok": true,
+    "totalMs": 42.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 21.6,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 3.9,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.7,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 3.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "20fbe69f-0de7-4b91-93cd-5837aa0c7665",
+    "ok": true,
+    "totalMs": 39.9,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 24.1,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.4,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.5,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 2.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "22a10b47-063c-4b81-9b82-63fe89948360",
+    "ok": true,
+    "totalMs": 35.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 29.5,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "350a51dd-1e69-4524-8b61-b3c9986c0282",
+    "ok": true,
+    "totalMs": 21.6,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.3,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.2,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 1.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "487a9dec-b85c-4561-99ac-cc9268cde018",
+    "ok": true,
+    "totalMs": 17,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.3,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "08420d86-ea39-4c43-a6d7-8b07b584cc85",
+    "ok": false,
+    "totalMs": 14.5,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.6,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "c4685321-9bf7-4b1a-9372-acc7d142c598",
+    "ok": false,
+    "totalMs": 10.9,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 10.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "23e0a5b5-e7a4-4283-8618-9c6f0917a1aa",
+    "ok": true,
+    "totalMs": 60.9,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 38.4,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 5.9,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 6.1,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 1.8,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 2.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "a1c183c3-5a14-40ff-a719-7890a90f78e7",
+    "ok": true,
+    "totalMs": 99.9,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 18.3,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 10.5,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 32.8,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.8,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 2.3,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 81.6,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "cdb8e996-0d10-46c7-8635-a9e3eb351be7",
+    "ok": true,
+    "totalMs": 53,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 32.1,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 5.3,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 3,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 6.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "005979bf-3ecd-4d59-bc13-3ed5adff750c",
+    "ok": true,
+    "totalMs": 50.6,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 11.6,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 9.9,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 12.7,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.3,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 38.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "6ab60e4f-081d-4e85-82b6-2006a236b5c8",
+    "ok": true,
+    "totalMs": 39.9,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 26.8,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2.8,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.3,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 2.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "1d848b59-c842-405f-8eb9-5ff9fbbf3b64",
+    "ok": true,
+    "totalMs": 53.5,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 15,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.1,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 13.2,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.4,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 38.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "bc84968f-5de9-483d-b8a0-0327c611ff4d",
+    "ok": true,
+    "totalMs": 69.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 40.7,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 4.9,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 7.3,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 4.4,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 5.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "20796c9f-e517-4130-a14f-f467f4ad0ae9",
+    "ok": true,
+    "totalMs": 26.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 18.9,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.9,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "2f293063-4776-4311-bba4-00b00e6e45b2",
+    "ok": true,
+    "totalMs": 17.2,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.8,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "08c083e2-1342-4994-8d7a-dc63984f4920",
+    "ok": true,
+    "totalMs": 47.6,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 11.3,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.4,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 13.4,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 0.9,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 36.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.support",
+    "traceId": "028af5cb-6ad6-4897-8bf4-225d3f3abc67",
+    "ok": true,
+    "totalMs": 41.5,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.5,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.2,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "membership",
+        "durationMs": 12.2,
+        "ok": true
+      },
+      {
+        "name": "advanced",
+        "durationMs": 15.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "bb666fed-d125-4f75-a478-a84f20ce1cee",
+    "ok": true,
+    "totalMs": 49.7,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.4,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 13.7,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 11.4,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1.4,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 36.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "814dded5-bb5a-4b0e-aef5-c5a25b6dea3e",
+    "ok": true,
+    "totalMs": 40.6,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 11.4,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 9.9,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 8.9,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 0.9,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 0.8,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 29.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "02f5ef09-f3c0-4ace-8062-34a09a501b61",
+    "ok": true,
+    "totalMs": 17.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.9,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.6,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "5730424e-4355-46ad-ae15-5559e8e08706",
+    "ok": true,
+    "totalMs": 16.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.9,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "05f2bae6-cfa8-4cfb-a401-1379d3389d82",
+    "ok": true,
+    "totalMs": 16.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 11.8,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "632a0c07-f806-40ac-9c67-7145a569a890",
+    "ok": true,
+    "totalMs": 15.6,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 11.8,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "25bac7b1-8e63-4a17-b242-dd8c01e2c3c3",
+    "ok": true,
+    "totalMs": 19.6,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 14.5,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.3,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "285fb745-9426-4403-92b6-b72c84c2a9b5",
+    "ok": true,
+    "totalMs": 16.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.3,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "58c86f47-473e-4930-8f26-b8d1550123b0",
+    "ok": true,
+    "totalMs": 15.5,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 11.6,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "5353bfbd-9252-4bbd-af19-a5fe52c894eb",
+    "ok": true,
+    "totalMs": 124.2,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 52,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 8,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 9.1,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 7.4,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 24.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "2fa16e93-d5f7-43a1-a8ea-f285d7f33bb6",
+    "ok": true,
+    "totalMs": 25.1,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 14.9,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.5,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 5.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "b51be9cd-a4da-45cb-96c3-8f778653cea9",
+    "ok": true,
+    "totalMs": 23.2,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 17.6,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "1c29eafe-ab06-4410-993d-82661adcbed7",
+    "ok": true,
+    "totalMs": 44.9,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 11.8,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 10.3,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 10,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.1,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 2.6,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 33,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.support",
+    "traceId": "57c5e1fd-de7a-4636-bfd1-11392840949a",
+    "ok": true,
+    "totalMs": 67.3,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 23.6,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 15.6,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 3,
+        "ok": true
+      },
+      {
+        "name": "advanced",
+        "durationMs": 24.9,
+        "ok": true
+      },
+      {
+        "name": "membership",
+        "durationMs": 24.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "b371ae28-c7b3-41df-9b09-82e014296424",
+    "ok": true,
+    "totalMs": 54.3,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.9,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.2,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 16.6,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.4,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.8,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 2.8,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 41.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "b9f8d25a-1de6-4aa8-90b5-4a17b79143aa",
+    "ok": true,
+    "totalMs": 51.6,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.9,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.3,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 16.5,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.1,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 0.9,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 38.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "166a57de-5172-4ae7-aee4-1825c056b227",
+    "ok": true,
+    "totalMs": 38.7,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.5,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 25.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "12016346-327c-432d-ba55-6871a00104a9",
+    "ok": true,
+    "totalMs": 34.5,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 10.2,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 24.2,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "fabd5224-3cde-47c2-a9f6-a82fa8737e22",
+    "ok": true,
+    "totalMs": 55.3,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 30,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 4.5,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 4.8,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 4.9,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 3.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "a939563e-d30b-4ace-9034-4d7d5bc693e0",
+    "ok": true,
+    "totalMs": 65.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 56.7,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 5.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.version",
+    "traceId": "dfc93fd3-526c-4d34-8f68-0e825e738cb2",
+    "ok": true,
+    "totalMs": 17.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 13.1,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 1.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "da2dc2de-8c96-439d-9804-e322ae15d129",
+    "ok": true,
+    "totalMs": 52.8,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.4,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 14.7,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 12.3,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.3,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.5,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 39.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.support",
+    "traceId": "179bccea-a3ce-4133-aee2-ba4fdec03e25",
+    "ok": true,
+    "totalMs": 41.2,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.5,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 12.2,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "membership",
+        "durationMs": 14.2,
+        "ok": true
+      },
+      {
+        "name": "advanced",
+        "durationMs": 15.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "92e77db7-f27f-4974-96bc-a5e323195bd7",
+    "ok": true,
+    "totalMs": 53.2,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.8,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 11.7,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 12.6,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 5.4,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 40.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "84d877a8-77ad-4984-b400-cc4396155747",
+    "ok": true,
+    "totalMs": 49.8,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 14.3,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 12,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 11.8,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.7,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 1.6,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 1,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 35.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "f77e6f81-20ae-4d57-abac-452fe90ac651",
+    "ok": true,
+    "totalMs": 40.2,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 12.3,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 27.9,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cash",
+    "traceId": "3c87ccd4-65e2-4bd8-ac59-7d5db4ec3264",
+    "ok": true,
+    "totalMs": 37,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 13.7,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 23.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.profile.write",
+    "traceId": "9f8813d8-bea3-4979-ba55-440a7136e772",
+    "ok": false,
+    "totalMs": 2,
+    "spans": []
+  },
+  {
+    "operation": "customer.profile.write",
+    "traceId": "88ffd384-bcd4-47cd-9b66-e6c178e8cb68",
+    "ok": false,
+    "totalMs": 1.6,
+    "spans": []
+  },
+  {
+    "operation": "customer.profile.write",
+    "traceId": "76814f04-57f1-4f49-a264-bd2604bcc5cd",
+    "ok": true,
+    "totalMs": 37.1,
+    "spans": []
+  },
+  {
+    "operation": "customer.profile.write",
+    "traceId": "8e640f26-d0df-451a-b8cc-a854f789177c",
+    "ok": false,
+    "totalMs": 19,
+    "spans": []
+  },
+  {
+    "operation": "customer.purchase.write",
+    "traceId": "0c84f4aa-edf3-49b5-a7ef-28c489cddbe1",
+    "ok": true,
+    "totalMs": 110.2,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 17.3,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 3.5,
+        "ok": true
+      },
+      {
+        "name": "db_lock",
+        "durationMs": 3.2,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 25.5,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.cards",
+    "traceId": "4bfc6e92-28dc-4421-8885-6050e91905f3",
+    "ok": true,
+    "totalMs": 112,
+    "spans": [
+      {
+        "name": "scope_authorization",
+        "durationMs": 37.6,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 13.6,
+        "ok": true
+      },
+      {
+        "name": "customer_permission",
+        "durationMs": 12.8,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 3.2,
+        "ok": true
+      },
+      {
+        "name": "cards",
+        "durationMs": 31.5,
+        "ok": true
+      },
+      {
+        "name": "holds_ledger",
+        "durationMs": 2.8,
+        "ok": true
+      },
+      {
+        "name": "data",
+        "durationMs": 74.3,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "customer.purchase.write",
+    "traceId": "e4cd43cf-de32-489c-a4fc-af42bd6772fd",
+    "ok": true,
+    "totalMs": 72.7,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 12.9,
+        "ok": true
+      },
+      {
+        "name": "customer_scope",
+        "durationMs": 1.2,
+        "ok": true
+      },
+      {
+        "name": "db_lock",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 1.4,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.full",
+    "traceId": "98daea09-b778-4953-a27f-d2573d017d5d",
+    "ok": true,
+    "totalMs": 31.4,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 18.3,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 0.2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 5.6,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.8,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 1.8,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "roster.cancel",
+    "traceId": "a3cd06f4-126b-484a-ba76-b85517319100",
+    "ok": true,
+    "totalMs": 100.2,
+    "spans": [
+      {
+        "name": "db_lock",
+        "durationMs": 2.1,
+        "ok": true
+      },
+      {
+        "name": "db_work",
+        "durationMs": 22.7,
+        "ok": true
+      },
+      {
+        "name": "write",
+        "durationMs": 61.5,
+        "ok": true
+      },
+      {
+        "name": "authorization",
+        "durationMs": 19.7,
+        "ok": true
+      },
+      {
+        "name": "permissions",
+        "durationMs": 2.2,
+        "ok": true
+      },
+      {
+        "name": "version",
+        "durationMs": 5.7,
+        "ok": true
+      },
+      {
+        "name": "bookings",
+        "durationMs": 2.9,
+        "ok": true
+      },
+      {
+        "name": "metadata",
+        "durationMs": 3.6,
+        "ok": true
+      },
+      {
+        "name": "synchronize",
+        "durationMs": 38.3,
+        "ok": true
+      }
+    ]
+  }
+]

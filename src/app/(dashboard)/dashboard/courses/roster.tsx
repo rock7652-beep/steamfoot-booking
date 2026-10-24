@@ -101,7 +101,7 @@ export function CourseRoster({
   onBusyChange,refreshVersion=0,
   sessionId,
   capacity,
-  canEdit,
+  canEdit:canEditProp,
   canCreate,
   allowTrialActions = true,
   view = "roster",
@@ -147,6 +147,8 @@ export function CourseRoster({
   roomId?: string;
   initialAssignedCoach?: string;
 }) {
+  const [sourceReadFailed,setSourceReadFailed]=useState(false);
+  const canEdit=canEditProp&&!sourceReadFailed;
   const router = useRouter();
   const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
   const noteEditorTitleId = useId();
@@ -338,12 +340,15 @@ export function CourseRoster({
     }
   }
 
+  const sourceVersion=useRef<string|undefined>(undefined);
+  const sourceSync=source?.sync;
   const sourceReadBlocked=useRef(false);sourceReadBlocked.current=!!source?.readBlocked;
   const sourceRead=source?.read;
   const sourceSnapshot=source?.snapshot;
   useEffect(()=>{
     if(!sourceSnapshot||sourceSnapshot.sessionId!==sessionId)return;
     ++readVersion.current;
+    sourceVersion.current=sourceSnapshot.data.readVersion;
     const current=sourceSnapshot.data;
     setRoster(current.roster);setSession(current.session);setCards(current.cards);
     setSharedCardState(current.sharedCardState??"ENABLED");setLoaded(true);
@@ -352,15 +357,18 @@ export function CourseRoster({
     let active = true;
     let readInFlight = false;
 
-    const refresh = () => {
+    sourceVersion.current=undefined;
+    const refresh = (checkVersion=false) => {
       if (sourceReadBlocked.current || (sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
       readInFlight = true;
       const version = ++readVersion.current;
-      return (sourceRead?sourceRead(sessionId):sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
+      return (sourceSync&&checkVersion?sourceSync(sessionId,sourceVersion.current):sourceRead?sourceRead(sessionId):sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
 
         .then((result) => {
           if (sourceReadBlocked.current || !active || version !== readVersion.current || currentSession.current !== sessionId) return null;
-          if (result.success) {
+          if(result.success&&"unchanged" in result&&result.unchanged){setSourceReadFailed(false);return true;}
+          if (result.success&&result.data) {
+            setSourceReadFailed(false);sourceVersion.current="readVersion" in result.data?result.data.readVersion as string|undefined:undefined;
             setSession(result.data.session);
             setTrial(result.data.trial);
             setRoster(result.data.roster);
@@ -373,12 +381,13 @@ export function CourseRoster({
             setRequestKey((current) => current || crypto.randomUUID());
             return true;
           } else {
-            setMessage(result.error);
+            if(sourceRead)setSourceReadFailed(true);
+            setMessage("error" in result?result.error:"名單回應不完整");
             return false;
           }
         })
         .catch(() => {
-          if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
+          if (active && version === readVersion.current){if(sourceRead)setSourceReadFailed(true);setMessage("讀取失敗，現有名單已保留，請重試");}
           return false;
         }).finally(() => { readInFlight = false; });
     };
@@ -389,7 +398,7 @@ export function CourseRoster({
       }
     };
     if (sportsNative && view === "roster") {
-      const stop = startSportsBackgroundSync(refresh, () => operationScope.current.locked || operationScope.current.uncertain || operationScope.current.inFlight.size > 0);
+      const stop = startSportsBackgroundSync(()=>refresh(true), () => operationScope.current.locked || operationScope.current.uncertain || operationScope.current.inFlight.size > 0);
       return () => { active = false; stop(); };
     }
     const timer =
@@ -404,7 +413,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view, sportsNative, sportsDetailReader,refreshVersion,sourceRead]);
+  }, [sessionId, view, sportsNative, sportsDetailReader,refreshVersion,sourceRead,sourceSync]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -1364,7 +1373,7 @@ export function CourseRoster({
           </section>
 
         </div>
-      ) : <CourseRosterList labels={source?{identity:"顧客／電話",owner:"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
+      ) : <CourseRosterList disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
         const leave=["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"");
         const deducted=booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.status==="NO_SHOW";
         const label=booking.absenceKind==="TEACHER_ABSENT"?"本堂免扣":booking.status==="ATTENDED"?"已出席":leave?(booking.absenceKind==="GROUP_LEAVE_FORFEITED"?"缺席・扣堂":"缺席・不扣堂"):booking.status==="NO_SHOW"?(booking.bookingKind==="TRIAL"?"缺席":"缺席・扣堂"):booking.status==="CANCELLED"?"已取消":"待點名";
@@ -1689,7 +1698,7 @@ export function CourseRoster({
       {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {void load(); router.refresh();}} />}
       {openActionMenu && typeof document !== "undefined" && createPortal(<>
         <div data-roster-action-menu className="fixed z-[141] flex max-h-[calc(100dvh-1rem)] w-48 flex-col gap-1 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
-          {actionBooking && source ? <>{!source.hideDetailAction&&<button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約詳情</button>}{(openActionMenu.kind==="status"&&source.statusActions?source.statusActions(actionBooking):source.actions(actionBooking)).map(action=><button key={action.label} type="button" role="menuitem" className={`${button} ${action.danger?"text-red-700":""}`} disabled={rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);action.onSelect();}}>{action.label}</button>)}</> : actionBooking ? <>
+          {actionBooking && source ? <>{!source.hideDetailAction&&<button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約詳情</button>}{(openActionMenu.kind==="status"&&source.statusActions?source.statusActions(actionBooking):source.actions(actionBooking)).map(action=><button key={action.label} type="button" role="menuitem" className={`${button} ${action.danger?"text-red-700":""}`} disabled={sourceReadFailed||rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);action.onSelect();}}>{action.label}</button>)}</> : actionBooking ? <>
             {canEdit && !musicLayout && actionBooking.status !== "CANCELLED" && (actionBooking.companionIndex || (canCreate && sharedCardState === "ENABLED" && actionBooking.canAddCompanion)) && <button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null); setCompanionEditor({bookingId: actionBooking.id, add: !actionBooking.companionIndex});}}>{actionBooking.companionIndex ? "變更使用方式" : "新增同行"}</button>}
             {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0,fixed:actionBooking.sportsFixed});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName});}}>缺席・不扣堂</button></>}
             {canEdit && !musicLayout && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);run(() => (source?.batch??updateCourseRosterBatch)({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}

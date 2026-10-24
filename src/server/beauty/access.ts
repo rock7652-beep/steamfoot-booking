@@ -1,3 +1,4 @@
+import {beautyReadStep} from './read-timing';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -101,12 +102,12 @@ export async function beautyTransaction<T>(
 ) {
   return beautyPrisma.$transaction(
     async (tx) => {
-      const rows = await tx.$queryRaw<
+      const rows = await beautyReadStep('db_lock',()=>tx.$queryRaw<
         Array<{ id: string }>
-      >`SELECT id FROM "Store" WHERE id=${a.storeId} AND "industryModule"::text='BEAUTY' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
+      >`SELECT id FROM "Store" WHERE id=${a.storeId} AND "industryModule"::text='BEAUTY' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`);
       if (rows.length !== 1)
         throw new AppError("FORBIDDEN", "店家已停用或模組已變更");
-      return work(tx);
+      return beautyReadStep('db_work',()=>work(tx));
     },
     { timeout: 20000 },
   );

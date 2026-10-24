@@ -155,6 +155,7 @@ export type Session = {
 export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
+ readBlocked?:boolean;
  snapshotVersion?:string;
  move?:{clipboard:CourseMoveClipboard;onPaste:(target:{date:string;time:string;roomId:string;coachId:string})=>void;onCancel:()=>void};
  read:(date:string)=>Promise<{success:true;data:CourseCalendarSnapshot;onAccepted?:()=>void}|{success:false;error:string}>;
@@ -451,7 +452,7 @@ export function CourseWorkspace({
   useEffect(() => {
     // Keep the calendar current even with the day sheet closed. Nested roster
     // dialogs own their reads; never refresh their parent during a transaction.
-    if (view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
+    if (calendarSource?.readBlocked || view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
     if (sportsNative) {
       return startSportsBackgroundSync(
         () => refreshNativeCalendar(nativeDateRef.current,false,true),
@@ -476,7 +477,7 @@ export function CourseWorkspace({
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
+  }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
