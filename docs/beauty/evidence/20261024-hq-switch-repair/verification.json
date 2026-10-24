@@ -1,0 +1,16 @@
+{
+  "baseCommit": "6092de9111ec5f778d2f003c49657c4c073339d4",
+  "localUiFix": "05947a1c",
+  "branch": "fix/hq-beauty-module-restore-20261024",
+  "testFiles": 21,
+  "testsPassed": 208,
+  "newCases": 9,
+  "typeScript": "passed",
+  "eslint": "passed",
+  "databaseOperations": false,
+  "migration": false,
+  "deployment": false,
+  "push": false,
+  "browserAcceptance": false,
+  "musicReleaseFullyMerged": false
+}

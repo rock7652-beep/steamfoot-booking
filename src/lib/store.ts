@@ -1,5 +1,6 @@
 import { memoizeReadRequest } from "@/server/services/read-request-memo";
 import { cache } from "react";
+import { RUNTIME_INDUSTRY_MODULES } from "@/lib/industry-modules";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -27,7 +28,7 @@ async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<stri
     const children = await prisma.store.findMany({
       where: {
         parentStoreId: { in: frontier },
-        industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+        industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
       },
       select: { id: true },
     });
@@ -52,14 +53,14 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   if (user.customerReviewStoreId) {
     const { prisma } = await import("@/lib/db");
     return prisma.store.findMany({
-      where: { id: user.customerReviewStoreId, industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: user.customerReviewStoreId, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true },
     });
   }
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     const rows=await prisma.store.findMany({
-      where: { industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true, industryModule:true,shopConfig:{select:{address:true}} },
       orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
@@ -70,7 +71,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const [ownStore] = await prisma.store.findMany({
     where: {
       id: user.storeId,
-      industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, parentStoreId: true, slug: true, name: true, isDefault: true },
     take: 1,
@@ -91,7 +92,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const stores = await prisma.store.findMany({
     where: {
       id: { in: ids },
-      industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, slug: true, name: true, isDefault: true, createdAt: true },
     orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
@@ -142,7 +143,7 @@ async function resolveAuthorizedStoreAccess(
   if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
     const { prisma } = await import("@/lib/db");
     const [store] = await prisma.store.findMany({
-      where: { id: requestedStoreId, industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: requestedStoreId, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true },
       take: 1,
     });
@@ -320,7 +321,7 @@ export const getStoreOptions = cache(async (user: SessionLike): Promise<Accessib
   if (user.role !== "ADMIN") return stores;
   const { prisma } = await import("@/lib/db");
   const archived = await prisma.store.findMany({
-    where: { archivedAt: { not: null }, industryModule: { not: "SPA" } }, select: { id: true },
+    where: { archivedAt: { not: null }, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] } }, select: { id: true },
   });
   const ids = new Set(archived.map((store) => store.id));
   return stores.filter((store) => !ids.has(store.id));

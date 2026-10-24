@@ -2,6 +2,12 @@
 export type IndustryModuleId = "steamfoot" | "spa" | "course" | "beauty";
 export type PersistedIndustryModule = "STEAMFOOT" | "SPA" | "COURSE" | "BEAUTY";
 
+/** Active modules supported by this build. Keep HQ discovery and runtime validation in sync. */
+export const RUNTIME_INDUSTRY_MODULES = ["STEAMFOOT", "COURSE", "BEAUTY"] as const satisfies readonly PersistedIndustryModule[];
+export function isRuntimeIndustryModule(value: string): value is typeof RUNTIME_INDUSTRY_MODULES[number] {
+  return RUNTIME_INDUSTRY_MODULES.some(module => module === value);
+}
+
 export type IndustryFeatureSet = {
   packages: boolean;
   makeupCredits: boolean;

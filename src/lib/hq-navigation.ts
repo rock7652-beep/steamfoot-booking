@@ -8,6 +8,8 @@ export function isHqPlatformPath(pathname: string): boolean {
 export function hqStoreSwitchDestination(search: string,pathname?:string,targetModule?:string): string {
   const old=new URLSearchParams(search),next=new URLSearchParams();
   if(old.get("devicePreview")==="1")next.set("devicePreview","1");
+  // A cross-module switch must enter the selected module, never retain another store's draft URL.
+  if(targetModule==="BEAUTY")return `/hq/dashboard/beauty${next.size?`?${next}`:""}`;
   if(targetModule==="COURSE"&&(pathname==="/hq/dashboard/courses"||pathname==="/hq/dashboard/teachers")){
     const view=old.get("view");
     if(pathname.endsWith("/courses")&&view&&["catalog","plans","rooms","customers","settings","analytics"].includes(view))next.set("view",view);

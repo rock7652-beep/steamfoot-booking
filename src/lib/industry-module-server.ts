@@ -4,7 +4,7 @@ import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-import { resolveIndustryModuleId, type IndustryModuleId } from "@/lib/industry-modules";
+import { isRuntimeIndustryModule, resolveIndustryModuleId, type IndustryModuleId } from "@/lib/industry-modules";
 
 const MODULE_LABELS: Record<IndustryModuleId, string> = {
   steamfoot: "蒸足",
@@ -33,7 +33,7 @@ export async function getStoreIndustryModule(
   if (stores[0].industryModule === "SPA") {
     throw new AppError("FORBIDDEN", "SPA 模組已移除");
   }
-  if (!["STEAMFOOT", "COURSE", "BEAUTY"].includes(stores[0].industryModule)) {
+  if (!isRuntimeIndustryModule(stores[0].industryModule)) {
     throw new AppError("FORBIDDEN", "店舖模組設定無效");
   }
   return resolveIndustryModuleId(stores[0].industryModule);
