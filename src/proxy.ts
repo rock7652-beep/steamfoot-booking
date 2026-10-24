@@ -3,7 +3,7 @@ import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
 import { retiredStoreResponse } from "@/lib/retired-store-response";
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
-import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
+import { isCanonicalMarketingRequest, MARKETING_ORIGIN, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
@@ -648,6 +648,17 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  // Auth.js normalizes the request origin to AUTH_URL in production. On a
+  // Vercel alias that can turn the homepage rewrite into an external request
+  // whose legacy /pricing/business redirect returns to the same alias root.
+  // Resolve only this public document before the authenticated wrapper.
+  const incomingHost = (req.headers.get("host") ?? req.nextUrl.host).toLowerCase().split(":")[0];
+  if (process.env.VERCEL_ENV === "production" && req.nextUrl.pathname === "/" &&
+      incomingHost.endsWith(".vercel.app") && ["GET", "HEAD"].includes(req.method)) {
+    const destination = new URL(MARKETING_ORIGIN);
+    destination.search = req.nextUrl.search;
+    return NextResponse.redirect(destination, 308);
+  }
   if (isRetiredModuleRoute(req.nextUrl.pathname, req.nextUrl.searchParams)) {
     return new NextResponse("此模組已移除", { status: 410, headers: { "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
   }

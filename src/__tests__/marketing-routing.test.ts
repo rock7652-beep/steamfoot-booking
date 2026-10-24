@@ -11,6 +11,25 @@ function route(path: string, role?: string, host = "www.steamfoot.com", cookie?:
 }
 
 describe("marketing URLs preserve store routing", () => {
+  it("redirects the production Vercel homepage once to the fixed public origin", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    try {
+      const response = route("/?utm_source=test&store=nuanmu", undefined, "steamfoot-booking.example.vercel.app");
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe("https://www.steamfoot.com/?utm_source=test&store=nuanmu");
+      expect(route("/").headers.get("location")).toBeNull();
+      expect(route("/hq/login", undefined, "steamfoot-booking.example.vercel.app").headers.get("location")).toBeNull();
+      expect(route("/", undefined, "steamfoot-zhubei.com").headers.get("location")).toBe("https://steamfoot-zhubei.com/s/zhubei/");
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it("keeps Preview homepage rewrites on the Preview origin", () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    try {
+      const response = route("/?utm_source=test", undefined, "preview.vercel.app");
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-middleware-rewrite")).toBe("https://preview.vercel.app/pricing/business?utm_source=test");
+    } finally { vi.unstubAllEnvs(); }
+  });
   it.each(["oa-permissions.png", "oa-invite.png", "friend.png", "developers-roles.webp", "create-entry.jpg"])("serves trial guide asset %s without login redirects", (file) => {
     const response = route(`/pricing/trial-guides/${file}`);
     expect(response.headers.get("location")).toBeNull();
