@@ -26,3 +26,9 @@
 ## 畫面
 
 [調整前](evidence/20261024-service-checkout/calendar-completed.png)；調整後：[1440 桌機](evidence/20261024-calendar-density/day-1440.png)、[1366 桌機](evidence/20261024-calendar-density/day-1366.png)、[1024](evidence/20261024-calendar-density/day-1024.png)、[768](evidence/20261024-calendar-density/day-768.png)、[390](evidence/20261024-calendar-density/day-390.png)、[觸控模式](evidence/20261024-calendar-density/touch-768.png)、[週表](evidence/20261024-calendar-density/week-768.png)、[月表](evidence/20261024-calendar-density/month-768.png)、[共用收支](evidence/20261024-calendar-density/cashbook.png)、[租借入口](evidence/20261024-calendar-density/room-rental-entry.png)。前後為不同合成案例，供比較排列及密度，不代表實際店家資料或真機簽收。
+
+## 隔離部署結果
+
+完整程式 `f6e7b839d5b0d3f0e1c966a6ebd1dc5c228bf328` 已更新至 [新版隔離測試站](https://steamfoot-booking-pljv2w3d8-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty?tab=班表)。部署 `dpl_EBb3BBY8Se24RA5YgNDivq3baHgn`，READY／Preview（target=null），遠端完整建置亦通過。部署前再次核對分支專屬 BEAUTY_NOTIFICATIONS_ENABLED=0；無 migration，未操作正式站或遠端既有資料。
+
+本輪登入及權限驗收使用本機正式模式產物，遠端核對部署狀態與確切 commit；未另建立可分享存取連結或宣稱遠端重新登入／真機驗收。本機驗收服務及臨時登入狀態已收起，合成資料歷史保留。
