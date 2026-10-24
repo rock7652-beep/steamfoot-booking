@@ -1017,8 +1017,8 @@ export function CourseWorkspace({
               </span>}
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
-              <div className="flex shrink-0 gap-2">
-                {cashbookShortcut}
+              <div className={calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":"flex shrink-0 gap-2"}>
+                {calendarSource&&<ServiceCalendarLegend/>}{cashbookShortcut}
                 {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
 
                 {canCreate && (
@@ -1099,7 +1099,7 @@ export function CourseWorkspace({
             )}
           </div>}
           {calendarSource&&(scheduleQuery.trim()||assignedCoachFilter!=="all")&&!serviceHasResults&&<p role="status" className="text-sm text-earth-600">查無符合顧客</p>}
-          {calendarSource&&scheduleMode==="month"&&<div className="flex flex-wrap items-center gap-2">{serviceFilters}<ServiceCalendarLegend/></div>}
+          {calendarSource&&scheduleMode==="month"&&<div className="flex flex-wrap items-center gap-2">{serviceFilters}</div>}
           {businessProfile === "MUSIC" && scheduleLegend}
             {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">

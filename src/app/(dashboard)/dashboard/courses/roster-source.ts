@@ -6,6 +6,8 @@ export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string
 export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
 export type CourseRosterSource={
+ statusMenu?:boolean;
+ hideDetailAction?:boolean;
  read:(id:string)=>Promise<{success:true;data:Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null}}|{success:false;error:string}>;
  note:typeof saveCourseRosterNote;
  batch?:typeof updateCourseRosterBatch;

@@ -455,3 +455,20 @@ it('rejects discount without grant, stale money snapshots and discounts below co
  await expect(collect(tx,a,input)).rejects.toThrow('權限');await expect(collect(tx,a,{...input,quotes:[{...input.quotes[0],revision:9}]},{canDiscount:true})).rejects.toThrow('已更新');
  vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'earlier',amount:950}] as never);await expect(collect(tx,a,{...input,quotes:[{...input.quotes[0],collected:950}]},{canDiscount:true})).rejects.toThrow('超過');expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.beautyEvent.create).not.toHaveBeenCalled();
 });
+
+describe('explicit back-office attendance correction',()=>{
+ it.each([
+  ['RESERVED',false,'NO_SHOW',true,-1],['NO_SHOW',true,'NO_SHOW',false,1],['NO_SHOW',false,'NO_SHOW',true,-1],['NO_SHOW',true,'COMPLETED',undefined,0],['COMPLETED',true,'NO_SHOW',false,1],['NO_SHOW',true,'NO_SHOW',true,0]
+ ] as const)('reconciles %s/%s to %s/%s exactly once',async(status,debit,target,noShowDeduct,delta)=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status,debit,noShowDeduct:false} as never);
+  await transition(tx,a,{id:'b',revision:0,target,reason:'合成出席更正',...(noShowDeduct===undefined?{}:{noShowDeduct})});
+  if(delta)expect(tx.beautyLedger.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({cardId:'card',delta})}));else expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+  expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+ });
+ it('preserves an explicit no-show decision when a legacy caller repeats the same state',async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'NO_SHOW',debit:true,noShowDeduct:false} as never);await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'重送'});expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
+ });
+ it('rejects stale revisions and deduction without a plan before ledger writes',async()=>{
+  await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('未使用方案');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+ });
+});

@@ -25,7 +25,7 @@ import {
   changeInput,
   paymentInput,
   cardInput,
-  refundInput,
+  refundInput,attendanceInput,
   moveInput,
   key,
 } from "@/lib/beauty/contracts";
@@ -278,6 +278,16 @@ export async function changeBeautyStatus(
       command(tx, a, d.requestKey, d, () => transition(tx, a, d)),
     );
   });
+}
+/** Explicit back-office attendance choices use the same store lock, revision and ledger transition. */
+export async function changeBeautyAttendance(input:unknown){
+ return result(async()=>{
+  const a=await beautyManager('booking.update',true),d=attendanceInput.parse(input);
+  const target=d.choice==='ATTENDED'?'COMPLETED':d.choice==='PENDING'?'RESERVED':'NO_SHOW';
+  const reason={ATTENDED:'後台標記出席',NO_SHOW_DEDUCT:'後台標記未出席扣次',NO_SHOW_KEEP:'後台標記未出席不扣次',PENDING:'後台恢復待服務'}[d.choice];
+  const intent={id:d.id,revision:d.revision,target,reason,...(target==='NO_SHOW'?{noShowDeduct:d.choice==='NO_SHOW_DEDUCT'}:{})};
+  return beautyTransaction(a,tx=>command(tx,a,d.requestKey,intent,()=>transition(tx,a,intent)));
+ });
 }
 export async function moveBeautyAppointment(
   mode: "manager" | "member" | "work",

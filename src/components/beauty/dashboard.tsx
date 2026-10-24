@@ -19,7 +19,7 @@ const BeautyCollectionPanel=dynamic(()=>import("./collection-panel").then(m=>m.B
 import { BeautyCatalogEditor, type EditorKind } from "./catalog-editor";
 import {
   findBeautyCompanionByPhone,attachBeautyCompanion,createBeautyCompanion,
-  changeBeautyStatus,
+  changeBeautyStatus,changeBeautyAttendance,
   refundBeautyPayment,
   moveBeautyAppointment,
 } from "@/server/actions/beauty";
@@ -121,6 +121,11 @@ export function BeautyDashboard({
     setError('');
     setStatusDraft({id,revision,target,reason:'',requestKey:crypto.randomUUID()});
   }
+  function attendance(id:string,revision:number,choice:import('@/lib/beauty/contracts').BeautyAttendanceChoice){
+    if(readOnly||!data.manage.update||pending||mutationLock.current)return;
+    const key=`${id}:${revision}:attendance:${choice}`;if(!statusRequests.current.has(key))statusRequests.current.set(key,crypto.randomUUID());
+    run(()=>changeBeautyAttendance({id,revision,choice,requestKey:statusRequests.current.get(key)!}),()=>{toast.success('已更新出席狀態');router.refresh();});
+  }
   const canEditTab =
     (
       {
@@ -144,7 +149,7 @@ export function BeautyDashboard({
       {tab==='班表'&&<BeautyScheduleWorkspace cashbookShortcut={cashbookShortcut} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
       {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&!detailId&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending&&!rosterBusy} onClose={()=>closeRoster()}>
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>closeRoster()}>關閉</button></header>
-      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單"><BeautyNativeRoster data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onStatus={status} onMoney={(kind,ids)=>setMoneyPanel({kind,ids})} onCustomer={setDetailId}/></section></RightSheet>}
+      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單"><BeautyNativeRoster busy={pending} data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onAttendance={attendance} onStatus={status} onMoney={(kind,ids)=>{if(!pending&&!mutationLock.current)setMoneyPanel({kind,ids});}} onCustomer={setDetailId}/></section></RightSheet>}
       {tab==='顧客管理'&&<BeautyNativeCustomerWorkspace data={data} readOnly={readOnly}/>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}

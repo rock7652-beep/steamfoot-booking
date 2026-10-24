@@ -249,7 +249,7 @@ function adaptiveCopy(
   };
 }
 
-export function ServiceCalendarLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-3 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex items-center gap-1"><i aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${p.dot}`}/>{p.label}</span>;})}</div>;}
+export function ServiceCalendarLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-x-5 gap-y-2 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"><i aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${p.dot}`}/>{p.label}</span>;})}</div>;}
 function ServiceCleanup({session,minuteHeight}:{session:Session;minuteHeight:number}){
  if(!session.service||session.service.buffer<=0)return null;
  return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(session.service.occupiedEndsAt)}</div>;
@@ -593,7 +593,7 @@ export function CourseScheduleBoard({
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:<>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
-          {serviceMode&&<>{toolbarContent}<ServiceCalendarLegend/></>}{legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
+          {serviceMode&&toolbarContent}{legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} className={`${serviceMode?"":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
@@ -846,7 +846,7 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
 
-        {serviceMode&&<>{toolbarContent}<ServiceCalendarLegend/></>}
+        {serviceMode&&toolbarContent}
         {musicDense && resourceViewControls}
         {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>

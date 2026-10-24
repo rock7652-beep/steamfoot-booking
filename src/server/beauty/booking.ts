@@ -464,7 +464,7 @@ export async function ownsItem(tx: Tx, a: BeautyActor, id: string) {
 export async function transition(
   tx: Tx,
   a: BeautyActor,
-  input: { id: string; revision: number; target: string; reason: string },
+  input: { id: string; revision: number; target: string; reason: string; noShowDeduct?:boolean },
 ) {
   const b = await ownsItem(tx, a, input.id);
   if (b.revision !== input.revision)
@@ -487,7 +487,10 @@ export async function transition(
     )
       throw new AppError("FORBIDDEN", "此預約請聯絡店家處理");
   }
-  if (input.target === b.status) return { id: b.id };
+  if(input.noShowDeduct!==undefined&&(!a.manager||input.target!=='NO_SHOW'))throw new AppError('FORBIDDEN','只有後台可選擇未出席扣次方式');
+  if(input.noShowDeduct===true&&!b.cardId)throw new AppError('VALIDATION','此服務未使用方案，無法扣次');
+  const debit=input.target==='COMPLETED'||(input.target==='CANCELLED'&&b.cancelDeduct)||(input.target==='NO_SHOW'&&(input.noShowDeduct??b.noShowDeduct));
+  if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
   if (input.target === "RESERVED") {
     await assertCustomerAvailable(tx, a.storeId, b.customerId, b.startsAt,
       b.occupiedEndsAt, b.id);
@@ -517,10 +520,6 @@ export async function transition(
       !!a.manager,
     );
   }
-  const debit =
-    input.target === "COMPLETED" ||
-    (input.target === "CANCELLED" && b.cancelDeduct) ||
-    (input.target === "NO_SHOW" && b.noShowDeduct);
   let card: null | Awaited<ReturnType<typeof assertCard>> = null;
   if (b.cardId) {
     if (debit && !b.debit)
@@ -607,6 +606,7 @@ export async function transition(
     JSON.stringify({
       before: b.status,
       after: input.target,
+      ...(input.noShowDeduct!==undefined?{noShowDeduct:input.noShowDeduct,beforeDebit:b.debit,afterDebit:debit}:{}),
       reason: input.reason,
       fee,
     }),

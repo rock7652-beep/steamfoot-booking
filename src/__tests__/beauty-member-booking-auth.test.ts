@@ -9,7 +9,7 @@ vi.mock('@/server/services/trial-booking-chat-link',()=>({resolveTrialBookingCha
 vi.mock('@/server/beauty/access',()=>({beautyMember:m.member,beautyManager:m.manager,beautyWorker:m.worker,beautyTransaction:async(_a:unknown,work:(tx:object)=>unknown)=>work({beautyAppointment:{findMany:m.rows}}),command:m.command,audit:vi.fn(),requireBeauty:vi.fn()}));
 vi.mock('@/server/beauty/booking',()=>({reserveParty:m.reserve,loadAvailability:m.availability,findAllocation:m.allocate,transition:m.transition,ownsItem:vi.fn(),settings:vi.fn(),assertCustomerAvailable:vi.fn()}));
 vi.mock('@/server/beauty/service-charges',()=>({serviceCharges:m.charges}));
-import {bookBeautyParty,readBeautySlots,changeBeautyStatus,collectBeautyPayment,readBeautyCollection} from '@/server/actions/beauty';
+import {bookBeautyParty,readBeautySlots,changeBeautyStatus,changeBeautyAttendance,collectBeautyPayment,readBeautyCollection} from '@/server/actions/beauty';
 const actor={storeId:'store',userId:'user',customerId:'owner'};
 const payload=()=>({requestKey:crypto.randomUUID(),date:'2026-10-24',time:'09:30',people:[{serviceId:'face'},{serviceId:'massage',cardId:'shared'}]});
 beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({...actor,manager:true});m.permission.mockResolvedValue(undefined);m.member.mockResolvedValue(actor);m.customer.mockResolvedValue({id:'owner',name:'會員本人',phone:'0900000000'});m.reserve.mockResolvedValue({groupId:'group',ids:['a','b']});m.availability.mockResolvedValue({slots:['09:15','09:45'],memberSlots:['09:00','09:30']});m.allocate.mockResolvedValue({});});
@@ -45,4 +45,9 @@ it('rejects forged service discounts without transaction.discount before writing
 it('scopes service balance reads to the authorized store and denies foreign, duplicate or card-backed rows',async()=>{
  m.rows.mockResolvedValue([{id:'booking',cardId:null,status:'RESERVED'}]);m.charges.mockResolvedValue([{id:'booking',due:900}]);expect(await readBeautyCollection(['booking'])).toEqual({success:true,data:[{id:'booking',due:900}]});expect(m.manager).toHaveBeenCalledWith('transaction.create');expect(m.permission).toHaveBeenCalledWith('booking.read');expect(m.rows.mock.calls[0][0].where).toEqual({storeId:'store',id:{in:['booking']}});
  m.charges.mockClear();m.rows.mockResolvedValue([]);expect((await readBeautyCollection(['foreign'])).success).toBe(false);expect((await readBeautyCollection(['booking','booking'])).success).toBe(false);m.rows.mockResolvedValue([{id:'booking',cardId:'card',status:'RESERVED'}]);expect((await readBeautyCollection(['booking'])).success).toBe(false);expect(m.charges).not.toHaveBeenCalled();
+});
+
+it('authorizes explicit attendance choices and supplies the audit intent on the server',async()=>{
+ m.command.mockImplementation((_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>unknown)=>work());m.transition.mockResolvedValue({id:'booking'});expect((await changeBeautyAttendance({requestKey:crypto.randomUUID(),id:'booking',revision:4,choice:'NO_SHOW_KEEP'})).success).toBe(true);expect(m.manager).toHaveBeenCalledWith('booking.update',true);expect(m.transition.mock.calls[0][2]).toMatchObject({target:'NO_SHOW',noShowDeduct:false,reason:'後台標記未出席不扣次'});
+ m.transition.mockClear();m.manager.mockRejectedValueOnce(new AppError('FORBIDDEN','沒有出席權限'));expect((await changeBeautyAttendance({requestKey:crypto.randomUUID(),id:'booking',revision:4,choice:'ATTENDED'})).success).toBe(false);expect(m.transition).not.toHaveBeenCalled();
 });

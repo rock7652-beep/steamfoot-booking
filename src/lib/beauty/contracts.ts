@@ -140,6 +140,8 @@ export const changeInput = z.object({
   target: z.enum(["COMPLETED", "CANCELLED", "NO_SHOW", "RESERVED"]),
   reason: z.string().trim().min(1).max(500),
 });
+export const attendanceInput=z.object({requestKey:z.string().uuid(),id:key,revision:z.number().int().nonnegative(),choice:z.enum(['ATTENDED','NO_SHOW_DEDUCT','NO_SHOW_KEEP','PENDING'])});
+export type BeautyAttendanceChoice=z.infer<typeof attendanceInput>['choice'];
 export const paymentInput = z
   .object({
     requestKey: z.string().uuid(),

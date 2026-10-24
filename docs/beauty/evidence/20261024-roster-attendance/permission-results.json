@@ -1,0 +1,9 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "limited user really authenticated",
+    "limited role has no collection button",
+    "forged low-privilege attendance action is rejected",
+    "denied action changes no balance or ledger"
+  ]
+}
