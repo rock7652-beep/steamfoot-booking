@@ -93,3 +93,14 @@ it("music keeps inactive historical rooms in the timeline and expands teacher co
   expect(host.querySelector('[style*="grid-template-columns: 64px repeat(2, minmax(200px, 1fr))"]')).not.toBeNull();
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
+it("music week pastes the actual 25-minute class on the chosen day without opening a new class",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const paste=vi.fn();const open=vi.fn();
+ try {
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"week",initialResourceView:"room",storePeriods:[{openTime:"09:00",closeTime:"09:55"}],moveClipboard:{sessionId:"source",templateId:"group",coachId:"coach",roomId:"room",durationMinutes:25,scope:"SINGLE",label:"體驗"},onPasteMove:paste,onOpenEmpty:open})));
+  const free=host.querySelector<HTMLButtonElement>('button[aria-label="2026-10-02 09:30 貼上"]')!;
+  expect(free.disabled).toBe(false);await act(async()=>free.click());
+  expect(paste).toHaveBeenCalledWith({date:"2026-10-02",time:"09:30",roomId:"room",coachId:"coach"});expect(open).not.toHaveBeenCalled();
+ } finally {await act(async()=>root.unmount());host.remove();}
+});

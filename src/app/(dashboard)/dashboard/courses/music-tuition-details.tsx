@@ -6,6 +6,7 @@ import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { RosterTable } from "@/components/admin/roster-primitives";
 import { isMusicPreviewPage } from "@/lib/music-finance-sync";
+import { musicPurchasedTitle } from "@/lib/music-purchase-display";
 import { musicCheckoutTransport } from "@/lib/music-checkout-transport";
 import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
 import { toLocalDateStr, formatTWDateTime } from "@/lib/date-utils";
@@ -42,7 +43,7 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, displayPe
     </ExclusiveMenu>}
     <ModalPanel open={mode !== null} onClose={close} labelledById={titleId} pending={busy} width={mode === "receipt" ? 520 : 880}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
-        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${displayPeriod??receiptPeriod} 期收款` : "補登收款") : "學費明細"} · {order.name}</h3>
+        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${displayPeriod??receiptPeriod} 期收款` : "補登收款") : "學費明細"} · {musicPurchasedTitle(order.name, tuition.periods.map(period=>period.lessons))}</h3>
         <button type="button" className={`${button} shrink-0`} disabled={busy} onClick={close}>{closeLabel}</button>
       </header>
       <div className="@container/tuition min-h-0 min-w-0 overflow-y-auto p-3 text-sm">

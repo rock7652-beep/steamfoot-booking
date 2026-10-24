@@ -670,7 +670,7 @@ export function CourseWorkspace({
       catch{setError("無法核對調課條件，請重試");return;}
       finally{movePreflight.current=false;setCheckingMove(false);}
     }
-    const durationMinutes = Math.max(sportsNative?5:30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+    const durationMinutes = Math.max(5, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
       sessionId: session.id,
       startsAt:session.startsAt,
@@ -700,7 +700,7 @@ export function CourseWorkspace({
           id: moveClipboard.sessionId,
           scope: moveClipboard.scope,
           weeks: moveClipboard.weeks,
-          date: selectedDate,
+          date: value.date ?? selectedDate,
           time: value.time,
           roomId: value.roomId,
           coachId: value.coachId,
@@ -2522,7 +2522,7 @@ export function CourseWorkspace({
                         beginMove(dialogSession, "SINGLE");
                       }
                     }}>
-                      {sportsNative?(checkingMove?"核對中…":"✂ 剪下"):"✂ 調課"}
+                      {sportsNative?(checkingMove?"核對中…":"✂ 剪下"):"✂ 剪下"}
                     </button>
                   )}
                   {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
