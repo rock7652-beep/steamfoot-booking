@@ -701,7 +701,7 @@ export function CourseRoster({
   },[view,sessionId,customerId]);
   const count = activeRows.length;
   const occupiedCount=activeRows.filter(row=>row.status!=="CANCELLED").length;
-  const oneToOneMusic = musicLayout && classType === "PRIVATE" && capacity === 1;
+  const oneToOneMusic = musicLayout && capacity === 1;
   const groupCohortProgress = classType === "GROUP" ? activeRows[0]?.groupCohortProgress : null;
   const teacherAbsent = (session?.teacherAttendance === "LEAVE" || session?.teacherAttendance === "NO_SHOW");
   const waitingCount = activeRows.filter(
@@ -1174,7 +1174,7 @@ export function CourseRoster({
 
   return (
 
-    <section className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${oneToOneMusic ? "" : "flex-1 overflow-hidden"}`}>
+    <section className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
       <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? "教師" : "授課教練"}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
@@ -1647,12 +1647,12 @@ export function CourseRoster({
         </form>
       </ModalPanel>}
       {purchaseFor && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="學員繳費">
-        <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-earth-200 p-4"><div><h3 className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3><p className="text-sm text-earth-600">完成後保留在這堂課的名單</p></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
+        <div className="@container/member flex max-h-[90dvh] w-full max-w-[1100px] flex-col rounded-2xl bg-white shadow-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
           <div className="min-h-0 overflow-y-auto p-4">
             {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
             {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
-            {purchaseOptions && <form id="course-roster-purchase-form" className="space-y-4" onSubmit={(event) => {
+            {purchaseOptions && <form id="course-roster-purchase-form" className="grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" onSubmit={(event) => {
               event.preventDefault();
               if (!purchaseSummary.valid || !purchasePlanId || purchasePending) return;
               const fields = new FormData(event.currentTarget);
@@ -1688,7 +1688,7 @@ export function CourseRoster({
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
-              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
+              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary} split customerId={purchaseOptions.customerId??undefined}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
           {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認購課與本次收款"}</button></div> : null}
