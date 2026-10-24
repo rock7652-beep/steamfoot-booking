@@ -527,7 +527,7 @@ export function CourseMemberWorkspace({
             )}
             {music ? <>
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
-            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={()=>open("assign")} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
+            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} revision={cardRevision} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={()=>open("assign")} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>

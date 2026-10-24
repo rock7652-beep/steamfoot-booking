@@ -22,8 +22,8 @@ type Card=PeriodData["data"][number];
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";
 const amount=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const lessonStatus=(b:Card["bookings"][number])=>b.absenceKind==="STUDENT_LEAVE"?"請假／補課":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假・扣堂":({ATTENDED:"已出席",CHECKED_IN:"已報到",NO_SHOW:"曠課",CANCELLED:"已取消",RESERVED:"待上課"}[b.status]??b.status);
-export function MusicStudentCourses({customerId,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard}:{
- customerId:string;templates:{id:string;name:string;musicSubjectId?:string|null}[];subjects:{id:string;name:string}[];
+export function MusicStudentCourses({customerId,revision:dataRevision=0,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard}:{
+ customerId:string;revision?:number;templates:{id:string;name:string;musicSubjectId?:string|null}[];subjects:{id:string;name:string}[];
  canReadBookings:boolean;canReadTransactions:boolean;canReadCards:boolean;canAssign:boolean;canSchedule?:boolean;onPurchase:()=>void;onManageCard:(id:string)=>void;
 }){
  const params=useSearchParams(),title=useId();
@@ -33,13 +33,16 @@ export function MusicStudentCourses({customerId,templates,subjects,canReadBookin
  const [state,setState]=useState<{customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;error:string}|null>(null);
  const [revision,setRevision]=useState(0),[loading,setLoading]=useState(false),[subjectId,setSubject]=useState(params.get("studentSubject")??""),[methodId,setMethod]=useState(params.get("studentMethod")??""),[advanced,setAdvanced]=useState<string|null>(null);
  useEffect(()=>{let active=true;setLoading(true);
+ // A completed purchase updates the mounted panel without remounting its filters.
+ // Detach any pre-purchase in-flight reads before requesting authoritative data.
+ periodsReader.invalidate(customerId);ordersReader.clear();
  void Promise.all([canReadBookings||canReadCards?periodsReader.read(customerId):null,canReadTransactions?ordersReader.read(customerId,0):null]).then(([periods,orders])=>{
   if(!active)return;
   setState({customerId,cards:periods?.success?periods.data:[],orders:orders?.success?orders.data:[],more:orders?.success?orders.hasMore:false,error:[periods&&!periods.success?periods.error:"",orders&&!orders.success?orders.error:""].filter(Boolean).join("・")});
  }).catch(()=>{if(active)setState({customerId,cards:[],orders:[],more:false,error:"讀取未完成，請重試。"});}).finally(()=>{if(active)setLoading(false);});
- return()=>{active=false;};},[customerId,revision,canReadBookings,canReadCards,canReadTransactions,periodsReader,ordersReader]);
+ return()=>{active=false;};},[customerId,dataRevision,revision,canReadBookings,canReadCards,canReadTransactions,periodsReader,ordersReader]);
  function retain(key:string,value:string){const url=new URL(window.location.href);if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);window.history.replaceState(null,"",url.pathname+url.search);}
- const refresh=()=>{periodsReader.invalidate(customerId);ordersReader.clear();setRevision(n=>n+1);};
+ const refresh=()=>setRevision(n=>n+1);
  const current=state?.customerId===customerId?state:null;
  useEffect(()=>{if(loading||!current)return;const area=section.current?.closest<HTMLElement>("[data-course-person-scroll]");const key=area?.dataset.coursePersonScroll;if(area&&key){try{area.scrollTop=Number(sessionStorage.getItem(key))||0;}catch{}}},[loading,current]);
  const methods=new Map<string,{id:string;name:string;items:{id:string;name:string}[]}>();

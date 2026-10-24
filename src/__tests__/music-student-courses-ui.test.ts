@@ -44,3 +44,26 @@ it("continues scheduling with the teaching identity rather than the tuition vers
  const link=[...host.querySelectorAll("a")].find(a=>a.textContent==="安排課程")!;
  const query=new URL(link.href,"https://example.test").searchParams;expect(query.get("scheduleTemplate")).toBe("teaching:guitar");expect(query.get("scheduleCustomer")).toBe("student-1");
 });
+
+it("shows a completed purchase in the mounted empty panel without a page reload",async()=>{
+ mock.periods.read.mockResolvedValue({success:true,data:[]});mock.orders.read.mockResolvedValue({success:true,data:[],hasMore:false});
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:0})));
+ expect(host.textContent).toContain("尚無已購課程");
+ mock.periods.read.mockResolvedValue({success:true,data:cards});mock.orders.read.mockResolvedValue({success:true,data:orders,hasMore:false});
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:1})));
+ expect(mock.periods.read).toHaveBeenCalledTimes(2);expect(mock.orders.read).toHaveBeenCalledTimes(2);
+ expect(mock.periods.invalidate).toHaveBeenLastCalledWith("student-1");expect(mock.orders.clear).toHaveBeenCalledTimes(2);
+ expect(host.textContent).not.toContain("尚無已購課程");expect(host.textContent).toContain("購課 2026-10-01・2 期・4 堂");
+ expect(host.querySelector('[data-music-period="1"]')?.textContent).toContain("已收 NT$ 1,600");
+});
+
+it("ignores a pre-purchase empty response that finishes after the new purchase read",async()=>{
+ let finishOld!:(value:unknown)=>void;
+ mock.periods.read.mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}));
+ mock.orders.read.mockResolvedValueOnce({success:true,data:[],hasMore:false});
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:0})));
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:1})));
+ expect(host.textContent).toContain("教師甲");
+ await act(async()=>finishOld({success:true,data:[]}));
+ expect(host.textContent).toContain("教師甲");expect(host.textContent).not.toContain("尚無已購課程");
+});
