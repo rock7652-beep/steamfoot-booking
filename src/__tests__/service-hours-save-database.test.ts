@@ -55,6 +55,16 @@ it("copies arbitrary dates with skip, retains source overrides, and undoes from 
  if(!result.success)throw Error("missing receipt");expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(2);
  const undo={...await input({mode:"undo",operationId:result.data.operationId,periods:[]}),expectedRevision:result.data.day.hoursRevision};expect(await saveServiceHours(undo)).toMatchObject({success:true});expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(1);expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay"')).rows[0].count).toBe(1);
 });
+it("skips an entire target with only slot adjustments by default; explicit replace updates persisted hours and the calendar",async()=>{
+ await db.exec(`INSERT INTO "BusinessHours" VALUES ('friday','s',5,true,'08:30','19:00',60,4,NULL,now());INSERT INTO "SlotOverride" VALUES ('target-slot','s','2030-10-11','08:30','capacity_change',4,NULL,now());`);
+ const skipped=await saveServiceHours(await input({mode:"dates",targetDates:["2030-10-11"]}));
+ expect(skipped).toMatchObject({success:true,data:{count:0,skipped:[{date:"2030-10-11",reason:"已有單一時段調整"}],summary:{"2030-10-11":{status:"open",openTime:"08:30",closeTime:"19:00",overrideCount:1}}}});
+ expect((await db.query('SELECT id FROM "SpecialBusinessDay" WHERE date=\'2030-10-11\'')).rows).toEqual([]);
+ const replaced=await saveServiceHours(await input({mode:"dates",targetDates:["2030-10-11"],conflictMode:"replace"}));
+ expect(replaced).toMatchObject({success:true,data:{count:1,skipped:[],summary:{"2030-10-11":{status:"custom",openTime:"11:00",closeTime:"17:00",overrideCount:0}}}});
+ expect((await db.query('SELECT "openTime","closeTime" FROM "SpecialBusinessDay" WHERE date=\'2030-10-11\'')).rows).toEqual([{openTime:"11:00",closeTime:"17:00"}]);
+ expect((await db.query('SELECT id FROM "SlotOverride" WHERE date=\'2030-10-11\'')).rows).toEqual([]);
+});
 it("template copies overrides while retaining closed exceptions; weekly edits preserve source special dates",async()=>{
  await db.exec(`INSERT INTO "SpecialBusinessDay" VALUES ('closed','s','2030-10-17','closed','保留',NULL,NULL,NULL,NULL,NULL,now());INSERT INTO "SlotOverride" VALUES ('override','s','2030-10-10','12:00','disabled',NULL,NULL,now());`);
  expect(await saveServiceHours(await input({mode:"template",weeks:1}))).toMatchObject({success:true,data:{count:1}});expect((await db.query<Record<string,unknown>>('SELECT reason FROM "SpecialBusinessDay"')).rows).toEqual([{reason:"保留"}]);expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(2);
