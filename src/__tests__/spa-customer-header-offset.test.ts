@@ -9,7 +9,7 @@ const actions = vi.hoisted(() => ({
   drawer: vi.fn(), profile: vi.fn(), account: vi.fn(), saveNote: vi.fn(),
   purchase: vi.fn(), refund: vi.fn(), refresh: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/dashboard/customers",
   useRouter: () => ({ refresh: actions.refresh }),
 }));

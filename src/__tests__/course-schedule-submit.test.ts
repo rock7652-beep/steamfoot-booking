@@ -1,3 +1,9 @@
+vi.mock("@/server/actions/course-browse", () => ({ loadCourseCustomerSearchIndex: vi.fn().mockResolvedValue({success:true,data:[],complete:true}), searchCourseCustomers: vi.fn().mockResolvedValue({success:true,data:[]}) }));
+vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
+vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));
+vi.mock("@/server/actions/sports-staging", () => ({ recordSportsAttendance: vi.fn(), cancelSportsLesson: vi.fn(), moveSportsLesson: vi.fn() }));
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
 // @vitest-environment jsdom
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";

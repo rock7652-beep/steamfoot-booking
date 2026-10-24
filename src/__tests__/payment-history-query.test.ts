@@ -2,7 +2,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 vi.mock("server-only",()=>({}));
 const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),customer:vi.fn(),orders:vi.fn(),tuition:vi.fn(),receipts:vi.fn(),permission:vi.fn(),cards:vi.fn(),lessons:vi.fn(),teachers:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManagerRead:m.auth}));
-vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:m.scope}));
+vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:m.scope}));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findFirst:m.customer},staff:{findMany:m.teachers}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{coursePurchase:{findMany:m.orders},coursePointCard:{findMany:m.cards},courseBooking:{findMany:m.lessons}}}));
 vi.mock("@/server/services/music-tuition",()=>({readMusicTuition:m.tuition,readMusicReceipts:m.receipts}));
@@ -19,14 +19,14 @@ it("keeps both permissions and returns authoritative payments, balance and expir
  expect(Object.keys(timings)).toEqual(["authorization","customer","orders","metadata","lessons"]);
 });
 it("starts cards and capabilities while tuition metadata is pending",async()=>{
- let release!:(v:Map<string,any>)=>void;let started!:()=>void;const entered=new Promise<void>(r=>started=r);
+ let release!:(v:Map<string,{due:number;discountTeacherFee:boolean}>)=>void;let started!:()=>void;const entered=new Promise<void>(r=>started=r);
  m.tuition.mockImplementation(()=>{started();return new Promise(r=>release=r);});
  const result=readCourseCustomerPurchases("student",0,{},true);await entered;
  expect(m.cards).toHaveBeenCalledOnce();expect(m.permission).toHaveBeenCalledTimes(2);expect(m.receipts).toHaveBeenCalledOnce();expect(m.lessons).not.toHaveBeenCalled();
  release(new Map([["purchase",{due:3200,discountTeacherFee:false}]]));await result;
 });
 it("never reads lessons without booking permission",async()=>{
- m.permission.mockImplementation(async p=>false);
+ m.permission.mockImplementation(async()=>false);
  const r=await readCourseCustomerPurchases("student",0,{},true);expect(m.lessons).not.toHaveBeenCalled();expect(m.teachers).not.toHaveBeenCalled();if(r.success)expect(r.data[0].tuition).toMatchObject({canReceive:false,canReadBookings:false,lessons:[]});
 });
 it.each(["permission","store","actor","preview","customer"])("rejects %s mismatch before financial queries",async kind=>{

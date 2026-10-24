@@ -1188,7 +1188,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           (s) => courseDate(s.startsAt) === selected,
                         ),
                       )
-                    : personalCalendar ? personalBookingCards : lessonRows(
+                    : personalCalendar ? <>{personalBookingCards}{lessonRows(p.sessions.filter(s => s.waitlistPosition != null && courseDate(s.startsAt) === selected))}</> : lessonRows(
                         p.sessions.filter(
                           (s) => courseDate(s.startsAt) === selected && (!courseFilter || s.templateId === courseFilter) && (!teacherFilter || (s.coachId ?? s.coach) === teacherFilter),
                         ),

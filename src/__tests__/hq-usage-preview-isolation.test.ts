@@ -9,9 +9,9 @@ vi.hoisted(async () => {
 });
 const spies = vi.hoisted(() => ({ auth: vi.fn(), prisma: vi.fn(), spa: vi.fn(), course: vi.fn(), send: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ auth: (handler: (...args: unknown[]) => unknown) => (...args: unknown[]) => { spies.auth(); return handler(...args); } }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor() { spies.prisma(); } } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor() { spies.spa(); } } }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor() { spies.course(); } } }));
+vi.mock("@prisma/client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.prisma(); } } }));
+vi.mock("../../generated/spa-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.spa(); } } }));
+vi.mock("../../generated/course-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.course(); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: (client: unknown) => client }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: spies.send }; } }));

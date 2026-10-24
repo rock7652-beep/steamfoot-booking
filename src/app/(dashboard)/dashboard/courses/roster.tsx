@@ -274,6 +274,7 @@ export function CourseRoster({
   const [requestKey, setRequestKey] = useState("");
   const [noteError,setNoteError]=useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
+  const noteWritePending = useRef(false);
   const activeNoteEditor = useRef(editingNote);
   activeNoteEditor.current = editingNote;
   const [noteDraft,setNoteDraft]=useState("");
@@ -1358,6 +1359,7 @@ export function CourseRoster({
                 <button type="button" className="min-h-8 min-w-0 truncate text-left text-primary-700" aria-label={`${booking.customerName} 本次備註`} onClick={()=>{if(canEdit && booking.status !== "CANCELLED"){setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}else setInfoBookingId(booking.id);}}><span className="text-earth-500">本次：</span>{booking.notes?.trim() || (canEdit && booking.status !== "CANCELLED" ? "＋新增" : "—")}</button>
                 </div>
                 <div>{rowPending(booking.id) ? <span role="status">儲存中…</span> : canEdit && <button type="button" className="min-h-11 min-w-11 text-earth-600" aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget,booking.id)} aria-label={`${booking.customerName} 更多操作`}>⋯</button>}</div>
+                {rowStates[booking.id]?.message && <div className="col-span-full">{rowFeedback(booking.id)}</div>}
                 {booking.openingIssue && <p className="col-span-full text-sm text-amber-800">{booking.openingIssue}</p>}
                 {booking.termClosedBeforeCutoff > 0 && <p className="col-span-full text-sm text-earth-600">切點前已處理 {booking.termClosedBeforeCutoff} 堂，僅保留期初進度</p>}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (<>
@@ -1613,6 +1615,8 @@ export function CourseRoster({
       {editingNote && <ModalPanel open onClose={() => {if(!pending)setEditingNote(null);}} labelledById={noteEditorTitleId} width={512}>
         <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
           if(musicLayout&&target.bookingId){
+            if(noteWritePending.current)return;
+            noteWritePending.current=true;
             setNoteError("");
             const note=inlineBookingNote(target.bookingId);
             start(async()=>{
@@ -1622,6 +1626,7 @@ export function CourseRoster({
                 if(!result.success){setNoteError(result.error??"備註尚未儲存");return;}
                 setEditingNote(null);setMessage("備註已儲存");
               }catch{if(activeNoteEditor.current===target)setNoteError("連線失敗，輸入已保留");}
+              finally{noteWritePending.current=false;}
             });
             return;
           }

@@ -39,7 +39,7 @@ vi.mock("@/lib/course-db", () => ({ coursePrisma: {
   coursePointPlan: { findMany: m.plans }, coursePurchase: { findMany: m.orders },
   courseTemplate: { findMany: m.templates }, courseBookingRule: { findUnique: m.bookingRule },
   musicOpeningMakeupEntitlement: { create: m.write, update: m.write },
-  coursePointCard: { update: m.write }, coursePointLedger: { create: m.write }, $transaction: m.write,
+  coursePointCard: { findMany: async () => [], update: m.write }, coursePointLedger: { create: m.write }, $transaction: m.write,
 } }));
 
 import { loadCoursePortal } from "@/app/(customer)/book/course-portal";
@@ -229,7 +229,7 @@ describe("member portal opening-makeup visibility", () => {
     const [month, next, participants] = bookingQueries();
     for (const query of [month, next, participants]) {
       expect(query.where.storeId).toBe(storeId);
-      expect(query.where.OR).toEqual(expectedAccess);
+      expect(query.where.AND).toEqual([{OR:expectedAccess},{OR:[{customerId},{reserverCustomerId:customerId}]}]);
     }
     const range = monthRange("2026-10");
     expect(month.where.session).toEqual({ startsAt: { gte: range.start, lte: range.end } });
@@ -275,11 +275,11 @@ describe("member portal opening-makeup visibility", () => {
       nativeBooking("native-other-store", { storeId: "other-store" }),
     ];
     const result = await loadCoursePortal("2026-10");
-    const expectedIds = ["shared-family", "own-trial", "own-companion"];
+    const expectedIds = ["own-trial", "own-companion"];
 
     expect(result.bookings.map(row => row.id)).toEqual(expectedIds);
     expect(result.bookings.every(row => row.openingMakeup === false)).toBe(true);
-    expect(result.bookings[1]).toMatchObject({ unit: "TRIAL", trialPrice: 500, trialPaid: 500, planName: "體驗（不使用方案）" });
+    expect(result.bookings[0]).toMatchObject({ unit: "TRIAL", trialPrice: 500, trialPaid: 500, planName: "體驗（不使用方案）" });
     expect(result.nextBooking?.openingMakeup).toBe(false);
     expect(result.nextBooking?.participants.map(row => row.id)).toEqual(expectedIds);
     for (const query of bookingQueries()) expect(readBookings(query).map(row => row.id)).toEqual(expectedIds);

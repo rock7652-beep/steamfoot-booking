@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 /** Real CourseRoster + shared editor interaction tests using synthetic data.
  * These establish DOM/state behavior, not browser geometry or live DB writes. */
@@ -72,7 +73,7 @@ async function search(value: string) {
 }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 
-it.each([false, true])("%s layout edits in the same row and cancels without opening details or writing", async music => {
+it.each([false])("%s layout edits in the same row and cancels without opening details or writing", async music => {
   await render(music); const originalRow = row(); await open();
   expect(originalRow.contains(textarea())).toBe(true); expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(textarea().value).toBe("原始備註"); expect(textarea().maxLength).toBe(1000);
@@ -81,7 +82,7 @@ it.each([false, true])("%s layout edits in the same row and cancels without open
   await clickText("取消"); expect(textarea()).toBeNull(); expect(m.save).not.toHaveBeenCalled();
   expect(row().textContent).toContain("原始備註"); expect(row().textContent).toContain("店內提醒不應修改");
 });
-it.each([false, true])("%s layout patches one note while retaining row, payments, history and list position", async music => {
+it.each([false])("%s layout patches one note while retaining row, payments, history and list position", async music => {
   await render(music); const originalRow = row();
   if (music) await clickText("▶ 查看日期", originalRow);
   const history = host.querySelector('[id="lesson-history-a"]'); const historyText = history?.textContent;
@@ -112,7 +113,7 @@ it.each(["before", "during"] as const)("ignores a stale roster refresh started %
   await act(async () => staleRead.resolve(data("過時備註")));
   expect(row().textContent).toContain("儲存完成"); expect(row().textContent).not.toContain("過時備註");
 });
-it.each([false, true])("%s attendance rollback cannot restore an old note over a successful inline save", async music => {
+it.each([false])("%s attendance rollback cannot restore an old note over a successful inline save", async music => {
   const status = deferred<{ success: boolean; error: string }>(); m.status.mockReturnValue(status.promise);
   await render(music); await open(); await type("點名前後保留");
   const attendance = row().querySelector<HTMLButtonElement>(`button[aria-label="甲同學：${music ? "點名" : "待點名"}"]`)!;
@@ -135,7 +136,7 @@ it("patches a saved note even while the row is filtered out", async () => {
   expect(row().textContent).toContain("篩選後儲存完成"); expect(row().textContent).not.toContain("原始備註");
   expect(textarea()).toBeNull();
 });
-it.each([false, true])("%s keeps the newer saved note when an older filtered-out editor completes late", async music => {
+it.each([false])("%s keeps the newer saved note when an older filtered-out editor completes late", async music => {
   const firstResponse = deferred<{ success: boolean }>();
   m.save.mockReturnValueOnce(firstResponse.promise)
     .mockResolvedValueOnce({ success: false, error: "備註已更新", currentValue: "第一筆已入庫" })
@@ -153,7 +154,7 @@ it.each([false, true])("%s keeps the newer saved note when an older filtered-out
   expect(row().textContent).toContain("第二筆最新備註"); expect(row().textContent).not.toContain("第一筆已入庫");
   await open(); expect(textarea().value).toBe("第二筆最新備註");
 });
-it.each([false, true])("%s detail note save supersedes a delayed inline save with a checked note version", async music => {
+it.each([false])("%s detail note save supersedes a delayed inline save with a checked note version", async music => {
   const inlineResponse = deferred<{ success: boolean }>();
   m.save.mockReturnValueOnce(inlineResponse.promise).mockResolvedValueOnce({ success: true });
   m.quick.mockResolvedValue({ success: true, data: {
@@ -186,7 +187,53 @@ it("keeps the existing teacher-note and explicit detail editor entrypoints", asy
   await render(true); await clickText("教師提醒", host);
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("老師 · 教師備註");
   await clickText("取消", document.querySelector('[role="dialog"]')!);
-  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="甲同學 標籤與備註"]')!.click());
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="甲同學 備註"]')!.click());
   await clickText("編輯", document.querySelector('[role="dialog"]')!);
-  expect(document.querySelector('[role="dialog"] textarea')).toBeTruthy(); expect(textarea()?.value).toBe("原始備註");
+  expect(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')?.value).toBe("原始備註");
+});
+
+// Music uses the dedicated note dialog; sports retains the inline editor.
+const musicInput = () => document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!;
+async function musicType(value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(musicInput(), value);
+    musicInput().dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+it("music opens the note dialog and discards an unsaved draft without writing", async () => {
+  await render(true); const originalRow=row(); await open();
+  expect(originalRow.contains(musicInput())).toBe(false); expect(musicInput().maxLength).toBe(1000);
+  await musicType("測試草稿"); await clickText("取消", document.querySelector('[role="dialog"]')!);
+  expect(musicInput()).toBeNull(); expect(m.save).not.toHaveBeenCalled(); expect(row()).toBe(originalRow);
+});
+it("music patches the saved note without replacing the row or reloading the roster", async () => {
+  await render(true); const originalRow=row();
+  await act(async()=>originalRow.querySelector<HTMLButtonElement>('[aria-controls="lesson-history-a"]')!.click());
+  const history=host.querySelector('#lesson-history-a');const text=history?.textContent;
+  await open(); await musicType("新備註"); await clickText("儲存",document.querySelector('[role="dialog"]')!);
+  expect(m.save).toHaveBeenCalledExactlyOnceWith({sessionId:"session-a",bookingId:"a",note:"新備註",expectedNote:"原始備註"});
+  expect(row()).toBe(originalRow); expect(row().textContent).toContain("新備註");
+  expect(history?.textContent).toBe(text);expect(m.load).toHaveBeenCalledOnce();expect(m.refresh).not.toHaveBeenCalled();
+});
+it("music retains a rejected draft for an explicit retry",async()=>{
+  m.save.mockResolvedValueOnce({success:false,error:"備註已更新"});
+  await render(true);await open();await musicType("保留內容");
+  await clickText("儲存",document.querySelector('[role="dialog"]')!);
+  expect(musicInput().value).toBe("保留內容");expect(document.querySelector('[role="dialog"]')?.textContent).toContain("備註已更新");
+  await clickText("儲存",document.querySelector('[role="dialog"]')!);
+  expect(m.save).toHaveBeenCalledTimes(2);expect(row().textContent).toContain("保留內容");
+});
+it("music blocks duplicate saves and dismissal while its note write is pending",async()=>{
+  const response=deferred<{success:boolean}>();m.save.mockReturnValue(response.promise);
+  await render(true);await open();await musicType("待儲存");
+  const panel=document.querySelector('[role="dialog"]')!;
+  await act(async()=>{const save=[...panel.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==="儲存")!;save.click();save.click();});
+  expect(m.save).toHaveBeenCalledOnce();expect([...panel.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==="取消")?.disabled).toBe(true);
+  await act(async()=>response.resolve({success:true}));expect(row().textContent).toContain("待儲存");
+});
+it("music ignores a note response after changing the session scope",async()=>{
+  const response=deferred<{success:boolean}>();m.save.mockReturnValue(response.promise);
+  await render(true);await open();await musicType("舊課程備註");await clickText("儲存",document.querySelector('[role="dialog"]')!);
+  m.load.mockResolvedValue(data("新課程內容"));await render(true,"session-b");
+  await act(async()=>response.resolve({success:true}));expect(row().textContent).toContain("新課程內容");expect(row().textContent).not.toContain("舊課程備註");
 });

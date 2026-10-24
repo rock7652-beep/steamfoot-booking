@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";

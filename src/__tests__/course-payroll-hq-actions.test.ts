@@ -2,7 +2,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),pay:vi.fn(),void:vi.fn(),confirm:vi.fn(),preview:vi.fn(),finance:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
-vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:m.preview}));
+vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:m.preview}));
 vi.mock("@/server/services/music-finance-access",()=>({isMusicFinanceStore:async()=>false,requireMusicFinance:m.finance}));
 vi.mock("@/server/services/course-fee-payment",()=>({recordCourseFeePayment:m.pay,voidCourseFeePayment:m.void}));
 vi.mock("@/server/services/confirm-course-month",()=>({confirmCourseMonth:m.confirm}));

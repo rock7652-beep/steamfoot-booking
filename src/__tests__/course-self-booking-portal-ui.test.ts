@@ -38,7 +38,14 @@ const notificationData = (enabled = true, trial = false) => ({ success: true, se
 const button = (text: string, scope: ParentNode = document.body) => [...scope.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent === text && !node.closest("[hidden]"));
 const dialog = () => document.body.querySelector('[role="dialog"]')!;
 async function click(text: string, scope?: ParentNode) { const node = button(text, scope); expect(node, text).toBeTruthy(); await act(async () => node!.click()); }
-async function render(data = props()) { await act(async () => root.render(el(CoursePortalClient, data))); }
+async function render(data = props()) {
+  await act(async () => root.render(el(CoursePortalClient, data)));
+  // The unified calendar now defaults to own lessons; browsing is explicit.
+  if (data.initialView === "schedule" && data.selfBookingEnabled !== false && !dialog()) {
+    const open = button("開放選課");
+    if (open) await act(async () => open.click());
+  }
+}
 async function selectSession() { await act(async () => { const input = dialog().querySelector("select")!; input.value = "new-session"; input.dispatchEvent(new Event("change", { bubbles: true })); }); }
 beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -90,7 +97,7 @@ describe("student booking switch portal", () => {
     const filter=host.querySelector<HTMLSelectElement>('.cp-filters select')!;
     await act(async()=>{filter.value='template';filter.dispatchEvent(new Event('change',{bubbles:true}));});
     await click("我的工作"); await click("會員");
-    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("預約");
+    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("課表");
     expect((host.querySelector('.cp-filters select') as HTMLSelectElement).value).toBe("template");
     expect(host.querySelector('.cp-daily h2')?.textContent).toContain("1/20");
   });
@@ -99,7 +106,7 @@ describe("student booking switch portal", () => {
     const data=props();
     data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("我的預約");
+    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("課表");
     expect(host.querySelector('.cp-inline-confirm')).toBeNull();
     expect(m.cancel).not.toHaveBeenCalled();
   });
@@ -117,11 +124,11 @@ describe("student booking switch portal", () => {
   it("keeps the schedule visible, changes entry labels and blocks both booking and new waitlists", async () => {
     const data = props(); data.selfBookingEnabled = false;
     await render({ ...data, initialView: "home" } as unknown as typeof data);
-    expect(host.textContent).toContain("看課表"); expect(host.textContent).toContain(message); expect(button("立即預約")).toBeUndefined();
-    await click("看課表"); expect(host.textContent).toContain("瑜珈");
-    expect((host.querySelector(".cp-lesson button") as HTMLButtonElement).disabled).toBe(true);
+    expect(host.textContent).toContain("看課表"); expect(button("立即預約")).toBeUndefined();
+    await click("查看課表"); expect(button("開放選課")).toBeUndefined();
+    expect(host.querySelector(".cp-lesson")).toBeNull();
     data.sessions[0].occupied = 3; await render(data);
-    expect((host.querySelector(".cp-lesson button") as HTMLButtonElement).disabled).toBe(true);
+    expect(host.querySelector(".cp-lesson")).toBeNull();
     expect(m.booking).not.toHaveBeenCalled(); expect(m.join).not.toHaveBeenCalled();
   });
 
