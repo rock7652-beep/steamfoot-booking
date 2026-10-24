@@ -25,3 +25,9 @@
 ## 顧客前台唯讀核對
 
 隔離店 beauty-hosted-20261021 為 ALLIANCE，方案內含 member_portal，無鎖定覆寫；自助預約、取消、改期均為開啟。frontend_preview 無授權覆寫，非體驗版預覽預設不開放，所以後台「前台預覽」未開通與實際顧客入口不同。顧客路由為 /s/beauty-hosted-20261021/beauty。本輪只讀取這些開關，未變更授權、LINE 或登入綁定。
+
+## 隔離部署結果
+
+完整程式 `2f329c11817ddeda548b289ffecba94e49c59637` 已更新至 [隔離測試站](https://steamfoot-booking-pgjy6vc1l-rock7652-2111s-projects.vercel.app/s/beauty-hosted-20261021/admin/dashboard/beauty?tab=班表)。部署 `dpl_HLKVkkNmYbkuDbw43zkKqQUARC17`，READY／Preview（target=null），遠端完整建置通過。分支專屬 BEAUTY_NOTIFICATIONS_ENABLED 仍為 0，無 migration。
+
+匿名 HTTP 檢查導向 vercel.com/sso-api，確認測試站仍有 Vercel 存取保護；未新增分享連結或變更保護。登入後業務驗收在本機正式模式產物，共 45 項交易／帳本與 9 項版面斷言通過，並非本輪遠端登入驗收。測試後釋放本輪本機合成預約與租借資源，方案餘額仍 7；歷史保留，本機服務及臨時瀏覽器登入狀態已收起。
