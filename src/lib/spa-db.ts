@@ -1,5 +1,6 @@
 import { assertStoreMemberWorkorderReviewOnly } from "../../scripts/store-member-workorder-review-gate.mjs";
 assertStoreMemberWorkorderReviewOnly();
+import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { configureSpaPreviewPool } from "./spa-preview-pool";
@@ -20,6 +21,8 @@ function buildSpaDatabaseUrl(): string {
     url.searchParams.set("pool_timeout", "10");
   return url.toString();
 }
+
+assertMusicOpeningRuntimeIsolation();
 
 const globalForSpaPrisma = globalThis as unknown as {
   spaPrisma?: PrismaClient;

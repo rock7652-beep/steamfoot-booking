@@ -1,4 +1,5 @@
 "use server";
+import { canManageCashbookEntry } from "@/server/cashbook-management-access";
 
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath } from "next/cache";
@@ -229,10 +230,8 @@ export async function updateCashbookEntry(
     }
 
     // 非 Owner 員工只能修改自己的紀錄
-    if (getEffectiveActorRole(user) !== "ADMIN") {
-      if (!user.staffId || entry.staffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
-      }
+    if (!canManageCashbookEntry(user, entry)) {
+      throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
     }
 
     const updateData: Record<string, unknown> = {};

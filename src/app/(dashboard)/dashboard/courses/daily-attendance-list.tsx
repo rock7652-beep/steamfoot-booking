@@ -1,5 +1,7 @@
 "use client";
 
+import { RosterTable } from "@/components/admin/roster-table";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatTWDateTime } from "@/lib/date-utils";
@@ -73,13 +75,15 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
         {kind==="unmarked"&&<button type="button" className="min-h-10 rounded-lg border border-earth-200 px-3 disabled:opacity-50" disabled={pending||!chosen.length} onClick={()=>submit(chosen,"NO_SHOW")}>批次記錄曠課</button>}
       </div>}
       {error&&<p role="alert" className="mx-4 mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-      <div className="overflow-y-auto p-4">{groups.map(group=>group.items.length>0&&<section key={group.label} className="mb-4"><h3 className="sticky top-0 bg-white py-2 text-sm font-semibold text-earth-700">{group.label} · {group.items.length} 人</h3><ul className="divide-y divide-earth-100">{group.items.map(row=><li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-        {canEdit&&actionable.some(item=>item.id===row.id)&&<input type="checkbox" aria-label={`選取 ${row.name}`} checked={selected.includes(row.id)} disabled={pending} onChange={event=>setSelected(old=>event.target.checked?[...old,row.id]:old.filter(id=>id!==row.id))}/>}
-        <strong className="min-w-24">{row.name}</strong><span>{formatTWDateTime(new Date(row.startsAt)).slice(11,16)} · {row.course}</span><span className="text-earth-600">{row.teacher}</span>
-        {kind==="leave"&&row.note&&<span className="text-xs text-earth-600">備註：{row.note}</span>}
-        <div className="ml-auto flex items-center gap-2">{canEdit&&kind==="leave"&&<button type="button" className="min-h-9 rounded-lg border border-earth-200 px-2" disabled={pending} onClick={()=>{setEditing(row);setNote(row.note??"");}}>編輯備註</button>}{canEdit&&actionable.some(item=>item.id===row.id)&&<button type="button" className="min-h-9 rounded-lg border border-primary-200 px-2 text-primary-800" disabled={pending} onClick={()=>submit([row],kind==="leave"?"RESERVED":"ATTENDED")}>{kind==="leave"?"取消請假":"出席"}</button>}
-        <button type="button" className="min-h-9 text-primary-700 underline" disabled={pending} onClick={()=>onOpenCourse(row.sessionId)}>查看課程</button></div>
-      </li>)}</ul></section>)}{!rows.length&&<p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
+      <div className="overflow-y-auto p-4">{groups.map(group=>group.items.length>0&&<section key={group.label} className="mb-4"><h3 className="sticky top-0 bg-white py-2 text-sm font-semibold text-earth-700">{group.label} · {group.items.length} 人</h3><RosterTable dense label={group.label} widths={["8%","16%","13%","23%","16%","16%","8%"]} columns={["選取","學員","時間","課程","教師","備註","操作"]}>{group.items.map(row=><tr key={row.id}>
+        <td>{canEdit&&actionable.some(item=>item.id===row.id)&&<label className="flex min-h-11 min-w-11 items-center"><input type="checkbox" aria-label={`選取 ${row.name}`} checked={selected.includes(row.id)} disabled={pending} onChange={event=>setSelected(old=>event.target.checked?[...old,row.id]:old.filter(id=>id!==row.id))}/></label>}</td>
+        <td className="font-medium">{row.name}</td><td className="tabular-nums">{formatTWDateTime(new Date(row.startsAt)).slice(11,16)}</td><td>{row.course}</td><td>{row.teacher}</td><td>{row.note || "—"}</td>
+        <td><ExclusiveMenu label={`${row.name} 更多操作`} triggerText="⋯"><div className="grid gap-1 [&_button]:min-h-11 [&_button]:px-3 [&_button]:text-left [&_button]:text-sm">
+          <button type="button" disabled={pending} onClick={()=>onOpenCourse(row.sessionId)}>查看課程</button>
+          {canEdit&&kind==="leave"&&<button type="button" disabled={pending} onClick={()=>{setEditing(row);setNote(row.note??"");}}>編輯備註</button>}
+          {canEdit&&actionable.some(item=>item.id===row.id)&&<button type="button" disabled={pending} onClick={()=>submit([row],kind==="leave"?"RESERVED":"ATTENDED")}>{kind==="leave"?"取消請假":"出席"}</button>}
+        </div></ExclusiveMenu></td>
+      </tr>)}</RosterTable></section>)}{!rows.length&&<p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
       {editing&&<form className="border-t border-earth-200 bg-earth-50 p-4" onSubmit={event=>{event.preventDefault();saveNote();}}><label className="block text-sm font-semibold">{editing.name} · 請假備註<textarea className="mt-2 min-h-20 w-full rounded-lg border border-earth-200 bg-white p-2 font-normal" value={note} maxLength={1000} onChange={event=>setNote(event.target.value)} /></label><div className="mt-2 flex justify-end gap-2"><button type="button" className="min-h-10 rounded-lg border border-earth-200 px-3" disabled={pending} onClick={()=>setEditing(null)}>返回</button><button type="submit" className="min-h-10 rounded-lg bg-primary-700 px-3 text-white disabled:opacity-50" disabled={pending}>儲存備註</button></div></form>}
     </div>
   </div>;

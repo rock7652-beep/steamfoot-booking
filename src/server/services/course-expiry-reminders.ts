@@ -20,8 +20,10 @@ export async function getCourseExpiryCandidates(storeId:string,now=new Date()) {
   const dates=dayOffsets.map(days=>({days,date:addTaiwanDuration(toLocalDateStr(now),days,"DAY")}));
   const cards=await coursePrisma.coursePointCard.findMany({where:{storeId,closedAt:null,remaining:{gt:0},OR:dates.map(d=>({expiresAt:{gte:dayRange(d.date).start,lte:dayRange(d.date).end}}))},include:{members:true,bookings:{where:{storeId,status:"RESERVED"},select:{pointCost:true}}}});
   return cards.flatMap(card=>{
+    const expiry = card.expiresAt;
+    if (expiry === null) return []; // No-expiry never produces an expiry reminder.
     const rule = rules.get(courseExpiryPlanId(storeId,card.planId)) ?? parseCourseExpiryPlan();
-    const phase=rule.enabled ? dates.find(d=>rule.days.includes(d.days) && d.date===toLocalDateStr(card.expiresAt)) : undefined;
+    const phase=rule.enabled ? dates.find(d=>rule.days.includes(d.days) && d.date===toLocalDateStr(expiry)) : undefined;
     const held=card.bookings.reduce((n,b)=>n+b.pointCost,0);
     return phase&&card.remaining>held?[{card,held,...phase}]:[];
   });

@@ -24,6 +24,8 @@
 import { useActionState, useEffect } from "react";
 
 import { FormSection } from "@/components/desktop";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -62,11 +64,15 @@ export function InlineCashbookForm({
   canAssignStaff,
   staffOptions,
 }: Props) {
-  const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
+  const [state, formAction] = useActionState<CreateResult | null, FormData>(async (previous, data) => {
+    const result = await action(previous, data);
+    if (result.success) publishMusicFinanceChange();
+    return result;
+  }, null);
 
   useEffect(() => {
     if (state?.success) {
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 

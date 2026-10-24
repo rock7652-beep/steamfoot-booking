@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({native:false,manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn()}));
+const m=vi.hoisted(()=>({native:false,manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn(),templates:vi.fn(),templateUpdate:vi.fn(),templateCreate:vi.fn()}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:()=>m.native}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.feature}}}));
-vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,work:(tx:unknown)=>unknown)=>work({musicSubject:{create:m.create,findFirst:m.find,updateMany:m.update,findFirstOrThrow:m.findSaved}})}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,work:(tx:unknown)=>unknown)=>work({courseTemplate:{findMany:m.templates,updateMany:m.templateUpdate,create:m.templateCreate},musicSubject:{create:m.create,findFirst:m.find,updateMany:m.update,findFirstOrThrow:m.findSaved}})}));
 import {saveMusicSubjectWithReceipt} from "@/server/services/music-subject-save";
 const input={name:"吉他",category:"",description:"",isActive:true,expectedStoreId:"store-a",requestKey:"123e4567-e89b-42d3-a456-426614174000"};
 beforeEach(()=>{vi.clearAllMocks();m.native=false;m.manager.mockResolvedValue({storeId:"store-a",user:{id:"u"}});m.feature.mockResolvedValue({storeId:"store-a"});m.find.mockResolvedValue(null);m.create.mockImplementation(async({data})=>({...data,updatedAt:new Date("2026-10-10T00:00:00Z")}));});
@@ -51,4 +51,15 @@ it("checks independent compensation permission before any sports item write",asy
  m.native=true;m.manager.mockImplementation(async permission=>{if(permission==="teacher.compensation.manage")throw new Error("FORBIDDEN");return {storeId:"store-a",user:{id:"u",role:"OWNER"}};});
  await expect(saveMusicSubjectWithReceipt({...input,sportsRule})).rejects.toThrow("FORBIDDEN");
  expect(m.create).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();
+});
+
+it("saves native music defaults atomically and confirms a same-key retry without another schedule template",async()=>{
+ const native={durationMinutes:50,visibility:"PUBLIC",precautions:"帶樂器"};m.templates.mockResolvedValue([]);
+ const first=await saveMusicSubjectWithReceipt({...input,nativeDefaults:native});
+ expect(m.templateCreate).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({...native,storeId:"store-a",musicSubjectId:first.data.id,capacity:1})}));
+ m.find.mockResolvedValue({...first.data,storeId:"store-a",updatedAt:new Date(first.data.updatedAt)});
+ m.templates.mockResolvedValue([{id:"t",...native,description:""}]);
+ expect(await saveMusicSubjectWithReceipt({...input,nativeDefaults:native})).toEqual(first);expect(m.templateCreate).toHaveBeenCalledTimes(1);
+ m.templates.mockResolvedValue([{id:"t",...native,durationMinutes:60,description:""}]);
+ await expect(saveMusicSubjectWithReceipt({...input,nativeDefaults:native})).rejects.toThrow("已有更新");
 });

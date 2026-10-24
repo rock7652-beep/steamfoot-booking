@@ -1,4 +1,5 @@
 "use server";
+import { musicPlanWhere } from "@/server/services/music-plan-scope";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { courseManager } from "@/server/services/course-access";
@@ -14,7 +15,7 @@ export async function getCoursePlanReminderSettings() {
   const { storeId } = await courseManager("business_hours.manage");
   await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
   const [plans, overrides] = await Promise.all([
-    coursePrisma.coursePointPlan.findMany({ where: { storeId }, select: { id: true, name: true, unit: true, isActive: true, lowBalanceEnabled: true, lowBalanceThreshold: true }, orderBy: [{isActive:"desc"},{name:"asc"}] }),
+    coursePrisma.coursePointPlan.findMany({ where: { storeId, ...musicPlanWhere(storeId) }, select: { id: true, name: true, unit: true, isActive: true, lowBalanceEnabled: true, lowBalanceThreshold: true }, orderBy: [{isActive:"desc"},{name:"asc"}] }),
     prisma.messageTemplate.findMany({ where: {storeId, id: {startsWith: courseExpiryPlanPrefix(storeId)}}, select: {id:true,body:true} }),
   ]);
   const rules = new Map(overrides.map(row => [row.id, row.body]));

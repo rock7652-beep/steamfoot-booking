@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {useState, useTransition} from "react";
 import {useRouter} from "next/navigation";
 import {payCourseFee,correctCourseFee} from "@/server/actions/course-fee-payment";
@@ -9,13 +10,13 @@ export function CourseFeePaymentButton({sessionId, amount, paid=0}: {sessionId:s
   const [note,setNote]=useState(""), [requestKey,setRequestKey]=useState(""), [error,setError]=useState("");
   const [pending,start]=useTransition();
   const router=useRouter();
-  if(!open) return <button className="min-h-11 text-primary-700" onClick={()=>{setRequestKey(crypto.randomUUID());setOpen(true);}}>登錄已付</button>;
+  if(!open) return <button className="min-h-11 text-primary-700" onClick={()=>{setRequestKey(crypto.randomUUID());setPaymentAmount(String(amount-paid));setOpen(true);}}>登錄已付</button>;
   return <form className="min-w-48 space-y-2" onSubmit={event=>{event.preventDefault();start(async()=>{
     setError("");
     try {
       const result=await payCourseFee({sessionId,expectedAmount:amount,amount:Number(paymentAmount),expectedRemaining:amount-paid,method,note,requestKey});
       if(!result.success){setError(result.error);return;}
-      setOpen(false);router.refresh();
+      setOpen(false);publishMusicFinanceChange();router.refresh();
     } catch {setError("連線未完成，請重試；同一筆不會重複入帳。");}
   });}}>
     <p>尚未支付 NT$ {(amount-paid).toLocaleString()}。此處僅登錄，不會自動匯款。</p>
@@ -33,7 +34,7 @@ export function CourseFeeCorrectionButton({paymentId}:{paymentId:string}) {
   const [pending,start]=useTransition();const router=useRouter();
   if(!open)return <button className="min-h-11 text-primary-700" onClick={()=>setOpen(true)}>更正誤登</button>;
   return <form className="space-y-2" onSubmit={e=>{e.preventDefault();start(async()=>{
-    setError("");try{const result=await correctCourseFee({paymentId,reason});if(!result.success){setError(result.error);return;}setOpen(false);router.refresh();}catch{setError("連線未完成，請重試；不會重複沖回。");}
+    setError("");try{const result=await correctCourseFee({paymentId,reason});if(!result.success){setError(result.error);return;}setOpen(false);publishMusicFinanceChange();router.refresh();}catch{setError("連線未完成，請重試；不會重複沖回。");}
   });}}><p>確認後會保留原付款紀錄，並同步沖回對應支出。僅適用於記錯的付款，不代表已向授課人員收回款項；真實溢付不可用更正誤登代替收回。</p>
     <label>更正原因<input className="block min-h-11 border" required maxLength={500} disabled={pending} value={reason} onChange={e=>setReason(e.target.value)}/></label>
     {error&&<p role="alert">{error}</p>}<button className="min-h-11 px-3" disabled={pending||!reason.trim()}>確認更正</button><button className="min-h-11 px-3" type="button" disabled={pending} onClick={()=>setOpen(false)}>取消</button>

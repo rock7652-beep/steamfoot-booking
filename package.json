@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build",
+    "build": "node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build",
     "generate:clients": "prisma generate && prisma generate --schema spa-prisma/schema.prisma && prisma generate --schema course-prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint",
@@ -32,6 +32,7 @@
     "exceljs": "^4.4.0",
     "next": "16.2.2",
     "next-auth": "^5.0.0-beta.28",
+    "pg": "8.23.1",
     "prisma": "^6.19.2",
     "qrcode": "^1.5.4",
     "react": "19.2.4",

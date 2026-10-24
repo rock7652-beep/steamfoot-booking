@@ -27,3 +27,14 @@ it("monthly uses the same per-pupil calculator as payment and preserves ending t
  expect(report.lines[0]).toMatchObject({amount:846,endsAt:"2026-09-01T11:00:00.000Z",issue:null});
  expect(report.lines[0].feeDetails?.map(d=>d.amount)).toEqual([423,423]);
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:"right"}])("monthly payroll retains an unknown liability rather than zero fee for opening makeup: %j",async marker=>{
+ raw.mockImplementation(async(strings:TemplateStringsArray)=>{
+  const sql=strings.join("");
+  if(sql.includes('FROM "CourseSession" s LEFT JOIN'))return [{id:"lesson",staffId:"teacher",name:"補課",startsAt:new Date("2026-09-01T10:00Z"),endsAt:new Date("2026-09-01T11:00Z"),cancelledAt:null,teacherAttendance:"SCHEDULED",rule:{mode:"CLASS",value:500},revision:1}];
+  if(sql.includes('FROM "CourseBooking" b'))return [{id:"right-booking",sessionId:"lesson",customerName:"學員",status:"ATTENDED",absenceKind:null,cardId:null,pointCost:0,...marker}];
+  return [];
+ });
+ const report=await readCourseMonthlySettlement(tx,"A","2026-09");
+ expect(report.lines).toHaveLength(1);expect(report.lines[0]).toMatchObject({kind:"FEE",amount:null,paid:0,issue:expect.stringContaining("UNVERIFIED")});
+});

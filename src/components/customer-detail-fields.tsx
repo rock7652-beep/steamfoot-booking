@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
 /** Shared read-only customer fields; only editing controls need boxes. */
-export function CustomerDetailFields({items}:{items:{label:string;value:ReactNode;full?:boolean}[]}) {
-  return <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-    {items.map(({label,value,full})=><div key={label} className={`flex min-w-0 items-start gap-3 py-1.5 ${full?"sm:col-span-2":""}`}>
+export function CustomerDetailFields({items,className=""}:{className?:string;items:{label:string;value:ReactNode;full?:boolean}[]}) {
+  return <dl className={`grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2 ${className}`}>
+    {items.map(({label,value,full})=><div key={label} className={`flex min-w-0 items-start gap-3 py-1.5 ${full?"col-span-full":""}`}>
       <dt className="w-24 shrink-0 text-earth-500">{label}</dt>
       <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-earth-800">{value==null||value===""?<span className="text-earth-400">—</span>:value}</dd>
     </div>)}

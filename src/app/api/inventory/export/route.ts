@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { AppError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
     try {
         const ctx = await inventoryContext();
         await requirePermission("report.export");

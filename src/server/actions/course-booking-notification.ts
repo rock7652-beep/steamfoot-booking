@@ -5,6 +5,7 @@ import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { z } from "zod";
 import { courseSelfBookingEnabled, courseSelfLeaveEnabled, courseSelfRescheduleEnabled } from "@/lib/course-self-booking";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
 import { assertCourseSelfRescheduleEnabled } from "@/server/services/course-self-booking";
 import { revalidatePath } from "next/cache";
 import { courseMember, courseTransaction } from "@/server/services/course-access";
@@ -19,8 +20,9 @@ import type { Prisma } from "../../../generated/course-client";
 
 const id = z.string().min(1).max(100);
 async function ownedBooking(tx: Prisma.TransactionClient, storeId: string, customerId: string, bookingId: string) {
-  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:{include:{template:{select:{classType:true}}}},card:{include:{members:true}}}});
+  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:{include:{template:{select:{classType:true}}}},card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});
   if (!booking || !(booking.customerId === customerId || booking.reserverCustomerId === customerId || booking.card?.members.some(m=>m.customerId===customerId))) throw new AppError("FORBIDDEN", "無權操作此預約");
+  if (isMusicOpeningMakeupBooking(booking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   return booking;
 }
 export async function loadCourseBookingNotification(bookingId: string) {
@@ -35,8 +37,8 @@ export async function loadCourseBookingNotification(bookingId: string) {
     const now=new Date(),window=resolveCustomerBookingWindow(config,now);
     const selfBookingEnabled = courseSelfBookingEnabled(rule);
     const selfLeaveEnabled=courseSelfLeaveEnabled(rule), selfRescheduleEnabled=courseSelfRescheduleEnabled(rule);
-    const sessions=selfRescheduleEnabled && booking.status === "RESERVED" && !booking.session.cancelledAt ? await coursePrisma.courseSession.findMany({
-      where:{storeId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},template:{isActive:true,visibility:"PUBLIC"},startsAt:{gt:new Date(Math.max(now.getTime()+(rule?.bookingLeadMinutes??0)*60000,window.opensAt?.getTime()??0)),lte:window.closesAt}},
+    const sessions=selfRescheduleEnabled && booking.session.bookingAudience !== "ASSIGNED" && !booking.card?.musicOpeningStateRequired && !booking.card?.musicOpeningState && booking.status === "RESERVED" && !booking.session.cancelledAt ? await coursePrisma.courseSession.findMany({
+      where:{storeId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},bookingAudience:"OPEN",template:{isActive:true,visibility:"PUBLIC"},startsAt:{gt:new Date(Math.max(now.getTime()+(rule?.bookingLeadMinutes??0)*60000,window.opensAt?.getTime()??0)),lte:window.closesAt}},
       include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100,
     }) : [];
     return {success:true as const,selfBookingEnabled,selfLeaveEnabled,selfRescheduleEnabled,...(booking.cardId ? {leaveMessage:courseLeaveDebitMessage(music,{classType:booking.session.template.classType,unit:booking.card?.unit??"TRIAL",cost:booking.pointCost})} : {}),booking:{id:booking.id,name:courseDisplayName(booking.session.nameSnapshot),customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString(),room:s.room.name}))};
@@ -62,14 +64,17 @@ export async function rescheduleMemberCourseBooking(input: unknown) {
     const limits=await getStoreLimitsByStoreId(storeId);
     const result=await courseTransaction(storeId,async tx=>{
       const old=await ownedBooking(tx,storeId,customer.id,data.bookingId);
+      if (old.card?.musicOpeningStateRequired || old.card?.musicOpeningState || old.musicOpeningSourceLessonKey)
+        throw new AppError("VALIDATION","期初方案改期須保留來源堂次，目前請由店家核對");
       const requestKey=`course-reschedule:${old.id}:${data.sessionId}`;
       const prior=await tx.courseBooking.findUnique({where:{storeId_requestKey:{storeId,requestKey}}});
       if(prior && prior.operatorUserId===user.id && old.status==="CANCELLED" && prior.status==="RESERVED")return {bookingId:prior.id,oldSessionId:old.sessionId};
       // Check before cancellation, including trials whose reservation actor becomes staff-like.
       assertCourseSelfRescheduleEnabled(await tx.courseBookingRule.findUnique({ where: { storeId } }));
+      if(old.session.bookingAudience === "ASSIGNED") throw new AppError("VALIDATION","此堂為指定學員課程，請由店家安排改期");
       if(old.status!=="RESERVED" || old.session.cancelledAt || old.checkedInAt || old.makeupForBookingId || old.card?.termSessionIds.length) throw new AppError("VALIDATION","此預約請由店家協助調整");
-      const target=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,templateId:old.session.templateId,cancelledAt:null,template:{isActive:true,visibility:"PUBLIC"}}});
-      if(!target || target.id===old.sessionId)throw new AppError("VALIDATION","請選擇本店同課程的可預約時段");
+      const target=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,templateId:old.session.templateId,cancelledAt:null,bookingAudience:"OPEN",template:{isActive:true,visibility:"PUBLIC"}}});
+      if(!target || target.bookingAudience === "ASSIGNED" || target.id===old.sessionId)throw new AppError("VALIDATION","請選擇本店同課程的可預約時段");
       // Customer cancellation deadline is checked before releasing the original reservation.
       await settleCourseBooking(tx,actor,old.id,"CANCELLED","DEDUCTED",{memberReschedule:true,suppressNotice:true});
       if(old.bookingKind==="TRIAL") {
@@ -78,7 +83,7 @@ export async function rescheduleMemberCourseBooking(input: unknown) {
         if((window.opensAt&&new Date()<window.opensAt)||target.startsAt>window.closesAt)throw new AppError("VALIDATION","此時段尚未開放會員預約");
       }
       const next=await reserveCourseInTransaction(tx,old.bookingKind==="TRIAL"?{...actor,customerId:undefined}:actor,{
-        sessionId:target.id,cardId:old.cardId,customerId:old.customerId,trialPrice:old.bookingKind==="TRIAL"?old.trialPrice??undefined:undefined,requestKey,notes:old.notes??undefined,
+        musicRescheduleFromBookingId:old.id,sessionId:target.id,cardId:old.cardId,customerId:old.customerId,trialPrice:old.bookingKind==="TRIAL"?old.trialPrice??undefined:undefined,requestKey,notes:old.notes??undefined,
         customerName:old.customerName,companionIndex:old.companionIndex??undefined,reserverCustomerId:old.reserverCustomerId??undefined,reserverName:old.reserverName??undefined,reserverCardId:old.reserverCardId??undefined,groupKey:old.groupKey??undefined,
       },limits.maxMonthlyBookings,{memberReschedule:true});
       // A paid trial keeps its original receipts; no refund or new cash entry is created.

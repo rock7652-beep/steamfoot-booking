@@ -72,6 +72,7 @@ export function SettingsListRow({
   columns,
   expanded,
   keepMounted = false,
+  compact = false,
   onEdit,
   children,
 }: {
@@ -83,6 +84,7 @@ export function SettingsListRow({
   controls?: ReactNode;
   expanded?: boolean;
   keepMounted?: boolean;
+  compact?: boolean;
   onEdit?: () => void;
   children?: ReactNode;
 }) {
@@ -91,10 +93,10 @@ export function SettingsListRow({
   const destination = href && settingsSearch !== null ? settingsWorkspaceHref(href, settingsSearch) : href;
   return (
     <section className="@container min-w-0 border-b border-earth-100 last:border-0">
-      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 @3xl:grid-cols-[200px_minmax(0,1fr)_200px]"}>
-        <h3 title={title} className="min-w-0 break-words text-sm font-semibold text-primary-900">{title}</h3>
-        {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 @3xl:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className="min-w-0 break-words text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>}
-        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${columns ? "@3xl:flex-col @3xl:items-end" : "@3xl:w-[200px]"}`}>
+      <div className={compact ? "grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2" : columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 @3xl:grid-cols-[200px_minmax(0,1fr)_200px]"}>
+        <h3 title={title} className={`${compact?"col-start-1 row-start-1":""} min-w-0 break-words text-sm font-semibold text-primary-900`}>{title}</h3>
+        {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 @3xl:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className={`${compact?"col-start-1 row-start-2":""} min-w-0 break-words text-sm tabular-nums text-earth-600`} title={summary}>{summary}</p>}
+        <div className={`flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 ${compact ? "col-start-2 row-start-1 row-span-2" : columns ? "@3xl:flex-col @3xl:items-end" : "@3xl:w-[200px]"}`}>
           {controls}
           {onEdit && (!expanded || columns) ? (
             <button
@@ -120,7 +122,7 @@ export function SettingsListRow({
         </div>
       </div>
       {(showChildren || keepMounted) && children ? (
-        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : "@3xl:ml-[216px]"}`}>{children}</div>
+        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns || compact ? "" : "@3xl:ml-[216px]"}`}>{children}</div>
       ) : null}
     </section>
   );

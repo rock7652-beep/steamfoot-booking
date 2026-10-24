@@ -2,6 +2,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }), usePathname: () => "/dashboard/revenue" }));
 const m = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), remove: vi.fn() }));
 vi.mock("@/server/actions/quick-cashbook", () => ({ fetchQuickCashbook: m.read, saveQuickCashbook: m.save, deleteQuickCashbook: m.remove }));
 vi.mock("@/lib/quick-cashbook-client-transport", () => ({ readQuickCashbook: m.read }));

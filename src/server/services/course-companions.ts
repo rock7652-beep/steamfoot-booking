@@ -2,6 +2,7 @@ import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { readSportsSessionRule } from "./sports-staging-schedule";
 import { isMusicCourseStore } from "./course-business-profile";
 import "server-only";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import { isDeepStrictEqual } from "node:util";
 import { AppError } from "@/lib/errors";
 import type { Prisma } from "../../../generated/course-client";
@@ -26,9 +27,12 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (replay.length) {
     if (replay[0].actorUserId !== actor.userId || replay[0].targetId !== input.bookingId || !isDeepStrictEqual(replay[0].afterJson.input, JSON.parse(JSON.stringify(input))))
       return fail("操作請求已使用，請重新開啟");
-    return tx.courseBooking.findFirstOrThrow({where: {id: input.bookingId, storeId: actor.storeId}});
+    const booking = await tx.courseBooking.findFirstOrThrow({where: {id: input.bookingId, storeId: actor.storeId}});
+    if (isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
+    return booking;
   }
   const booking = await tx.courseBooking.findFirst({where: {id: input.bookingId, storeId: actor.storeId}, include: {session: true, card: true, trialPayments: {where: {status: "SUCCESS"}}}});
+  if (booking && isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if (!booking?.companionIndex || !booking.reserverCustomerId || !booking.reserverCardId || booking.status === "CANCELLED" || booking.session.cancelledAt)
     return fail("找不到可變更的同行預約");
   if (booking.updatedAt.toISOString() !== input.expectedUpdatedAt) return fail("預約已更新，請重新確認");
@@ -43,7 +47,7 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (input.mode === "MEMBER" && (!customerId || !cardId)) return fail("請選擇學員與本人方案");
   const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true}}) : null;
   if (input.mode !== "TRIAL") {
-    if (!card || card.closedAt || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length)
+    if (!card || card.closedAt || card.musicOpeningStateRequired || card.expiresAt === null || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length)
       return fail("此方案無法使用本堂課");
     // This corrects an existing seat. Its original reserver authorization survives
     // later changes to the shared-card feature or the plan's new-sharing setting.

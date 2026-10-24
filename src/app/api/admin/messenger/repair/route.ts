@@ -1,3 +1,4 @@
+import {repairRateState as lastRepairByActorAndStore} from "@/server/services/messenger-route-rate-limit-state";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { repairMessengerPageBinding } from "@/server/services/messenger-page-repair";
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MIN_INTERVAL_MS = 5 * 60_000;
-const lastRepairByActorAndStore = new Map<string, number>();
+
 
 function respond(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -42,6 +43,3 @@ export async function POST(request: Request) {
   }
 }
 
-export function resetMessengerRepairRateLimitForTests(): void {
-  lastRepairByActorAndStore.clear();
-}

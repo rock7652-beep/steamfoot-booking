@@ -15,7 +15,7 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
     include: { bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } },
     orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
   });
-  cards.sort((a,b)=>a.expiresAt.getTime()-b.expiresAt.getTime()||(a.id<b.id?-1:a.id>b.id?1:0));
+  cards.sort((a,b)=>(a.expiresAt?.getTime()??Infinity)-(b.expiresAt?.getTime()??Infinity)||(a.id<b.id?-1:a.id>b.id?1:0));
   for (const card of cards) {
     if(card.termSessionIds?.length&&sessions.some(s=>!card.termSessionIds.includes(s.id??"")))continue;
     const costs = sessions.map(s => resolveSportsEntitlement({ ...card, templateRestricted: card.requestKey.startsWith("no-show-makeup:") }, {

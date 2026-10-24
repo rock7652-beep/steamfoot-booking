@@ -1,4 +1,5 @@
 "use client";
+import {publishMusicFinanceChange} from "@/lib/music-finance-sync";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -8,6 +9,7 @@ import { confirmCoursePurchase } from "@/server/actions/course-portal";
 import { COURSE_REFUND_METHOD_LABELS, courseRefundReference } from "@/lib/course-refund-display";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type CourseTransactionDetail = {
+  tuitionDue?:number;tuitionReceipts?:{id:string;amount:number;date:string;method:string;lastFour:string|null}[];
   paymentMethod?: string | null; transferLastFour?: string | null; listPrice?: number | null;
   note: string; revenueStaffId: string | null; voidReason: string | null;
   id: string; name: string; customerName: string; status: string; price: number;
@@ -46,20 +48,21 @@ export function CourseTransactionActions({ quiet=false, order, allocationSummary
           : action === "edit" ? await editCoursePurchase({ purchaseId: order.id, reason, note, revenueStaffId: staffId || null })
           : await confirmCoursePurchase({ purchaseId: order.id });
         if (!result.success) { setMessage(result.error); return; }
-        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); router.refresh();
+        setMessage(action === "refund" ? "退款已登錄，方案已停用。" : action === "void" ? "交易已作廢，額度與收款紀錄已沖銷。" : action === "edit" ? "已儲存交易更正。" : "已核帳並發卡。"); setMode("detail"); publishMusicFinanceChange(); router.refresh();
       } catch { setMessage("送出失敗，已保留內容；請稍後重試。"); }
     });
   }
   const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
     <button className={quiet?"min-h-11 whitespace-nowrap px-3 text-sm text-primary-700 hover:underline":btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
-    {open && <RightSheet presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
+    {open && <RightSheet fitContent width={720} maxHeight={680} presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
       <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         <h3 className="font-semibold">{order.customerName}・{order.name}</h3>
         <details key={mode} open={mode === "detail"} className="text-sm"><summary className="min-h-11 cursor-pointer py-2">原交易明細</summary>
-        <dl className="grid grid-cols-2 gap-2 text-sm"><dt>{order.status === "PENDING" ? "待核帳金額" : "原實付金額"}</dt><dd>NT$ {order.price.toLocaleString()}</dd><dt>店家／開發人分配</dt><dd>{allocationSummary}</dd><dt>原購買額度</dt><dd>{order.points} {unit}</dd><dt>剩餘／占用</dt><dd>{order.remaining ?? "尚未發卡"} / {order.reserved} {unit}</dd><dt>到期日</dt><dd>{order.expiresAt ?? "核帳後起算"}</dd><dt>付款方式</dt><dd>{COURSE_PAYMENT_LABELS[order.paymentMethod??"BANK_TRANSFER"]??"其他"}</dd>{order.transferLastFour?<><dt>轉帳後四碼</dt><dd>{order.transferLastFour}</dd></>:order.transferLastFive?<><dt>匯款後五碼</dt><dd>{order.transferLastFive}</dd></>:null}</dl>
-        {order.note && <p className="text-sm">交易備註：{order.note}</p>}
+        <dl className="grid grid-cols-2 gap-2 text-sm"><dt>{order.status === "PENDING" ? "待核帳金額" : order.tuitionDue!==undefined?"累計實收":"原實付金額"}</dt><dd>NT$ {order.price.toLocaleString()}</dd><dt>店家／開發人分配</dt><dd>{allocationSummary}</dd><dt>原購買額度</dt><dd>{order.points} {unit}</dd><dt>剩餘／占用</dt><dd>{order.remaining ?? "尚未發卡"} / {order.reserved} {unit}</dd><dt>方案期限</dt><dd>{order.expiresAt ?? "核帳後起算"}</dd><dt>{order.tuitionDue!==undefined?"首筆付款方式":"付款方式"}</dt><dd>{order.tuitionDue!==undefined&&!order.tuitionReceipts?.length?"未付款":COURSE_PAYMENT_LABELS[order.tuitionReceipts?.[0]?.method??order.paymentMethod??"BANK_TRANSFER"]??"其他"}</dd>{order.transferLastFour?<><dt>轉帳後四碼</dt><dd>{order.transferLastFour}</dd></>:order.transferLastFive?<><dt>匯款後五碼</dt><dd>{order.transferLastFive}</dd></>:null}</dl>
+        {order.tuitionDue!==undefined&&<><p>應收 NT$ {order.tuitionDue.toLocaleString()} · 未收 NT$ {(order.status==="CONFIRMED"?order.tuitionDue-order.price:0).toLocaleString()}</p><div className="overflow-x-auto"><table className="w-full text-left text-sm"><caption className="text-left">付款紀錄</caption><thead><tr><th className="p-2">日期</th><th>金額</th><th>方式</th><th>後四碼</th></tr></thead><tbody>{order.tuitionReceipts?.map(r=><tr key={r.id} className="border-t"><td className="p-2">{r.date}</td><td>{r.amount.toLocaleString()}</td><td>{COURSE_PAYMENT_LABELS[r.method]}</td><td>{r.lastFour??"—"}</td></tr>)}</tbody></table></div></>}
+        {order.note && <details className="text-sm"><summary className="min-h-11 cursor-pointer py-2">交易備註</summary><p className="whitespace-pre-wrap break-words">{order.note}</p></details>}
         {order.voidReason && <p className="text-sm">作廢原因：{order.voidReason}</p>}
         {order.refunds.map((refund, i) => <section className="rounded border border-earth-200 p-3 text-sm" key={i}><p>{refund.date} 登錄退款 NT$ {refund.amount.toLocaleString()} · {methods[refund.method]??"其他非現金"}</p><p>原因：{refund.reason}</p></section>)}
         </details>

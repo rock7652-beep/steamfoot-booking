@@ -31,7 +31,7 @@ it("selects courses before showing fees, preserves per-course exceptions, and pr
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const onSettings=vi.fn(),onFees=vi.fn();
  const props={templates:[{id:"p",name:"吉他",musicPricePerLesson:800,musicTeacherShare:0.6}],qualificationIds:[] as string[],fees:{p:{mode:"SHARE" as const,value:"40",revision:2}},settings:{defaultRatio:0.6,subjectRules:{},revision:1},onSettings,onFees,onQualification:vi.fn()};
  try {
-  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師拆帳");expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師拆帳");await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="編輯項目")!.click());expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,qualificationIds:["p"]})));
   expect(Array.from(host.querySelectorAll("button")).some(b=>b.textContent==="完成選擇")).toBe(false);
   expect(host.textContent).toContain("彈性拆帳 · 40% · 定價試算 $320／堂");
@@ -59,18 +59,19 @@ it("summarizes course defaults, teacher overrides, fixed fees and zero without m
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
-it("hides generated course codes while keeping same-name course selection independent",async()=>{
+it("groups teaching qualifications by subject while hiding generated course codes",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");const root=createRoot(host);const onQualification=vi.fn();
  const props={templates:[{id:"original",name:"吉他 · 個別課 4堂",musicSubjectId:"guitar"},{id:"version",name:"吉他 · 個別課 4堂 · a91caf",musicSubjectId:"guitar"},{id:"manual",name:"自訂課程 · a91caf"}],qualificationIds:[] as string[],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:1},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
  try {
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="編輯項目")!.click());
   const labels=Array.from(host.querySelectorAll("label"));
-  expect(labels.slice(0,2).map(l=>l.textContent)).toEqual(["吉他 · 個別課 4堂","吉他 · 個別課 4堂"]);
-  expect(labels[2].textContent).toBe("自訂課程");
+  expect(labels.map(l=>l.textContent)).toEqual(["吉他 · 個別課 4堂","自訂課程"]);
+  expect(labels[1].textContent).toBe("自訂課程");
   expect(props.templates[2].name).toBe("自訂課程 · a91caf");
+  await act(async()=>labels[0].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  expect(onQualification.mock.calls).toEqual([["original",true],["version",true]]);
   await act(async()=>labels[1].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-  expect(onQualification).toHaveBeenLastCalledWith("version",true);
-  await act(async()=>labels[2].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
   expect(onQualification).toHaveBeenLastCalledWith("manual",true);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
@@ -79,9 +80,10 @@ it("keeps selected historical qualifications and limits batch selection to the v
  const props={templates:[{id:"current",name:"raw",displayName:"個別課 $800",currentTeaching:true},{id:"selected-old",name:"已選舊課",currentTeaching:false},{id:"hidden-old",name:"其他舊課",currentTeaching:false}],qualificationIds:["selected-old"],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:0},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
  try {
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="編輯項目")!.click());
   expect(host.textContent).toContain("個別課 $800");expect(host.textContent).toContain("已選舊課");expect(host.textContent).not.toContain("其他舊課");
-  const batch=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="勾選這 2 項")!;await act(async()=>batch.click());
+  const batch=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="全部勾選")!;await act(async()=>batch.click());
   expect(onQualification.mock.calls).toEqual([["current",true]]);
-  const other=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="其他項目（1）")!;await act(async()=>other.click());expect(host.textContent).toContain("其他舊課");
+  const other=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="其他項目")!;await act(async()=>other.click());expect(host.textContent).toContain("其他舊課");
  } finally {await act(async()=>root.unmount());host.remove();}
 });

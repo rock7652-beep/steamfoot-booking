@@ -32,7 +32,7 @@ export async function runCourseTrialCare(now=new Date()) {
         JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
         WHERE a.module='COURSE' AND a.action='COURSE_TRIAL_CARE_COMPLETED' AND a."storeId"=${setting.storeId}
         AND a."createdAt">=${setting.activatedAt} AND s."startsAt">=${dayRange(toLocalDateStr(setting.activatedAt!)).start}
-        AND s."endsAt"<=${now} AND s."cancelledAt" IS NULL AND b."bookingKind"='TRIAL' AND b.status='ATTENDED' AND b."customerId" IS NOT NULL
+        AND s."endsAt"<=${now} AND s."cancelledAt" IS NULL AND b."bookingKind"='TRIAL' AND b."musicOpeningMakeupEntitlementId" IS NULL AND b.status='ATTENDED' AND b."customerId" IS NOT NULL
         ORDER BY "completedAt", b.id`;
       const seen=new Set<string>();
       for(const row of rows) {
@@ -49,7 +49,7 @@ export async function runCourseTrialCare(now=new Date()) {
               tx.trialCareSetting.findUnique({where:{storeId:key.storeId}}),
               tx.customer.findFirst({where:{id:row.customerId,storeId:key.storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,lineUserId:true,lineLinkStatus:true}}),
               tx.trialCarePreference.upsert({where:{storeId_customerId:{storeId:key.storeId,customerId:key.customerId}},create:{storeId:key.storeId,customerId:key.customerId,token:randomBytes(24).toString("hex")},update:{}}),
-              coursePrisma.courseBooking.findFirst({where:{id:row.id,storeId:key.storeId,customerId:key.customerId,bookingKind:"TRIAL",status:"ATTENDED"}}),
+              coursePrisma.courseBooking.findFirst({where:{id:row.id,storeId:key.storeId,customerId:key.customerId,bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:null,status:"ATTENDED"}}),
               coursePrisma.courseCardMember.count({where:{storeId:key.storeId,customerId:key.customerId}}),
               coursePrisma.coursePurchase.count({where:{storeId:key.storeId,customerId:key.customerId,status:"PENDING"}}),
               coursePrisma.courseBooking.count({where:{storeId:key.storeId,customerId:key.customerId,status:"RESERVED",session:{startsAt:{gte:now},cancelledAt:null}}}),

@@ -35,7 +35,7 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved 
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
   const [saved, setSaved] = useState(draft);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
   const [message, setMessage] = useState("");
   const pathname=usePathname();
   const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/section`,storeId,savedCourseSettingsSection);
@@ -55,7 +55,7 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved 
       if(!result.success){setMessage(result.error);return;}
       const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value)]));
       setDraft(confirmed);setSaved(confirmed);revision.current=result.data.revision;
-      setConfirmDiscard(false);setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
+      setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
     }).finally(()=>{saving.current=false;});
   }}>
     <fieldset disabled={pending||mutation.uncertain} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
@@ -64,10 +64,9 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved 
       </label>)}
     </fieldset>
     {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
     <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
-      <button type="button" disabled={pending || mutation.uncertain || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
+      <button type="button" disabled={pending || mutation.uncertain || !dirty} onClick={() => { mutation.reset(); setDraft(saved); setMessage(""); }} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : mutation.uncertain ? "重試確認儲存結果" : "儲存"}</button>
     </div>
   </form>;

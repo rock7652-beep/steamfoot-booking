@@ -316,18 +316,18 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
           }
           {/* 明細列表 */}
-          <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <div className="max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm" role="region" aria-label="現金帳明細，可橫向捲動" tabIndex={0}>
+            <table className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
               <thead className="bg-earth-50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">付款方式</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
-                  <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">日期</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">類型</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">付款方式</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">分類</th>
+                  <th className="px-3 py-2 text-right font-medium text-earth-600">金額</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">登錄人</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">備註</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-earth-100">
@@ -344,10 +344,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                 )}
                 {entries.map((e) => (
                   <tr key={e.id} className="hover:bg-earth-50">
-                    <td className="px-4 py-3 text-earth-600">
+                    <td className="px-3 py-2 text-earth-600">
                       {new Date(e.entryDate).toLocaleDateString("zh-TW")}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <span
                         className={`rounded px-2 py-0.5 text-xs font-medium ${
                           ENTRY_TYPE_COLOR[e.type]
@@ -356,7 +356,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {ENTRY_TYPE_LABEL[e.type]}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <span
                         className={`rounded px-2 py-0.5 text-xs font-medium ${
                           PAYMENT_METHOD_COLOR[e.paymentMethod]
@@ -365,21 +365,19 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
+                    <td className="px-3 py-2 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
                     <td
-                      className={`px-4 py-3 text-right font-medium ${
+                      className={`whitespace-nowrap px-3 py-2 text-right font-medium ${
                         e.type === "INCOME" ? "text-green-700" : "text-red-700"
                       }`}
                     >
                       NT$ {Number(e.amount).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-earth-600">
+                    <td className="px-3 py-2 text-earth-600">
                       {e.staff?.displayName ?? (isCourse ? e.createdBy?.name : null) ?? "未指定"}
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3 text-earth-400">
-                      {e.note ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
+                    <td className="w-64 max-w-64 px-3 py-2 text-earth-600">{e.note?<details className="w-56"><summary className="flex min-h-11 cursor-pointer items-center gap-2"><span className="min-w-0 flex-1 truncate">{e.note}</span><span className="shrink-0 text-primary-700">展開</span></summary><p className="whitespace-pre-wrap break-words pb-2">{e.note}</p></details>:"—"}</td>
+                    <td className="px-3 py-2">
                       {isViewMode ? (
                         <span className="text-earth-400">僅可查看</span>
                       ) : (

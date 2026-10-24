@@ -43,7 +43,8 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     if (reading) startNavigation(async () => { await reading; });
     else startNavigation(() => router.replace(href, { scroll: false }));
   }, [router, closeHref, dismiss, reader]);
-  const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
+  useEffect(()=>{if(!pending)setDestination(null);},[pending]);
+  const request = useCallback((href: string) => { if (pending) setDestination(href); else go(href); }, [dirty, pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
     const localPath = url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
@@ -60,7 +61,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
   }, [config.href, closeHref, pathname, request, searchString]);
   useEffect(() => {
     if (dismissed) return;
-    const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
+    const unload = (event: BeforeUnloadEvent) => { if (pending) { event.preventDefault(); event.returnValue = ""; } };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // Nested editors own Escape while they are open.
@@ -80,8 +81,8 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
       </header>
       {navigating && <div data-panel-navigation-status className="shrink-0 border-b border-primary-100 bg-primary-50 px-4"><LoadingStatus>正在切換，請稍候…</LoadingStatus></div>}
       {destination && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
-        <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
-        <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
+        <p className="font-medium">設定仍在儲存，請稍候。</p>
+        <button autoFocus className="mt-2 min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>
       </div>}
       <div data-settings-panel-body className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
         onClickCapture={event => {

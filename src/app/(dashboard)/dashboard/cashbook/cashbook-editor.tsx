@@ -1,4 +1,5 @@
 "use client";
+import { publishMusicFinanceChange, isMusicPreviewPage } from "@/lib/music-finance-sync";
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ export function CashbookEditor({
   function close() {
     if (
       lock.current ||
-      (dirty && !window.confirm("離開編輯？尚未儲存的內容將不保留。"))
+      (dirty && !isMusicPreviewPage() && !window.confirm("離開編輯？尚未儲存的內容將不保留。"))
     )
       return;
     setOpen(false);
@@ -99,6 +100,7 @@ export function CashbookEditor({
       }
       setOpen(false);
       setDirty(false);
+      publishMusicFinanceChange();
       router.refresh();
       toast.success("已儲存收支紀錄");
     } catch {
@@ -147,7 +149,7 @@ export function CashbookEditor({
           >
             <fieldset
               disabled={busy}
-              className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4"
+              className="min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto p-3"
             >
               {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" ? <CashbookFormFields
                 closedDates={closedDates}
@@ -215,10 +217,10 @@ export function CashbookEditor({
                 </p>
               )}
             </fieldset>
-            <footer className="border-t bg-white p-4">
+            <footer className="flex justify-end border-t bg-white p-3">
               <button
                 disabled={busy}
-                className="min-h-11 w-full rounded-lg bg-primary-600 text-white"
+                className="min-h-11 min-w-28 rounded-lg bg-primary-600 text-white"
               >
                 {busy ? "儲存中…" : "儲存"}
               </button>

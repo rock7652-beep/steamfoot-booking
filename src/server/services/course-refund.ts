@@ -1,3 +1,4 @@
+import {readMusicTuition,readMusicReceipts} from "./music-tuition";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -46,6 +47,12 @@ export async function refundUnusedCoursePurchase(
   const grants = card.entries.filter((entry) => entry.kind === "GRANT");
   if (input.amount === undefined && (grants.length !== 1 || grants[0].points !== order.points || card.entries.some((entry) => entry.kind === "REFUND")))
     throw new AppError("BUSINESS_RULE", "方案有贈送、調整或退款異動，請先核對來源。");
+  const tuition=(await readMusicTuition(tx,storeId,[order.id])).get(order.id);
+  if(tuition){
+    const recorded=await readMusicReceipts(tx,storeId,[order.id]);
+    const cash=await tx.$queryRaw<Array<{id:string;amount:unknown;type:string;paymentMethod:string}>>`SELECT id,amount,type::text,"paymentMethod"::text FROM "CashbookEntry" WHERE "storeId"=${storeId} AND id=ANY(${recorded.map(r=>"music-receipt:"+r.id)}::text[]) FOR UPDATE`;
+    if(recorded.reduce((n,r)=>n+r.amount,0)!==order.price||recorded.some(r=>!cash.some(c=>c.id==="music-receipt:"+r.id&&Number(c.amount)===r.amount&&c.type==="INCOME"&&c.paymentMethod===(r.method==="CASH"?"CASH":"OTHER"))))throw new AppError("BUSINESS_RULE","分次收款與現金簿不一致，請先核對");
+  }else{
   // Verify the original accounting entry, rather than refunding a stale price alone.
   const receipts = await tx.$queryRaw<Array<{ amount: unknown; type: string; paymentMethod: string }>>`
     SELECT amount,type::text,"paymentMethod"::text FROM "CashbookEntry"
@@ -53,6 +60,7 @@ export async function refundUnusedCoursePurchase(
   const receipt = receipts[0];
   if (!receipt || Number(receipt.amount) !== order.price || receipt.type !== "INCOME" || receipt.paymentMethod !== (order.paymentMethod === "CASH" ? "CASH" : "OTHER"))
     throw new AppError("BUSINESS_RULE", "原收款紀錄不一致，請先核對帳務，尚未退款。");
+  }
   const method = input.method ?? "OTHER";
   const businessDate = new Date(toLocalDateStr() + "T00:00:00Z");
   if (method === "CASH") {

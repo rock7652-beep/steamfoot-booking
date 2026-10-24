@@ -59,7 +59,9 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     const rows=await prisma.store.findMany({
-      where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      // Other isolated module previews may add enum values not supported by this release.
+      // Filter before Prisma decodes them; do not relabel or expose unsupported modules.
+      where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES }, industryModule: { in: ["STEAMFOOT", "SPA", "COURSE"] } },
       select: { id: true, slug: true, name: true, isDefault: true, industryModule:true,shopConfig:{select:{address:true}} },
       orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });

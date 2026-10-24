@@ -32,7 +32,7 @@ const STAGE_ZH: Record<string, string> = {
   INACTIVE: "已停用",
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
   const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
@@ -58,7 +58,7 @@ export async function GET() {
     const csv = await getCourseCustomerCsv(activeStoreId,{
       cards:await checkPermission(user.role,user.staffId,"wallet.read"),
       bookings:await checkPermission(user.role,user.staffId,"booking.read"),
-    });
+    },request?new URL(request.url).searchParams.get("dataScope")??undefined:undefined);
     return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
   }
 
