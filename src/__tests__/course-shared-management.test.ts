@@ -27,7 +27,7 @@ it("does not force music business rules onto fitness to center the roster", () =
 it("shares weekly grids without hiding sessions lacking an active room", () => {
   const board = read("course-schedule-board");
   expect(board).not.toContain('mode === "week" && businessProfile === "MUSIC"');
-  expect(board).toContain('weekSessions.map(session => Number(hhmm(session.endsAt)');
+  expect(board).toContain('weekSessions.map(session => businessProfile === "MUSIC"');
   expect(board).toContain('length: lastHour - firstHour');
 });
 

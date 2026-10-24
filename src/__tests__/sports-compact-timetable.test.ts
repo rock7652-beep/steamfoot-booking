@@ -26,9 +26,9 @@ describe("sports compact timetable uses one scale for cards and clock",()=>{
    expect(div.querySelector('[style*="height:88px"]')).not.toBeNull();
    expect(card.textContent).toContain("10:15");expect(card.textContent).toContain("短課程");
   });
-  it(`${mode} keeps the music timetable at its original scale`,()=>{
+  it(`${mode} keeps music cards aligned with the denser 44px half-hour slots`,()=>{
    const div=board(mode,60,false);const wrapper=div.querySelector('[data-schedule-card="tracking"]')!.parentElement!;
-   expect(parseFloat(wrapper.style.height)).toBe(92);expect(div.querySelector('[style*="height:96px"]')).not.toBeNull();
+   expect(parseFloat(wrapper.style.height)).toBe(84);expect(div.querySelector('[style*="height:88px"]')).not.toBeNull();
   });
  }
 });
