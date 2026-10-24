@@ -326,8 +326,21 @@ function SessionCard({
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
-      {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
-      {dense && businessProfile !== "MUSIC" ? (
+      {!session.sportsPalette&&!musicDense&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
+      {musicDense ? (
+        <div className="min-w-0 text-sm">
+          <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-sm leading-4 tabular-nums">
+            <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
+            <span className="shrink-0">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>
+            {brief ? <strong className="min-w-0 flex-1 truncate">{copy.primary}</strong> : <span className="ml-auto min-w-0 truncate">{teacherState || resourceLabel}</span>}
+            {brief && progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`}>{progressText}</span>}
+          </div>
+          {!brief && <div className="flex min-w-0 items-center gap-1 text-sm leading-5">
+            <strong className="min-w-0 flex-1 truncate">{musicContext ? `${musicContext} · ` : ""}{copy.primary}</strong>
+            {progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`}>{progressText}</span>}
+          </div>}
+        </div>
+      ) : dense && businessProfile !== "MUSIC" ? (
         <div className={session.sportsPalette ? "space-y-0" : "space-y-0.5"}>
           <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
             <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
@@ -539,8 +552,9 @@ export function CourseScheduleBoard({
   useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  // A half-hour remains a 44px touch target at the denser music scale.
-  const hourHeight = sportsNative || businessProfile === "MUSIC" ? 88 : 96;
+  // Music prioritizes a wider visible time range; the clock, slots and cards
+  // share this scale. Primary toolbar/dialog controls keep their touch size.
+  const hourHeight = businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -604,15 +618,15 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,slotDuration);
                     const available = weekResource?.enabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative ${businessProfile === "MUSIC" ? "min-h-0" : "min-h-11"} ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;
