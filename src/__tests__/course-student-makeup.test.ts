@@ -35,9 +35,9 @@ it("rejects a source outside this store, learner or card",async()=>{
  m.courseBooking.findFirst.mockResolvedValue(null);
  await expect(reserveCourseInTransaction(tx,actor,input,100)).rejects.toThrow("原方案");expect(m.courseBooking.create).not.toHaveBeenCalled();
 });
-it("does not accept group leave or a different course",async()=>{
- m.courseBooking.findFirst.mockResolvedValue({...source,session:{...source.session,template:{classType:"GROUP"}}});
- await expect(reserveCourseInTransaction(tx,actor,input,100)).rejects.toThrow("原方案");
+it("allows an explicitly waived group leave, but rejects a different course",async()=>{
+ m.courseBooking.findFirst.mockImplementation(async ({where})=>where.id==="leave"?{...source,session:{...source.session,template:{classType:"GROUP"}}}:null);
+ expect((await reserveCourseInTransaction(tx,actor,input,100)).makeupForBookingId).toBe("leave");
  m.courseBooking.findFirst.mockResolvedValue({...source,session:{...source.session,templateId:"other"}});
  await expect(reserveCourseInTransaction(tx,actor,input,100)).rejects.toThrow("原方案");
 });

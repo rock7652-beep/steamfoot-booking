@@ -360,7 +360,7 @@ export async function reserveCourseInTransaction(
     const music = await isMusicCourseStore(tx, storeId);
     const source = await tx.courseBooking.findFirst({where:{id:input.makeupForBookingId,storeId,customerId:input.customerId,cardId:card.id,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"},include:{session:{include:{template:true}}}});
     if (source && isMusicOpeningMakeupBooking(source)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
-    if (!music || !source || source.session.template.classType === "GROUP" || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
+    if (!music || !source || await nativeLeaveWasDebited(tx,storeId,source.id) || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }
   const bookingCost = card ? (entitlementCost ?? (card.unit === "SESSION" ? 1 : session.pointCost)) : 0;

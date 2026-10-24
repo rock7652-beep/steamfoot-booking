@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null})}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
@@ -635,6 +636,6 @@ it("separates the attended circle corrections from the four learner actions",asy
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="測試學員 更多操作"]')!.click());
   expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["學員資料","學員繳費","取消本堂","取消後續課程"]);
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="測試學員：已出席"]')!.click());
-  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["恢復原狀態","未出席不扣堂","未出席扣堂"]);
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["恢復原狀態","請假","曠課"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });

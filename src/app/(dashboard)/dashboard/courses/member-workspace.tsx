@@ -64,6 +64,7 @@ import { CourseCustomerList } from "./customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
+import {StudentMakeupStatus} from "./student-makeup-status";
 import { CourseCustomerDraftForm, CoursePlanDraftForm, type Person, type Plan } from "./course-profile-forms";
 import { CourseCustomerHealth } from "./customer-health";
 
@@ -556,6 +557,7 @@ export function CourseMemberWorkspace({
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
+              {music && <StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>}
               {personTab === "info" && <IdentitySection className="border-b border-earth-100 pb-2">{!music && <summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary>}<dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>

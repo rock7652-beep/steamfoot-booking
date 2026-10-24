@@ -52,7 +52,7 @@ export async function closeNativeMusicMakeup(tx:Prisma.TransactionClient,storeId
 /** Persisted entitlements distinguish deducted leaves from older non-deducting leaves. */
 export async function nativeDeductedLeaveIds(tx:Prisma.TransactionClient,storeId:string) {
   if(!musicNativeWorkflowEnabled(storeId))return [];
-  const coupons=await tx.coursePointCard.findMany({where:{storeId,requestKey:{startsWith:NATIVE_MAKEUP_PREFIX}},select:{requestKey:true}});
+  const coupons=await tx.coursePointCard.findMany({where:{storeId,closedAt:null,requestKey:{startsWith:NATIVE_MAKEUP_PREFIX}},select:{requestKey:true}});
   return coupons.map(c=>c.requestKey.slice(NATIVE_MAKEUP_PREFIX.length));
 }
 
