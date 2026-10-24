@@ -315,7 +315,7 @@ export function CourseMemberWorkspace({
               ].filter(item => item.value != null && item.value !== "")}/>);
   return (
     <>
-      {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>安排課程</DashboardLink>}</div>}
+      {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
       {view === "plans" && <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
         <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
@@ -493,7 +493,7 @@ export function CourseMemberWorkspace({
           </nav>}
           <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
             {music && panel === "person" && person && personTab === "info" && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
-            {notice && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-primary-700"><span>{notice}</span>{notice==="結帳完成，方案已加入"&&purchased&&canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>安排課程</DashboardLink>}</div>}
+            {notice && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-primary-700"><span>{notice}</span>{notice==="結帳完成，方案已加入"&&purchased&&canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
                 {error}
