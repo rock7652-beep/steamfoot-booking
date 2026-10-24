@@ -1,4 +1,5 @@
 "use client";
+import {CourseDiscountFields} from "./course-discount-fields";
 import { getCourseCheckoutCashStatus } from "@/server/actions/course-checkout-status";
 import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
@@ -41,13 +42,7 @@ export function CourseAssignmentPayment({cashReader=getCourseCheckoutCashStatus,
     <h3 id="assignment-payment-title" className="font-semibold">結帳資料</h3>
     <input type="hidden" name="expectedStoreCost" value={storeCost}/><input type="hidden" name="expectedListPrice" value={price}/>
     <input type="hidden" name="discountKind" value={kind}/><input type="hidden" name="discountValue" value={discountValue}/>
-    {canDiscount&&<label className="block">優惠方式<select className={field} value={offer} onChange={e=>{const next=e.target.value as typeof offer;setOffer(next);setValue(next==="RATE"?"9":"");}}><option value="NONE">無優惠</option><option value="AMOUNT">折抵金額</option><option value="RATE">打折</option></select></label>}
-    {canDiscount&&offer!=="NONE"&&<label className="block">{offer==="RATE"?"打幾折（9 代表九折）":"折抵多少元"}<input aria-label="優惠數值" className={field} type="number" inputMode="decimal" min={offer==="RATE"?"0.01":"0"} max={offer==="RATE"?"10":price} step={offer==="RATE"?"0.01":"1"} value={value} onChange={e=>setValue(e.target.value)} required/></label>}
-    <dl className="space-y-2 rounded-lg bg-primary-50 p-3" aria-live="polite">
-      <div className="flex justify-between gap-3"><dt>原價</dt><dd>NT$ {price.toLocaleString()}</dd></div>
-      <div className="flex justify-between gap-3"><dt>折抵</dt><dd>{total?"− NT$ "+total.discount.toLocaleString():"—"}</dd></div>
-      <div className="flex justify-between gap-3 border-t border-primary-200 pt-2 font-semibold"><dt>實收</dt><dd>{paid!==null?"NT$ "+paid.toLocaleString():"—"}</dd></div>
-    </dl>
+    <CourseDiscountFields price={price} canDiscount={canDiscount} offer={offer} value={value} onOfferChange={setOffer} onValueChange={setValue} total={total}/>
     {!total&&<p role="alert" className="text-sm text-red-700">請輸入有效優惠；打折填 0.01–10，折抵金額不得超過售價。</p>}
     {profitEnabled&&paid!==null&&paid<storeCost&&<p role="alert" className="text-sm text-red-700">實收低於店家成本，請核對優惠；尚不能結帳。</p>}
     {showAllocation&&paid!==null&&(!profitEnabled||paid>=storeCost)&&<p className="text-sm text-earth-600">店家成本 NT$ {storeCost.toLocaleString()} · 開發人所得 NT$ {calculateCourseSaleAllocation(paid,storeCost).developerAmount.toLocaleString()}</p>}

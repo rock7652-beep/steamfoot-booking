@@ -1,0 +1,15 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "calendar type 一般服務 rendered",
+    "calendar type 體驗 rendered",
+    "calendar type 空間租借 rendered",
+    "separate cleanup stripe",
+    "calendar page 1440 no overflow",
+    "calendar page 768 no overflow",
+    "calendar page 390 no overflow",
+    "production calendar shows completed check and independent payment badge",
+    "no browser errors"
+  ],
+  "errors": []
+}

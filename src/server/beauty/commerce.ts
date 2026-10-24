@@ -1,4 +1,6 @@
 import "server-only";
+import {serviceCharges} from "./service-charges";
+import {calculateCourseCheckout} from "@/lib/course-checkout";
 import {beautyPaymentVisibility} from "./transaction-revisions";
 import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
@@ -42,6 +44,7 @@ export async function collect(
   tx: Tx,
   a: BeautyActor,
   d: z.infer<typeof paymentInput>,
+  options:{canDiscount:boolean}={canDiscount:false},
 ) {
   return command(tx, a, d.requestKey, d, async () => {
     for (const [i, id] of d.ids.entries()) {
@@ -58,8 +61,14 @@ export async function collect(
           ...(await beautyPaymentVisibility(tx,a.storeId)),
         },
       });
-      if (existing.reduce((s, p) => s + p.amount, 0) + d.amounts[i] > b.price)
-        throw new AppError("CONFLICT", "收款超過本次應收");
+      const [current]=await serviceCharges(tx,a.storeId,[b],existing.map(p=>({...p,appointmentId:id})));
+      const expected=d.quotes?.[i];
+      if(expected&&(expected.revision!==b.revision||expected.price!==b.price||expected.collected!==current.collected))throw new AppError("CONFLICT","應收或收款已更新，請重新開啟核對");
+      const offer=expected?.discount;
+      if(offer&&!options.canDiscount)throw new AppError("FORBIDDEN","沒有調整優惠的權限");
+      let quote;try{quote=calculateCourseCheckout(b.price,(offer??current.discount).kind,(offer??current.discount).value);}catch{throw new AppError("VALIDATION","請核對有效折扣或折抵金額");}
+      if(current.collected+d.amounts[i]>quote.paid)throw new AppError("CONFLICT","收款超過本次應收");
+      if(offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value))await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
       const p = await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
@@ -106,7 +115,7 @@ export async function collect(
             revision: { increment: 1 },
           },
         });
-      }
+      }else await tx.beautyAppointment.update({where:{id},data:{revision:{increment:1}}});
     }
     await audit(tx, a, "COLLECT", JSON.stringify(d));
     return { ids: d.ids };

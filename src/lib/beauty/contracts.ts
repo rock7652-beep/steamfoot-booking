@@ -147,10 +147,11 @@ export const paymentInput = z
     method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
     amounts: z.array(money).min(1).max(12),
     note: z.string().max(500).default(""),
+    quotes:z.array(z.object({id:key,revision:z.number().int().nonnegative(),price:money,collected:z.number().int(),discount:z.object({kind:z.enum(["AMOUNT","PERCENT"]),value:z.number().finite().nonnegative().max(10000000).refine(v=>Math.abs(v*100-Math.round(v*100))<0.000001,"最多兩位小數")}).optional()})).min(1).max(12).optional(),
   })
   .refine(
     (v) =>
-      v.ids.length === v.amounts.length && new Set(v.ids).size === v.ids.length,
+      v.ids.length === v.amounts.length && new Set(v.ids).size === v.ids.length && (!v.quotes||(v.quotes.length===v.ids.length&&v.quotes.every((q,i)=>q.id===v.ids[i]))),
     "請逐人核對金額",
   );
 export const cardInput = z.object({

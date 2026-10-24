@@ -5,6 +5,7 @@ import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
 import { cardAllowsRecipient } from "@/lib/beauty/member-booking";
+import {serviceCharges} from "@/server/beauty/service-charges";
 import {linkCompanion} from "@/server/beauty/companions";
 import {createCustomerSchema} from "@/lib/validators/customer";
 import {getStoreLimitsByStoreId} from "@/lib/feature-gate";
@@ -272,7 +273,7 @@ export async function changeBeautyStatus(
           ? await beautyManager("booking.update", true)
           : await bookingActor(mode),
       raw = z.object({target:z.string()}).passthrough().parse(input),
-      d = changeInput.parse(mode==="member"&&raw.target==="CANCELLED"?{...raw,reason:"顧客自行取消"}:mode==="work"&&raw.target==="COMPLETED"?{...raw,reason:"技師確認服務完成"}:input);
+      d = changeInput.parse(mode==="member"&&raw.target==="CANCELLED"?{...raw,reason:"顧客自行取消"}:mode!=="member"&&raw.target==="COMPLETED"?{...raw,reason:mode==="work"?"技師確認服務完成":"後台確認服務完成"}:input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, () => transition(tx, a, d)),
     );
@@ -407,10 +408,21 @@ export async function collectBeautyPayment(input: unknown) {
   return result(async () => {
     const a = await beautyManager("transaction.create", true);
     await requireStoreFeature(a.storeId, FEATURES.TRANSACTION_MANAGEMENT);
-    return beautyTransaction(a, (tx) =>
-      collect(tx, a, paymentInput.parse(input)),
-    );
+    const d=paymentInput.parse(input),canDiscount=!!d.quotes?.some(q=>q.discount);
+    if(canDiscount)await requirePermission("transaction.discount");
+    return beautyTransaction(a, (tx) => collect(tx,a,d,{canDiscount}));
   });
+}
+export async function readBeautyCollection(ids:unknown){
+ return result(async()=>{
+  const a=await beautyManager("transaction.create");await requirePermission("booking.read");await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
+  const wanted=z.array(key).min(1).max(12).refine(a=>new Set(a).size===a.length).parse(ids);
+  return beautyTransaction(a,async tx=>{
+   const rows=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:wanted}}});
+   if(rows.length!==wanted.length||rows.some(b=>b.cardId||b.status==='CANCELLED'))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
+   return serviceCharges(tx,a.storeId,wanted.map(id=>rows.find(b=>b.id===id)!));
+  });
+ });
 }
 export async function purchaseBeautyPlan(input: unknown) {
   return result(async () => {

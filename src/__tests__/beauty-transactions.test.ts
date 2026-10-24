@@ -68,7 +68,7 @@ beforeEach(() => {
       create: vi.fn(),
     },
     beautyTechnician:{findMany:vi.fn().mockResolvedValue([{id:"t",name:"合成技師"}])},
-    beautyEvent: { create: vi.fn(), upsert: vi.fn() },
+    beautyEvent: { create: vi.fn(), upsert: vi.fn(), findMany:vi.fn().mockResolvedValue([]) },
     beautyAppointment: {
       findFirst: vi.fn().mockResolvedValue({ ...b }),
       count: vi.fn().mockResolvedValue(0),
@@ -431,4 +431,27 @@ describe('Beauty shared analytics sale attribution',()=>{
   const [sql,...values]=vi.mocked(tx.$queryRaw).mock.calls[0];
   expect('sql' in sql?sql.sql:Array.from(sql).join('')).toContain('s."storeId"=c."storeId"');expect(values).toContain('s');
  });
+});
+
+it.each(['PAID','LIST'] as const)('records discount separately and preserves %s compensation basis',async base=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,status:'COMPLETED',rate:{mode:'PERCENT',value:50,base}} as never);
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'new',amount:900} as never);
+ await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[900],method:'OTHER',note:'',quotes:[{id:'b',revision:0,price:1000,collected:0,discount:{kind:'PERCENT',value:10}}]},{canDiscount:true});
+ expect(tx.beautyAppointment.update).toHaveBeenCalledWith({where:{id:'b'},data:{fee:base==='PAID'?450:500,revision:{increment:1}}});
+ expect(tx.beautyEvent.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({kind:'SERVICE_DISCOUNT',appointmentId:'b',status:'AUDIT',body:expect.stringContaining('"netPrice":900')})}));
+ expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+});
+it('enforces discounted remaining balance on later payments even without another discount payload',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);
+ vi.mocked(tx.beautyEvent.findMany).mockResolvedValue([{appointmentId:'b',body:JSON.stringify({kind:'AMOUNT',value:200,price:1000})}] as never);
+ vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'earlier',amount:600}] as never);
+ await expect(collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[201],method:'OTHER',note:''})).rejects.toThrow('超過');expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'later',amount:200} as never);
+ await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[200],method:'OTHER',note:''});expect(tx.beautyAppointment.update).toHaveBeenCalledWith({where:{id:'b'},data:{revision:{increment:1}}});
+});
+it('rejects discount without grant, stale money snapshots and discounts below collected money before writes',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);
+ const input={requestKey:crypto.randomUUID(),ids:['b'],amounts:[100],method:'OTHER' as const,note:'',quotes:[{id:'b',revision:0,price:1000,collected:0,discount:{kind:'AMOUNT' as const,value:100}}]};
+ await expect(collect(tx,a,input)).rejects.toThrow('權限');await expect(collect(tx,a,{...input,quotes:[{...input.quotes[0],revision:9}]},{canDiscount:true})).rejects.toThrow('已更新');
+ vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'earlier',amount:950}] as never);await expect(collect(tx,a,{...input,quotes:[{...input.quotes[0],collected:950}]},{canDiscount:true})).rejects.toThrow('超過');expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.beautyEvent.create).not.toHaveBeenCalled();
 });

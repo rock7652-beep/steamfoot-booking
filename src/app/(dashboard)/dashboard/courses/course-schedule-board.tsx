@@ -1,4 +1,5 @@
 "use client";
+import {serviceCalendarPresentation} from "@/lib/service-calendar-presentation";
 import {serviceScheduleTotals} from "@/lib/service-schedule-counts";
 import {courseWeekStart as weekStart} from '@/lib/course-calendar';
 import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
@@ -38,7 +39,8 @@ type Booking = {
 
 type Session = {
   occupiedStartsAt?:string;occupiedEndsAt?:string;
-  service?: {groupId?:string;personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
+  servicePalette?:boolean;
+  service?: {paymentStatus?:string;groupLabel?:string;groupProgress?:string;groupId?:string;personName:string;status:string;occupiedEndsAt:string;endsAt:string;buffer:number};
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -245,6 +247,12 @@ function adaptiveCopy(
   };
 }
 
+function ServiceLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-3 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex items-center gap-1"><i className={`h-3 w-3 rounded ${p.dot}`}/>{p.label}</span>;})}<span>✓ 服務完成</span><span>斜線：整理時間</span></div>;}
+function ServiceCleanup({session,minuteHeight}:{session:Session;minuteHeight:number}){
+ if(!session.service||session.service.buffer<=0)return null;
+ return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(session.service.occupiedEndsAt)}</div>;
+}
+
 function SessionCard({
   session,
   templates,
@@ -280,7 +288,7 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
-  const presentation = session.sportsPalette?sportsCalendarPresentation(session):courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
+  const presentation = session.servicePalette?serviceCalendarPresentation(!!trialClass,session.previewKind === 'RENTAL',session.service?.status==='COMPLETED'):session.sportsPalette?sportsCalendarPresentation(session):courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
@@ -314,7 +322,8 @@ function SessionCard({
       onClick={onOpen}
       tabIndex={session.sportsPalette&&session.previewFaded?-1:undefined}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.sportsPalette?sportsCalendarPresentation(session).card:"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.servicePalette?serviceCalendarPresentation(!!trialClass,rental,session.service?.status==='COMPLETED').card:session.sportsPalette?sportsCalendarPresentation(session).card:"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      data-service-schedule-kind={session.servicePalette?presentation.label:undefined}
       data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
@@ -322,9 +331,10 @@ function SessionCard({
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       {session.service ? <div className="space-y-0.5 text-sm leading-5">
-        <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
-        <strong className="block truncate">{session.nameSnapshot}</strong><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>
-        {session.service.buffer>0&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
+        <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
+        <div className="flex min-w-0 items-center justify-between gap-1"><strong className="min-w-0 truncate">{session.nameSnapshot}</strong>{session.service.paymentStatus&&<span className="shrink-0 rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</div><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>
+        {session.service.groupLabel&&<span className="inline-block text-xs">{session.service.groupLabel} · {session.service.groupProgress}</span>}
+        {session.service.buffer>0&&!dense&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
       </div> : <>      <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
@@ -561,6 +571,7 @@ export function CourseScheduleBoard({
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"服務週班表":"教室週課表"}>
+        {serviceMode&&<ServiceLegend/>}
         <Toolbar className={businessProfile === "MUSIC" || serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
           <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? "老師" : courseDisplayText("教練", businessProfile)}</label>
@@ -613,6 +624,7 @@ export function CourseScheduleBoard({
                   })}
                   {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
+                    <ServiceCleanup session={session} minuteHeight={hourHeight/60}/>
                   </div>)}
                 </div>;
               })}
@@ -775,6 +787,7 @@ export function CourseScheduleBoard({
 
   return (
     <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"日班表":"日課表"}>
+      {serviceMode&&<ServiceLegend/>}
 
       <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
         {!musicDense && resourceViewControls}
@@ -1025,6 +1038,7 @@ export function CourseScheduleBoard({
                               resourceView={resourceView}
                               onOpen={() => openCard(session, selectedDate)}
                             />
+                            {timelineDense&&<ServiceCleanup session={session} minuteHeight={hourHeight/60}/>}
                           </div>
                         ))}
                       </div>

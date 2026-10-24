@@ -8,17 +8,18 @@ const RentalPanel=dynamic(()=>import("@/app/(dashboard)/dashboard/courses/rental
 import {BeautyScheduleWorkspace} from './schedule-workspace';
 import {BeautyManagementList} from './management-list';
 
-import { useState, useTransition,useCallback,type ReactNode } from "react";
+import { useState, useTransition,useCallback,useRef,type ReactNode } from "react";
 import { useRouter,useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 const BeautyNativeCustomerWorkspace=dynamic(()=>import("./native-customer-source").then(m=>m.BeautyNativeCustomerWorkspace));
 import {BeautyNativeScheduleDialog} from "./native-schedule-source";
 const CompanionSlot=dynamic(()=>import("@/app/(dashboard)/dashboard/bookings/booking-companion-editor").then(m=>m.CompanionSlot));
+import {toast} from "sonner";
+const BeautyCollectionPanel=dynamic(()=>import("./collection-panel").then(m=>m.BeautyCollectionPanel));
 import { BeautyCatalogEditor, type EditorKind } from "./catalog-editor";
 import {
   findBeautyCompanionByPhone,attachBeautyCompanion,createBeautyCompanion,
   changeBeautyStatus,
-  collectBeautyPayment,
   refundBeautyPayment,
   moveBeautyAppointment,
 } from "@/server/actions/beauty";
@@ -58,7 +59,9 @@ export function BeautyDashboard({
       settingsSection?:"booking"|"notifications";
       draft?: Record<string, unknown>;
     } | null>(null);
-  const [identityBusy,setIdentityBusy]=useState(false);
+  const [identityBusy,setIdentityBusy]=useState(false),[collectionBusy,setCollectionBusy]=useState(false);
+  const mutationLock=useRef(false),statusRequests=useRef(new Map<string,string>());
+  const onCollectionGuard=useCallback((dirty:boolean,busy:boolean)=>{setMoneyDirty(dirty);setCollectionBusy(busy);},[]);
   const [moneyDirty,setMoneyDirty]=useState(false),[bookingState,setBookingState]=useState({dirty:false,pending:false});
   const [statusDraft,setStatusDraft]=useState<{id:string;revision:number;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';reason:string;requestKey:string}|null>(null);
   const [moneyRequest,setMoneyRequest] = useState(()=>crypto.randomUUID());
@@ -66,10 +69,10 @@ export function BeautyDashboard({
       kind: "collect" | "refund" | "card" | "move" | "link";
       ids: string[];
     } | null>(null);
-  useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),identityBusy||(pending&&!!(moneyPanel||statusDraft)));
+  useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),identityBusy||collectionBusy||(pending&&!!(moneyPanel||statusDraft)));
   const updateBookingGuard=useCallback((dirty:boolean,pending:boolean)=>setBookingState(old=>old.dirty===dirty&&old.pending===pending?old:{dirty,pending}),[setBookingState]);
   function closeBooking(){if(bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定離開？"))return;setBooking(false);setBookingState({dirty:false,pending:false});}
-  function closeMoney(){if(pending||identityBusy||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
+  function closeMoney(){if(pending||identityBusy||collectionBusy||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
     setError("");
     setMoneyDirty(false);
@@ -90,7 +93,8 @@ export function BeautyDashboard({
     const query=new URLSearchParams(window.location.search);if(query.has('bookingId')){query.delete('bookingId');window.history.replaceState(null,'',`${window.location.pathname}?${query}`);}
   }
   function run(work: () => Promise<{ success: boolean; error?: string }>,afterSaved?:()=>void) {
-    if (pending) return;
+    if (pending||mutationLock.current) return;
+    mutationLock.current=true;
     start(async () => {
       setError("");
       try {
@@ -101,7 +105,7 @@ export function BeautyDashboard({
         } else setError(r.error ?? "操作失敗");
       } catch {
         setError("連線失敗，請核對後重試");
-      }
+      } finally {mutationLock.current=false;}
     });
   }
   function status(
@@ -109,6 +113,11 @@ export function BeautyDashboard({
     revision: number,
     target: "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESERVED",
   ) {
+    if(readOnly||!data.manage.update||pending||mutationLock.current)return;
+    if(target==='COMPLETED'){
+      const key=`${id}:${revision}:${target}`;if(!statusRequests.current.has(key))statusRequests.current.set(key,crypto.randomUUID());
+      run(()=>changeBeautyStatus('manager',{id,revision,target,requestKey:statusRequests.current.get(key)!}),()=>{toast.success('已完成服務');router.refresh();});return;
+    }
     setError('');
     setStatusDraft({id,revision,target,reason:'',requestKey:crypto.randomUUID()});
   }
@@ -165,7 +174,8 @@ export function BeautyDashboard({
       {detailId && <BeautyNativeCustomerWorkspace key={detailId} data={data} readOnly={readOnly} customerId={detailId} panelOnly onClose={()=>setDetailId(null)}/>}
       {moneyPanel?.kind==='card'&&<BeautyNativeCustomerWorkspace key={moneyPanel.ids[0]} data={data} readOnly={readOnly} customerId={moneyPanel.ids[0]} initialAction="assign" panelOnly onClose={closeMoney}/>}
       {moneyPanel?.kind==='link'&&(()=>{const b=data.items.find(b=>b.id===moneyPanel.ids[0]);return b&&<RightSheet open presentation="centered" fitContent width={700} labelledById="beauty-identity-title" closeOnEscape={!identityBusy} onClose={closeMoney}><header className="flex items-center justify-between gap-2 border-b p-4"><h2 id="beauty-identity-title" className="font-semibold">補顧客資料 · {b.personName} · {b.serviceName}</h2><button type="button" className={button} disabled={identityBusy} onClick={closeMoney}>關閉</button></header><section className="p-4" onChangeCapture={()=>setMoneyDirty(true)}><CompanionSlot displayPosition={Number(/^同行者 (\d+)$/.exec(b.personName)?.[1]??1)+1} bookingId={b.id} slot={{position:2,revision:b.revision,customerId:b.customerId,name:null}} embedded canEdit={!readOnly&&data.manage.update&&data.access.customerAccess} canCreate={data.manage.customer} blocked={pending} onBusy={setIdentityBusy} onUpdated={()=>{setMoneyDirty(false);setMoneyPanel(null);router.refresh();}} source={{scope:'beauty-companion-phone',find:findBeautyCompanionByPhone,attach:attachBeautyCompanion,create:createBeautyCompanion}}/></section></RightSheet>;})()}
-      {moneyPanel && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && (
+      {moneyPanel?.kind==='collect'&&<RightSheet open presentation="centered" fitContent width={560} labelledById="beauty-collection-title" closeOnEscape={!collectionBusy} onClose={closeMoney}><BeautyCollectionPanel key={moneyPanel.ids.join(':')} ids={moneyPanel.ids} canDiscount={!readOnly&&!!data.manage.discount} onGuard={onCollectionGuard} onClose={closeMoney} onSaved={()=>{setMoneyDirty(false);setMoneyPanel(null);toast.success('已登錄收款');router.refresh();}}/></RightSheet>}
+      {moneyPanel && moneyPanel.kind!=='collect' && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && (
         <RightSheet
           open
           presentation="centered"
@@ -183,16 +193,6 @@ export function BeautyDashboard({
                 requestKey = moneyRequest,
                 method = String(f.get("method") ?? "OTHER"),
                 note = String(f.get("note") ?? "");
-              if (moneyPanel.kind === "collect")
-                run(() =>
-                  collectBeautyPayment({
-                    requestKey,
-                    ids: moneyPanel.ids,
-                    amounts: moneyPanel.ids.map((id) => Number(f.get(id))),
-                    method,
-                    note,
-                  }),
-                );
               if (moneyPanel.kind === "refund")
                 run(() =>
                   refundBeautyPayment({
@@ -224,43 +224,13 @@ export function BeautyDashboard({
             <h2 id="beauty-money-title">
               {
                 {
-                  collect: "服務收款",
                   refund: "登錄退款（不自動退刷）",
                   card: "購買方案",
                   move: "改期／換技師位置",
                 }[moneyPanel.kind]
               }
             </h2>
-            {moneyPanel.kind === "collect"
-              ? moneyPanel.ids.map((id) => {
-                  const b = data.items.find((b) => b.id === id);
-                  return (
-                    <label className="block" key={id}>
-                      {b?.personName}｜{b?.serviceName}
-                      <input
-                        className={field}
-                        type="number"
-                        min={0}
-                        required
-                        name={id}
-                        defaultValue={b?.price}
-                      />
-                    </label>
-                  );
-                })
-              : moneyPanel.kind !== "move" &&
-                (
-                  <label>
-                    金額
-                    <input
-                      required
-                      className={field}
-                      type="number"
-                      min={0}
-                      name="amount"
-                    />
-                  </label>
-                )}
+            {moneyPanel.kind === "refund" && <label className="block">金額<input required className={field} type="number" min={1} name="amount" /></label>}
             {moneyPanel.kind === "move" && (
               <>
                 <label>
