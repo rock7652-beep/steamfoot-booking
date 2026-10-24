@@ -10,6 +10,7 @@ vi.mock('@/server/actions/course-schedule-enrollment',()=>({loadCourseScheduleEn
 import {MusicScheduleWizard} from '@/app/(dashboard)/dashboard/courses/music-schedule-wizard';
 import {getMusicSlotMatches} from '@/server/actions/course-slot-matches';
 import {loadCourseScheduleEnrollmentOptions} from '@/server/actions/course-schedule-enrollment';
+import {inspectCourseSchedule} from '@/server/actions/course-schedule-check';
 it('restores four types, assigned/open enrollment, and weekly/biweekly colors while retaining calendar position',async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement('div'),root=createRoot(host);
@@ -32,6 +33,55 @@ it('restores four types, assigned/open enrollment, and weekly/biweekly colors wh
  expect(host.textContent).toContain('名額');
  expect(host.querySelector<HTMLInputElement>('[aria-label="時長"]')!.value).toBe('60');
  expect(host.querySelector<HTMLInputElement>('[aria-label="排課時間"]')!.value).toBe('09:00');
+ }finally{await act(async()=>root.unmount());}
+});
+
+it('keeps the same teaching item when switching to trial and back, with position and participant drafts intact',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ vi.mocked(getMusicSlotMatches).mockResolvedValue({success:true,data:[{time:'09:00',roomId:'room',coachIds:['wu']}],unavailable:[],blocker:undefined});
+ vi.mocked(inspectCourseSchedule).mockResolvedValue({success:true,issues:[]});
+ vi.mocked(loadCourseScheduleEnrollmentOptions).mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:true,price:499}});
+ const subjects=[{id:'experience',name:'體驗',isActive:true},{id:'guitar',name:'吉他',isActive:true}];
+ const props={subjects,templates:subjects.map(s=>({id:`version-${s.id}`,name:s.name,musicSubjectId:s.id,musicSubject:s,durationMinutes:25,capacity:1,defaultRoomId:null})),rooms:[{id:'room',name:'01'}],coaches:[{id:'wu',displayName:'教師甲'}],initialDate:'2026-10-24',seed:{time:'09:00',roomId:'room',coachId:'wu'},initialLearner:{customerId:'student',cardId:'',name:'原學員'},requestKey:'switch-test',onCreated:vi.fn()};
+ function Harness(){const [kind,setKind]=React.useState<'fixed'|'single'|'trial'|'rental'>('single');return React.createElement(MusicScheduleWizard,{...props,isTrial:kind==='trial',initialScheduleKind:kind==='fixed'?'FIXED':'SINGLE',onArrangementChange:setKind});}
+ const host=document.createElement('div'),root=createRoot(host);
+ const select=async(label:string,value:string)=>act(async()=>{const input=host.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));});
+ const course=()=>host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.value;
+ try{
+  await act(async()=>root.render(React.createElement(Harness)));
+  await select('課程','teaching:experience');await select('安排類型','trial');
+  expect(course()).toBe('teaching-trial:experience');
+  expect(vi.mocked(getMusicSlotMatches)).toHaveBeenLastCalledWith(expect.objectContaining({templateId:'teaching-trial:experience'}));
+  const name=host.querySelector<HTMLInputElement>('[aria-label="體驗者 1 姓名"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(name,'體驗草稿');name.dispatchEvent(new Event('input',{bubbles:true}));});
+  await select('課程','teaching-trial:guitar');await select('安排類型','single');
+  expect(course()).toBe('teaching:guitar');expect(host.querySelector('[aria-label="排課學員"]')?.textContent).toContain('原學員');
+  await select('安排類型','fixed');expect(course()).toBe('teaching:guitar');
+  await select('安排類型','trial');expect(course()).toBe('teaching-trial:guitar');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="體驗者 1 姓名"]')!.value).toBe('體驗草稿');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="排課日期"]')!.value).toBe('2026-10-24');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="排課時間"]')!.value).toBe('09:00');
+  expect(host.querySelector<HTMLSelectElement>('[aria-label="排課教室"]')!.value).toBe('room');
+  expect(host.querySelector<HTMLSelectElement>('[aria-label="授課教師"]')!.value).toBe('wu');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="時長"]')!.value).toBe('25');
+ }finally{await act(async()=>root.unmount());}
+});
+
+it('maps legacy templates by subject and never silently selects another subject when no counterpart exists',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const subject={id:'guitar',name:'吉他',isActive:true},other={id:'drums',name:'爵士鼓',isActive:true};
+ const regular={id:'regular',name:'吉他',musicSubjectId:'guitar',musicSubject:subject,durationMinutes:50,capacity:1,defaultRoomId:null};
+ const trial={...regular,id:'trial',musicTrialMode:'PAID'};
+ const props={templates:[regular,trial],rooms:[],coaches:[],initialDate:'2026-10-24',requestKey:'legacy-switch',initialTemplateId:'regular',onCreated:vi.fn()};
+ const host=document.createElement('div'),root=createRoot(host);
+ try{
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,isTrial:true})));
+  expect(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.value).toBe('trial');
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,isTrial:true,templates:[regular,{...trial,id:'other-trial',musicSubjectId:'drums',musicSubject:other}]})));
+  expect(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.value).toBe('');
+  expect(host.textContent).toContain('此教學項目目前沒有可安排的體驗課');
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,isTrial:false})));
+  expect(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.value).toBe('regular');
  }finally{await act(async()=>root.unmount());}
 });
 it('shows the calendar teacher before course selection and preserves assigned learners through course changes',async()=>{

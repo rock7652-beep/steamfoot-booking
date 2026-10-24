@@ -11,7 +11,7 @@ import { createCourseSchedule } from "@/server/actions/course";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import {getMusicScheduleRooms} from "@/server/actions/music-schedule-rooms";
 import {MusicTrialLearners} from "@/components/admin/music-trial-learners";
-import {MUSIC_DEFAULT_DURATION_MINUTES,musicTeachingKey} from "@/lib/music-teaching-item";
+import {MUSIC_DEFAULT_DURATION_MINUTES,musicTeachingKey,musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { isMusicTrialTemplate } from "@/lib/music-trial-template";
 
@@ -41,11 +41,8 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const [coachId,setCoachId]=useState(originalPosition.coachId);
   const [duration,setDuration]=useState(originalPosition.durationMinutes);
   const [enrollmentMode,setEnrollmentMode]=useState<"ASSIGNED"|"OPEN">("ASSIGNED");
-  // Trial and regular course drafts survive type switches independently.
-  const [regularTemplateId,setRegularTemplateId]=useState(initialTemplateId??"");
-  const [trialTemplateId,setTrialTemplateId]=useState("");
-  const templateId=isTrial?trialTemplateId:regularTemplateId;
-  const setTemplateId=isTrial?setTrialTemplateId:setRegularTemplateId;
+  // The teaching item is shared across types; participant drafts stay separate.
+  const [selectedTeachingId,setTemplateId]=useState(initialTemplateId??"");
   const [regularLearners,setRegularLearners]=useState<ScheduleLearner[]>(initialLearner?[initialLearner]:[]);
   const [trialLearners,setTrialLearners]=useState<ScheduleLearner[]>([{customerId:`trial-draft:${crypto.randomUUID()}`,cardId:"",name:"",participantPhone:""}]);
   const learners=isTrial?trialLearners:regularLearners;
@@ -74,6 +71,8 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   useEffect(()=>{if(initialScheduleKind)setScheduleKind(initialScheduleKind);},[initialScheduleKind]);
   const repeat=!isTrial&&scheduleKind==="FIXED";
   const eligibleTemplates=subjects?subjects.filter(subject=>subject.isActive).map(subject=>({id:musicTeachingKey(subject.id,isTrial),name:subject.name,durationMinutes:templates.find(t=>t.musicSubjectId===subject.id)?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:500,defaultRoomId:null,musicSubjectId:subject.id,musicSubject:subject})):templates.filter(t=>t.isActive!==false&&t.visibility!=="OFF"&&!!t.musicSubjectId&&t.musicSubject?.isActive===true&&(isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t)));
+  const selectedSubjectId=musicTeachingSubjectId(selectedTeachingId)??templates.find(t=>t.id===selectedTeachingId)?.musicSubjectId;
+  const templateId=eligibleTemplates.find(t=>t.id===selectedTeachingId)?.id??eligibleTemplates.find(t=>!!selectedSubjectId&&t.musicSubjectId===selectedSubjectId)?.id??"";
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const hasTemplate=!!template;
   const effectiveCapacity=enrollmentMode==="ASSIGNED"?Math.max(1,learners.length):capacity;
@@ -88,7 +87,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   const weekday=startsAt?new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",weekday:"long"}).format(startsAt):"";
   const positionReady=!!parseTaipeiDateTime(date,time)&&!!roomId;
   const canChooseCourse=true;
-  const dirty=date!==originalPosition.date||time!==originalPosition.time||roomId!==originalPosition.roomId||coachId!==originalPosition.coachId||duration!==originalPosition.durationMinutes||regularTemplateId!==(initialTemplateId??"")||!!trialTemplateId||regularLearners.length>0||trialLearners.some(row=>!!row.name||!!row.participantPhone)||enrollmentDirty||enrollmentMode!=="ASSIGNED"||capacity!==1||frequency!=="WEEKLY"||singleWeeks!==1;
+  const dirty=date!==originalPosition.date||time!==originalPosition.time||roomId!==originalPosition.roomId||coachId!==originalPosition.coachId||duration!==originalPosition.durationMinutes||selectedTeachingId!==(initialTemplateId??"")||regularLearners.length>0||trialLearners.some(row=>!!row.name||!!row.participantPhone)||enrollmentDirty||enrollmentMode!=="ASSIGNED"||capacity!==1||frequency!=="WEEKLY"||singleWeeks!==1;
   useCourseDraftGuard(false,active&&(pending||enrollmentPending));
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   useEffect(()=>{if(active)onPositionChange?.({date,time,roomId:roomId||undefined,coachId:coachId||undefined,durationMinutes:duration});},[active,date,time,roomId,coachId,duration,onPositionChange]);
@@ -144,7 +143,7 @@ export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coa
   return <div data-course-entry aria-busy={pending} inert={pending} className="@container flex h-full min-h-0 min-w-0 flex-col text-sm">
     <div ref={scrollArea} className="min-h-0 min-w-0 flex-1 grid auto-rows-max content-start grid-cols-2 gap-3 overflow-y-auto overscroll-contain pb-3">
       {<section aria-label="學員安排方式" className="col-span-2 space-y-1 @min-[42rem]:col-span-1"><strong>學員安排</strong><div className="flex flex-wrap gap-3">{([["ASSIGNED","指定學員"],["OPEN","開放選課"]] as const).map(([mode,label])=><label key={mode} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 ${enrollmentMode===mode?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`}><input type="radio" name={`enrollment-${requestKey}`} checked={enrollmentMode===mode} onChange={()=>setEnrollmentMode(mode)}/>{label}</label>)}</div></section>}
-      {canChooseCourse&&<label className="col-span-2 block @min-[42rem]:col-span-1">教學項目<select aria-label="課程" className={field} value={templateId} onChange={e=>{setTemplateId(e.target.value);const next=eligibleTemplates.find(item=>item.id===e.target.value);if(next)setDuration(next.durationMinutes);}}><option value="">請選擇課程</option>{eligibleTemplates.map(item=><option key={item.id} value={item.id}>{schedulingLabel(item)}</option>)}</select>{!eligibleTemplates.length&&<span className="block py-2">{isTrial?"尚無可安排的體驗課，請確認課程已啟用體驗與上架。":"尚無可安排的課程，請確認教學項目已啟用、課程已上架。"}<a className="inline-flex min-h-11 items-center underline" href="/dashboard/courses?view=catalog" target="_blank" rel="noopener noreferrer">開啟課程與教學項目設定</a></span>}</label>}
+      {canChooseCourse&&<label className="col-span-2 block @min-[42rem]:col-span-1">教學項目<select aria-label="課程" className={field} value={templateId} onChange={e=>{setTemplateId(e.target.value);const next=eligibleTemplates.find(item=>item.id===e.target.value);if(next)setDuration(next.durationMinutes);}}><option value="">請選擇課程</option>{eligibleTemplates.map(item=><option key={item.id} value={item.id}>{schedulingLabel(item)}</option>)}</select>{!!selectedTeachingId&&!templateId&&eligibleTemplates.length>0&&<span role="status" className="block py-2 text-amber-800">{isTrial?"此教學項目目前沒有可安排的體驗課，請選擇其他項目或調整設定。":"此教學項目目前沒有可安排的一般課程，請選擇其他項目或調整設定。"}</span>}{!eligibleTemplates.length&&<span className="block py-2">{isTrial?"尚無可安排的體驗課，請確認課程已啟用體驗與上架。":"尚無可安排的課程，請確認教學項目已啟用、課程已上架。"}<a className="inline-flex min-h-11 items-center underline" href="/dashboard/courses?view=catalog" target="_blank" rel="noopener noreferrer">開啟課程與教學項目設定</a></span>}</label>}
       <section aria-label="時間與教室" className="col-span-2 grid min-w-0 grid-cols-2 sm:grid-cols-4 gap-3 [&>label]:min-w-0">
         <label>日期<input aria-label="排課日期" type="date" value={date} className={field} onChange={e=>setDate(e.target.value)}/></label>
         <label>時間<input aria-label="排課時間" type="time" step={300} value={time} className={field} onChange={e=>setTime(e.target.value)}/></label>
