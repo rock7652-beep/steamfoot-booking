@@ -5,6 +5,9 @@ import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
 import { cardAllowsRecipient } from "@/lib/beauty/member-booking";
+import {linkCompanion} from "@/server/beauty/companions";
+import {createCustomerSchema} from "@/lib/validators/customer";
+import {getStoreLimitsByStoreId} from "@/lib/feature-gate";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -715,54 +718,48 @@ export async function linkBeautyCustomer(input: unknown) {
       .parse(input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
-        const b = await ownsItem(tx, a, d.id);
-        if (b.revision !== d.revision || b.customerId)
-          throw new AppError("CONFLICT", "預約已更新或已有會員身分");
-        const [person] = await tx.$queryRaw<
-          Array<{ id: string; name:string; phone: string }>
-        >`SELECT id,name,phone FROM "Customer" WHERE id=${d.customerId} AND "storeId"=${a.storeId} AND "mergedIntoCustomerId" IS NULL`;
-        if (!person) throw new AppError("FORBIDDEN", "顧客不屬於本店");
-        if (
-          b.isTrial &&
-          (await tx.beautyAppointment.count({
-            where: {
-              storeId: a.storeId,
-              serviceId: b.serviceId,
-              customerId: person.id,
-              isTrial: true,
-              status: { not: "CANCELLED" },
-              id: { not: b.id },
-            },
-          }))
-        )
-          throw new AppError(
-            "CONFLICT",
-            "此顧客已有同項服務體驗，請先核對紀錄",
-          );
-        await assertCustomerAvailable(tx,a.storeId,person.id,b.startsAt,b.occupiedEndsAt,b.id);
-        if(b.cardId){
-          const card=await tx.beautyCard.findFirst({where:{id:b.cardId,storeId:a.storeId}});
-          if(!card||!cardAllowsRecipient(card,person.id,b.group.customerId))throw new AppError('FORBIDDEN','此方案未開放共用，請先由店家核對');
-        }
-        await tx.beautyAppointment.update({
-          where: { id: b.id },
-          data: { customerId: person.id,personName:person.name,personPhone:person.phone, revision: { increment: 1 } },
-        });
-        if (!b.group.customerId && b.group.phone === person.phone)
-          await tx.beautyGroup.update({
-            where: { id: b.groupId },
-            data: { customerId: person.id },
-          });
-        await audit(
-          tx,
-          a,
-          "CUSTOMER_LINK",
-          JSON.stringify({ appointmentId: b.id, customerId: person.id }),
-        );
-        return { id: b.id };
+        return linkCompanion(tx,a,d);
       }),
     );
   });
+}
+/** Ports for the existing Steamfoot companion identity editor. */
+export async function findBeautyCompanionByPhone(input:unknown){
+ return result(async()=>{
+  const a=await beautyManager("booking.update");await requirePermission("customer.read");await requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT);
+  const d=z.object({bookingId:key,phone:createCustomerSchema.shape.phone}).parse(input);
+  await ownsItem(beautyPrisma as unknown as Prisma.TransactionClient,a,d.bookingId);
+  const people=await prisma.customer.findMany({where:{storeId:a.storeId,phone:d.phone,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},take:10});
+  return people.map(p=>({id:p.id,name:p.name,phoneMasked:p.phone.slice(0,4)+"***"+p.phone.slice(-3)}));
+ });
+}
+function companionRequest(input:unknown){
+ const hash=createHash('sha256').update(JSON.stringify(input)).digest('hex');
+ return `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
+}
+export async function attachBeautyCompanion(input:unknown){
+ return result(async()=>{
+  const a=await beautyManager("booking.update",true);await requirePermission("customer.read");await requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT);
+  const d=z.object({bookingId:key,revision:z.number().int().nonnegative(),customerId:key}).parse(input);
+  return beautyTransaction(a,tx=>command(tx,a,companionRequest({kind:'attach',...d}),d,()=>linkCompanion(tx,a,{id:d.bookingId,revision:d.revision,customerId:d.customerId})));
+ });
+}
+export async function createBeautyCompanion(input:unknown){
+ return result(async()=>{
+  const a=await beautyManager("booking.update",true);await requirePermission("customer.read");await requirePermission("customer.create");await requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT);
+  const d=z.object({bookingId:key,revision:z.number().int().nonnegative(),name:createCustomerSchema.shape.name,phone:createCustomerSchema.shape.phone}).parse(input);
+  const limits=await getStoreLimitsByStoreId(a.storeId);
+  return beautyTransaction(a,tx=>command(tx,a,companionRequest({kind:'create',...d}),d,async()=>{
+   const b=await ownsItem(tx,a,d.bookingId);if(b.revision!==d.revision||b.customerId)throw new AppError('CONFLICT','預約已更新或已有會員身分');
+   const duplicate=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "Customer" WHERE "storeId"=${a.storeId} AND phone=${d.phone} AND "mergedIntoCustomerId" IS NULL`;
+   if(duplicate.length)throw new AppError('CONFLICT','此手機已在本店建檔，請核對後使用既有顧客');
+   if(limits.maxCustomers!==null){const [count]=await tx.$queryRaw<{total:bigint}[]>`SELECT COUNT(*) AS total FROM "Customer" WHERE "storeId"=${a.storeId} AND "mergedIntoCustomerId" IS NULL`;if(Number(count.total)>=limits.maxCustomers)throw new AppError('FORBIDDEN','已達顧客額度上限');}
+   const id=crypto.randomUUID();
+   await tx.$executeRaw`INSERT INTO "Customer" (id,"storeId",name,phone,"authSource","customerStage","selfBookingEnabled","createdAt","updatedAt") VALUES (${id},${a.storeId},${d.name},${d.phone},'MANUAL','LEAD',false,NOW(),NOW())`;
+   await audit(tx,a,'COMPANION_CUSTOMER_CREATE',JSON.stringify({appointmentId:b.id,customerId:id}),b.id);
+   return linkCompanion(tx,a,{id:b.id,revision:b.revision,customerId:id});
+  }));
+ });
 }
 export async function readBeautyMoveSlots(
   mode: "member" | "work",

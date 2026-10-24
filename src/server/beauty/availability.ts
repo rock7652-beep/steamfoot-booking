@@ -23,11 +23,13 @@ export async function beautySlotsForActor(mode:"manager"|"member"|"public",input
       d.date,
     );
     const slots: string[] = [];
+    let arrangement:{technicianId:string;technicianName:string;locationId:string;locationName:string}[]|null=null;
+    let arrangementError:string|undefined;
     // Public catalog reveals availability only, never names of other customers.
     for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
       if(mode==='member'&&!/:(00|30)$/.test(time))continue;
       try {
-        await findAllocation(
+        const allocation=await findAllocation(
           beautyPrisma as unknown as Prisma.TransactionClient,
           a,
           { ...d, time },
@@ -36,9 +38,16 @@ export async function beautySlotsForActor(mode:"manager"|"member"|"public",input
           loaded,
         );
         slots.push(time);
+        if(time===d.time&&mode==='manager')arrangement=allocation.result.map(item=>({technicianId:item.technicianId,technicianName:loaded.technicians.find(t=>t.id===item.technicianId)?.name??'',locationId:item.locationId,locationName:''}));
       } catch (e) {
         if (!(e instanceof AppError)) throw e;
+        if(time===d.time)arrangementError=e.message;
       }
     }
-    return { slots };
+    if(mode!=='manager')return {slots};
+    if(arrangement){
+      const rooms=await beautyPrisma.$queryRaw<{id:string;name:string}[]>`SELECT id,name FROM "CourseRoom" WHERE "storeId"=${a.storeId} AND "isActive"=true`;
+      arrangement=arrangement.map(item=>({...item,locationName:rooms.find(r=>r.id===item.locationId)?.name??''}));
+    }
+    return { slots,arrangement,...(arrangementError?{arrangementError}:{}) };
 }

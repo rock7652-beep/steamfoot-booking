@@ -6,6 +6,9 @@ const source = [
   "src/components/beauty/shared-members.tsx",
   "src/server/actions/beauty.ts",
   "src/server/beauty/booking.ts",
+  "src/components/admin/service-reservation-form.tsx",
+  "src/app/(dashboard)/dashboard/bookings/booking-companion-editor.tsx",
+  "src/server/beauty/companions.ts",
 ];
 export const beautyOperationGuides: OperationGuide[] = [
   {
@@ -40,21 +43,22 @@ export const beautyOperationGuides: OperationGuide[] = [
     id: "BEAUTY02",
     category: "booking",
     title: "同行多人可以預約不同服務嗎？",
-    summary: "同筆預約逐位選擇服務與技師偏好，整組同時確認。",
+    summary: "逐位安排服務、方案、位置與技師；親友資料可到店後補，整組一起成立。",
     answer:
-      "新增預約先選人數，再逐人填資料、服務與技師偏好，查詢共同可用時間。從班表空白格新增時會帶入日期、時間及所在技師或位置。",
-    keywords: "美業 同行 人數 多人 不同服務 性別 體驗",
+      "從班表空白格新增會帶入日期、時間及第一位的技師或位置；逐位選姓名、服務與方案，新增同行者後自動分配其他可用技師及位置。",
+    keywords: "美業 同行 親友 資料後補 建檔 共卡 姓名 多人 技師 床位 體驗",
     path: "日常工作 → 班表 → 新增預約",
     steps: [
-      "設定人數，逐位選服務、女性／男性／男女皆可；不強迫指定技師。",
-      "選共同日期並查詢可用時間，核對各人服務與付款方式。",
-      "確認預約；所有同行者一起成立，若有衝突請重新選時間。",
+      "搜尋第一位的姓名或電話並選定顧客；核對共同日期、開始時間及服務。",
+      "按新增同行者，逐位選顧客或保留資料後補；核對服務、使用方案、位置與技師，必要時手動調整。",
+      "確認各人服務時段及合計後送出；所有同行者一起成立。到店後從原預約的補顧客資料入口建檔，電話已有資料時須手動確認使用此人。",
     ],
     important:
       "每位服務者有自己的服務狀態、收款與方案紀錄；取消其中一人不會取消其他人。",
     success: "同組列出各人服務、實際安排技師與不同結束時間；點班表預約或預約清單，都在置中視窗查看，從明細可返回清單。",
     details: [
-      "每人每項服務限體驗一次；有效預約、完成或未到占資格，取消後釋放。",
+      "優先使用有效、適用且最早到期的可用方案；沒有方案則單次付款。資料後補者使用預約人的方案須已開放共用，整組合計保留次數。店家可逐人選擇已設定的體驗收費；前台既有體驗限制維持。",
+      "同一位顧客不能重複加入；同時服務必須分配不同技師及位置，並完整保留整理時間。資料後補不會重新預約、改動技師位置或重複扣次。",
       "無法憑填入的手機取得會員或課卡權限；既有顧客身分應由店家核對後連結。",
     ],
     modules: ["beauty"],

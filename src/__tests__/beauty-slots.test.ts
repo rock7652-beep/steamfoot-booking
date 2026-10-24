@@ -148,3 +148,14 @@ it("rejects a forged off-grid start and requires full cleanup before closing", a
     ).result[0].occupiedEndsAt.toISOString(),
   ).toBe("2099-10-20T04:05:00.000Z");
 });
+
+it('pins a manager preview without changing the original preference, and refuses a newly occupied assignment instead of moving it silently',async()=>{
+ const tx=transaction(),loaded=await loadAvailability(tx,actor,date);
+ loaded.technicians.push({...loaded.technicians[0],id:'t2'});loaded.locations.push({id:'r2'});
+ const person={name:'顧客',phone:'0900000000',serviceId:'svc',serviceRevision:0,preference:'ANY',customerId:null,specifiedTechnicianId:null,specifiedLocationId:null,cardId:null,notes:''} as const;
+ const d={date,time:'10:05',people:[person],expectedArrangement:[{technicianId:'t2',locationId:'r2'}]};
+ const allocation=await findAllocation(tx,actor,d,[],undefined,loaded);expect(allocation.result[0]).toMatchObject({technicianId:'t2',locationId:'r2'});expect(person.specifiedTechnicianId).toBeNull();
+ loaded.occupied.push({id:'new',technicianId:'t2',locationId:'r2',startsAt:new Date('2099-10-20T02:00Z'),occupiedEndsAt:new Date('2099-10-20T03:30Z'),duration:60,status:'RESERVED'} as typeof loaded.occupied[number]);
+ await expect(findAllocation(tx,actor,d,[],undefined,loaded)).rejects.toThrow('無法安排');
+ await expect(findAllocation(tx,{...actor,manager:false,customerId:'member'},d,[],undefined,loaded)).rejects.toThrow('位置由店家安排');
+});

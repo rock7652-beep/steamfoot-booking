@@ -98,7 +98,9 @@ const phone = z
   .pipe(z.string().regex(/^09\d{8}$/, "請填寫有效手機"));
 export const personInput = z.object({
   name: z.string().trim().min(1).max(80),
-  phone,
+  phone: z.union([phone,z.literal("")]),
+  pendingIdentity: z.boolean().optional(),
+  isTrial: z.boolean().optional(),
   customerId: key.nullable().default(null),
   serviceId: key,
   serviceRevision: z.number().int().nonnegative().default(0),
@@ -117,11 +119,18 @@ export const partyInput = z
     contactName: z.string().trim().min(1).max(80),
     phone,
     isTrial: z.boolean(),
+    expectedArrangement: z.array(z.object({technicianId:key,locationId:key})).min(1).max(12).optional(),
     people: z.array(personInput).min(1).max(12),
   })
   .superRefine((v, c) => {
     if (!parseTaipeiDateTime(v.date, v.time))
       c.addIssue({ code: "custom", message: "日期時間無效" });
+    const selected=new Set<string>();
+    v.people.forEach((p,i)=>{
+      if(p.customerId){if(selected.has(p.customerId))c.addIssue({code:"custom",path:["people",i,"customerId"],message:"同一位顧客不可重複加入本次預約"});selected.add(p.customerId);}
+      if(p.pendingIdentity?(i===0||!!p.customerId||!!p.phone):!p.phone)c.addIssue({code:"custom",path:["people",i],message:"請核對顧客資料或選擇同行者資料後補"});
+    });
+    if(v.expectedArrangement&&v.expectedArrangement.length!==v.people.length)c.addIssue({code:"custom",message:"安排人數已變更，請重新核對"});
   });
 export type PartyInput = z.infer<typeof partyInput>;
 export const changeInput = z.object({

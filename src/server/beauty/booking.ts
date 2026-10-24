@@ -147,7 +147,7 @@ export async function loadAvailability(
 export async function findAllocation(
   tx: Tx,
   a: BeautyActor,
-  d: Pick<PartyInput, "date" | "time" | "people">,
+  d: Pick<PartyInput, "date" | "time" | "people" | "expectedArrangement">,
   excludeIds: string[] = [],
   onlyLocation?: string,
   loaded?: Awaited<ReturnType<typeof loadAvailability>>,
@@ -176,10 +176,12 @@ export async function findAllocation(
     throw new AppError("VALIDATION", "此時間尚未開放或已超過預約截止");
   if (!allowPast && !slots.includes(d.time) && !memberSlots.includes(d.time))
     throw new AppError("VALIDATION", "此開始時間未開放，請依營業預約單位選擇");
+  if(d.expectedArrangement&&!a.manager)throw new AppError("FORBIDDEN","位置由店家安排");
+  if(d.expectedArrangement?.some((assigned,i)=>!d.people[i]||(d.people[i].specifiedTechnicianId&&d.people[i].specifiedTechnicianId!==assigned.technicianId)||(d.people[i].specifiedLocationId&&d.people[i].specifiedLocationId!==assigned.locationId)))throw new AppError("CONFLICT","指定安排已變更，請重新核對");
   const result = allocateParty({
     date: d.date,
     startsAt,
-    people: d.people,
+    people: d.expectedArrangement?d.people.map((p,i)=>({...p,specifiedTechnicianId:d.expectedArrangement![i].technicianId,specifiedLocationId:d.expectedArrangement![i].locationId})):d.people,
     services,
     technicians,
     locationIds: locations
@@ -255,7 +257,7 @@ export async function reserveParty(
   },
 ) {
   return command(tx, a, d.requestKey, d, async () => {
-    let groupCustomerId = a.customerId ?? null;
+    let groupCustomerId = a.customerId ?? (a.manager?d.people[0]?.customerId??null:null);
     if (entry?.channel === "LINE") {
       groupCustomerId = entry.customerId ?? crypto.randomUUID();
       if (!entry.customerId)
@@ -284,15 +286,14 @@ export async function reserveParty(
       throw new AppError("FORBIDDEN", "店家已關閉自行預約");
     if (!a.manager && !a.customerId && !d.isTrial)
       throw new AppError("FORBIDDEN", "請先登入會員");
-    if (d.people.some((p) => p.cardId) && d.isTrial)
-      throw new AppError("VALIDATION", "體驗不使用一般方案");
+    if(!a.manager&&d.people.some(p=>p.isTrial!==undefined&&p.isTrial!==d.isTrial))throw new AppError("FORBIDDEN","收費方式須由店家核對");
+    if(d.people.some(p=>p.cardId&&(p.isTrial??d.isTrial)))throw new AppError("VALIDATION","體驗不使用一般方案");
     const partyKeys = new Set<string>();
     for (const p of d.people) {
-      if(p.pendingIdentity){
-        if(a.manager||!a.customerId||d.isTrial||p.customerId||p.phone)throw new AppError("FORBIDDEN","同行者資料待店家補齊");
-        continue;
-      }
-      if (
+      const pending=p.pendingIdentity===true;
+      if(pending&&((!a.manager&&!a.customerId)||!groupCustomerId||p===d.people[0]||p.customerId||p.phone))throw new AppError("FORBIDDEN","同行者資料待店家補齊");
+      if(pending)p.name=`同行者 ${d.people.indexOf(p)}`;
+      if (!pending &&
         !a.manager &&
         p.customerId &&
         p.customerId !== a.customerId &&
@@ -309,7 +310,7 @@ export async function reserveParty(
         if (!rows.length) throw new AppError("FORBIDDEN", "服務者不屬於本店");
         p.name = rows[0].name;
         p.phone = rows[0].phone;
-      } else {
+      } else if(!pending) {
         if (p.cardId)
           throw new AppError("FORBIDDEN", "使用方案須選擇具名授權成員");
         const exists = await tx.$queryRaw<
@@ -323,19 +324,17 @@ export async function reserveParty(
             groupCustomerId = p.customerId;
         }
       }
-      // A guest's phone can restrict promotional eligibility, never authorize CRM/card reads.
-      const identity = p.customerId ?? p.phone,
-        partyKey = identity + ":" + p.serviceId;
-      const phoneKey = p.phone + ":" + p.serviceId;
-      if (partyKeys.has(partyKey) || partyKeys.has(phoneKey))
-        throw new AppError("VALIDATION", "同一位服務者不可重複預約相同服務");
-      partyKeys.add(partyKey);
-      partyKeys.add(phoneKey);
-      if (d.isTrial) {
+      // Known customer identity is authoritative; unnamed companions remain distinct slots.
+      if(!pending){
+        const identity=p.customerId?`customer:${p.customerId}`:`phone:${p.phone}`;
+        if(partyKeys.has(identity))throw new AppError("VALIDATION","同一位顧客不可重複加入本次預約");
+        partyKeys.add(identity);
+      }
+      if (p.isTrial??d.isTrial) {
         const s = services.find((s) => s.id === p.serviceId);
         if (s?.trialPrice == null)
           throw new AppError("VALIDATION", "此服務未開放體驗");
-        const prior = await tx.beautyAppointment.count({
+        const prior = a.manager||pending?0:await tx.beautyAppointment.count({
           where: {
             storeId: a.storeId,
             serviceId: p.serviceId,
@@ -370,7 +369,7 @@ export async function reserveParty(
       const s = services.find((s) => s.id === p.serviceId)!,
         allocation = result[i];
       if (p.cardId) {
-        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt, undefined, p.pendingIdentity?a.customerId:undefined);
+        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt, undefined, p.pendingIdentity?groupCustomerId:undefined);
       }
       const item = await tx.beautyAppointment.create({
         data: {
@@ -390,8 +389,8 @@ export async function reserveParty(
           occupiedEndsAt: allocation.occupiedEndsAt,
           duration: s.duration,
           buffer: s.buffer,
-          price: d.isTrial ? s.trialPrice! : s.price,
-          isTrial: d.isTrial,
+          price: (p.isTrial??d.isTrial) ? s.trialPrice! : s.price,
+          isTrial: p.isTrial??d.isTrial,
           cardId: p.cardId,
           rate: allocation.rate,
           cancelDeduct: policy.cancelDeduct,

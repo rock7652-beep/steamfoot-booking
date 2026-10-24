@@ -14,7 +14,7 @@ export function BeautyNativeRoster({data,bookingId,readOnly,onBusyChange,onStatu
   if(data.manage.update){if(row.status==='RESERVED')actions.push({label:'服務完成',onSelect:()=>onStatus(row.id,b.revision,'COMPLETED')},{label:'未到',onSelect:()=>onStatus(row.id,b.revision,'NO_SHOW')},{label:'改期／換技師位置',onSelect:()=>onMoney('move',[row.id])});
    if(row.status!=='CANCELLED')actions.push({label:'取消預約',danger:true,onSelect:()=>onStatus(row.id,b.revision,'CANCELLED')});
    else actions.push({label:'恢復預約',onSelect:()=>onStatus(row.id,b.revision,'RESERVED')});
-   if(!row.customerId&&data.access.customerAccess)actions.push({label:'核對並連結顧客',onSelect:()=>onMoney('link',[row.id])});
+   if(!row.customerId&&data.access.customerAccess)actions.push({label:'補顧客資料',onSelect:()=>onMoney('link',[row.id])});
   }
   if(data.manage.collect&&row.bookingKind!=='CARD'&&row.status!=='CANCELLED')actions.push({label:'收款',onSelect:()=>onMoney('collect',[row.id])});
   if(data.manage.card&&row.customerId)actions.push({label:'購買方案',onSelect:()=>onMoney('card',[row.customerId!])});

@@ -131,3 +131,13 @@ it('uses the chosen first customer as contact without duplicate inputs, and inva
  set(field(host,'聯絡人姓名'),'代約人');set(field(host,'聯絡人手機'),'0911111111');
  await act(async()=>button(host,'查詢時段').click());expect(m.slots.mock.calls[1][2]).toMatchObject({contactName:'代約人',phone:'0911111111'});expect(m.book).not.toHaveBeenCalled();
 });
+
+it('releases a four-person availability read independently and ignores an older query still in flight',async()=>{
+ let finishOld:(value:unknown)=>void=()=>{},finishNew:(value:unknown)=>void=()=>{};
+ m.slots.mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{finishNew=resolve;}));
+ const onStateChange=vi.fn();const host=mount(h(BeautyBookingForm,{catalog,mode:'member',slug:'test',customer:data.customer,onStateChange}));set(field(host,'預約人數'),'4');
+ await act(async()=>button(host,'查詢可用時段').click());expect(host.textContent).toContain('查詢時段中…');expect(onStateChange.mock.calls.at(-1)![0].pending).toBe(true);
+ // A replacement date cancels the prior read generation, never waiting for its transport tail.
+ await act(async()=>set(field(host,'日期'),'2026-10-29'));await act(async()=>finishNew({success:true,data:{slots:['10:00']}}));expect(button(host,'10:00').disabled).toBe(false);expect(host.textContent).not.toContain('查詢時段中…');expect(onStateChange.mock.calls.at(-1)![0].pending).toBe(false);
+ await act(async()=>finishOld({success:true,data:{slots:['09:00']}}));expect(host.textContent).not.toContain('09:00');act(()=>button(host,'10:00').click());expect(button(host,'下一步').disabled).toBe(false);
+});

@@ -13,9 +13,10 @@ import { useRouter,useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 const BeautyNativeCustomerWorkspace=dynamic(()=>import("./native-customer-source").then(m=>m.BeautyNativeCustomerWorkspace));
 import {BeautyNativeScheduleDialog} from "./native-schedule-source";
+const CompanionSlot=dynamic(()=>import("@/app/(dashboard)/dashboard/bookings/booking-companion-editor").then(m=>m.CompanionSlot));
 import { BeautyCatalogEditor, type EditorKind } from "./catalog-editor";
 import {
-  linkBeautyCustomer,
+  findBeautyCompanionByPhone,attachBeautyCompanion,createBeautyCompanion,
   changeBeautyStatus,
   collectBeautyPayment,
   refundBeautyPayment,
@@ -57,6 +58,7 @@ export function BeautyDashboard({
       settingsSection?:"booking"|"notifications";
       draft?: Record<string, unknown>;
     } | null>(null);
+  const [identityBusy,setIdentityBusy]=useState(false);
   const [moneyDirty,setMoneyDirty]=useState(false),[bookingState,setBookingState]=useState({dirty:false,pending:false});
   const [statusDraft,setStatusDraft]=useState<{id:string;revision:number;target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED';reason:string;requestKey:string}|null>(null);
   const [moneyRequest,setMoneyRequest] = useState(()=>crypto.randomUUID());
@@ -64,10 +66,10 @@ export function BeautyDashboard({
       kind: "collect" | "refund" | "card" | "move" | "link";
       ids: string[];
     } | null>(null);
-  useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),pending&&!!(moneyPanel||statusDraft));
+  useCourseDraftGuard(moneyDirty||!!statusDraft?.reason.trim(),identityBusy||(pending&&!!(moneyPanel||statusDraft)));
   const updateBookingGuard=useCallback((dirty:boolean,pending:boolean)=>setBookingState(old=>old.dirty===dirty&&old.pending===pending?old:{dirty,pending}),[setBookingState]);
   function closeBooking(){if(bookingState.pending)return;if(bookingState.dirty&&!window.confirm("尚有未送出的預約，確定離開？"))return;setBooking(false);setBookingState({dirty:false,pending:false});}
-  function closeMoney(){if(pending||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
+  function closeMoney(){if(pending||identityBusy||moneyDirty&&!window.confirm("尚有未送出的資料，確定離開？"))return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
     setError("");
     setMoneyDirty(false);
@@ -162,7 +164,8 @@ export function BeautyDashboard({
       )}
       {detailId && <BeautyNativeCustomerWorkspace key={detailId} data={data} readOnly={readOnly} customerId={detailId} panelOnly onClose={()=>setDetailId(null)}/>}
       {moneyPanel?.kind==='card'&&<BeautyNativeCustomerWorkspace key={moneyPanel.ids[0]} data={data} readOnly={readOnly} customerId={moneyPanel.ids[0]} initialAction="assign" panelOnly onClose={closeMoney}/>}
-      {moneyPanel && moneyPanel.kind!=='card' && (
+      {moneyPanel?.kind==='link'&&(()=>{const b=data.items.find(b=>b.id===moneyPanel.ids[0]);return b&&<RightSheet open presentation="centered" fitContent width={700} labelledById="beauty-identity-title" closeOnEscape={!identityBusy} onClose={closeMoney}><header className="flex items-center justify-between gap-2 border-b p-4"><h2 id="beauty-identity-title" className="font-semibold">補顧客資料 · {b.personName} · {b.serviceName}</h2><button type="button" className={button} disabled={identityBusy} onClick={closeMoney}>關閉</button></header><section className="p-4" onChangeCapture={()=>setMoneyDirty(true)}><CompanionSlot displayPosition={Number(/^同行者 (\d+)$/.exec(b.personName)?.[1]??1)+1} bookingId={b.id} slot={{position:2,revision:b.revision,customerId:b.customerId,name:null}} embedded canEdit={!readOnly&&data.manage.update&&data.access.customerAccess} canCreate={data.manage.customer} blocked={pending} onBusy={setIdentityBusy} onUpdated={()=>{setMoneyDirty(false);setMoneyPanel(null);router.refresh();}} source={{scope:'beauty-companion-phone',find:findBeautyCompanionByPhone,attach:attachBeautyCompanion,create:createBeautyCompanion}}/></section></RightSheet>;})()}
+      {moneyPanel && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && (
         <RightSheet
           open
           presentation="centered"
@@ -180,17 +183,6 @@ export function BeautyDashboard({
                 requestKey = moneyRequest,
                 method = String(f.get("method") ?? "OTHER"),
                 note = String(f.get("note") ?? "");
-              if (moneyPanel.kind === "link") {
-                const b = data.items.find((b) => b.id === moneyPanel.ids[0])!;
-                run(() =>
-                  linkBeautyCustomer({
-                    id: b.id,
-                    revision: b.revision,
-                    customerId: f.get("customerId"),
-                    requestKey,
-                  }),
-                );
-              }
               if (moneyPanel.kind === "collect")
                 run(() =>
                   collectBeautyPayment({
@@ -233,7 +225,6 @@ export function BeautyDashboard({
               {
                 {
                   collect: "服務收款",
-                  link: "核對並連結顧客（請先確認本人身分）",
                   refund: "登錄退款（不自動退刷）",
                   card: "購買方案",
                   move: "改期／換技師位置",
@@ -258,7 +249,7 @@ export function BeautyDashboard({
                   );
                 })
               : moneyPanel.kind !== "move" &&
-                moneyPanel.kind !== "link" && (
+                (
                   <label>
                     金額
                     <input
@@ -270,19 +261,6 @@ export function BeautyDashboard({
                     />
                   </label>
                 )}
-            {moneyPanel.kind === "link" && (
-              <label>
-                已核對的顧客
-                <select className={field} required name="customerId">
-                  <option value="">請選擇</option>
-                  {data.customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}｜{c.phone}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
             {moneyPanel.kind === "move" && (
               <>
                 <label>
@@ -323,7 +301,7 @@ export function BeautyDashboard({
                 </label>
               </>
             )}
-            {moneyPanel.kind !== "move" && moneyPanel.kind !== "link" && (
+            {moneyPanel.kind !== "move" && (
               <label>
                 付款方式
                 <select className={field} name="method">
