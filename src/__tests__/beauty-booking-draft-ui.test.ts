@@ -141,3 +141,12 @@ it('releases a four-person availability read independently and ignores an older 
  await act(async()=>set(field(host,'日期'),'2026-10-29'));await act(async()=>finishNew({success:true,data:{slots:['10:00']}}));expect(button(host,'10:00').disabled).toBe(false);expect(host.textContent).not.toContain('查詢時段中…');expect(onStateChange.mock.calls.at(-1)![0].pending).toBe(false);
  await act(async()=>finishOld({success:true,data:{slots:['09:00']}}));expect(host.textContent).not.toContain('09:00');act(()=>button(host,'10:00').click());expect(button(host,'下一步').disabled).toBe(false);
 });
+it('opens the existing member reservation sheet directly from the booking link',()=>{
+ const host=mount(h(BeautyPortal,{data,initialView:'book'}));expect(host.querySelector('[aria-label="服務項目 1"]')).not.toBeNull();expect(host.querySelector('h1')?.textContent).toBe('預約服務');
+});
+it('carries merchant trial price and duration through the existing member confirmation and request',async()=>{
+ const host=mount(h(BeautyBookingForm,{catalog:{...catalog,services:[{...catalog.services[0],trialDuration:30}]},mode:'member',slug:'test',customer:data.customer}));set(field(host,'方案'),'__trial__');await act(async()=>button(host,'查詢可用時段').click());act(()=>button(host,'09:00').click());act(()=>button(host,'下一步').click());expect(host.textContent).toContain('09:00–09:30');expect(host.textContent).toContain('體驗 NT$ 500');await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(m.book.mock.calls[0][1].people[0]).toMatchObject({isTrial:true,cardId:null});
+});
+it('shows used trial eligibility without removing other service choices or forcing anonymous companion details',()=>{
+ const host=mount(h(BeautyBookingForm,{catalog:{...catalog,trialUsedServiceIds:['service']},mode:'member',slug:'test',customer:data.customer}));const trial=[...field(host,'方案').querySelectorAll('option')].find(o=>o.value==='__trial__');expect(trial?.disabled).toBe(true);expect(trial?.textContent).toContain('已使用');
+});

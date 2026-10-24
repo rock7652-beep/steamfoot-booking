@@ -10,7 +10,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { requiresCourseLiffEntry } from "@/lib/store-line-config";
 
 interface PageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string;next?:string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -83,7 +83,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <CustomerLoginForm storeSlug={storeSlug} storeId={store?.id} />
+          <CustomerLoginForm storeSlug={storeSlug} storeId={store?.id} beautyBooking={params.next==='beauty-book'&&!!store&&await getStoreIndustryModule(store.id)==='beauty'} />
 
           <div className="mt-4 text-center">
             <Link

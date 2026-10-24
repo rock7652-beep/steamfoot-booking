@@ -143,8 +143,10 @@ export async function beautyPortalForActor(a:BeautyActor,work:boolean,month=toLo
     cards.length ? beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}) : [],
     work ? [] : prisma.customer.findMany({where:{storeId:a.storeId,id:{in:memberIds},mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}}),
   ]);
+  const usedTrials=!work&&customer?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,isTrial:true,status:{not:'CANCELLED'},OR:[{customerId:customer.id},...(customer.phone?[{personPhone:customer.phone}]:[])]},select:{serviceId:true},distinct:['serviceId']}):[];
   return {
     ...catalog,
+    trialUsedServiceIds:usedTrials.map(row=>row.serviceId),
     scopeKey:a.userId??`preview:${a.customerId??a.technicianId}`,
     readVersion:crypto.randomUUID(),
     incomeMonth:month,

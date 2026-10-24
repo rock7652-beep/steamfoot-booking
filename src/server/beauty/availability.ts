@@ -1,4 +1,5 @@
 import 'server-only';
+import {assertBeautyTrialEligibility} from './trial-eligibility';
 import {prisma} from '@/lib/db';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {AppError} from '@/lib/errors';
@@ -10,13 +11,15 @@ import type {Prisma} from '../../../generated/beauty-client';
 export async function resolveBeautyBookingInput(mode:"manager"|"member",input:unknown,a:BeautyActor):Promise<BookingPartyInput>{
   if(mode==='manager')return partyInput.parse(input);
   const d=memberPartyInput.parse(input);
+  if(d.people.some((p,i)=>i>0&&p.isTrial))throw new AppError('BUSINESS_RULE','同行者體驗須由店家補齊顧客身分後安排');
   const person=await prisma.customer.findFirst({where:{storeId:a.storeId,id:a.customerId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}});
   if(!person||!person.phone)throw new AppError('FORBIDDEN','請重新登入或聯絡店家核對會員資料');
-  return {...d,contactName:person.name,phone:person.phone,isTrial:false,people:d.people.map((p,i)=>({...p,preference:'ANY',customerId:i===0?person.id:null,name:i===0?person.name:`同行者 ${i}`,phone:i===0?person.phone:'',pendingIdentity:i>0}))};
+  return {...d,memberTrialChoices:true,contactName:person.name,phone:person.phone,isTrial:false,people:d.people.map((p,i)=>({...p,preference:'ANY',customerId:i===0?person.id:null,name:i===0?person.name:`同行者 ${i}`,phone:i===0?person.phone:'',pendingIdentity:i>0}))};
 }
 
 export async function beautySlotsForActor(mode:"manager"|"member"|"public",input:unknown,a:BeautyActor){
     const d=mode==='public'?partyInput.parse(input):await resolveBeautyBookingInput(mode,input,a);
+    for(const person of d.people)if(person.isTrial??d.isTrial)await assertBeautyTrialEligibility(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,person);
     const loaded = await loadAvailability(
       beautyPrisma as unknown as Prisma.TransactionClient,
       a,

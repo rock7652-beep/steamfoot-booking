@@ -1,0 +1,26 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "anonymous companion keeps existing single/shared-card flow",
+    "direct link opens existing sheet and mixed party confirms trial price/time",
+    "member trial no page overflow 390",
+    "member trial no page overflow 360",
+    "member trial no page overflow 768",
+    "actual mixed party uses separate technicians/locations and trial snapshot",
+    "same member request remains idempotent",
+    "idempotent request does not book twice",
+    "used service trial option disabled after authoritative reload",
+    "public trial cannot repeat a member-booked service",
+    "back office uses the same repeat-trial rule",
+    "forged anonymous companion trial rejected",
+    "different service keeps its independent 45-minute trial",
+    "same member can trial a different service",
+    "completed service still occupies trial eligibility",
+    "no-show still occupies trial eligibility",
+    "cancellation releases trial eligibility across entry points",
+    "public phone history disables trial in member form",
+    "restoring cancelled trial cannot create a second active eligibility use",
+    "trial choices neither use plan ledger nor charge cash",
+    "no member browser errors"
+  ]
+}

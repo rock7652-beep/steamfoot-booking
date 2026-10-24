@@ -1,3 +1,4 @@
+import {assertBeautyTrialEligibility} from "./trial-eligibility";
 import {beautyPaymentVisibility} from "./transaction-revisions";
 import "server-only";
 import {recordBeautyStoreNotice} from "./store-notices";
@@ -28,7 +29,7 @@ import type {
 } from "../../../generated/beauty-client";
 import { command, audit, type BeautyActor } from "./access";
 export type Tx = Prisma.TransactionClient;
-export type BookingPartyInput=Omit<PartyInput,'people'>&{people:(PartyInput['people'][number]&{pendingIdentity?:boolean})[]};
+export type BookingPartyInput=Omit<PartyInput,'people'>&{memberTrialChoices?:boolean;people:(PartyInput['people'][number]&{pendingIdentity?:boolean})[]};
 /** Same customer occupancy rule as the exclusion constraint, under the Store lock. */
 export async function assertCustomerAvailable(
   tx: Tx,
@@ -287,7 +288,7 @@ export async function reserveParty(
       throw new AppError("FORBIDDEN", "店家已關閉自行預約");
     if (!a.manager && !a.customerId && !d.isTrial)
       throw new AppError("FORBIDDEN", "請先登入會員");
-    if(!a.manager&&d.people.some(p=>p.isTrial!==undefined&&p.isTrial!==d.isTrial))throw new AppError("FORBIDDEN","收費方式須由店家核對");
+    if(!a.manager&&(!a.customerId||!d.memberTrialChoices)&&d.people.some(p=>p.isTrial!==undefined&&p.isTrial!==d.isTrial))throw new AppError("FORBIDDEN","收費方式須由店家核對");
     if(d.people.some(p=>p.cardId&&(p.isTrial??d.isTrial)))throw new AppError("VALIDATION","體驗不使用一般方案");
     const partyKeys = new Set<string>();
     for (const p of d.people) {
@@ -335,23 +336,7 @@ export async function reserveParty(
         const s = services.find((s) => s.id === p.serviceId);
         if (s?.trialPrice == null)
           throw new AppError("VALIDATION", "此服務未開放體驗");
-        const prior = a.manager||pending?0:await tx.beautyAppointment.count({
-          where: {
-            storeId: a.storeId,
-            serviceId: p.serviceId,
-            isTrial: true,
-            status: { not: "CANCELLED" },
-            OR: [
-              { personPhone: p.phone },
-              ...(p.customerId ? [{ customerId: p.customerId }] : []),
-            ],
-          },
-        });
-        if (prior)
-          throw new AppError(
-            "BUSINESS_RULE",
-            "每人每項服務限體驗一次，請改選一般服務",
-          );
+        await assertBeautyTrialEligibility(tx,a.storeId,p);
       }
       await assertCustomerAvailable(tx, a.storeId, p.customerId, startsAt,
         result[d.people.indexOf(p)].occupiedEndsAt);
@@ -492,6 +477,7 @@ export async function transition(
   if(input.noShowDeduct===true&&!b.cardId)throw new AppError('VALIDATION','此服務未使用方案，無法扣次');
   const debit=input.target==='COMPLETED'||(input.target==='CANCELLED'&&b.cancelDeduct)||(input.target==='NO_SHOW'&&(input.noShowDeduct??b.noShowDeduct));
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
+  if(b.isTrial&&b.status==='CANCELLED'&&input.target!=='CANCELLED')await assertBeautyTrialEligibility(tx,a.storeId,{serviceId:b.serviceId,customerId:b.customerId,phone:b.personPhone},b.id);
   if (input.target === "RESERVED") {
     await assertCustomerAvailable(tx, a.storeId, b.customerId, b.startsAt,
       b.occupiedEndsAt, b.id);

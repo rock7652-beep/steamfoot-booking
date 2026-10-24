@@ -16,3 +16,6 @@ it.each([['beauty','beauty'],['course','book'],['steamfoot','book']])('uses the 
  expect(mocks.module).toHaveBeenCalledWith('store');
  expect(mocks.signIn).toHaveBeenCalledWith('customer-phone',{phone:'0900001375',password:'synthetic',storeId:'store',redirectTo:`/s/beauty-qa/${landing}`});
 });
+it.each([['beauty','beauty-book','beauty?view=book'],['beauty','https://example.invalid','beauty'],['course','beauty-book','book']])('accepts only the fixed Beauty booking intent (%s, %s)',async(module,next,landing)=>{
+ mocks.module.mockResolvedValue(module);const form=new FormData();form.set('phone','0900001375');form.set('password','synthetic');form.set('storeId','store');form.set('storeSlug','beauty-qa');form.set('next',next);await expect(customerLoginAction({error:null},form)).rejects.toThrow('NEXT_REDIRECT');expect(mocks.signIn.mock.calls[0][1].redirectTo).toBe(`/s/beauty-qa/${landing}`);
+});

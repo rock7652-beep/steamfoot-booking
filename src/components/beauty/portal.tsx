@@ -33,14 +33,14 @@ export function BeautyPortal({data:incoming,initialView,preview}:{data:BeautyPor
  const [profileState,setProfileState]=useState({dirty:false,pending:false});
  const [healthDirty,setHealthDirty]=useState(false),[healthSaving,setHealthSaving]=useState(false);
  useCourseDraftGuard(healthDirty,healthSaving);
- const [requestedView,setView]=useState(preview&&initialView&&['home','book','bookings','schedule','records','cards','shop','income','account','profile','health'].includes(initialView)?initialView:initialView==='income'&&data.work?'income':initialView==='health'&&data.healthEnabled?'health':'home');
+ const [requestedView,setView]=useState(preview&&initialView&&['home','book','bookings','schedule','records','cards','shop','income','account','profile','health'].includes(initialView)?initialView:initialView==='book'&&!data.work?'book':initialView==='income'&&data.work?'income':initialView==='health'&&data.healthEnabled?'health':'home');
  const view=requestedView==='health'&&!data.healthEnabled?'home':requestedView;
  const [history,setHistory]=useState(false),[workPending,setWorkPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [pending,start]=useTransition(),[refreshItems,setRefreshItems]=useState<BeautyPortalData['items']|null>(null),[now,setNow]=useState(Date.now);
  const updating=refreshItems===data.items,blocked=pending||updating;
  function refreshPortal(){setRefreshItems(data.items);start(()=>router.refresh());}
  const [date,setDate]=useState(toLocalDateStr),[month,setMonth]=useState(toLocalMonthStr),[showMonth,setShowMonth]=useState(false);
- const [bookingOpened,setBookingOpened]=useState(!!preview&&initialView==='book'),[bookingState,setBookingState]=useState({dirty:false,pending:false});
+ const [bookingOpened,setBookingOpened]=useState((!data.work||!!preview)&&initialView==='book'),[bookingState,setBookingState]=useState({dirty:false,pending:false});
  const [incomeMonth,setIncomeMonth]=useState(()=>data.incomeMonth??toLocalMonthStr());
  const [recordMonth,setRecordMonth]=useState(toLocalMonthStr),[recordSearch,setRecordSearch]=useState(''),[historyCards,setHistoryCards]=useState<Record<string,boolean>>({});
  const positions=useRef<Record<string,{view:string;date:string;month:string;recordMonth:string;recordSearch:string;incomeMonth:string;workPending:boolean;y:number}>>({});

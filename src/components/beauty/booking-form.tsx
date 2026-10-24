@@ -11,6 +11,7 @@ import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { PartyInput } from "@/lib/beauty/contracts";
 export type BeautyBookingCatalog = {
+  trialUsedServiceIds?:string[];
   policy?: {
     revision: number;
     selfBooking: boolean;

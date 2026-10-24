@@ -15,10 +15,12 @@ import {
 type Step = "phone" | "password" | "needs_activation";
 
 export function CustomerLoginForm({
+  beautyBooking=false,
   storeSlug = "zhubei",
   storeId,
 }: {
   storeSlug?: string;
+  beautyBooking?:boolean;
   /**
    * 可省略；省略時 server action 會 fallback 到 cookie/slug resolver。
    * 不再用 "default-store" 字串當 default，避免在多店環境（store id 為 UUID）
@@ -176,6 +178,7 @@ export function CustomerLoginForm({
       <input type="hidden" name="phone" value={phone.trim()} />
       <input type="hidden" name="storeId" value={storeId} />
       <input type="hidden" name="storeSlug" value={storeSlug} />
+      {beautyBooking&&<input type="hidden" name="next" value="beauty-book"/>}
 
       <div>
         <label

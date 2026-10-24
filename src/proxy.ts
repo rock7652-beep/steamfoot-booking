@@ -286,7 +286,9 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
 
     if (isCustomerRoute) {
       if (!isLoggedIn) {
-        return NextResponse.redirect(new URL(`/s/${storeSlug}/`, req.url));
+        const login=new URL(`/s/${storeSlug}/`,req.url);
+        if(subPath==='/beauty'&&req.nextUrl.searchParams.get('view')==='book')login.searchParams.set('next','beauty-book');
+        return NextResponse.redirect(login);
       }
       if (role && isStaffRole(role)) {
         if (role === "ADMIN") {

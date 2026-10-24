@@ -14,3 +14,6 @@ it('sorts upcoming items by their next pending time, splitting dates, and histor
 it('shows a repeated date only when a service ends after midnight and denies foreign sponsors',()=>{
  expect(beautyServiceTime('2026-10-24T01:00Z','2026-10-24T02:15Z')).toBe('09:00–10:15');expect(beautyServiceTime('2026-10-24T15:30Z','2026-10-24T16:30Z')).toBe('23:30–2026-10-25 00:30');expect(cardAllowsRecipient({allowShared:true,memberIds:['owner']},null,'other')).toBe(false);
 });
+it('accepts per-person trial choices without allowing trial cards or anonymous companion trials through the resolver',()=>{
+ const d={requestKey:crypto.randomUUID(),date:'2026-10-24',time:'09:30',people:[{serviceId:'s',isTrial:true}]};expect(memberPartyInput.parse(d).people[0]).toMatchObject({isTrial:true,cardId:null});expect(()=>memberPartyInput.parse({...d,people:[{serviceId:'s',isTrial:true,cardId:'c'}]})).toThrow('體驗不使用一般方案');
+});

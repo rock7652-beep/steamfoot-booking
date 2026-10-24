@@ -39,7 +39,7 @@ export async function customerLoginAction(
   }
 
   const landing = storeId && await getStoreIndustryModule(storeId) === "beauty"
-    ? "beauty" : "book";
+    ? (formData.get("next")==="beauty-book"?"beauty?view=book":"beauty") : "book";
 
   try {
     await signIn("customer-phone", {
