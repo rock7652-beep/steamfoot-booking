@@ -17,7 +17,7 @@ import {MusicStudentCourses} from "@/app/(dashboard)/dashboard/courses/music-stu
 const cards=[{id:"guitar-card",planId:"guitar-plan",templateIds:["guitar"],nameSnapshot:"個別課",musicTermSizes:[2,2],musicBonusLessons:0,slots:[{period:1,ordinal:1},{period:1,ordinal:2},{period:2,ordinal:1},{period:2,ordinal:2}],bookings:[{id:"booking",date:"2026-10-23T08:00:00Z",sessionId:"class",teacher:"教師甲",status:"ATTENDED",assignment:{period:1,ordinal:2}}]},{id:"piano-card",planId:"piano-plan",templateIds:["piano"],nameSnapshot:"鋼琴個別課",musicTermSizes:[1],musicBonusLessons:0,slots:[{period:1,ordinal:1}],bookings:[]}];
 const orders=[{id:"purchase",cardId:"guitar-card",planId:"guitar-plan",templateIds:["guitar"],name:"個別課",createdAt:"2026-10-01T00:00:00Z",status:"CONFIRMED",tuition:{periods:[{period:1,due:1600,received:1600,outstanding:0},{period:2,due:1600,received:0,outstanding:1600}],receipts:[{id:"receipt",amount:1600,paidAt:"2026-10-02T00:00:00Z",method:"CASH"}]}}];
 let host:HTMLDivElement,root:Root;
-const props={customerId:"student-1",templates:[{id:"guitar",name:"吉他"},{id:"piano",name:"鋼琴"}],subjects:[],canReadBookings:true,canReadTransactions:true,canReadCards:true,canAssign:true,onPurchase:vi.fn(),onManageCard:vi.fn()};
+const props={customerId:"student-1",templates:[{id:"guitar",name:"吉他"},{id:"piano",name:"鋼琴"}],subjects:[],canReadBookings:true,canReadTransactions:true,canReadCards:true,canAssign:true,canSchedule:true,onPurchase:vi.fn(),onManageCard:vi.fn()};
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);mock.periods.read.mockResolvedValue({success:true,data:cards});mock.orders.read.mockResolvedValue({success:true,data:orders,hasMore:false});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 it("groups by teaching item and charging method, with each period collapsed and its own receipts and dates",async()=>{
@@ -37,4 +37,10 @@ it("clears a previous learner while the next request is pending and ignores late
  await act(async()=>root.render(createElement(MusicStudentCourses,{...props,customerId:"student-2"})));
  expect(host.textContent).not.toContain("教師甲");expect(host.textContent).toContain("讀取課程與學費");
  await act(async()=>finish({success:true,data:[]}));expect(host.textContent).toContain("尚無已購課程");
+});
+
+it("continues scheduling with the teaching identity rather than the tuition version",async()=>{
+ await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ const link=[...host.querySelectorAll("a")].find(a=>a.textContent==="安排課程")!;
+ const query=new URL(link.href,"https://example.test").searchParams;expect(query.get("scheduleTemplate")).toBe("teaching:guitar");expect(query.get("scheduleCustomer")).toBe("student-1");
 });

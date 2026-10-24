@@ -9,6 +9,7 @@ import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge
 import { DashboardLink } from "@/components/dashboard-link";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { courseDisplayText } from "@/lib/course-display-text";
+import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
 import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
@@ -260,7 +261,7 @@ export function CourseMemberWorkspace({
           return;
         }
         publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
-        if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
+        if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
