@@ -973,6 +973,10 @@ export function CourseWorkspace({
                     ? `${selectedDate} 當週`
                     : selectedDate}
               </span>
+              {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex flex-wrap items-center gap-2">
+                <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
+                <button type="button" className={`${button} min-h-11`} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
+              </div>}
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex shrink-0 gap-2">
@@ -1142,10 +1146,7 @@ export function CourseWorkspace({
             </>
           ) : (
             <>
-            {businessProfile === "MUSIC" && <details name="course-workspace-details" className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
-              <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
-              <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
-            </div></details>}
+
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard sportsNative={sportsNative}
