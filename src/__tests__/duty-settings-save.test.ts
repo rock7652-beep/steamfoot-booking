@@ -1,3 +1,4 @@
+import { rawQueryText } from "./helpers/raw-query";
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),module:vi.fn(),manager:vi.fn(),transaction:vi.fn(),read:vi.fn(),update:vi.fn(),create:vi.fn(),raw:vi.fn(),cache:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requireWritablePermission:m.permission}));
@@ -13,7 +14,7 @@ beforeEach(()=>{
  vi.resetAllMocks();current={dutySchedulingEnabled:false,updatedAt:new Date("2026-10-10T00:00:00Z")};
  m.permission.mockResolvedValue({id:"u",role:"OWNER"});m.store.mockResolvedValue("s");m.module.mockResolvedValue("course");m.manager.mockResolvedValue({storeId:"s"});
  m.read.mockImplementation(async()=>current);m.update.mockImplementation(async({data})=>{current={...current!,...data};return {count:1};});m.create.mockImplementation(async({data})=>{current={...data,updatedAt:new Date()};return current;});
- m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join("").includes("ShopConfig")?[current]:[]);
+ m.raw.mockImplementation(async(strings:Parameters<typeof rawQueryText>[0])=>rawQueryText(strings).includes("ShopConfig")?[current]:[]);
  m.transaction.mockImplementation(async work=>{const before=current;try{return await work({$queryRaw:m.raw,shopConfig:{findUnique:m.read,findUniqueOrThrow:m.read,updateMany:m.update,create:m.create}});}catch(error){current=before;throw error;}});
 });
 it("uses the guarded course transaction and confirms retries without repeating writes",async()=>{
@@ -22,7 +23,7 @@ it("uses the guarded course transaction and confirms retries without repeating w
  expect(await saveDutySettings(input)).toMatchObject({success:true,data:{enabled:true}});expect(m.update).toHaveBeenCalledTimes(1);expect(m.update.mock.calls[0][0].where).toEqual({storeId:"s",updatedAt:new Date("2026-10-10T00:00:00Z")});
 });
 it("rolls back enabling integration when a teacher lacks duty coverage",async()=>{
- m.raw.mockImplementation(async(strings:TemplateStringsArray)=>{const sql=strings.join("");if(sql.includes("ShopConfig"))return [current];if(sql.includes("CourseSession"))return [{startsAt:new Date("2030-10-01T10:00:00+08:00"),endsAt:new Date("2030-10-01T11:00:00+08:00"),coachId:"teacher",nameSnapshot:"吉他"}];return [];});
+ m.raw.mockImplementation(async(strings:Parameters<typeof rawQueryText>[0])=>{const sql=rawQueryText(strings);if(sql.includes("ShopConfig"))return [current];if(sql.includes("CourseSession"))return [{startsAt:new Date("2030-10-01T10:00:00+08:00"),endsAt:new Date("2030-10-01T11:00:00+08:00"),coachId:"teacher",nameSnapshot:"吉他"}];return [];});
  expect(await saveDutySettings(input)).toMatchObject({success:false,uncertain:false,error:expect.stringContaining("值班未涵蓋")});expect(current?.dutySchedulingEnabled).toBe(false);expect(m.cache).not.toHaveBeenCalled();
 });
 it("rejects switched stores and permission failures before any transaction",async()=>{

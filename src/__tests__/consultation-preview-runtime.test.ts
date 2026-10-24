@@ -4,15 +4,15 @@ import { CONSULTATION_PREVIEW_BRANCH } from "../../scripts/consultation-preview-
 const mocks = vi.hoisted(() => ({
   construct: vi.fn(), query: vi.fn(), audit: vi.fn((client: unknown) => client),
 }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class {
+vi.mock("@prisma/client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("main", options); }
 } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class {
+vi.mock("../../generated/spa-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("spa", options); }
 } }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class {
+vi.mock("../../generated/course-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("course", options); }
 } }));

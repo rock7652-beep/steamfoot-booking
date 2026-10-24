@@ -38,10 +38,9 @@ describe.each(["steam", "course"])("%s immediate panel dismissal", kind => {
   expect(m.replace).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
   const params = new URLSearchParams(window.location.search); expect(params.has("panel")).toBe(false); expect(params.has("panelQuery")).toBe(false); expect(params.get("month")).toBe("2026-10"); expect(params.get("section")).toBe("notifications"); expect(document.body.style.overflow).toBe(overflow);
  });
- it("guards drafts, then discards them and reopens with a clean form", async () => {
+ it("discards an unsaved draft without prompting and reopens with a clean form", async () => {
   window.history.replaceState(null, "", original); await render(); await click("修改"); await click("關閉視窗");
-  expect(host.textContent).toContain("尚有未儲存"); expect(host.querySelector("input")?.value).toBe("未儲存草稿");
-  await click("不儲存並關閉"); expect(host.querySelector("input")).toBeNull();
+  expect(host.textContent).not.toContain("尚有未儲存"); expect(host.querySelector("input")).toBeNull();
   window.history.replaceState(null, "", original); await render(); expect(host.querySelector("input")?.value).toBe("原始內容"); expect(host.querySelector('[data-right-sheet]')?.getAttribute("aria-hidden")).toBe("false");
  });
  it("follows browser history between closed and reopened panel URLs", async () => {

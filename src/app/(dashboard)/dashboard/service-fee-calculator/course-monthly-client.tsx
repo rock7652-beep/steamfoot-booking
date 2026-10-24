@@ -1,4 +1,7 @@
 "use client";
+import {DashboardLink} from "@/components/dashboard-link";
+import {useSearchParams} from "next/navigation";
+import {toLocalDateStr} from "@/lib/date-utils";
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import { RosterTable } from "@/components/admin/roster-table";
 import {CourseFeePaymentButton} from "../revenue/_components/course-fee-payment-button";
@@ -29,9 +32,10 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL",mus
  </div></section>;
 }
 
-export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,music=false,initialTeacherId=""}:{lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
- const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">(initialTeacherId ? "FEE" : "ALL");
- const [teacherId,setTeacherId]=useState(initialTeacherId);
+export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,music=false,initialTeacherId="",canReadBookings=false}:{canReadBookings?:boolean;lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
+ const params=useSearchParams();
+ const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">((params.get("settlementCategory")==="PROFIT"||params.get("settlementCategory")==="FEE")?params.get("settlementCategory") as "PROFIT"|"FEE":initialTeacherId ? "FEE" : "ALL");
+ const [teacherId,setTeacherId]=useState(params.get("settlementTeacher")??initialTeacherId);
  const filtered=lines.filter(line=>(category==="ALL"||line.kind===category) && (!teacherId || line.staffId===teacherId));
  const people=summarizeSettlement(filtered);
  const issues=filtered.some(line=>line.issue||line.amount===null);
@@ -47,7 +51,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  </div>
  <CourseMonthlyPeople music={music} category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId ? undefined : actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
- {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
+ {people.map(person=><details open={params.get("settlementPerson")===person.id||undefined} key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
  <strong className="truncate" title={person.name}>{person.name}</strong>
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="PROFIT"&&(l.issue||l.amount===null))?"待核對":money(person.profit)}</span>}
  {category==="ALL"&&<span className="hidden text-right tabular-nums md:block">{person.lines.some(l=>l.kind==="FEE"&&(l.issue||l.amount===null))?"待核對":money(person.fee)}</span>}
@@ -59,7 +63,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  <td><p>{formatTWDateTime(new Date(line.date))}</p><p className="font-medium">{line.label}</p></td>
  <td>{line.kind==="PROFIT"?"店長利潤":music?"教師鐘點費":"授課費"}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}</td>
  <td className="text-right tabular-nums">{line.amount===null?"待核對":money(line.amount)}</td><td className="text-right tabular-nums">{money(line.paid)}</td><td className="text-right tabular-nums">{line.amount===null?"待核對":line.paid>line.amount?`溢付 ${money(line.paid-line.amount)}`:money(line.amount-line.paid)}</td>
- <td>{(line.endsAt || !!line.feeDetails?.length) && <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">計算明細</summary>{line.endsAt&&<p>下課：{formatTWDateTime(new Date(line.endsAt))}</p>}{line.feeDetails?.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</td>
+ <td>{canReadBookings&&line.kind==="FEE"&&<DashboardLink className="inline-flex min-h-11 items-center text-primary-700 underline" href={`/dashboard/courses?${new URLSearchParams({action:"booking",session:line.id,date:toLocalDateStr(new Date(line.date)),returnMonthlyMonth:params.get("month")??toLocalDateStr(new Date(line.date)).slice(0,7),returnMonthly_settlementTeacher:teacherId,returnMonthly_settlementCategory:category,returnMonthly_settlementPerson:person.id,...(params.get("teacherId")?{returnMonthly_teacherId:params.get("teacherId")!}:{}),...(params.get("salaryData")==="legacy"?{returnMonthly_salaryData:"legacy"}:{})})}`}>查看課堂</DashboardLink>}{(line.endsAt || !!line.feeDetails?.length) && <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">計算明細</summary>{line.endsAt&&<p>下課：{formatTWDateTime(new Date(line.endsAt))}</p>}{line.feeDetails?.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</td>
  </tr>)}</RosterTable>
  </details>)}
  </CourseMonthlyPeople>

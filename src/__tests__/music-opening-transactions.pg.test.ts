@@ -41,7 +41,7 @@ const transact=<T>(storeId:string,work:(tx:Prisma.TransactionClient)=>Promise<T>
     for(const sql of ddl.split(";").map(s=>s.trim()).filter(Boolean))await database().$executeRawUnsafe(sql);
     for(const sql of [
       'CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" text)',
-      'CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"courseDefaultClassFee" numeric)',
+      'CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"courseDefaultClassFee" numeric,"displayName" text)',
       'CREATE TABLE "MessageTemplate"(id text PRIMARY KEY,"storeId" text,body text)',
       'CREATE TABLE "StoreFeatureEntitlement"("storeId" text,"featureKey" text,status text)',
       'CREATE TABLE "CourseTeacherCompensationSetting"("storeId" text,"staffId" text,"defaultRatio" double precision,"subjectRules" jsonb,revision integer)',
@@ -70,7 +70,7 @@ const transact=<T>(storeId:string,work:(tx:Prisma.TransactionClient)=>Promise<T>
   async function fixture(classType="PRIVATE",learners=1){
     const storeId=randomUUID(),coachId=randomUUID(),otherCoachId=randomUUID();
     await database().$executeRaw`INSERT INTO "Store" VALUES(${storeId},'COURSE')`;
-    await database().$executeRaw`INSERT INTO "Staff" VALUES(${coachId},${storeId},NULL),(${otherCoachId},${storeId},NULL)`;
+    await database().$executeRaw`INSERT INTO "Staff" VALUES(${coachId},${storeId},NULL,'Synthetic teacher'),(${otherCoachId},${storeId},NULL,'Other synthetic teacher')`;
     await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES(${storeId},'business.music','ENABLED')`;
     const room=await database().courseRoom.create({data:{storeId,name:"Synthetic room"}});
     const template=await database().courseTemplate.create({data:{storeId,name:"Synthetic template",durationMinutes:60,pointCost:1,capacity:learners,classType,musicTermLessons:4,musicPricePerLesson:800,musicTeacherShare:0.6,waitlistEnabled:false}});

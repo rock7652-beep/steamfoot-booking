@@ -4,6 +4,7 @@ import {createRoot} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 vi.mock("@/components/operations/return-position",()=>({ReturnPosition:({children}:{children:React.ReactNode})=>children}));
 vi.mock("@/components/operations/store-view-transition",()=>({StoreViewTransitionProvider:({children}:{children:React.ReactNode})=>children}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useSearchParams:()=>new URLSearchParams(),useRouter:()=>({refresh:vi.fn()})}));
 import {OperationScope} from "@/components/operations/operation-scope";
 import {useSportsCalendarState,calendarMode,calendarResource,calendarDate} from "@/components/admin/use-sports-calendar-state";
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;

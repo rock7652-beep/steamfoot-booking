@@ -1,4 +1,5 @@
 "use server";
+import {assertCourseSchedulingMode} from "@/server/services/course-scheduling-modes";
 import { sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
@@ -588,6 +589,7 @@ export async function createCourseSchedule(input: unknown) {
           if(!musicScheduling&&(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&(booking.cardId===learner.cardId||musicScheduling&&booking.bookingKind==="UNPAID")&&(learner.cardId!==null||booking.trialPrice===(learner.trialPrice??null))&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
+        const schedulingRule = await tx.courseBookingRule.findUnique({where:{storeId}});
         const source = data.sourceSessionId
           ? await tx.courseSession.findFirst({
               where: { id: data.sourceSessionId, storeId, cancelledAt: null },
@@ -616,6 +618,7 @@ export async function createCourseSchedule(input: unknown) {
         ]);
         if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
+        if (template.classType !== "RENTAL") assertCourseSchedulingMode(schedulingRule, data.sportsStaging?.enrollment ?? data.enrollmentMode ?? data.bookingAudience);
         await assertCourseResources(tx,storeId,{...data,requireMusicSubject:musicScheduling});
         if(musicScheduling&&data.scheduleType==="FIXED"){
           const [rules,occupied,rentals]=await Promise.all([

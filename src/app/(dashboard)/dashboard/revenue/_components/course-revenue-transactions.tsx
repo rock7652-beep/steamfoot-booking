@@ -7,6 +7,7 @@ import {DataTable,EmptyRow,type Column} from "@/components/desktop";
 import {DashboardLink as Link} from "@/components/dashboard-link";
 import {CourseTransactionActions} from "./course-transaction-actions";
 import {courseAllocationAfterRefund} from "@/lib/course-sale-allocation";
+import {musicPurchasedQuantity} from "@/lib/music-purchase-display";
 import type {RevenueTransactions,RevenueTransactionsInput} from "@/server/queries/music-revenue-transactions";
 type Result={success:boolean;data?:RevenueTransactions};
 const unavailable=async (_input:RevenueTransactionsInput):Promise<Result>=>{throw new Error("preview only");};
@@ -41,7 +42,7 @@ export function CourseRevenueTransactions({initial,input,staffRows,basePath,live
   const columns: Column<(typeof rows)[number]>[] = [
     { key: "date", header: "購買日期", accessor: (r) => r.date },
     { key: "customer", header: "顧客", accessor: (r) => <span className="block max-w-32 truncate" title={r.customerName}>{r.customerName}</span> },
-    { key: "plan", header: "方案", accessor: (r) => <span className="block max-w-32 truncate" title={r.name}>{r.name}</span> },
+    { key: "plan", header: "方案", accessor: (r) => {const quantity=musicPurchasedQuantity(r.musicTermSizes);return <div className="max-w-56">{quantity&&<span className="block font-medium">{quantity}</span>}<span className={`block break-words ${quantity?"text-sm text-earth-600":""}`}>{r.name}</span></div>;} },
     { key: "amount", header: "累計實收", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}{r.tuitionDue!==undefined&&<span className="block text-sm text-earth-600">應收 {money(r.tuitionDue)} · 未收 {money(r.status==="CONFIRMED"?r.tuitionDue-r.price:0)}</span>}</span> },
     { key: "status", header: "狀態", accessor: (r) => <span className="whitespace-nowrap">{labels[r.status] ?? "需核對"}</span> },
     { key: "staff", header: "核帳人員", accessor: (r) => {const name=staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—";return <span className="block max-w-28 truncate whitespace-nowrap" title={name}>{name}</span>;} },

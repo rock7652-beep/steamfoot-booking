@@ -11,7 +11,7 @@ import { OperationScope } from "@/components/operations/operation-scope";
 import type { NoteSaveResult } from "@/components/operations/retained-note-editor";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/synthetic/roster", useRouter: () => navigation }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/synthetic/roster", useRouter: () => navigation }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 
 const customerName = "合成顧客";

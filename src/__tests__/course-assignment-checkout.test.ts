@@ -1,7 +1,7 @@
 import {beforeEach,it,expect,vi} from "vitest";
 vi.mock("server-only",()=>({}));
 const musicScope=vi.hoisted(()=>({ledger:vi.fn()}));
-vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:musicScope.ledger}));
+vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:musicScope.ledger}));
 import {assignCourseWithCheckout} from "@/server/services/course-assignment-checkout";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
 import type {Prisma} from "../../generated/course-client";

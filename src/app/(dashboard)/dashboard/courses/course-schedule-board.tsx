@@ -151,7 +151,7 @@ function sessionDate(session: Session) {
 }
 
 function sessionDurationMinutes(session: Session) {
-  return Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+  return Math.max(5, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
 }
 
 function originalPlace(session: Session): Session | null {
@@ -591,14 +591,15 @@ export function CourseScheduleBoard({
                     const time = `${String(hour).padStart(2,"0")}:${minute}`;
                     const day = calendarDays?.[date];
                     const periods = normalizeAvailabilityPeriods(day ? day.periods : storePeriods);
-                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && matchesResource(session) && sessionDate(session) === date && minuteOfDay(time) < minuteOfDay(hhmm(session.endsAt)) && minuteOfDay(time) + 30 > minuteOfDay(hhmm(session.startsAt)));
+                    const slotDuration = moveClipboard?.durationMinutes ?? 30;
+                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && session.id !== moveClipboard?.sessionId && matchesResource(session) && sessionDate(session) === date && minuteOfDay(time) < minuteOfDay(hhmm(session.endsAt)) && minuteOfDay(time) + slotDuration > minuteOfDay(hhmm(session.startsAt)));
                     const exception = staffAvailabilityExceptions.find(item=>item.staffId===roomId && item.date===date);
                     const availability = staffAvailability.filter(item=>item.staffId===roomId);
                     const coachSegments = exception?.type === "UNAVAILABLE" ? [] : exception?.type === "CUSTOM" ? normalizeAvailabilityPeriods(exception.segments) : availability.length ? normalizeAvailabilityPeriods(availability.find(item=>item.dayOfWeek===parseLocalDate(date).getDay())?.segments) : periods;
-                    const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,30);
-                    const available = weekResource?.enabled && periodContains(periods,time,30) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
+                    const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,slotDuration);
+                    const available = weekResource?.enabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? sportsNative&&moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${sportsNative&&moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => sportsNative&&moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{sportsNative&&moveClipboard?"貼上":"＋"} {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
@@ -1052,7 +1053,7 @@ export function CourseScheduleBoard({
                 {coaches.find(coach => coach.id === pair.coachId)?.displayName} · 教室 {rooms.find(room => room.id === pair.roomId)?.name}
               </button>)}
             </div>
-            <button type="button" className="mt-3 min-h-10 w-full rounded-lg border border-earth-200" onClick={() => setTeacherChoice(null)}>取消</button>
+            <button type="button" className="mt-3 min-h-10 w-full rounded-lg border border-earth-200" onClick={() => setTeacherChoice(null)}>返回課表</button>
           </div>
         </div>
       )}

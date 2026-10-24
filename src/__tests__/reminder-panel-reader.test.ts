@@ -52,10 +52,10 @@ describe.each(["steamfoot", "course"] as const)("%s independent reminder reader"
   expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
   await render("late-server-refresh"); expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
  });
- it("blocks discarding drafts before reading and preserves the prior URL on failure", async () => {
-  await render(); await click("修改"); await click("logs"); expect(m.fetch).not.toHaveBeenCalled(); expect(host.textContent).toContain("尚有未儲存");
+ it("discards unsaved drafts without prompting and preserves the prior URL on read failure", async () => {
+  await render(); await click("修改");
   m.fetch.mockResolvedValueOnce(Response.json({ success: false, error: "權限已變更" }, { status: 403 }));
-  await click("不儲存並切換"); expect(host.querySelector('[role=alert]')?.textContent).toContain("權限已變更"); expect(host.querySelector('[data-visible-tab]')).toBeNull();
+  await click("logs"); expect(host.textContent).not.toContain("尚有未儲存"); expect(host.querySelector('[role=alert]')?.textContent).toContain("權限已變更"); expect(host.querySelector('[data-visible-tab]')).toBeNull();
   expect(new URLSearchParams(window.location.search).get("panelQuery")).toBe("tab=manager");
   await click("重新讀取"); expect(host.querySelector('[data-visible-tab]')?.textContent).toBe("logs");
  });

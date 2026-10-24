@@ -6,6 +6,7 @@ import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { RosterTable } from "@/components/admin/roster-primitives";
 import { isMusicPreviewPage } from "@/lib/music-finance-sync";
+import { musicPurchasedTitle } from "@/lib/music-purchase-display";
 import { musicCheckoutTransport } from "@/lib/music-checkout-transport";
 import { recordMusicTuitionReceipt } from "@/server/actions/music-tuition";
 import { toLocalDateStr, formatTWDateTime } from "@/lib/date-utils";
@@ -15,7 +16,7 @@ import type { loadCourseCustomerPurchases } from "@/server/actions/course-custom
 type Result = Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
 export type TuitionOrder = Extract<Result, { success: true }>["data"][number];
 
-export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsButton=false }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; detailsButton?: boolean }) {
+export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, displayPeriod, detailsButton=false, closeLabel="關閉" }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; displayPeriod?: number; detailsButton?: boolean; closeLabel?: string }) {
   const router = useRouter();
   const titleId = useId();
   const submitting = useRef(false);
@@ -27,7 +28,8 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsBu
   const tuition = order.tuition;
   if (!tuition) return null;
   const outstanding = order.status === "CONFIRMED" ? Math.max(0, tuition.due - order.price) : 0;
-  const periodBalance = receiptPeriod ? tuition.periods.find(p => p.period === receiptPeriod)?.outstanding ?? 0 : outstanding;
+  const selectedPeriod = receiptPeriod ? tuition.periods.find(p => p.period === receiptPeriod) : undefined;
+  const periodBalance = receiptPeriod ? selectedPeriod?.outstanding ?? 0 : outstanding;
   const receiptLimit = Math.min(outstanding, periodBalance);
   const firstUnpaid = tuition.periods.find(p => p.outstanding > 0)?.period;
   const field = "min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
@@ -37,12 +39,12 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsBu
   return <>
     {receiptPeriod ? tuition.canReceive && receiptLimit > 0 && firstUnpaid === receiptPeriod && <button type="button" className={button} onClick={() => open("receipt")}>補登收款</button> : detailsButton ? <button type="button" className="min-h-11 w-full text-left text-sm" onClick={()=>open("details")}>交易明細</button> : <ExclusiveMenu label={`${order.name} 收款操作`} triggerText="⋯">
       <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("details")}>查看明細</button>
-      {tuition.canReceive && outstanding > 0 && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("receipt")}>補繳學費</button>}
+      {tuition.canReceive && outstanding > 0 && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("receipt")}>補登收款</button>}
     </ExclusiveMenu>}
     <ModalPanel open={mode !== null} onClose={close} labelledById={titleId} pending={busy} width={mode === "receipt" ? 520 : 880}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
-        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${receiptPeriod} 期收款` : "補繳學費") : "學費明細"} · {order.name}</h3>
-        <button type="button" className={button} disabled={busy} onClick={close}>關閉</button>
+        <h3 id={titleId} className="min-w-0 break-words font-semibold">{mode === "receipt" ? (receiptPeriod ? `補登第 ${displayPeriod??receiptPeriod} 期收款` : "補登收款") : "學費明細"} · {musicPurchasedTitle(order.name, tuition.periods.map(period=>period.lessons))}</h3>
+        <button type="button" className={`${button} shrink-0`} disabled={busy} onClick={close}>{closeLabel}</button>
       </header>
       <div className="@container/tuition min-h-0 min-w-0 overflow-y-auto p-3 text-sm">
         {mode === "receipt" ? <form className="space-y-3" onSubmit={async event => {
@@ -62,7 +64,14 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, detailsBu
           } catch { setError("尚未確認收款結果，可用相同資料重試。"); }
           finally { submitting.current = false; setBusy(false); }
         }}>
-          <p className="rounded-lg bg-earth-50 px-3 py-2">應收 {tuition.due.toLocaleString()} · 已收 {order.price.toLocaleString()} · <strong>欠款 {outstanding.toLocaleString()}</strong></p>
+          <section aria-label={selectedPeriod ? "本期收款摘要" : "整筆購課收款摘要"} className="space-y-2 rounded-lg bg-earth-50 px-3 py-2">
+            <dl className="grid grid-cols-1 gap-2 @min-[22rem]/tuition:grid-cols-3">
+              <div><dt className="text-earth-600">{selectedPeriod ? "本期應收" : "整筆應收"}</dt><dd>NT$ {(selectedPeriod?.due ?? tuition.due).toLocaleString()}</dd></div>
+              <div><dt className="text-earth-600">{selectedPeriod ? "本期已收" : "整筆已收"}</dt><dd>NT$ {(selectedPeriod?.received ?? order.price).toLocaleString()}</dd></div>
+              <div><dt className="text-earth-600">{selectedPeriod ? "本期未收" : "整筆未收"}</dt><dd className="font-semibold">NT$ {(selectedPeriod?.outstanding ?? outstanding).toLocaleString()}</dd></div>
+            </dl>
+            {selectedPeriod && <p className="border-t border-earth-200 pt-2 text-earth-600">整筆購課：應收 NT$ {tuition.due.toLocaleString()} · 已收 NT$ {order.price.toLocaleString()} · 未收 NT$ {outstanding.toLocaleString()}</p>}
+          </section>
           <fieldset disabled={busy} className="grid min-w-0 grid-cols-1 gap-2 @min-[22rem]/tuition:grid-cols-2">
             <label className="space-y-1">本次實收<input className={field} name="amount" type="number" min="1" max={receiptLimit} step="1" required defaultValue={receiptLimit} /></label>
             <label className="space-y-1">付款日期<input className={field} name="date" type="date" max={toLocalDateStr()} required defaultValue={toLocalDateStr()} /></label>

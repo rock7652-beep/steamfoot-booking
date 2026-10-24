@@ -3,7 +3,7 @@ const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),customer:vi.fn(),people:vi.f
 vi.mock('server-only',()=>({}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer,findMany:m.people},storeFeatureEntitlement:{findFirst:m.music}}}));
 vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.auth}));
-vi.mock('@/server/services/music-data-scope',()=>({musicDataSeparationEnabled:m.scope}));
+vi.mock('@/server/services/music-native-workflow',()=>({musicNativeWorkflowEnabled:m.scope}));
 vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({assignedStaffId:'teacher'})}));
 vi.mock('@/server/services/music-plan-scope',()=>({musicCardWhere:()=>({classified:true})}));
 vi.mock('@/server/queries/course-members',()=>({getCourseCards:m.cards}));

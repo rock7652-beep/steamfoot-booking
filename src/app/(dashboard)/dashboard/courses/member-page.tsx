@@ -147,6 +147,7 @@ export async function CourseMemberPage({
         musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers}
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
+        canSchedule={!isViewMode&&await checkPermission(user.role,user.staffId,"booking.create")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}

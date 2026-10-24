@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 vi.mock("@/server/actions/course-companions",()=>({addCourseCompanion:vi.fn(),loadCourseCompanionUsage:vi.fn(),saveCourseCompanionUsage:vi.fn()}));
 vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollment:vi.fn().mockResolvedValue({success:true,sessions:[]}),enrollCourseSeries:vi.fn()}));
 import {act,createElement} from "react";
@@ -32,12 +33,11 @@ it("shows each group learner's own term, dates and distinct leave/no-show counts
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group-term",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
   const rows=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
-  expect(rows().map(row=>row.textContent?.match(/本期第 \d+\/\d+ 堂/)?.[0])).toEqual(["本期第 5/8 堂","本期第 3/6 堂","本期第 4/7 堂"]);
-  expect(rows()[2].textContent).toContain("此方案請假 1・曠課 1");
-  await act(async()=>[...rows()[2].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  expect(rows().map(row=>row.querySelector('button[aria-controls^="lesson-history-"]')?.getAttribute("aria-label"))).toEqual(["本期第 5/8 堂","本期第 3/6 堂","本期第 4/7 堂"]);
+  await act(async()=>[...rows()[2].querySelectorAll("button")].find(button=>button.getAttribute("aria-controls")?.startsWith("lesson-history-"))!.click());
   expect(rows()[2].textContent).toContain("2026-09-15 請假");
   expect(rows()[2].textContent).toContain("2026-09-22 曠課");
-  await act(async()=>[...rows()[1].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  await act(async()=>[...rows()[1].querySelectorAll("button")].find(button=>button.getAttribute("aria-controls")?.startsWith("lesson-history-"))!.click());
   expect(rows()[1].querySelector("[id^='lesson-history-']")).toBeTruthy();
   expect(rows()[2].querySelector("[id^='lesson-history-']")).toBeNull();
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -51,25 +51,18 @@ it("shows private makeup and renewal without combining leave with paid lessons",
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"private-term",capacity:1,canCreate:false,canEdit:true,musicLayout:true,classType:"PRIVATE",teacherName:"老師"})));
-  expect(host.textContent).toContain("本期第 4/4 堂");
-  expect(host.textContent).toContain("下期已繳 8 堂");
-  await act(async()=>[...host.querySelectorAll("summary")].find(summary=>summary.textContent?.includes("查看本期上課日期"))!.click());
+  expect(host.querySelector('button[aria-controls="lesson-history-private"]')?.getAttribute("aria-label")).toBe("本期第 4/4 堂");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-controls="lesson-history-private"]')!.click());
   expect(host.textContent).toContain("2026-09-08 請假・不扣堂");
   expect(host.textContent).toContain("4. 2026-09-29");
   expect(host.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
   expect(host.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
   expect(host.textContent).toContain("1. 2026-10-06 待上課");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 更多操作"]')!.click());
-  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="預約紀錄")!.click());
-  const history=document.querySelector('[aria-labelledby="course-roster-history-title"]')!;
-  expect(history.textContent).toContain("學員 · 預約紀錄");
-  expect(history.textContent).toContain("2026-09-08 · 請假・不扣堂");
-  expect(history.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
-  expect(history.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
-  expect(history.textContent).not.toContain("編輯本次備註");
-  await act(async()=>[...history.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="關閉")!.click());
-  expect(document.querySelector('[aria-labelledby="course-roster-history-title"]')).toBeNull();
-  expect(host.textContent).toContain("下期已繳 8 堂");
+  const learnerLink=document.querySelector<HTMLAnchorElement>('a[role="menuitem"]');
+  expect(learnerLink?.textContent).toBe("學員資料");
+  expect(learnerLink?.href).toContain("customerId=student");
+  expect([...document.querySelectorAll('[role="menuitem"]')].some(item=>item.textContent==="預約紀錄")).toBe(false);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
@@ -237,7 +230,7 @@ it("keeps member booking unavailable when the learner has no eligible plan",asyn
   });
   const learner=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("林小華"));
   await act(async()=>learner!.click());
-  expect(host.textContent).toContain("沒有可用方案，請先指派方案。");
+  expect(host.textContent).toContain("請先核對學員方案");
   expect(onMemberBookingReadyChange).toHaveBeenLastCalledWith(false);
   expect(host.textContent).not.toContain("改用體驗預約");
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -303,9 +296,9 @@ it("preselects pending makeup on the original card and allows removing the link"
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"new",capacity:1,canCreate:true,canEdit:true,musicLayout:true,classType:"PRIVATE",view:"member-booking"})));
- const search=host.querySelector("#course-member-search") as HTMLInputElement;
+ const search=host.querySelector('input[role="combobox"][aria-label="搜尋學員"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,"補課");search.dispatchEvent(new Event("input",{bubbles:true}));});
- await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent?.includes("補課學員"))!.click());
+ await act(async()=>host.querySelector<HTMLElement>('[role="option"]')!.click());
  const select=host.querySelector('select[aria-label="補課紀錄"]') as HTMLSelectElement;
  expect(select.value).toBe("leave");expect(host.textContent).toContain("待補課 1 堂");
  expect([...host.querySelectorAll("select")][1].value).toBe("original");
@@ -370,23 +363,23 @@ it.each([false,true])("keeps direct note add/edit and full notes available in th
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:true,musicLayout})));
   for(const booking of roster){
    const trigger=host.querySelector<HTMLButtonElement>(`button[aria-label="${booking.customerName} 本次備註"]`)!;
-   expect(trigger.title).toBe(booking.notes ? "編輯本次備註" : "新增本次備註");
+   if(!musicLayout) expect(trigger.title).toBe(booking.notes ? "編輯本次備註" : "新增本次備註");
    await act(async()=>trigger.click());
-   const editor=trigger.closest("li")!.querySelector('[data-inline-roster-note]')!;
-   expect(document.querySelector('[role="dialog"]')).toBeNull();
+   const editor=musicLayout ? document.querySelector('[role="dialog"] form')! : trigger.closest("li")!.querySelector('[data-inline-roster-note]')!;
+   expect(!!document.querySelector('[role="dialog"]')).toBe(musicLayout);
    expect(editor.querySelector("textarea")?.value).toBe(booking.notes);
    expect(document.activeElement).toBe(editor.querySelector("textarea"));
    await act(async()=>[...editor.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
    expect(document.querySelector("textarea")).toBeNull();
    expect(document.querySelector('[role="dialog"]')).toBeNull();
   }
-  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 標籤與備註"]')!.click());
+  await act(async()=>(host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 標籤與備註"]') ?? host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 備註"]'))!.click());
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("店內完整提醒");
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("保留完整本次備註\n第二行");
   await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:false,musicLayout})));
-  expect(host.querySelector('button[aria-label="有備註學員 本次備註"]')).toBeNull();
-  expect(host.querySelector('button[aria-label="有備註學員 標籤與備註"]')).toBeTruthy();
+  if(!musicLayout) expect(host.querySelector('button[aria-label="有備註學員 本次備註"]')).toBeNull();
+  expect(host.querySelector(musicLayout ? 'button[aria-label="有備註學員 備註"]' : 'button[aria-label="有備註學員 標籤與備註"]')).toBeTruthy();
  }finally{await act(async()=>root.unmount());host.remove();visibleRect.mockRestore();}
 });
 
@@ -478,7 +471,7 @@ it.each(["GROUP","PRIVATE"])("renders imported ordinal and closed prefix in %s h
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`opening-${classType}`,capacity:classType==="GROUP"?15:1,canCreate:false,canEdit:false,musicLayout:true,classType,teacherName:"Synthetic teacher"})));
-  if(classType==="GROUP")await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.getAttribute("aria-controls")?.startsWith("lesson-history-"))!.click());
   expect(host.textContent).toContain("原第 7 期第 3/4 堂");expect(host.textContent).toContain("切點前已處理 2 堂");
   expect(host.textContent).toContain("3. 2026-10-01");expect(host.textContent).toContain("4. 尚未排課");
   expect(host.textContent).not.toContain("1. 尚未排課");expect(host.textContent).not.toContain("2. 尚未排課");
@@ -571,7 +564,7 @@ it.each([false,true])("publishes teacher absence and refunded rows together; rea
   await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==="儲存")!.click());
   expect(m.teacher).toHaveBeenCalledOnce();
   expect(host.textContent).toContain("請假・扣堂");
-  expect(host.textContent).not.toContain("老師出勤紀錄已更新");
+  expect(host.textContent).not.toContain("教師出勤紀錄已更新");
   expect(host.textContent).not.toContain("已扣額度已返還");
   expect(parent).not.toHaveBeenCalled();
   await act(async()=>finishRead(readFails?{success:false,error:"讀取失敗"}:{success:true,data:{roster:[{...row,absenceKind:"TEACHER_ABSENT",cardRemaining:2,available:2}],teacherAttendance:"LEAVE",teacherAttendanceReason:"",teacherNote:""}}));
@@ -583,7 +576,7 @@ it.each([false,true])("publishes teacher absence and refunded rows together; rea
   }else{
    expect(host.textContent).toContain("本堂免扣");
    expect(host.textContent).not.toContain("請假・扣堂");
-   expect(host.textContent).toContain("老師出勤紀錄已更新");
+   expect(host.textContent).toContain("教師出勤紀錄已更新");
    expect(parent).toHaveBeenCalledExactlyOnceWith("LEAVE");
   }
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -602,15 +595,16 @@ it.each([true,false])("closes a cancelled session only after success without rel
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`cancel-${success}`,capacity:1,canCreate:false,canEdit:true,musicLayout:true,onSessionCancelled})));
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="課程更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="取消本堂")!.click());
+  const quickBeforeCancel=m.quick.mock.calls.length;
   await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="確認取消本堂課")!.click());
   expect(m.cancel).toHaveBeenCalledWith({sessionId:`cancel-${success}`,expectedBookings:0});
   expect(onSessionCancelled).toHaveBeenCalledTimes(success?1:0);
   if(success){
-   expect(m.quick).not.toHaveBeenCalled();
+   expect(m.quick).toHaveBeenCalledTimes(quickBeforeCancel);
    expect(m.load).toHaveBeenCalledTimes(1);
    await act(async()=>window.dispatchEvent(new Event("focus")));
    expect(m.load).toHaveBeenCalledTimes(1);
-   expect(m.quick).not.toHaveBeenCalled();
+   expect(m.quick).toHaveBeenCalledTimes(quickBeforeCancel);
    expect(host.textContent).toContain("已取消本堂課");
   }else expect(host.textContent).toContain("取消失敗");
  } finally {await act(async()=>root.unmount());host.remove();}

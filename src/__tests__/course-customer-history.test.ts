@@ -5,12 +5,13 @@ const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: v
 vi.mock("@/server/services/course-access", () => ({ courseManagerRead: mocks.manager }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: mocks.customer } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePurchase: { findMany: mocks.orders } } }));
+vi.mock("@/server/services/music-tuition",()=>({readMusicTuition:async()=>new Map(),readMusicReceipts:async()=>[]}));
 import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.manager.mockResolvedValue({ storeId: "course-store" });
+  mocks.manager.mockResolvedValue({ storeId: "course-store",user:{id:"actor"} });
   mocks.customer.mockResolvedValue({ id: "customer" });
   mocks.orders.mockResolvedValue([]);
 });

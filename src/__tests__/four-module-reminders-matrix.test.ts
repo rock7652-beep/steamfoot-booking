@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 /** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
  * CSS layout, native browser history, Safari, or touch-device behavior. */
 import React, { act, createElement } from "react";
@@ -60,16 +61,16 @@ async function renderModule(module: Module, { empty = false, count = 0, long = f
     : createElement(CourseRoster, { sessionId: "synthetic-session", capacity: musicGroup ? 10 : 1, canCreate: false, canEdit: !readonly, musicLayout: module === "music", classType: musicGroup ? "GROUP" : "PRIVATE", teacherName: "合成老師" });
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial: labels, children: element })));
 }
-function overview() { return host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 標籤與備註"]`)!; }
+function overview() { return host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 標籤與備註"]`) ?? host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 備註"]`)!; }
 function noteDialog() { return [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find(dialog => dialog.textContent?.includes(name) && (dialog.textContent.includes("店內備註") || dialog.textContent.includes("平時備註") || dialog.textContent.includes("本次備註")))!; }
 it.each(modules)("%s renders an empty list without a reminder or mutation", async module => {
   await renderModule(module, { empty: true }); expect(host.querySelector("[data-roster-reminders]")).toBeNull(); expect(m.write).not.toHaveBeenCalled(); expect(m.open).not.toHaveBeenCalled();
 });
 it.each(modules.flatMap(module => [0, 1, 8].map(count => ({ module, count }))))("$module keeps two lines and opens all content with $count labels", async ({ module, count }) => {
   await renderModule(module, { count, long: true });
-  const cell = host.querySelector("[data-roster-reminders]")!; const trigger = overview();
-  expect(cell.children).toHaveLength(3); expect(trigger.children).toHaveLength(2); expect(trigger.querySelector("button,a,input,select")).toBeNull();
-  expect(trigger.textContent).toContain(count ? "合成標籤0" : "無標籤"); if (count === 8) expect(trigger.textContent).toContain("＋3");
+  const cell = host.querySelector("[data-roster-reminders]") ?? host.querySelector(`[aria-label="${name} 標籤與備註"]`)!; const trigger = overview();
+  expect(cell.children).toHaveLength(3); expect(trigger.children).toHaveLength(module === "music" ? 1 : 2); expect(trigger.querySelector("button,a,input,select")).toBeNull();
+  expect((module === "music" ? cell : trigger).textContent).toContain(count ? "合成標籤0" : "無標籤"); if (count === 8) expect(cell.textContent).toContain(module === "music" ? "＋7" : "＋3");
   for (let attempt = 0; attempt < 2; attempt++) {
     trigger.focus(); await act(async () => trigger.click()); const dialog = noteDialog();
     expect(dialog).toBeTruthy(); expect(dialog.textContent).toContain(longNote); expect(dialog.textContent).toContain(longUsual);
@@ -81,16 +82,17 @@ it.each(modules.flatMap(module => [0, 1, 8].map(count => ({ module, count }))))(
   expect(m.write).not.toHaveBeenCalled(); expect(m.open).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
 });
 it.each(modules)("%s respects readonly and disabled label states without changing rows", async module => {
-  await renderModule(module, { count: 1, readonly: true }); expect(host.querySelector(`button[aria-label="${name} 本次備註"]`)).toBeNull();
-  const labelTrigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 查看標籤"]`) ?? host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 查看或修改標籤"]`);
+  await renderModule(module, { count: 1, readonly: true }); if (module !== "music") expect(host.querySelector(`button[aria-label="${name} 本次備註"]`)).toBeNull();
+  const labelTrigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 查看標籤"]`) ?? host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 查看或修改標籤"]`) ?? host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 標籤"]`);
   await act(async () => labelTrigger!.click());
   expect([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="顧客標籤"] [aria-pressed]')].every(option => option.disabled)).toBe(true);
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-  await renderModule(module, { count: 1, enabled: false }); expect(overview().textContent).not.toContain("合成標籤0"); expect(m.write).not.toHaveBeenCalled();
+  await renderModule(module, { count: 1, enabled: false }); expect(host.querySelector(`[aria-label="${name} 標籤與備註"]`)?.textContent ?? overview().textContent).not.toContain("合成標籤0"); expect(m.write).not.toHaveBeenCalled();
 });
 it("music retains term, payment, leave/no-show and future-date information around reminder open/close", async () => {
   await renderModule("music", { count: 8, long: true });
-  const preserved = ["本期第 4/4 堂", "下期已繳 8 堂", "2026-09-08 請假・不扣堂", "2026-09-15 請假", "2026-09-22 曠課", "NT$ 3,200 · 現金", "NT$ 6,400 · 轉帳", "2026-10-06 待上課"];
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-controls="lesson-history-synthetic-course"]')!.click());
+  const preserved = ["4 / 4 堂", "下期已繳 8 堂", "2026-09-08 請假・不扣堂", "2026-09-15 請假", "2026-09-22 曠課", "NT$ 3,200 · 現金", "NT$ 6,400 · 轉帳", "2026-10-06 待上課"];
   for (const text of preserved) expect(host.textContent).toContain(text);
   await act(async () => overview().click()); await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   for (const text of preserved) expect(host.textContent).toContain(text); expect(m.write).not.toHaveBeenCalled();
@@ -99,8 +101,8 @@ it.each(["sports", "music"] as const)("%s note-edit cancel discards a draft with
   await renderModule(module, { long: true });
   const trigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!;
   await act(async () => trigger.click());
-  const editor = host.querySelector<HTMLElement>("[data-inline-roster-note]")!;
-  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  const editor = module === "music" ? document.querySelector<HTMLElement>('[role="dialog"] form')! : host.querySelector<HTMLElement>("[data-inline-roster-note]")!;
+  expect(!!document.querySelector('[role="dialog"]')).toBe(module === "music");
   const input = editor.querySelector("textarea")!;
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "合成未儲存草稿"); input.dispatchEvent(new Event("input", { bubbles: true })); });
   await act(async () => [...editor.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
@@ -130,7 +132,7 @@ it.each(["sports", "music"] as const)("%s returns from an unconfirmed absence wi
 });
 
 it.each(modules)("%s retains the empty reminder skeleton without fabricating content", async module => {
-  await renderModule(module); expect(overview().children).toHaveLength(2); expect(overview().textContent).toContain("尚無備註");
+  await renderModule(module); expect(overview().children).toHaveLength(module === "music" ? 1 : 2); expect(overview().textContent).toContain(module === "music" ? "—" : "尚無備註");
   await act(async () => overview().click()); const dialog = noteDialog();
   if (module === "sports" || module === "music") {
     expect(dialog.textContent).toContain("本次備註");
@@ -142,15 +144,32 @@ it.each(modules)("%s retains the empty reminder skeleton without fabricating con
 it.each(["sports", "music"] as const)("%s opens its inline note editor without trapping Enter and sends one note-only action", async module => {
   await renderModule(module);
   await act(async () => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!.click());
-  const textarea = document.querySelector("textarea")!, editor = textarea.closest("[data-inline-roster-note]")!;
+  const textarea = document.querySelector("textarea")!, editor = textarea.closest("[data-inline-roster-note], form")!;
   const save = [...editor.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "儲存")!;
-  expect(document.querySelector('[role="dialog"]')).toBeNull(); expect(document.activeElement).toBe(textarea);
+  expect(!!document.querySelector('[role="dialog"]')).toBe(module === "music"); expect(document.activeElement).toBe(textarea);
   const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
   await act(async () => textarea.dispatchEvent(enter)); expect(enter.defaultPrevented).toBe(false); expect(m.write).not.toHaveBeenCalled();
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, "合成儲存內容\n第二行"); textarea.dispatchEvent(new Event("input", { bubbles: true })); });
   await act(async () => save.click());
   expect(m.write).toHaveBeenCalledExactlyOnceWith({ sessionId: "synthetic-session", bookingId: "synthetic-course", note: "合成儲存內容\n第二行", expectedNote: "" });
   expect(document.querySelector("textarea")).toBeNull(); expect(m.refresh).not.toHaveBeenCalled();
+});
+
+it.each(["rejected", "offline"] as const)("music retains a failed note draft and retries against its original value (%s)", async outcome => {
+  await renderModule("music", {long:true});
+  await act(async()=>host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!.click());
+  const input=document.querySelector("textarea")!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"新備註");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  if(outcome==="offline")m.write.mockRejectedValueOnce(new Error("offline"));
+  else m.write.mockResolvedValueOnce({success:false,error:"版本已更新"});
+  const save=()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button=>button.textContent==="儲存")!.click();
+  await act(async()=>save());
+  expect(document.querySelector("textarea")?.value).toBe("新備註");
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain(outcome==="offline"?"輸入已保留":"版本已更新");
+  expect(m.write).toHaveBeenLastCalledWith({sessionId:"synthetic-session",bookingId:"synthetic-course",note:"新備註",expectedNote:longNote});
+  await act(async()=>save());
+  expect(m.write).toHaveBeenCalledTimes(2);expect(document.querySelector("textarea")).toBeNull();
+  expect(host.textContent).toContain("新備註");expect(m.refresh).not.toHaveBeenCalled();
 });
 
 it.each(["pencil", "full-details"] as const)("music GROUP retains expanded history after reminder dismissal and %s editor cancellation", async entry => {
@@ -169,7 +188,7 @@ it.each(["pencil", "full-details"] as const)("music GROUP retains expanded histo
     expect(history.closest('[hidden], [inert], [aria-hidden="true"], details:not([open])')).toBeNull();
     for (const text of historyText) expect(history.textContent).toContain(text);
     const row = dates.closest("li")!;
-    expect(row.textContent).toContain("本期第 4/4 堂");
+    expect(row.textContent).toContain("4 / 4 堂");
     expect(row.textContent).toContain("此方案請假 1・曠課 1");
   }
   expect(dates.getAttribute("aria-expanded")).toBe("false");

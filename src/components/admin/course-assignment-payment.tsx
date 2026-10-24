@@ -15,7 +15,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
   const [paymentDate,setPaymentDate]=useState(toLocalDateStr());
   const [discountFee,setDiscountFee]=useState(false);
   const kind=offer==="RATE"&&canDiscount?"PERCENT":"AMOUNT";
-  const discountValue=!canDiscount||offer==="NONE"?0:offer==="RATE"?Math.round((100-Number(value)*10)*100)/100:Number(value);
+  const discountValue=!canDiscount||offer==="NONE"?0:offer==="RATE"?Math.round((100-Number(value)*(Number(value)<=10?10:1))*100)/100:Number(value);
   let total:ReturnType<typeof calculateCourseCheckout>|null=null;
   try {if(!canDiscount||offer==="NONE"||(value!==""&&(offer!=="RATE"||Number(value)>0)))total=calculateCourseCheckout(price,kind,discountValue);}catch{}
   const due=total?.paid??null;
@@ -51,7 +51,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
     <input type="hidden" name="expectedStoreCost" value={storeCost}/><input type="hidden" name="expectedListPrice" value={price}/>
     <input type="hidden" name="discountKind" value={kind}/><input type="hidden" name="discountValue" value={discountValue}/>
     {canDiscount&&<label className={label}>優惠方式<select className={field} value={offer} onChange={e=>{const next=e.target.value as typeof offer;setOffer(next);setValue(next==="RATE"?"9":"");}}><option value="NONE">無優惠</option><option value="AMOUNT">折抵金額</option><option value="RATE">打折</option></select></label>}
-    {canDiscount&&offer!=="NONE"&&<label className={label}>{offer==="RATE"?"打幾折（9 代表九折）":"折抵多少元"}<input aria-label="優惠數值" className={field} type="number" inputMode="decimal" min={offer==="RATE"?"0.01":"0"} max={offer==="RATE"?"10":price} step={offer==="RATE"?"0.01":"1"} value={value} onChange={e=>setValue(e.target.value)} required/></label>}
+    {canDiscount&&offer!=="NONE"&&<label className={label}>{offer==="RATE"?"打幾折（如 9、85、77）":"折抵多少元"}<input aria-label="優惠數值" className={field} type="number" inputMode="decimal" min={offer==="RATE"?"0.01":"0"} max={offer==="RATE"?"100":price} step={offer==="RATE"?"0.01":"1"} value={value} onChange={e=>setValue(e.target.value)} required/></label>}
     <dl className={music ? "col-span-2 grid grid-cols-3 gap-2 rounded-lg bg-primary-50 p-2 text-sm" : "space-y-2 rounded-lg bg-primary-50 p-3"} aria-live="polite">
       <div className={music ? "min-w-0 space-y-1" : "flex justify-between gap-3"}><dt>原價</dt><dd>NT$ {price.toLocaleString()}</dd></div>
       <div className={music ? "min-w-0 space-y-1" : "flex justify-between gap-3"}><dt>折抵</dt><dd>{total?"− NT$ "+total.discount.toLocaleString():"—"}</dd></div>
@@ -66,7 +66,7 @@ export function CourseAssignmentPayment({musicPeriods,profitEnabled=true,price,c
       <input type="hidden" name="musicDiscountTeacherFee" value={String(discountFee)}/>
       <details><summary className="min-h-11 cursor-pointer py-2.5">各期金額／拆帳設定</summary>{canDiscount&&<label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={discountFee} onChange={e=>setDiscountFee(e.target.checked)}/>依折後學費拆帳</label>}{due!==null&&paid!==null&&<div className="overflow-x-auto"><table className="w-full text-right text-sm tabular-nums"><thead><tr>{["期別","堂數","應收","已收","未收"].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{musicTuitionPeriods(musicPeriods,due,paid).map(r=><tr key={r.period} className="border-t border-earth-200"><td className="p-2">{r.period}</td><td className="p-2">{r.lessons}</td><td className="p-2">{r.due.toLocaleString()}</td><td className="p-2">{r.received.toLocaleString()}</td><td className="p-2">{r.outstanding.toLocaleString()}</td></tr>)}</tbody></table></div>}<p className="text-sm text-earth-500">收款依期別順序抵付；共用本次購課期限。</p></details>
     </>}
-    {!total&&<p role="alert" className="text-sm text-red-700">請輸入有效優惠；打折填 0.01–10，折抵金額不得超過售價。</p>}
+    {!total&&<p role="alert" className="text-sm text-red-700">請輸入有效優惠；打折可填 9、8.5、85 或 77，折抵金額不得超過售價。</p>}
     {profitEnabled&&paid!==null&&paid<storeCost&&<p role="alert" className="text-sm text-red-700">實收低於店家成本，請核對優惠；尚不能結帳。</p>}
     {showAllocation&&paid!==null&&(!profitEnabled||paid>=storeCost)&&<p className="text-sm text-earth-600">店家成本 NT$ {storeCost.toLocaleString()} · 開發人所得 NT$ {calculateCourseSaleAllocation(paid,storeCost).developerAmount.toLocaleString()}</p>}
     {paid===0?<><input type="hidden" name="paymentMethod" value="OTHER"/><p className="text-sm text-earth-600">{musicPeriods&&due!==0?"本次未收款：建立購課與堂數，之後由繳費紀錄補繳。":"全額折抵：保留購買與方案紀錄，不建立收款收入。"}</p></>:<>

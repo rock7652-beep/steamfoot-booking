@@ -609,7 +609,7 @@ export function CourseStaffWorkspace({
               {sportsNative&&coachEnabled&&person&&availabilityVisited&&<div data-browse-control data-staff-tab="availability" hidden={tab!=="availability"} className="space-y-3"><CourseStaffAvailabilityEditor key={person.id} storeId={previewStoreId} staffId={person.id} fitness externalSave saveRef={availabilitySave} onGuard={updateAvailabilityGuard}/></div>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
                 {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
-                  onRole={value => { setBackendRole(value); if(value === "OWNER") { setPermissions(allowedPermissionCodes); setFinanceTeacherIds(null); } setDirty(true); }}
+                  onRole={value => { setBackendRole(value); setDirty(true); }}
                   onPreset={value => { setPermissions(backendRole==="OWNER"?allowedPermissionCodes:value); setApplyRolePreset(true); setDirty(true); toast.success("已套用角色預設權限；儲存後生效"); }}/>}
                 
 

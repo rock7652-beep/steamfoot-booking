@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { OperationScope } from "@/components/operations/operation-scope";
 import { RetainedNoteEditor, type NoteSaveResult } from "@/components/operations/retained-note-editor";
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -67,14 +67,16 @@ it("does not allow a late save of A to invoke callbacks for B", async () => {
   await render("user:store-a","b","B content"); await act(async()=>{finish({success:true});});
   expect(container.textContent).toContain("B content"); expect(onSaved).not.toHaveBeenCalled();
 });
-it("asks before discarding a changed draft but not an unchanged editor", async () => {
+it("discards an unsaved draft without a confirmation or write", async () => {
   const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
   await render(); await enter("changed"); await act(async()=>button("取消").click());
-  expect(confirm).toHaveBeenCalledOnce(); expect(container.querySelector("textarea")?.value).toBe("changed");
-  confirm.mockReturnValue(true); await act(async()=>button("取消").click());
-  await act(async()=>button("編輯").click()); await act(async()=>button("取消").click());
-  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(confirm).not.toHaveBeenCalled(); expect(container.querySelector("textarea")).toBeNull();
+  await act(async()=>button("編輯").click());
+  expect(container.querySelector("textarea")?.value).toBe("original");
+  await act(async()=>button("取消").click());
+  expect(confirm).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
 });
+
 it("undoes only the saved note with a compare-and-set expectation", async () => {
   save.mockResolvedValue({success:true});
   await render(); await enter("new note"); await act(async()=>button("儲存").click());

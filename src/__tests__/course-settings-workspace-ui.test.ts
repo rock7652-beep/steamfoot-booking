@@ -160,8 +160,8 @@ describe("five-section course settings", () => {
     expect(selector.value).toBe("subscription"); expect(host.querySelector('section[aria-label="系統方案與用量"]')?.hasAttribute("hidden")).toBe(false);
   });
   it("preserves failed input but allows a browser reload without a discard warning", async () => {
-    m.save.mockRejectedValueOnce(new Error("network")); await render(); await input("name", "斷線草稿"); await submit();
-    expect(host.textContent).toContain("尚未確認儲存結果，請重試核對同一次送出；輸入已保留。"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
+    m.save.mockResolvedValueOnce({success:false,error:"名稱重複，請修改"}); await render(); await input("name", "斷線草稿"); await submit();
+    expect(host.textContent).toContain("名稱重複，請修改"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
     const before = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(false);
     await click("取消"); const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after); expect(after.defaultPrevented).toBe(false);
   });

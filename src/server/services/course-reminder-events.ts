@@ -1,3 +1,4 @@
+import { isMusicOpeningMakeupBooking } from "@/lib/music-opening-runtime";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import { createHash } from "node:crypto";
@@ -14,9 +15,9 @@ export async function getCourseReminderCandidates(storeId:string,now=new Date())
  const store=await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{id:true,name:true,slug:true}});
  if(!store) throw new Error("此提醒僅適用本店課程");
  const date=addTaiwanDuration(toLocalDateStr(now),1,"DAY"),range=dayRange(date);
- const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
+ const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
  const customers=await prisma.customer.findMany({where:{storeId,id:{in:bookings.map(b=>b.customerId ?? b.reserverCustomerId).filter((id): id is string => !!id)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true}});
- return bookings.flatMap(booking=>{const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
+ return bookings.flatMap(booking=>{if(isMusicOpeningMakeupBooking(booking))return [];const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
 }
 export function courseReminderRetryKey(id:string) {
  const hex=createHash("sha256").update(id).digest("hex");

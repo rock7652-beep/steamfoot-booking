@@ -12,7 +12,7 @@ export function useCustomerPanelUrl(enabled: boolean, customerId: string | null,
     if (!enabled || (routedId === customerId && (studentTab === undefined || routedTab === (customerId ? studentTab : null)))) return;
     const url = new URL(window.location.href);
     if (customerId) url.searchParams.set("customerId", customerId);
-    else url.searchParams.delete("customerId");
+    else { url.searchParams.delete("customerId"); for(const key of ["studentSubject","studentMethod","studentPeriods"])url.searchParams.delete(key); }
     if (studentTab !== undefined) {
       if (customerId) url.searchParams.set("studentTab", studentTab);
       else url.searchParams.delete("studentTab");

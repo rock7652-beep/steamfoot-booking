@@ -1,3 +1,4 @@
+import { rawQueryParts, rawQueryText } from "./helpers/raw-query";
 import { beforeEach, expect, it, vi } from "vitest";
 import { courseDutyIntervals, dutyCoversCourse } from "@/lib/course-duty";
 const mocks = vi.hoisted(()=>({module:vi.fn(), manager:vi.fn(), permission:vi.fn(), transaction:vi.fn()}));
@@ -29,7 +30,7 @@ it("disabled integration does not consult classes or duty",async()=>{
 });
 it("checks only the assigned coach and reports each conflicting class",async()=>{
  const raw=vi.fn().mockImplementation(async(strings:TemplateStringsArray,...values:unknown[])=>{
-  expect(values).toContain("shop"); const sql=strings.join("");
+  expect(rawQueryParts(strings,values).values).toContain("shop"); const sql=rawQueryText(strings);
   if(sql.includes("ShopConfig")) return [{dutySchedulingEnabled:true}];
   if(sql.includes("BusinessHours")) return hours;
   if(sql.includes("DutyAssignment")) return ["09:00","10:00","11:00"].map(slotTime=>({date:new Date("2026-10-01T00:00:00Z"),slotTime,staffId:"other-coach"}));
@@ -39,13 +40,13 @@ it("checks only the assigned coach and reports each conflicting class",async()=>
 });
 it("duty mutation locks the course store and rolls back rather than cancelling affected classes",async()=>{
  let committed=false; const raw=vi.fn().mockImplementation(async(strings:TemplateStringsArray)=>{
-  const sql=strings.join(""); if(sql.includes("ShopConfig")) return [{dutySchedulingEnabled:true}];
+  const sql=rawQueryText(strings); if(sql.includes("ShopConfig")) return [{dutySchedulingEnabled:true}];
   if(sql.includes("CourseSession")) return [session]; if(sql.includes("BusinessHours")) return hours; return [];
  });
  mocks.transaction.mockImplementation(async(work)=>{const result=await work({$queryRaw:raw});committed=true;return result;});
  const edit=vi.fn().mockResolvedValue(undefined);
  await expect(withDutyMutation("shop",edit)).rejects.toThrow("尚未儲存");
- expect(raw.mock.calls[0][0].join("")).toContain("FOR UPDATE"); expect(edit).toHaveBeenCalledTimes(1); expect(committed).toBe(false);
+ expect(rawQueryText(raw.mock.calls[0][0])).toContain("FOR UPDATE"); expect(edit).toHaveBeenCalledTimes(1); expect(committed).toBe(false);
 });
 it("legacy stores retain their existing mutation without course validation",async()=>{
  mocks.module.mockResolvedValue("steamfoot"); const edit=vi.fn().mockResolvedValue("legacy");

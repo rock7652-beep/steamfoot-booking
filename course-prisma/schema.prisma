@@ -319,6 +319,7 @@ model CoursePointEntry {
 model CourseBookingRule {
   storeId String @id
   selfBookingEnabled Boolean @default(true)
+  assignedSchedulingEnabled Boolean @default(true)
   selfBookingRevision Int @default(0)
   selfLeaveEnabled Boolean @default(true)
   selfRescheduleEnabled Boolean @default(true)

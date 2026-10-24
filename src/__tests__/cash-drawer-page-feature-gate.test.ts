@@ -96,7 +96,7 @@ vi.mock("@/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace", () => (
   CashDrawerWorkspace: (props: {returnPath: string; canOpen: boolean; canClose: boolean; canInit:boolean}) => React.createElement("section", {"data-return-path": props.returnPath, "data-can-init": String(props.canInit), "data-can-open": String(props.canOpen), "data-can-close": String(props.canClose)}, "cash drawer workspace"),
 }));
 
-import CashDrawerPage from "@/app/(dashboard)/dashboard/cash-drawer/page";
+import CashDrawerPage from "@/app/(dashboard)/dashboard/cash-drawer/cash-drawer-page-content";
 
 const OWNER = {
   id: "user-1",
