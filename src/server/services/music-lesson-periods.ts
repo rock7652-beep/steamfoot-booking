@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@/../generated/course-client";
 import { AppError } from "@/lib/errors";
-import { nextMusicLessonSlot } from "@/lib/music-lesson-periods";
+import { musicLessonPeriodIssue, nextMusicLessonSlot } from "@/lib/music-lesson-periods";
 import { musicNativeWorkflowEnabled } from "./music-native-workflow";
 type Tx = Prisma.TransactionClient;
 export type MusicLessonAssignment = { bookingId: string; cardId: string; customerId: string; period: number; ordinal: number; kind: string; sourceBookingId: string | null; releasedAt: Date | null };
@@ -12,7 +12,8 @@ export async function readMusicLessonAssignments(tx: Tx, storeId: string, bookin
 }
 export async function bindMusicLesson(tx: Tx, storeId: string, booking: { id: string; cardId: string | null; customerId: string | null; makeupForBookingId?: string | null }, card: { musicTermSizes: number[]; musicBonusLessons: number; musicOpeningStateRequired: boolean; requestKey?: string } | null, moveFrom?: string) {
   if (!fixedMusicPeriodsEnabled(storeId) || !booking.cardId || !booking.customerId || !card || card.musicOpeningStateRequired) return;
-  if (!card.musicTermSizes.length) throw new AppError("VALIDATION", "方案期別待確認，請先核對各期堂數");
+  const periodIssue = musicLessonPeriodIssue(card);
+  if (periodIssue) throw new AppError("VALIDATION", periodIssue);
   const current = await readMusicLessonAssignments(tx, storeId, [booking.id]);
   if (current.length) return;
   const couponSource = card.requestKey?.startsWith("music-leave-makeup:") ? card.requestKey.slice("music-leave-makeup:".length) : null;

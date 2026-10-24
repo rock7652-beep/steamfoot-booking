@@ -172,9 +172,9 @@ export function MusicScheduleWizard({schedulingModes,autoRoom=false,subjects,tem
       {(slotError||checkError)&&<p role="alert" className="col-span-2 text-red-700">{slotError||checkError}<button type="button" className="ml-2 min-h-11 underline" onClick={refresh}>重試</button></p>}
       {checkPending&&<p role="status" className="text-earth-600">正在確認各日期的衝突…</p>}
       {conflicts.length>0&&<section aria-label="排課衝突日期" className="col-span-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-800"><strong>請調整以下日期，尚未建立</strong><ul className="mt-1 space-y-1">{conflicts.map((issue,index)=><li key={`${issue.date}:${index}`}>{issue.date} · {issue.reason}</li>)}</ul></section>}
-      {error&&<p role="alert" className="col-span-2 text-red-700">{error}</p>}
     </div>
     <footer className="shrink-0 border-t border-earth-100 bg-white pt-3">
+      {error&&<p role="alert" className="mb-2 break-words text-red-700">{error}</p>}
       <div className="flex justify-end gap-2">{onCancel&&<button type="button" className="min-h-11 rounded-lg border px-4" disabled={enrollmentPending} onClick={onCancel}>取消</button>}<button type="button" disabled={pending||enrollmentPending||checkPending||!!checkError||!!saveReason||conflicts.length>0} onClick={create} className={`min-h-11 rounded-lg px-6 font-medium text-white disabled:opacity-50 ${isTrial?"bg-orange-600":repeat?frequency==="BIWEEKLY"?"bg-violet-700":"bg-blue-700":"bg-emerald-700"}`}>{pending?"新增中…":"新增"}</button></div>
     </footer>
   </div>;
