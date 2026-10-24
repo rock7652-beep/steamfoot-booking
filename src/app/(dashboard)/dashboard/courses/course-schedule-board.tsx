@@ -1,5 +1,6 @@
 "use client";
 import {serviceCalendarPresentation} from "@/lib/service-calendar-presentation";
+import {serviceTimelineBounds} from "@/lib/service-calendar-layout";
 import {serviceScheduleTotals} from "@/lib/service-schedule-counts";
 import {courseWeekStart as weekStart} from '@/lib/course-calendar';
 import {useSportsCalendarState,useSportsCalendarScroll,calendarResource,calendarString} from "@/components/admin/use-sports-calendar-state";
@@ -111,6 +112,7 @@ export type CourseMoveClipboard = {
 
 type Props = {
   serviceMode?:boolean;
+  toolbarContent?:React.ReactNode;
   sportsNative?:boolean;
   businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
@@ -247,13 +249,14 @@ function adaptiveCopy(
   };
 }
 
-function ServiceLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-3 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex items-center gap-1"><i className={`h-3 w-3 rounded ${p.dot}`}/>{p.label}</span>;})}<span>✓ 服務完成</span><span>斜線：整理時間</span></div>;}
+export function ServiceCalendarLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-3 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex items-center gap-1"><i aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${p.dot}`}/>{p.label}</span>;})}</div>;}
 function ServiceCleanup({session,minuteHeight}:{session:Session;minuteHeight:number}){
  if(!session.service||session.service.buffer<=0)return null;
  return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(session.service.occupiedEndsAt)}</div>;
 }
 
 function SessionCard({
+  servicePixelHeight,
   session,
   templates,
   coaches,
@@ -268,6 +271,7 @@ function SessionCard({
   onOpen,
   readOnly = false,
 }: {
+  servicePixelHeight?:number;
   session: Session;
   templates: Template[];
   coaches: Coach[];
@@ -326,15 +330,16 @@ function SessionCard({
       data-service-schedule-kind={session.servicePalette?presentation.label:undefined}
       data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
-      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
-      aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      title={`${session.service?`${session.service.personName} · ${session.nameSnapshot} · ${session.service.paymentStatus??""} · `:""}${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      aria-label={`${session.service?`${session.service.personName}，${session.nameSnapshot}，${session.service.paymentStatus??""}，`:""}${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       {session.service ? <div className="space-y-0.5 text-sm leading-5">
-        <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
-        <div className="flex min-w-0 items-center justify-between gap-1"><strong className="min-w-0 truncate">{session.nameSnapshot}</strong>{session.service.paymentStatus&&<span className="shrink-0 rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</div><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>
-        {session.service.groupLabel&&<span className="inline-block text-xs">{session.service.groupLabel} · {session.service.groupProgress}</span>}
+        {servicePixelHeight!==undefined&&servicePixelHeight<44?<div className="flex items-center gap-1"><span className="shrink-0 tabular-nums">{hhmm(session.startsAt)}</span><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong>{session.service.status==='COMPLETED'&&<span className="ml-auto">✓</span>}</div>:<>
+        <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{servicePixelHeight!==undefined&&servicePixelHeight<76?<span className="inline-flex items-center gap-1">{session.service.status==='COMPLETED'?<span aria-label="已完成">✓</span>:session.service.status==='NO_SHOW'?'未到':null}{session.service.paymentStatus&&<span className="rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</span>:({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
+        {servicePixelHeight!==undefined&&servicePixelHeight<76?<div className="flex min-w-0 items-center gap-1"><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong></div>:<><div className="flex min-w-0 items-center justify-between gap-1"><strong className="min-w-0 truncate">{session.nameSnapshot}</strong>{session.service.paymentStatus&&<span className="shrink-0 rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</div><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>{session.service.groupLabel&&<span className="inline-block text-xs">{session.service.groupLabel} · {session.service.groupProgress}</span>}</>}
         {session.service.buffer>0&&!dense&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
+        </>}
       </div> : <>      <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {dense && businessProfile !== "MUSIC" ? (
@@ -437,6 +442,7 @@ function SessionCard({
 
 export function CourseScheduleBoard({
   serviceMode=false,
+  toolbarContent,
   sportsNative=false,
   legend,
   assignedFiltered = false,
@@ -549,8 +555,16 @@ export function CourseScheduleBoard({
   useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  // A half-hour remains a 44px touch target; music keeps its existing scale.
-  const hourHeight = sportsNative ? 88 : 96;
+  const serviceDates=mode==='week'?Array.from({length:7},(_,i)=>addTaiwanDuration(weekStart(selectedDate),i,'DAY')):[selectedDate];
+  const serviceBounds=serviceMode?serviceTimelineBounds(serviceDates.flatMap(d=>calendarDays?.[d]?.periods??storePeriods),(occupiedSessions??sessions).filter(s=>serviceDates.includes(sessionDate(s)))):{firstHour:9,endHour:22};
+  const [serviceHourHeight,setServiceHourHeight]=React.useState(60);
+  React.useEffect(()=>{
+    if(!serviceMode||!boardRef.current)return;
+    const board=boardRef.current;
+    const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=mode==='week'?weekScrollRef.current:dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY+(mode==='week'?40:0);const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
+    update();const observer=new ResizeObserver(update);observer.observe(board);window.addEventListener('resize',update);return()=>{observer.disconnect();window.removeEventListener('resize',update);};
+  },[serviceMode,mode,serviceBounds.firstHour,serviceBounds.endHour]);
+  const hourHeight = serviceMode ? serviceHourHeight : sportsNative ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -566,12 +580,12 @@ export function CourseScheduleBoard({
     const weekSessions = sessions.filter((session) => matchesResource(session) && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
     const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
-    const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
-    const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
+    const firstHour = serviceMode?serviceBounds.firstHour:Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
+    const lastHour = serviceMode?serviceBounds.endHour:Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
-      <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"服務週班表":"教室週課表"}>
-        {serviceMode&&<ServiceLegend/>}
+      <section ref={boardRef} className="space-y-1" data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"服務週班表":"教室週課表"}>
+
         <Toolbar className={businessProfile === "MUSIC" || serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
           <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? "老師" : courseDisplayText("教練", businessProfile)}</label>
@@ -579,9 +593,9 @@ export function CourseScheduleBoard({
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:<>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
-          {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
+          {serviceMode&&<>{toolbarContent}<ServiceCalendarLegend/></>}{legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
-        <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
+        <div ref={weekScrollRef} className={`${serviceMode?"":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
@@ -622,8 +636,8 @@ export function CourseScheduleBoard({
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
-                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(serviceMode?21:44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
+                    <SessionCard servicePixelHeight={serviceMode?sessionDurationMinutes(session)*hourHeight/60-4:undefined} session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                     <ServiceCleanup session={session} minuteHeight={hourHeight/60}/>
                   </div>)}
                 </div>;
@@ -700,8 +714,8 @@ export function CourseScheduleBoard({
   const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
   const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
   const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
-  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...[9*60]);
-  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...[22*60]);
+  const minMinute = serviceMode?serviceBounds.firstHour*60:Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...[9*60]);
+  const maxMinute = serviceMode?serviceBounds.endHour*60:Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...[22*60]);
   const firstHour = Math.floor(minMinute/60);
   const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
   const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
@@ -758,7 +772,7 @@ export function CourseScheduleBoard({
     0,
   );
 
-  const filters: Array<{ id: QuickFilter; label: string; value: number }> = serviceMode?[{id:"all",label:"今日安排",value:serviceScheduleTotals(visibleDaySessions).groups},{id:"trial",label:"體驗",value:trials},{id:"pending",label:"待服務",value:visibleDaySessions.filter(s=>s.service?.status==="RESERVED").length}]:[
+  const filters: Array<{ id: QuickFilter; label: string; value: number }> = serviceMode?[{id:"all",label:"當日安排",value:serviceScheduleTotals(visibleDaySessions).groups},{id:"trial",label:"體驗",value:trials},{id:"pending",label:"待服務",value:visibleDaySessions.filter(s=>s.service?.status==="RESERVED").length}]:[
     { id: "all", label: "今日安排", value: visibleDaySessions.length },
     { id: "trial", label: "體驗客", value: trials },
     { id: "near-full", label: "快滿", value: nearFull },
@@ -786,10 +800,10 @@ export function CourseScheduleBoard({
   );
 
   return (
-    <section ref={boardRef} className="space-y-1" aria-label={serviceMode?"日班表":"日課表"}>
-      {serviceMode&&<ServiceLegend/>}
+    <section ref={boardRef} className="space-y-1" data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"日班表":"日課表"}>
 
-      <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
+
+      <Toolbar className={musicDense||serviceMode ? "flex max-w-full flex-wrap items-center gap-2 !overflow-visible [&>*]:!shrink" : undefined}>
         {!musicDense && resourceViewControls}
         {musicDense && !replica && <span className="text-sm text-earth-700">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
         {(!musicDense || quickFilter !== "all") && !replica && <div
@@ -832,6 +846,7 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
 
+        {serviceMode&&<>{toolbarContent}<ServiceCalendarLegend/></>}
         {musicDense && resourceViewControls}
         {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>
@@ -845,8 +860,8 @@ export function CourseScheduleBoard({
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
             <div data-schedule-sticky-header className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
-              <div aria-label="日表日期" className="flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900">{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>
-              <div className="absolute bottom-0 left-0 top-9 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
+              {!serviceMode&&<div aria-label="日表日期" className="flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900">{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>}
+              <div className={`absolute bottom-0 left-0 ${serviceMode?"top-0":"top-9"} z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500`}>
                 時間
               </div>
               <div
@@ -1025,6 +1040,7 @@ export function CourseScheduleBoard({
                             } : undefined}
                           >
                             <SessionCard
+                              servicePixelHeight={serviceMode?sessionDurationMinutes(session)*hourHeight/60-4:undefined}
                               session={session}
                               templates={templates}
                               coaches={coaches}

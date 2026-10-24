@@ -7,12 +7,12 @@ export function beautyNativeCalendar(data:BeautyCalendarData,technicians:Paramet
  const groups=[...new Set(data.items.filter(b=>b.status!=='CANCELLED').map(b=>b.groupId))];
  const groupInfo=(id:string)=>{const group=data.items.filter(b=>b.groupId===id&&b.status!=='CANCELLED');return group.length>1?{groupLabel:`同行 ${groups.indexOf(id)+1}`,groupProgress:`完成 ${group.filter(b=>b.status==='COMPLETED').length}/${group.length} 人`}:{};};
  const sessions:Session[]=data.items.filter(b=>b.status!=='CANCELLED').map(b=>({
-  servicePalette:true,id:b.id,templateId:b.serviceId,nameSnapshot:b.serviceName,startsAt:b.startsAt,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,
+  servicePalette:true,serviceCustomer:{name:b.personName,phone:b.personPhone??"",assignedStaffId:b.customerId?assignedStaff[b.customerId]??null:null},id:b.id,templateId:b.serviceId,nameSnapshot:b.serviceName,startsAt:b.startsAt,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,
   service:{...groupInfo(b.groupId),paymentStatus:b.paymentStatus,groupId:b.groupId,personName:b.personName,status:b.status,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,buffer:b.buffer},
   coachId:b.technicianId,roomId:b.locationId,capacity:1,pointCost:b.cardId?1:0,isTrial:b.isTrial,
   bookings:[{id:b.id,customerId:b.customerId,customerName:b.personName,assignedCoachId:b.customerId?assignedStaff[b.customerId]??null:null,status:b.status==='COMPLETED'?'ATTENDED':b.status,bookingKind:b.isTrial?'TRIAL':'REGULAR'}],
  }));
- sessions.push(...(data.rentals??[]).map(r=>({servicePalette:true,id:'rental:'+r.id,rentalId:r.id,templateId:'',nameSnapshot:r.customerName,startsAt:r.startsAt,endsAt:r.endsAt,occupiedStartsAt:r.occupiedStartsAt,occupiedEndsAt:r.occupiedEndsAt,coachId:'',roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:'RENTAL' as const})));
+ sessions.push(...(data.rentals??[]).map(r=>({servicePalette:true,serviceCustomer:{name:r.customerName,phone:r.customerPhone??"",assignedStaffId:r.customerId?assignedStaff[r.customerId]??null:null},id:'rental:'+r.id,rentalId:r.id,templateId:'',nameSnapshot:r.customerName,startsAt:r.startsAt,endsAt:r.endsAt,occupiedStartsAt:r.occupiedStartsAt,occupiedEndsAt:r.occupiedEndsAt,coachId:'',roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:'RENTAL' as const})));
  return {month:data.date.slice(0,7),sessions,calendarDays:data.calendarDays,
   cancelledBookings:data.items.filter(b=>b.status==='CANCELLED').map(b=>({id:b.id,sessionId:b.id,customerName:b.personName,absenceKind:null,notes:b.notes})),
   staffAvailabilityExceptions:beautyStaffAvailability(technicians).staffAvailabilityExceptions,

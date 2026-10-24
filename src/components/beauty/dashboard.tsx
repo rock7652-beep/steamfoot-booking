@@ -33,13 +33,13 @@ export function BeautyDashboard({
   tab,
   slug,
   readOnly = false,
-  homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,
+  cashbookShortcut,homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,
 }: {
   data: BeautyDashboardData;
   tab: BeautyTab;
   slug: string;
   readOnly?: boolean;
-  homeContent?:ReactNode;settingsContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsContent?:ReactNode;initialCustomerId?:string;initialAppointmentId?:string;initialBooking?:boolean;
+  cashbookShortcut?:ReactNode;homeContent?:ReactNode;settingsContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsContent?:ReactNode;initialCustomerId?:string;initialAppointmentId?:string;initialBooking?:boolean;
 }) {
   const [calendarState,setCalendarState]=useState<{base:BeautyDashboardData;value:BeautyCalendarData}|null>(null);
   const data=calendarState?.base===incoming?{...incoming,...calendarState.value}:incoming;
@@ -140,8 +140,8 @@ export function BeautyDashboard({
       )}
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button></RosterToolbar>}
       {tab==='首頁'&&homeContent}
-      {tab==='班表'&&!readOnly&&data.access.writeAccess&&data.access.customerAccess&&data.locations.some(r=>r.isActive&&r.rentalEnabled)&&<div className="flex justify-end"><button type="button" className={button} disabled={pending} onClick={()=>setRental({})}>新增租借</button></div>}
-      {tab==='班表'&&<BeautyScheduleWorkspace data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
+
+      {tab==='班表'&&<BeautyScheduleWorkspace cashbookShortcut={cashbookShortcut} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
       {(listOpen||selectedId)&&!moneyPanel&&!statusDraft&&!detailId&&<RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending&&!rosterBusy} onClose={()=>closeRoster()}>
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?'預約明細':'預約清單'}</h2></div><button className={button} disabled={pending} onClick={()=>closeRoster()}>關閉</button></header>
       <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單"><BeautyNativeRoster data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onStatus={status} onMoney={(kind,ids)=>setMoneyPanel({kind,ids})} onCustomer={setDetailId}/></section></RightSheet>}

@@ -1,0 +1,83 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "three synthetic services rendered",
+    "removed duplicate control 技師篩選",
+    "removed duplicate control 位置篩選",
+    "removed duplicate control 排課類型篩選",
+    "removed duplicate control 日表日期",
+    "calendar shortcuts removed",
+    "explanatory legend removed",
+    "three equal circle legends",
+    "phone filters customer immediately",
+    "filtered statistics match one customer",
+    "phone and owner intersect",
+    "different owner customer excluded",
+    "empty customer intersection has clear message",
+    "unassigned owner and name intersect",
+    "search preserves selected date",
+    "clearing name preserves owner filter",
+    "all owner restores all services",
+    "no page overflow 1440",
+    "no page overflow 1366",
+    "no page overflow 1024",
+    "no page overflow 768",
+    "no page overflow 390",
+    "original cashbook dialog opens",
+    "resize retains customer search and technician view",
+    "week shares customer and manager controls",
+    "month shares customer and manager controls",
+    "rental creation remains in original room history",
+    "no browser errors",
+    "shared cashbook authorized read succeeds",
+    "shared cashbook data loads without error"
+  ],
+  "metrics": [
+    {
+      "size": {
+        "width": 1440,
+        "height": 1000
+      },
+      "hourHeight": "65",
+      "top": 116,
+      "bottom": 985
+    },
+    {
+      "size": {
+        "width": 1366,
+        "height": 900
+      },
+      "hourHeight": "54",
+      "top": 116,
+      "bottom": 889
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "hourHeight": "48",
+      "top": 126,
+      "bottom": 843
+    },
+    {
+      "size": {
+        "width": 768,
+        "height": 1024
+      },
+      "hourHeight": "62",
+      "top": 126,
+      "bottom": 1011
+    },
+    {
+      "size": {
+        "width": 390,
+        "height": 844
+      },
+      "hourHeight": "48",
+      "top": 259,
+      "bottom": 1116
+    }
+  ],
+  "errors": []
+}

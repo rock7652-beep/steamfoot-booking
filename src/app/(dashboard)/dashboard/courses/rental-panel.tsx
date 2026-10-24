@@ -7,7 +7,7 @@ import { rentalPrice,type RentalDetail } from "@/lib/course-rental";
 import { formatTWDateTime,toLocalDateStr } from "@/lib/date-utils";
 const field="min-h-11 min-w-0 max-w-full w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="inline-flex items-center justify-center min-h-11 shrink-0 rounded-lg px-3 text-sm disabled:opacity-50";
-export type RentalPermissions={customerRead:boolean;customerCreate:boolean;collect:boolean;correct:boolean;edit:boolean};
+export type RentalPermissions={create?:boolean;customerRead:boolean;customerCreate:boolean;collect:boolean;correct:boolean;edit:boolean};
 export type RentalRoom={id:string;name:string;isActive:boolean;rentalEnabled?:boolean;rentalHourlyRate?:number};
 export type RentalCustomer={id:string;name:string;phone:string};
 const NO_CUSTOMERS:RentalCustomer[]=[];
@@ -78,8 +78,9 @@ export function RentalHistory({module="course",roomId,rooms,permissions,customer
  const guard=useRef({pending:false,dirty:false});const updateGuard=useCallback((pending:boolean,dirty:boolean)=>{guard.current={pending,dirty};onGuard?.(pending,dirty);},[onGuard]);
  const [rows,setRows]=useState<{id:string;name:string;startsAt:string;endsAt:string;cancelled:boolean;paid:number|null}[]>([]);const [page,setPage]=useState(1);const [more,setMore]=useState(false);const [selected,setSelected]=useState<string|null>(null);const [error,setError]=useState("");
  useEffect(()=>{let active=true;(module==='beauty'?listRoomRentals(roomId,page,module):listRoomRentals(roomId,page)).then(r=>{if(active){setRows(r.rows);setMore(r.hasMore);}}).catch(()=>{if(active)setError("租借紀錄讀取失敗");});return()=>{active=false;};},[roomId,page,selected,module]);
- if(selected)return <><button className={button} onClick={()=>{if(guard.current.pending)return;if(guard.current.dirty&&!window.confirm("放棄未儲存修改？"))return;setSelected(null);}}>← 租借紀錄</button><RentalPanel module={module} key={selected} id={selected} rooms={rooms} customers={customers} permissions={permissions} seed={{}} onGuard={updateGuard}/></>;
+ if(selected)return <><button className={button} onClick={()=>{if(guard.current.pending)return;if(guard.current.dirty&&!window.confirm("放棄未儲存修改？"))return;setSelected(null);}}>← 租借紀錄</button><RentalPanel module={module} key={selected} id={selected==="new"?undefined:selected} rooms={rooms} customers={customers} permissions={permissions} seed={{roomId,date:toLocalDateStr()}} onGuard={updateGuard}/></>;
  return <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-2">
+   {permissions.create&&rooms.some(r=>r.id===roomId&&r.isActive&&r.rentalEnabled)&&<button type="button" className={button} onClick={()=>setSelected("new")}>新增租借</button>}
    {error&&<p role="alert">{error}</p>}
    {rows.length===0?<p>尚無租借紀錄</p>:<div className="overflow-x-auto rounded-xl border border-earth-200">
      <table className="w-full text-left text-sm" aria-label="租借紀錄"><thead className="bg-primary-50 text-primary-900"><tr>{["日期","時段","顧客","收款"].map(title=><th key={title} className="whitespace-nowrap px-3 py-2 font-medium">{title}</th>)}</tr></thead>

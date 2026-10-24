@@ -1,3 +1,4 @@
+import {CashbookShortcut} from "../cashbook/_components/cashbook-shortcut";
 import {BeautyHome} from '@/components/beauty/home';
 import {CourseUnassignedPlans} from '../courses/unassigned-plans-view';
 import {CourseTodos} from '../courses/todos-view';
@@ -137,6 +138,7 @@ export default async function BeautyPage({
         careContent={tab==='顧客經營'?<BeautyCare data={data} selected={q.segment&&CARE_REASONS.includes(q.segment as CareReason)?q.segment as CareReason:null} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         operationsContent={tab==='營運'?<BeautyNativeOperations data={data} query={q} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         settingsContent={tab==='設定'?<BeautySettingsWorkspace bank={{bankName:sharedSettings?.bankName??"",bankCode:sharedSettings?.bankCode??"",bankAccountNumber:sharedSettings?.bankAccountNumber??""}} readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)} data={data} slug={store.slug} canPayment={await checkPermission(u.role,u.staffId,'plans.edit')} canEdit={!!data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)} initial={{section:'store',name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??'',mapUrl:sharedSettings?.mapUrl??'',lineOfficialId:sharedSettings?.lineOfficialId??'',lineOfficialUrl:sharedSettings?.lineOfficialUrl??''}} labels={<CustomerLabelsSettings/>} subscription={<><SettingsListRow title="店家系統方案" summary={systemPlan?PRICING_PLAN_INFO[systemPlan].label:'請查看目前系統方案'} href="/dashboard/settings/plan" action="查看" expanded={false}/>{usage&&<SettingsListRow title="目前用量" summary={usage.metrics.map(m=>`${m.label} ${m.current.toLocaleString()}／${m.limit??'不限'}`).join('・')}/>}</>}/>:undefined}
+        cashbookShortcut={tab==='班表'?<CashbookShortcut readOnly={!!view?.isViewMode||isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />

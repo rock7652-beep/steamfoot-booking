@@ -74,3 +74,8 @@ it("keeps rental times and payment states readable and opens the selected record
  await click("小安");expect(m.get).toHaveBeenCalledWith("r");expect(host.querySelector('a[href="tel:0900000000"]')).toBeTruthy();
  expect(host.textContent).toContain("已收 $600");await click("← 租借紀錄");expect(host.querySelector('table[aria-label="租借紀錄"]')).toBeTruthy();
 });
+
+it("retains rental creation inside room history only when explicitly authorized",async()=>{
+ m.list.mockResolvedValue({rows:[],hasMore:false});await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions})));expect(host.textContent).not.toContain('新增租借');
+ await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions:{...permissions,create:true}})));await click('新增租借');expect(host.querySelector('form')).toBeTruthy();expect(host.querySelector<HTMLInputElement>('input[name="date"]')!.value).toMatch(/^20\d{2}-\d{2}-\d{2}$/);await submit();expect(m.save.mock.calls[0][0]).toMatchObject({roomId:'room'});expect(m.save.mock.calls[0][1]).toBe('beauty');
+});
