@@ -5,11 +5,12 @@ const page = readFileSync(new URL("../app/(dashboard)/dashboard/bookings/new/pag
 const form = readFileSync(new URL("../app/(dashboard)/dashboard/bookings/new/booking-create-form.tsx", import.meta.url), "utf8");
 
 describe("staff booking failure retention wiring", () => {
-  it("opts STEAMFOOT in without changing the SPA action flow", () => {
+  it("preserves Steamfoot drafts without a retired SPA creation branch", () => {
     expect(page).toContain("preserveOnFailure={!isSpaStore}");
     expect(form).toContain("preserveOnFailure = false");
-    expect(page).toContain("if (isSpaStore) {");
-    expect(page).toContain("/dashboard/spa-schedule?date=");
+    expect(page).not.toContain("if (isSpaStore) {");
+    expect(page).not.toContain("/dashboard/spa-schedule?date=");
+    expect(page).not.toContain("createSpaBooking");
   });
 
   it("returns a business error without redirecting away from the draft", () => {

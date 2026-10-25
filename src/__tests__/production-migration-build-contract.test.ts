@@ -153,13 +153,12 @@ describe("Production migration recovery guard", () => {
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
       TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
-      SPA_MEMBER_STAFF_RELEASE_TARGET,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
     expect(resolveProductionMigrationTarget(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION);
-    expect(resolveProductionMigrationTarget(SPA_MEMBER_STAFF_RELEASE_TARGET)).toBe(SPA_MEMBER_STAFF_RELEASE_TARGET);
+    expect(resolveProductionMigrationTarget(SPA_MEMBER_STAFF_RELEASE_TARGET)).toBeNull();
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -196,17 +195,14 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(staffMemberLinkMigration)).toBe(STAFF_MEMBER_LINK_CHECKSUM);
   });
 
-  it("runs the SPA inspect and confirmed history reconciliation before the two real migrations", () => {
-    const inspect = script.indexOf('log("spa_history_inspection_started")');
-    const reconcile = script.indexOf('log("spa_history_reconciliation_started")');
-    const release = script.indexOf("await runSpaMemberStaffRelease(prisma)");
-
-    expect(inspect).toBeGreaterThan(-1);
-    expect(reconcile).toBeGreaterThan(inspect);
-    expect(release).toBeGreaterThan(reconcile);
-    expect(script).toContain('"--inspect"');
-    expect(script).toContain('"--reconcile-superseded"');
-    expect(script).toContain('`--confirm=${SPA_HISTORY_RECONCILIATION_CONFIRMATION}`');
+  it("rejects the retired SPA migration target before any database connection", () => {
+    expect(script).not.toContain("await runSpaMemberStaffRelease(prisma)");
+    expect(script).not.toContain("spa_history_reconciliation_started");
+    const result=spawnSync(process.execPath,[scriptPath],{encoding:"utf8",env:{...process.env,VERCEL_ENV:"production",DATABASE_URL:"",DIRECT_URL:"",[PRODUCTION_MIGRATION_TARGET_ENV]:SPA_MEMBER_STAFF_RELEASE_TARGET}});
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("migration_target_rejected");
+    expect(result.stderr).not.toContain("production_connection_rejected");
+    expect(result.stdout).not.toContain("production_connection_verified");
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -464,9 +460,10 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("payment_split_rls_preflight_verified");
     expect(script).toContain("payment_split_rls_final_schema_verified");
     expect(script).toContain("payment_split_rls_already_applied_verified");
-    expect(script).toContain("spa_member_staff_preflight_verified");
-    expect(script).toContain("spa_member_staff_final_schema_verified");
-    expect(script).toContain("pg_try_advisory_xact_lock");
+    expect(script).not.toContain("spa_member_staff_preflight_verified");
+    expect(script).not.toContain("spa_member_staff_final_schema_verified");
+    expect(script).toContain("await runImageAnnouncementsMigration(prisma, runPrisma, log)");
+    expect(readFileSync(resolve(process.cwd(),"scripts/image-announcements-production-migration.mjs"),"utf8")).toContain("pg_try_advisory_xact_lock");
   });
 });
 

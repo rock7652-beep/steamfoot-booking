@@ -43,7 +43,10 @@ describe("booking request-key client wiring", () => {
   it("server-rendered staff booking form carries a hydrated UUID hidden field", () => {
     const page = source("app/(dashboard)/dashboard/bookings/new/page.tsx");
     const field = source("components/booking-request-key-field.tsx");
-    expect(page).toContain("<BookingRequestKeyField />");
+    const form = source("app/(dashboard)/dashboard/bookings/new/booking-create-form.tsx");
+    expect(form).toContain('name="requestKey"');
+    expect(form).toContain("createBookingRequestKey");
+    expect(form).toContain("hydrated");
     expect(page).toContain('formData.get("requestKey")');
     expect(page).toContain('source: "staff-booking"');
     expect(field).toContain('name="requestKey"');

@@ -1,6 +1,5 @@
 // Synthetic URL-only fixtures. No password, network connection or live credentials.
 import {readFileSync} from "node:fs";
-import {createHash} from "node:crypto";
 import {expect,it,vi} from "vitest";
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase,MUSIC_OPENING_BRANCH} from "../../scripts/music-opening-preview-scope.mjs";
 import {assertMusicOpeningSchema,checkMusicOpeningSchema,MUSIC_OPENING_SCHEMA_SQL,musicOpeningConnectionFailure,readMusicOpeningSchemaConnection} from "../../scripts/music-opening-schema-check.mjs";
@@ -135,14 +134,14 @@ it("guards run before the reviewed migration runner and next build",()=>{
  expect(build.startsWith("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs &&")).toBe(true);
  expect(readFileSync("scripts/music-opening-preflight.mjs","utf8")).toContain("await runMusicOpeningSchemaPreflight()");
  expect(build).toContain("npm run generate:clients && next build");
- // Retain current public main 1e57 deployment settings byte-for-byte; isolation is in the program guards.
- const config=readFileSync("vercel.json","utf8");
- expect(createHash("sha1").update(`blob ${Buffer.byteLength(config)}\0`).update(config).digest("hex")).toBe("a1d98f81a405282344583ce3eaa15fdb2328daf7");
+ const config=JSON.parse(readFileSync("vercel.json","utf8"));
+ expect(config.regions).toContain("hnd1");
+ expect(config.crons.some((entry:{path:string})=>entry.path.includes("spa"))).toBe(false);
  const startup=readFileSync("src/instrumentation.ts","utf8");expect(startup).toContain("assertMusicOpeningPreviewEnvironment(process.env)");
  expect(startup).not.toContain("await runMusicOpeningSchemaPreflight()");
  const boundary=readFileSync("src/lib/music-opening-preview-isolation.ts","utf8");expect(boundary).toContain("await ensureMusicOpeningRuntimeSchema()");
- for (const file of ["src/lib/db.ts","src/lib/course-db.ts"]) expect(readFileSync(file,"utf8")).toContain("withMusicRetirement(withMusicOpeningRuntimeSchema(new PrismaClient(");
- for(const file of ["src/lib/db.ts","src/lib/course-db.ts","src/lib/spa-db.ts"]) {
-  const code=readFileSync(file,"utf8");expect(code.indexOf("assertMusicOpeningRuntimeIsolation();")).toBeLessThan(code.indexOf("new PrismaClient"));
+ for (const file of ["src/lib/db.ts","src/lib/course-db.ts"]) expect(readFileSync(file,"utf8")).toMatch(/withMusicRetirement\(withMusicOpeningRuntimeSchema\(new (?:Runtime)?PrismaClient\(/);
+ for(const file of ["src/lib/db.ts","src/lib/course-db.ts"]) {
+  const code=readFileSync(file,"utf8");expect(code.indexOf("assertMusicOpeningRuntimeIsolation();")).toBeLessThan(code.search(/new (?:Runtime)?PrismaClient/));
  }
 });

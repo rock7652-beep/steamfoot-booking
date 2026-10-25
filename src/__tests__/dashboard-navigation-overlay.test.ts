@@ -7,7 +7,7 @@ const guide = readFileSync("src/components/operation-guide-shell.tsx", "utf8");
 
 describe("dashboard navigation overlay layering", () => {
   it("marks the whole mobile overlay, including its backdrop, without changing desktop navigation", () => {
-    assert.match(sidebar, /<div data-dashboard-navigation-overlay className=\{industryModule === "spa" \? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"\}>/);
+    assert.match(sidebar, /<div data-dashboard-navigation-overlay className=\{"fixed inset-0 z-40 lg:hidden"\}>/);
     assert.equal(sidebar.match(/data-dashboard-navigation-overlay/g)?.length, 1);
     assert.doesNotMatch(sidebar, /<aside[^>]*data-dashboard-navigation-overlay/);
   });

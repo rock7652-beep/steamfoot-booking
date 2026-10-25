@@ -7,11 +7,12 @@ const m = vi.hoisted(() => ({
   getStoreForPlanByStoreId: vi.fn(),
   courseTransaction: vi.fn(),
   directTransaction: vi.fn(),
+  storeFacts: vi.fn(),
 }));
 
 // Only persistence boundaries are replaced. Both public booking services use the
 // real feature-gate, effective quota resolver, and reservation/settlement rules.
-vi.mock("@/lib/db", () => ({ prisma: {} }));
+vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: m.storeFacts } }));
 vi.mock("@/lib/store-plan", () => ({ getStoreForPlanByStoreId: m.getStoreForPlanByStoreId }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { $transaction: m.directTransaction } }));
 vi.mock("@/server/services/course-access", () => ({ courseTransaction: m.courseTransaction }));
@@ -88,6 +89,8 @@ function setup(storeId = MUSIC_STORE) {
       return [{ id: storeId }];
     }),
     $executeRaw: vi.fn(async () => 1),
+    // The music fixture has no sports-rule table; catalog lookup remains a persistence boundary.
+    $queryRawUnsafe: vi.fn(async () => [{present:false}]),
     courseSession: { findFirst: vi.fn(async () => session) },
     coursePointCard: {
       findFirst: vi.fn(async () => card),
@@ -145,6 +148,7 @@ function setup(storeId = MUSIC_STORE) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  m.storeFacts.mockResolvedValue([{enabled:false,activationRequired:false}]);
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-08T02:00:00Z"));
   for (const [name, value] of Object.entries(PREVIEW_ENV)) vi.stubEnv(name, value);
@@ -186,10 +190,14 @@ describe("music Preview quotas through real booking entry points", () => {
       vi.stubEnv("VERCEL_GIT_COMMIT_REF", context === "production main" ? "main" : "feat/synthetic-other-preview");
       vi.stubEnv("VERCEL_ENV", context === "production main" ? "production" : "preview");
     }
+    if (context === "production main") {
+      vi.stubEnv("NODE_ENV", "production");
+      const productionUrl="postgresql://postgres:synthetic-only@db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
+      vi.stubEnv("DATABASE_URL",productionUrl);vi.stubEnv("DIRECT_URL",productionUrl);
+    }
     const f = setup(storeId);
     expect((await getStoreLimitsByStoreId(storeId)).maxMonthlyBookings).toBeNull();
 
-    if(context==="production main"&&method==="reserve"){await expect(f[method]()).rejects.toThrow("Sports production requires");expect(f.tx.courseBooking.create).not.toHaveBeenCalled();return;}
     await expect(f[method]()).resolves.toBeDefined();
     expect(f.tx.courseBooking.count).not.toHaveBeenCalledWith({where:courseMonthlyBookingWhere(storeId)});
     expect(f.tx.courseBooking.create).toHaveBeenCalledOnce();

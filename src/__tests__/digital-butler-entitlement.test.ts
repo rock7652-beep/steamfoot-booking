@@ -44,9 +44,10 @@ describe("Digital Butler backend entitlement", () => {
     await expect(requireDigitalButlerConversationActivation("store-a")).resolves.toBeUndefined();
   });
 
-  it("keeps the isolated SPA Demo runtime active without changing a formal store switch", async () => {
-    await expect(requireDigitalButlerConversationActivation("demo-store")).resolves.toBeUndefined();
+  it("does not bypass the activation switch for a former Demo store", async () => {
+    h.storeFindUnique.mockResolvedValue({ digitalButlerEnabled: false });
+    await expect(requireDigitalButlerConversationActivation("demo-store")).rejects.toThrow("數位管家目前未啟用");
     expect(h.requireStoreFeature).toHaveBeenCalledWith("demo-store", "digital_butler");
-    expect(h.storeFindUnique).not.toHaveBeenCalled();
+    expect(h.storeFindUnique).toHaveBeenCalledWith({where:{id:"demo-store"},select:{digitalButlerEnabled:true}});
   });
 });

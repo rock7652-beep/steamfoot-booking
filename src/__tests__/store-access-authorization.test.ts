@@ -261,5 +261,5 @@ describe("organization store authorization", () => {
 it("filters unsupported persisted module enums before Prisma decodes the HQ selector",async()=>{
   const {getAccessibleStores}=await import("@/lib/store");
   await getAccessibleStores({role:"ADMIN"});
-  expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({industryModule:{in:["STEAMFOOT","SPA","COURSE"]}})}));
+  expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({industryModule:{in:["STEAMFOOT","COURSE","BEAUTY"]}})}));
 });

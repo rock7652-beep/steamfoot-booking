@@ -92,12 +92,12 @@ describe("server-only exact music Preview subscription quotas", () => {
     vi.stubEnv("NODE_ENV", "test"); vi.stubEnv("VERCEL", undefined);
     expect(() => getEffectivePlanLimits(store)).toThrow();
   });
-  it("keeps environment resolution out of the shared client plan module and native SPA booking gate", () => {
+  it("keeps environment resolution server-only and denies the retired booking gate", () => {
     const code = readFileSync("src/lib/effective-plan-limits.ts", "utf8");
     expect(code).toMatch(/^import "server-only"/);
     expect(code).not.toMatch(/NEXT_PUBLIC_|console\.|@\/lib\/(db|course-db|spa-db)/);
     expect(readFileSync("src/lib/feature-flags.ts", "utf8")).not.toMatch(/effective-plan-limits|process\.env|MUSIC_OPENING/);
-    const spa = readFileSync("src/server/actions/spa-booking.ts", "utf8");
-    expect(spa).toContain("getPlanLimits(store).maxMonthlyBookings"); expect(spa).not.toContain("getEffectivePlanLimits");
+    expect(readFileSync("src/lib/retired-module-routes.ts", "utf8")).toContain('"/api/spa"');
+    expect(readFileSync("src/proxy.ts", "utf8")).toContain("isRetiredModuleRoute");
   });
 });

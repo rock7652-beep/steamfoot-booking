@@ -21,6 +21,11 @@ vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttend
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
 vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));
 
+vi.mock("@/server/actions/course-browse",()=>({loadCourseCustomerSearchIndex:vi.fn(),searchCourseCustomers:vi.fn()}));
+vi.mock("@/server/actions/course-charge",()=>({loadCourseChargeOptions:vi.fn()}));
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(),createScheduleCustomer:vi.fn()}));
+vi.mock("@/server/actions/course-batch",()=>({courseStatusImpact:vi.fn()}));
+
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 const base={storeId:'store',selectedDate:'2026-10-22',today:'2026-10-22',nowIso:'2026-10-22T01:00:00Z',calendarDays:{},rooms:[],sessions:[],coaches:[],cancelledBookings:[],staffAvailability:[],staffAvailabilityExceptions:[],canEdit:true,canCreate:true,businessProfile:'FITNESS' as const,view:'catalog' as const};
 const row={id:'service',name:'做臉',category:'保養',isActive:true,visibility:'PUBLIC',durationMinutes:60,bufferMinutes:15,catalogRevision:4,capacity:1,pointCost:1,defaultRoomId:null};

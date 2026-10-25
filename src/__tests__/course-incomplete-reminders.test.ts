@@ -9,7 +9,7 @@ const now = new Date("2026-09-17T04:00:00Z");
 beforeEach(() => { vi.resetAllMocks(); m.remove.mockResolvedValue({}); m.oldCandidates.mockResolvedValue([]); m.candidates.mockResolvedValue([{ id: "booking", storeId: "course", storeSlug: "course-store", sessionId: "session", customerName: "Learner", session: { startsAt: new Date("2026-09-17T00:00:00Z"), endsAt: new Date("2026-09-17T03:00:00Z") } }]); m.recheck.mockResolvedValue({ id: "booking" }); m.claim.mockResolvedValue({ id: "claim" }); m.notify.mockResolvedValue({ status: "skipped", reason: "recipient_not_configured" }); });
 it("uses actual end for a three-hour class and the existing delivery/claim service", async () => {
   await runIncompleteServiceReminders(now);
-  expect(m.oldCandidates).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ store: expect.objectContaining({ industryModule: { not: "COURSE" } }) }) }));
+  expect(m.oldCandidates).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ store: expect.objectContaining({ industryModule: "STEAMFOOT" }) }) }));
   expect(m.recheck).toHaveBeenCalledWith("course", "booking", now);
   expect(m.oldRecheck).not.toHaveBeenCalled();
   expect(m.notify).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "course-incomplete-attendance:booking", courseSessionId: "session", storeSlug: "course-store", customerName: "Learner", bookingDate: "2026-09-17", slotTime: "08:00" }));
