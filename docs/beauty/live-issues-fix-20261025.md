@@ -52,3 +52,19 @@
 - 唯讀確認隔離庫 `ttworfzgwejdeolegkxl` 仍有 `beauty-hosted-20261021` 美業測試店，但尚無 `PlanActivationNotification`。最新 main 的方案通知接點依賴該表，不能宣稱購買方案的真實流程驗收完成。
 - 對應既有升級檔：`prisma/migrations/20261025160000_plan_activation_notification/migration.sql`；本批未執行，亦不以停用檢查掩蓋缺項。正式站與既有交易未動。
 - Vercel 首次修復後 Preview 已完成 Next 編譯、TypeScript 與輸出建置（部署 `dpl_Ch93EeLEHki8yMH3EJ8Un55hEdXv`）；補齊正確的支線收費編輯旗標後再建置。測試站可用性不等同缺表交易驗收完成。
+
+## 使用者授權後：隔離測試庫新增方案通知表
+
+使用者明確允許「只在隔離測試庫新增這張表，再續驗收」後，於 2026-10-25 23:29（台灣時間）執行。唯一目標為 `ttworfzgwejdeolegkxl`，執行前確認目標美業測試店存在且表不存在。
+
+- 套用既有 `20261025160000_plan_activation_notification/migration.sql`，檔案 SHA256：`bf6608b505260e15ccd02ebdedb6622bc758f8a97af5e27929613ca9a910f9fe`。
+- Supabase migration：`20261025152957_beauty_preview_plan_activation_notification`。只新增本表、其約束／索引／RLS 與既有角色適用的權限；未執行其他 migration，未更新既有顧客、交易或店家資料。
+- 確認 17 欄位、主鍵、同店／模組／權益去重索引、待發查詢索引與 RLS。
+- 隔離庫沒有此 migration 指定的專用美業角色，因此本表無對應角色政策；`anon`／`authenticated` 無 SELECT 權限。安全顧問只有本表「RLS Enabled No Policy」INFO，符合目前僅伺服器存取的用途，未增加公共政策。
+- 真實隔離庫交易內寫入標記 schema probe，第二次相同權益事件 `ON CONFLICT DO NOTHING`，驗證只有一筆、狀態 SKIPPED；整筆回滾。回滾後表內 0 筆、待發 0 筆，未發送 LINE。
+- Prisma migration ledger 未修改；Supabase ledger 已留紀錄。未來若改用 Prisma 自動 migration，須先核對 checksum 並正式對齊歷史，不得直接再次 CREATE；目前 hosted Preview 仍禁止自動 migration。
+
+新版測試部署 `dpl_7jwoEb2yHRVYRrga1rmxvJHz4XWQ` 已 READY，程式 `c305709141fd3ae3e18d82c7cde448b89d3183fb`。入口：
+https://steamfoot-booking-3dd4uotjr-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021
+
+登入頁經 Vercel 授權 fetch 回應 200。尚未通過登入後的完整交易驗收：本次工作環境沒有先前的測試帳密檔或可沿用的應用程式 session；雲端 Default profile 僅有 Google／GitHub 登入紀錄。已詢問測試站登入狀態；不合成應用 session、不重設既有人員密碼。正式庫與 Production 環境未操作，LINE 保持關閉。
