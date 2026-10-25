@@ -1,3 +1,4 @@
+import { COURSE_HOURS_CONFIRMED, courseHoursConfirmationId } from "@/lib/course-hours-confirmation";
 import { CourseHoursWorkspace } from "./hours-workspace";
 import { notFound } from "next/navigation";
 import { BookableUntilForm } from "../../settings/hours/bookable-until-form";
@@ -19,9 +20,10 @@ export default async function CourseHoursPage({ searchParams }: { searchParams?:
  const user=await getCurrentUser(); if(!user || !(await checkPermission(user.role,user.staffId,"business_hours.view"))) notFound();
  const {storeId,isChildStoreView}=await courseManagerRead("business_hours.view");
  const [year,month]=toLocalDateStr().split("-").map(Number);
- const [hours,specials,summary,canManage,config,businessEntitlements]=await Promise.all([
+ const [hours,specials,summary,canManage,config,businessEntitlements,hoursConfirmation]=await Promise.all([
   prisma.businessHours.findMany({where:{storeId},orderBy:{dayOfWeek:"asc"}}),getCourseMonthSpecialDays(year,month),getCourseMonthScheduleSummary(year,month),isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"business_hours.manage"),prisma.shopConfig.findUnique({where:{storeId},select:{bookableUntilDate:true,bookingWindowDays:true,bookingOpensAt:true}}),
-  prisma.storeFeatureEntitlement.findMany({where:{storeId,featureKey:{startsWith:"business."},status:"ENABLED"},select:{featureKey:true}})
+  prisma.storeFeatureEntitlement.findMany({where:{storeId,featureKey:{startsWith:"business."},status:"ENABLED"},select:{featureKey:true}}),
+  prisma.auditLog.findFirst({where:{id:courseHoursConfirmationId(storeId),storeId,targetId:storeId,targetType:"BusinessHours",action:COURSE_HOURS_CONFIRMED},select:{id:true}})
  ]);
  const businessProfile=resolveCourseBusinessProfile(businessEntitlements.map(item=>item.featureKey));
  const music=businessProfile==="MUSIC";
@@ -33,6 +35,6 @@ export default async function CourseHoursPage({ searchParams }: { searchParams?:
  return <PageShell><PageHeader title={music?"授課時段與公休":"營業與公休"} subtitle={music?"先設定店家每週可授課時段；一天可多段，未開放時段會在音樂課表反灰":"每週營業、多段時間、特殊休假與後續週次設定"} actions={<DashboardLink href="/dashboard/courses?view=settings&section=booking">返回設定</DashboardLink>}/>
  {music&&params?.setup==="1"&&<div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-900"><strong>先完成第一步：設定每週授課時段</strong><p className="mt-1">儲存後即可進入音樂課表；之後可隨時回來調整多段時段與特殊公休。</p></div>}
  <p className="mb-2 text-sm text-earth-600">{music?"排課間隔 30 分鐘・預設課長 50 分鐘":"課程名額由各堂課與教室容量控制。變更若與已排課程衝突，整批不儲存；請先在課表調整或取消課程，原預約不會被刪除。"}</p>
- <CourseHoursWorkspace initialSection={params?.tab} booking={music?undefined:<div className="mb-4"><BookableUntilForm key={storeId} storeId={storeId} initialOpensAt={config?.bookingOpensAt?.toISOString()??null} initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course direct/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager key={storeId} storeId={storeId} weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
+ <CourseHoursWorkspace initialSection={params?.tab} booking={music?undefined:<div className="mb-4"><BookableUntilForm key={storeId} storeId={storeId} initialOpensAt={config?.bookingOpensAt?.toISOString()??null} initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course direct/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager key={storeId} storeId={storeId} weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} courseHoursConfirmationRequired={!hoursConfirmation} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
  </PageShell>;
 }
