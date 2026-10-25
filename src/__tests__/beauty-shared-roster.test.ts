@@ -9,6 +9,8 @@ vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyRosterOperation:
 vi.mock('@/components/beauty/native-roster-source',()=>({BeautyNativeRoster:(props:{bookingId?:string;readOnly:boolean;data:{manage:{update:boolean;collect:boolean}};onStatus:(id:string,revision:number,target:string)=>void;onMoney:(kind:string,ids:string[])=>void})=>{m.rosterProps=props;return h('div',{'data-native-roster-port':true},props.readOnly?null:[(props as {expanded?:{content:import('react').ReactNode}}).expanded?.content,h('button',{key:'complete',onClick:()=>props.onStatus('a',7,'COMPLETED')},'原名單完成操作'),h('button',{key:'move',onClick:()=>props.onMoney('move',['a'])},'原名單改期操作'),h('button',{key:'refund',onClick:()=>props.onMoney('refund',['receipt'])},'原名單退款操作'),h('button',{key:'collect',onClick:()=>props.onMoney('collect',['a'])},'原名單收款操作')]);}}));
 vi.mock('@/server/actions/beauty-customer-attribution' ,()=>({bulkAssignBeautyCustomers:vi.fn(),saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn()}));
 vi.mock('@/server/actions/beauty-service-price',()=>({saveBeautyServicePrice:vi.fn()}));
+vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:vi.fn()}));
+vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:vi.fn()}));
 vi.mock('@/server/actions/beauty-charge',()=>({saveBeautyCharge:vi.fn()}));
 vi.mock('@/server/actions/beauty-opening-check',()=>({readBeautyOpeningCheck:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:vi.fn()}));

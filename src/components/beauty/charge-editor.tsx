@@ -1,4 +1,5 @@
 "use client";
+import {z} from 'zod';
 import {useRef,useState} from 'react';
 import {RightSheet} from '@/components/admin/right-sheet';
 import {CoursePlanDraftForm,type CoursePlanCatalogPort,type Plan} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';
@@ -11,14 +12,14 @@ export function BeautyChargeEditor({storeId,services,technicians,onClose,onSaved
  const [kind,setKind]=useState(initialDraft?.kind??initialKind),[pending,setPending]=useState(false),[uncertain,setUncertain]=useState(false);
  const busy=useRef(false);const serviceId=initialDraft?.serviceId??initialServiceId??services.find(s=>s.active)?.id??'';
  const close=()=>{if(!busy.current&&!uncertain)onClose();};
- const catalog:CoursePlanCatalogPort={compact:true,confirmDiscard:false,units:['SESSION'],sportsModes:['ASSIGNED'],sessionLabel:'次數',rowSchema:savedCoursePlan,
+ const catalog:CoursePlanCatalogPort={compact:true,confirmDiscard:false,units:['SESSION'],sportsModes:['ASSIGNED'],sessionLabel:'次數',rowSchema:savedCoursePlan.extend({name:z.string().trim().min(1).max(100)}),
   charge:{kind,locked:!!initialDraft,onKindChange:setKind,serviceId,name:initialDraft?.name??'',price:initialDraft?.price??null,sessions:initialDraft?.kind==='plan'?initialDraft.sessions:null,validDays:initialDraft?.kind==='plan'?initialDraft.validDays:90,allowShared:initialDraft?.kind==='plan'&&initialDraft.allowShared,technicianIds:initialDraft?.technicianIds??[],trialPrice:initialDraft?.kind==='single'?initialDraft.trialPrice:null,trialDuration:initialDraft?.kind==='single'?initialDraft.trialMinutes:null,technicians},
   transport:async input=>{
    let checked:ReturnType<typeof validateBeautyCharge>;try{checked=validateBeautyCharge({expectedStoreId:storeId,kind:input.chargeKind,serviceId:input.subjectId,name:input.name,price:input.price,technicianIds:input.coachIds,...(input.chargeKind==='single'?{sessions:1,trialPrice:input.trialPrice,trialMinutes:input.trialDuration}:{sessions:input.points,validDays:input.validDays,allowShared:input.allowShared})},storeId,services,technicians);}catch(error){return {success:false,error:error instanceof Error?error.message:'請核對收費設定'};}
    if(!port)return {success:false,error:`${checked.draft.name}／${checked.draft.sessions} 次／價格 $${checked.amount}${checked.trial?`／體驗 $${checked.trial.price}・${checked.trial.duration} 分鐘`:''}。僅核對，未儲存。`};
    try{assertChargePersistence(port);}catch{return {success:false,error:'方案專屬技師限制尚未接通，設定未儲存'};}
    const result=await port.save(checked.draft);if(!result.success)return result;
-   const row:Plan={id:initialDraft?'charge:'+initialDraft.serviceId:'charge:new',name:checked.draft.name,points:checked.draft.sessions,price:checked.draft.price,validDays:checked.draft.kind==='plan'?checked.draft.validDays:90,isActive:true,unit:'SESSION',templateIds:[checked.draft.serviceId],allowShared:checked.draft.kind==='plan'&&checked.draft.allowShared};
+   const row:Plan={lowBalanceEnabled:false,lowBalanceThreshold:null,id:initialDraft?'charge:'+initialDraft.serviceId:'charge:new',name:checked.draft.name,points:checked.draft.sessions,price:checked.draft.price,validDays:checked.draft.kind==='plan'?checked.draft.validDays:90,isActive:true,unit:'SESSION',templateIds:[checked.draft.serviceId],allowShared:checked.draft.kind==='plan'&&checked.draft.allowShared};
    return {success:true,storeId,data:row,syncWarning:result.syncWarning};
   },save:async()=>({success:false,error:'請使用已確認的收費儲存接點'}),
  };

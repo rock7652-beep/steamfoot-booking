@@ -29,3 +29,8 @@
   .form { grid-template-columns: minmax(0, 1fr); }
   .form > fieldset > div:has(> label > input[name="points"]) { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* A single service charge has no session count or expiry; let its original price control fill the row. */
+.form > fieldset > div:has(> label > input[name="price"]):not(:has(input[name="points"])) {
+  grid-template-columns: minmax(0, 1fr);
+}

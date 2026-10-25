@@ -10,6 +10,8 @@ vi.mock('@/components/beauty/native-roster-source',()=>({BeautyNativeRoster:(pro
 vi.mock('@/components/beauty/native-customer-source',()=>({BeautyNativeCustomerWorkspace:(props:{onClose:()=>void;initialAction?:string})=>h('div',{'data-review-customer':true},h('span',null,props.initialAction==='assign'?'購買方案':'顧客資料'),h('button',{onClick:props.onClose},'返回原名單'))}));
 vi.mock('@/server/actions/beauty-customer-attribution' ,()=>({bulkAssignBeautyCustomers:vi.fn(),saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn()}));
 vi.mock('@/server/actions/beauty-service-price',()=>({saveBeautyServicePrice:vi.fn()}));
+vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:vi.fn()}));
+vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:vi.fn()}));
 vi.mock('@/server/actions/beauty-charge',()=>({saveBeautyCharge:vi.fn()}));
 vi.mock('@/server/actions/beauty-opening-check',()=>({readBeautyOpeningCheck:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:vi.fn()}));

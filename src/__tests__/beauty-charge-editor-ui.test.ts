@@ -35,3 +35,19 @@ it('closes an edited beauty charge without a discard prompt, but blocks closing 
  await act(async()=>release({success:false,error:'測試保留草稿'}));
  act(()=>cancel.click());expect(onClose).toHaveBeenCalledTimes(2);expect(confirm).not.toHaveBeenCalled();
 });
+
+it('uses the shared plan fields without multiplying the total price by the number of sessions',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
+ mount({perChargeTechnicians:true,save},{expectedStoreId:'store',kind:'plan',serviceId:'s',name:'五次按摩',price:4500,sessions:5,validDays:90,allowShared:true,technicianIds:['t']});
+ expect(document.querySelector('#course-member-form')).toBeTruthy();
+ expect(document.querySelector('[name="trialPrice"]')).toBeNull();
+ await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'plan',price:4500,sessions:5,validDays:90,allowShared:true,technicianIds:['t']}));
+});
+it('retains the same draft after an uncertain save and prevents closing until its result is confirmed',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockRejectedValueOnce(Error('lost response')).mockResolvedValueOnce({success:true});
+ const onClose=mount({perChargeTechnicians:true,save},savedSingle);
+ await submit();expect(document.querySelector('[role="alert"]')?.textContent).toContain('尚未確認');
+ const cancel=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='取消')!;
+ act(()=>cancel.click());expect(onClose).not.toHaveBeenCalled();
+ await submit();expect(save.mock.calls[1][0]).toEqual(save.mock.calls[0][0]);expect(onClose).toHaveBeenCalledTimes(1);
+});
