@@ -1,4 +1,4 @@
-vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null})}));
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
