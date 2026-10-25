@@ -1,4 +1,5 @@
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
+import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { lockCashDay } from "./cash-day";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
@@ -23,6 +24,10 @@ export async function collectCourseTrialInTransaction(tx:Prisma.TransactionClien
   }
   if(!booking||booking.status==="CANCELLED"||booking.session.cancelledAt) throw new AppError("VALIDATION","找不到可收款的本店體驗預約");
   if(input.amount !== booking.trialPrice && (!pricing?.trialAllowPriceEdit || input.amount < pricing.trialMinPrice || input.amount > pricing.trialMaxPrice)) throw new AppError("VALIDATION","收款金額不符合體驗價格設定，請重新核對");
+  // The scheduled quote is immutable; later fee edits must not alter this trial's cost.
+  const charge=booking.session.chargeSnapshot?courseChargeSnapshot.parse(booking.session.chargeSnapshot):null;
+  const storeCost=charge?.settings.trialStoreCost??null;
+  const pricingSnapshot=charge?{planId:charge.planId,storeCost,profit:storeCost===null?null:input.amount-storeCost}:undefined;
   const current=booking.trialPayments[0];
   if(input.originalPaymentId){
     if(!current||current.id!==input.originalPaymentId||!input.reason?.trim()) throw new AppError("CONFLICT","原收款已變更，請重新開啟明細");
@@ -33,7 +38,7 @@ export async function collectCourseTrialInTransaction(tx:Prisma.TransactionClien
   }else if(current) throw new AppError("CONFLICT","此體驗已收款，未重複收取；如需修改請使用收款更正");
   const receipt=await tx.courseTrialPayment.create({data:{storeId,bookingId:booking.id,amount:input.amount,paymentMethod:input.paymentMethod,...(splits?{paymentSplits:splits}:{}),requestKey:input.requestKey,note:input.note??"",actorUserId:userId}});
   for(const [i,part] of (splits??[{paymentMethod:input.paymentMethod,amount:input.amount}]).entries()) if(part.amount>0) await writeCash(tx,actor,`course-trial:${receipt.id}:${i}`,part.amount,part.paymentMethod,"INCOME",`體驗收款 / ${booking.customerName} / ${booking.id}`);
-  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${userId},'CourseBooking',${booking.id},${input.originalPaymentId?'CORRECT_TRIAL_PAYMENT':'COLLECT_TRIAL_PAYMENT'},${JSON.stringify({paymentId:current?.id??null,status:booking.status})}::jsonb,${JSON.stringify({paymentId:receipt.id,amount:receipt.amount,status:booking.status,attendanceUnchanged:true})}::jsonb,NOW())`;
+  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${userId},'CourseBooking',${booking.id},${input.originalPaymentId?'CORRECT_TRIAL_PAYMENT':'COLLECT_TRIAL_PAYMENT'},${JSON.stringify({paymentId:current?.id??null,status:booking.status})}::jsonb,${JSON.stringify({paymentId:receipt.id,amount:receipt.amount,status:booking.status,attendanceUnchanged:true,...(pricingSnapshot?{pricingSnapshot}:{})})}::jsonb,NOW())`;
   // Deliberately no CourseBooking status, card or point-entry mutation.
   return receipt;
 }

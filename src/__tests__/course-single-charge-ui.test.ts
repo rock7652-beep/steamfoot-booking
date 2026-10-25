@@ -60,3 +60,19 @@ it('reveals the teaching section when an invalid required field is in that secti
  act(()=>document.querySelector<HTMLSelectElement>('select[aria-label="教學項目"]')!.dispatchEvent(new Event('invalid',{bubbles:false,cancelable:true})));
  expect([...document.querySelectorAll('nav button')].find(b=>b.textContent==='授課設定')!.getAttribute('aria-pressed')).toBe('true');
 });
+
+it('saves independent normal and trial costs through the sports fee action',async()=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},null,true);
+ fill(document.querySelector<HTMLInputElement>('input[name="price"]')!,'600');
+ fill(document.querySelector<HTMLInputElement>('input[name="storeCost"]')!,'350');
+ fill(input('體驗價'),'300');fill(input('體驗店家成本'),'120');fill(input('體驗時間'),'30');
+ const provider=[...document.querySelectorAll('fieldset')].find(f=>f.firstElementChild?.tagName==='LEGEND'&&f.firstElementChild.textContent?.includes('此收費'))!.querySelector<HTMLInputElement>('input')!;act(()=>provider.click());
+ await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.sports.mock.calls[0][0]).toMatchObject({price:600,storeCost:350,chargeSettings:{trialPrice:300,trialStoreCost:120,trialDuration:30}});
+});
+it('reopens saved trial cost and shows free-trial loss without treating zero as unset',()=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},{id:'fee',name:'舞蹈單堂',points:1,price:600,storeCost:350,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'ASSIGNED',sportsSubjectId:'subject',chargeSettings:{kind:'single',durationMinutes:60,trialPrice:0,trialDuration:30,trialStoreCost:120,providerIds:['teacher']}},true);
+ expect(input('體驗店家成本').value).toBe('120');
+ expect(document.querySelector('[data-fee-section="trial"]')!.textContent).toContain('NT$ -120');
+ fill(input('體驗店家成本'),'0');expect(document.querySelector('[data-fee-section="trial"]')!.textContent).toContain('NT$ 0');
+});

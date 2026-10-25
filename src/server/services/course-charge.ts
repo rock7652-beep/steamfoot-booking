@@ -33,5 +33,5 @@ export async function resolveScheduleCharge(tx:Prisma.TransactionClient,storeId:
  if(!settings.providerIds.includes(input.coachId))throw new AppError('VALIDATION','此收費方式未開放所選授課人員');
  await assertChargeProviders(tx,storeId,virtualSubject?allowed.map(t=>t.id):[input.templateId],{...settings,providerIds:[input.coachId]});
  const quote=quoteCourseCharge(settings,input.isTrial,input.open,input.defaultTrialPrice);
- return {snapshot:{planId:plan.id,name:plan.name,price:plan.price,settings,trialPrice:input.open?input.defaultTrialPrice:input.isTrial?quote.trialPrice:settings.kind==='single'?settings.trialPrice:null,isTrial:input.isTrial},...quote,duration:input.open||settings.kind==='plan'?input.durationMinutes:quote.duration};
+ return {snapshot:{planId:plan.id,name:plan.name,price:plan.price,storeCost:plan.storeCost,settings,trialPrice:input.open?input.defaultTrialPrice:input.isTrial?quote.trialPrice:settings.kind==='single'?settings.trialPrice:null,isTrial:input.isTrial},...quote,duration:input.open||settings.kind==='plan'?input.durationMinutes:quote.duration};
 }
