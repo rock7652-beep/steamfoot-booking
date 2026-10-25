@@ -42,4 +42,4 @@
 
 ## 發布狀態與限制
 
-支線自動部署已關閉，尚未合併或發布正式站；沒有更改任何真實門市的開關或發送 LINE。正式收件驗收與 dedicated Beauty worker 連線，需在既有部署規則允許發送的環境下另行核對；本功能不放寬那些環境閘門。完整全站 Vitest 與 hosted build 未執行，未宣稱全部 CI 已通過。
+主功能已透過 PR #1404 合併，正式資料庫已套用單一新增 migration 與相同 checksum 的 Prisma ledger；正式部署 `dpl_FtBuRcSt5HDtvRSGruisKDKzGhyC` 已 READY，兩個正式網域已指向該版本。正式店家開關採預設開啟的讀取規則，未批次覆寫設定，未建立測試購買或手動發送 LINE。正式收件驗收與 dedicated Beauty worker 連線，需在既有部署規則允許發送的環境下另行核對；本功能不放寬那些環境閘門。Vercel 正式 build、TypeScript、唯讀 pg／Prisma／TLS／RLS gate 通過；CI 廣域 targeted tests 的 14 項失敗已在舊 main 完整重現。非阻擋 Full Vitest baseline 另揭露單元測試新依賴與指南計數問題，已補齊通知 mock，並將通知說明收回既有蒸足／課程提醒與美業方案文章，維持歷史文章 ID／數量。對該次全量失敗的 68 個檔案逐一與舊 main 比對，修正後兩邊同為 58 項既有失敗，新增失敗為 0；未停用或移除任何檢查。結果見 `artifacts/plan-activation-20261025/release-checks.json`。不宣稱全站 CI 全綠。

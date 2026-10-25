@@ -1,3 +1,5 @@
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 /**
  * assignPlanToCustomer — 有效期限模式驗收
  *

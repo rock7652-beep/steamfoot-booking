@@ -72,7 +72,6 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
 import { beautyOperationGuides } from "./beauty-operation-guides";
-import { planActivationGuides } from "./operation-guide-plan-activation";
 import { courseOperationGuides } from "./course-operation-guides";
 import { courseBasicOperationGuides } from "./course-basic-operation-guides";
 import { dailyOperationGuides20260925 } from "./operation-guide-daily-20260925";
@@ -100,7 +99,6 @@ import { customerConsumptionGuides } from "./operation-guide-customer-consumptio
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 const catalogGuides: OperationGuide[] = [
-  ...planActivationGuides,
   ...steamfootNoticeGuides,
   ...imageAnnouncementGuides,
   ...beautyOperationGuides,
