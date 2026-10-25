@@ -1,3 +1,4 @@
+import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import "server-only";
 import { cache } from "react";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -16,7 +17,7 @@ export function courseSetupCookieName(storeId:string,userId:string) {
 // Layout and settings render the same guide. Deduplicate only within this RSC request.
 export const getCourseSetup = cache(async function getCourseSetup(storeId:string,userId:string) {
   const native=(await sportsNativePreview(storeId));
-  const [coaches,rooms,templates,plans,sessions,staff,music,hours,config,existingRooms,existingPlans,existingCoaches,latestSession,hoursConfirmation] = await Promise.all([
+  const [coaches,rooms,templates,plans,sessions,staff,music,hours,config,existingRooms,existingPlans,existingCoaches,latestSession,hoursConfirmation,schedulingModes] = await Promise.all([
     prisma.staff.count({where:{storeId,status:"ACTIVE",courseCoachEnabled:true}}),
     coursePrisma.courseRoom.count({where:{storeId,isActive:true}}),
     coursePrisma.courseTemplate.count({where:{storeId,isActive:true,visibility:{not:"OFF"}}}),
@@ -31,6 +32,7 @@ export const getCourseSetup = cache(async function getCourseSetup(storeId:string
     prisma.staff.count({where:{storeId,courseCoachEnabled:true}}),
     coursePrisma.courseSession.findFirst({where:{storeId,cancelledAt:null,releasedAt:null,endsAt:{gt:new Date()}},orderBy:{createdAt:"desc"},select:{id:true,startsAt:true}}),
     prisma.auditLog.findFirst({where:{id:courseHoursConfirmationId(storeId),storeId,targetId:storeId,targetType:"BusinessHours",action:COURSE_HOURS_CONFIRMED},select:{id:true}}),
+    native?coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}):undefined,
   ]);
   const openDays=hours.filter(h=>h.isOpen && parseBusinessPeriods(h.segments,h).some(p=>p.openTime<p.closeTime)).length;
   const [subjects,existingCourses]=await Promise.all([
@@ -45,6 +47,7 @@ export const getCourseSetup = cache(async function getCourseSetup(storeId:string
   const ids=new Set(activeTemplates.map(t=>t.id));
   const subjectIds=new Set(activeSubjects.map(s=>s.id));
   const usablePlans=linkedPlans.filter(p=>{
+    if(!coursePlanModeAllowed(schedulingModes,p.sportsMode))return false;
     if ((p.sportsMode??"LEGACY")==="LEGACY") return p.templateIds.some(id=>ids.has(id));
     try {
       const rights=sportsEntitlementSnapshot(p);
@@ -55,5 +58,5 @@ export const getCourseSetup = cache(async function getCourseSetup(storeId:string
   const jar=await cookies();
   let preference:{mode:"show"|"later"|"never";login?:string}={mode:"show"};
   try { const parsed=JSON.parse(jar.get(courseSetupCookieName(storeId,userId))?.value??"{}");if(["show","later","never"].includes(parsed.mode))preference=parsed; } catch { /* Invalid preferences use the default reminder. */ }
-  return {localSections:native,steps:courseSetupSteps({coaches,rooms,templates,subjects:native?activeSubjects.length:subjects,plans:native?usablePlans.length:plans,sessions,qualifiedCoaches,openDays,hoursConfirmed:!!hoursConfirmation,dutyEnabled:config?.dutySchedulingEnabled ?? false,existing:{hours:hours.length,rooms:existingRooms,courses:existingCourses,plans:existingPlans,coaches:existingCoaches}}, !!music,native),studentHref:latestSession?`/dashboard/courses?date=${toLocalDateStr(latestSession.startsAt)}&session=${encodeURIComponent(latestSession.id)}`:undefined,preference,login:jar.get("course-setup-login-v1")?.value??"existing-session"};
+  return {localSections:native,steps:courseSetupSteps({schedulingModes:schedulingModes??undefined,coaches,rooms,templates,subjects:native?activeSubjects.length:subjects,plans:native?usablePlans.length:plans,sessions,qualifiedCoaches,openDays,hoursConfirmed:!!hoursConfirmation,dutyEnabled:config?.dutySchedulingEnabled ?? false,existing:{hours:hours.length,rooms:existingRooms,courses:existingCourses,plans:existingPlans,coaches:existingCoaches}}, !!music,native),studentHref:latestSession?`/dashboard/courses?date=${toLocalDateStr(latestSession.startsAt)}&session=${encodeURIComponent(latestSession.id)}`:undefined,preference,login:jar.get("course-setup-login-v1")?.value??"existing-session"};
 });

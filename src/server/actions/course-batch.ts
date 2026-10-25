@@ -1,4 +1,6 @@
 "use server";
+import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
+
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { prisma } from "@/lib/db";
@@ -61,6 +63,7 @@ export async function batchCourseStatus(input: unknown) {
       } else {
         const rows=await tx.coursePointPlan.findMany({where:{storeId,id:{in:ids}},select:{id:true}});
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店方案");
+        if(d.active){const plans=await tx.coursePointPlan.findMany({where:{storeId,id:{in:ids},isActive:false},select:{sportsMode:true}});for(const mode of new Set(plans.map(p=>p.sportsMode)))await assertCoursePlanMode(tx,storeId,mode);}
         await tx.coursePointPlan.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
       }
     });

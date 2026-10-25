@@ -7,3 +7,8 @@ export function courseSchedulingModeAllowed(rule: CourseSchedulingModes | null |
   const modes = courseSchedulingModes(rule);
   return mode === "OPEN" ? modes.open : modes.assigned;
 }
+
+/** Historical balances retain their original mode; new offers obey the store's current modes. */
+export function coursePlanModeAllowed(rule: CourseSchedulingModes | null | undefined, mode?: string | null) {
+  return mode === "OPEN" || mode === "ASSIGNED" ? courseSchedulingModeAllowed(rule, mode) : true;
+}
