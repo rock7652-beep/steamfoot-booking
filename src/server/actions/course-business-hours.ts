@@ -1,5 +1,6 @@
 "use server";
 
+import { COURSE_HOURS_CONFIRMED, courseHoursConfirmationId } from "@/lib/course-hours-confirmation";
 import {courseDayHoursValues,courseDayHoursReceipt} from "@/lib/course-day-hours-save";
 import {readCourseHoursState,courseHoursRevision,intendedCourseHours,courseDayDetail,courseHoursReceiptData} from "@/server/services/course-hours-save-receipt";
 import {weeklyReceipt,weeklyRevision} from "@/lib/course-weekly-hours-save";
@@ -114,7 +115,8 @@ async function readWeeklyReceipt(tx:Parameters<Parameters<typeof courseTransacti
 /** Save all edited weekdays atomically; special dates keep their existing overrides. */
 export async function saveCourseWeeklyHours(input: unknown) {
   try {
-    const { storeId } = await courseManager("business_hours.manage");
+    const { storeId, user } = await courseManager("business_hours.manage");
+    const confirmForSetup=!Array.isArray(input)&&z.object({confirmForSetup:z.boolean().optional()}).parse(input).confirmForSetup===true;
     const receipt=Array.isArray(input)?undefined:z.object({receipt:weeklyReceipt}).parse(input).receipt;
     if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟營業時間設定。");
     const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(Array.isArray(input)?input:z.object({days:z.unknown()}).parse(input).days);
@@ -125,8 +127,10 @@ export async function saveCourseWeeklyHours(input: unknown) {
       if (day.isOpen && (!periods.length || periods.some((p, i) => p.openTime >= p.closeTime || (i > 0 && periods[i - 1].closeTime > p.openTime)))) throw new AppError("VALIDATION", "請設定不重疊的完整營業時間");
       return { ...day, periods };
     });
+    if(confirmForSetup&&(days.length!==7||!days.some(day=>day.isOpen)))throw new AppError("VALIDATION","請確認完整七天設定，並至少開放一天營業。 ");
     const interval=await courseStartInterval(storeId);
     const saved=await courseTransaction(storeId, async tx => {
+      const confirm=async()=>{if(confirmForSetup)await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,"targetType","targetId",action,summary,"createdAt") VALUES (${courseHoursConfirmationId(storeId)},${user.id},${storeId},'COURSE','BusinessHours',${storeId},${COURSE_HOURS_CONFIRMED},'店家已確認每週營業時間與公休',NOW()) ON CONFLICT (id) DO NOTHING`;};
       const current=receipt?await readWeeklyReceipt(tx,storeId):undefined;
       if(receipt){
         if(new Set(receipt.expected.map(day=>day.dayOfWeek)).size!==receipt.expected.length)throw new AppError("VALIDATION","修訂星期不可重複");
@@ -137,7 +141,7 @@ export async function saveCourseWeeklyHours(input: unknown) {
           const desired={...day,persisted:true};
           if(weeklyRevision(before)!==weeklyRevision(expected) && weeklyRevision(before)!==weeklyRevision(desired))throw new AppError("CONFLICT","營業時間已有更新，輸入已保留。請核對後再編輯。");
         }
-        if(normalized.every(day=>weeklyRevision(current!.find(r=>r.dayOfWeek===day.dayOfWeek))===weeklyRevision({...day,persisted:true})))return current!;
+        if(normalized.every(day=>weeklyRevision(current!.find(r=>r.dayOfWeek===day.dayOfWeek))===weeklyRevision({...day,persisted:true}))){await confirm();return current!;}
       }
       for (const day of normalized) {
         const first = day.isOpen ? day.periods[0].openTime : null;
@@ -148,6 +152,7 @@ export async function saveCourseWeeklyHours(input: unknown) {
       const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
       await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
       await assertCourseDutyCoverage(tx, storeId);
+      await confirm();
       if(receipt)return readWeeklyReceipt(tx,storeId);
     });
     let syncWarning=false;

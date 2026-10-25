@@ -119,6 +119,7 @@ interface Props {
   isHeadquarters: boolean;
   isCourseStore?: boolean;
   isBeautyStore?: boolean;
+  courseHoursConfirmationRequired?: boolean;
 }
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
@@ -145,6 +146,7 @@ export function ScheduleManager({
   isHeadquarters,
   isCourseStore = false,
   isBeautyStore = false,
+  courseHoursConfirmationRequired = false,
 }: Props) {
   // 各模組保留自己的預約單位；新版美業固定 30 分鐘。
   const courseLayout=isCourseStore||isBeautyStore;
@@ -1231,7 +1233,7 @@ export function ScheduleManager({
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
-        {courseLayout ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} source={isBeautyStore?{values:()=>({expectedRevision:serviceRevision,date:selectedDate??`${monthKey(year,month)}-01`}),transport:async input=>{
+        {courseLayout ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} confirmationRequired={isCourseStore&&courseHoursConfirmationRequired} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} source={isBeautyStore?{values:()=>({expectedRevision:serviceRevision,date:selectedDate??`${monthKey(year,month)}-01`}),transport:async input=>{
           const response=await fetch(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/service-hours`,{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",cache:"no-store",body:JSON.stringify({expectedStoreId:input.expectedStoreId,requestKey:input.requestKey,expectedRevision:input.expectedRevision,values:{date:input.date,mode:"weekly",status:"open",weeks:0,reason:"",periods:[],weeklyDays:input.days}})});
           const result=await response.json();if(result.success){setServiceRevision(result.data.day.hoursRevision);return {...result,data:result.data.weekly.map((day:{dayName:string})=>({...day,dayName:day.dayName.startsWith("週")?day.dayName:`週${day.dayName}`}))};}return result;
         }}:undefined} canManage={canManage&&!locked} onSaved={async days => {

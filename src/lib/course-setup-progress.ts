@@ -1,9 +1,9 @@
-export type CourseSetupCounts = { coaches:number; rooms:number; templates:number; subjects?:number; plans:number; sessions:number; qualifiedCoaches:number; openDays?:number; dutyEnabled?:boolean; existing?:{hours?:number;rooms?:number;courses?:number;plans?:number;coaches?:number} };
+export type CourseSetupCounts = { coaches:number; rooms:number; templates:number; subjects?:number; plans:number; sessions:number; qualifiedCoaches:number; openDays?:number; hoursConfirmed?:boolean; dutyEnabled?:boolean; existing?:{hours?:number;rooms?:number;courses?:number;plans?:number;coaches?:number} };
 export function courseSetupSteps(counts:CourseSetupCounts, music = false, sports = false) {
   const subjects = music||sports;
   const provider = music ? "教師" : "教練";
   const steps = [
-    {id:"hours",label:"設定營業時間與公休",done:(counts.openDays ?? 0)>0,href:"/dashboard/courses/hours",hint:"設定每週可上課時段與公休日。"},
+    {id:"hours",label:counts.hoursConfirmed===false?"確認營業時間與公休":"設定營業時間與公休",done:counts.hoursConfirmed!==false&&(counts.openDays ?? 0)>0,href:"/dashboard/courses/hours",hint:"確認每週可上課時段與公休日，儲存後繼續設定。"},
     {id:"room",label:"新增空間",done:counts.rooms>0,href:"/dashboard/courses?view=rooms&action=create",hint:"建立啟用的教室或上課空間，確認人數容量。"},
     {id:"course",label:subjects ? "建立教學項目" : "建立課程",done:(subjects ? counts.subjects ?? counts.templates : counts.templates)>0,href:"/dashboard/courses?view=catalog&action=create",hint:subjects ? (sports?"建立教學項目並設定可授課教練；開放選課另設定每堂扣點。":"建立並上架教學項目，例如吉他。") : "建立課程內容，確認上課時間、人數上限與每人點數。"},
     {id:"plan",label:sports ? "設定收費方式" : music ? "設定班型與學費" : "建立方案",done:counts.plans>0,href:"/dashboard/courses?view=plans&action=create",hint:sports ? "選指定項目方案或開放選課通用卡，設定額度、售價與效期；通用卡不用綁定課程。" : music ? "選教學項目，設定課型、每堂學費、每期堂數、排課方式與效期。" : "選方案類型，設定售價與效期。"},
@@ -19,6 +19,7 @@ export function courseSetupSteps(counts:CourseSetupCounts, music = false, sports
     steps.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }
   return steps.map(step=>{
+    if(step.id==="hours"&&counts.hoursConfirmed===false)return {...step,sports,status:"missing" as const};
     const existing=({hours:counts.existing?.hours??counts.openDays??0,room:counts.existing?.rooms??counts.rooms,course:counts.existing?.courses??(subjects?counts.subjects??counts.templates:counts.templates),plan:counts.existing?.plans??counts.plans,coach:counts.existing?.coaches??counts.coaches,schedule:0} as Record<string,number>)[step.id];
     const status=step.done?"done" as const:existing>0?"repair" as const:"missing" as const;
     const label=status!=="repair"?step.label:({room:"啟用上課空間",course:subjects?"上架教學項目":"上架課程",plan:sports?"啟用收費方式":music?"啟用班型與學費":"啟用方案",coach:counts.coaches>0?`補齊${provider}授課資格`:`啟用${provider}並補授課資格`,hours:"修正營業時間與公休"} as Record<string,string>)[step.id]??step.label;

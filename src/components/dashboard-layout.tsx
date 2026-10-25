@@ -1,3 +1,5 @@
+import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
+import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
 import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
 import { getStoreFeaturePresentations } from "@/lib/feature-gate";
@@ -255,6 +257,7 @@ async function readDashboardLayout({
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
+    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
     <DashboardShell
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
@@ -320,6 +323,7 @@ async function readDashboardLayout({
       {industryModule==='beauty'&&!hqPlatform&&!storeViewContext?.isViewMode&&activeStoreId&&beautyChargeRulesEnabled(activeStoreId)&&permissions.includes('business_hours.view')&&permissions.includes('plans.edit')&&permissions.includes('staff.view')&&<Suspense fallback={null}><BeautySetupNavigation/></Suspense>}
       <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
+    </CoursePersonnelLabelProvider>
     </OperationAuditAccessProvider>
     </FeaturePresentationProvider>
     </OperationScope>

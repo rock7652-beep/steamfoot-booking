@@ -52,3 +52,8 @@ Vercel 的既有敏感 DATABASE_URL API 只回 metadata 與 decrypted=false，�
 - 尚未實測正式 runtime 密碼登入；尚未推送 main、部署、切網域或建店。正式資料庫已升級，正式網站程式仍是原版，不能再描述為正式庫未動。
 
 後續需要明確目的地授權，再配置上述 Vercel 正式環境，實際通過 readonly runtime preflight 後才發布。憑證不納入 Git、報告或工具輸出。
+
+
+## 目的地明確授權後
+
+使用者明確允許 Vercel steamfoot-booking Production Sensitive 的新專用密碼及相關旗標。新一次精確配置成功（created 7、failed 0），正確編輯旗標已核對為 BEAUTY_CHARGE_EDITING_ENABLED。沒有重設既有密碼、修改主連線或建店。此時阻擋已解除，後續狀態見 [正式發布紀錄](formal-publication-20261025.md)。

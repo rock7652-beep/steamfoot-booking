@@ -64,7 +64,9 @@ export async function saveCourseSettingsSection(input: unknown) {
     await settingsStep("subscription", () => assertStoreSubscriptionWritable(storeId));
     const saved=await settingsStep("transaction", () => courseTransaction(storeId, async tx => {
       if(receipt){const current=await readCourseSettingsSection(tx,storeId,d.section);if(courseSettingsSectionRevision(current)!==receipt.expectedRevision){if(courseSettingsSectionRevision(current)===courseSettingsSectionRevision(d))return current;throw new AppError("CONFLICT","設定已有更新，輸入已保留。請重新開啟後核對。");}}
-      if (d.section === "booking") {
+      if (d.section === "personnel") {
+        await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","coursePersonnelLabel","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.personnelLabel},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "coursePersonnelLabel"=EXCLUDED."coursePersonnelLabel","updatedAt"=NOW()`;
+      } else if (d.section === "booking") {
         const rules = { bookingLeadMinutes: d.bookingLeadMinutes, cancellationLeadMinutes: d.cancellationLeadMinutes };
         await tx.courseBookingRule.upsert({ where: { storeId }, create: { storeId, ...rules }, update: rules });
       } else if (d.section === "store") {

@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import 'server-only';
 import { createHash } from 'node:crypto';
@@ -51,6 +52,7 @@ export async function enqueueCoachDigests(now=new Date()) {
  return queued;
 }
 async function render(notice:Notice,slug:string,storeName:string) {
+ const personnelText = await getCoursePersonnelText(notice.storeId);
  const lines:CoachNoticeLine[]=[];
  const entries=Object.entries(notice.payload).filter((entry):entry is [string,{before:Snapshot|BookingSnapshot|null;after:Snapshot|BookingSnapshot}]=>entry[0]!=='date'&&typeof entry[1]==='object');
  for(const [id,item] of entries){
@@ -77,7 +79,7 @@ async function render(notice:Notice,slug:string,storeName:string) {
   }else{
    const old=before as Snapshot|null;if(!old)continue;
    if(+new Date(old.startsAt)===+session.startsAt&&+new Date(old.endsAt)===+session.endsAt&&old.roomId===session.roomId&&old.coachId===session.coachId&&!!old.cancelledAt===!!session.cancelledAt&&old.teacherAttendance===session.teacherAttendance)continue;
-   detail=session.cancelledAt?'課程已取消':session.teacherAttendance==='LEAVE'?'老師請假 · 停課':session.teacherAttendance==='NO_SHOW'?'老師曠課 · 停課':old.coachId!==session.coachId?(notice.staffId===session.coachId?'由您接任授課':'已改由其他授課人員授課'):'授課安排已更新';
+   detail=session.cancelledAt?'課程已取消':session.teacherAttendance==='LEAVE'?personnelText('老師請假 · 停課'):session.teacherAttendance==='NO_SHOW'?personnelText('老師曠課 · 停課'):old.coachId!==session.coachId?(notice.staffId===session.coachId?'由您接任授課':'已改由其他授課人員授課'):'授課安排已更新';
    previous=`原 ${formatTWDateTime(new Date(old.startsAt))}–${formatTWDateTime(new Date(old.endsAt)).slice(11)}`;
   }
   const type=session.template.classType;

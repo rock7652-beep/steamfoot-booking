@@ -15,6 +15,7 @@ vi.mock("@/lib/permissions", () => ({
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.store }));
 vi.mock("@/lib/industry-module-server", () => ({ requireCourseStore: m.requireCourse }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: async () => [{label:null}],
   staff: { findMany: m.staff },
   storeFeatureEntitlement: { findFirst: async () => null },
   courseStaffPersonLink: { findMany: async () => [] },

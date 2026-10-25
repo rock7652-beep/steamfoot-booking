@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { musicRetirementEnabled } from "@/lib/music-retirement";
 import { musicCustomerWhere, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { CourseTodoList } from "./todo-list";
@@ -31,13 +32,15 @@ async function ReadSection({title,load}:{title:string;load:()=>Promise<ReactNode
 }
 function Section(props:{title:string;load:()=>Promise<ReactNode>}) {return <Suspense fallback={<Box title={props.title}><p role="status" className="text-sm text-earth-600">讀取中…</p></Box>}><ReadSection {...props}/></Suspense>;}
 
-export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;storeId:string;date:string;access:Access;careEnabled:boolean}) {
+export async function MusicHome({user,storeId,date,access,careEnabled}:{user:User;storeId:string;date:string;access:Access;careEnabled:boolean}) {
+ const personnelText = await getCoursePersonnelText(storeId);
+
   const schedule=`/dashboard/courses?date=${date}`;
   return <PageShell compact><PageHeader title="今日教務工作台" subtitle={`${date} · 依目前帳號與門市權限顯示`} actions={<div className="flex flex-wrap gap-2"><HomeRetry/>{musicRetirementEnabled()&&access.revenue&&access.customers&&<Link className={action} href="/dashboard/courses/archive">封存紀錄</Link>}{access.create&&<Link className={action} href={`${schedule}&action=schedule`}>新增排課</Link>}{access.bookings&&<Link className={action} href={schedule}>完整課表</Link>}</div>}/>
     <div className="@container space-y-3">
       {access.bookings&&<Section title="今日課程" load={async()=>{
         const result=await getMusicHomeSchedule(storeId,date), next=result.rows.flatMap(r=>[new Date(r.startsAt).getTime(),new Date(r.endsAt).getTime()]).filter(n=>n>Date.now());
-        return <><HomeClockRefresh nextAt={Math.min(...next,dayRange(date).end.getTime()+1)}/><p className="mb-2 text-sm text-earth-600">{result.truncated ? "顯示前 200 堂，請至完整課表查看其餘課程。" : `今日 ${result.rows.length} 堂 · 課後待點名 ${result.rows.filter(r=>r.status==="課後待點名").length} 堂`}</p><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-earth-50 text-earth-600"><tr>{["時間／課程","教師／教室","人數","狀態","操作"].map(t=><th key={t} className="px-3 py-2 font-medium">{t}</th>)}</tr></thead><tbody className="divide-y divide-earth-100">{result.rows.map(row=><tr key={row.id}><td className="px-3 py-2"><p className="font-semibold text-primary-900">{formatTWDateTime(new Date(row.startsAt)).slice(-5)}–{formatTWDateTime(new Date(row.endsAt)).slice(-5)}</p><p>{row.name}</p></td><td className="px-3 py-2"><p>{row.teacher}</p><p className="text-earth-600">{row.room}</p></td><td className="px-3 py-2 tabular-nums">{row.people} 人</td><td className="px-3 py-2"><span className={`rounded-full px-2 py-1 ${row.status.includes("待") ? "bg-amber-50 text-amber-900" : "bg-earth-50 text-earth-700"}`}>{row.status}</span></td><td className="px-3 py-2"><Link className={action} href={`${schedule}&action=booking&session=${encodeURIComponent(row.id)}`}>{access.todos.attendance ? "名單／點名" : "查看名單"}</Link></td></tr>)}</tbody></table></div>{!result.rows.length&&<p className="py-3 text-sm text-earth-600">今天尚無課程，可由完整課表查看其他日期。</p>}</>;
+        return <><HomeClockRefresh nextAt={Math.min(...next,dayRange(date).end.getTime()+1)}/><p className="mb-2 text-sm text-earth-600">{result.truncated ? "顯示前 200 堂，請至完整課表查看其餘課程。" : `今日 ${result.rows.length} 堂 · 課後待點名 ${result.rows.filter(r=>r.status==="課後待點名").length} 堂`}</p><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-earth-50 text-earth-600"><tr>{["時間／課程",personnelText("教師／教室"),"人數","狀態","操作"].map(t=><th key={t} className="px-3 py-2 font-medium">{t}</th>)}</tr></thead><tbody className="divide-y divide-earth-100">{result.rows.map(row=><tr key={row.id}><td className="px-3 py-2"><p className="font-semibold text-primary-900">{formatTWDateTime(new Date(row.startsAt)).slice(-5)}–{formatTWDateTime(new Date(row.endsAt)).slice(-5)}</p><p>{row.name}</p></td><td className="px-3 py-2"><p>{row.teacher}</p><p className="text-earth-600">{row.room}</p></td><td className="px-3 py-2 tabular-nums">{row.people} 人</td><td className="px-3 py-2"><span className={`rounded-full px-2 py-1 ${row.status.includes("待") ? "bg-amber-50 text-amber-900" : "bg-earth-50 text-earth-700"}`}>{row.status}</span></td><td className="px-3 py-2"><Link className={action} href={`${schedule}&action=booking&session=${encodeURIComponent(row.id)}`}>{access.todos.attendance ? "名單／點名" : "查看名單"}</Link></td></tr>)}</tbody></table></div>{!result.rows.length&&<p className="py-3 text-sm text-earth-600">今天尚無課程，可由完整課表查看其他日期。</p>}</>;
       }}/>}
       <div className="grid items-start gap-3 @min-[54rem]:grid-cols-2">
         {(access.todos.attendance||access.todos.payments||access.todos.followUp)&&<Section title="待處理事項" load={async()=>{
@@ -59,10 +62,10 @@ export function MusicHome({user,storeId,date,access,careEnabled}:{user:User;stor
       }}/>}
       <div className="grid items-start gap-3 @min-[54rem]:grid-cols-2">
         {access.revenue&&<Section title="今日收款" load={async()=>{const r=await getCourseReceiptTotals(storeId,date,date);return <div className="space-y-2 text-sm"><p>入帳 NT$ {r.gross.toLocaleString()} · 退款／沖銷 NT$ {(r.refunds+r.voids).toLocaleString()}</p><p>淨收款 <strong>NT$ {r.net.toLocaleString()}</strong></p><Link className={action} href={`/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`}>查看今日收款</Link><p className="text-earth-600">待核帳不等於欠費；歷史匯入付款不重複計入今天。</p></div>;}}/>}
-        <Section title="教師鐘點與月結" load={async()=>{
-          if(!await checkPermission(user.role,user.staffId,"staff.view")||!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p className="text-sm text-earth-600">目前帳號未授權查看教師薪資。</p>;
+        <Section title={personnelText("教師鐘點與月結")} load={async()=>{
+          if(!await checkPermission(user.role,user.staffId,"staff.view")||!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p className="text-sm text-earth-600">{personnelText("目前帳號未授權查看教師薪資。")}</p>;
           const owner=user.role==="OWNER"&&await checkPermission(user.role,user.staffId,"report.read")&&await hasStoreFeature(storeId,FEATURES.SERVICE_FEE_CALCULATOR);
-          return <div className="space-y-2 text-sm"><p>{toLocalMonthStr()} · 鐘點待核對、月結與發薪狀態請以明細為準。</p><div className="flex flex-wrap gap-2"><Link className={action} href="/dashboard/teachers">教師／鐘點費設定</Link>{owner?<Link className={action} href={`/dashboard/service-fee-calculator?month=${toLocalMonthStr()}`}>本月月結／發薪紀錄</Link>:<span className="text-earth-600">月結入口需對應角色與功能授權。</span>}</div></div>;
+          return <div className="space-y-2 text-sm"><p>{toLocalMonthStr()} · 鐘點待核對、月結與發薪狀態請以明細為準。</p><div className="flex flex-wrap gap-2"><Link className={action} href="/dashboard/teachers">{personnelText("教師／鐘點費設定")}</Link>{owner?<Link className={action} href={`/dashboard/service-fee-calculator?month=${toLocalMonthStr()}`}>本月月結／發薪紀錄</Link>:<span className="text-earth-600">月結入口需對應角色與功能授權。</span>}</div></div>;
         }}/>
       </div>
     </div>

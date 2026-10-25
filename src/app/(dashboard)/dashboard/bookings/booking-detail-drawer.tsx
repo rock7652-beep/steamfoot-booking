@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
 import dynamic from "next/dynamic";
@@ -981,6 +982,7 @@ function DrawerContent({
   openCustomerPlan?: boolean;
   onCustomerPlanBack: () => void;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [showCustomer,setShowCustomer] = useState<string | null>(null);
   const [customerFocus,setCustomerFocus] = useState<"plan" | undefined>();
   const {
@@ -1098,7 +1100,7 @@ function DrawerContent({
       {/* Body — scrollable */}
       <DetailBody  stacked={participantMode} appointment={
         participantMode ? <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-2 text-base">
-          <div className="flex flex-wrap gap-x-4 gap-y-1"><span>{dateLabel} {booking.slotTime}{endTime ? ` - ${endTime}` : ""}</span><span className="text-earth-600">{booking.revenueStaff?.displayName ?? "未指派教練"}</span></div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1"><span>{dateLabel} {booking.slotTime}{endTime ? ` - ${endTime}` : ""}</span><span className="text-earth-600">{booking.revenueStaff?.displayName ?? personnelText("未指派教練")}</span></div>
           <div className="flex items-center gap-2">
             <details><summary className="min-h-11 cursor-pointer px-2 py-2 text-sm text-earth-600">預約資訊</summary><div className="py-2 text-sm"><p>來源：{trialBookingSourceLabel(booking.bookingSource)}</p>{booking.serviceStaff && booking.serviceStaff.id !== booking.revenueStaff?.id && <p>值班店長：{booking.serviceStaff.displayName}</p>}<OperationHistoryButton targetType="Booking" targetId={booking.id}/></div></details>
             {!readOnly && payload.canEditBookingNote && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && payload.participantCheckout!.slots.every(slot=>slot.status === "PENDING" && slot.collectedAmount === null) && <button type="button" disabled={isActing} onClick={actions.reschedule} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">改期</button>}
@@ -1107,7 +1109,7 @@ function DrawerContent({
           <KV readable={true} label={"日期時間"} value={`${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
 
           <KV readable={true}
-            label="教練"
+            label={personnelText("教練")}
             value={booking.revenueStaff?.displayName ?? "未指派"}
             icon={
               booking.revenueStaff?.colorCode && (
@@ -1344,6 +1346,7 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose,
   isActing?: boolean;
   collectionLoading?: boolean;
 }) {
+  const personnelText = useCoursePersonnelText();
   const known = prefill ?? summary;
   if (collectionLoading || (prefill?.bookingType === "FIRST_TRIAL" && !prefill.collected)) return <TrialCheckoutLoading bookingDate={known?.bookingDate} slotTime={known?.slotTime} people={known?.people} staffName={prefill?.revenueStaff?.displayName} error={error} onClose={onClose} />;
   const pending = <span className="text-earth-500">讀取中…</span>;
@@ -1406,7 +1409,7 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose,
       <DetailBody busy={!error} appointment={
         <Section readable title="預約資訊">
           <KV readable label="日期時間" value={known ? `${formatDateLabel(known.bookingDate)} ${known.slotTime}${durationMinutes != null ? ` - ${computeEndTime(known.slotTime, durationMinutes)}` : ""}` : pending} />
-          <KV readable label="教練" value={prefill ? prefill.revenueStaff?.displayName ?? "未指派" : pending} icon={prefill?.revenueStaff?.colorCode && <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{backgroundColor:prefill.revenueStaff.colorCode}} />} />
+          <KV readable label={personnelText("教練")} value={prefill ? prefill.revenueStaff?.displayName ?? "未指派" : pending} icon={prefill?.revenueStaff?.colorCode && <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{backgroundColor:prefill.revenueStaff.colorCode}} />} />
           {prefill?.serviceStaffName && prefill.serviceStaffName !== prefill.revenueStaff?.displayName && <KV readable label="值班店長" value={prefill.serviceStaffName} />}
           <KV readable label="服務" value={service ?? pending} />
           <KV readable label="人數" value={known ? `${known.people} 人` : pending} />

@@ -7,6 +7,7 @@ import { courseSettingsSectionRevision,savedCourseSettingsSection,type CourseSet
 
 type Field = { key: string; label: string; type?: "text" | "url" | "number"; max?: number };
 const fields: Record<CourseSettingsSectionInput["section"], Field[]> = {
+  personnel: [],
   store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "shopPhone", label: "店家電話", max: 50 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialId", label: "官方 LINE ID", max: 100 }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
   booking: [{ key: "bookingLeadMinutes", label: "預約截止時間", type: "number" }, { key: "cancellationLeadMinutes", label: "自行取消截止時間", type: "number" }],
   payment: [{ key: "bankName", label: "銀行名稱", max: 100 }, { key: "bankCode", label: "銀行代號", max: 20 }, { key: "bankAccountNumber", label: "銀行帳號", max: 50 }],
@@ -33,7 +34,7 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
 type Props = {savePath?:string;storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
 export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,savePath }: Props) {
   const section = initial.section;
-  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
+  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value??"")])));
   const [saved, setSaved] = useState(draft);
 
   const [message, setMessage] = useState("");
@@ -44,21 +45,23 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,
   const saving = useRef(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { onStatus(section, dirty, pending||mutation.uncertain); }, [section, dirty, pending, mutation.uncertain,onStatus]);
-  const label = section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
+  const label = section === "personnel" ? "授課人員稱呼" : section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
   return <form aria-label={`編輯${label}`} className={`${styles.root} m-0`} onSubmit={event => {
     event.preventDefault();
     if (saving.current || !dirty || !event.currentTarget.reportValidity()) return;
     saving.current = true;
     setMessage("");
-    const input = section === "booking" ? { section, bookingLeadMinutes: Number(draft.bookingLeadMinutes), cancellationLeadMinutes: Number(draft.cancellationLeadMinutes) } : { ...draft, section };
+    const input = section === "personnel" ? {section,personnelLabel:draft.personnelLabel||null} : section === "booking" ? { section, bookingLeadMinutes: Number(draft.bookingLeadMinutes), cancellationLeadMinutes: Number(draft.cancellationLeadMinutes) } : { ...draft, section };
     void mutation.save({values:input,expectedRevision:revision.current}).then(result=>{
       if(!result.success){setMessage(result.error);return;}
-      const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value)]));
+      const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value??"")]));
       setDraft(confirmed);setSaved(confirmed);revision.current=result.data.revision;
+      if(result.data.values.section==="personnel") window.dispatchEvent(new CustomEvent("course-personnel-label-saved", {detail:{storeId,label:result.data.values.personnelLabel}}));
       setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
     }).finally(()=>{saving.current=false;});
   }}>
     <fieldset disabled={pending||mutation.uncertain} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
+      {section==="personnel" && <label className="min-w-0 text-sm text-earth-700">授課人員稱呼<select aria-label="授課人員稱呼" value={draft.personnelLabel} onChange={event=>{setDraft(previous=>({...previous,personnelLabel:event.target.value}));setMessage("");}} className="mt-1 min-h-10 w-full rounded-lg border border-earth-300 bg-white px-3 py-2"><option value="">沿用模組預設</option><option value="老師">老師</option><option value="教練">教練</option></select></label>}
       {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? styles.fullWidth : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}

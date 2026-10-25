@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 import { ImageAnnouncementIcon, LocationIcon, PractitionerIcon, ServiceCatalogIcon } from "./admin/navigation-icons";
@@ -711,6 +712,7 @@ export default function DashboardShell({
   viewMode,
   industryModuleId = "steamfoot",
 }: DashboardShellProps) {
+  const personnelText = useCoursePersonnelText();
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
   const routeQuery = searchParams.toString();
@@ -863,7 +865,7 @@ export default function DashboardShell({
     if (course) management.push(
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <ServiceCatalogIcon /> },
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <LocationIcon /> },
-      { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
+      { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? personnelText("教師管理") : personnelText("教練管理") },
     );
     if (course) {
       // Match the room → course → plan → teacher sequence in first-store setup.
@@ -885,14 +887,14 @@ export default function DashboardShell({
     });
     if (course && musicEnabled) {
       management.push({ ...entry("/dashboard/settings"), href:"/dashboard/image-announcements", label: "圖文公告", permission:"business_hours.view", requiredFeature:undefined });
-      const order = ["空間管理", "教學項目", "收費方式", "教師管理", "人員管理", "圖文公告", "設定"];
+      const order = ["空間管理", "教學項目", "收費方式", personnelText("教師管理"), "人員管理", "圖文公告", "設定"];
       management.sort((a,b) => (order.indexOf(a.label) < 0 ? 99 : order.indexOf(a.label)) - (order.indexOf(b.label) < 0 ? 99 : order.indexOf(b.label)));
     }
     return [
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

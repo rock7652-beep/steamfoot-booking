@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ type Result = Awaited<ReturnType<typeof loadCourseCustomerPurchases>>;
 export type TuitionOrder = Extract<Result, { success: true }>["data"][number];
 
 export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, displayPeriod, detailsButton=false, closeLabel="關閉" }: { order: TuitionOrder; onUpdated: () => void; receiptPeriod?: number; displayPeriod?: number; detailsButton?: boolean; closeLabel?: string }) {
+  const personnelText = useCoursePersonnelText();
   const router = useRouter();
   const titleId = useId();
   const submitting = useRef(false);
@@ -91,7 +93,7 @@ export function MusicTuitionDetails({ order, onUpdated, receiptPeriod, displayPe
           </RosterTable>
           {!tuition.receipts.length && <p className="text-earth-500">尚無付款紀錄</p>}
           </section>
-          {tuition.canReadBookings && <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看出勤紀錄（{tuition.lessons.length}）</summary><RosterTable label="學費對應出勤" columns={["上課時間", "老師", "狀態"]}>{tuition.lessons.map(lesson => <tr key={lesson.id}><td>{formatTWDateTime(new Date(lesson.date))}</td><td>{lesson.teacher}</td><td>{lesson.status}</td></tr>)}</RosterTable></details>}
+          {tuition.canReadBookings && <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看出勤紀錄（{tuition.lessons.length}）</summary><RosterTable label="學費對應出勤" columns={["上課時間", personnelText("老師"), "狀態"]}>{tuition.lessons.map(lesson => <tr key={lesson.id}><td>{formatTWDateTime(new Date(lesson.date))}</td><td>{lesson.teacher}</td><td>{lesson.status}</td></tr>)}</RosterTable></details>}
           {order.refunds.map(refund => <p className="col-span-full" key={refund.id}>退款 {refund.amount.toLocaleString()} · {refund.reason}</p>)}
           {order.note && <p className="col-span-full break-words">備註：{order.note}</p>}
           {order.voidReason && <p className="col-span-full break-words">作廢原因：{order.voidReason}</p>}

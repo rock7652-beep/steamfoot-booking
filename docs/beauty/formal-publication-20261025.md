@@ -1,0 +1,21 @@
+# 美業正式發布（2026-10-25）
+
+## 授權與範圍
+
+使用者明確允許把新美業專用密碼存入 Vercel steamfoot-booking Production Sensitive，配置相關旗標，通過實際連線驗證後發布。只發布模組、HQ 可建立美業店；本輪不建店、不複製測試資料、不修改既有顧客、不啟用 LINE。
+
+## 已完成
+
+- 正式 qijlnhtpbintanzpxkvf：核准的 base/runtime/credential 三階段成功，14 張 RLS 表及六欄位吻合。專用角色非管理員、無 membership、不可讀 User.passwordHash、不可修改既有 BeautyPayment。
+- 新 Production server-only Sensitive BEAUTY_DATABASE_PASSWORD 與角色／dedicated mode／模組／收費旗標已成功建立。應用正確的編輯旗標為 BEAUTY_CHARGE_EDITING_ENABLED；尚無正式美業店，收費 store allowlist 保持空白。LINE 通知旗標為 0。未改主 DATABASE_URL 或 DIRECT_URL。
+- 整合 origin/main 5f1b419e：保留新的授課人員稱呼與營業時間確認，以及美業接點、停用收合、班表、顧客返回與 SPA runtime 移除。正式庫已存在 coursePersonnelLabel，不需另套此 migration。
+- 在既有 musicBuildPreflight 最前方加入條件式 Beauty 唯讀 runtime 預檢，保留原 package build 順序及音樂／通知檢查。存在 PRODUCTION_MIGRATION_TARGET 或不安全 scope 即停止，不能偷偷套 migration。
+- 最終相關回歸：171 檔 1,534 項通過；三組 Prisma Client 生成、TypeScript noEmit 通過；ESLint 0 errors／15 warnings（保留既有 unused/dependency 警告）。
+- 本機 Chromium 假資料：307 張畫面，errors=[]，頁面無水平溢出；涵蓋美業、音樂、運動與桌機／平板／手機寬度。不是正式登入交易或真機驗收。
+- 曾在整合修正前探索性執行完整舊測試集：79 檔失敗，包含 SPA 已移除檔案、舊 snapshot、缺 mock 與子程序 EPERM；當時亦包含本輪已修正的欄位 hook 與 build 字串問題。不得把完整舊測試集寫成通過；本次最終結果以隨附 manifest 的相關回歸為準。
+
+## 待完成
+
+推送整合版本到 main，以正式 Vercel 建置先實測新角色的 TLS／READ ONLY／RLS／必要欄位，通過後完成部署。再唯讀核對正式網域、部署 SHA、登入入口與資料筆數。本報告尚非部署成功證明。
+
+證據：[測試及畫面](evidence/20261025-formal-publication/)。

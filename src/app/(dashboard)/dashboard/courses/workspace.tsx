@@ -1,4 +1,6 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
+
 import {courseWeekStart} from "@/lib/course-calendar";
 import {serviceCustomerMatches} from "@/lib/service-calendar-layout";
 import {serviceCalendarPresentation} from "@/lib/service-calendar-presentation";
@@ -309,6 +311,7 @@ export function CourseWorkspace({
   staffAvailabilityExceptions:sourceStaffAvailabilityExceptions,
   view,
 }: Props) {
+  const personnelText = useCoursePersonnelText();
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
   const confirmedRooms = useConfirmedSettingsRows(sourceRooms, courseRoomRevision);
   const mergedRooms = confirmedRooms.rows;
@@ -632,11 +635,11 @@ export function CourseWorkspace({
   const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => {
     const teacherStatus = pendingTeacherAttendance[session.id] ?? session.teacherAttendance;
     if (teacherStatus === "LEAVE" || teacherStatus === "NO_SHOW") return [];
-    return session.bookings.filter((booking) => (pendingAttendance[booking.id] ?? booking.status) === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定教師",name:booking.customerName }));
+    return session.bookings.filter((booking) => (pendingAttendance[booking.id] ?? booking.status) === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??personnelText("未指定教師"),name:booking.customerName }));
   });
   const leaveStudents: DailyAttendanceRow[] = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
     const session = dailySessions.find((item) => item.id === booking.sessionId);
-    return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定教師",name:booking.customerName,note:booking.notes }] : [];
+    return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??personnelText("未指定教師"),name:booking.customerName,note:booking.notes }] : [];
   });
   const [sportsAttendanceOpen,setSportsAttendanceOpen]=useState(false);
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
@@ -1051,15 +1054,15 @@ export function CourseWorkspace({
 
             {businessProfile === "MUSIC" && scheduleMode === "month" && <div className="basis-full flex items-center gap-3"><div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div>{scheduleLegend}</div>}
           {!calendarSource&&businessProfile !== "MUSIC" && <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
-            <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{courseDisplayText("授課教練", businessProfile)}
+            <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{personnelText(courseDisplayText("授課教練", businessProfile))}
             <select
               id="course-coach-filter"
-              aria-label={calendarSource?"技師篩選":courseDisplayText("教練篩選", businessProfile)}
+              aria-label={calendarSource?"技師篩選":personnelText(courseDisplayText("教練篩選", businessProfile))}
               className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">全部授課教練</option>
+              <option value="all">{personnelText("全部授課教練")}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -1622,7 +1625,7 @@ export function CourseWorkspace({
                             {!rental && (attendance.total > 0 || attendance.teacherAbsent) && <span title="點名完成度" className={`text-sm tabular-nums ${attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500"}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}`}</span>}
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? courseDisplayText("未指定教練", businessProfile)}{" · "}</>}
+                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? personnelText(courseDisplayText("未指定教練", businessProfile))}{" · "}</>}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
                             {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
@@ -1914,7 +1917,7 @@ export function CourseWorkspace({
                       : catalogSource ? "名稱會同步顯示於使用此位置的服務與租借。" : businessProfile === "MUSIC" ? "名稱會同步顯示於使用此教室的課程。" : "名稱會同步顯示於使用此空間的課程。"}
                 </p>
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
+                  本堂已有 {editing.value.bookings.length}{personnelText(courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile))}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">{sportsNative ? "教學項目" : "課程項目"}<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 {compactSessionEdit && editing.kind === "session" ? <SportsSessionNameField
@@ -1992,7 +1995,7 @@ export function CourseWorkspace({
                         ).slice(11)}
                       />
                     </label>
-                    <label className="col-span-full">{courseDisplayText("教練", businessProfile)}<select
+                    <label className="col-span-full">{personnelText(courseDisplayText("教練", businessProfile))}<select
                         className={field}
                         name="coachId"
                         required
@@ -2006,7 +2009,7 @@ export function CourseWorkspace({
                           )
                           .map((c) => (
                             <option key={c.id} value={c.id} disabled>
-                              {c.displayName}{courseDisplayText("（已停用，請另選教練）", businessProfile)}</option>
+                              {c.displayName}{personnelText(courseDisplayText("（已停用，請另選教練）", businessProfile))}</option>
                           ))}
                         {coaches.filter(c=>(c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(editTemplateId || editing.value.templateId)) || (c.id===editing.value.coachId && !c.courseQualificationsConfirmed && (!editTemplateId || editTemplateId===editing.value.templateId))).map((c) => (
                           <option key={c.id} value={c.id}>
@@ -2197,7 +2200,7 @@ export function CourseWorkspace({
                     </button>
                   </>
                 ) : !coaches.length ? (
-                  <p>{courseDisplayText("本店尚無可排課的教練，請先完成人員建檔。", businessProfile)}</p>
+                  <p>{personnelText(courseDisplayText("本店尚無可排課的教練，請先完成人員建檔。", businessProfile))}</p>
                 ) : !rooms.length ? (
                   <p>
                     目前沒有可使用的教室，請至左側「空間管理」新增或恢復使用後再排課。
@@ -2247,7 +2250,7 @@ export function CourseWorkspace({
                         </select>
                       </label>
                     )}
-                    <label className="min-[500px]:col-span-3">{courseDisplayText("授課教練", businessProfile)}<select
+                    <label className="min-[500px]:col-span-3">{personnelText(courseDisplayText("授課教練", businessProfile))}<select
                         className={`${field} min-h-11`}
                         name="coachId"
                         required
@@ -2259,7 +2262,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>refreshWorkspace()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{personnelText(courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile))}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{personnelText(courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile))}</a><button type="button" className={button} onClick={()=>refreshWorkspace()}>{personnelText(courseDisplayText("已設定，更新教練名單", businessProfile))}</button></span>}
                     </label>
                     <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
@@ -2371,7 +2374,7 @@ export function CourseWorkspace({
                           }}
                         />
                         {extraDateKeys.map(date => <input key={date} type="hidden" name="additionalDates" value={date} />)}
-                        <p className="text-xs text-earth-500">{courseDisplayText("同時間、教練與空間；如有撞期，整批不會建立。", businessProfile)}</p>
+                        <p className="text-xs text-earth-500">{personnelText(courseDisplayText("同時間、教練與空間；如有撞期，整批不會建立。", businessProfile))}</p>
                       </div>
                     )}
                     {repeat && <WeeklyRepeatFields repeatControl={repeatControl} date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {
@@ -2490,7 +2493,7 @@ export function CourseWorkspace({
                   onSessionCancelled={() => setCourseDialog(null)}
                   musicLayout={businessProfile === "MUSIC"}
                   classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
-                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
+                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? personnelText("未指定老師")}
                   teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
                   coachId={dialogSession.coachId}
                   roomId={dialogSession.roomId}
@@ -2703,13 +2706,14 @@ function musicCourseInput(data:FormData) {
   };
 }
 function MusicCourseFields({value}:{value?:{musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicScheduleMode?:string|null;musicTrialMode?:string|null;musicTeacherFeeBase?:number|null}}) {
+  const personnelText = useCoursePersonnelText();
   return <>
     <label>每位學員每堂售價（元）<input className={field} name="musicPricePerLesson" type="number" min="0" max="1000000" defaultValue={value?.musicPricePerLesson ?? 800} required/></label>
     <label>每期堂數<input className={field} name="musicTermLessons" type="number" min="1" max="1000" step="1" defaultValue={value?.musicTermLessons ?? 4} required/></label>
     <label>排課方式<select className={field} name="musicScheduleMode" defaultValue={value?.musicScheduleMode ?? "FIXED"}><option value="FIXED">固定時段</option><option value="APPOINTMENT">每次約課</option></select></label>
     <label>每期有效天數<input className={field} name="musicValidityDaysPerTerm" type="number" min="1" max="3650" defaultValue={value?.musicValidityDaysPerTerm ?? 35} required/><span className="text-xs text-earth-500">固定課預設 35 天；約課預設 70 天，從第一次上課起算。</span></label>
     <label>體驗課<select className={field} name="musicTrialMode" defaultValue={value?.musicTrialMode ?? ""}><option value="">一般課程</option><option value="FREE">免費體驗（30 分鐘）</option><option value="PAID">付費體驗（完整一堂）</option></select></label>
-    <label>免費體驗老師計費基礎（元）<input className={field} name="musicTeacherFeeBase" type="number" min="0" max="1000000" defaultValue={value?.musicTeacherFeeBase ?? ""} placeholder="例：個別 400、雙人每位 325"/><span className="text-xs text-earth-500">只供免費體驗計算老師分成，依實際報名座位計，不因曠課減少。</span></label>
+    <label>{personnelText("免費體驗老師計費基礎（元）")}<input className={field} name="musicTeacherFeeBase" type="number" min="0" max="1000000" defaultValue={value?.musicTeacherFeeBase ?? ""} placeholder="例：個別 400、雙人每位 325"/><span className="text-xs text-earth-500">{personnelText("只供免費體驗計算老師分成，依實際報名座位計，不因曠課減少。")}</span></label>
     <p className="col-span-full text-xs text-earth-600">音樂教室只使用堂數，每位學員每次上課使用 1 堂。團體課請假仍扣堂，自組課請假可在期限內補課。</p>
   </>;
 }

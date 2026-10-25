@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ type Result = { success: boolean; error?: string; existingCustomerId?: string };
 export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
   isSpa: boolean; staffOptions: {id:string;displayName:string}[]; save:(data:FormData)=>Promise<Result>; returnUrl:string;
 }) {
+  const personnelText = useCoursePersonnelText();
   const router=useRouter();
   const draft=useFormDraft("customer:new", {name:"",phone:"",email:"",gender:"",assignedStaffId:"",lineName:"",serviceNote:"",birthYear:"1970",birthMonth:"",birthDay:""});
   const [state,action,pending]=useActionState(async(previous:{error:string;existingCustomerId:string},data:FormData)=>{
@@ -115,7 +117,7 @@ export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
               <FormSection title="系統關聯" description="可稍後再指派">
                 <div>
                   <label className={labelCls}>
-                    {"所屬店長 / 教練"}
+                    {personnelText("所屬店長 / 教練")}
                   </label>
                   <select name="assignedStaffId" value={draft.values.assignedStaffId} onChange={e => draft.set("assignedStaffId", e.target.value)} className={`mt-1 ${inputCls}`}>
                     <option value="">暫不指派</option>

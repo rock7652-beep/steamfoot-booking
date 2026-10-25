@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import { RosterTable } from "@/components/admin/roster-table";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -24,6 +25,7 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
   onClose:()=>void;onOpenCourse:(sessionId:string)=>void;
   onAttendanceOptimistic?:(items:DailyAttendanceRow[],status:"ATTENDED"|"NO_SHOW"|null)=>void;
 }) {
+  const personnelText = useCoursePersonnelText();
   const router=useRouter();
   const [selected,setSelected]=useState<string[]>([]);
   const [pending,startTransition]=useTransition();
@@ -75,7 +77,7 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
         {kind==="unmarked"&&<button type="button" className="min-h-10 rounded-lg border border-earth-200 px-3 disabled:opacity-50" disabled={pending||!chosen.length} onClick={()=>submit(chosen,"NO_SHOW")}>批次記錄曠課</button>}
       </div>}
       {error&&<p role="alert" className="mx-4 mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-      <div className="overflow-y-auto p-4">{groups.map(group=>group.items.length>0&&<section key={group.label} className="mb-4"><h3 className="sticky top-0 bg-white py-2 text-sm font-semibold text-earth-700">{group.label} · {group.items.length} 人</h3><RosterTable dense label={group.label} widths={["8%","16%","13%","23%","16%","16%","8%"]} columns={["選取","學員","時間","課程","教師","備註","操作"]}>{group.items.map(row=><tr key={row.id}>
+      <div className="overflow-y-auto p-4">{groups.map(group=>group.items.length>0&&<section key={group.label} className="mb-4"><h3 className="sticky top-0 bg-white py-2 text-sm font-semibold text-earth-700">{group.label} · {group.items.length} 人</h3><RosterTable dense label={group.label} widths={["8%","16%","13%","23%","16%","16%","8%"]} columns={["選取","學員","時間","課程",personnelText("教師"),"備註","操作"]}>{group.items.map(row=><tr key={row.id}>
         <td>{canEdit&&actionable.some(item=>item.id===row.id)&&<label className="flex min-h-11 min-w-11 items-center"><input type="checkbox" aria-label={`選取 ${row.name}`} checked={selected.includes(row.id)} disabled={pending} onChange={event=>setSelected(old=>event.target.checked?[...old,row.id]:old.filter(id=>id!==row.id))}/></label>}</td>
         <td className="font-medium">{row.name}</td><td className="tabular-nums">{formatTWDateTime(new Date(row.startsAt)).slice(11,16)}</td><td>{row.course}</td><td>{row.teacher}</td><td>{row.note || "—"}</td>
         <td><ExclusiveMenu label={`${row.name} 更多操作`} triggerText="⋯"><div className="grid gap-1 [&_button]:min-h-11 [&_button]:px-3 [&_button]:text-left [&_button]:text-sm">
