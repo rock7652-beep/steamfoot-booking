@@ -55,6 +55,7 @@
   "git": {
     "deploymentEnabled": {
       "feat/plan-activation-line-notification": false,
+      "feat/beauty-line-production-enable": false,
       "review/beauty-production-integration-20261025": false,
       "feat/default-notice-sound": false,
       "perf/shared-notice-bell-loading": false,

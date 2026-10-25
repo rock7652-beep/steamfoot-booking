@@ -2,9 +2,10 @@ import {beautyModuleChargeRollout} from './beauty-charge-rollout.mjs';
 import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
+import {reviewedBeautyNotificationWorker} from './beauty-notification-release-scope.mjs';
 export const BEAUTY_PRODUCTION_ROLE='steamfoot_beauty_prod_20261025';
 export function validateBeautyProductionRelease(env){
- if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'||env.BEAUTY_HOSTED_PREVIEW!==undefined||
+ if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||!(env.BEAUTY_NOTIFICATIONS_ENABLED==='0'||env.BEAUTY_NOTIFICATIONS_ENABLED==='1'&&reviewedBeautyNotificationWorker(env))||env.BEAUTY_HOSTED_PREVIEW!==undefined||
     env.PRODUCTION_MIGRATION_TARGET||Object.keys(env).some(k=>/(?:_QA|_ACCEPTANCE)$/.test(k)&&env[k]==='1')||
     (env.BEAUTY_CHARGE_RULES_STORE_IDS??'').trim())throw Error('Beauty production release scope is not verified');
  if(env.BEAUTY_CHARGE_RULES_SCOPE!==undefined&&env.BEAUTY_CHARGE_RULES_SCOPE!==''&&env.BEAUTY_CHARGE_RULES_SCOPE!=='stores'&&(env.BEAUTY_CHARGE_RULES_SCOPE!=='module'||!beautyModuleChargeRollout(env)||!['0','1'].includes(env.BEAUTY_CHARGE_EDITING_ENABLED)))throw Error('Beauty charge rollout scope is not verified');
@@ -75,6 +76,38 @@ export async function beautySharedTodosProductionPreflight(env=process.env,creat
   const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
   const sqlState=typeof error?.meta?.code==='string'&&/^[0-9A-Z]{5}$/.test(error.meta.code)?error.meta.code:undefined;
   error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
+ }finally{if(client)await client.$disconnect();}
+}
+
+/** The existing shared notification worker uses the main core connection.
+ * Check its identity and required access read-only; do not grant new privileges. */
+export async function beautyNotificationWorkerPreflight(env=process.env,createClient){
+ if(env.BEAUTY_NOTIFICATIONS_ENABLED==='0')return {notifications:false};
+ validateBeautyProductionRelease(env);
+ if(!reviewedBeautyNotificationWorker(env))throw Error('Beauty notification worker scope is not verified');
+ let client;
+ try {
+  const factory=createClient??(async config=>{const {PrismaClient}=await import('@prisma/client');return new PrismaClient(config);});
+  client=await factory({datasources:{db:{url:env.DATABASE_URL}},log:[]});
+  await client.$connect();
+  await client.$transaction(async tx=>{
+   await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+   const [identity]=await tx.$queryRawUnsafe('SELECT current_user::text AS role,current_database()::text AS database');
+   if(identity?.role!=='postgres'||identity.database!=='postgres')throw Error('Beauty notification worker identity mismatch');
+   const [access]=await tx.$queryRawUnsafe(`SELECT bool_and(has_table_privilege(current_user,format('public.%I',name),privilege)) AS allowed FROM (VALUES
+    ('BeautyEvent','SELECT'),('BeautyEvent','UPDATE'),('BeautySetting','SELECT'),('BeautyPlan','SELECT'),('BeautyCard','SELECT'),('BeautyAppointment','SELECT'),('BeautyLedger','SELECT'),('BeautyPurchase','SELECT'),
+    ('PlanActivationNotification','SELECT'),('PlanActivationNotification','INSERT'),('PlanActivationNotification','UPDATE'),
+    ('MessageLog','SELECT'),('MessageLog','INSERT'),('MessageLog','UPDATE'),('MessageTemplate','SELECT'),('MessageTemplate','INSERT'),('MessageTemplate','UPDATE'),
+    ('Customer','SELECT'),('CustomerIdentityLink','SELECT'),('Account','SELECT'),('Store','SELECT'),('StoreFeatureEntitlement','SELECT'),
+    ('TrialCareLog','SELECT'),('TrialCareLog','INSERT'),('TrialCareLog','UPDATE'),('TrialCareSetting','SELECT'),('TrialCarePreference','SELECT'),
+    ('ManagerNotificationLog','SELECT'),('ManagerNotificationLog','INSERT'),('ManagerNotificationLog','UPDATE'),('StoreLineNotificationRecipient','SELECT')) AS required(name,privilege)`);
+   if(access?.allowed!==true)throw Error('Beauty notification worker privileges missing');
+   await tx.$queryRawUnsafe('SELECT id,"storeId",status,"createdAt" FROM "BeautyEvent" LIMIT 0');
+   await tx.$queryRawUnsafe('SELECT id,"storeId",status,"retryKey",route,"createdAt" FROM "PlanActivationNotification" LIMIT 0');
+  });
+  return {notifications:true,worker:'shared-main-v1',readonly:true};
+ }catch{
+  throw Error('Beauty notification worker preflight failed; no notification sent');
  }finally{if(client)await client.$disconnect();}
 }
 

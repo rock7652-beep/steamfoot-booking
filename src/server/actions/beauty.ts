@@ -396,7 +396,7 @@ async function moveBeautyAppointmentCore(
           data: {
             storeId: a.storeId,
             kind: "MOVED",
-            status: policy.notifications ? "PENDING" : "SKIPPED",
+            status: policy.notifications && !beautyNotificationDeliveryBlocked() ? "PENDING" : "SKIPPED",
             appointmentId: b.id,
             customerId: b.customerId ?? b.group.customerId,
             body: `${b.serviceName}｜${d.date} ${d.time}｜預約改期`,

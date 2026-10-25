@@ -1,3 +1,4 @@
+vi.mock("@/server/beauty/notification-worker-context",()=>({beautyWorkerLineAllowed:vi.fn(async()=>true)}));
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 const m = vi.hoisted(() => ({
   stores: vi.fn(),
@@ -136,4 +137,23 @@ it("expired retry windows never send a possibly duplicated LINE request", async 
   ]);
   await runBeautyNotifications(now);
   expect(m.send).not.toHaveBeenCalled();
+});
+it("retires pre-activation events without backfilling them",async()=>{
+ vi.stubEnv("BEAUTY_NOTIFICATIONS_ACTIVATED_AT","2026-10-20T01:00:00.000Z");
+ m.events.mockResolvedValue([{id:"before-enable",storeId:"s",status:"PENDING",customerId:"c",kind:"BOOKED",createdAt:new Date("2026-10-20T00:00Z")}]);
+ await runBeautyNotifications(now);expect(m.send).not.toHaveBeenCalled();
+ expect(m.eventUpdate).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({createdAt:{lt:new Date("2026-10-20T01:00Z")}}),data:{status:"SKIPPED"}}));
+ expect(m.events.mock.calls[0][0].where.createdAt).toEqual({gte:new Date("2026-10-20T01:00Z")});
+});
+it('does not catch up a reminder whose scheduled time preceded activation',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-20T11:00:00.000Z');
+ m.events.mockResolvedValue([]);
+ await runBeautyNotifications(new Date('2026-10-20T12:00Z'));
+ expect(m.appointments).not.toHaveBeenCalled();
+});
+it('resumes tomorrow reminders at their next scheduled time after activation',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-20T11:00:00.000Z');
+ m.events.mockResolvedValue([]);
+ await runBeautyNotifications(new Date('2026-10-21T10:00Z'));
+ expect(m.appointments).toHaveBeenCalledOnce();
 });

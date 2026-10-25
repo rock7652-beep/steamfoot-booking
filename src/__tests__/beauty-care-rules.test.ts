@@ -1,3 +1,4 @@
+vi.mock("@/server/beauty/notification-worker-context",()=>({beautyWorkerLineAllowed:vi.fn()}));
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {beautyPlanReminderKinds,readBeautyExpiry,beautyPlanStopped,beautyPlanReminderSchema} from '@/lib/beauty/reminders';
 vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:vi.fn()}));vi.mock('@/server/services/course-card-notification-delivery',()=>({deliverCourseCardNotification:vi.fn()}));
