@@ -1,0 +1,21 @@
+.body{padding:14px 20px;min-height:0;overflow:auto;flex:1;color:var(--color-primary-900,#273c35)}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:block;min-width:0;font-size:14px;font-weight:600;margin-bottom:10px}
+.field input,.field select{display:block;width:100%;min-width:0;min-height:44px;border:1px solid #ccd5ce;border-radius:8px;padding:8px 10px;margin-top:4px;background:white;font:inherit;font-size:16px;font-weight:400}
+.body small{display:block;font-size:13px;line-height:1.5;font-weight:400;color:#6c7870;margin-top:4px}
+.duration{margin:-3px 0 10px!important}
+.plan{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px;align-items:center}
+.share{display:flex;align-items:center;gap:6px;font-size:14px;min-height:44px;cursor:pointer}
+.share input,.techs input{width:18px;height:18px;flex-shrink:0;accent-color:#275f50}
+.details{border:1px solid #dce3dc;border-radius:10px;margin:0 0 8px}
+.details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px 12px;font-size:14px;font-weight:600;list-style:none}
+.details summary:after{content:'⌄'}.details[open] summary:after{content:'⌃'}
+.summary{margin-left:auto;color:#60746a;font-weight:400;font-size:13px}
+.techs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 6px;max-height:192px;overflow:auto;border-top:1px solid #e7ebe6;padding:4px 8px}
+.techs label{display:flex;align-items:center;gap:8px;min-width:0;min-height:44px;padding:2px 4px;font-size:15px;overflow-wrap:anywhere;cursor:pointer;border-radius:7px}
+.techs label:has(input:checked){background:#edf5ef}
+.note{font-size:13px;color:#69766f;margin:0;line-height:1.5}
+.footer{padding:10px 20px;display:flex;align-items:center;justify-content:flex-end;gap:10px;border-top:1px solid #e8ebe6;flex-shrink:0}
+.footer small{margin-right:auto;color:#69766f;font-size:12px}
+.error{font-size:14px;color:#b42318;margin-top:8px}
+@media(max-width:480px){.body{padding:12px 14px}.pair{gap:10px}.techs{grid-template-columns:repeat(2,minmax(0,1fr))}.plan{grid-template-columns:1fr 1fr;gap:8px}.share{grid-column:1/-1}.footer{padding:10px 14px}.footer small{font-size:11px}}

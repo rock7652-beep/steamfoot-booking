@@ -1,3 +1,4 @@
+import {beautyChargeRulesEnabled,readChargeCatalogForUi} from './charge-runtime';
 import {beautyScheduleRange,beautyNativeCalendarRange} from '@/lib/beauty/calendar';
 import {getManagerCustomerWhere} from "@/lib/manager-visibility";
 import {beautyHealthEnabled} from "./health";
@@ -387,6 +388,8 @@ export async function beautyDashboard(
   const assignmentStaff=customerAccess?await prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[];
   const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId)):[];
   return {
+    chargeRulesActive:beautyChargeRulesEnabled(a.storeId),
+    chargeCatalog:beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?await readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
     assignmentStaff,
     displayOrders,
     rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",customerPhone:customerAccess?r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),

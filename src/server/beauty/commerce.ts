@@ -1,3 +1,5 @@
+import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
+import {snapshotStoredChargeRule} from '@/lib/beauty/charge-rule-storage';
 import "server-only";
 import {serviceCharges} from "./service-charges";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
@@ -127,7 +129,7 @@ export async function issueCard(
   tx: Tx,
   a: BeautyActor,
   d: z.infer<typeof cardInput>,
-  frozen?: Omit<BeautyPlan,"expiryReminder">,
+  frozen?: Pick<BeautyPlan,'id'|'storeId'|'name'|'sessions'|'price'|'validDays'|'serviceIds'|'allowShared'|'revision'> & {chargeRuleSnapshot?:unknown},
   options?: {expiresDate:string;expectedListPrice:number;transferLastFour?:string},
 ) {
   return command(tx, a, d.requestKey, options?{...d,options}:d, async () => {
@@ -137,6 +139,7 @@ export async function issueCard(
         where: { id: d.planId, storeId: a.storeId, active: true },
       }));
     if (!p) throw new AppError("NOT_FOUND", "找不到有效方案");
+    const chargeSnapshot=beautyChargeRulesEnabled(a.storeId)?frozen?snapshotStoredChargeRule(frozen.chargeRuleSnapshot===undefined?null:frozen.chargeRuleSnapshot,{storeId:a.storeId,chargeId:`plan:${p.id}`,revision:p.revision,serviceIds:p.serviceIds},a.storeId,'snapshot'):(await readCatalogCharge(tx,a.storeId,'plan',p.id)).snapshot:null;
     if(options){
       if(!a.manager)throw new AppError("FORBIDDEN","此到期日設定僅供後台使用");
       if(options.expectedListPrice!==p.price)throw new AppError("CONFLICT","方案售價已更新，請重新核對");
@@ -169,6 +172,7 @@ export async function issueCard(
         expiresAt: dayRange(options?.expiresDate??addTaiwanDuration(toLocalDateStr(), p.validDays, "DAY")).end,
       },
     });
+    if(chargeSnapshot)await writeCardCharge(tx,a.storeId,card.id,chargeSnapshot);
     await tx.beautyLedger.create({
       data: {
         storeId: a.storeId,

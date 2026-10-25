@@ -1,3 +1,5 @@
+import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
+import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
 import { getStoreFeaturePresentations } from "@/lib/feature-gate";
 import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -315,6 +317,7 @@ async function readDashboardLayout({
     >
       <PreviewNavigationReporter />
       <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await settingsStep("read_labels", loadCustomerLabels) : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
+      {industryModule==='beauty'&&!hqPlatform&&!storeViewContext?.isViewMode&&activeStoreId&&beautyChargeRulesEnabled(activeStoreId)&&permissions.includes('business_hours.view')&&permissions.includes('plans.edit')&&permissions.includes('staff.view')&&<Suspense fallback={null}><BeautySetupNavigation/></Suspense>}
       <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
     </OperationAuditAccessProvider>

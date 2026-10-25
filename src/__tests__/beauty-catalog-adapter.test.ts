@@ -11,7 +11,7 @@ import {nativeBeautyPlan} from '@/lib/beauty/native-plan';
 import {createBeautyCatalogAdapter} from '@/components/beauty/catalog-adapter';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const service={id:'service',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true};
-const plan={storeId:'store',expiryReminder:{enabled:false,days:[14,7]},id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
+const plan={chargeTechnicianRule:null,storeId:'store',expiryReminder:{enabled:false,days:[14,7]},id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
 const data={storeId:'store',services:[service],plans:[plan],locations:[{id:'room',name:'空間',isActive:true,category:'A',details:'備註',equipment:'設備',location:'二樓'}]} as unknown as BeautyDashboardData;
 beforeEach(()=>{vi.resetAllMocks();m.plan.mockImplementation(async input=>{if(input.unit!=='SESSION'||input.sportsMode==='OPEN')return {success:false,error:'unsupported'};return {success:true,storeId:'store',data:nativeBeautyPlan({...plan,...input,id:input.id??'new',revision:(input.revision??0)+1,serviceIds:[input.subjectId]})};});m.catalog.mockImplementation(async(_kind,input)=>({success:true,data:{saved:true,record:{...input,id:input.id??'new',revision:input.revision+1}}}));});
 it('changing service duration preserves both prices, returns the authoritative revision, and rejects stale source',async()=>{
@@ -66,3 +66,4 @@ it.each([{lowBalanceEnabled:true,lowBalanceThreshold:null},{lowBalanceEnabled:fa
  await a.form.save({sportsMode:'ASSIGNED',subjectId:'service',unit:'SESSION',name:plan.name,points:7,price:6500,validDays:80,templateIds:['service'],allowShared:true,customerPurchasable:false,isActive:true},a.products[0]);
  expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceEnabled');expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceThreshold');
 });
+it('new charge mode keeps legacy advanced editing from changing global qualifications or using the old pricing writer',async()=>{const a=createBeautyCatalogAdapter('收費方式',{...data,chargeRulesActive:true},true,m.refresh);expect(a.form.canEditCoaches).toBe(false);expect(a.form.servicePricing).toBeUndefined();const value=a.form.values!({sportsMode:'LEGACY',subjectId:'service',name:plan.name,points:7,price:6500,validDays:80,coachIds:['forged'],isActive:true,allowShared:true,customerPurchasable:false},a.products[0]);expect(value).not.toHaveProperty('qualification');});

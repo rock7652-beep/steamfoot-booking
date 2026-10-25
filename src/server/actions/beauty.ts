@@ -1,4 +1,5 @@
 "use server";
+import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
 import {traceBeautyRead} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
 import {persistBeautyCatalog} from '@/server/beauty/catalog';
@@ -550,7 +551,7 @@ export async function requestBeautyPlan(input: unknown) {
             storeId: a.storeId,
             customerId: a.customerId!,
             planId: plan.id,
-            snapshot: plan,
+            snapshot: beautyChargeRulesEnabled(a.storeId)?{...plan,chargeRuleSnapshot:(await readCatalogCharge(tx,a.storeId,'plan',plan.id)).snapshot}:plan,
             lastFour: d.lastFour,
           },
         });
@@ -595,7 +596,7 @@ export async function confirmBeautyPurchase(input: unknown) {
             paid: snapshot.price,
             method: "BANK_TRANSFER",
           },
-          { ...snapshot, id: snapshot.id, storeId: a.storeId },
+          { ...snapshot, id: snapshot.id, storeId: a.storeId,chargeRuleSnapshot:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'chargeRuleSnapshot' in order.snapshot?order.snapshot.chargeRuleSnapshot:null },
         );
         await tx.beautyPurchase.update({
           where: { id: order.id },
@@ -821,7 +822,7 @@ export async function readBeautyMoveSlots(
           },
           [b.id],
           undefined,
-          loaded,
+          loaded,false,{serviceId:b.serviceId,duration:b.duration,buffer:b.buffer},
         );
         slots.push(time);
       } catch (e) {

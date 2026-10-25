@@ -1,3 +1,4 @@
+import {beautyChargeRulesEnabled,isEmptyBeautyStore,readCatalogCharge,readCardCharge,readAppointmentCharge,chargeAllowedIds,writeAppointmentCharge} from './charge-runtime';
 import {assertBeautyTrialEligibility} from "./trial-eligibility";
 import {beautyPaymentVisibility} from "./transaction-revisions";
 import "server-only";
@@ -52,13 +53,16 @@ export async function assertCustomerAvailable(
   })) throw new AppError("CONFLICT", "服務者已有重疊預約，請改選其他時間");
 }
 export async function settings(tx: Tx, storeId: string) {
+  const current=await tx.beautySetting.findUnique({where:{storeId}});
+  if(current)return current;
+  const selfBooking=beautyChargeRulesEnabled(storeId)&&await isEmptyBeautyStore(tx,storeId)?false:true;
   return (
-    (await tx.beautySetting.findUnique({ where: { storeId } })) ?? {
+    {
       storeId,
       revision: 0,
       notifications: false,
       backendNoticesEnabled:true,
-      selfBooking: true,
+      selfBooking,
       selfCancel: true,
       selfReschedule: true,
       cancelDeduct: false,
@@ -121,6 +125,8 @@ export async function loadAvailability(
   const rule=serviceDayRule({hours,specials:specials.map((s,i)=>({...s,id:String(i)})),overrides},date);
   const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.inRange&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
   return {
+    catalogChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCatalogCharge>>>>(),
+    cardChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCardCharge>>>>(),
     services,
     technicians,
     locations,
@@ -154,10 +160,12 @@ export async function findAllocation(
   loaded?: Awaited<ReturnType<typeof loadAvailability>>,
   allowPast = false,
   serviceSnapshot?:{serviceId:string;duration:number;buffer:number},
+  trustedChargeSnapshots?:Awaited<ReturnType<typeof readCardCharge>>[],
 ) {
   if (!a.manager && d.people.some(p=>p.specifiedLocationId)) throw new AppError("FORBIDDEN", "位置由店家安排");
   const startsAt = parseTaipeiDateTime(d.date, d.time);
   if (!startsAt) throw new AppError("VALIDATION", "日期時間無效");
+  const availability=loaded??await loadAvailability(tx,a,d.date,excludeIds);
   const {
     services,
     technicians,
@@ -169,7 +177,7 @@ export async function findAllocation(
     slots,
     memberSlots,
     rentalOccupancy=[],
-  } = loaded ?? (await loadAvailability(tx, a, d.date, excludeIds));
+  } = availability;
   if (
     !allowPast &&
     (startsAt.getTime() <= Date.now() + policy.leadMinutes * 60000 ||
@@ -180,10 +188,39 @@ export async function findAllocation(
     throw new AppError("VALIDATION", "此開始時間未開放，請依營業預約單位選擇");
   if(d.expectedArrangement&&!a.manager)throw new AppError("FORBIDDEN","位置由店家安排");
   if(d.expectedArrangement?.some((assigned,i)=>!d.people[i]||(d.people[i].specifiedTechnicianId&&d.people[i].specifiedTechnicianId!==assigned.technicianId)||(d.people[i].specifiedLocationId&&d.people[i].specifiedLocationId!==assigned.locationId)))throw new AppError("CONFLICT","指定安排已變更，請重新核對");
+  let chargeSnapshots:Awaited<ReturnType<typeof readCardCharge>>[]|undefined;
+  if(beautyChargeRulesEnabled(a.storeId)){
+    chargeSnapshots=[];
+    if(trustedChargeSnapshots){
+      if(trustedChargeSnapshots.length!==d.people.length)throw new AppError('CONFLICT','收費核對人數不符');
+      chargeSnapshots=trustedChargeSnapshots;
+    }
+    const original=excludeIds.length===1?await readAppointmentCharge(tx,a.storeId,excludeIds[0]):null;
+    for(const p of trustedChargeSnapshots?[]:d.people){
+      if(original){
+        if(d.people.length!==1||p.serviceId!==original.item.serviceId)throw new AppError('CONFLICT','改期服務與原預約不符');
+        chargeSnapshots.push(original.snapshot);
+      }else if(p.cardId){
+        if(p.isTrial??d.isTrial)throw new AppError('VALIDATION','體驗不使用一般方案');
+        const card=await assertCard(tx,a,p.cardId,p.customerId,p.serviceId,startsAt,undefined,p.pendingIdentity?(a.customerId??d.people[0]?.customerId):undefined);
+        const cacheKey=a.storeId+':'+card.id;
+        let pending=availability.cardChargeCache?.get(cacheKey);
+        if(!pending){pending=readCardCharge(tx,a.storeId,card);availability.cardChargeCache?.set(cacheKey,pending);}
+        chargeSnapshots.push(await pending);
+      }else{
+        const cacheKey=a.storeId+':'+p.serviceId;
+        let pending=availability.catalogChargeCache?.get(cacheKey);
+        if(!pending){pending=readCatalogCharge(tx,a.storeId,'single',p.serviceId);availability.catalogChargeCache?.set(cacheKey,pending);}
+        const charge=await pending;
+        if(charge.row.singlePriceConfigured===false)throw new AppError('BUSINESS_RULE','此服務尚未完成收費設定');
+        chargeSnapshots.push(charge.snapshot);
+      }
+    }
+  }
   const result = allocateParty({
     date: d.date,
     startsAt,
-    people:d.people.map((p,i)=>({...p,isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
+    people:d.people.map((p,i)=>({...p,...(chargeSnapshots?{allowedTechnicianIds:chargeAllowedIds(chargeSnapshots[i],a.storeId,p.serviceId)}:{}),isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
     services:serviceSnapshot?services.map(s=>s.id===serviceSnapshot.serviceId?{...s,duration:serviceSnapshot.duration,buffer:serviceSnapshot.buffer,trialDuration:null}:s):services,
     technicians,
     locationIds: locations
@@ -211,7 +248,7 @@ export async function findAllocation(
     !excludeIds.includes(o.id) && o.startsAt < result[index].occupiedEndsAt &&
     o.occupiedEndsAt > startsAt,
   ))) throw new AppError("CONFLICT", "服務者已有重疊預約，請改選其他時間");
-  return { startsAt, services, policy, result };
+  return { startsAt, services, policy, result, chargeSnapshots };
 }
 export async function assertCard(
   tx: Tx,
@@ -267,7 +304,7 @@ export async function reserveParty(
       const contact = d.people.find((p) => p.phone === d.phone);
       if (contact) contact.customerId = groupCustomerId;
     }
-    const { startsAt, services, policy, result } = await findAllocation(
+    const { startsAt, services, policy, result, chargeSnapshots } = await findAllocation(
       tx,
       a,
       d,
@@ -384,6 +421,7 @@ export async function reserveParty(
           notes: p.notes,
         },
       });
+      if(chargeSnapshots)await writeAppointmentCharge(tx,a.storeId,item.id,chargeSnapshots[i]);
       ids.push(item.id);
       await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,item,"BOOKING");
       if (p.cardId)

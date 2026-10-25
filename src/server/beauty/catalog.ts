@@ -1,4 +1,5 @@
 import 'server-only';
+import {beautyChargeRulesEnabled,beautyChargeEditingEnabled,maintainCatalogCharge,initializeEmptyBeautyOpening} from './charge-runtime';
 import {Prisma} from '../../../generated/beauty-client';
 import {AppError} from '@/lib/errors';
 import {toLocalDateStr} from '@/lib/date-utils';
@@ -17,6 +18,7 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
             where: { storeId: a.storeId, id, revision },
           });
           if (!prior) throw new AppError("CONFLICT", "服務已更新，請重新開啟");
+          if(beautyChargeRulesEnabled(a.storeId)&&(d.price!==prior.price||d.trialPrice!==prior.trialPrice||(d.trialDuration??null)!==(prior.trialDuration??null)))throw new AppError("CONFLICT","請使用新版收費方式設定價格及體驗");
           if (
             !d.active &&
             (await tx.beautyAppointment.count({
@@ -32,10 +34,14 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
             where: { id },
             data: { ...values, revision: { increment: 1 } },
           });
-        } else
+        } else {
+          await initializeEmptyBeautyOpening(tx,a.storeId);
           record = await tx.beautyService.create({ data: { ...values, storeId: a.storeId } });
+        }
       } else if (kind === "plan") {
+        if(beautyChargeRulesEnabled(a.storeId)&&!beautyChargeEditingEnabled(a.storeId))throw new AppError("FORBIDDEN","收費編輯目前暫停，原有預約限制仍生效");
         const { id, revision, ...d } = planInput.parse(input);
+        if(!id&&beautyChargeRulesEnabled(a.storeId))throw new AppError("CONFLICT","請使用新版收費方式建立方案");
         if (
           (await tx.beautyService.count({
             where: { storeId: a.storeId, id: { in: d.serviceIds } },
@@ -118,6 +124,7 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
             data: { ...d, storeId: a.storeId },
           });
       }
+      if(kind!=='technician')await maintainCatalogCharge(tx,a.storeId,kind,record as {id:string;revision:number;serviceIds?:string[]},!(input as {id?:string}).id);
       await audit(tx, a, "CATALOG", JSON.stringify({ kind, input }));
       return { saved: true, record };
 }

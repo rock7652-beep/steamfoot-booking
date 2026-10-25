@@ -30,6 +30,8 @@ export type Occupancy = Range & {
   status: string;
 };
 export type Person = {
+  /** Trusted server-resolved per-charge restriction; absent preserves legacy allocation. */
+  allowedTechnicianIds?: readonly string[];
   isTrial?:boolean;
   serviceId: string;
   preference: "FEMALE" | "MALE" | "ANY";
@@ -120,6 +122,7 @@ export function allocateParty(input: {
     const techs = ordered.filter(
       (t) =>
         (!p.specifiedTechnicianId || t.id === p.specifiedTechnicianId) &&
+        (p.allowedTechnicianIds === undefined || p.allowedTechnicianIds.includes(t.id)) &&
         t.serviceIds.includes(s.id) &&
         (p.preference === "ANY" || t.gender === p.preference) &&
         availableTechnician(t, day, start, end) &&

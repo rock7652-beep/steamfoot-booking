@@ -1,4 +1,5 @@
 "use server";
+import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
 import {z} from 'zod';
 import {revalidatePath} from 'next/cache';
 import {beautyManager,beautyTransaction,command} from '@/server/beauty/access';
@@ -16,6 +17,7 @@ export async function saveBeautyNativePlan(input:unknown){
   const a=await beautyManager('plans.edit',true);await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
   const d=z.object({expectedStoreId:key,requestKey:z.string().uuid(),id:key.optional(),revision:z.number().int().nonnegative().optional(),unit:z.literal('SESSION'),sportsMode:z.enum(['ASSIGNED','LEGACY']),subjectId:key,name:z.string(),sessions:z.number(),price:z.number(),validDays:z.number(),active:z.boolean(),allowShared:z.boolean(),customerPurchasable:z.boolean(),lowBalanceEnabled:z.boolean().optional(),lowBalanceThreshold:planInput.shape.lowBalanceThreshold.optional(),qualification:z.object({coachIds:z.array(key).min(1,'請至少選一位可服務技師').max(200),expectedCoachIds:z.array(key).max(200),serviceRevision:z.number().int().nonnegative()}).optional()}).parse(input);
   if(d.expectedStoreId!==a.storeId)throw new AppError('CONFLICT','門市已切換，請重新開啟收費方式');
+  if(d.qualification&&beautyChargeRulesEnabled(a.storeId))throw new AppError('CONFLICT','請在技師管理修改服務資格，收費方式僅設定方案限制');
   if(d.qualification){await requirePermission('staff.manage');await requirePermission('teacher.compensation.manage');await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);await requireStoreFeature(a.storeId,FEATURES.STAFF_MANAGEMENT);}
   const receipt=await beautyTransaction(a,tx=>command(tx,a,d.requestKey,{operation:'native-plan',...d},async()=>{
    const prior=d.id?await tx.beautyPlan.findFirst({where:{id:d.id,storeId:a.storeId}}):null;
