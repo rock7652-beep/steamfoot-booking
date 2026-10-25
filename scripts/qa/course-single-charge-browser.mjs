@@ -52,17 +52,17 @@ try{
  await page.goto('https://synthetic.invalid/dashboard/courses');await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
  await page.getByLabel('驗收模組').waitFor({timeout:5000}).catch(()=>{throw Error(JSON.stringify(errors));});
  const results=[];
- for(const module of ['music','sports']){
-  await page.getByLabel('驗收模組').selectOption(module);
+ for(const moduleName of ['music','sports']){
+  await page.getByLabel('驗收模組').selectOption(moduleName);
   if(await page.getByLabel('收費類型',{exact:true}).inputValue()!=='single')throw Error('Default is not single');
   await page.getByLabel('體驗價',{exact:true}).fill('0');await page.getByLabel('體驗時間',{exact:true}).fill('20');
   for(const [width,height] of [[1366,900],[1024,768],[768,1024],[390,844]]){
    await page.setViewportSize({width,height});
-   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Overflow '+module+'/'+width);
+   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Overflow '+moduleName+'/'+width);
    if(await page.getByLabel('體驗時間',{exact:true}).inputValue()!=='20')throw Error('Draft lost on resize');
-   await page.screenshot({path:path.join(output,module+'-'+width+'.png'),fullPage:true});results.push({module,width,height,overflow:false,draftRetained:true});
+   await page.screenshot({path:path.join(output,moduleName+'-'+width+'.png'),fullPage:true});results.push({module:moduleName,width,height,overflow:false,draftRetained:true});
   }
-  if(module==='sports'){
+  if(moduleName==='sports'){
    await page.getByLabel('方案適用方式').selectOption('OPEN');
    if(await page.getByLabel('體驗價',{exact:true}).count())throw Error('Open selection exposes individual trial price');
    if(!await page.getByText('開放選課沿用店家預設體驗費，時間依所選課程。').count())throw Error('Missing default trial explanation');
