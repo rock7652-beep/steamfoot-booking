@@ -254,7 +254,7 @@ export async function saveCoursePointPlan(input: unknown) {
     }
     if(data.chargeSettings){
       if(data.chargeSettings.kind==='single'&&(data.points!==1||data.unit!=='SESSION'))throw new AppError('VALIDATION','單次收費須為一堂');
-      if(data.sportsMode==='OPEN'&&(data.chargeSettings.trialPrice!==null||data.chargeSettings.trialDuration!==null))throw new AppError('VALIDATION','開放選課沿用店家體驗費與課程時間');
+      if(data.sportsMode==='OPEN'&&(data.chargeSettings.trialPrice!==null||data.chargeSettings.trialDuration!==null||data.chargeSettings.trialStoreCost!=null))throw new AppError('VALIDATION','開放選課沿用店家體驗費與課程時間');
       await assertChargeProviders(tx,storeId,data.templateIds,data.chargeSettings);
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;

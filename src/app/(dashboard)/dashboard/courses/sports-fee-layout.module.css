@@ -53,12 +53,16 @@
 .providerList label { display: flex; align-items: center; min-height: 44px; gap: 8px; overflow-wrap: anywhere; }
 .providerList input { flex-shrink: 0; }
 @container (min-width: 680px) {
+ .feeTabs[data-has-trial="false"] { display: none; }
+ .panes[data-has-trial="false"] { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+ .panes[data-has-trial="false"] .pane[data-active] { display: grid; }
+ .panes[data-has-trial="false"] .providerList { max-height: 220px; }
+ .panes[data-has-trial="false"] .pane h3 { display: block; grid-column: 1 / -1; font-weight: 600; color: var(--color-primary-800); }
+}
+@container (min-width: 980px) {
  .feeTabs { display: none; }
- .panes { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+ .panes[data-has-trial="true"] { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }
  .pane[data-active] { display: grid; }
  .providerList { max-height: 220px; }
  .pane h3 { display: block; grid-column: 1 / -1; font-weight: 600; color: var(--color-primary-800); }
 }
-
-.trialGrid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
-.trialGrid > label { min-width: 0; }

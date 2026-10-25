@@ -40,3 +40,11 @@ it("新版編輯既有收費不再改寫教學項目的全體授課資格",async
  expect(m.savePlan).toHaveBeenCalledWith(expect.objectContaining({templateIds:["existing-template"],sportsSetup:undefined}));
  expect(m.manager.mock.calls.map(call=>call[0])).not.toContain("staff.manage");
 });
+
+it("儲存一般與體驗成本不再將店家成本改成零",async()=>{
+ const {saveSportsFee}=await import("@/server/actions/sports-staging");m.savePlan.mockResolvedValue({success:true});
+ const data={sportsMode:"ASSIGNED",subject:"subject",name:"舞蹈單堂",unit:"堂數",amount:1,price:600,storeCost:350,days:90,cost:1,shared:false,requestKey:"00000000-0000-4000-8000-000000000001",chargeSettings:{kind:"single",durationMinutes:60,trialPrice:300,trialDuration:30,trialStoreCost:120,providerIds:["coach"]}};
+ expect(await saveSportsFee(data)).toMatchObject({success:true});
+ expect(m.savePlan).toHaveBeenCalledWith(expect.objectContaining({storeCost:350,chargeSettings:expect.objectContaining({trialStoreCost:120})}));
+ m.savePlan.mockClear();expect(await saveSportsFee({...data,storeCost:-1})).toMatchObject({success:false});expect(m.savePlan).not.toHaveBeenCalled();
+});

@@ -483,7 +483,7 @@ export function CourseMemberWorkspace({
         <SettingsPanelContext.Provider value={supportGuard.context}><RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
           onClose={close}
-          width={customerPanel ? (source?880:1100) : panel === "assign" || panel === "plan" ? 920 : 640}
+          width={customerPanel ? (source?880:1100) : panel === "plan"&&sportsData ? 1120 : panel === "assign" || panel === "plan" ? 920 : 640}
           fixedHeight={customerPanel || panel === "plan"}
           maxHeight={customerPanel ? 900 : panel === "plan"&&sportsData ? 760 : 680}
           fitContent={panel==="service-price"||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
