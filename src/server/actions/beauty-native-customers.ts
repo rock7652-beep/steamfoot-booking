@@ -120,7 +120,7 @@ export async function assignBeautyNativeCard(input:Record<string,unknown>){retur
 async function assignBeautyNativeCardCore(input:Record<string,unknown>){
  let committed=false;
  try{
-  const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id}).parse(input);
+  const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id,beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional()}).parse(input);
   const a=await beautyManager('wallet.create',true);await beautyManager('transaction.create',true);await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
   if(d.expectedStoreId!==a.storeId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟結帳');
   const s=await scope('customer.read',{customerIds:[d.customerId]});if(s.storeId!==a.storeId)throw new AppError('CONFLICT','店家已切換');customerExists(s,d.customerId);
@@ -128,7 +128,7 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   if(d.discountValue)await beautyManager('wallet.adjust',true);
   if(d.paymentMethod==='BANK_TRANSFER'&&!/^\d{4}$/.test(d.transferLastFour))throw new AppError('VALIDATION','請填寫轉帳末四碼');
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
-  const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,transferLastFour:d.transferLastFour}));
+  const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour}));
   committed=true;let syncWarning=false;try{revalidatePath('/dashboard/beauty');}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning};
  }catch(error){return {...failure(error),uncertain:committed||settingsSaveUncertain(error)};}
 }

@@ -80,6 +80,7 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
     { key: "amount", header: "原金額", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}</span> },
     { key: "status", header: "狀態", accessor: (r) => <span className="whitespace-nowrap">{labels[r.status] ?? "需核對"}</span> },
     { key: "staff", header: "核帳人員", accessor: (r) => {const name=staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—";return <span className="block max-w-28 truncate whitespace-nowrap" title={name}>{name}</span>;} },
+    ...(source?.columns??[]),
     { key: "action", header: "處理", noLink: true, accessor: (r) => {const allocation=r.storeCostSnapshot==null?"舊交易待補":r.status==="VOIDED"?"已作廢":(()=>{const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return `店家 NT$ ${a.storeAmount.toLocaleString()}／開發人 NT$ ${a.developerAmount.toLocaleString()}`;})();return source?source.actions(r):<CourseTransactionActions quiet={native} order={r} allocationSummary={allocation} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} />;} },
   ];
   const income = receiptTotals.purchases; const refund = receiptTotals.refunds;
