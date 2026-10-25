@@ -1,4 +1,6 @@
 "use server";
+import {courseChargeSnapshot} from "@/lib/course-charge-settings";
+import {resolveScheduleCharge} from "@/server/services/course-charge";
 import {assertCourseSchedulingMode} from "@/server/services/course-scheduling-modes";
 import { sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
@@ -482,6 +484,18 @@ export async function createCourseSchedule(input: unknown) {
     const data = courseScheduleInput
       .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    const chargeDefaults=data.chargePlanId?await (await import('@/lib/shop-config')).getTrialSettings(storeId):null;
+    const receiptSession=data.chargePlanId?await coursePrisma.courseSession.findFirst({where:{storeId,requestKey:data.requestKey,createdById:user.id},orderBy:{requestIndex:'asc'}}):null;
+    const captured=courseChargeSnapshot.safeParse(receiptSession?.chargeSnapshot);
+    const chargeQuote=captured.success&&captured.data.planId===data.chargePlanId?{snapshot:captured.data,duration:Math.round((+receiptSession!.endsAt-+receiptSession!.startsAt)/60000),trialPrice:captured.data.isTrial?captured.data.trialPrice:null}:await resolveScheduleCharge(coursePrisma,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+    if(chargeQuote){
+      data.durationMinutes=chargeQuote.duration;
+      if(data.isTrial){
+        if(!chargeDefaults?.trialEnabled)throw new AppError('FORBIDDEN','店家體驗功能已關閉');
+        data.learners=data.learners.map(row=>({...row,trialPrice:chargeQuote.trialPrice!}));
+        if(data.sportsStaging)data.sportsStaging.trialPrice=chargeQuote.trialPrice!;
+      }
+    }
     if(data.sportsStaging){
       requireSportsStaging(storeId);
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
@@ -491,7 +505,7 @@ export async function createCourseSchedule(input: unknown) {
         const {getTrialSettings,clampTrialTotal}=await import('@/lib/shop-config');
         const settings=await getTrialSettings(storeId);
         if(!settings.trialEnabled)throw new AppError('FORBIDDEN','店家體驗功能已關閉');
-        data.sportsStaging.trialPrice=clampTrialTotal(data.sportsStaging.trialPrice,1,settings);
+        data.sportsStaging.trialPrice=chargeQuote?.trialPrice??(data.sportsStaging.enrollment==='OPEN'?settings.trialDefaultPrice:clampTrialTotal(data.sportsStaging.trialPrice,1,settings));
       }
     }
     const musicScheduling = data.enrollmentMode !== undefined;
@@ -524,7 +538,7 @@ export async function createCourseSchedule(input: unknown) {
       if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
       const {readTeachingTrialPrice}=await import("@/server/services/music-teaching-item");
       const trialTemplate=await readTeachingTrialPrice(coursePrisma,storeId,data.templateId);
-      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:courseTrialPrice(musicScheduling&&data.isTrial?undefined:learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
+      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:chargeQuote?.trialPrice??courseTrialPrice(musicScheduling&&data.isTrial?undefined:learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
     }
     if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
     if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
@@ -568,6 +582,7 @@ export async function createCourseSchedule(input: unknown) {
                 session.coachId !== data.coachId ||
                 session.capacity !== data.capacity ||
                 session.isTrial !== data.isTrial ||
+                (data.chargePlanId!==undefined && (session.chargeSnapshot as {planId?:string}|null)?.planId!==data.chargePlanId) ||
                 session.bookingAudience !== data.bookingAudience ||
                 (session.scheduleType ?? "LEGACY") !== data.scheduleType ||
                 (session.enrollmentMode ?? "OPEN") !== (data.enrollmentMode ?? "OPEN") ||
@@ -715,6 +730,8 @@ export async function createCourseSchedule(input: unknown) {
           );
           if (fixedOrigin) throw new AppError("CONFLICT", "原固定課保留此時段；可排單次臨時課，不可再排固定課");
         }
+        const lockedCharge=await resolveScheduleCharge(tx,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+        if(JSON.stringify(lockedCharge)!==JSON.stringify(chargeQuote))throw new AppError('CONFLICT','收費方式已有更新，請重新確認');
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
@@ -726,6 +743,7 @@ export async function createCourseSchedule(input: unknown) {
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
+            ...(chargeQuote?{chargeSnapshot:chargeQuote.snapshot}:{}),
             isTrial:data.isTrial,
             bookingAudience:data.bookingAudience,
             scheduleType:data.scheduleType,

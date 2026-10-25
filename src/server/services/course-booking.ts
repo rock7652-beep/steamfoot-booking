@@ -1,3 +1,4 @@
+import {courseChargeSettings,courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { resolveSportsEntitlement, sportsEntitlementSnapshot, type SportsEntitlementFields } from "@/lib/sports-entitlement";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { isMusicCourseStore, readCourseBusinessProfile } from "./course-business-profile";
@@ -220,6 +221,14 @@ export async function reserveCourseInTransaction(
     const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
     if (!music.length) return fail("待繳費排課僅適用音樂模組");
   }
+  if(input.cardId===null&&!deferred){
+    const pricedSession=await tx.courseSession.findFirst({where:{id:input.sessionId,storeId},select:{chargeSnapshot:true}});
+    if(pricedSession?.chargeSnapshot){
+      const quote=courseChargeSnapshot.parse(pricedSession.chargeSnapshot);
+      if(quote.trialPrice===null)return fail('此收費方式未開放體驗');
+      input.trialPrice=quote.trialPrice;
+    }
+  }
   const previous = await tx.courseBooking.findUnique({
     where: { storeId_requestKey: { storeId, requestKey: input.requestKey } },
   });
@@ -253,7 +262,7 @@ export async function reserveCourseInTransaction(
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
-      include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { allowShared: true } } },
+      include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { allowShared: true,chargeSettings:true } } },
     }) : Promise.resolve(null),
     tx.courseBookingRule.findUnique({ where: { storeId } }),
     input.customerId ? tx.$queryRaw<
@@ -304,6 +313,16 @@ export async function reserveCourseInTransaction(
     }
     if(rule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
     if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||rule?.enrollment!=='OPEN'||rule.planId!==null))return fail('此課未開放體驗預約');
+  }
+  const cardCharge=courseChargeSettings.safeParse(card?.plan?.chargeSettings);
+  if(session&&cardCharge.success&&!cardCharge.data.providerIds.includes(session.coachId))return fail('此方案未開放所選授課人員');
+  if(session?.chargeSnapshot){
+    const charge=courseChargeSnapshot.parse(session.chargeSnapshot);
+    if(charge.isTrial&&card)return fail('體驗課請使用體驗預約');
+    if(!card&&!deferred){
+      if(charge.trialPrice===null)return fail('此收費方式未開放體驗');
+      input.trialPrice=charge.trialPrice;
+    }
   }
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
   const unidentifiedTrial=input.cardId===null&&!input.customerId&&!input.companionIndex&&!!input.customerName?.trim()&&input.customerName.length<=80&&!actor.customerId;

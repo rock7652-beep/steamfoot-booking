@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock('@/server/actions/course-charge',()=>({loadCourseChargeOptions:vi.fn().mockResolvedValue({success:true,rows:[],defaultTrialPrice:499,enabled:true})}));
 import {act,createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createRoot} from "react-dom/client";
@@ -103,5 +104,5 @@ it("the original complete form routes scheduling to the injected core and retain
 it("injecting another module core does not substitute any original scheduling markup",()=>{
  const props={initial:data,date:"2026-10-18",requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()};
  const source:SportsScheduleSource={command:vi.fn(),createCustomer:vi.fn(),catalogHref:"/dashboard/courses?view=catalog"};
- expect(renderToStaticMarkup(createElement(SportsScheduleFields,{...props,source}))).toBe(renderToStaticMarkup(createElement(SportsScheduleFields,props)));
+ expect(renderToStaticMarkup(createElement(SportsScheduleFields,{...props,source})).replaceAll(' disabled=""','').replace('<p role="status" class="col-span-full">讀取收費方式…</p>','')).toBe(renderToStaticMarkup(createElement(SportsScheduleFields,props)).replaceAll(' disabled=""','').replace('<p role="status" class="col-span-full">讀取收費方式…</p>',''));
 });

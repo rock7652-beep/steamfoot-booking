@@ -56,7 +56,7 @@ it("delivers the committed plan and retains the original payload after an ambigu
  const input=host.querySelector<HTMLInputElement>('input[name="name"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"十堂方案");input.dispatchEvent(new Event("input",{bubbles:true}));});
  m.save.mockRejectedValueOnce(new Error("lost response"));await submit();expect(host.textContent).toContain("尚未確認儲存結果");
- const row={id:"P",name:"十堂方案",points:10,price:0,storeCost:0,validDays:90,isActive:true,customerPurchasable:true,allowShared:false,unit:"POINT",templateIds:[],termSessionIds:[],musicTerms:null,musicBonusLessons:0,musicTermSizes:[],lowBalanceEnabled:false,lowBalanceThreshold:null};
+ const row={chargeSettings:null,id:"P",name:"十堂方案",points:10,price:0,storeCost:0,validDays:90,isActive:true,customerPurchasable:true,allowShared:false,unit:"POINT",templateIds:[],termSessionIds:[],musicTerms:null,musicBonusLessons:0,musicTermSizes:[],lowBalanceEnabled:false,lowBalanceThreshold:null};
  m.save.mockResolvedValueOnce({success:true,storeId:"store",data:row});await submit();
  expect(m.save.mock.calls[0][0]).toEqual(m.save.mock.calls[1][0]);expect(saved).toHaveBeenCalledExactlyOnceWith(row);expect(m.refresh).not.toHaveBeenCalled();
 });
@@ -66,12 +66,15 @@ vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: m.sportsSave,
 
 
 const sportsData={storeId:"store",subjects:[{id:"subject",name:"瑜珈",category:"",active:true,updatedAt:"v1",templateId:"t"}],fees:[],lessons:[],students:[],customers:[],coaches:[{id:"coach",name:"教練",templates:["t"]}],rooms:[],date:"2026-10-19"};
-it("new assigned plans require only the subject and purchase rule, without repeating coach setup",async()=>{
+it("new assigned plans select their own coach without repeating global qualification setup",async()=>{
  m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
  await mount({sportsData,subjects:[{id:"subject",name:"瑜珈",category:"",isActive:true}]});
  expect(host.querySelector('[aria-label="方案適用方式"]')).not.toBeNull();
  expect(host.querySelector('[data-fee-coaches]')).toBeNull();
  expect(host.querySelector('[aria-label="教師計酬方式"]')).toBeNull();
+ await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
+ await act(async()=>{const kind=host.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!;kind.value='plan';kind.dispatchEvent(new Event('change',{bubbles:true}));});
+ await select('計費方式','POINT');
  const cost=host.querySelector<HTMLInputElement>('[aria-label="每堂使用額度"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(cost,"2");cost.dispatchEvent(new Event("input",{bubbles:true}));});
  await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"ASSIGNED",subject:"subject",cost:2,coachIds:[]});
@@ -84,5 +87,6 @@ it("universal-card setup removes subject, course cost and coach requirements",as
  expect(host.querySelector('[aria-label="教學項目"]')).toBeNull();
  expect(host.querySelector('[aria-label="每堂使用額度"]')).toBeNull();
  expect(host.querySelector('[data-fee-coaches]')).toBeNull();
+ await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
  await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"OPEN",subject:undefined});
 });

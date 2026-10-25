@@ -1,3 +1,4 @@
+import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 import {sportsStagingEnabled} from "@/lib/sports-staging";
@@ -36,7 +37,9 @@ export async function assertNoCourseResourceUse(tx: Pick<Prisma.TransactionClien
 }
 /** Called under the same Store row lock by all scheduling/resource writers. */
 export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$queryRaw"|"courseRoom"|"courseTemplate"|"musicSubject">, storeId: string,
-  input: {templateId:string;roomId:string;coachId:string;capacity:number;requireMusicSubject?:boolean}, previous?: {templateId:string;coachId:string}) {
+  input: {templateId:string;roomId:string;coachId:string;capacity:number;requireMusicSubject?:boolean}, previous?: {templateId:string;coachId:string;chargeSnapshot?:unknown}) {
+  const charge=courseChargeSnapshot.safeParse(previous?.chargeSnapshot);
+  if(charge.success&&!charge.data.settings.providerIds.includes(input.coachId))throw new AppError('VALIDATION','此收費方式未開放所選授課人員');
   const [room, template, staff] = await Promise.all([
     tx.courseRoom.findFirst({where:{id:input.roomId,storeId,isActive:true}}),
     musicTeachingSubjectId(input.templateId)?readMusicTeachingItem(tx,storeId,input.templateId):tx.courseTemplate.findFirst({where:{id:input.templateId,storeId},include:{musicSubject:{select:{isActive:true}}}}),
