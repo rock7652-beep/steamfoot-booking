@@ -1,4 +1,5 @@
 vi.mock("@/server/actions/course-browse", () => ({ loadCourseCustomerSearchIndex: vi.fn().mockResolvedValue({success:true,data:[],complete:true}), searchCourseCustomers: vi.fn().mockResolvedValue({success:true,data:[]}) }));
+vi.mock('@/server/actions/course-charge',()=>({loadCourseChargeOptions:vi.fn().mockResolvedValue({success:true,rows:[],enabled:true,defaultTrialPrice:499})}));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
 vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
 vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));

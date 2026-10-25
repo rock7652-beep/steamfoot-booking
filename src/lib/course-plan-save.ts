@@ -1,9 +1,11 @@
+import {courseChargeSettings} from "./course-charge-settings";
 import { z } from "zod";
 import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
 const id=z.string().min(1).max(100);
 export const coursePlanValues = z
       .object({
         id: id.optional(),
+        chargeSettings:courseChargeSettings.nullable().default(null),
         sportsMode: z.enum(["LEGACY", "ASSIGNED", "OPEN"]).default("LEGACY"),
         sportsSubjectId: id.nullable().default(null),
         sportsCost: z.number().int().min(1).max(10000).nullable().default(null),

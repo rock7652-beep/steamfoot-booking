@@ -1,4 +1,7 @@
 "use server";
+import {courseChargeSnapshot} from "@/lib/course-charge-settings";
+import {Prisma as CoursePrismaValue} from "../../../generated/course-client";
+import {assertChargeProviders} from "@/server/services/course-charge";
 import {requireStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
 import { courseDisplayName } from "@/lib/course-template-presentation";
@@ -207,6 +210,10 @@ export async function saveCoursePointPlan(input: unknown) {
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const saved = await courseTransaction(storeId,async tx=>{
+    if(planId&&!data.chargeSettings){
+      const existing=await tx.coursePointPlan.findFirst({where:{id:planId,storeId}});
+      data.chargeSettings=coursePlanValues.parse(existing??data).chargeSettings;
+    }
     if(sportsSetup){const {prepareSportsFee}=await import('@/server/services/sports-staging-fee');const setup=await prepareSportsFee(tx,storeId,user.id,planId??receiptId!,sportsSetup,data.unit);data.templateIds=[setup.templateId];data.storeCost=setup.storeCost;}
     if (data.sportsMode !== "LEGACY") {
       const {assertSportsProductionReady}=await import("@/server/services/sports-production-readiness");await assertSportsProductionReady(tx,storeId);
@@ -236,12 +243,17 @@ export async function saveCoursePointPlan(input: unknown) {
       Object.assign(data, quoteMusicPlanSettings(data, template));
       if(musicSetup.totalPrice!==undefined)data.price=musicSetup.totalPrice;
     }
-    if (isMusic && musicSetup) {
+    if (isMusic && musicSetup && !data.chargeSettings) {
       const result = await syncMusicSubjectTeachers(tx, storeId, musicSetup.subjectId, musicTeacherIds, expectedMusicTeacherIds, async () => {
         const access = await courseManager("staff.manage");
         if (access.storeId !== storeId || access.user.id !== user.id) throw new AppError("FORBIDDEN", "教師管理範圍不符");
       });
       if (result.changed) await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'MusicSubject',${musicSetup.subjectId},'QUALIFICATIONS','更新教學項目授課教師',${JSON.stringify(result.before)}::jsonb,${JSON.stringify(result.after)}::jsonb,now())`;
+    }
+    if(data.chargeSettings){
+      if(data.chargeSettings.kind==='single'&&(data.points!==1||data.unit!=='SESSION'))throw new AppError('VALIDATION','單次收費須為一堂');
+      if(data.sportsMode==='OPEN'&&(data.chargeSettings.trialPrice!==null||data.chargeSettings.trialDuration!==null))throw new AppError('VALIDATION','開放選課沿用店家體驗費與課程時間');
+      await assertChargeProviders(tx,storeId,data.templateIds,data.chargeSettings);
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
     if(previous&&(previous.sportsMode??"LEGACY")!=="LEGACY"&&data.sportsMode==="LEGACY"){
@@ -267,13 +279,13 @@ export async function saveCoursePointPlan(input: unknown) {
     }
     if (planId) {
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
-        data,
+        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:CoursePrismaValue.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        data:{...data,chargeSettings:data.chargeSettings??undefined},
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
       if(receipt)return tx.coursePointPlan.findFirstOrThrow({where:{id:planId,storeId}});
     } else
-      return tx.coursePointPlan.create({ data: { ...data, storeId, ...(receiptId?{id:receiptId}:{}) } });
+      return tx.coursePointPlan.create({ data: { ...data, chargeSettings:data.chargeSettings??undefined, storeId, ...(receiptId?{id:receiptId}:{}) } });
     });
     let syncWarning=false;
     try {refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}
@@ -760,7 +772,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
     ]).then(async permissions=>{
       const [session,music,setting]=await Promise.all([
-       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
+       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { chargeSnapshot:true, startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
        isMusicCourseStoreFromEntitlements(prisma,storeId),
        coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
       ]);
@@ -814,7 +826,10 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           };
         }),
         trial: {
-          settings: await trialSettingsPromise,
+          settings: await trialSettingsPromise.then(settings=>{
+            const snapshot=courseChargeSnapshot.safeParse(session.chargeSnapshot);
+            return snapshot.success?{...settings,trialEnabled:settings.trialEnabled&&snapshot.data.trialPrice!==null,trialDefaultPrice:snapshot.data.trialPrice??settings.trialDefaultPrice}:settings;
+          }),
           canCreate: canCreate && canTrial,
           canCollect: canCollectTrial,
           canCorrect: canCorrectTrial,

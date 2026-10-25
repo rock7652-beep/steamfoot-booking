@@ -42,6 +42,8 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
+    courseTemplate:{findFirst:mocks.template,findMany:async()=>[]},
+    coursePointPlan:{findMany:async()=>[]},
     courseSession: { findFirst: async()=>({id:"session-created"}), findMany:async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
@@ -63,7 +65,7 @@ vi.mock("@/lib/course-db", () => ({
           updateMany: mocks.catalogUpdate,
         },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
-        coursePointPlan: { findFirst: mocks.planName },
+        coursePointPlan: { findFirst: mocks.planName,findMany:async()=>[] },
       }),
   },
 }));

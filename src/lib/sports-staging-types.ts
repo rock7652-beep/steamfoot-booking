@@ -17,6 +17,7 @@ export const sportsScheduleRule = z.object({
 });
 export type SportsScheduleRule = z.infer<typeof sportsScheduleRule>;
 export type SportsSubject = {
+  durationMinutes?:number;
   templateId?:string;
   id: string;
   name: string;
@@ -25,6 +26,7 @@ export type SportsSubject = {
   updatedAt: string;
 };
 export type SportsFee = {
+  chargeSettings?:unknown;
   sportsMode?:string;
   id: string;
   subject: string;

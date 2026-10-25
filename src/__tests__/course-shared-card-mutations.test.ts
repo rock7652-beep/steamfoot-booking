@@ -5,8 +5,9 @@ const m = vi.hoisted(() => ({
   plan: vi.fn(), createPlan: vi.fn(), updatePlan: vi.fn(), validateTerm: vi.fn(),
   card: vi.fn(), bookings: vi.fn(), remove: vi.fn(), add: vi.fn(), template: vi.fn(),
 }));
+vi.mock("@/lib/auth",()=>({auth:vi.fn()}));
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(),unstable_cache:(fn:unknown)=>fn }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: m.music } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseTemplate: { count: vi.fn().mockResolvedValue(1), findFirst: m.template } } }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.access, courseTransaction: m.transaction }));
