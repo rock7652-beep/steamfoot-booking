@@ -1,41 +1,30 @@
 "use client";
 import {useRef,useState} from 'react';
 import {RightSheet} from '@/components/admin/right-sheet';
+import {CoursePlanDraftForm,type CoursePlanCatalogPort,type Plan} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';
+import {savedCoursePlan} from '@/lib/course-plan-save';
 import {validateBeautyCharge,assertChargePersistence,type BeautyChargeDraft,type ChargeService,type ChargeTechnician} from '@/lib/beauty/charge-editor';
-import styles from './charge-editor.module.css';
 const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50';
-export type BeautyChargePort={perChargeTechnicians:boolean;save:(draft:BeautyChargeDraft)=>Promise<{success:boolean;error?:string}>};
-/** Uses caller-owned data; the preview never imports a database writer. */
+export type BeautyChargePort={perChargeTechnicians:boolean;save:(draft:BeautyChargeDraft)=>Promise<{success:boolean;error?:string;syncWarning?:boolean}>};
+/** Beauty supplies only business fields and a writer. The original course fee form owns every input and its save lifecycle. */
 export function BeautyChargeEditor({storeId,services,technicians,onClose,onSaved,port,initialServiceId,initialKind='single',initialDraft}:{storeId:string;services:ChargeService[];technicians:ChargeTechnician[];onClose:()=>void;onSaved?:()=>void;port?:BeautyChargePort;initialServiceId?:string;initialKind?:'single'|'plan';initialDraft?:BeautyChargeDraft}){
- const [kind,setKind]=useState<'single'|'plan'>(initialDraft?.kind??initialKind),[serviceId,setService]=useState(initialDraft?.serviceId??initialServiceId??services.find(s=>s.active)?.id??'');
- const [selected,setSelected]=useState<string[]>(initialDraft?.technicianIds??[]),[error,setError]=useState(''),[summary,setSummary]=useState(''),[pending,setPending]=useState(false);
- const lock=useRef(false);
- const service=services.find(s=>s.id===serviceId&&s.active),eligible=technicians.filter(t=>t.active&&t.serviceIds.includes(serviceId));
- const visibleTechnicians=[...eligible,...selected.filter(id=>!eligible.some(t=>t.id===id)).map(id=>({id,name:(technicians.find(t=>t.id===id)?.name??'已移除技師')+'（請移除）',active:false,serviceIds:[]}))];
- const chosen=eligible.filter(t=>selected.includes(t.id));
- function close(){if(!lock.current)onClose();}
- return <RightSheet open presentation="centered" fixedHeight width={640} maxHeight={690} onClose={close} closeOnEscape={!pending} labelledById="beauty-charge-title">
-  <header className="flex shrink-0 items-center justify-between border-b border-earth-200 px-5 py-3"><h2 id="beauty-charge-title" className="font-semibold">{initialDraft?'編輯收費方式':'新增收費方式'}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
-  <form id="beauty-charge-form" className={styles.body} onChange={()=>{setError('');setSummary('');}} onSubmit={async e=>{
-   e.preventDefault();if(lock.current)return;setError('');setSummary('');
-   const data=new FormData(e.currentTarget),number=(key:string)=>Number(data.get(key)),optional=(key:string)=>String(data.get(key)??'').trim()===''?null:number(key);
-   try{
-    const checked=validateBeautyCharge({expectedStoreId:storeId,kind,serviceId,name:String(data.get('name')),price:number('price'),technicianIds:selected,...(kind==='single'?{sessions:1,trialPrice:optional('trialPrice'),trialMinutes:optional('trialMinutes')}:{sessions:number('sessions'),validDays:number('validDays'),allowShared:data.get('allowShared')==='on'})},storeId,services,technicians);
-    if(!port){setSummary(`${checked.draft.name}／${checked.draft.sessions} 次／價格 $${checked.amount}${kind==='single'?checked.trial?`／體驗 $${checked.trial.price}・${checked.trial.duration} 分鐘`:'／不提供體驗':''}／${chosen.map(t=>t.name).join('、')}。僅核對，未儲存。`);return;}
-    assertChargePersistence(port);lock.current=true;setPending(true);const result=await port.save(checked.draft);
-    if(!result.success)throw Error(result.error??'尚未儲存');onSaved?.();onClose();
-   }catch(cause){setError(cause instanceof Error?cause.message:'請核對欄位');}finally{lock.current=false;setPending(false);}
-  }}>
-   <fieldset disabled={pending}>
-    <div className={styles.pair}><label className={styles.field}>收費類型<select disabled={!!initialDraft} value={kind} onChange={e=>setKind(e.target.value as 'single'|'plan')}><option value="single">單次收費</option><option value="plan">多次方案</option></select></label><label className={styles.field}>服務項目<select disabled={!!initialDraft} required value={serviceId} onChange={e=>{setService(e.target.value);setSelected([]);}}><option value="">請選擇</option>{services.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label></div>
-    <small className={styles.duration}>{service?`服務 ${service.duration} 分鐘・整理 ${service.buffer} 分鐘`:'請先建立服務項目'}</small>
-    <div className={styles.pair}><label className={styles.field}>收費名稱<input name="name" required maxLength={100} defaultValue={initialDraft?.name}/></label><label className={styles.field}>價格（元）<input name="price" defaultValue={initialDraft?.price} type="number" min={0} max={10000000} required/></label></div>
-    {kind==='single'?<div key="single" className={styles.pair}><label className={styles.field}>體驗價（元）<input name="trialPrice" defaultValue={initialDraft?.kind==='single'?initialDraft.trialPrice??'':''} type="number" min={0} max={10000000} placeholder="選填"/><small>留白不開放；0 為免費</small></label><label className={styles.field}>體驗分鐘（選填）<input name="trialMinutes" defaultValue={initialDraft?.kind==='single'?initialDraft.trialMinutes??'':''} type="number" min={5} max={720} placeholder={service?`沿用 ${service.duration} 分鐘`:'選填'}/><small>留白沿用服務時長</small></label></div>:<div key="plan" className={styles.plan}><label className={styles.field}>次數<input name="sessions" defaultValue={initialDraft?.kind==='plan'?initialDraft.sessions:undefined} type="number" min={2} max={10000} required/></label><label className={styles.field}>有效天數<input name="validDays" defaultValue={initialDraft?.kind==='plan'?initialDraft.validDays:undefined} type="number" min={1} max={3650} required/></label><label className={styles.share}><input name="allowShared" defaultChecked={initialDraft?.kind==='plan'&&initialDraft.allowShared} type="checkbox"/>允許具名共用</label></div>}
-    <details className={styles.details} open><summary>可安排技師<span className={styles.summary}>{chosen.length?`${chosen.slice(0,2).map(t=>t.name).join('、')}${chosen.length>2?'…':''}・${chosen.length} 位`:'請選擇技師'}</span></summary><div className={styles.techs}>{visibleTechnicians.map(t=><label key={t.id}><input type="checkbox" checked={selected.includes(t.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id))}/>{t.name}</label>)}</div>{!eligible.length&&<p className="p-2 text-sm">尚無具此服務資格的啟用技師。</p>}</details>
-    <p className={styles.note}>實際可安排時間仍依技師排班與位置空位判斷。</p>
-   </fieldset>
-   {error&&<p role="alert" className={styles.error}>{error}</p>}{summary&&<p role="status" className="mt-2 text-sm text-primary-800">{summary}</p>}
-  </form>
-  <footer className={styles.footer}><small>{port?'核對後儲存':'核對模式・不儲存'}</small><button type="button" className={button} disabled={pending} onClick={close}>取消</button><button form="beauty-charge-form" className={button+' bg-primary-700 text-white'} disabled={pending||!chosen.length||!service}>{pending?'處理中…':port?'儲存':'核對設定'}</button></footer>
+ const [kind,setKind]=useState(initialDraft?.kind??initialKind),[pending,setPending]=useState(false),[uncertain,setUncertain]=useState(false);
+ const busy=useRef(false);const serviceId=initialDraft?.serviceId??initialServiceId??services.find(s=>s.active)?.id??'';
+ const close=()=>{if(!busy.current&&!uncertain)onClose();};
+ const catalog:CoursePlanCatalogPort={compact:true,confirmDiscard:false,units:['SESSION'],sportsModes:['ASSIGNED'],sessionLabel:'次數',rowSchema:savedCoursePlan,
+  charge:{kind,locked:!!initialDraft,onKindChange:setKind,serviceId,name:initialDraft?.name??'',price:initialDraft?.price??null,sessions:initialDraft?.kind==='plan'?initialDraft.sessions:null,validDays:initialDraft?.kind==='plan'?initialDraft.validDays:90,allowShared:initialDraft?.kind==='plan'&&initialDraft.allowShared,technicianIds:initialDraft?.technicianIds??[],trialPrice:initialDraft?.kind==='single'?initialDraft.trialPrice:null,trialDuration:initialDraft?.kind==='single'?initialDraft.trialMinutes:null,technicians},
+  transport:async input=>{
+   let checked:ReturnType<typeof validateBeautyCharge>;try{checked=validateBeautyCharge({expectedStoreId:storeId,kind:input.chargeKind,serviceId:input.subjectId,name:input.name,price:input.price,technicianIds:input.coachIds,...(input.chargeKind==='single'?{sessions:1,trialPrice:input.trialPrice,trialMinutes:input.trialDuration}:{sessions:input.points,validDays:input.validDays,allowShared:input.allowShared})},storeId,services,technicians);}catch(error){return {success:false,error:error instanceof Error?error.message:'請核對收費設定'};}
+   if(!port)return {success:false,error:`${checked.draft.name}／${checked.draft.sessions} 次／價格 $${checked.amount}${checked.trial?`／體驗 $${checked.trial.price}・${checked.trial.duration} 分鐘`:''}。僅核對，未儲存。`};
+   try{assertChargePersistence(port);}catch{return {success:false,error:'方案專屬技師限制尚未接通，設定未儲存'};}
+   const result=await port.save(checked.draft);if(!result.success)return result;
+   const row:Plan={id:initialDraft?'charge:'+initialDraft.serviceId:'charge:new',name:checked.draft.name,points:checked.draft.sessions,price:checked.draft.price,validDays:checked.draft.kind==='plan'?checked.draft.validDays:90,isActive:true,unit:'SESSION',templateIds:[checked.draft.serviceId],allowShared:checked.draft.kind==='plan'&&checked.draft.allowShared};
+   return {success:true,storeId,data:row,syncWarning:result.syncWarning};
+  },save:async()=>({success:false,error:'請使用已確認的收費儲存接點'}),
+ };
+ return <RightSheet open presentation="centered" className="fitness-management-editor" fitContent width={920} maxHeight={680} onClose={close} closeOnEscape={!pending&&!uncertain} labelledById="beauty-charge-title">
+  <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2"><h2 id="beauty-charge-title" className="text-base font-semibold">{initialDraft?'編輯收費方式':'新增收費方式'}</h2><button className={button} disabled={pending||uncertain} onClick={close}>關閉</button></header>
+  <div className="@container min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"><CoursePlanDraftForm key={kind+':'+serviceId} catalog={catalog} subjectLabel="服務項目" sportsData={{storeId,date:'',subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}} storeId={storeId} plan={null} subjects={services.map(s=>({id:s.id,name:s.name,category:'',isActive:s.active}))} templates={services.map(s=>({id:s.id,name:s.name,category:'',isActive:s.active,durationMinutes:s.duration}))} termSessions={[]} profitEnabled={false} onPending={value=>{busy.current=value;setPending(value);}} onUncertain={setUncertain} onSaved={(_row,warning)=>{onSaved?.();if(!warning)onClose();}}/></div>
+  <footer className="shrink-0 border-t border-earth-100 bg-white px-4 py-3"><div className="flex justify-end gap-2"><button type="button" className={button} disabled={pending||uncertain} onClick={close}>取消</button><button form="course-member-form" type="submit" className={button+' bg-primary-700 text-white'} disabled={pending}>{pending?'儲存中…':uncertain?'重試確認儲存結果':port?'儲存':'核對設定'}</button></div></footer>
  </RightSheet>;
 }
