@@ -12,7 +12,7 @@ import type { PartyInput } from "@/lib/beauty/contracts";
 import type { BeautyBookingCatalog } from "./booking-form";
 import styles from "./public-booking-form.module.css";
 
-export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string };
+export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string; massageReminder?: boolean };
 type Person = { key: number; name: string; phone: string; serviceId: string; arrangement: string; technicianId: string; notes: string };
 type Errors = Record<string, string>;
 type Props = {
@@ -188,6 +188,14 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
       </>}
     </fieldset>
     {error && <p role="alert" className={styles.error}>{error}</p>}
+    {stage === "contact" && publicInfo?.massageReminder && <aside className={styles.massageReminder} aria-labelledby={fieldId("massage-reminder-title")}>
+      <h2 id={fieldId("massage-reminder-title")}>按摩小提醒</h2>
+      <ul>
+        <li>有需留意的身體狀況，請先與店家確認。</li>
+        <li>需避開的部位、皮膚不適或用品過敏，請事先告知。</li>
+        <li>力道可隨時調整，不舒服時請直接告訴我們。</li>
+      </ul>
+    </aside>}
     {stage === "contact" && <div className={styles.actions}>
       <button type="button" disabled={pending || uncertain} onClick={() => { setStage("service"); setErrors({}); setError(""); }}>返回修改服務與時段</button>
       <button type="submit" className="primary" disabled={pending}>{pending ? "確認中…" : uncertain ? "重試確認" : "確認預約"}</button>

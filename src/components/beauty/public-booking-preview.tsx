@@ -30,7 +30,7 @@ export function BeautyPublicBookingPreview() {
     </div>
     <header className="cp-top"><CoursePortalBrand storeName="舒生活｜公開預約範例"/></header>
     <main className="cp-main"><div className="cp-title"><h1>體驗預約</h1></div>
-      <BeautyPublicBookingForm key={scenario} slug="synthetic" catalog={catalog} readSlots={read} submitTrial={submit} publicInfo={{ address: "範例地址（非實際營業地點）" }}/>
+      <BeautyPublicBookingForm key={scenario} slug="synthetic" catalog={catalog} readSlots={read} submitTrial={submit} publicInfo={{ address: "範例地址（非實際營業地點）", massageReminder: true }}/>
     </main>
   </div>;
 }
