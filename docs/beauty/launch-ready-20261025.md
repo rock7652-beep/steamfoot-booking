@@ -57,3 +57,6 @@
 - 可回退至上一個 READY 部署或先暫停新模組／收費編輯入口；保留 schema 與資料，不自動 DROP 或還原整庫。
 
 部署、旗標、gate 與日誌摘要：[deployment-result.json](evidence/20261025-launch-ready/deployment-result.json)；公開 HTTP：[http-results.json](evidence/20261025-launch-ready/http-results.json)。
+
+
+2026-10-25 19:15 後續正式更新：美業首頁待辦共用讀取接點已修復，最新發布紀錄見 [首頁待辦修復](home-todo-read-fix-20261025.md)。此處早先的試用／開店驗證為當次發布紀錄。

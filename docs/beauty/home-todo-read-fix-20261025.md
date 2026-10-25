@@ -24,4 +24,17 @@ getBeautyHomeTodos 將美業付款／服務與共用顧客跟進 UNION 在同一
 
 ## 發布
 
-候選準備完成，尚待正式 READ ONLY gate、完整建置與網域核對。LINE 保持關閉，既有店家、訂閱、顧客與交易保留。
+正式更新已完成，結果如下。LINE 保持關閉；本輪未操作店家、訂閱、顧客或交易資料。
+
+
+## 正式核對結果（台灣時間 2026-10-25 19:15）
+
+- Production READY：`dpl_DjSEdMEnfBuePJmeuk1zec6erLnY`，程式 `d7254820d5c0cdc9e7876d7db024b129f0225dbf`。steamfoot.com 與 www.steamfoot.com 皆已指向該部署。
+- 建置實際通過：runtime_login=true、tls=true、prisma=true、shared_todos=true、schema_tables=14、readonly=true、migration_target_absent=true、charge_scope=module、editing_enabled=true。shared_todos 為原主連線的真實 READ ONLY／LIMIT 0 欄位與權限檢查，未讀出顧客跟進內容。
+- ci-migrate 回報 migration_skipped_no_target；完整 Next／TypeScript／輸出建置完成。本輪沒有角色 GRANT、RLS 調整或 migration。
+- 官網與 HQ 登入 200；未登入的美業後台／建店入口 307→HQ 登入，session 200/null，原竹北入口正常轉址。未發現 5xx。
+- 指定新部署近十分鐘 error/fatal runtime log 未找到紀錄；不將這段短窗口或未登入 HTTP 當成登入後的顧客待辦實測。
+- 本工具沒有操作使用者既有正式登入分頁，亦未建立正式登入存取連結；未聲稱已在使用者該店的登入畫面確認待辦件數。修復來源、正式兩種連線的唯讀 gate、跨店／分頁回歸與部署網域均已核對。
+- 已保留當時正式 main 的運動更新、既有試用開通與收費修復；不複製測試資料，不開 LINE。
+
+證據：[deployment-result.json](evidence/20261025-home-todos/deployment-result.json)、[http-results.json](evidence/20261025-home-todos/http-results.json)、[回歸](evidence/20261025-home-todos/regression.log)。
