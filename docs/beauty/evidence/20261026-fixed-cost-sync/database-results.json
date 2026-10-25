@@ -1,0 +1,59 @@
+[
+  {
+    "final_verification": {
+      "card": {
+        "id": "cmvo9emmg0000ld07068qefo1",
+        "listPrice": 5000,
+        "paid": 4900,
+        "remaining": 0,
+        "closed": true
+      },
+      "payments": [
+        {
+          "id": "cmvo9emn40002ld07ifd7l0yk",
+          "kind": "SALE",
+          "amount": 4900,
+          "method": "BANK_TRANSFER"
+        },
+        {
+          "id": "cmvo9hcma0006ld07fkx6ka1o",
+          "kind": "REFUND",
+          "amount": -2450,
+          "method": "BANK_TRANSFER"
+        },
+        {
+          "id": "cmvo9iumh0008ld07s2ei7o1j",
+          "kind": "REFUND",
+          "amount": -2450,
+          "method": "BANK_TRANSFER"
+        }
+      ],
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "REFUND",
+          "delta": -5
+        }
+      ],
+      "setting": {
+        "id": "qa-finance-4310a985-plan",
+        "kind": "plan",
+        "revision": 5,
+        "storeCost": 1500
+      },
+      "notification": [
+        {
+          "status": "SKIPPED",
+          "reason": "隔離預覽不向外發送 LINE"
+        }
+      ],
+      "drawer": {
+        "status": "CLOSED",
+        "finalBookBalance": 1000
+      }
+    }
+  }
+]

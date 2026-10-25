@@ -32,3 +32,7 @@
 - 自動化有定位錯誤／等待逾時（動態按鈕名稱、select 標籤、隱藏 textarea、閉店狀態文字），已按畫面結構修正並以資料庫結果核對；不把這些定位失敗當產品故障。固定費用空白是實際讀值失敗，獨立列為尚缺項。
 
 證據：[瀏覽器紀錄](evidence/20261026-finance-hosted-qa/browser-results.json)、[甲晚到後的乙收款](evidence/20261026-finance-hosted-qa/B-after-late-A.png)、[甲折抵後應收 900](evidence/20261026-finance-hosted-qa/A-discount-900.png)。
+
+## 後續處理：同步與固定費用分帳已通過
+
+上述同步阻擋已於 `3c9db8ae` 修正；真實購卡另發現共用表單課程成本欄位誤帶，於 `b6b17eb5` 修正。隔離店實收 4,900 分帳 1,500／3,400、部分退款 750／1,700、全額退款歸零及重送去重均已通過。此更新取代上文對這兩項的「尚缺」狀態，完整結果見 [同步與分帳驗收](fixed-cost-sync-allocation-20261026.md)。

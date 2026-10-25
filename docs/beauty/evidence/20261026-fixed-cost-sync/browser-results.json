@@ -1,0 +1,345 @@
+{
+  "deployment": "dpl_3vFNc62Acm4THEkL3dEU6fYLhX9p",
+  "identity": "qa-manager",
+  "errors": [],
+  "network": [
+    {
+      "path": "/hq/login",
+      "status": 303,
+      "ms": 3693,
+      "action": "6099899d"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2981,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1759,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1627,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/hq/login",
+      "status": 303,
+      "ms": 1588,
+      "action": "6099899d"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2366,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1324,
+      "action": "60691024"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2740,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 2435
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1843,
+      "action": "40d44e13"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2167,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2490,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2496,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/hq/login",
+      "status": 303,
+      "ms": 3553,
+      "action": "6099899d"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2724,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2139,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2235,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 2013
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 1206
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1900,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2573,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 4305,
+      "action": "409e4b90"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2760,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2461,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 3444,
+      "action": "409e4b90"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2451,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2432,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1956,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2619,
+      "action": "40afcd58"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2076,
+      "action": "403fd8d6"
+    }
+  ],
+  "checks": [
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "MANAGER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa-finance-4310a985-staff"
+      }
+    },
+    {
+      "name": "fixed-cost-save-reopen-under-delayed-refresh",
+      "value": {
+        "before": "1500",
+        "immediateReopens": [
+          "1600",
+          "1500"
+        ],
+        "delayedRefreshes": 2,
+        "afterReload": "1500"
+      }
+    },
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "MANAGER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa-finance-4310a985-staff"
+      }
+    },
+    {
+      "name": "allocation-purchase-quote",
+      "value": {
+        "text": "QA現金1026-4310a985甲\n查看會員前台\n關閉\n顧客概況\n紀錄\n健康追蹤\n‹ 返回 QA現金1026-4310a985甲 詳情\n多次方案\n單次／體驗\n方案資料\n顧客\n\nQA現金1026-4310a985甲 · 0900432291\n\n方案\n請選擇\nQA全站1023-七次方案 · 7 次\nQA固定費用1026-4310a985 · 5 次\n測試五次方案 · 5 次\n有效至（含當日）\n結帳資料\n優惠方式\n無優惠\n折抵金額\n打折\n折抵多少元\n原價\nNT$ 5,000\n折抵\n− NT$ 100\n實收\nNT$ 4,900\n付款方式\n請選擇付款方式\n現金\n轉帳\n信用卡\n其他\n轉帳帳號後四碼\n\n請核對已收款再確認；此處只登錄，不會自動扣款。\n\n店家 $1,500／所屬店長 $3,400（QA 現金分帳驗收）\n\nQA現金1026-4310a985甲 · QA固定費用1026-4310a985\n實收 NT$ 4,900\n\n確認結帳"
+      }
+    },
+    {
+      "name": "purchase-result-diagnostic",
+      "value": {
+        "text": "QA現金1026-4310a985甲\n查看會員前台\n關閉\n顧客概況\n紀錄\n健康追蹤\n\n此服務方案不使用課程期數或成本欄位\n\n‹ 返回 QA現金1026-4310a985甲 詳情\n多次方案\n單次／體驗\n方案資料\n顧客\n\nQA現金1026-4310a985甲 · 0900432291\n\n方案\n請選擇\nQA全站1023-七次方案 · 7 次\nQA固定費用1026-4310a985 · 5 次\n測試五次方案 · 5 次\n有效至（含當日）\n結帳資料\n優惠方式\n無優惠\n折抵金額\n打折\n折抵多少元\n原價\nNT$ 5,000\n折抵\n− NT$ 100\n實收\nNT$ 4,900\n付款方式\n請選擇付款方式\n現金\n轉帳\n信用卡\n其他\n轉帳帳號後四碼\n\n請核對已收款再確認；此處只登錄，不會自動扣款。\n\n店家 $1,500／所屬店長 $3,400（QA 現金分帳驗收）\n\nQA現金1026-4310a985甲 · QA固定費用1026-4310a985\n實收 NT$ 4,900\n\n確認結帳",
+        "invalid": [],
+        "requests": [
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+            "ms": 2047,
+            "status": 200
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "ms": 682,
+            "status": 200
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "ms": 842,
+            "status": 200
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+            "ms": 2167,
+            "status": 200
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "ms": 687,
+            "status": 200
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "ms": 762,
+            "status": 200
+          }
+        ]
+      }
+    },
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "MANAGER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa-finance-4310a985-staff"
+      }
+    },
+    {
+      "name": "latest-fixed-cost-responsive",
+      "value": [
+        {
+          "width": 1366,
+          "height": 900,
+          "value": "1500",
+          "overflow": false,
+          "saveVisible": true
+        },
+        {
+          "width": 1024,
+          "height": 768,
+          "value": "1500",
+          "overflow": false,
+          "saveVisible": true
+        },
+        {
+          "width": 768,
+          "height": 1024,
+          "value": "1500",
+          "overflow": false,
+          "saveVisible": true
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "value": "1500",
+          "overflow": false,
+          "saveVisible": true
+        }
+      ]
+    },
+    {
+      "name": "allocation-purchase-confirmed",
+      "value": {
+        "text": "QA現金1026-4310a985甲\n查看會員前台\n編輯顧客資料\n關閉\n顧客概況\n紀錄\n健康追蹤\n結帳完成，方案已加入\n☎ 0900-432-291\n＋標籤\n所屬店長：QA 現金分帳驗收\n推薦人：未設定\n修改歸屬\n\n店內備註\n\n編輯\n\nQA隔離測試，交易留存\n\n持有方案\n購買方案\n\n有效方案合計 · 1 個\n\n總剩餘 5 堂 · 已預約 0 · 可用 5\n\n有效方案\n已到期／停用\nQA固定費用1026-4310a985\n還可預約 5 次\n2027-02-22 到期\n會員與 LINE 資料"
+      }
+    },
+    {
+      "name": "historical-allocation-after-cost-edit",
+      "value": {
+        "newConfiguredCost": 1800,
+        "historicalRow": "2026/10/26\t\nQA現金1026-4310a985甲\n\t\nQA固定費用1026-4310a985\n\tNT$ 4,900\t已收款\t\nQA 現金分帳驗收\n\tQA 現金分帳驗收\t—\t店家 $1,500／所屬店長 $3,400\t查看明細"
+      }
+    },
+    {
+      "name": "partial-refund-and-replay",
+      "value": {
+        "refund": 2450,
+        "replayHttp": 200,
+        "row": "2026/10/26\t\nQA現金1026-4310a985甲\n\t\nQA固定費用1026-4310a985\n\tNT$ 4,900\t已收款\t\nQA 現金分帳驗收\n\tQA 現金分帳驗收\t—\t店家 $750／所屬店長 $1,700\t查看明細"
+      }
+    },
+    {
+      "name": "full-refund-allocation-zero",
+      "value": {
+        "cumulativeRefund": 4900,
+        "store": 0,
+        "manager": 0,
+        "row": "2026/10/26\t\nQA現金1026-4310a985甲\n\t\nQA固定費用1026-4310a985\n\tNT$ 4,900\t已登錄退款\t\nQA 現金分帳驗收\n\tQA 現金分帳驗收\t—\t店家 $0／所屬店長 $0\t查看明細"
+      }
+    },
+    {
+      "name": "restore-test-plan-cost",
+      "value": {
+        "restoredCost": 1500
+      }
+    },
+    {
+      "name": "disabled-session-final",
+      "value": {
+        "hasUser": false
+      }
+    }
+  ]
+}
