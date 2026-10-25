@@ -22,7 +22,8 @@ function SportsLessonFields({source,schedulingModes,initial,date,seed={},request
  const personnelText = useCoursePersonnelText();
  const live=initial,ready=true;
  const [query,setQuery]=useState(""),[customers,setCustomers]=useState(initial.customers),[rentalMode,setRentalMode]=useState("existing"),[rentalCustomerId,setRentalCustomerId]=useState(""),[customerNotice,setCustomerNotice]=useState(""),[newRentalName,setNewRentalName]=useState(""),[newRentalPhone,setNewRentalPhone]=useState("");const [error,setError]=useState("");
- const [kind,setKind]=useState(seed.single?"單次":"每週固定"),[enrollment,setEnrollment]=useState(schedulingModes?.assignedSchedulingEnabled===false?"開放選課":"指定學員");
+ const [kind,setKind]=useState(seed.single?"單次":"每週固定"),[selectedEnrollment,setEnrollment]=useState(schedulingModes?.assignedSchedulingEnabled===false?"開放選課":"指定學員");
+ const enrollment=courseSchedulingModeAllowed(schedulingModes,selectedEnrollment==="指定學員"?"ASSIGNED":"OPEN")?selectedEnrollment:courseSchedulingModeAllowed(schedulingModes,"ASSIGNED")?"指定學員":courseSchedulingModeAllowed(schedulingModes,"OPEN")?"開放選課":"";
  const [subject,setSubject]=useState(initial.subjects.find(s=>s.templateId===seed.templateId)?.id??initial.subjects[0]?.id??"");
  const [day,setDay]=useState(date),[time,setTime]=useState(seed.time??"09:00"),[duration,setDuration]=useState(seed.durationMinutes??60),[capacity,setCapacity]=useState(8);
  const [coach,setCoach]=useState(initial.coaches.find(c=>c.id===seed.coachId)?.id??""),[room,setRoom]=useState(initial.rooms.find(r=>r.id===seed.roomId)?.name??initial.rooms[0]?.name??""),[students,setStudents]=useState<string[]>(initial.customers.some(c=>c.id===seed.customerId)?[seed.customerId!]:[]);
@@ -37,7 +38,7 @@ function SportsLessonFields({source,schedulingModes,initial,date,seed={},request
 
  useEffect(()=>{onGuard(dirty,pending);return()=>onGuard(false,false);},[dirty,pending,onGuard]);
  return <form data-course-entry className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3" onChange={()=>{setDirty(true);setError("");}} onSubmit={e=>{
-  e.preventDefault();if(lock.current||pending||!ready)return;lock.current=true;setError("");
+  e.preventDefault();if(lock.current||pending||!ready)return;if(!rental&&!enrollment){setError("目前未開放新增排課");return;}lock.current=true;setError("");
   start(async()=>{try{const result=await (source?.command??sportsStagingCommand)({operation:"schedule",payload:{subject,kind,mode:enrollment,date:day,time,duration,waitlistLimit:enrollment==="開放選課"&&waitlistEnabled?waitlistLimit:0,waitlistStopMinutes:waitlistDefaultStopMinutes,count:1,coach:live.coaches.find(c=>c.id===coach)?.name??"",coachId:coach,room,capacity:enrollment==="指定學員"?Math.max(1,students.length):capacity,students:enrollment==="指定學員"?students:[],price,customer,phone,customerId:rentalCustomerId||null,requestKey}});if(!result.success){setError(result.error??"排課失敗");return;}setDirty(false);onCreated(day);}catch{setError("連線失敗，輸入已保留，請重試");}finally{lock.current=false;}});
  }}>
  <fieldset disabled={pending} className="contents">
