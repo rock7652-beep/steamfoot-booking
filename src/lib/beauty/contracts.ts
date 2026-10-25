@@ -134,6 +134,19 @@ export const partyInput = z
     if(v.expectedArrangement&&v.expectedArrangement.length!==v.people.length)c.addIssue({code:"custom",message:"安排人數已變更，請重新核對"});
   });
 export type PartyInput = z.infer<typeof partyInput>;
+/** Public availability needs trial eligibility, never a name, contact or member entitlement. */
+export const publicTrialAvailabilityInput = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => !!parseTaipeiDateTime(value, "00:00"), "日期無效"),
+  time: clock.default("00:00"),
+  isTrial: z.literal(true),
+  people: z.array(z.object({
+    phone,
+    serviceId: key,
+    serviceRevision: z.number().int().nonnegative().default(0),
+    preference,
+    specifiedTechnicianId: key.nullable().default(null),
+  })).min(1).max(12),
+});
 export const changeInput = z.object({
   requestKey: z.string().uuid(),
   id: key,

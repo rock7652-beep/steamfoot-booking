@@ -56,7 +56,7 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
-  it.each(["codex/sports-background-refresh", "codex/soulife-line-additional-config"])("permits %s only with isolated Preview connections", branch => {
+  it.each(["codex/sports-background-refresh", "codex/soulife-line-additional-config", "codex/beauty-public-booking-ux"])("permits %s only with isolated Preview connections", branch => {
     expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
     for (const overrides of [{DATABASE_URL:production}, {DIRECT_URL:production}, {VERCEL_ENV:"production"}, {WORKERS_CI_BRANCH:branch}]) {
       expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);

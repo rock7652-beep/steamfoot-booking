@@ -3,6 +3,8 @@ import "@/app/(customer)/book/course-portal.css";
 import { BeautyBookingForm } from "@/components/beauty/booking-form";
 import { publicBeautyCatalog } from "@/server/beauty/queries";
 import { BeautyClosedNotice } from "@/components/beauty/closed-notice";
+import { resolveStorePresentation } from "@/lib/store-resolver";
+import styles from "@/components/beauty/public-booking-form.module.css";
 export default async function Page({
   params,
   searchParams,
@@ -13,16 +15,16 @@ export default async function Page({
   if (process.env.BEAUTY_MODULE_ENABLED !== "1") return <BeautyClosedNotice />;
   const { slug } = await params,
     q = await searchParams,
-    data = await publicBeautyCatalog(slug);
+    [data, presentation] = await Promise.all([publicBeautyCatalog(slug), resolveStorePresentation(slug)]);
   return (
-    <div className="course-portal"><header className="cp-top"><CoursePortalBrand storeName={data.store.name}/><span>體驗預約</span></header><main className="cp-main"><div className="cp-title">
-      <h1>{data.store.name}｜體驗預約</h1>
-      <p>每人每項服務限體驗一次。請逐位填寫服務者資料。</p>
+    <div className={`course-portal ${styles.page}`}><header className="cp-top"><CoursePortalBrand storeName={data.store.name}/></header><main className="cp-main"><div className="cp-title">
+      <h1>體驗預約</h1>
       </div><BeautyBookingForm
         catalog={data}
         mode="public"
         slug={slug}
         entry={q.entry}
+        publicInfo={presentation ? {address:presentation.address,mapUrl:presentation.mapUrl,contactUrl:presentation.contactUrl} : undefined}
       />
     </main></div>
   );
