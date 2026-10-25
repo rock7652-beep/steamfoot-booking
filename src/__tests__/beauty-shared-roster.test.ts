@@ -22,6 +22,7 @@ vi.mock('@/app/(dashboard)/dashboard/courses/customer-list',()=>({CourseCustomer
 vi.mock('@/server/actions/beauty',()=>({changeBeautyStatus:m.status,linkBeautyCustomer:vi.fn(),confirmBeautyPurchase:vi.fn(),collectBeautyPayment:m.collect,readBeautyCollection:m.collectionRead,purchaseBeautyPlan:vi.fn(),refundBeautyPayment:m.refund,confirmBeautySettlement:vi.fn(),saveBeautyCustomer:vi.fn(),moveBeautyAppointment:m.move}));
 vi.mock('@/components/beauty/schedule-workspace',()=>({BeautyScheduleWorkspace:({onOpen}:{onOpen:(id:string)=>void})=>h('button',{onClick:()=>onOpen('a')},'開啟預約')}));
 vi.mock('@/components/beauty/customer-panel',()=>({BeautyCustomerPanel:()=>null}));
+vi.mock('@/components/beauty/native-customer-source',()=>({BeautyNativeCustomerWorkspace:({panelOnly}:{panelOnly?:boolean})=>h('section',{'data-customer-workspace':panelOnly?'overlay':'tab'})}));
 vi.mock('@/components/beauty/catalog-editor',()=>({BeautyCatalogEditor:()=>null}));
 vi.mock('@/components/beauty/native-schedule-source',()=>({BeautyNativeScheduleDialog:()=>null}));
 vi.mock('@/components/customer-labels',()=>({CustomerLabels:()=>null}));
@@ -36,6 +37,18 @@ afterEach(()=>{act(()=>root.unmount());host.remove();});
 function button(name:string){const b=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===name);expect(b,name).toBeTruthy();return b!;}
 async function settleRoster(){await act(async()=>{await import('@/components/beauty/native-roster-source');await new Promise(resolve=>setTimeout(resolve,40));});}
 async function open(readOnly=false,manage=data.manage){await act(async()=>root.render(h(BeautyDashboard,{data:{...data,manage},tab:'班表',slug:'test',readOnly})));await act(async()=>button('開啟預約').click());await settleRoster();}
+it('uses a single customer workspace for a customer-tab deep link',async()=>{
+ m.params=new URLSearchParams('tab=顧客管理&customerId=customer');
+ await act(async()=>root.render(h(BeautyDashboard,{data,tab:'顧客管理',slug:'test',initialCustomerId:'customer'})));
+ await act(async()=>{await import('@/components/beauty/native-customer-source');await new Promise(resolve=>setTimeout(resolve,40));});
+ expect(document.querySelectorAll('[data-customer-workspace]')).toHaveLength(1);
+ expect(document.querySelector('[data-customer-workspace="tab"]')).toBeTruthy();
+});
+it('retains customer detail overlays for roster deep links',async()=>{
+ await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test',initialCustomerId:'customer'})));
+ await act(async()=>{await import('@/components/beauty/native-customer-source');await new Promise(resolve=>setTimeout(resolve,40));});
+ expect(document.querySelectorAll('[data-customer-workspace="overlay"]')).toHaveLength(1);
+});
 it('completes once directly from the native roster without a reason dialog',async()=>{
  await open();expect(m.rosterProps).toMatchObject({bookingId:'a',readOnly:false});await act(async()=>button('原名單完成操作').click());expect(m.status).toHaveBeenCalledOnce();expect(m.status).toHaveBeenCalledWith(expect.objectContaining({attendance:expect.objectContaining({id:'a',revision:7,choice:'ATTENDED'})}));expect(m.refresh).not.toHaveBeenCalled();expect(document.body.textContent).not.toContain('確認服務狀態變更');
 });
