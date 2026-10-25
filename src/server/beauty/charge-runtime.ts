@@ -1,11 +1,12 @@
 import 'server-only';
+import {beautyStoreChargeRollout} from '../../../scripts/beauty-charge-rollout.mjs';
 import {AppError} from '@/lib/errors';
 import {readStoredChargeRule,snapshotStoredChargeRule,storedChargeRule,type ChargeRuleOwner} from '@/lib/beauty/charge-rule-storage';
 import {resolveChargeTechnicians} from '@/lib/beauty/charge-technician-rule';
 import type {Prisma} from '../../../generated/beauty-client';
 export type ChargeTx=Prisma.TransactionClient;
-/** Both switches are required; configuration is deliberately unchanged by this implementation. */
-export function beautyChargeRulesEnabled(storeId:string){return process.env.BEAUTY_CHARGE_RULES_ENABLED==='1'&&(process.env.BEAUTY_CHARGE_RULES_STORE_IDS??'').split(',').map(id=>id.trim()).includes(storeId);}
+/** Store authorization remains in beautyManager/requireBeauty; this controls the verified catalog capability. */
+export function beautyChargeRulesEnabled(storeId:string){return beautyStoreChargeRollout(storeId,process.env);}
 export function beautyChargeEditingEnabled(storeId:string){return beautyChargeRulesEnabled(storeId)&&process.env.BEAUTY_CHARGE_EDITING_ENABLED==='1';}
 type CatalogRow={ruleIsNull?:boolean;id:string;revision:number;chargeTechnicianRule:unknown;singlePriceConfigured?:boolean|null;singleChargeName?:string|null;serviceIds?:string[]};
 export async function readCatalogCharge(tx:ChargeTx,storeId:string,kind:'single'|'plan',id:string){

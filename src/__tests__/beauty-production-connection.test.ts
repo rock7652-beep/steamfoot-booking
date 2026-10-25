@@ -6,6 +6,13 @@ import {beautyDatabaseSelection} from '../../scripts/beauty-database-scope.mjs';
 import {beautyProductionReleasePreflight,validateBeautyProductionRelease,beautyProductionFailureDiagnostic,beautyPrismaProductionPreflight} from '../../scripts/beauty-production-release-preflight.mjs';
 const env={NODE_ENV:'production' as const,VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:'postgresql://postgres.qijlnhtpbintanzpxkvf:original@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?schema=public',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',BEAUTY_DATABASE_PASSWORD:'a'.repeat(64),BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',BEAUTY_CHARGE_RULES_STORE_IDS:''};
 describe('reviewed production Beauty connection',()=>{
+ it('validates module-wide rollout while retaining the separate emergency editing switch',()=>{
+  expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'1',BEAUTY_CHARGE_EDITING_ENABLED:'1'})).not.toThrow();
+  expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'1',BEAUTY_CHARGE_EDITING_ENABLED:'0'})).not.toThrow();
+  expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'0',BEAUTY_CHARGE_EDITING_ENABLED:'1'})).toThrow('scope');
+  expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'unknown'})).toThrow('scope');
+ });
+
  it('checks the live Prisma adapter identity in a read-only transaction and disconnects',async()=>{
   const execute=vi.fn(),query=vi.fn().mockResolvedValueOnce([{role:env.BEAUTY_DATABASE_ROLE,database:'postgres'}]).mockResolvedValueOnce([]);
   const findMany=vi.fn().mockResolvedValue([]),disconnect=vi.fn(),factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:execute,$queryRawUnsafe:query,beautySetting:{findMany}}),$disconnect:disconnect}));

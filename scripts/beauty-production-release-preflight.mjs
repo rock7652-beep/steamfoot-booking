@@ -1,3 +1,4 @@
+import {beautyModuleChargeRollout} from './beauty-charge-rollout.mjs';
 import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
@@ -6,6 +7,7 @@ export function validateBeautyProductionRelease(env){
  if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'||env.BEAUTY_HOSTED_PREVIEW!==undefined||
     env.PRODUCTION_MIGRATION_TARGET||Object.keys(env).some(k=>/(?:_QA|_ACCEPTANCE)$/.test(k)&&env[k]==='1')||
     (env.BEAUTY_CHARGE_RULES_STORE_IDS??'').trim())throw Error('Beauty production release scope is not verified');
+ if(env.BEAUTY_CHARGE_RULES_SCOPE!==undefined&&env.BEAUTY_CHARGE_RULES_SCOPE!==''&&env.BEAUTY_CHARGE_RULES_SCOPE!=='stores'&&(env.BEAUTY_CHARGE_RULES_SCOPE!=='module'||!beautyModuleChargeRollout(env)||!['0','1'].includes(env.BEAUTY_CHARGE_EDITING_ENABLED)))throw Error('Beauty charge rollout scope is not verified');
  const value=beautyDatabaseSelection(env),u=new URL(value),project='qijlnhtpbintanzpxkvf',user=decodeURIComponent(u.username);
  if(!(u.hostname===`db.${project}.supabase.co`&&user===BEAUTY_PRODUCTION_ROLE||/^aws-\d+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(u.hostname)&&user===`${BEAUTY_PRODUCTION_ROLE}.${project}`)||u.pathname!=='/postgres')throw Error('Beauty production connection identity mismatch');
  return value;
