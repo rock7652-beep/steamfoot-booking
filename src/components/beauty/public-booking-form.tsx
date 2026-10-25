@@ -178,7 +178,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
       : <button type="button" disabled={pending} onClick={() => { if (lock.current) return; requestKey.current = crypto.randomUUID(); setPeople([blank(sequence.current++)]); setTime(""); setSlots([]); setQueried(false); setSeparateContact(false); setContactName(""); setContactPhone(""); setStage("service"); setErrors({}); setError(""); }}>再預約一筆</button>}
   </section>;
   return <form noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
-    {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified}/>}
+    {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified} friendHref={contactUrl ?? undefined}/>}
     <ol className={styles.steps} aria-label="預約步驟"><li aria-current={stage === "service" ? "step" : undefined}>1 選擇服務與時段</li><li aria-current={stage === "contact" ? "step" : undefined}>2 聯絡資料與確認</li></ol>
     <fieldset disabled={pending || uncertain}>
       {stage === "service" ? <>

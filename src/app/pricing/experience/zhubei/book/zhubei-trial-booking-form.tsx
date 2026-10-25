@@ -263,7 +263,7 @@ export function ZhubeiTrialBookingForm({
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
-      {!entry && <BookingLineEntry href={resolvePublicTrialLiffConfig(storeSlug) ? `https://liff.line.me/${resolvePublicTrialLiffConfig(storeSlug)!.liffId}` : undefined}/>}
+      {!entry && <BookingLineEntry href={resolvePublicTrialLiffConfig(storeSlug) ? `https://liff.line.me/${resolvePublicTrialLiffConfig(storeSlug)!.liffId}` : undefined} friendHref={contactUrl}/>}
       <p className="text-sm font-medium text-earth-800">1. 選擇日期</p>
       <div className="mt-3 rounded-2xl border border-earth-100 p-3">
         <div className="flex items-center justify-between">

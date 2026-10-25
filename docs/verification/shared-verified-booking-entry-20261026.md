@@ -6,6 +6,7 @@
 
 - `/booking-line?store=<slug>` 僅讀取可營運、未封存店家的設定，轉到該店 canonical LIFF；不接受外部 redirect、不設定身分 cookie、不寫會員。未設定為404，不使用中央／其他店備援。
 - 蒸足三店沿用現有 public-trial LIFF。公開表單新增驗證入口，既有單次entry、體驗規則與成功回條保留；歡迎訊息改用同一驗證入口，讀取店家資料失敗保留原手動恢復方式。
+- 尚未加入好友者可從表單驗證入口旁先加入本店官方LINE。加好友與身分驗證分開，不使用其他店的好友連結。
 - 美業 `/beauty-trial/[slug]` 依實際設定提供入口；後端核對 entry 後第一步顯示已驗證。`/s/<slug>/liff/public-trial` 與 `/api/liff/public-trial-entry` 驗證設定中的Login audience、實際Beauty店ID及本店Messaging可達性，再發行原本的單次不透明entry。
 - 音樂／運動沿用 COURSE 的 token exchange、已驗證會員、首次姓名／電話登記與門市核對。驗證成功開啟本店課表；首次登記也返回同店預約入口。已設定店家的登入與註冊入口共用 canonical LIFF，不另建課程公開預約權益。
 - 共用OA如共用同一LIFF，網址保留 `bookingStore`；只能在同 sharedAccountKey、同實體LIFF的明確設定中切門市。不同LIFF／不同OA／未知店家拒絕，不依cookie或第一筆店家猜測。
