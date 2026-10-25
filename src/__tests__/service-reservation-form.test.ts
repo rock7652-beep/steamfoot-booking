@@ -48,7 +48,7 @@ it('disables duplicate IDs but allows distinct customers with the same name',asy
 });
 it('shares only an authorized shared card and counts the combined party quota before falling back to single payment',async()=>{
  const data=source();data.cards=[{...card,remaining:2,held:1}];await mount({customerId:'customer'},data);await act(async()=>button('＋新增同行者').click());expect(input('使用方案 1').value).toBe('soon');expect(input('使用方案 2').value).toBe('');expect(host.textContent).toContain('方案使用 1 次');
- await set('使用方案 1','');expect(input('使用方案 2').value).toBe('soon');await set('使用方案 2','__trial__');await tick();expect(read.mock.calls.at(-1)![0].people.map((p:{isTrial:boolean})=>p.isTrial)).toEqual([false,true]);expect(host.textContent).toContain('應收 NT$ 1,500');
+ await set('使用方案 1','');expect(input('使用方案 2').value).toBe('soon');await set('使用方案 2','__trial__');await tick();expect(button('確認預約').disabled).toBe(true);expect(read).not.toHaveBeenCalled();await choose(2,'0900000002');await set('使用方案 2','__trial__');await tick();expect(read.mock.calls.at(-1)![0].people.map((p:{isTrial:boolean})=>p.isTrial)).toEqual([false,true]);expect(host.textContent).toContain('應收 NT$ 1,500');
 });
 it('does not allow a pending companion to use a non-shared card',async()=>{
  const data=source();data.cards=[{...card,allowShared:false}];await mount({customerId:'customer'},data);await act(async()=>button('＋新增同行者').click());expect(input('使用方案 2').value).toBe('');expect(input('使用方案 2').textContent).not.toContain('快到期方案');

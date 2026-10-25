@@ -1,0 +1,44 @@
+{
+  "synthetic": true,
+  "businessAcceptance": false,
+  "physicalDevice": false,
+  "checks": [
+    {
+      "name": "beauty-charge-save-failure-keeps-input",
+      "pass": true
+    },
+    {
+      "name": "collection-target-loading-lock-and-discount",
+      "pass": true
+    },
+    {
+      "name": "shared-purchase-discount-calculates-900",
+      "pass": true
+    },
+    {
+      "name": "four-person-reservation-independent-allocation-and-plan-order",
+      "pass": true
+    },
+    {
+      "name": "beauty-calendar-month-week-day-share-controller",
+      "pass": true
+    },
+    {
+      "name": "beauty-rental-save-failure-keeps-draft",
+      "pass": true
+    },
+    {
+      "name": "beauty-staff-inactive-collapse-and-editor-resize",
+      "pass": true
+    },
+    {
+      "name": "personnel-role-preset-changes-visible-permissions",
+      "pass": true
+    },
+    {
+      "name": "customer-and-purchase-return-preserve-search",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

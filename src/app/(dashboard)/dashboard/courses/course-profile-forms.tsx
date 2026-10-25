@@ -217,7 +217,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
                   ["有效期（天）", "days", plan?.validDays ?? 90, 1],
                 ].filter(([,name])=>name!=="storeCost"&&(charge?.kind!=="single"||name==="price")).map(([label, name, , min]) => (
                   <label key={String(name)} className="block">
-                    {name==="points"?(planKind==="POINT"?"總點數":planKind==="TERM"?"整期堂數":"總堂數"):label} *
+                    {name==="points"?(planKind==="POINT"?"總點數":planKind==="TERM"?"整期堂數":source?.sessionLabel==="次數"?"總次數":"總堂數"):label} *
                     <input
                       className={field}
                       name={String(name)}
@@ -229,7 +229,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
                     />
                   </label>
                 ))}</div>
-                <div className="sm:col-span-2 flex flex-wrap gap-x-5 gap-y-1 py-1 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="ml-2 text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{draft.values.unit==="POINT"?"點":"堂"}</strong></p></div>
+                <div className="sm:col-span-2 flex flex-wrap gap-x-5 gap-y-1 py-1 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="ml-2 text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{draft.values.unit==="POINT"?"點":source?.sessionLabel==="次數"?"次":"堂"}</strong></p></div>
                 <fieldset hidden={charge?.kind==='single'} className="sm:col-span-2"><legend className="mb-1 text-sm">{sharedCardState==="HIDDEN"?"購買方式":"購買方式與共卡"}</legend><div className="flex flex-wrap gap-x-5 gap-y-1"><label hidden={!!charge} className="flex min-h-11 items-center gap-2"><input type="radio" name="purchaseMode" value="customer" checked={draft.values.purchaseMode==="customer"} onChange={()=>draft.set("purchaseMode","customer")}/>顧客可購買</label><label hidden={!!charge} className="flex min-h-11 items-center gap-2"><input type="radio" name="purchaseMode" value="backend" checked={draft.values.purchaseMode==="backend"} onChange={()=>draft.set("purchaseMode","backend")}/>僅後台指派</label>{sharedCardState!=="HIDDEN"&&<label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="allowShared" value="yes" disabled={planKind==="TERM"||sharedCardState!=="ENABLED"} checked={sharedCardState!=="ENABLED"?!!plan?.allowShared:planKind!=="TERM"&&draft.values.allowShared==="yes"} onChange={e=>draft.set("allowShared",e.target.checked?"yes":"no")}/>允許共卡{sharedCardState==="LOCKED"&&<span className="text-earth-500">（功能未開通）</span>}</label>}</div></fieldset>
                 <details hidden={!!sportsData} data-plan-section="courses" name="fitness-plan-sections" className="sm:col-span-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between border-t border-earth-100 text-sm"><span>適用課程</span><span className="text-earth-500">{courseScope==="all"?"全部課程":`已選 ${selectedTemplateIds.length} 門`} <span className="ml-2 text-primary-700">修改</span></span></summary><label className="block text-sm">範圍<select className={field} value={courseScope} onChange={e=>draft.set("scope",e.target.value)}><option value="all">全部課程</option><option value="selected">指定課程</option></select></label><div hidden={courseScope!=="selected"}><label className="block">搜尋課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="搜尋課程名稱"/></label>
                 <fieldset className="sm:col-span-2 pt-2">

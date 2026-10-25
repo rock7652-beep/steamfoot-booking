@@ -40,6 +40,9 @@ it('uses the shared plan fields without multiplying the total price by the numbe
  const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
  mount({perChargeTechnicians:true,save},{expectedStoreId:'store',kind:'plan',serviceId:'s',name:'五次按摩',price:4500,sessions:5,validDays:90,allowShared:true,technicianIds:['t']});
  expect(document.querySelector('#course-member-form')).toBeTruthy();
+ expect(document.body.textContent).toContain('NT$ 900／次');
+ expect(document.body.textContent).not.toContain('／堂');
+ expect(field('points').closest('label')?.textContent).toContain('總次數');
  expect(document.querySelector('[name="trialPrice"]')).toBeNull();
  await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'plan',price:4500,sessions:5,validDays:90,allowShared:true,technicianIds:['t']}));
 });
