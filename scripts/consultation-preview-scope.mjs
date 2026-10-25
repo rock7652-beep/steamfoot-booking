@@ -75,11 +75,12 @@ export function isIsolatedConsultationDatabaseUrl(value) {
 }
 
 export const BEAUTY_HOSTED_PREVIEW_BRANCH = 'preview/beauty-hosted-20261021';
+export const BEAUTY_LIVE_ISSUES_PREVIEW_BRANCH = 'fix/beauty-live-issues-20261025';
 /** User-authorized Beauty Preview: existing test database, no automatic DDL or LINE. */
 export function assertBeautyHostedPreviewEnvironment(env) {
   if (env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview' ||
       env.BEAUTY_HOSTED_PREVIEW !== '1' ||
-      ![BEAUTY_HOSTED_PREVIEW_BRANCH,'preview/beauty-ui-alignment-20261021'].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
+      ![BEAUTY_HOSTED_PREVIEW_BRANCH,'preview/beauty-ui-alignment-20261021',BEAUTY_LIVE_ISSUES_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
       env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
       env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
       env.BEAUTY_SHARED_PAGES_BUILD_QA || env.BEAUTY_SHARED_PAGES_LOCAL_QA || env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||

@@ -43,3 +43,11 @@
 ## 交付狀態
 
 草稿 PR：[#1406](https://github.com/rock7652-beep/steamfoot-booking/pull/1406)。目前程式與本機驗證完成；已將 main 的全站方案通知整合進修復支線，這批修復尚未合併 main、尚未部署。本店 LINE 串接與正式登入後的實際耗時／交易驗證尚待完成，不能宣稱已上線或 LINE 已開通。
+
+## 隔離 Preview 修復與缺項
+
+- 原 Preview 在 `ci-migrate` 的環境邊界檢查失敗：新修復支線未列入既有允許清單，落入通用運動分支錯誤；並非確認運動旗標誤開。
+- 精確允許 `fix/beauty-live-issues-20261025` 使用既有 hosted Beauty Preview 邊界；其他分支、正式庫、Production 與 LINE 發送仍阻擋。僅設定此支線的 Preview 環境，使用獨立 Sensitive AUTH_SECRET；無自動 migration。
+- 環境與通知範圍回歸：5 個測試檔、59 項通過（包含新支線、相似未授權分支及錯誤資料庫阻擋）。
+- 唯讀確認隔離庫 `ttworfzgwejdeolegkxl` 仍有 `beauty-hosted-20261021` 美業測試店，但尚無 `PlanActivationNotification`。最新 main 的方案通知接點依賴該表，不能宣稱購買方案的真實流程驗收完成。
+- 對應既有升級檔：`prisma/migrations/20261025160000_plan_activation_notification/migration.sql`；本批未執行，亦不以停用檢查掩蓋缺項。正式站與既有交易未動。
