@@ -50,7 +50,7 @@ afterEach(() => { for (const { root, host } of roots.splice(0)) { act(() => root
 
 it("queries eligible public slots before collecting names or an extra contact", async () => {
   const host = mount(); expect(host.textContent).not.toContain("聯絡人姓名"); expect(host.querySelector('label[for$="-name"]')).toBeNull();
-  expect(host.querySelector('select[id$="-service"]')).toBeNull(); expect(host.textContent).not.toContain("第 1 位");
+  expect(field(host, "服務項目").value).toBe("massage"); expect(host.textContent).not.toContain("第 1 位");
   await chooseTime(host);
   expect(m.read.mock.calls[0]).toEqual(["public", "soulife", { date: "2026-10-26", isTrial: true, people: [{ phone: "0900000000", serviceId: "massage", serviceRevision: 2, preference: "ANY", specifiedTechnicianId: null }] }]);
   expect(host.textContent).toContain("09:00–09:30"); expect(host.textContent).toContain("體驗總額 NT$750");
@@ -60,6 +60,30 @@ it("marks the exact missing fields and focuses the first error instead of giving
   const host = mount(); await act(async () => button(host, "查詢可用時段").click());
   expect(m.read).not.toHaveBeenCalled(); expect(field(host, "手機").getAttribute("aria-invalid")).toBe("true");
   expect(field(host, "技師安排").getAttribute("aria-invalid")).toBe("true"); expect(document.activeElement).toBe(field(host, "手機"));
+});
+it("lists every configured trial including free trials, and uses the chosen price, duration and service for availability and submission", async () => {
+  const host = mount({ catalog: { ...catalog, services: [
+    ...catalog.services,
+    { id: "neck", name: "肩頸按摩", duration: 60, trialDuration: 20, trialPrice: 350, price: 900, revision: 3 },
+    { id: "free", name: "免費體驗", duration: 15, trialPrice: 0, price: 500, revision: 1 },
+    { id: "regular", name: "尚未開放體驗", duration: 90, trialPrice: null, price: 1800, revision: 1 },
+  ] } });
+  const select = field(host, "服務項目") as unknown as HTMLSelectElement;
+  expect([...select.options].filter(o => o.value).map(o => [o.value, o.textContent])).toEqual([
+    ["massage", "全身按摩 · 30 分鐘 · NT$750"],
+    ["neck", "肩頸按摩 · 20 分鐘 · NT$350"],
+    ["free", "免費體驗 · 15 分鐘 · NT$0"],
+  ]);
+  await chooseTime(host); act(() => button(host, "返回修改服務與時段").click());
+  set(field(host, "服務項目"), "neck");
+  expect(button(host, "下一步：填寫聯絡資料").disabled).toBe(true);
+  expect(host.textContent).not.toContain("09:00");
+  await act(async () => button(host, "查詢可用時段").click());
+  expect(m.read.mock.lastCall?.[2].people[0]).toMatchObject({ serviceId: "neck", serviceRevision: 3, specifiedTechnicianId: null });
+  act(() => button(host, "10:00").click()); act(() => button(host, "下一步：填寫聯絡資料").click());
+  expect(host.textContent).toContain("10:00–10:20"); expect(host.textContent).toContain("體驗總額 NT$350");
+  set(field(host, "姓名"), "預約人"); await act(async () => button(host, "確認預約").click());
+  expect(m.submit.mock.lastCall?.[1].people[0]).toMatchObject({ serviceId: "neck", serviceRevision: 3 });
 });
 it("preserves time while correcting a name, phone, note or separate contact, and sends the latest data", async () => {
   const host = mount({ entry: "opaque-entry" }); await chooseTime(host);

@@ -24,7 +24,7 @@ export default async function Page({
         mode="public"
         slug={slug}
         entry={q.entry}
-        publicInfo={presentation ? {address:presentation.address,mapUrl:presentation.mapUrl,contactUrl:presentation.contactUrl} : undefined}
+        publicInfo={{ ...(presentation ? {address:presentation.address,mapUrl:presentation.mapUrl,contactUrl:presentation.contactUrl} : {}), massageReminder: slug === "soulife" }}
       />
     </main></div>
   );

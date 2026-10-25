@@ -12,7 +12,7 @@ import type { PartyInput } from "@/lib/beauty/contracts";
 import type { BeautyBookingCatalog } from "./booking-form";
 import styles from "./public-booking-form.module.css";
 
-export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string };
+export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string; massageReminder?: boolean };
 type Person = { key: number; name: string; phone: string; serviceId: string; arrangement: string; technicianId: string; notes: string };
 type Errors = Record<string, string>;
 type Props = {
@@ -156,7 +156,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
           <div className={styles.form}>{people.map((p, index) => <section className={styles.card} key={p.key} aria-label={`服務安排 ${index + 1}`}>
             {people.length > 1 && <div className={styles.heading}><h3>第 {index + 1} 位</h3>{index > 0 && <button type="button" aria-label={`移除第 ${index + 1} 位`} onClick={() => { if (edit(true)) setPeople(previous => previous.filter(item => item.key !== p.key)); }}>移除</button>}</div>}
             <div className={styles.grid}>
-              {services.length === 1 && p.serviceId === services[0].id ? <div><strong>{services[0].name}</strong><p>{serviceDuration(services[0], true)} 分鐘 · 體驗 {cash(services[0].trialPrice!)}</p></div> : <div className={styles.field}><label htmlFor={fieldId(`${p.key}-service`)}>服務項目</label><select {...fieldProps(`${p.key}-service`)} value={services.some(s => s.id === p.serviceId) ? p.serviceId : ""} onChange={e => change(p.key, { serviceId: e.target.value, technicianId: "" }, true)}><option value="" disabled>請選擇服務項目</option>{services.map(s => <option value={s.id} key={s.id}>{s.name} · {serviceDuration(s, true)} 分鐘 · {cash(s.trialPrice!)}</option>)}</select>{hint(`${p.key}-service`)}</div>}
+              <div className={styles.field}><label htmlFor={fieldId(`${p.key}-service`)}>服務項目</label><select {...fieldProps(`${p.key}-service`)} value={services.some(s => s.id === p.serviceId) ? p.serviceId : ""} onChange={e => change(p.key, { serviceId: e.target.value, technicianId: "" }, true)}><option value="" disabled>請選擇服務項目</option>{services.map(s => <option value={s.id} key={s.id}>{s.name} · {serviceDuration(s, true)} 分鐘 · {cash(s.trialPrice!)}</option>)}</select>{hint(`${p.key}-service`)}</div>
               <div className={styles.field}><label htmlFor={fieldId(`${p.key}-phone`)}>手機</label><input {...fieldProps(`${p.key}-phone`)} autoComplete={index === 0 ? "tel-national" : "off"} inputMode="tel" type="tel" maxLength={30} placeholder="09xxxxxxxx" value={p.phone} onChange={e => change(p.key, { phone: e.target.value })}/>{hint(`${p.key}-phone`)}</div>
               <div className={styles.field}><label htmlFor={fieldId(`${p.key}-arrangement`)}>技師安排</label><select {...fieldProps(`${p.key}-arrangement`)} value={p.arrangement} onChange={e => change(p.key, { arrangement: e.target.value, technicianId: "" }, true)}><option value="" disabled>請選擇</option><option value="ANY">男女皆可</option><option value="FEMALE">女性技師</option><option value="MALE">男性技師</option><option value="SPECIFIC">指定技師</option></select>{hint(`${p.key}-arrangement`)}</div>
               {p.arrangement === "SPECIFIC" && <div className={styles.field}><label htmlFor={fieldId(`${p.key}-technician`)}>選擇技師</label><select {...fieldProps(`${p.key}-technician`)} value={p.technicianId} onChange={e => change(p.key, { technicianId: e.target.value }, true)}><option value="" disabled>請選擇技師</option>{catalog.techs.filter(t => t.serviceIds.includes(p.serviceId)).map(t => <option key={t.id} value={t.id}>{t.name}（{t.gender === "FEMALE" ? "女" : "男"}）</option>)}</select>{hint(`${p.key}-technician`)}</div>}
@@ -188,6 +188,14 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
       </>}
     </fieldset>
     {error && <p role="alert" className={styles.error}>{error}</p>}
+    {stage === "contact" && publicInfo?.massageReminder && <aside className={styles.massageReminder} aria-labelledby={fieldId("massage-reminder-title")}>
+      <h2 id={fieldId("massage-reminder-title")}>按摩小提醒</h2>
+      <ul>
+        <li>有需留意的身體狀況，請先與店家確認。</li>
+        <li>需避開的部位、皮膚不適或用品過敏，請事先告知。</li>
+        <li>力道可隨時調整，不舒服時請直接告訴我們。</li>
+      </ul>
+    </aside>}
     {stage === "contact" && <div className={styles.actions}>
       <button type="button" disabled={pending || uncertain} onClick={() => { setStage("service"); setErrors({}); setError(""); }}>返回修改服務與時段</button>
       <button type="submit" className="primary" disabled={pending}>{pending ? "確認中…" : uncertain ? "重試確認" : "確認預約"}</button>
