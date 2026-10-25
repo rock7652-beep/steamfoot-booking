@@ -3,6 +3,7 @@ import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "codex/soulife-line-additional-config",
   "perf/reminder-feature-reads-20261022",
   "perf/reminder-panel-reader-20261022",
   "fix/reminder-tab-feedback-density-20261022",

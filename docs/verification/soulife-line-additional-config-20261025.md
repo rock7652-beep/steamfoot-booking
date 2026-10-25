@@ -34,6 +34,7 @@
 `storeId, slug, identityMode, providerId, loginChannelId, messagingProviderId, messagingChannelId, liffId, basicId, destination, accessTokenEnv, channelSecretEnv`。
 實際金鑰只放在其引用的兩個 Secret；JSON 不含金鑰本體。使用者回報 bot 查詢結果後，新增 `soulife-line-additional-config.json` 作為待核對候選值；不代表已在 Vercel 保存或部署。
 Production 已有不可讀回的 `CENTRAL_LINE_PROVIDER_ID`，保留原值，不再要求使用者解密。新 build 的 `store-line-additions-preflight.ts` 在任何遷移與 Next build 之前使用部署環境原值解析兩份設定；缺漏、衝突或中央 Provider 不符會以不含值的訊息阻擋建置。
+透過 npm `prebuild` lifecycle 執行，保留原 `build` 命令及其檢查順序。預覽精確登記本次 `codex/soulife-line-additional-config` 分支，仍要求原隔離庫、正確 repository provenance、Preview target 及禁止外發通知，不放寬其他分支。
 
 ## 部署與驗收界線
 
@@ -49,6 +50,7 @@ Production 已有不可讀回的 `CENTRAL_LINE_PROVIDER_ID`，保留原值，不
 
 ## 本機驗證
 
-- 6 檔／68 項 Vitest 通過：設定解析、LIFF context、官方帳號核對後發送、Webhook 分店隔離、通知身分路由、follow/unfollow、建置前中央 Provider 核對。
+- 8 檔／111 項 Vitest 通過：設定解析、LIFF context、官方帳號核對後發送、Webhook 分店隔離、通知身分路由、follow/unfollow、建置前中央 Provider 核對、隔離預覽拒絕正式／錯誤連線及錯誤 provenance。
 - 修改的 TypeScript 檔 ESLint、全專案 `tsc --noEmit --incremental false`、`git diff --check` 通過。
 - LINE 網路請求與資料庫在以上測試中使用 mock；不代表正式帳號、真人登入或通知已送達。
+- 第一版 CI 的 targeted suite 顯示 16 個失敗，兩個與本次變更有關的 build 字串斷言已藉保留原 build chain 解決；其餘失敗位於 SPA 舊測試、營收、指南、身分／資料庫 mock 等非本次修改範圍。尚未進行對照基線重跑，不把它們認定為已證實的既有失敗，也不將整體 CI 標記通過。
