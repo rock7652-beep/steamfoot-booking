@@ -13,6 +13,7 @@ const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "fix/line-quota-manager-tab-20261022",
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
+  "codex/fix-vercel-home-redirect",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
 ];
 
