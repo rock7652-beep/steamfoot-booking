@@ -480,3 +480,81 @@ it('does not append another receipt or revision for a zero payment with unchange
  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'OTHER',note:'',quotes:[{id:'b',revision:0,price:1000,collected:1000,discount:{kind:'AMOUNT',value:0}}]},{canDiscount:true});
  expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
 });
+
+it.each([['first',300,0],['second',0,500]] as const)('freezes the correct fixed-fee delta for the %s service collection',async(_kind,storeAmount,previous)=>{
+ vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','s');vi.stubEnv('BEAUTY_CHARGE_RULES_SCOPE','stores');
+ try{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);
+  tx.beautyEvent.findFirst=vi.fn().mockResolvedValue({body:JSON.stringify({storeCost:300})});
+  vi.mocked(tx.beautyEvent.findMany).mockImplementation(({where}={})=>Promise.resolve(where?.kind==='SERVICE_DISCOUNT'?[]:[{body:JSON.stringify({paymentId:'earlier',revenueStaffId:'original-manager',allocation:{storeAmount:300,developerAmount:200,shortfall:0}})}]) as never);
+  vi.mocked(tx.beautyPayment.findMany).mockResolvedValue(previous?[{id:'earlier',kind:'SALE',amount:500,createdAt:new Date('2026-10-01')} ] as never:[]);
+  vi.mocked(tx.$queryRaw).mockResolvedValue([{assignedStaffId:'current-manager'}]);
+  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[500],method:'OTHER',note:'合成核對'});
+  const event=vi.mocked(tx.beautyEvent.create).mock.calls.find(([arg])=>arg.data.kind==='SERVICE_SALE_ATTRIBUTION')![0].data;
+  expect(JSON.parse(String(event.body))).toMatchObject({paymentId:'p',revenueStaffId:'current-manager',allocation:{storeAmount,developerAmount:500-storeAmount,shortfall:0}});
+ }finally{vi.unstubAllEnvs();}
+});
+it('uses refunded immutable shares when a cancelled service is restored and later collected again',async()=>{
+ vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','s');vi.stubEnv('BEAUTY_CHARGE_RULES_SCOPE','stores');
+ try{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);
+  tx.beautyEvent.findFirst=vi.fn().mockResolvedValue({body:'{"storeCost":300}'});
+  vi.mocked(tx.beautyEvent.findMany).mockImplementation(({where}={})=>Promise.resolve(where?.kind==='SERVICE_DISCOUNT'?[]:[{body:JSON.stringify({paymentId:'a',revenueStaffId:'old-manager',allocation:{storeAmount:300,developerAmount:200,shortfall:0}})},{body:JSON.stringify({paymentId:'b',revenueStaffId:'old-manager',allocation:{storeAmount:0,developerAmount:500,shortfall:0}})}]) as never);
+  vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'a',kind:'SALE',amount:500,createdAt:new Date('2026-10-01')},{id:'b',kind:'SALE',amount:500,createdAt:new Date('2026-10-02')},{id:'r',kind:'REFUND',originalPaymentId:'a',amount:-500,createdAt:new Date('2026-10-03')}] as never);
+  vi.mocked(tx.$queryRaw).mockResolvedValue([{assignedStaffId:'new-manager'}]);
+  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[500],method:'OTHER',note:'合成補收'});
+  const event=vi.mocked(tx.beautyEvent.create).mock.calls.find(([arg])=>arg.data.kind==='SERVICE_SALE_ATTRIBUTION')![0].data;
+  expect(JSON.parse(String(event.body))).toMatchObject({revenueStaffId:'new-manager',allocation:{storeAmount:300,developerAmount:200,shortfall:0}});
+ }finally{vi.unstubAllEnvs();}
+});
+
+it('reconciles discounted cash receipts and repeated partial/full refund commands without double posting',async()=>{
+ vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','s');vi.stubEnv('BEAUTY_CHARGE_RULES_SCOPE','stores');
+ try{
+  type Payment={id:string;kind:string;amount:number;appointmentId?:string|null;originalPaymentId?:string|null;createdAt:Date};
+  const receipts:Payment[]=[],commands=new Map<string,unknown>(),events:{kind:string;body:string;appointmentId?:string|null}[]=[];
+  let status='RESERVED';
+  vi.mocked(tx.beautyCommand.findUnique).mockImplementation(({where})=>Promise.resolve(commands.get(where.storeId_requestKey!.requestKey)) as never);
+  vi.mocked(tx.beautyCommand.create).mockImplementation(({data})=>{commands.set(data.requestKey,data);return Promise.resolve(data) as never;});
+  vi.mocked(tx.beautyAppointment.findFirst).mockImplementation(()=>Promise.resolve({...b,cardId:null,status}) as never);
+  tx.beautyAppointment.findFirstOrThrow=vi.fn().mockImplementation(async()=>({...b,cardId:null,status}));
+  vi.mocked(tx.beautyPayment.findMany).mockImplementation(()=>Promise.resolve([...receipts]) as never);
+  vi.mocked(tx.beautyPayment.findFirst).mockImplementation(({where}={})=>Promise.resolve(receipts.find(row=>row.id===where?.id&&row.kind==='SALE')) as never);
+  vi.mocked(tx.beautyPayment.aggregate).mockImplementation(({where})=>Promise.resolve({_sum:{amount:receipts.filter(row=>row.kind==='REFUND'&&row.originalPaymentId===where?.originalPaymentId).reduce((n,row)=>n+row.amount,0)}}) as never);
+  vi.mocked(tx.beautyPayment.create).mockImplementation(({data})=>{const row={...data,id:'p'+(receipts.length+1),createdAt:new Date('2026-10-01T01:00Z')} as Payment;receipts.push(row);return Promise.resolve(row) as never;});
+  tx.beautyEvent.findFirst=vi.fn().mockResolvedValue({body:'{"storeCost":300}'});
+  vi.mocked(tx.beautyEvent.create).mockImplementation(({data})=>{events.push(data as never);return Promise.resolve(data) as never;});
+  vi.mocked(tx.beautyEvent.findMany).mockImplementation(({where}={})=>Promise.resolve(events.filter(row=>Array.isArray((where?.kind as {in?:string[]})?.in)?(where!.kind as {in:string[]}).in.includes(row.kind):row.kind===where?.kind)) as never);
+  vi.mocked(tx.$queryRaw).mockImplementation((parts)=>Promise.resolve(Array.from(parts as TemplateStringsArray).join('').includes('CashDrawerSession')?[{id:'open-drawer'}]:[{assignedStaffId:'original-manager'}]) as never);
+  const collection={requestKey:crypto.randomUUID(),ids:['b'],amounts:[900],method:'CASH' as const,note:'合成現金',quotes:[{id:'b',revision:0,price:1000,collected:0,discount:{kind:'AMOUNT' as const,value:100}}]};
+  await collect(tx,a,collection,{canDiscount:true});await collect(tx,a,collection,{canDiscount:true});
+  expect(receipts).toHaveLength(1);expect(receipts[0].amount).toBe(900);
+  expect(JSON.parse(events.find(row=>row.kind==='SERVICE_SALE_ATTRIBUTION')!.body)).toMatchObject({allocation:{storeAmount:300,developerAmount:600},revenueStaffId:'original-manager'});
+  status='CANCELLED';
+  const partial={requestKey:crypto.randomUUID(),paymentId:'p1',amount:300,method:'CASH' as const,reason:'合成部分退款'};
+  await refund(tx,a,partial,{remaining:null,refundedAmount:0});await refund(tx,a,partial,{remaining:null,refundedAmount:0});
+  expect(receipts.map(row=>row.amount)).toEqual([900,-300]);
+  const final={...partial,requestKey:crypto.randomUUID(),amount:600,reason:'合成全額退回'};
+  await refund(tx,a,final,{remaining:null,refundedAmount:300});await refund(tx,a,final,{remaining:null,refundedAmount:300});
+  expect(receipts.map(row=>row.amount)).toEqual([900,-300,-600]);
+  await expect(refund(tx,a,{...final,requestKey:crypto.randomUUID(),amount:1},{remaining:null,refundedAmount:900})).rejects.toThrow('超過');
+  const cashRows=vi.mocked(tx.$executeRaw).mock.calls.filter(([sql])=>Array.from(sql as TemplateStringsArray).join('').includes('INSERT INTO "CashbookEntry"'));
+  expect(cashRows).toHaveLength(3);expect(cashRows.map(row=>row.slice(1))).toEqual([
+   expect.arrayContaining(['beauty:p1','INCOME',900]),expect.arrayContaining(['beauty:p2','EXPENSE',300]),expect.arrayContaining(['beauty:p3','EXPENSE',600]),
+  ]);
+  expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();
+ }finally{vi.unstubAllEnvs();}
+});
+it('closes a partially refunded plan once and retains independent refund receipts for the remainder',async()=>{
+ let closed=false,returned=0;
+ vi.mocked(tx.beautyPayment.findFirst).mockResolvedValue({id:'original',kind:'SALE',amount:900,cardId:'card',appointmentId:null} as never);
+ vi.mocked(tx.beautyPayment.aggregate).mockImplementation(()=>Promise.resolve({_sum:{amount:-returned}}) as never);
+ vi.mocked(tx.beautyCard.findFirstOrThrow).mockImplementation(()=>Promise.resolve({...card,remaining:closed?0:card.remaining,closedAt:closed?new Date():null}) as never);
+ vi.mocked(tx.beautyCard.update).mockImplementation(()=>{closed=true;return Promise.resolve({}) as never;});
+ vi.mocked(tx.beautyPayment.create).mockImplementation(({data})=>{returned-=Number(data.amount);return Promise.resolve({...data,id:'refund-'+returned}) as never;});
+ await refund(tx,a,{requestKey:crypto.randomUUID(),paymentId:'original',amount:300,method:'OTHER',reason:'合成部分退回'},{remaining:2,refundedAmount:0});
+ await refund(tx,a,{requestKey:crypto.randomUUID(),paymentId:'original',amount:600,method:'OTHER',reason:'合成剩餘退回'},{remaining:0,refundedAmount:300});
+ expect(tx.beautyCard.update).toHaveBeenCalledTimes(1);expect(tx.beautyLedger.create).toHaveBeenCalledTimes(1);
+ expect(tx.beautyLedger.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({kind:'REFUND',delta:-2})}));
+ expect(tx.beautyPayment.create).toHaveBeenCalledTimes(2);expect(returned).toBe(900);
+});

@@ -1,0 +1,101 @@
+
+ RUN  v4.1.4 /tmp/steamfoot-beauty-money-baseline
+
+ ❯ src/__tests__/beauty-revenue-report.test.ts (8 tests | 2 failed) 27ms
+   × reads single-service ownership and fixed fee from the original receipt, including discounts 10ms
+   × keeps cross-month refund rounding and owner filters consistent with the original frozen allocation 3ms
+ ❯ src/__tests__/beauty-transactions.test.ts (42 tests | 1 failed) 79ms
+   × uses refunded immutable shares when a cancelled service is restored and later collected again 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/beauty-revenue-report.test.ts > reads single-service ownership and fixed fee from the original receipt, including discounts
+AssertionError: expected { id: 'sale', …(23) } to match object { staffId: 'manager', …(3) }
+(21 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "coachName": "原所屬店長",
++   "coachName": null,
+    "netAmount": 900,
+-   "saleAllocation": {
+-     "managerAmount": 600,
+-     "storeAmount": 300,
+-     "unassignedAmount": 0,
+-     "unknownAmount": 0,
+-   },
+-   "staffId": "manager",
++   "staffId": null,
+  }
+
+ ❯ src/__tests__/beauty-revenue-report.test.ts:26:25
+     24|  m.audits.mockResolvedValue([{body:JSON.stringify({paymentId:'sale',re…
+     25|  const report=await getBeautyRevenueReport('s',filters,{customers:true…
+     26|  expect(report.data[0]).toMatchObject({staffId:'manager',coachName:'原所…
+       |                         ^
+     27|  expect(report.kpi.saleAllocation).toEqual({storeAmount:300,managerAmo…
+     28|  expect(moduleStaffRevenueSummary(report)[0]).toMatchObject({coachId:'…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/beauty-revenue-report.test.ts > keeps cross-month refund rounding and owner filters consistent with the original frozen allocation
+AssertionError: expected { Object (id, transactionNo, ...) } to match object { id: 'r2', staffId: 'manager', …(1) }
+(22 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "id": "r2",
+-   "saleAllocation": {
+-     "managerAmount": 0,
+-     "storeAmount": -1,
+-   },
+    "staffId": "manager",
+  }
+
+ ❯ src/__tests__/beauty-revenue-report.test.ts:37:61
+     35|  m.audits.mockResolvedValue([{body:JSON.stringify({paymentId:'sale',ca…
+     36|  const report=await getBeautyRevenueReport('s',{...filters,coachId:'ma…
+     37|  expect(report.data).toHaveLength(1);expect(report.data[0]).toMatchObj…
+       |                                                             ^
+     38|  expect(report.kpi).toMatchObject({netRevenue:-1,saleAllocation:{store…
+     39|  expect(report.data.reduce((n,row)=>n+Object.values(row.saleAllocation…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/beauty-transactions.test.ts > uses refunded immutable shares when a cancelled service is restored and later collected again
+AssertionError: expected { paymentId: 'p', …(2) } to match object { revenueStaffId: 'new-manager', …(1) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "allocation": {
+-     "developerAmount": 200,
++     "developerAmount": 500,
+      "shortfall": 0,
+-     "storeAmount": 300,
++     "storeAmount": 0,
+    },
+    "revenueStaffId": "new-manager",
+  }
+
+ ❯ src/__tests__/beauty-transactions.test.ts:507:42
+    505|   await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts…
+    506|   const event=vi.mocked(tx.beautyEvent.create).mock.calls.find(([arg])…
+    507|   expect(JSON.parse(String(event.body))).toMatchObject({revenueStaffId…
+       |                                          ^
+    508|  }finally{vi.unstubAllEnvs();}
+    509| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 47 passed (50)
+   Start at  22:19:47
+   Duration  654ms (transform 441ms, setup 0ms, import 580ms, tests 106ms, environment 0ms)

@@ -54,6 +54,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/beauty-money-consistency-20261026": false,
       "fix/beauty-daily-flow-20261026": false,
       "feat/beauty-trial-cost-flex-20261026": false,
       "release/beauty-cost-allocation-20261026": false,

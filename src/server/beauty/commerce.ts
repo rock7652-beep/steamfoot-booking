@@ -1,5 +1,6 @@
 import {readBeautyServiceCost} from './charge-finance';
 import {beautySaleAllocation} from '@/lib/beauty/sale-allocation';
+import {beautyServiceCollectionAllocation} from '@/lib/beauty/receipt-allocation';
 import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
 import { enqueuePlanActivation } from "../services/plan-activation-enqueue";
 import { activationExpiry } from "@/lib/plan-activation-notification";
@@ -8,7 +9,7 @@ import {snapshotStoredChargeRule} from '@/lib/beauty/charge-rule-storage';
 import "server-only";
 import {serviceCharges} from "./service-charges";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
-import {beautyPaymentVisibility} from "./transaction-revisions";
+import {beautyPaymentVisibility,beautySaleAllocations} from "./transaction-revisions";
 import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
 import {
@@ -91,9 +92,10 @@ export async function collect(
       });
       if(beautyChargeRulesEnabled(a.storeId)){
         const storeCost=await readBeautyServiceCost(tx,a.storeId,b.id);
-        const before=beautySaleAllocation(current.collected,storeCost),after=beautySaleAllocation(current.collected+p.amount,storeCost);
+        const frozen=await beautySaleAllocations(tx,a.storeId,existing.filter(row=>row.kind==='SALE').map(row=>row.id));
+        const allocation=beautyServiceCollectionAllocation(p.amount,storeCost,existing,frozen);
         const [owner]=b.customerId?await tx.$queryRaw<{assignedStaffId:string|null}[]>`SELECT s.id AS "assignedStaffId" FROM "Customer" c LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId" WHERE c.id=${b.customerId} AND c."storeId"=${a.storeId}`:[];
-        await audit(tx,a,'SERVICE_SALE_ATTRIBUTION',JSON.stringify({paymentId:p.id,revenueStaffId:owner?.assignedStaffId??null,allocation:after&&before?{storeAmount:after.storeAmount-before.storeAmount,developerAmount:after.developerAmount-before.developerAmount,shortfall:after.shortfall}:null}),b.id);
+        await audit(tx,a,'SERVICE_SALE_ATTRIBUTION',JSON.stringify({paymentId:p.id,revenueStaffId:owner?.assignedStaffId??null,allocation}),b.id);
       }
       await cash(
         tx,
