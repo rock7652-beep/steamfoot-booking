@@ -15,7 +15,7 @@ beforeEach(()=>{sessionStorage.clear();vi.resetAllMocks();m.save.mockResolvedVal
 afterEach(()=>{act(()=>root?.unmount());document.body.replaceChildren();});
 function input(label:string){return document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;}
 function fill(el:HTMLInputElement,value:string){act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));});}
-function mount(music:boolean,schedulingModes?:{selfBookingEnabled:boolean;assignedSchedulingEnabled:boolean},plan:Parameters<typeof CoursePlanDraftForm>[0]["plan"]=null){const host=document.createElement('div');document.body.append(host);root=createRoot(host);act(()=>root.render(h(OperationScope,{scope:'test'},h(CoursePlanDraftForm,{storeId:'store',music,plan,subjects:[{id:'subject',name:'教學項目',category:'',isActive:true}],templates:[{id:'template',name:'項目',category:'',isActive:true,musicSubjectId:'subject',durationMinutes:60}],musicTeachers:[{id:'teacher',name:'合格老師',active:true,qualificationIds:['template']},{id:'unqualified',name:'無資格老師',active:true,qualificationIds:[]}],sportsData:music?undefined:{schedulingModes,storeId:'store',date:'',subjects:[{id:'subject',name:'項目',category:'',active:true,updatedAt:'',templateId:'template'}],coaches:[{id:'teacher',name:'合格教練',templates:['template']}],fees:[],lessons:[],students:[],customers:[],rooms:[]},termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}}))));}
+function mount(music:boolean,schedulingModes?:{selfBookingEnabled:boolean;assignedSchedulingEnabled:boolean},plan:Parameters<typeof CoursePlanDraftForm>[0]["plan"]=null,profitEnabled=false){const host=document.createElement('div');document.body.append(host);root=createRoot(host);act(()=>root.render(h(OperationScope,{scope:'test'},h(CoursePlanDraftForm,{storeId:'store',music,plan,subjects:[{id:'subject',name:'教學項目',category:'',isActive:true}],templates:[{id:'template',name:'項目',category:'',isActive:true,musicSubjectId:'subject',durationMinutes:60}],musicTeachers:[{id:'teacher',name:'合格老師',active:true,qualificationIds:['template']},{id:'unqualified',name:'無資格老師',active:true,qualificationIds:[]}],sportsData:music?undefined:{schedulingModes,storeId:'store',date:'',subjects:[{id:'subject',name:'項目',category:'',active:true,updatedAt:'',templateId:'template'}],coaches:[{id:'teacher',name:'合格教練',templates:['template']}],fees:[],lessons:[],students:[],customers:[],rooms:[]},termSessions:[],profitEnabled,onPending:()=>{},onSaved:()=>{}}))));}
 it('music defaults to one lesson, saves free trial and duration and limits selectable teachers',async()=>{
  mount(true);
  expect(document.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!.value).toBe('single');
@@ -45,4 +45,18 @@ it('legacy fee editing does not duplicate or edit teaching-item qualifications',
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('可授課教練'))).toHaveLength(0);
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(1);
  expect(document.body.textContent).not.toMatch(/開放選課|通用卡/);
+});
+
+it('keeps store cost outside disclosure and retains it when switching fee sections',()=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},null,true);
+ const cost=document.querySelector<HTMLInputElement>('input[name="storeCost"]')!;
+ expect(cost.closest('details')).toBeNull();fill(cost,'350');
+ for(const label of ['授課設定','收費設定']){act(()=>[...document.querySelectorAll('nav button')].find(b=>b.textContent===label)!.dispatchEvent(new MouseEvent('click',{bubbles:true})));}
+ expect(document.querySelector<HTMLInputElement>('input[name="storeCost"]')!.value).toBe('350');
+ expect(document.body.textContent).toContain('預估利潤');
+});
+it('reveals the teaching section when an invalid required field is in that section',()=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true});
+ act(()=>document.querySelector<HTMLSelectElement>('select[aria-label="教學項目"]')!.dispatchEvent(new Event('invalid',{bubbles:false,cancelable:true})));
+ expect([...document.querySelectorAll('nav button')].find(b=>b.textContent==='授課設定')!.getAttribute('aria-pressed')).toBe('true');
 });

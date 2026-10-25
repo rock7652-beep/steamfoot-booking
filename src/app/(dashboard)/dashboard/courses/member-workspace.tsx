@@ -484,9 +484,9 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={customerPanel ? (source?880:1100) : panel === "assign" || panel === "plan" ? 920 : 640}
-          fixedHeight={customerPanel || panel === "plan"&&!sportsData}
-          maxHeight={customerPanel ? 900 : 680}
-          fitContent={panel==="service-price"||(!!sportsData&&panel==="plan")||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
+          fixedHeight={customerPanel || panel === "plan"}
+          maxHeight={customerPanel ? 900 : panel === "plan"&&sportsData ? 760 : 680}
+          fitContent={panel==="service-price"||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-100 bg-primary-50/60 px-4 py-2">
