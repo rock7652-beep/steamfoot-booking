@@ -1,3 +1,5 @@
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
+vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 /** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
@@ -120,10 +122,10 @@ it.each(["sports", "music"] as const)("%s note editor supports keyboard Escape a
   expect(m.write).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
 });
 
-it.each(["sports", "music"] as const)("%s returns from an unconfirmed absence without an accidental write", async module => {
+it.each(["sports"] as const)("%s returns from an unconfirmed absence without an accidental write", async module => {
   await renderModule(module, { long: true });
   await act(async () => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 更多操作"]`)!.click());
-  const action = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === (module === "music" ? "請假" : "缺席・不扣堂"))!;
+  const action = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === "缺席・不扣堂")!;
   await act(async () => action.click());
   const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="學員請假"]')!;
   await act(async () => [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "返回")!.click());

@@ -8,6 +8,7 @@ import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 import { musicCourseExpiry } from "@/lib/music-course-products";
 import { reserveCourseInTransaction, type CourseActor } from "./course-booking";
+import { bindMusicLesson } from "./music-lesson-periods";
 
 /** Each person keeps their own plan; future reservations can outlive the paid period. */
 export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,actor:CourseActor,input:{sessionId:string;customerId:string;cardId:string|null;requestKey:string},limit:number|null) {
@@ -44,6 +45,7 @@ export async function attachUnpaidMusicBookings(tx:Prisma.TransactionClient,acto
     if(available<1||(expiry?row.session.startsAt>expiry:!courseCardCoversDate(card,actor.storeId,row.session.startsAt)))break;
     if(card.termSessionIds.length&&!card.termSessionIds.includes(row.sessionId))continue;
     await tx.courseBooking.update({where:{id:row.id},data:{cardId,bookingKind:"CARD",pointCost:1}});
+    await bindMusicLesson(tx,actor.storeId,{...row,cardId,customerId},card);
     const consumed=row.status==="ATTENDED"||row.status==="NO_SHOW";
     await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId,bookingId:row.id,kind:consumed?"DEBIT":"RESERVE",points:1,actorUserId:actor.userId}});
     if(consumed)await tx.coursePointCard.update({where:{id:cardId},data:{remaining:{decrement:1},...(card.musicValidityDays&&!card.musicActivatedAt?{musicActivatedAt:source.session.startsAt,expiresAt:expiry}:{})}});

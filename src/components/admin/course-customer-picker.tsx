@@ -54,15 +54,15 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
       <button type="button" aria-label={`移除 ${c.name}`} className="min-h-11 shrink-0 px-2" onClick={()=>{setSelected(old=>{const next=old.filter(p=>p.id!==c.id);onChange?.(next);return next;});}}>移除</button>
     </div>)}
     {compact && selected.map(c=><input key={c.id} type="hidden" name={name} value={c.id}/>)}
-    <input ref={input} aria-label={compact?"搜尋學員姓名或電話":"搜尋顧客姓名、電話或 LINE 名稱"} placeholder={compact?"搜尋學員（姓名／電話）":"搜尋姓名／電話／LINE 名稱"} value={compact && selected.length && !query ? `${selected[0].name} · ${selected[0].phone??""}` : query}
+    <input ref={input} aria-label={compact?"搜尋學員姓名或電話":"搜尋顧客姓名、電話或 LINE 名稱"} placeholder={compact?"姓名／電話":"搜尋姓名／電話／LINE 名稱"} value={compact && selected.length && !query ? `${selected[0].name} · ${selected[0].phone??""}` : query}
       onCompositionStart={()=>setComposing(true)}
       onCompositionEnd={()=>setComposing(false)}
       onKeyDown={e=>{if(e.key === "Enter")e.preventDefault();}}
       onChange={e=>{setQuery(e.target.value);if(compact && selected.length){setSelected([]);onChange?.([]);}}}
-      className={`min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base ${compact ? "pr-11" : ""}`}/>
+      className={`min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base ${compact && (query || selected.length > 0) ? "pr-11" : ""}`}/>
     {compact && (query || selected.length>0) && <button type="button" aria-label="清除學員搜尋" className="absolute right-0 top-0 min-h-11 w-11 text-earth-600" onClick={()=>{setQuery("");setSelected([]);onChange?.([]);}}>×</button>}
     {!normalizedQuery || (compact && !focused) ? null : !ready && !visibleRows.length ? <p role="status" className="text-sm">搜尋中…</p> : (result?.path===pathname && result?.query===normalizedQuery) && result?.error && !activeIndex?.complete ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
-      <div className={compact?"absolute z-30 mt-1 max-h-52 w-full overflow-y-auto divide-y rounded-lg border border-earth-200 bg-white shadow-lg":"max-h-52 overflow-y-auto divide-y rounded-lg border border-earth-200"}>
+      <div role={compact?"group":undefined} aria-label={compact?"學員搜尋結果":undefined} className={compact?"absolute z-30 mt-1 max-h-52 w-full overflow-y-auto divide-y rounded-lg border border-earth-200 bg-white shadow-lg":"max-h-52 overflow-y-auto divide-y rounded-lg border border-earth-200"}>
         {visibleRows.map(c=>{const chosen=selected.some(p=>p.id===c.id);return <button type="button" key={c.id} disabled={chosen}
           className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm disabled:bg-primary-50"
           onClick={()=>{const next=multiple ? [...selected,c] : [c];setSelected(next);onChange?.(next);if(compact)setQuery("");}}>

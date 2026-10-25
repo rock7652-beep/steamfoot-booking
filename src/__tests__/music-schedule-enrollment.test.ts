@@ -1,5 +1,7 @@
 import {beforeEach,expect,it,vi} from "vitest";
 const reserve=vi.hoisted(()=>vi.fn());
+const bind=vi.hoisted(()=>vi.fn());
+vi.mock("@/server/services/music-lesson-periods",()=>({bindMusicLesson:bind}));
 vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:reserve}));
 import {reserveScheduledMusicLearner,attachUnpaidMusicBookings} from "@/server/services/music-schedule-enrollment";
 import type {Prisma} from "../../generated/course-client";
@@ -69,4 +71,29 @@ it("fails clearly when the linked start session cannot be found in this store",a
  tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});
  tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce(null);
  await expect(reserveScheduledMusicLearner(db(),actor,input,null)).rejects.toThrow("課卡起始課堂資料不完整");expect(reserve).not.toHaveBeenCalled();
+});
+
+it("binds each original unpaid booking to the purchased fixed period without creating replacement bookings",async()=>{
+ const session={requestKey:"series",templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")};
+ const source={id:"original-1",customerId:"a",bookingKind:"UNPAID",status:"RESERVED",session};
+ tx.courseBooking.findFirst.mockResolvedValue(source);
+ const rows=[source,{...source,id:"original-2",session:{...session,startsAt:new Date("2099-10-15T10:00:00Z")}}];
+ tx.courseBooking.findMany.mockResolvedValue(rows);
+ tx.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:0}});
+ await attachUnpaidMusicBookings(db(),actor,"card","a",source.id);
+ expect(tx.courseBooking.update.mock.calls.map(([arg])=>arg.where.id)).toEqual(["original-1","original-2"]);
+ expect(bind.mock.calls.map(args=>args[2])).toEqual(rows.map(row=>({...row,cardId:"card",customerId:"a"})));
+ expect(tx.coursePointEntry.create.mock.calls.map(([arg])=>[arg.data.bookingId,arg.data.kind])).toEqual([["original-1","RESERVE"],["original-2","RESERVE"]]);
+ expect(tx.coursePointCard.update).not.toHaveBeenCalled();
+ tx.courseBooking.findFirst.mockResolvedValue({...source,bookingKind:"CARD"});
+ await attachUnpaidMusicBookings(db(),actor,"card","a",source.id);
+ expect(bind).toHaveBeenCalledTimes(2);expect(tx.coursePointEntry.create).toHaveBeenCalledTimes(2);
+});
+it("propagates fixed-period allocation failure so the purchase transaction can roll back instead of leaving an unassigned paid lesson",async()=>{
+ const session={requestKey:"series",templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")};
+ const row={id:"original",customerId:"a",bookingKind:"UNPAID",status:"RESERVED",session};
+ tx.courseBooking.findFirst.mockResolvedValue(row);tx.courseBooking.findMany.mockResolvedValue([row]);
+ bind.mockRejectedValue(new Error("期別無可用堂次"));
+ await expect(attachUnpaidMusicBookings(db(),actor,"card","a",row.id)).rejects.toThrow("期別無可用堂次");
+ expect(tx.coursePointEntry.create).not.toHaveBeenCalled();expect(tx.courseScheduleSeries.update).not.toHaveBeenCalled();
 });

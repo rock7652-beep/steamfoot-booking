@@ -25,3 +25,10 @@ it("blocks missing, expired, or invalid makeup balances", async () => {
   const result = await getMusicLeaveWorkspace("store", [{ id: "student", name: "Learner" }]);
   expect(result.rows[0]).toMatchObject({ state: "需處理", issue: "已超過補課期限", sessions: [] });
 });
+
+it("never offers a full session or a session the learner already attends",async()=>{
+ m.sessions.mockResolvedValue([{id:"full",templateId:"guitar",nameSnapshot:"Guitar",startsAt:new Date("2026-10-20T02:00Z"),capacity:1,bookings:[{customerId:"other"}]},{id:"duplicate",templateId:"guitar",nameSnapshot:"Guitar",startsAt:new Date("2026-10-20T02:00Z"),capacity:2,bookings:[{customerId:"student"}]}]);
+ const result=await getMusicLeaveWorkspace("store",[{id:"student",name:"Learner"}]);
+ expect(result.rows[0].sessions).toEqual([]);
+ expect(m.coupons.mock.calls[0][0].where.closedAt).toBeNull();
+});

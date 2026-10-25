@@ -111,6 +111,8 @@ type Props = {
   selectedDate: string;
   initialWeekRoomId?: string;
   legend?: React.ReactNode;
+  searchControl?: React.ReactNode;
+  hideDateHeading?: boolean;
   initialResourceView?: "room" | "coach";
   onResourceChange?: (view:"room"|"coach",resourceId?:string)=>void;
   today: string;
@@ -324,8 +326,21 @@ function SessionCard({
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
-      {!session.sportsPalette&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
-      {dense && businessProfile !== "MUSIC" ? (
+      {!session.sportsPalette&&!musicDense&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
+      {musicDense ? (
+        <div className="min-w-0 text-sm">
+          <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-sm leading-4 tabular-nums">
+            <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
+            <span className="shrink-0">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>
+            {brief ? <strong className="min-w-0 flex-1 truncate">{copy.primary}</strong> : <span className="ml-auto min-w-0 truncate">{teacherState || resourceLabel}</span>}
+            {brief && progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`}>{progressText}</span>}
+          </div>
+          {!brief && <div className="flex min-w-0 items-center gap-1 text-sm leading-5">
+            <strong className="min-w-0 flex-1 truncate">{musicContext ? `${musicContext} · ` : ""}{copy.primary}</strong>
+            {progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`}>{progressText}</span>}
+          </div>}
+        </div>
+      ) : dense && businessProfile !== "MUSIC" ? (
         <div className={session.sportsPalette ? "space-y-0" : "space-y-0.5"}>
           <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
             <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
@@ -425,6 +440,8 @@ function SessionCard({
 export function CourseScheduleBoard({
   sportsNative=false,
   legend,
+  searchControl,
+  hideDateHeading = false,
   assignedFiltered = false,
   businessProfile,
   mode,
@@ -535,8 +552,9 @@ export function CourseScheduleBoard({
   useSportsCalendarScroll(sportsNative&&mode==="day",`timeline:${mode}:${resourceView}`,dayScrollRef);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  // A half-hour remains a 44px touch target; music keeps its existing scale.
-  const hourHeight = sportsNative ? 88 : 96;
+  // Music prioritizes a wider visible time range; the clock, slots and cards
+  // share this scale. Primary toolbar/dialog controls keep their touch size.
+  const hourHeight = businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -553,17 +571,18 @@ export function CourseScheduleBoard({
     const weekTotals = scheduleTotals(weekSessions);
     const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
     const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
-    const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
+    const lastHour = Math.max(22, ...weekSessions.map(session => businessProfile === "MUSIC" ? Math.ceil(minuteOfDay(hhmm(session.endsAt)) / 60) : Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
-        <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
+        <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : undefined}>
+          {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "教師視角" : courseDisplayText("教練視角", businessProfile)}</button></div>
-          <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : courseDisplayText("教練", businessProfile)}</label>
+          <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "教師" : courseDisplayText("教練", businessProfile)}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
-          <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
+          <span className="whitespace-nowrap text-sm font-medium">{businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
@@ -599,15 +618,15 @@ export function CourseScheduleBoard({
                     const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,slotDuration);
                     const available = weekResource?.enabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
                     const reason = conflict ? "已有課程" : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? "老師未開放" : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative min-h-11 ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative ${businessProfile === "MUSIC" ? "min-h-0" : "min-h-11"} ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
                   </div>)}
                 </div>;
@@ -687,8 +706,12 @@ export function CourseScheduleBoard({
   const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
   const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
   const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
-  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...[9*60]);
-  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...[22*60]);
+  // Music starts with 09:00–22:00; actual lessons (including moved shadows)
+  // outside that window stay visible without expanding for unused opening hours.
+  const movedMinutes = sessions.flatMap(session => session.rescheduledFromStartsAt && session.rescheduledFromEndsAt && sessionDate({...session, startsAt:session.rescheduledFromStartsAt}) === selectedDate ? [minuteOfDay(hhmm(session.rescheduledFromStartsAt)), minuteOfDay(hhmm(session.rescheduledFromEndsAt))] : []);
+  const visibleMinutes = businessProfile === "MUSIC" ? [...sessionMinutes, ...movedMinutes] : boundaryMinutes.length ? boundaryMinutes : sessionMinutes;
+  const minMinute = Math.min(9*60, ...visibleMinutes);
+  const maxMinute = Math.max(22*60, ...visibleMinutes);
   const firstHour = Math.floor(minMinute/60);
   const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
   const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
@@ -777,9 +800,10 @@ export function CourseScheduleBoard({
   return (
     <section ref={boardRef} className="space-y-1" aria-label="日課表">
 
-      <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
+      <Toolbar className={musicDense ? styles.musicToolbar : undefined}>
+        {searchControl}
         {!musicDense && resourceViewControls}
-        {musicDense && !replica && <span className="text-sm text-earth-700">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
+        {musicDense && !replica && <span className="text-sm text-earth-700 whitespace-nowrap">{dayTotals.classes} 堂・{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
         {(!musicDense || quickFilter !== "all") && !replica && <div
           className={musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
           aria-label="今日狀態快速篩選"
@@ -803,7 +827,7 @@ export function CourseScheduleBoard({
         </div>}
 
         {!moveClipboard && !replica && (
-          <label className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
+          <label className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
               aria-label="找空位所需時長"
@@ -821,7 +845,7 @@ export function CourseScheduleBoard({
         </span>}
 
         {musicDense && resourceViewControls}
-        {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
+        {legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>
 
       {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? "目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>查看全部課程（含已點名）</button></div>}
@@ -833,8 +857,8 @@ export function CourseScheduleBoard({
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
             <div data-schedule-sticky-header className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
-              <div aria-label="日表日期" className="flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900">{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>
-              <div className="absolute bottom-0 left-0 top-9 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
+              <div aria-label="日表日期" className={hideDateHeading ? "sr-only" : "flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900"}>{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>
+              <div className={`absolute bottom-0 left-0 ${hideDateHeading ? "top-0" : "top-9"} z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500`}>
                 時間
               </div>
               <div
@@ -1035,6 +1059,7 @@ export function CourseScheduleBoard({
               </React.Fragment>
             ))}
               </div>
+              {musicDense && <div aria-label="課表結束時間" className="border-t border-earth-200 px-2 py-1 text-xs text-earth-600">{String(lastHour + 1).padStart(2, "0")}:00</div>}
             </div>
           </div>
         </div>

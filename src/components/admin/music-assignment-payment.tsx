@@ -1,5 +1,5 @@
 "use client";
-import {useCallback,useEffect,useState} from "react";
+import {useCallback,useEffect,useState,type ReactNode} from "react";
 import {CourseAssignmentPayment,type AssignmentSummary} from "./course-assignment-payment";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {loadMusicPeriods} from "@/server/actions/music-periods";
@@ -10,7 +10,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 
 type MusicPlan={id:string;validDays:number;points:number;price:number;storeCost?:number;musicTerms?:number|null;musicTermSizes?:number[];musicBonusLessons?:number;templateIds?:string[]};
 const field="min-h-11 w-full min-w-0 max-w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
-export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,customerId}:{customerId?:string;split?:boolean;plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
+export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,customerId,planField}:{planField?:ReactNode;customerId?:string;split?:boolean;plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
  const periodsReader=usePanelReader("music-periods",loadMusicPeriods);
  const [periodHistory,setPeriodHistory]=useState<{customerId:string;cards:Extract<Awaited<ReturnType<typeof loadMusicPeriods>>,{success:true}>["data"]}|null>(null);
  useEffect(()=>{let active=true;if(!customerId)return;
@@ -41,7 +41,8 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,c
   <input type="hidden" name="musicValidityDays" value={quote?.validDays??""}/>
   <input type="hidden" name="musicManualBonus" value={manual}/>
   <input type="hidden" name="musicJoinSessionId" value={join}/>
-  <section aria-label="購課期數與堂數" className={split ? "col-start-1 min-w-0 space-y-2 @min-[40rem]/member:row-start-2" : "space-y-2"}>
+  <section aria-label="購課期數與堂數" className={split ? `col-start-1 min-w-0 space-y-2 ${planField ? "" : "@min-[40rem]/member:row-start-2"}` : "space-y-2"}>
+  {planField}
   <label className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-2">購買期數<input className={`${field} max-w-28`} type="number" min="1" max="100" step="1" required disabled={!!join} value={terms} onChange={e=>{setTerms(e.target.value);setValidity("");}}/></label>
   {valid&&quote?<dl className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-earth-50 p-2 text-sm" aria-live="polite">
     {customerId&&<div className="flex flex-wrap gap-x-2"><dt>本次期別</dt><dd>{nextPeriod==null?"期別待確認":quote.musicTermSizes.length===1?`第 ${nextPeriod} 期`:`第 ${nextPeriod}–${nextPeriod+quote.musicTermSizes.length-1} 期`}</dd></div>}
@@ -64,6 +65,6 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,c
   </details>
   </div>
   </section>
-  <div className={split ? "col-start-1 min-w-0 @min-[40rem]/member:col-start-2 @min-[40rem]/member:row-start-1 @min-[40rem]/member:row-span-2 @min-[40rem]/member:border-l @min-[40rem]/member:border-earth-200 @min-[40rem]/member:pl-3" : undefined} hidden={!valid}><CourseAssignmentPayment musicPeriods={quote?.musicTermSizes} price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
+  <div className={split ? `col-start-1 min-w-0 @min-[40rem]/member:col-start-2 @min-[40rem]/member:row-start-1 ${planField ? "" : "@min-[40rem]/member:row-span-2"} @min-[40rem]/member:border-l @min-[40rem]/member:border-earth-200 @min-[40rem]/member:pl-3` : undefined} hidden={!valid}><CourseAssignmentPayment musicPeriods={quote?.musicTermSizes} price={quote?.price??0} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={canDiscount} onSummary={paymentSummary}/></div>
  </div>;
 }
