@@ -1,0 +1,8 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-beauty-unified
+
+
+ Test Files  27 passed (27)
+      Tests  232 passed (232)
+   Start at  01:32:00
+   Duration  4.46s (transform 2.64s, setup 0ms, import 4.60s, tests 2.13s, environment 2.49s)

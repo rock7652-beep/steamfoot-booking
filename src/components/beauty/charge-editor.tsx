@@ -9,21 +9,21 @@ export type BeautyChargePort={perChargeTechnicians:boolean;save:(draft:BeautyCha
 export function BeautyChargeEditor({storeId,services,technicians,onClose,onSaved,port,initialServiceId,initialKind='single',initialDraft}:{storeId:string;services:ChargeService[];technicians:ChargeTechnician[];onClose:()=>void;onSaved?:()=>void;port?:BeautyChargePort;initialServiceId?:string;initialKind?:'single'|'plan';initialDraft?:BeautyChargeDraft}){
  const [kind,setKind]=useState<'single'|'plan'>(initialDraft?.kind??initialKind),[serviceId,setService]=useState(initialDraft?.serviceId??initialServiceId??services.find(s=>s.active)?.id??'');
  const [selected,setSelected]=useState<string[]>(initialDraft?.technicianIds??[]),[error,setError]=useState(''),[summary,setSummary]=useState(''),[pending,setPending]=useState(false);
- const lock=useRef(false),dirty=useRef(false);
+ const lock=useRef(false);
  const service=services.find(s=>s.id===serviceId&&s.active),eligible=technicians.filter(t=>t.active&&t.serviceIds.includes(serviceId));
  const visibleTechnicians=[...eligible,...selected.filter(id=>!eligible.some(t=>t.id===id)).map(id=>({id,name:(technicians.find(t=>t.id===id)?.name??'已移除技師')+'（請移除）',active:false,serviceIds:[]}))];
  const chosen=eligible.filter(t=>selected.includes(t.id));
- function close(){if(!lock.current&&(!dirty.current||window.confirm('尚有未儲存設定，確定關閉？')))onClose();}
+ function close(){if(!lock.current)onClose();}
  return <RightSheet open presentation="centered" fixedHeight width={640} maxHeight={690} onClose={close} closeOnEscape={!pending} labelledById="beauty-charge-title">
   <header className="flex shrink-0 items-center justify-between border-b border-earth-200 px-5 py-3"><h2 id="beauty-charge-title" className="font-semibold">{initialDraft?'編輯收費方式':'新增收費方式'}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
-  <form id="beauty-charge-form" className={styles.body} onChange={()=>{dirty.current=true;setError('');setSummary('');}} onSubmit={async e=>{
+  <form id="beauty-charge-form" className={styles.body} onChange={()=>{setError('');setSummary('');}} onSubmit={async e=>{
    e.preventDefault();if(lock.current)return;setError('');setSummary('');
    const data=new FormData(e.currentTarget),number=(key:string)=>Number(data.get(key)),optional=(key:string)=>String(data.get(key)??'').trim()===''?null:number(key);
    try{
     const checked=validateBeautyCharge({expectedStoreId:storeId,kind,serviceId,name:String(data.get('name')),price:number('price'),technicianIds:selected,...(kind==='single'?{sessions:1,trialPrice:optional('trialPrice'),trialMinutes:optional('trialMinutes')}:{sessions:number('sessions'),validDays:number('validDays'),allowShared:data.get('allowShared')==='on'})},storeId,services,technicians);
     if(!port){setSummary(`${checked.draft.name}／${checked.draft.sessions} 次／價格 $${checked.amount}${kind==='single'?checked.trial?`／體驗 $${checked.trial.price}・${checked.trial.duration} 分鐘`:'／不提供體驗':''}／${chosen.map(t=>t.name).join('、')}。僅核對，未儲存。`);return;}
     assertChargePersistence(port);lock.current=true;setPending(true);const result=await port.save(checked.draft);
-    if(!result.success)throw Error(result.error??'尚未儲存');dirty.current=false;onSaved?.();onClose();
+    if(!result.success)throw Error(result.error??'尚未儲存');onSaved?.();onClose();
    }catch(cause){setError(cause instanceof Error?cause.message:'請核對欄位');}finally{lock.current=false;setPending(false);}
   }}>
    <fieldset disabled={pending}>

@@ -10,7 +10,7 @@ const technicians=[{id:'t',name:'雅婷',active:true,serviceIds:['s']}];
 let root:ReturnType<typeof createRoot>|undefined;
 afterEach(()=>{act(()=>root?.unmount());document.body.replaceChildren();vi.restoreAllMocks();});
 function field(name:string){const input=document.querySelector(`[name="${name}"]`);if(!input)throw Error('missing '+name);return input as HTMLInputElement;}
-function mount(port?:BeautyChargePort,draft?:BeautyChargeDraft){const host=document.createElement('div');document.body.append(host);root=createRoot(host);act(()=>root!.render(h(BeautyChargeEditor,{storeId:'store',services,technicians,onClose:vi.fn(),port,initialDraft:draft})));}
+function mount(port?:BeautyChargePort,draft?:BeautyChargeDraft){const onClose=vi.fn();const host=document.createElement('div');document.body.append(host);root=createRoot(host);act(()=>root!.render(h(BeautyChargeEditor,{storeId:'store',services,technicians,onClose,port,initialDraft:draft})));return onClose;}
 function fill(name:string,value:string){act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(field(name),value);field(name).dispatchEvent(new Event('input',{bubbles:true}));});}
 function select(index:number,value:string){act(()=>{const el=document.querySelectorAll('select')[index];el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));});}
 async function submit(){await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));}
@@ -21,3 +21,14 @@ it('an unsupported persistence port cannot be called even with valid fields',asy
 const savedSingle:BeautyChargeDraft={expectedStoreId:'store',kind:'single',serviceId:'s',name:'按摩單次',price:1000,sessions:1,trialPrice:null,trialMinutes:null,technicianIds:['t']};
 it('allows explicitly removing a retired selected technician instead of trapping an invisible invalid ID',async()=>{mount(undefined,{...savedSingle,technicianIds:['t','deleted']});const label=[...document.querySelectorAll('label')].find(l=>l.textContent?.includes('已移除技師'));expect(label).toBeTruthy();act(()=>label!.querySelector<HTMLInputElement>('input')!.click());expect(document.body.textContent).not.toContain('已移除技師');await submit();expect(document.querySelector('[role="status"]')?.textContent).toContain('僅核對');});
 it('locks repeated submits while a real persistence port is pending',async()=>{let release!:(value:{success:boolean})=>void;const save=vi.fn<BeautyChargePort['save']>().mockImplementation(()=>new Promise(done=>{release=done;}));mount({perChargeTechnicians:true,save},savedSingle);await submit();await submit();expect(save).toHaveBeenCalledTimes(1);await act(async()=>{release({success:true});});});
+
+it('closes an edited beauty charge without a discard prompt, but blocks closing while saving',async()=>{
+ const confirm=vi.spyOn(window,'confirm');let release!:(value:{success:boolean;error?:string})=>void;
+ const save=vi.fn<BeautyChargePort['save']>().mockImplementation(()=>new Promise(done=>{release=done;}));
+ const onClose=mount({perChargeTechnicians:true,save},savedSingle);fill('name','修改收費名稱');
+ const cancel=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='取消')!;
+ act(()=>cancel.click());expect(onClose).toHaveBeenCalledTimes(1);expect(confirm).not.toHaveBeenCalled();
+ await submit();act(()=>cancel.click());expect(onClose).toHaveBeenCalledTimes(1);
+ await act(async()=>release({success:false,error:'測試保留草稿'}));
+ act(()=>cancel.click());expect(onClose).toHaveBeenCalledTimes(2);expect(confirm).not.toHaveBeenCalled();
+});

@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-25",
+  "inputZip": "beauty-charge-full-handoff-20261025.zip",
+  "zipSha256": "a7c712e80aa1a2a78196c8c4389ebc1ee7154bb6e3a8fd6ab065f41893f5d9f7",
+  "allArchiveChecksumsPassed": true,
+  "sourceFileCount": 41,
+  "sourceMatchedExactlyAfterImport": true,
+  "originalBase": "6092de9111ec5f778d2f003c49657c4c073339d4",
+  "preservedImportCommit": "c9047e54",
+  "unifiedBranch": "review/beauty-unified-handoff-20261025",
+  "integrationBase": "d2216c57",
+  "importedCommit": "70612970",
+  "resolvedConflicts": [
+    "src/components/beauty/catalog-adapter.tsx"
+  ],
+  "checks": {
+    "vitest": {
+      "files": 27,
+      "tests": 232,
+      "passed": true,
+      "offline": true
+    },
+    "typescript": {
+      "passed": true,
+      "noEmit": true
+    },
+    "eslint": {
+      "passed": true,
+      "files": 34,
+      "maxWarnings": 0
+    },
+    "diffCheck": true,
+    "fullProductionBuild": false,
+    "liveBrowser": false,
+    "liveDatabaseTransactions": false
+  },
+  "safety": {
+    "databaseReads": false,
+    "databaseWrites": false,
+    "migration": false,
+    "databaseRetry": false,
+    "dataCleanup": false,
+    "push": false,
+    "deployment": false,
+    "lineEnabled": false,
+    "generatedClientIsolated": true,
+    "offlineNetworkSocketsBlocked": true
+  },
+  "screenshots": {
+    "source": "handoff static React fixture, not regenerated in this review",
+    "visuallyInspected": [
+      "component-single-1366.png",
+      "component-plan-390.png"
+    ]
+  },
+  "sql": {
+    "path": "docs/qa/sql/beauty-charge-additive.review.sql",
+    "sha256": "c2b0e4a902e018d9ac7a4cf3ac8699c6b90695b94b95bdb69bd719128ce0ff13",
+    "executed": false,
+    "automaticMigration": false,
+    "newNullableColumns": 6
+  },
+  "uiReuseLimitation": "BeautyChargeEditor is a new Beauty-specific form using shared RightSheet; full reuse of the original sports form is not established."
+}
