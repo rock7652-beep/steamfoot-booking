@@ -27,11 +27,12 @@ export function StudentMakeupStatus({customerId,revision="",compact=false,onUpda
  const tone=completed?"text-earth-500":"text-primary-700";
  const issues=value.rows.filter(r=>r.state==="需處理"||r.state==="補課曠課").length;
  const summary=[pending?`待補課 ${pending} 堂`:"",scheduled.length?`已安排 ${scheduled.length} 堂${earliestScheduled?`・${scheduled.length>1?"最早 ":""}${formatTWDateTime(new Date(earliestScheduled))}`:""}`:"",issues?`補課待核對 ${issues} 堂`:""].filter(Boolean).join("・")||(completed?`已補課 ${value.rows.length} 堂`:"查看補課紀錄");
+ const summaryContent=summary.split("・").map((part,index)=><span key={part} className="inline-block whitespace-nowrap">{index>0?"・":""}{part}</span>);
  const records=<StudentMakeupRecords data={value} onPending={setBusy} onUpdated={()=>{setTick(n=>n+1);onUpdated?.();router.refresh();}}/>;
  return compact?<>
-  <button type="button" className={`min-h-11 break-words text-left text-sm ${tone} underline`} onClick={()=>setOpen(true)} aria-label={`${value.customerName}：${summary}`}>{summary}</button>
+  <button type="button" className={`min-h-11 text-left text-sm ${tone} underline`} onClick={()=>setOpen(true)} aria-label={`${value.customerName}：${summary}`}>{summaryContent}</button>
   <ModalPanel open={open} onClose={()=>setOpen(false)} pending={busy} labelledById={title} width={880}><header className="flex items-center justify-between gap-3 border-b border-earth-100 p-3"><h3 id={title} className="font-semibold">{value.customerName}・請假與補課</h3><button type="button" className={field} disabled={busy} onClick={()=>setOpen(false)}>關閉</button></header><div className="min-h-0 overflow-y-auto p-3">{records}</div></ModalPanel>
- </>:<section aria-label="學員請假與補課" className="space-y-2 border-t border-earth-100 pt-3"><h3 className="font-semibold">請假與補課 <span className={`font-normal ${tone}`}>{summary}</span></h3>{records}</section>;
+ </>:<section aria-label="學員請假與補課" className="space-y-2 border-t border-earth-100 pt-3"><h3 className="font-semibold">請假與補課 <span className={`font-normal ${tone}`}>{summaryContent}</span></h3>{records}</section>;
 }
 function StudentMakeupRecords({data,onPending,onUpdated}:{data:Data;onPending:(value:boolean)=>void;onUpdated:()=>void}){
  const [locked,setLocked]=useState(false);
