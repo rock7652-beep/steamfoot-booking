@@ -3,9 +3,21 @@ import {beautyProductionCaPath,verifyBeautyProductionCa} from '../../scripts/bea
 import {describe,expect,it,vi} from 'vitest';
 import {musicBuildPreflight} from '../../scripts/music-release-preflight.mjs';
 import {beautyDatabaseSelection} from '../../scripts/beauty-database-scope.mjs';
-import {beautyProductionReleasePreflight,validateBeautyProductionRelease,beautyProductionFailureDiagnostic,beautyPrismaProductionPreflight} from '../../scripts/beauty-production-release-preflight.mjs';
+import {beautyProductionReleasePreflight,validateBeautyProductionRelease,beautyProductionFailureDiagnostic,beautyPrismaProductionPreflight,beautySharedTodosProductionPreflight} from '../../scripts/beauty-production-release-preflight.mjs';
 const env={NODE_ENV:'production' as const,VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:'postgresql://postgres.qijlnhtpbintanzpxkvf:original@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?schema=public',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',BEAUTY_DATABASE_PASSWORD:'a'.repeat(64),BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',BEAUTY_CHARGE_RULES_STORE_IDS:''};
 describe('reviewed production Beauty connection',()=>{
+ it('checks shared follow-up columns using the unchanged main connection in a read-only transaction',async()=>{
+  const execute=vi.fn(),query=vi.fn().mockResolvedValue([]),disconnect=vi.fn();
+  const factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:execute,$queryRawUnsafe:query}),$disconnect:disconnect}));
+  await expect(beautySharedTodosProductionPreflight(env,factory)).resolves.toEqual({sharedTodos:true,readonly:true});
+  expect(factory).toHaveBeenCalledWith({datasources:{db:{url:env.DATABASE_URL}},log:[]});
+  expect(execute).toHaveBeenCalledWith('SET TRANSACTION READ ONLY');expect(query).toHaveBeenCalledWith(expect.stringMatching(/^SELECT .*FROM "DigitalButlerLead".*LIMIT 0$/));expect(disconnect).toHaveBeenCalledOnce();
+ });
+ it('blocks a shared-reader permission failure and returns only bounded diagnostics',async()=>{
+  const disconnect=vi.fn();const factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:vi.fn(),$queryRawUnsafe:vi.fn().mockRejectedValue(Object.assign(Error('secret connection URL'),{code:'P2010',meta:{code:'42501'}}))}),$disconnect:disconnect}));
+  let diagnostic='';try{await beautySharedTodosProductionPreflight(env,factory);}catch(e){diagnostic=beautyProductionFailureDiagnostic(e);}
+  expect(diagnostic).toContain('stage=shared-todos-columns code=P2010 sqlstate=42501');expect(diagnostic).not.toContain('secret connection URL');expect(disconnect).toHaveBeenCalledOnce();
+ });
  it('validates module-wide rollout while retaining the separate emergency editing switch',()=>{
   expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'1',BEAUTY_CHARGE_EDITING_ENABLED:'1'})).not.toThrow();
   expect(()=>validateBeautyProductionRelease({...env,BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'1',BEAUTY_CHARGE_EDITING_ENABLED:'0'})).not.toThrow();

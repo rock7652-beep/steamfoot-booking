@@ -3,7 +3,7 @@ import { Prisma } from "../../../generated/beauty-client";
 import { beautyPrisma } from "@/lib/beauty-db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { beautyManager } from "./access";
-import { getCourseHomeCustomers, type CourseTodoAccess } from "@/server/queries/course-home";
+import { getCourseHomeCustomers, getCourseHomeTodos, type CourseTodoAccess } from "@/server/queries/course-home";
 
 export function beautyDailyHref(value: string) {
   const [path, query] = value.split("?");
@@ -98,10 +98,18 @@ export async function getBeautyHomeTodos(storeId:string, access:CourseTodoAccess
   const parts:Prisma.Sql[]=[];
   if(access.payments)parts.push(Prisma.sql`SELECT p.id,'payment' kind,n.name label,p."createdAt" date FROM "BeautyPurchase" p JOIN "BeautyPlan" n ON n.id=p."planId" AND n."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND p.status='PENDING'`);
   if(access.attendance)parts.push(Prisma.sql`SELECT id,'attendance' kind,"serviceName" label,"startsAt" date FROM "BeautyAppointment" WHERE "storeId"=${storeId} AND status='RESERVED' AND "endsAt"<=${now}`);
-  if(access.followUp)parts.push(Prisma.sql`SELECT id,'followUp' kind,COALESCE("customerDisplayName",'顧客跟進') label,"createdAt" date FROM "DigitalButlerLead" WHERE "storeId"=${storeId} AND status IN ('NEW','CONTACTING','QUOTED') ${access.staffScope?Prisma.sql`AND "assignedStaffId"=${access.staffScope}`:Prisma.empty}`);
-  if(!parts.length)return {total:0,items:[]};
-  const [row]=await beautyPrisma.$queryRaw<Array<{total:number;items:Array<{id:string;kind:string;label:string;date:string}>}>>(Prisma.sql`
-    WITH tasks AS (${Prisma.join(parts," UNION ALL ")}), page AS (SELECT * FROM tasks ORDER BY date,id LIMIT ${limit} OFFSET ${offset})
-    SELECT (SELECT count(*)::int FROM tasks) total,COALESCE((SELECT json_agg(page ORDER BY date,id) FROM page),'[]'::json) items`);
-  return {total:row.total,items:row.items.map(item=>({...item,href:item.kind==='followUp'?`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}`:beautyDailyHref(item.kind==='payment'?`/dashboard/revenue?area=purchases&dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}`:`/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&bookingId=${encodeURIComponent(item.id)}`)}))};
+  if(!parts.length&&!access.followUp)return {total:0,items:[]};
+  // Fetch each core's prefix before merging; applying the offset per core loses tasks.
+  // The restricted Beauty role must never query the shared DigitalButlerLead table.
+  const take=offset+limit;
+  const [rows,followUp]=await Promise.all([
+    parts.length?beautyPrisma.$queryRaw<Array<{total:number;items:Array<{id:string;kind:string;label:string;date:string}>}>>(Prisma.sql`
+    WITH tasks AS (${Prisma.join(parts," UNION ALL ")}), page AS (SELECT * FROM tasks ORDER BY date,id LIMIT ${take} OFFSET 0)
+    SELECT (SELECT count(*)::int FROM tasks) total,COALESCE((SELECT json_agg(page ORDER BY date,id) FROM page),'[]'::json) items`)
+    :Promise.resolve([{total:0,items:[]}]),
+    access.followUp?getCourseHomeTodos(storeId,{payments:false,attendance:false,followUp:true,staffScope:access.staffScope},now,0,take):Promise.resolve({total:0,items:[]}),
+  ]);
+  const row=rows[0];
+  const items=[...row.items,...followUp.items].sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime()||(a.id<b.id?-1:a.id>b.id?1:0)||(a.kind<b.kind?-1:a.kind>b.kind?1:0)).slice(offset,offset+limit);
+  return {total:row.total+followUp.total,items:items.map(item=>({...item,href:item.kind==='followUp'?`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(item.id)}`:beautyDailyHref(item.kind==='payment'?`/dashboard/revenue?area=purchases&dateFrom=${toLocalDateStr(new Date(item.date))}&dateTo=${toLocalDateStr(new Date(item.date))}`:`/dashboard/courses?date=${toLocalDateStr(new Date(item.date))}&bookingId=${encodeURIComponent(item.id)}`)}))};
 }

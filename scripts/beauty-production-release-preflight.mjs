@@ -50,12 +50,32 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
  }finally{if(client)await client.end();}
 }
-if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
+if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>beautySharedTodosProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
 
 export function beautyProductionFailureDiagnostic(error){
  const d=error?.beautyPreflightDiagnostic;
- if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-readonly','prisma-identity','prisma-columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
+ if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-readonly','prisma-identity','prisma-columns','shared-todos-connect','shared-todos-readonly','shared-todos-columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
  return `[beauty-production-preflight] blocked stage=${d.stage} code=${d.code}${/^[0-9A-Z]{5}$/.test(d.sqlState??'')?' sqlstate='+d.sqlState:''}; no migrations applied`;
+}
+
+/** Shared follow-up belongs to the existing main core, never the restricted Beauty role. */
+export async function beautySharedTodosProductionPreflight(env=process.env,createClient){
+ let client,stage='scope';
+ try{
+  validateBeautyProductionRelease(env);
+  const factory=createClient??(async config=>{const {PrismaClient}=await import('@prisma/client');return new PrismaClient(config);});
+  client=await factory({datasources:{db:{url:env.DATABASE_URL}},log:[]});stage='shared-todos-connect';await client.$connect();
+  await client.$transaction(async tx=>{
+   stage='shared-todos-readonly';await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+   stage='shared-todos-columns';await tx.$queryRawUnsafe('SELECT id,"storeId","customerDisplayName","assignedStaffId","createdAt",status FROM "DigitalButlerLead" WHERE status IN (\'NEW\',\'CONTACTING\',\'QUOTED\') LIMIT 0');
+  });
+  return {sharedTodos:true,readonly:true};
+ }catch(error){
+  const candidate=error?.code??error?.errorCode;
+  const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
+  const sqlState=typeof error?.meta?.code==='string'&&/^[0-9A-Z]{5}$/.test(error.meta.code)?error.meta.code:undefined;
+  error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
+ }finally{if(client)await client.$disconnect();}
 }
 
 /** Exercise the same Prisma engine/TLS options as the live Beauty client, without store writes. */
