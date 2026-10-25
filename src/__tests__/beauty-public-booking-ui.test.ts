@@ -42,11 +42,12 @@ async function chooseTime(host: HTMLElement) {
   act(() => button(host, "下一步：填寫聯絡資料").click());
 }
 beforeEach(() => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   vi.clearAllMocks(); vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-26T01:00:00Z"));
   m.read.mockResolvedValue({ success: true, data: { slots: ["09:00", "10:00"] } });
   m.submit.mockResolvedValue({ success: true, data: { groupId: "group", ids: ["booking"] } });
 });
-afterEach(() => { for (const { root, host } of roots.splice(0)) { act(() => root.unmount()); host.remove(); } vi.useRealTimers(); });
+afterEach(() => { for (const { root, host } of roots.splice(0)) { act(() => root.unmount()); host.remove(); } vi.useRealTimers(); vi.restoreAllMocks(); });
 
 it("queries eligible public slots before collecting names or an extra contact", async () => {
   const host = mount(); expect(host.textContent).not.toContain("聯絡人姓名"); expect(host.querySelector('label[for$="-name"]')).toBeNull();

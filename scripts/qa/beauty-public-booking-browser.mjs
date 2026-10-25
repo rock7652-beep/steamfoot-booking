@@ -25,7 +25,7 @@ writeFileSync(path.join(output, "fixture.css"), css.css + "\n" + readFileSync(pa
 const browser = await chromium.launch({ executablePath: "/usr/bin/chromium", headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 const errors = [], sizes = [], tests = [];
 try {
-  const page = await browser.newPage(); page.on("pageerror", e => errors.push(e.message));
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.on("pageerror", e => errors.push(e.message));
   await page.route("**/*", route => {
     const url = route.request().url();
     if (url === origin + "/") return route.fulfill({ contentType: "text/html", body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>' });
@@ -40,9 +40,17 @@ try {
   tests.push("service selector remains visible even with one configured trial");
   await page.getByLabel("手機", { exact: true }).fill("0900000000"); await page.getByLabel("技師安排", { exact: true }).selectOption("ANY");
   await page.getByRole("button", { name: "查詢可用時段", exact: true }).click(); await page.getByRole("button", { name: "09:00", exact: true }).click();
-  await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click();
+  const nextStep = page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true });
+  await nextStep.scrollIntoViewIfNeeded();
+  if (await page.evaluate(() => scrollY) < 100) throw Error("Scroll regression was not exercised from the bottom of the first step");
+  await nextStep.click();
+  await page.waitForFunction(() => scrollY <= 1);
+  tests.push("entering confirmation from a scrolled mobile page resets to the page top");
   await page.getByRole("complementary", { name: "按摩小提醒" }).waitFor();
   tests.push("three gentle massage reminders appear on confirmation without a consent checkbox");
+  await page.getByRole("button", { name: "確認預約", exact: true }).click();
+  if (!await page.getByLabel("姓名", { exact: true }).evaluate(e => document.activeElement === e)) throw Error("Validation no longer focuses the missing name");
+  tests.push("validation still focuses the invalid field without a step-top reset");
   await page.getByLabel("姓名", { exact: true }).fill("預約測試者"); await page.getByLabel("手機", { exact: true }).fill("0911111111");
   await page.getByText("特殊需求／備註（選填）", { exact: true }).click(); await page.getByLabel("本次備註", { exact: true }).fill("測試草稿保留");
   for (const [width, height] of [[360, 800], [390, 844], [768, 1024], [1024, 768], [1366, 900]]) {
@@ -56,15 +64,20 @@ try {
     const rect = await submit.boundingBox(); if (!rect || rect.height < 44) throw Error(`Submit target too small at ${width}`);
     await page.screenshot({ path: path.join(output, `confirm-${width}.png`), fullPage: true });
     await page.getByRole("button", { name: "返回修改服務與時段", exact: true }).click();
+    await page.waitForFunction(() => scrollY <= 1);
     if (await page.getByRole("button", { name: "09:00", exact: true }).getAttribute("aria-pressed") !== "true") throw Error("Selected slot was lost after editing phone/name/notes");
     await page.screenshot({ path: path.join(output, `service-${width}.png`), fullPage: true });
     await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click();
+    await page.waitForFunction(() => scrollY <= 1);
+    await page.screenshot({ path: path.join(output, `step-top-${width}.png`) });
     sizes.push({ width, height, overflow: false, inputFont: font, submitHeight: rect.height, draftPreserved: true, timePreserved: true });
   }
   await page.setViewportSize({ width: 390, height: 420 }); await page.getByRole("button", { name: "確認預約", exact: true }).scrollIntoViewIfNeeded();
   const keyboardRect = await page.getByRole("button", { name: "確認預約", exact: true }).boundingBox(); if (!keyboardRect || keyboardRect.y < 0 || keyboardRect.y + keyboardRect.height > 421) throw Error("Submit unreachable in reduced viewport");
   tests.push("reduced-height viewport keeps submit reachable (keyboard simulation only)");
   await page.getByRole("button", { name: "確認預約", exact: true }).click(); await page.getByRole("heading", { name: "預約成功", exact: true }).waitFor();
+  await page.waitForFunction(() => scrollY <= 1);
+  tests.push("returning to the service step and completing a synthetic booking also reset to top");
   await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: path.join(output, "success-390.png"), fullPage: true });
   tests.push("synthetic booking success and complete receipt");
   await page.getByLabel("預覽情境").selectOption("multiple");

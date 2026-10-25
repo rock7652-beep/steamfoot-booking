@@ -60,9 +60,17 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   const fieldId = (key: string) => `${formId}-${key}`;
   useEffect(() => {
     const first = Object.keys(errors)[0];
+    let scrollFrame: number | undefined;
     if (first) document.getElementById(`${formId}-${first}`)?.focus();
-    else if (previousStage.current !== stage) stageHeading.current?.focus();
+    else if (previousStage.current !== stage) {
+      // Focus alone only brings the heading into view; it does not reset the
+      // scroll offset retained when a mobile browser replaces the step.
+      stageHeading.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      scrollFrame = window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    }
     previousStage.current = stage;
+    return () => { if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame); };
   }, [errors, formId, stage]);
   const fieldProps = (key: string) => ({ id: fieldId(key), "aria-invalid": !!errors[key], "aria-describedby": errors[key] ? fieldId(`${key}-error`) : undefined });
   const hint = (key: string) => errors[key] ? <p className={styles.error} id={fieldId(`${key}-error`)}>{errors[key]}</p> : null;
