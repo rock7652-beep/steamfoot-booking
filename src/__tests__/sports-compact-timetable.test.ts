@@ -26,9 +26,22 @@ describe("sports compact timetable uses one scale for cards and clock",()=>{
    expect(div.querySelector('[style*="height:88px"]')).not.toBeNull();
    expect(card.textContent).toContain("10:15");expect(card.textContent).toContain("短課程");
   });
-  it(`${mode} keeps the music timetable at its original scale`,()=>{
+  it(`${mode} keeps music cards aligned with the denser 64px hour scale`,()=>{
    const div=board(mode,60,false);const wrapper=div.querySelector('[data-schedule-card="tracking"]')!.parentElement!;
-   expect(parseFloat(wrapper.style.height)).toBe(92);expect(div.querySelector('[style*="height:96px"]')).not.toBeNull();
+   expect(parseFloat(wrapper.style.height)).toBe(60);expect(div.querySelector('[style*="height:64px"]')).not.toBeNull();
   });
  }
 });
+
+for (const mode of ["week", "day"] as const) {
+ it.each([25, 50])(`${mode} keeps %i minute music lessons aligned without stretching into the next slot`, minutes => {
+  const div=board(mode,minutes,false);
+  const card=div.querySelector<HTMLButtonElement>('button[title^="10:15 短課程"]')!;
+  expect(card).not.toBeNull();
+  expect(parseFloat(card.parentElement!.style.height)).toBeCloseTo(minutes*64/60-4);
+  expect(parseFloat(card.parentElement!.style.top)).toBeCloseTo(15*64/60+2);
+  expect(card.textContent).toContain("10:15");
+  expect(card.textContent).toContain(minutes===25?"10:40":"11:05");
+  expect(card.textContent).toContain("短課程");
+ });
+}

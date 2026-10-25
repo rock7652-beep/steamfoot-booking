@@ -5,8 +5,8 @@ const read = (name: string) => readFileSync(`src/app/(dashboard)/dashboard/cours
 
 it("shares ordering controls without changing compensation rules", () => {
   expect(read("staff-workspace")).toContain("displayOrder,canManage");
-  expect(read("member-workspace")).toContain("displayOrder,canEdit");
-  expect(read("workspace")).toContain('displayOrder,view==="rooms"');
+  expect(read("member-workspace")).toContain("displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit");
+  expect(read("workspace")).toContain('displayOrder,(!catalogSource||!!catalogSource.order)&&(view==="rooms"||!!catalogSource)');
   expect(read("staff-workspace")).toContain("music && feeEnabled ? <MusicTeacherFeeEditor");
 });
 
@@ -27,7 +27,7 @@ it("does not force music business rules onto fitness to center the roster", () =
 it("shares weekly grids without hiding sessions lacking an active room", () => {
   const board = read("course-schedule-board");
   expect(board).not.toContain('mode === "week" && businessProfile === "MUSIC"');
-  expect(board).toContain('weekSessions.map(session => Number(hhmm(session.endsAt)');
+  expect(board).toContain('weekSessions.map(session => businessProfile === "MUSIC"');
   expect(board).toContain('length: lastHour - firstHour');
 });
 
@@ -36,7 +36,7 @@ it("does not interpret old check-in timestamps as settled attendance", () => {
   expect(roster).toContain('booking.status === "RESERVED"');
   expect(roster).toContain('點名狀態篩選');
   expect(roster).not.toContain('if (!musicLayout) return true;');
-  expect(roster).toContain('aria-label="學員名單捲動區"');
+  expect(read("roster-list")).toContain('scroll??' + "'學員名單捲動區'");
 });
 
 it("shares compact month summaries and search-scoped roster selection", () => {

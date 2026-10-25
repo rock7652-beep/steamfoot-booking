@@ -1,3 +1,5 @@
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
+vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 vi.mock("@/server/actions/course-companions",()=>({addCourseCompanion:vi.fn(),loadCourseCompanionUsage:vi.fn(),saveCourseCompanionUsage:vi.fn()}));
@@ -5,7 +7,7 @@ vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollmen
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),teacher:vi.fn(),create:vi.fn(),save:vi.fn(),cancel:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
+const m=vi.hoisted(()=>({correction:vi.fn(),load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),teacher:vi.fn(),create:vi.fn(),save:vi.fn(),cancel:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
 
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>"/hq/dashboard/courses",useSearchParams:()=>new URLSearchParams("date=2026-10-23")}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
@@ -81,12 +83,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="點名這 2 人")!.click());
   expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"},{id:"music-second",status:"RESERVED"}]});
-  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
-  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="曠課・扣堂")!.click());
-  expect(m.status).toHaveBeenLastCalledWith({bookingId:"music-booking",status:"NO_SHOW",noShowChoice:"DEDUCTED"});
-  expect(host.textContent).not.toContain("發補課券");
-  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
-  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 備註"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="＋新增")!.click());
   const save=[...document.querySelectorAll('button[type="button"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
@@ -109,20 +106,20 @@ it("keeps other music learners interactive while one restoration is saving", asy
  let finishSecond!: (value:{success:true})=>void;
  const first=new Promise<{success:true}>(resolve=>{finishFirst=resolve;});
  const second=new Promise<{success:true}>(resolve=>{finishSecond=resolve;});
- m.batch.mockReset().mockReturnValueOnce(first).mockReturnValueOnce(second);
+ m.correction.mockReset().mockReturnValueOnce(first).mockReturnValueOnce(second);
  vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
   const items=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
-  await act(async()=>items()[0].querySelector<HTMLButtonElement>('button[aria-label="學員1 更多操作"]')!.click());
-  act(()=>{[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!.click();});
+  await act(async()=>items()[0].querySelector<HTMLButtonElement>('button[aria-label="學員1：已出席"]')!.click());
+  act(()=>{[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復原狀態")!.click();});
   expect(items()[0].textContent).toContain("儲存中");
-  await act(async()=>items()[1].querySelector<HTMLButtonElement>('button[aria-label="學員2 更多操作"]')!.click());
-  const secondButton=[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!;
+  await act(async()=>items()[1].querySelector<HTMLButtonElement>('button[aria-label="學員2：已出席"]')!.click());
+  const secondButton=[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復原狀態")!;
   expect(secondButton.disabled).toBe(false);
   act(()=>secondButton.click());
-  expect(m.batch).toHaveBeenCalledTimes(2);
+  expect(m.correction).toHaveBeenCalledTimes(2);
   await act(async()=>{finishFirst({success:true});finishSecond({success:true});await Promise.all([first,second]);});
  } finally {await act(async()=>root.unmount());host.remove();}
 });
@@ -552,7 +549,7 @@ it.each([false,true])("publishes teacher absence and refunded rows together; rea
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const row={id:"member-leave",customerId:"student",customerName:"團班學員",customerPhone:"",status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED",bookingKind:"CARD",pointCost:1,unit:"SESSION",cardId:"card",cardRemaining:1,available:1,planName:"四堂",termCount:4,termIndex:1,termLeaveCount:1,termNoShowCount:0,termLessons:[],termPrivateLeaves:[],trialPayments:[],notes:""};
  const session={startsAt:"2099-01-01T02:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:"",teacherAttendanceReason:""};
- m.load.mockResolvedValue({success:true,data:{session,roster:[row],cards:[],trial:null}});
+ m.load.mockResolvedValue({success:true,data:{session,roster:[row],cards:[],trial:null,canPurchase:true}});
  m.teacher.mockReset().mockResolvedValue({success:true});
  let finishRead!:(value:unknown)=>void;
  m.quick.mockReturnValue(new Promise(resolve=>{finishRead=resolve;}));
@@ -624,5 +621,21 @@ it("stacks music labels and both note actions in one column and links to the exa
   const link=[...document.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')].find(a=>a.textContent==="學員資料")!;
   const href=new URL(link.href);expect(href.pathname).toBe("/hq/dashboard/courses");expect(href.searchParams.get("customerId")).toBe("student-ui");expect(href.searchParams.get("returnCourseSession")).toBe("session-ui");
   expect([...document.querySelectorAll('[role="menuitem"]')].some(e=>e.textContent==="預約紀錄")).toBe(false);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("separates the attended circle corrections from the four learner actions",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const row={id:"compact-student",customerId:"student",customerName:"測試學員",customerPhone:"0999000000",status:"ATTENDED",bookingKind:"CARD",cardId:"card",pointCost:1,termIndex:1,termCount:4,unit:"SESSION",serviceNote:"家長接送",notes:"",trialPayments:[],termLessons:[],termPrivateLeaves:[]};
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-23T10:00:00.000Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster:[row],cards:[],trial:null,canPurchase:true}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"compact-course",capacity:1,canCreate:true,canEdit:true,musicLayout:true,classType:"PRIVATE",teacherName:"教師"})));
+  expect(host.textContent).toContain("家長接送");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="測試學員 更多操作"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["學員資料","學員繳費","取消本堂","取消後續課程"]);
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="測試學員：已出席"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["恢復原狀態","請假","曠課"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });

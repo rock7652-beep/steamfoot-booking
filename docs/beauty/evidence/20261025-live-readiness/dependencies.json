@@ -1,0 +1,637 @@
+{
+  "production": [
+    {
+      "dependencies": {
+        "enum": [
+          "STEAMFOOT",
+          "SPA",
+          "COURSE"
+        ],
+        "roles": [
+          {
+            "name": "authenticated",
+            "login": false,
+            "createDb": false,
+            "bypassrls": false,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "anon",
+            "login": false,
+            "createDb": false,
+            "bypassrls": false,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "service_role",
+            "login": false,
+            "createDb": false,
+            "bypassrls": true,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "postgres",
+            "login": true,
+            "createDb": true,
+            "bypassrls": true,
+            "superuser": false,
+            "createRole": true
+          }
+        ],
+        "extensions": [
+          {
+            "name": "pgcrypto",
+            "schema": "extensions"
+          },
+          {
+            "name": "btree_gist",
+            "schema": "public"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "Customer_pkey",
+            "table": "\"Customer\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "CourseRoom_pkey",
+            "table": "\"CourseRoom\"",
+            "definition": "PRIMARY KEY (id)"
+          }
+        ],
+        "sharedColumns": [
+          {
+            "type": "text",
+            "table": "CashDrawerSession",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CashDrawerSession",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "table": "CashDrawerSession",
+            "column": "status",
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "table": "CashDrawerSession",
+            "column": "finalBookBalance",
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "table": "CashbookEntry",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CashbookEntry",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CourseRoom",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CourseRoom",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "table": "CourseRoom",
+            "column": "rentalBufferMinutes",
+            "nullable": "NO"
+          },
+          {
+            "type": "boolean",
+            "table": "CourseRoom",
+            "column": "rentalEnabled",
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "table": "CourseRoom",
+            "column": "rentalHourlyRate",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Customer",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Customer",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "ShopConfig",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "ShopConfig",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Store",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Store",
+            "column": "slug",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "table": "Store",
+            "column": "industryModule",
+            "nullable": "NO"
+          }
+        ]
+      }
+    }
+  ],
+  "preview": [
+    {
+      "dependencies": {
+        "enum": [
+          "STEAMFOOT",
+          "SPA",
+          "COURSE",
+          "BEAUTY"
+        ],
+        "roles": [
+          {
+            "name": "authenticated",
+            "login": false,
+            "createDb": false,
+            "bypassrls": false,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "anon",
+            "login": false,
+            "createDb": false,
+            "bypassrls": false,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "service_role",
+            "login": false,
+            "createDb": false,
+            "bypassrls": true,
+            "superuser": false,
+            "createRole": false
+          },
+          {
+            "name": "postgres",
+            "login": true,
+            "createDb": true,
+            "bypassrls": true,
+            "superuser": false,
+            "createRole": true
+          }
+        ],
+        "extensions": [
+          {
+            "name": "btree_gist",
+            "schema": "public"
+          },
+          {
+            "name": "pgcrypto",
+            "schema": "extensions"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "Customer_pkey",
+            "table": "\"Customer\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "CourseRoom_pkey",
+            "table": "\"CourseRoom\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyAppointment_customerId_storeId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"customerId\", \"storeId\") REFERENCES \"Customer\"(id, \"storeId\") ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_locationId_storeId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"locationId\", \"storeId\") REFERENCES \"CourseRoom\"(id, \"storeId\") ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_pkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyAppointment_storeId_cardId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"cardId\") REFERENCES \"BeautyCard\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_storeId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_storeId_groupId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"groupId\") REFERENCES \"BeautyGroup\"(\"storeId\", id) ON UPDATE CASCADE ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_storeId_serviceId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"serviceId\") REFERENCES \"BeautyService\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyAppointment_storeId_technicianId_fkey",
+            "table": "\"BeautyAppointment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"technicianId\") REFERENCES \"BeautyTechnician\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_appointment_values",
+            "table": "\"BeautyAppointment\"",
+            "definition": "CHECK (((status = ANY (ARRAY['RESERVED'::text, 'COMPLETED'::text, 'CANCELLED'::text, 'NO_SHOW'::text])) AND (preference = ANY (ARRAY['FEMALE'::text, 'MALE'::text, 'ANY'::text])) AND (duration > 0) AND (buffer >= 0) AND (price >= 0) AND (fee >= 0) AND (\"endsAt\" = (\"startsAt\" + ((duration)::double precision * '00:01:00'::interval))) AND (\"occupiedEndsAt\" = (\"endsAt\" + ((buffer)::double precision * '00:01:00'::interval)))))"
+          },
+          {
+            "name": "beauty_customer_overlap",
+            "table": "\"BeautyAppointment\"",
+            "definition": "EXCLUDE USING gist (\"storeId\" WITH =, \"customerId\" WITH =, tstzrange(\"startsAt\", \"occupiedEndsAt\", '[)'::text) WITH &&) WHERE (((status <> 'CANCELLED'::text) AND (\"customerId\" IS NOT NULL)))"
+          },
+          {
+            "name": "beauty_location_overlap",
+            "table": "\"BeautyAppointment\"",
+            "definition": "EXCLUDE USING gist (\"storeId\" WITH =, \"locationId\" WITH =, tstzrange(\"startsAt\", \"occupiedEndsAt\", '[)'::text) WITH &&) WHERE ((status <> 'CANCELLED'::text))"
+          },
+          {
+            "name": "beauty_teacher_overlap",
+            "table": "\"BeautyAppointment\"",
+            "definition": "EXCLUDE USING gist (\"storeId\" WITH =, \"technicianId\" WITH =, tstzrange(\"startsAt\", \"occupiedEndsAt\", '[)'::text) WITH &&) WHERE ((status <> 'CANCELLED'::text))"
+          },
+          {
+            "name": "BeautyService_pkey",
+            "table": "\"BeautyService\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyService_storeId_fkey",
+            "table": "\"BeautyService\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_service_trial_duration",
+            "table": "\"BeautyService\"",
+            "definition": "CHECK (((\"trialDuration\" IS NULL) OR ((\"trialDuration\" >= 5) AND (\"trialDuration\" <= 720))))"
+          },
+          {
+            "name": "beauty_service_values",
+            "table": "\"BeautyService\"",
+            "definition": "CHECK ((((duration >= 5) AND (duration <= 720)) AND ((buffer >= 0) AND (buffer <= 240)) AND (price >= 0) AND ((\"trialPrice\" IS NULL) OR (\"trialPrice\" >= 0))))"
+          },
+          {
+            "name": "BeautyTechnician_pkey",
+            "table": "\"BeautyTechnician\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyTechnician_storeId_fkey",
+            "table": "\"BeautyTechnician\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_technician_gender",
+            "table": "\"BeautyTechnician\"",
+            "definition": "CHECK ((gender = ANY (ARRAY['FEMALE'::text, 'MALE'::text])))"
+          },
+          {
+            "name": "BeautyPlan_pkey",
+            "table": "\"BeautyPlan\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyPlan_storeId_fkey",
+            "table": "\"BeautyPlan\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_plan_values",
+            "table": "\"BeautyPlan\"",
+            "definition": "CHECK (((sessions > 0) AND (price >= 0) AND (\"validDays\" > 0) AND (cardinality(\"serviceIds\") > 0)))"
+          },
+          {
+            "name": "BeautyCard_customerId_storeId_fkey",
+            "table": "\"BeautyCard\"",
+            "definition": "FOREIGN KEY (\"customerId\", \"storeId\") REFERENCES \"Customer\"(id, \"storeId\") ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyCard_pkey",
+            "table": "\"BeautyCard\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyCard_storeId_fkey",
+            "table": "\"BeautyCard\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyCard_storeId_planId_fkey",
+            "table": "\"BeautyCard\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"planId\") REFERENCES \"BeautyPlan\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_card_values",
+            "table": "\"BeautyCard\"",
+            "definition": "CHECK (((sessions > 0) AND ((remaining >= 0) AND (remaining <= sessions)) AND (paid >= 0) AND (\"listPrice\" >= paid) AND (cardinality(\"memberIds\") > 0) AND (\"customerId\" = ANY (\"memberIds\")) AND (\"allowShared\" OR (cardinality(\"memberIds\") = 1))))"
+          },
+          {
+            "name": "BeautySetting_pkey",
+            "table": "\"BeautySetting\"",
+            "definition": "PRIMARY KEY (\"storeId\")"
+          },
+          {
+            "name": "BeautySetting_storeId_fkey",
+            "table": "\"BeautySetting\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyGroup_customerId_storeId_fkey",
+            "table": "\"BeautyGroup\"",
+            "definition": "FOREIGN KEY (\"customerId\", \"storeId\") REFERENCES \"Customer\"(id, \"storeId\") ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyGroup_pkey",
+            "table": "\"BeautyGroup\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyGroup_storeId_fkey",
+            "table": "\"BeautyGroup\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyLedger_pkey",
+            "table": "\"BeautyLedger\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyLedger_storeId_appointmentId_fkey",
+            "table": "\"BeautyLedger\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"appointmentId\") REFERENCES \"BeautyAppointment\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyLedger_storeId_cardId_fkey",
+            "table": "\"BeautyLedger\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"cardId\") REFERENCES \"BeautyCard\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyLedger_storeId_fkey",
+            "table": "\"BeautyLedger\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPayment_pkey",
+            "table": "\"BeautyPayment\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyPayment_storeId_appointmentId_fkey",
+            "table": "\"BeautyPayment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"appointmentId\") REFERENCES \"BeautyAppointment\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPayment_storeId_cardId_fkey",
+            "table": "\"BeautyPayment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"cardId\") REFERENCES \"BeautyCard\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPayment_storeId_fkey",
+            "table": "\"BeautyPayment\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPayment_storeId_originalPaymentId_fkey",
+            "table": "\"BeautyPayment\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"originalPaymentId\") REFERENCES \"BeautyPayment\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "beauty_payment_values",
+            "table": "\"BeautyPayment\"",
+            "definition": "CHECK (((kind = ANY (ARRAY['SALE'::text, 'REFUND'::text, 'FEE'::text, 'FEE_VOID'::text])) AND (method = ANY (ARRAY['CASH'::text, 'BANK_TRANSFER'::text, 'CARD'::text, 'OTHER'::text])) AND (((kind = ANY (ARRAY['REFUND'::text, 'FEE_VOID'::text])) AND (amount < 0)) OR ((kind = ANY (ARRAY['SALE'::text, 'FEE'::text])) AND (amount >= 0)))))"
+          },
+          {
+            "name": "BeautySettlement_pkey",
+            "table": "\"BeautySettlement\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautySettlement_storeId_fkey",
+            "table": "\"BeautySettlement\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyCommand_pkey",
+            "table": "\"BeautyCommand\"",
+            "definition": "PRIMARY KEY (\"storeId\", \"requestKey\")"
+          },
+          {
+            "name": "BeautyCommand_storeId_fkey",
+            "table": "\"BeautyCommand\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyEvent_pkey",
+            "table": "\"BeautyEvent\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyEvent_storeId_fkey",
+            "table": "\"BeautyEvent\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPurchase_customerId_storeId_fkey",
+            "table": "\"BeautyPurchase\"",
+            "definition": "FOREIGN KEY (\"customerId\", \"storeId\") REFERENCES \"Customer\"(id, \"storeId\") ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPurchase_pkey",
+            "table": "\"BeautyPurchase\"",
+            "definition": "PRIMARY KEY (id)"
+          },
+          {
+            "name": "BeautyPurchase_storeId_cardId_fkey",
+            "table": "\"BeautyPurchase\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"cardId\") REFERENCES \"BeautyCard\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPurchase_storeId_fkey",
+            "table": "\"BeautyPurchase\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyPurchase_storeId_planId_fkey",
+            "table": "\"BeautyPurchase\"",
+            "definition": "FOREIGN KEY (\"storeId\", \"planId\") REFERENCES \"BeautyPlan\"(\"storeId\", id) ON DELETE RESTRICT"
+          },
+          {
+            "name": "BeautyTransactionRevision_pkey",
+            "table": "\"BeautyTransactionRevision\"",
+            "definition": "PRIMARY KEY (\"storeId\", \"transactionId\", revision)"
+          },
+          {
+            "name": "BeautyTransactionRevision_revision_check",
+            "table": "\"BeautyTransactionRevision\"",
+            "definition": "CHECK ((revision > 0))"
+          },
+          {
+            "name": "beauty_revision_store_fk",
+            "table": "\"BeautyTransactionRevision\"",
+            "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+          }
+        ],
+        "sharedColumns": [
+          {
+            "type": "text",
+            "table": "CashDrawerSession",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CashDrawerSession",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "table": "CashDrawerSession",
+            "column": "status",
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "table": "CashDrawerSession",
+            "column": "finalBookBalance",
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "table": "CashbookEntry",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CashbookEntry",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CourseRoom",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "CourseRoom",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "table": "CourseRoom",
+            "column": "rentalBufferMinutes",
+            "nullable": "NO"
+          },
+          {
+            "type": "boolean",
+            "table": "CourseRoom",
+            "column": "rentalEnabled",
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "table": "CourseRoom",
+            "column": "rentalHourlyRate",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Customer",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Customer",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "ShopConfig",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "ShopConfig",
+            "column": "storeId",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Store",
+            "column": "id",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "Store",
+            "column": "slug",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "table": "Store",
+            "column": "industryModule",
+            "nullable": "NO"
+          }
+        ]
+      }
+    }
+  ]
+}

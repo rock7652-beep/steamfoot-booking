@@ -8,7 +8,7 @@ describe("backend-only guide scope and current source boundaries", () => {
     const permissions = [...new Set(operationGuides.map(g => g.permission).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature, true]));
     expect(retiredFrontendOperationGuides).toHaveLength(8);
-    for (const moduleId of ["steamfoot", "spa", "course"] as const) {
+    for (const moduleId of ["steamfoot", "course"] as const) {
       const current = availableGuides({ module: moduleId, permissions, features });
       expect(current.some(g => retiredFrontendOperationGuides.some(old => old.id === g.id))).toBe(false);
     }
@@ -26,6 +26,7 @@ describe("backend-only guide scope and current source boundaries", () => {
     expect(dailyOperationGuides20261010.find(g => g.id === "A14")?.modules).toEqual(["steamfoot"]);
     expect(dailyOperationGuides20261010.find(g => g.id === "J24")?.modules).toEqual(["spa"]);
     for (const g of dailyOperationGuides20261010) {
+      if(g.id === "J24") { expect(operationGuides.some(current=>current.id===g.id)).toBe(false); continue; }
       for (const source of g.sources) expect(existsSync(source), source).toBe(true);
     }
   });

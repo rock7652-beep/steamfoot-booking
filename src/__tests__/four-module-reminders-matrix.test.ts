@@ -1,3 +1,5 @@
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
+vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 /** Real roster DOM/state tests with synthetic rows. jsdom does not prove pixels,
@@ -20,7 +22,6 @@ const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), labels: vi.fn(), wr
 vi.mock("next/navigation", () => ({ usePathname: () => "/s/synthetic/admin/dashboard/bookings", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("next/link", () => ({ default: ({ href, children }: { href: string; children: React.ReactNode }) => createElement("a", { href }, children), useLinkStatus: () => ({ pending: false }) }));
 vi.mock("@/server/actions/booking-note", () => ({ updateBookingNoteAction: m.write }));
-vi.mock("@/server/actions/spa-booking", () => ({ updateSpaBookingNoteAction: m.write }));
 vi.mock("@/server/actions/customer-labels", () => ({ loadCustomerLabels: m.labels, setCustomerLabel: m.write, manageCustomerLabels: m.write }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: m.write, loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: m.write }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: m.write }));
@@ -39,8 +40,9 @@ import { DayDetailPanel, type DayBooking } from "@/app/(dashboard)/dashboard/boo
 
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 
-type Module = "steam" | "spa" | "sports" | "music";
-const modules: Module[] = ["steam", "spa", "sports", "music"];
+// Retired SPA is not an active reminder UI; Beauty has native-roster coverage.
+type Module = "steam" | "sports" | "music";
+const modules: Module[] = ["steam", "sports", "music"];
 const name = "合成顧客：極長姓名末尾";
 const longNote = "第一行：" + "本次長備註".repeat(80) + "\n第二行 <保留文字>\n最後一行：不裁掉";
 const longUsual = "平時第一行\n" + "合成提醒".repeat(80) + "\n平時結尾";
@@ -128,10 +130,10 @@ it.each(["sports", "music"] as const)("%s note editor supports keyboard Escape a
   expect(m.write).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
 });
 
-it.each(["sports", "music"] as const)("%s returns from an unconfirmed absence without an accidental write", async module => {
+it.each(["sports"] as const)("%s returns from an unconfirmed absence without an accidental write", async module => {
   await renderModule(module, { long: true });
   await act(async () => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 更多操作"]`)!.click());
-  const action = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === (module === "music" ? "請假" : "缺席・不扣堂"))!;
+  const action = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === "缺席・不扣堂")!;
   await act(async () => action.click());
   const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="學員請假"]')!;
   await act(async () => [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "返回")!.click());

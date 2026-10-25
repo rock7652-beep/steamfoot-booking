@@ -49,10 +49,10 @@ export const bookingGuides = [
     title: "這次預約有事情要交代，怎麼記錄？",
     summary: "新增或修改本次備註，保留這次服務的提醒。",
     important: "本次備註最多 500 字，只用於這筆預約；需完成儲存並核對文字，草稿不算完成。",
-    keywords: "備註 本次備註 註記 晚到 修改 留言 原列編輯 全文 標籤 草稿 取消 資料已有更新",
+    keywords: "備註 本次備註 註記 晚到 修改 留言 原列編輯 全文 標籤 草稿 待儲存預覽 取消 資料已有更新",
     path: "預約管理 → 當日清單 → 該列本次備註鉛筆；預約明細 → 本次備註",
     steps: ["在當日清單核對顧客與預約，點該列本次備註鉛筆，原地展開編輯；也可從原預約明細編輯。", "輸入本次提醒後點「儲存」；有未儲存內容時，取消或 Escape 會先詢問是否捨棄。", "成功後核對原列文字；摘要截斷時點標籤與備註區查看全文，完成後關閉返回原清單。"],
-    details: ["本次備註最多 500 字，僅適用這次預約；長期提醒請在顧客資料維護。原列鉛筆不會開啟整筆預約明細。", "清空並儲存可移除備註；Enter 用於換行，不能代替儲存。未儲存草稿只暫存在目前帳號、門市與瀏覽器的範圍，不代表已寫入。", "蒸足完成後仍可修正備註；需預約編輯權限並受門市及訂閱狀態限制，不能照搬到 SPA 已完成預約。", "失敗時保留內容並核對錯誤；遇資料已更新時先看目前備註，確認需保留自己的輸入後再儲存，不直接覆蓋。"],
+    details: ["本次備註最多 500 字，僅適用這次預約；長期提醒請在顧客資料維護。原列鉛筆不會開啟整筆預約明細。", "輸入期間原列與顧客摘要可先顯示待儲存預覽，方便核對長文字；這仍是草稿。清空並儲存可移除備註，Enter 只換行。", "送出後原列會立即顯示儲存中並暫停重複編輯、取消與關閉；成功後先顯示新摘要，再背景重讀其他預約資料。長文字會換行，不會擠走修改入口。", "蒸足完成後仍可修正備註；需預約編輯權限並受門市及訂閱狀態限制。", "失敗時保留內容並核對錯誤；遇資料已更新時先看目前備註，確認需保留自己的輸入後再儲存，不直接覆蓋。"],
     success: "原列編輯成功後收合並顯示新文字；預約明細流程會出現「已儲存本次備註」提示。",
   },
 ] as const;
@@ -88,6 +88,13 @@ import { dailyOperationGuides20261007 } from "./operation-guide-daily-20261007";
 import { dailyOperationGuides20261009 } from "./operation-guide-daily-20261009";
 import { dailyOperationGuides20261010 } from "./operation-guide-daily-20261010";
 import { dailyOperationGuides20261011 } from "./operation-guide-daily-20261011";
+import { dailyOperationGuides20261012 } from "./operation-guide-daily-20261012";
+import { dailyOperationGuides20261013 } from "./operation-guide-daily-20261013";
+import { dailyOperationGuides20261014 } from "./operation-guide-daily-20261014";
+import { dailyOperationGuides20261019 } from "./operation-guide-daily-20261019";
+import { dailyOperationGuides20261020 } from "./operation-guide-daily-20261020";
+import { dailyOperationGuides20261023 } from "./operation-guide-daily-20261023";
+import { dailyOperationGuides20261025 } from "./operation-guide-daily-20261025";
 import { customerConsumptionGuides } from "./operation-guide-customer-consumption";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
@@ -113,16 +120,29 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261009,
   ...dailyOperationGuides20261010,
   ...dailyOperationGuides20261011,
+  ...dailyOperationGuides20261012,
+  ...dailyOperationGuides20261013,
+  ...dailyOperationGuides20261014,
+  ...dailyOperationGuides20261019,
+  ...dailyOperationGuides20261020,
+  ...dailyOperationGuides20261023,
+  ...dailyOperationGuides20261025,
   ...customerConsumptionGuides,
 ];
 
 /** Historical frontend articles remain archived; backend search never returns them. */
 export const retiredFrontendGuideIds = ["C09", "J17", "J19", "J20", "J21", "C101", "C125", "C136"] as const;
 export const retiredFrontendOperationGuides = catalogGuides.filter(g => retiredFrontendGuideIds.some(id => id === g.id));
-export const operationGuides = catalogGuides.filter(g => !retiredFrontendGuideIds.some(id => id === g.id));
+/** SPA articles are retained verbatim as history after the module's retirement. */
+export const retiredSpaOperationGuides = catalogGuides.filter(g =>
+  !retiredFrontendGuideIds.some(id => id === g.id) && g.modules.every(module => module === "spa"));
+export const operationGuides: OperationGuide[] = catalogGuides
+  .filter(g => !retiredFrontendGuideIds.some(id => id === g.id) && !g.modules.every(module => module === "spa"))
+  .map(g => ({ ...g, modules: g.modules.filter(module => module !== "spa") }));
 import { courseDisplayText } from "./course-display-text";
 export const hqOperationGuideIds = ["I11", "I12", "I18", "I19"] as const;
 export function availableGuides(access: GuideAccess) {
+  if (access.module === "spa") return [];
   if (access.hqScope && !access.permissions.includes("audit.read")) return [];
   const sharingRestricted = access.module === "course" && access.sharedCardState !== undefined && access.sharedCardState !== "ENABLED";
   return operationGuides.filter(g => (!access.hqScope || hqOperationGuideIds.some(id => id === g.id)) && g.modules.includes(access.module) &&

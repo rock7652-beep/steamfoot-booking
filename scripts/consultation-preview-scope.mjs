@@ -158,7 +158,7 @@ export const TODO_DISMISS_PREVIEW_BRANCH = "fix/instant-todo-dismiss-20261010";
 export const STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH = "fix/steam-roster-legacy-ipad-20261010";
 export const STEAM_ROSTER_DENSITY_PREVIEW_BRANCH = "fix/steam-roster-ipad-density-20261010";
 
-export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261008";
+export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261012";
 
 /** Read-only documentation candidate against the existing isolated test database. */
 export function assertOperationGuidePreviewEnvironment(env) {

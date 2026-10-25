@@ -13,6 +13,8 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { revalidatePath } from "next/cache";
+import { fixedMusicPeriodsEnabled } from "@/server/services/music-lesson-periods";
+import { musicLessonPeriodIssue } from "@/lib/music-lesson-periods";
 
 export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
   try {
@@ -33,11 +35,12 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
       cards.push(...batch);if(batch.length<500)break;
     }
     const visibleCards=cards.filter(card=>card.members.some(member=>!!member.id&&visibleIds.has(member.id)));
-    const starts=visibleCards.length?await coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:visibleCards.map(card=>card.id)}},select:{id:true,musicJoinSessionId:true,bookings:{where:{status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},take:1,select:{session:{select:{startsAt:true}}}}}}):[];
+    const starts=visibleCards.length?await coursePrisma.coursePointCard.findMany({where:{storeId,id:{in:visibleCards.map(card=>card.id)}},select:{id:true,musicJoinSessionId:true,musicTermSizes:true,musicOpeningStateRequired:true,bookings:{where:{status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},take:1,select:{session:{select:{startsAt:true}}}}}}):[];
     const joinIds=[...new Set(starts.flatMap(card=>card.musicJoinSessionId?[card.musicJoinSessionId]:[]))];
     const joins=joinIds.length?await coursePrisma.courseSession.findMany({where:{storeId,id:{in:joinIds}},select:{id:true,startsAt:true}}):[];
     const startByCard=new Map(starts.map(card=>[card.id,{firstReservedAt:card.bookings[0]?.session.startsAt.toISOString()??null,startRequired:!!card.musicJoinSessionId,startsAt:joins.find(join=>join.id===card.musicJoinSessionId)?.startsAt.toISOString()??null}]));
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:visibleCards.map(card=>({...startByCard.get(card.id),id:card.id,name:card.name,unit:card.unit,musicValidityDays:card.musicValidityDays,musicActivatedAt:card.musicActivatedAt,available:card.available,remaining:card.remaining,held:card.held,expired:card.expired,unavailableReason:card.openingIssue??(!card.expiresAt&&card.expiryKind!=="NO_EXPIRY"?"課卡期限尚未確認，請先核對有效期限":null),subjectMatches:!card.templateIds.length||card.templateIds.includes(templateId)||card.templateIds.some(id=>relatedIds.includes(id)),expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
+    const periodIssues=new Map(starts.map(card=>[card.id,fixedMusicPeriodsEnabled(storeId)?musicLessonPeriodIssue(card):null]));
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:visibleCards.map(card=>({...startByCard.get(card.id),id:card.id,name:card.name,unit:card.unit,musicValidityDays:card.musicValidityDays,musicActivatedAt:card.musicActivatedAt,available:card.available,remaining:card.remaining,held:card.held,expired:card.expired,unavailableReason:card.openingIssue??periodIssues.get(card.id)??(!card.expiresAt&&card.expiryKind!=="NO_EXPIRY"?"課卡期限尚未確認，請先核對有效期限":null),subjectMatches:!card.templateIds.length||card.templateIds.includes(templateId)||card.templateIds.some(id=>relatedIds.includes(id)),expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 

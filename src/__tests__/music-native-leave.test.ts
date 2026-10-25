@@ -52,3 +52,16 @@ describe("new music purchase leave policy",()=>{
   await settleCourseBooking(tx,actor,booking.id,"STUDENT_LEAVE");expect(card.remaining).toBe(7);expect(coupon.remaining).toBe(1);
  });
 });
+
+it("does not refund an already voided makeup again when attendance is later waived and restored",async()=>{
+ await settleCourseBooking(tx,actor,booking.id,"STUDENT_LEAVE");
+ await correctCourseAttendance(tx,actor,booking.id,"RESERVED","CANCELLED");
+ expect(card.remaining).toBe(8);
+ await settleCourseBooking(tx,actor,booking.id,"ATTENDED");
+ expect(card.remaining).toBe(7);
+ await correctCourseAttendance(tx,actor,booking.id,"CANCELLED","ATTENDED",{waiveAbsence:true,suppressNotice:true});
+ expect(card.remaining).toBe(8);expect(booking.absenceKind).toBe("STUDENT_LEAVE");
+ await correctCourseAttendance(tx,actor,booking.id,"RESERVED","CANCELLED");
+ expect(card.remaining).toBe(8);expect(booking.status).toBe("RESERVED");
+ expect(m.coursePointCard.create).toHaveBeenCalledTimes(1);
+});
