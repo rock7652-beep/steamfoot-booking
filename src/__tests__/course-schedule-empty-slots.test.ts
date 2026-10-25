@@ -104,3 +104,21 @@ it("music week pastes the actual 25-minute class on the chosen day without openi
   expect(paste).toHaveBeenCalledWith({date:"2026-10-02",time:"09:30",roomId:"room",coachId:"coach"});expect(open).not.toHaveBeenCalled();
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
+it.each([{native:true,service:true},{native:true,service:false},{native:false,service:false}])('clipboard loading feedback follows the actual slot query ($native/$service)',async({native,service})=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ vi.stubGlobal('ResizeObserver',class {observe=vi.fn();disconnect=vi.fn();});
+ vi.stubGlobal('requestAnimationFrame',()=>0);vi.stubGlobal('cancelAnimationFrame',vi.fn());
+ vi.stubGlobal('matchMedia',()=>({matches:false,addEventListener:vi.fn(),removeEventListener:vi.fn()}));
+ const {getMusicSlotMatches}=await import('@/server/actions/course-slot-matches');
+ const read=vi.mocked(getMusicSlotMatches);read.mockReset().mockImplementation(()=>new Promise(()=>{}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host),paste=vi.fn();
+ try{
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:native?'FITNESS':'MUSIC',sportsNative:native,serviceMode:service,mode:'day',initialResourceView:'room',onOpenEmpty:vi.fn(),onPasteMove:paste,moveClipboard:{sessionId:'move',templateId:'private',roomId:'room',coachId:'coach',durationMinutes:60,scope:'SINGLE',label:'測試改期'}})));
+  if(native){
+   expect(read).not.toHaveBeenCalled();expect(host.textContent).not.toContain('正在核對老師與教室');
+   const target=host.querySelector<HTMLButtonElement>('button[aria-label="09:30 貼上課程"]')!;
+   expect(target.disabled).toBe(false);await act(async()=>target.click());expect(paste).toHaveBeenCalledWith({date:base.selectedDate,time:'09:30',roomId:'room',coachId:'coach'});
+  }else{expect(read).toHaveBeenCalledOnce();expect(host.textContent).toContain('正在核對老師與教室');}
+ }finally{await act(async()=>root.unmount());host.remove();read.mockReset();vi.unstubAllGlobals();}
+});

@@ -1,0 +1,470 @@
+{
+  "synthetic": true,
+  "businessAcceptance": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "name": "full-roster-before-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 83,
+          "right": 1283,
+          "top": 24,
+          "bottom": 876
+        }
+      ]
+    },
+    {
+      "name": "full-purchase-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 83,
+          "right": 1283,
+          "top": 18,
+          "bottom": 870
+        },
+        {
+          "left": 243,
+          "right": 1123,
+          "top": 24,
+          "bottom": 876
+        }
+      ]
+    },
+    {
+      "name": "full-roster-collection-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 83,
+          "right": 1283,
+          "top": 24,
+          "bottom": 876
+        },
+        {
+          "left": 403,
+          "right": 963,
+          "top": 218,
+          "bottom": 682
+        }
+      ]
+    },
+    {
+      "name": "full-roster-after-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 83,
+          "right": 1283,
+          "top": 24,
+          "bottom": 876
+        }
+      ]
+    },
+    {
+      "name": "full-roster-after-1024",
+      "viewport": 1024,
+      "scrollWidth": 1024,
+      "dialogs": [
+        {
+          "left": 24,
+          "right": 1000,
+          "top": 24,
+          "bottom": 744
+        }
+      ]
+    },
+    {
+      "name": "full-roster-after-768",
+      "viewport": 768,
+      "scrollWidth": 768,
+      "dialogs": [
+        {
+          "left": 24,
+          "right": 744,
+          "top": 24,
+          "bottom": 1000
+        }
+      ]
+    },
+    {
+      "name": "full-roster-after-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "full-cut-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "full-paste-conflict-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 303,
+          "right": 1063,
+          "top": 24,
+          "bottom": 876
+        }
+      ]
+    },
+    {
+      "name": "full-paste-conflict-768",
+      "viewport": 768,
+      "scrollWidth": 768,
+      "dialogs": [
+        {
+          "left": 24,
+          "right": 744,
+          "top": 62,
+          "bottom": 962
+        }
+      ]
+    },
+    {
+      "name": "full-paste-conflict-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "full-paste-success-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "full-care-failed-save-768",
+      "viewport": 768,
+      "scrollWidth": 768,
+      "dialogs": [
+        {
+          "left": 104,
+          "right": 664,
+          "top": 214.5,
+          "bottom": 809.5
+        }
+      ]
+    },
+    {
+      "name": "full-care-failed-save-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "full-care-handled-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-charge-failed-save-1024",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-charge-failed-save-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-charge-plan-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 403,
+          "right": 963,
+          "top": 218,
+          "bottom": 682
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-1920",
+      "viewport": 1920,
+      "scrollWidth": 1920,
+      "dialogs": [
+        {
+          "left": 680,
+          "right": 1240,
+          "top": 308,
+          "bottom": 772
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-1024",
+      "viewport": 1024,
+      "scrollWidth": 1024,
+      "dialogs": [
+        {
+          "left": 232,
+          "right": 792,
+          "top": 152,
+          "bottom": 616
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-768",
+      "viewport": 768,
+      "scrollWidth": 768,
+      "dialogs": [
+        {
+          "left": 104,
+          "right": 664,
+          "top": 280,
+          "bottom": 744
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-collection-360",
+      "viewport": 360,
+      "scrollWidth": 360,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 360,
+          "top": 0,
+          "bottom": 800
+        }
+      ]
+    },
+    {
+      "name": "beauty-purchase-discount-390",
+      "viewport": 360,
+      "scrollWidth": 360,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-reservation-four-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-reservation-four-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-calendar-day-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-calendar-week-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-calendar-month-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-rental-failed-save-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": []
+    },
+    {
+      "name": "beauty-staff-editor-basic-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 223,
+          "right": 1143,
+          "top": 110,
+          "bottom": 790
+        }
+      ]
+    },
+    {
+      "name": "beauty-staff-editor-services-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 223,
+          "right": 1143,
+          "top": 110,
+          "bottom": 790
+        }
+      ]
+    },
+    {
+      "name": "beauty-staff-editor-services-768",
+      "viewport": 768,
+      "scrollWidth": 768,
+      "dialogs": [
+        {
+          "left": 24,
+          "right": 744,
+          "top": 172,
+          "bottom": 852
+        }
+      ]
+    },
+    {
+      "name": "beauty-staff-editor-services-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-personnel-permissions-before-1024",
+      "viewport": 1024,
+      "scrollWidth": 1024,
+      "dialogs": [
+        {
+          "left": 52,
+          "right": 972,
+          "top": 44,
+          "bottom": 724
+        }
+      ]
+    },
+    {
+      "name": "beauty-personnel-permissions-after-1024",
+      "viewport": 1024,
+      "scrollWidth": 1024,
+      "dialogs": [
+        {
+          "left": 52,
+          "right": 972,
+          "top": 44,
+          "bottom": 724
+        }
+      ]
+    },
+    {
+      "name": "beauty-customer-detail-1366",
+      "viewport": 1366,
+      "scrollWidth": 1366,
+      "dialogs": [
+        {
+          "left": 243,
+          "right": 1123,
+          "top": 24,
+          "bottom": 876
+        }
+      ]
+    },
+    {
+      "name": "beauty-customer-detail-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    },
+    {
+      "name": "beauty-customer-purchase-390",
+      "viewport": 390,
+      "scrollWidth": 390,
+      "dialogs": [
+        {
+          "left": 0,
+          "right": 390,
+          "top": 0,
+          "bottom": 844
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
