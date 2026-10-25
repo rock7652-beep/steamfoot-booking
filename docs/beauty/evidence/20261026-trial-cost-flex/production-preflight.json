@@ -1,0 +1,22 @@
+[
+  {
+    "text": "[store-line-additions-preflight] passed",
+    "date": 1792961777679
+  },
+  {
+    "text": "[store-line-additions-preflight] passed",
+    "date": 1792961777859
+  },
+  {
+    "text": "[beauty-notification-preflight] enabled=true worker=shared-main-v1 readonly=true",
+    "date": 1792961789791
+  },
+  {
+    "text": "[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=module editing_enabled=true",
+    "date": 1792961789792
+  },
+  {
+    "text": "ci-migrate: migration_skipped_no_target",
+    "date": 1792961793761
+  }
+]

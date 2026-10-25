@@ -23,6 +23,13 @@
 
 證據：[測試](evidence/20261026-trial-cost-flex/regression.log)、[版面結果](evidence/20261026-trial-cost-flex/browser-results.json)、[手機](evidence/20261026-trial-cost-flex/cost-390.png)、[平板](evidence/20261026-trial-cost-flex/cost-1024.png)。
 
-## 發布
+## 正式發布完成
 
-完成候選驗證，接續依使用者本輪與先前正式發布授權核對／合併最新 main，再以 Production 建置。所有既有唯讀預檢與無 migration target 防護保留；正式部署結果另行記錄。
+- [PR #1417](https://github.com/rock7652-beep/steamfoot-booking/pull/1417) 已合併；正式提交 `27a377d6a17f537bd626617febe9bb394e7ad283`。
+- Vercel Production **READY**：`dpl_8ZuSL4w893UzPh77UxTg5NXMXqyd`。`steamfoot.com` 與 `www.steamfoot.com` 均已核對指向此部署，apex 保留 308 導向 www。
+- 既有 store LINE／Beauty worker、美業 role/TLS/Prisma/14表/shared todos 唯讀預檢通過，`editing_enabled=true`、`migration_skipped_no_target`；完整網站編譯、TypeScript 與輸出發布成功。
+- 官網、HQ 登入、匿名 session 200；HQ 美業及店家收費／營運未登入入口正常307導向登入，沒有5xx或server error page。這是匿名 smoke，不宣稱本輪登入正式店儲存／交易驗收。
+- 2026-10-26 05:02 台灣時間，按此 deployment 篩選近五分鐘 error/fatal runtime logs 無紀錄；只代表這個短窗口，不代表全站全部流量。
+- 沒有 DB migration、舊資料回填、正式測試交易或 LINE 設定變更。新預約保存所選一般／體驗費用，舊預約及交易快照保留。回退可使用先前正式版本，同樣不 DROP／清除資料。
+
+[正式部署結果](evidence/20261026-trial-cost-flex/published-result.json)、[HTTP](evidence/20261026-trial-cost-flex/production-http.json)、[唯讀預檢](evidence/20261026-trial-cost-flex/production-preflight.json)。

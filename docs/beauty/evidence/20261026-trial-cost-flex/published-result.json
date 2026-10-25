@@ -1,0 +1,25 @@
+{
+  "status": "READY",
+  "target": "production",
+  "commit": "27a377d6a17f537bd626617febe9bb394e7ad283",
+  "deploymentId": "dpl_8ZuSL4w893UzPh77UxTg5NXMXqyd",
+  "url": "https://steamfoot-booking-muf58a0jp-rock7652-2111s-projects.vercel.app",
+  "aliases": [
+    "steamfoot.com",
+    "www.steamfoot.com"
+  ],
+  "pullRequest": 1417,
+  "scope": "Beauty pricing grouping, allocation preview, optional trial store fee",
+  "migrationApplied": false,
+  "productionBusinessTestWrites": false,
+  "lineConfigurationChanged": false,
+  "runtimeErrorScan": {
+    "checkedAtUTC": "2026-10-25T21:02:14Z",
+    "window": "5m",
+    "levels": [
+      "error",
+      "fatal"
+    ],
+    "result": "No logs found"
+  }
+}
