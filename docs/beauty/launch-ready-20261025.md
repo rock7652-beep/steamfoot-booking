@@ -40,3 +40,5 @@
 - [調整前](evidence/20261025-launch-ready/trial-ui/before-1024.png)／[調整後](evidence/20261025-launch-ready/trial-ui/after-1024.png)。
 
 試用修正候選尚待正式建置與網域核對，完成後補記實際部署 ID。
+
+手機實看後將美業試用選單與說明改為完整欄寬，避免文字擠在右側半欄；四種尺寸再次通過，更新畫面證據。候選 dpl_Bqv9yv5Fe4794ZF5gCS8wfcobW2k 在 BUILDING 時取消，未發布，改由包含此手機修正的後繼版本發布。

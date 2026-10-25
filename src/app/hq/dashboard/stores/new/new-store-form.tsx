@@ -269,6 +269,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
               hint="小寫英數字 + 短橫線"
             />
             <SelectField
+              className={industryModule === "BEAUTY" ? "col-span-2 sm:col-span-1" : undefined}
               label="系統方案"
               value={plan}
               onChange={setPlan as (v: string) => void}
@@ -279,7 +280,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
                 { value: "ALLIANCE", label: "ALLIANCE" },
               ]}
             />
-            {industryModule === "BEAUTY" && <p className="text-sm text-earth-500 sm:col-span-2">建店後尚未起算；於店舖詳情點「開通 30 天單店試用」才開始倒數。試用到期日可於訂閱管理查看。</p>}
+            {industryModule === "BEAUTY" && <p className="col-span-2 text-sm text-earth-500">建店後尚未起算；於店舖詳情點「開通 30 天單店試用」才開始倒數。試用到期日可於訂閱管理查看。</p>}
             <Field
               label="自訂網域"
               value={domain}
@@ -485,18 +486,20 @@ function Field({
 }
 
 function SelectField({
+  className,
   label,
   value,
   onChange,
   options,
 }: {
+  className?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
   return (
-    <div>
+    <div className={className}>
       <label className="block text-xs font-medium text-earth-600">
         {label}
       </label>
