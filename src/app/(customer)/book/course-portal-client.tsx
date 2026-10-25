@@ -1,4 +1,5 @@
 "use client";
+import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {CoursePortalSheet as Sheet} from "@/components/course-portal-sheet";
@@ -819,9 +820,9 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
   }
   const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
   const shop = p.plans.filter(
-    (plan) =>
+    (plan) => coursePlanModeAllowed({selfBookingEnabled,assignedSchedulingEnabled:p.assignedSchedulingEnabled},plan.sportsMode) && (
       !session ||
-      rightsFor(session,plan).eligible,
+      rightsFor(session,plan).eligible),
   );
   const storeInfo = (<>
               <section className="cp-card cp-pad cp-store-info">

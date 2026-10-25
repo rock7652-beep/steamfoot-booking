@@ -1,13 +1,13 @@
 import {beforeEach,expect,it,vi} from "vitest";
 type Plan={templateIds:string[];sportsMode?:string;unit?:string;sportsSubjectId?:string|null;sportsCost?:number|null};
 vi.mock("server-only",()=>({}));
-const m=vi.hoisted(()=>({confirmed:true,native:true,plans:[{templateIds:["active"]}] as Plan[],staff:[{courseQualifiedTemplateIds:["active"]}],subjects:[{id:"subject-a"}],templates:[{id:"active"}]}));
+const m=vi.hoisted(()=>({confirmed:true,native:true,open:true,assigned:true,plans:[{templateIds:["active"]}] as Plan[],staff:[{courseQualifiedTemplateIds:["active"]}],subjects:[{id:"subject-a"}],templates:[{id:"active"}]}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:()=>m.native}));
 vi.mock("next/headers",()=>({cookies:async()=>({get:()=>undefined})}));
 vi.mock("@/lib/db",()=>({prisma:{auditLog:{findFirst:async()=>m.confirmed?{id:"confirmed"}:null},staff:{count:async()=>1,findMany:async()=>m.staff},storeFeatureEntitlement:{findFirst:async()=>null},businessHours:{findMany:async()=>[{isOpen:true,openTime:"09:00",closeTime:"21:00",slotInterval:30,defaultCapacity:6,segments:null}]},shopConfig:{findUnique:async()=>({dutySchedulingEnabled:false})}}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseRoom:{count:async()=>1},courseTemplate:{count:async()=>1,findMany:async()=>m.templates},coursePointPlan:{count:async()=>1,findMany:async()=>m.plans},courseSession:{count:async()=>1,findFirst:async()=>null},musicSubject:{count:async()=>1,findMany:async()=>m.subjects}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:m.open,assignedSchedulingEnabled:m.assigned})},courseRoom:{count:async()=>1},courseTemplate:{count:async()=>1,findMany:async()=>m.templates},coursePointPlan:{count:async()=>1,findMany:async()=>m.plans},courseSession:{count:async()=>1,findFirst:async()=>null},musicSubject:{count:async()=>1,findMany:async()=>m.subjects}}}));
 import {getCourseSetup} from "@/server/queries/course-setup";
-beforeEach(()=>{m.confirmed=true;m.native=true;m.plans=[{templateIds:["active"]}];m.staff=[{courseQualifiedTemplateIds:["active"]}];m.subjects=[{id:"subject-a"}];m.templates=[{id:"active"}];});
+beforeEach(()=>{m.confirmed=true;m.native=true;m.open=true;m.assigned=true;m.plans=[{templateIds:["active"]}];m.staff=[{courseQualifiedTemplateIds:["active"]}];m.subjects=[{id:"subject-a"}];m.templates=[{id:"active"}];});
 it("recognizes an already configured sports store without requiring duplicate resources",async()=>{
  const setup=await getCourseSetup("sports-live-flow-store","owner");expect(setup.localSections).toBe(true);expect(setup.steps.every(s=>s.done)).toBe(true);expect(setup.steps.every(s=>!s.href.includes("action=create"))).toBe(true);
 });
@@ -65,3 +65,10 @@ it.each([
 });
 
 it("provisioned open hours do not skip the explicit store confirmation",async()=>{m.confirmed=false;const setup=await getCourseSetup("new-store","owner");expect(setup.steps.find(s=>!s.done)).toMatchObject({id:"hours",label:"確認營業時間與公休"});expect(setup.steps[0].done).toBe(false);m.confirmed=true;expect((await getCourseSetup("new-store","owner")).steps[0].done).toBe(true);});
+
+it("closed open-selection fees cannot complete setup or advertise disabled features",async()=>{
+ m.open=false;m.plans=[{templateIds:[],sportsMode:"OPEN",unit:"POINT",sportsSubjectId:null,sportsCost:null}];
+ const setup=await getCourseSetup("sports-live-flow-store","owner");
+ expect(setup.steps.find(s=>s.id==="plan")?.done).toBe(false);
+ expect(setup.steps.map(s=>s.hint).join(" ")).not.toMatch(/開放選課|通用卡/);
+});

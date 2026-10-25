@@ -1,4 +1,6 @@
 "use server";
+import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
+
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import {Prisma as CoursePrismaValue} from "../../../generated/course-client";
 import {assertChargeProviders} from "@/server/services/course-charge";
@@ -256,6 +258,7 @@ export async function saveCoursePointPlan(input: unknown) {
       await assertChargeProviders(tx,storeId,data.templateIds,data.chargeSettings);
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
+    if(!previous||(previous.sportsMode??"LEGACY")!==data.sportsMode||!previous.isActive&&data.isActive) await assertCoursePlanMode(tx,storeId,data.sportsMode);
     if(previous&&(previous.sportsMode??"LEGACY")!=="LEGACY"&&data.sportsMode==="LEGACY"){
       if(hasSportsIntent)throw new AppError("VALIDATION","新模式方案不可改為舊方案，請新增方案");
       if(data.unit!==previous.unit)throw new AppError("VALIDATION","請從運動收費方式修改方案計費單位");
@@ -299,9 +302,10 @@ export async function setCoursePointPlanStatus(input: unknown) {
   try {
     const data = z.object({ id, isActive: z.boolean() }).parse(input);
     const { storeId } = await courseManager("plans.edit");
-    const result = await coursePrisma.coursePointPlan.updateMany({
-      where: { id: data.id, storeId },
-      data: { isActive: data.isActive },
+    const result = await courseTransaction(storeId,async tx=>{
+      const plan=await tx.coursePointPlan.findFirst({where:{id:data.id,storeId}});
+      if(data.isActive&&plan&&!plan.isActive)await assertCoursePlanMode(tx,storeId,plan.sportsMode);
+      return tx.coursePointPlan.updateMany({where:{id:data.id,storeId},data:{isActive:data.isActive}});
     });
     if (!result.count) throw new AppError("NOT_FOUND", "找不到本店方案");
     refresh();
