@@ -23,7 +23,7 @@ export async function loadCustomerLabels(ids: string[] = [], requestedStoreId?: 
     customerIds.length ? prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:{in:customerIds},mergedIntoCustomerId:null},select:{id:true}}) : [],
     checkPermission(user.role,user.staffId,"customer.update"),
   ]);
-  const enabled = setting?.enabled ?? false;
+  const enabled = setting?.enabled ?? true;
   const rows = enabled && visible.length ? await prisma.customerLabelAssignment.findMany({where:{storeId,customerId:{in:visible.map(c=>c.id)}}}) : [];
   const assignments: Record<string,string[]> = {};
   for(const c of visible) assignments[c.id]=[];
@@ -47,7 +47,7 @@ export async function manageCustomerLabels(input: unknown) {
     const metadata=await prisma.$transaction(async tx=>{
       // Serializes category numbers, settings and assignments for this store.
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
-      await tx.customerLabelSetting.upsert({where:{storeId},create:{storeId},update:{}});
+      await tx.customerLabelSetting.upsert({where:{storeId},create:{storeId,enabled:true},update:{}});
       if(data.action==="enable") await tx.customerLabelSetting.update({where:{storeId},data:{enabled:data.enabled}});
       if(data.action==="category") {
         if(data.id) {
@@ -105,7 +105,7 @@ export async function setCustomerLabel(input: unknown) {
     await prisma.$transaction(async tx=>{
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       const setting=await tx.customerLabelSetting.findUnique({where:{storeId}});
-      if(!setting?.enabled) throw new AppError("FORBIDDEN","顧客標籤已關閉");
+      if(setting?.enabled===false) throw new AppError("FORBIDDEN","顧客標籤已關閉");
       const customer=await tx.customer.findFirst({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:data.customerId,mergedIntoCustomerId:null},select:{id:true}});
       if(!customer) throw new AppError("FORBIDDEN","無權修改此顧客");
       const label=await tx.customerLabel.findFirst({where:{storeId,id:data.labelId}});

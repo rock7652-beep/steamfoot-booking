@@ -3,14 +3,15 @@
 import { useState } from "react";
 import {
   checkAllLineOfficialAccounts,
+  getCurrentLineOfficialAccountStatus,
   type LineOfficialAccountStatus,
 } from "@/server/actions/line-official-accounts";
 
 type Props = {
-  initialStatuses: LineOfficialAccountStatus[];
+  initialStatuses: LineOfficialAccountStatus[];scope?:"current"|"all";
 };
 
-export function LineOfficialAccountsCard({ initialStatuses }: Props) {
+export function LineOfficialAccountsCard({ initialStatuses,scope="all" }: Props) {
   const [statuses, setStatuses] = useState(initialStatuses);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,10 +19,11 @@ export function LineOfficialAccountsCard({ initialStatuses }: Props) {
   async function recheck() {
     setPending(true);
     setError(null);
-    const result = await checkAllLineOfficialAccounts();
-    if (result.success) setStatuses(result.data);
-    else setError(result.error ?? "無法完成 LINE 官方帳號驗證");
-    setPending(false);
+    try{
+      if(scope==="current"){setStatuses([await getCurrentLineOfficialAccountStatus()]);return;}
+      const result=await checkAllLineOfficialAccounts();
+      if(result.success)setStatuses(result.data);else setError(result.error??"無法完成 LINE 官方帳號驗證");
+    }catch{setError("LINE 連線檢查失敗，請稍後重試");}finally{setPending(false);}
   }
 
   return (
@@ -29,7 +31,7 @@ export function LineOfficialAccountsCard({ initialStatuses }: Props) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-earth-900">LINE 官方帳號</h2>
-          <p className="mt-1 text-xs text-earth-500">只顯示各分店是否正常，不顯示 Token 或其他技術資料。</p>
+          <p className="mt-1 text-xs text-earth-500">只檢查官方帳號連線，不會發送顧客訊息。</p>
         </div>
         <button
           type="button"

@@ -1,0 +1,16 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),card:vi.fn(),customer:vi.fn(),core:vi.fn(),session:vi.fn(),scope:vi.fn(),feature:vi.fn(),revalidate:vi.fn()}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction}));
+vi.mock('@/server/beauty/card-management',async original=>({...await original<typeof import('@/server/beauty/card-management')>(),manageBeautyCard:m.core}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer}}}));
+vi.mock('@/lib/session',()=>({requireSession:m.session}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:m.scope}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('next/cache',()=>({revalidatePath:m.revalidate}));
+import {saveBeautyCardManagement} from '@/server/actions/beauty-card-management';
+const actor={storeId:'store',userId:'manager',manager:true};
+const input={expectedStoreId:'store',requestKey:'00000000-0000-4000-8000-000000000001',cardId:'card',operation:'close',expectedRemaining:4,expectedExpiresAt:'2027-04-22T15:59:59.999Z',reason:'店家同意註銷'};
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue(actor);m.transaction.mockImplementation(async(_a,work)=>work({beautyCard:{findFirst:m.card}}));m.card.mockResolvedValue({customerId:'original-owner'});m.customer.mockResolvedValue({id:'original-owner'});m.session.mockResolvedValue({role:'STAFF',staffId:'manager'});m.scope.mockReturnValue({managerStaffId:'manager'});m.core.mockResolvedValue({id:'card',remaining:0,closed:true});});
+it('checks wallet adjustment, customer access, features and original owner scope before mutation',async()=>{expect(await saveBeautyCardManagement(input)).toMatchObject({success:true});expect(m.manager.mock.calls).toEqual([['wallet.adjust',true],['customer.read']]);expect(m.feature).toHaveBeenCalledTimes(2);expect(m.customer).toHaveBeenCalledWith({where:{managerStaffId:'manager',storeId:'store',id:'original-owner',mergedIntoCustomerId:null},select:{id:true}});expect(m.core).toHaveBeenCalledOnce();});
+it.each(['permission','store','feature','foreign-card','foreign-owner'])('denies %s before the core can write',async kind=>{if(kind==='permission')m.manager.mockRejectedValue(Error('denied'));if(kind==='feature')m.feature.mockRejectedValue(Error('disabled'));if(kind==='foreign-card')m.card.mockResolvedValue(null);if(kind==='foreign-owner')m.customer.mockResolvedValue(null);expect(await saveBeautyCardManagement({...input,expectedStoreId:kind==='store'?'other':'store'})).toMatchObject({success:false});expect(m.core).not.toHaveBeenCalled();});
+it('reports committed changes even when refresh fails, preventing a duplicate operation',async()=>{m.revalidate.mockImplementation(()=>{throw Error('refresh unavailable');});expect(await saveBeautyCardManagement(input)).toMatchObject({success:true,syncWarning:true});expect(m.core).toHaveBeenCalledOnce();});
