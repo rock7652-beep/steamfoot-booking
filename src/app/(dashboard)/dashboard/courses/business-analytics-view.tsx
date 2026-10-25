@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "@/components/admin/management-layout.module.css";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -9,6 +10,7 @@ import type { CourseBusinessReport } from "@/server/queries/course-business-anal
 type Segment = keyof CourseBusinessReport["counts"];
 const names: Record<Segment,string> = {trial:"體驗人數",newCard:"新卡人數",renewal:"續卡人數",converted:"本期體驗開卡",unconverted:"體驗未開卡",tracked:"過往體驗追蹤開卡",visitors:"不重複來客人數",newVisitors:"新客人數",oldVisitors:"舊客人數",returned:"已回流人數",notReturned:"尚未回流人數"};
 export function BusinessAnalyticsView({data,all,staffId,music=false,periodControls}:{data:CourseBusinessReport;all:boolean;staffId?:string|null;music?:boolean;periodControls?:React.ReactNode}) {
+  const personnelText = useCoursePersonnelText();
   const router=useRouter(),search=useSearchParams();
   const [pending,start]=useTransition();
   const [segment,setSegment]=useState<Segment|null>(null),[keyword,setKeyword]=useState(""),[page,setPage]=useState(1);
@@ -40,9 +42,9 @@ export function BusinessAnalyticsView({data,all,staffId,music=false,periodContro
   return <div className={`${styles.workspace} space-y-3`} aria-busy={pending}>
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="分析對象">
       {periodControls}
-      {([['store','店家'],['manager','所屬店長'],['coach',courseDisplayText("教練", music)]] as const).filter(([v])=>(all||v!=="store")&&(!music||v!=="manager")).map(([v,label])=><button key={v} disabled={pending} aria-pressed={data.scope.view===v} onClick={()=>navigate(v,all?"all":staffId!)} className={`min-h-11 rounded-lg border px-4 text-sm ${data.scope.view===v?"bg-primary-700 text-white":"bg-white text-earth-700"}`}>{music&&v==="coach"?"教師":label}</button>)}
-      {data.scope.view!=="store"&&<select aria-label={coach?courseDisplayText("選擇教練", music):"選擇所屬店長"} disabled={pending} value={data.scope.person} onChange={e=>navigate(data.scope.view,e.target.value)} className="h-11 max-w-full appearance-none rounded-lg border border-earth-200 bg-white py-2 pl-3 pr-9 text-sm text-earth-700" style={{backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"}}>
-        {all&&<option value="all">{coach?courseDisplayText("全部教練", music):"全部所屬店長"}</option>}{people.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}{all&&!coach&&<option value="unassigned">未歸屬</option>}
+      {([['store','店家'],['manager','所屬店長'],['coach',personnelText(courseDisplayText("教練", music))]] as const).filter(([v])=>(all||v!=="store")&&(!music||v!=="manager")).map(([v,label])=><button key={v} disabled={pending} aria-pressed={data.scope.view===v} onClick={()=>navigate(v,all?"all":staffId!)} className={`min-h-11 rounded-lg border px-4 text-sm ${data.scope.view===v?"bg-primary-700 text-white":"bg-white text-earth-700"}`}>{music&&v==="coach"?personnelText("教師"):label}</button>)}
+      {data.scope.view!=="store"&&<select aria-label={coach?personnelText(courseDisplayText("選擇教練", music)):"選擇所屬店長"} disabled={pending} value={data.scope.person} onChange={e=>navigate(data.scope.view,e.target.value)} className="h-11 max-w-full appearance-none rounded-lg border border-earth-200 bg-white py-2 pl-3 pr-9 text-sm text-earth-700" style={{backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"}}>
+        {all&&<option value="all">{coach?personnelText(courseDisplayText("全部教練", music)):"全部所屬店長"}</option>}{people.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}{all&&!coach&&<option value="unassigned">未歸屬</option>}
       </select>}
       {pending&&<span role="status" className="text-sm text-earth-500">更新分析中…</span>}
     </div>
@@ -89,9 +91,9 @@ export function BusinessAnalyticsView({data,all,staffId,music=false,periodContro
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">{metricCard("returned")}<Summary label="顧客回流率" value={data.retentionRate===null?"—":`${data.retentionRate.toFixed(1)}%`} note={`${data.counts.returned} / ${data.retentionBase} 人`}/>{metricCard("notReturned")}</div>
       </>}
     </section>
-    {coach&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">體驗後開卡成果</summary><p className="my-2 text-sm text-earth-600">{music ? "歸給首次付費前最後一次完成體驗的授課教師，供教學追蹤。" : courseDisplayText("歸給首次付費前最後一次完成體驗的授課教練，供教學追蹤；成交業績仍歸所屬店長。", music)}</p><div className="grid grid-cols-2 gap-3">{metricCard("newCard")}{metricCard("converted")}</div></details>}
+    {coach&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">體驗後開卡成果</summary><p className="my-2 text-sm text-earth-600">{music ? personnelText("歸給首次付費前最後一次完成體驗的授課教師，供教學追蹤。") : personnelText(courseDisplayText("歸給首次付費前最後一次完成體驗的授課教練，供教學追蹤；成交業績仍歸所屬店長。", music))}</p><div className="grid grid-cols-2 gap-3">{metricCard("newCard")}{metricCard("converted")}</div></details>}
     {!coach&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">授課明細</summary><p className="py-2 text-sm">實際授課 {data.sessions} 堂 · {data.hours.toFixed(1)} 小時 · 出席 {data.attendance} 人次</p></details>}
-    <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">統計方式與歸屬</summary><div className="space-y-2 pb-3"><p>來客人次按實際出席累計：兩人各上一堂算 2 人次，同一人上兩堂也算 2 人次；取消與未到不計。不重複來客人數則每人只算一次。新客為首次在本店出席落在本期，舊客為先前已出席者。</p><p>近六個月與近一年以所選區間的結束月份為終點，未來日期截至今日；各月體驗、新卡、續卡按月去重，本期每日人數不可直接相加為整期人數。</p><p>體驗依完成出席計算並按人去重；新卡為首次付費方案，續卡為後續付費方案。免費指派、共卡加入與全額退款不算成交。新卡與續卡可能是同一人，本期人數不可直接相加。</p><p>體驗開卡率只計同批首次購買前的體驗者；追蹤開卡歸實際購買月份，另列過往體驗。沒有體驗者時顯示 —。</p><p>{music ? "教師依課次授課紀錄統計，與全店數字不可重複加總。" : courseDisplayText("所屬店長的體驗與上課依顧客目前歸屬；成交依購買時快照，未指定列未歸屬，不使用核帳人代替。教練依課次授課紀錄。角色數字不可重複加總。", music)}</p><p>收款包含方案及體驗收款，扣除當期退款／沖銷；不重複加總現金帳。方案利潤依成交快照，部分退款或缺少快照列待核對。授課費依每堂固定費率，缺少費率另列待核對。</p></div></details>
+    <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">統計方式與歸屬</summary><div className="space-y-2 pb-3"><p>來客人次按實際出席累計：兩人各上一堂算 2 人次，同一人上兩堂也算 2 人次；取消與未到不計。不重複來客人數則每人只算一次。新客為首次在本店出席落在本期，舊客為先前已出席者。</p><p>近六個月與近一年以所選區間的結束月份為終點，未來日期截至今日；各月體驗、新卡、續卡按月去重，本期每日人數不可直接相加為整期人數。</p><p>體驗依完成出席計算並按人去重；新卡為首次付費方案，續卡為後續付費方案。免費指派、共卡加入與全額退款不算成交。新卡與續卡可能是同一人，本期人數不可直接相加。</p><p>體驗開卡率只計同批首次購買前的體驗者；追蹤開卡歸實際購買月份，另列過往體驗。沒有體驗者時顯示 —。</p><p>{music ? personnelText("教師依課次授課紀錄統計，與全店數字不可重複加總。") : personnelText(courseDisplayText("所屬店長的體驗與上課依顧客目前歸屬；成交依購買時快照，未指定列未歸屬，不使用核帳人代替。教練依課次授課紀錄。角色數字不可重複加總。", music))}</p><p>收款包含方案及體驗收款，扣除當期退款／沖銷；不重複加總現金帳。方案利潤依成交快照，部分退款或缺少快照列待核對。授課費依每堂固定費率，缺少費率另列待核對。</p></div></details>
   </div>;
 }
 function Summary({label,value,note,action}:{label:string;value:string;note?:string;action?:React.ReactNode}) {return <div className="min-h-20 rounded-xl border border-earth-200 bg-white p-3"><p className="text-sm text-earth-600">{label}</p><strong className="mt-1 block text-xl text-primary-900">{value}</strong>{note&&<p className="mt-1 text-xs text-earth-500">{note}</p>}{action}</div>;}

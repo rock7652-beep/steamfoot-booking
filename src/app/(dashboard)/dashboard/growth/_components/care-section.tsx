@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { CareRowActions } from "./care-row-actions";
@@ -18,6 +19,7 @@ const DEFAULT_VISIBLE_COUNT = 5;
 export function CareSection({ title, description, emptyText, items, totalCount }: {
   title: string; description: string; emptyText: string; items: CareItem[]; totalCount: number;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, DEFAULT_VISIBLE_COUNT);
   return <section className="@container min-w-0 space-y-1" aria-label={title}>
@@ -28,7 +30,7 @@ export function CareSection({ title, description, emptyText, items, totalCount }
     {items.length === 0 ? <p className="pb-1 text-sm text-earth-500">{emptyText || "目前沒有符合條件的顧客。"}</p> : <>
       <span className="sr-only">{description}</span>
       <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <div className="hidden grid-cols-[minmax(100px,1fr)_130px_minmax(200px,2fr)_minmax(90px,0.7fr)_180px] items-center gap-3 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-900 @[800px]:grid"><span>顧客</span><span>電話</span><span>提醒與狀態</span><span>{items[0]?.staffLabel ?? (items[0]?.courseMode ? "所屬教練" : "所屬店長")}</span><span className="text-right">操作</span></div>
+        <div className="hidden grid-cols-[minmax(100px,1fr)_130px_minmax(200px,2fr)_minmax(90px,0.7fr)_180px] items-center gap-3 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-900 @[800px]:grid"><span>顧客</span><span>電話</span><span>提醒與狀態</span><span>{items[0]?.staffLabel ?? (items[0]?.courseMode ? personnelText("所屬教練") : "所屬店長")}</span><span className="text-right">操作</span></div>
         <div className="divide-y divide-earth-100">{visible.map(item => <div key={item.customerId} className="grid min-w-0 grid-cols-[minmax(0,1fr)_130px] items-start gap-x-3 gap-y-1 px-3 py-2 @[800px]:grid-cols-[minmax(100px,1fr)_130px_minmax(200px,2fr)_minmax(90px,0.7fr)_180px] @[800px]:items-center">
           <div className="min-w-0"><Link href={item.courseMode ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(item.customerId)}${item.dataScope==="legacy"?"&dataScope=legacy":""}` : `/dashboard/customers?customerId=${encodeURIComponent(item.customerId)}`} className="inline-flex min-h-8 items-center break-words text-sm font-semibold text-primary-900 hover:underline">{item.name}</Link></div>
           <p className="flex min-h-8 items-center break-all text-sm font-medium tabular-nums text-earth-900">{item.phoneLabel}</p>

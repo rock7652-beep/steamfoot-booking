@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import styles from "./booking-layout.module.css";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
@@ -1043,6 +1044,7 @@ function Toolbar({
   servicePlans: ServicePlanOption[];
   activeFilterCount: number;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [compositionText, setCompositionText] = useState<string | null>(null);
   const composing = useRef(false);
   const prevMonth = month === 1 ? 12 : month - 1;
@@ -1078,7 +1080,7 @@ function Toolbar({
         </button>
         <span className="mx-2 h-5 w-px bg-earth-200" />
         <FilterSelect
-          label="教練"
+          label={personnelText("教練")}
           value={filters.staffName}
           onChange={(v) => setFilters({ ...filters, staffName: v })}
           options={staffOptions.map((s) => ({ value: s.name, label: s.name }))}

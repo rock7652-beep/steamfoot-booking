@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { getCurrentUser } from "@/lib/session";
@@ -54,13 +55,14 @@ export default async function PlanSettingsPage() {
     );
   }
 
+  const personnelText = await getCoursePersonnelText(activeStoreId);
   const currentPlan = await getCurrentStorePlan();
 
   const plans: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
 
   /** Plan highlights for the hero cards */
   const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
-    EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
+    EXPERIENCE: ["基礎預約管理", "顧客資料管理", personnelText("教練排班")],
     BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "資料匯出／現金抽屜免費 2 選 1"],
     GROWTH: ["顧客經營、分析、現金抽屜、資料匯出內含", "健康追蹤／月結管理／課程候補免費 3 選 1", "進銷存、工單額外加購"],
     ALLIANCE: ["總部管理（分店串接費與系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
@@ -74,7 +76,7 @@ export default async function PlanSettingsPage() {
         { key: "basic_booking", label: "預約管理" },
         { key: "customer_management", label: "顧客管理" },
         { key: "member_portal", label: "LINE 顧客入口（LIFF）" },
-        { key: "staff_management", label: "教練管理" },
+        { key: "staff_management", label: personnelText("教練管理") },
         { key: "duty_scheduling", label: "值班排程" },
       ],
     },

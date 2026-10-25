@@ -2401,6 +2401,7 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
+  coursePersonnelLabel String? // Per-store presentation only: 老師 / 教練; null preserves module defaults
   workOrderReadyNotificationEnabled Boolean @default(false)
   id                       String    @id @default(cuid())
   storeId                  String    @unique

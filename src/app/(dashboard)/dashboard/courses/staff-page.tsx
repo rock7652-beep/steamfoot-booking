@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
 import { canViewCourseMonthly } from "@/lib/course-monthly-access";
@@ -35,12 +36,14 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) {
-    return <PageShell><PageHeader title={teachers ? "教師管理" : "人員管理"} /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
+    return <PageShell><PageHeader title={teachers ? "授課人員管理" : "人員管理"} /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
   }
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   const isChildStoreView = !!user.storeId && storeId !== user.storeId;
   await requireCourseStore(storeId);
+ const personnelText = await getCoursePersonnelText(storeId);
+
   const [staff, canManage, templates, handover, limits, musicEntitlement, personLinks] = await Promise.all([
     prisma.staff.findMany({
       where: { storeId },
@@ -79,7 +82,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} subtitle={musicEntitlement ? teachers ? "查看老師、授課安排與鐘點費；後台帳號權限請至人員管理。" : "管理後台登入與權限；授課與鐘點費請至教師管理。" : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : "教師與授課"}</DashboardLink></div>} />
+      <PageHeader title={teachers?(musicEntitlement?personnelText("教師管理"):personnelText("教練管理")):"人員管理"} subtitle={musicEntitlement ? teachers ? personnelText("查看老師、授課安排與鐘點費；後台帳號權限請至人員管理。") : personnelText("管理後台登入與權限；授課與鐘點費請至教師管理。") : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : personnelText("教師與授課")}</DashboardLink></div>} />
 
       <CourseStaffWorkspace sportsNative={nativeSports} sportsDefaultFees={sportsDefaultFees} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))}
         canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}

@@ -1,10 +1,12 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import Link from "next/link";
 import { FEATURES } from "@/lib/feature-flags";
 import { useFeaturePresentation } from "@/components/feature-presentation";
 
 export function FrontendPreviewQuickLink({ storeId, personId, role = "member", label }: { storeId: string; personId: string; role?: "member" | "work"; label?: string }) {
+  const personnelText = useCoursePersonnelText();
   const state = useFeaturePresentation(FEATURES.FRONTEND_PREVIEW);
   if (state !== "ENABLED") return null;
-  return <Link prefetch={false} href={`/dashboard/frontend-preview?${new URLSearchParams({ storeId, personId, role })}`} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700">{label ?? (role === "work" ? "預覽教師工作台" : "查看會員前台")}</Link>;
+  return <Link prefetch={false} href={`/dashboard/frontend-preview?${new URLSearchParams({ storeId, personId, role })}`} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700">{label ?? (role === "work" ? personnelText("預覽教師工作台") : "查看會員前台")}</Link>;
 }
