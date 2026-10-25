@@ -1,3 +1,4 @@
+import { planActivationGuideDetail } from "./operation-guide-plan-activation";
 import type { OperationGuide } from "./operation-guide-types";
 const source = [
   "src/components/beauty/dashboard.tsx",
@@ -80,7 +81,7 @@ export const beautyOperationGuides: OperationGuide[] = [
     summary: "方案先允許共用，再為購入方案選擇具名成員。",
     answer:
       "新增次數方案時勾選允許具名共用；購買時預設只選購買人，需要共用才展開管理成員，之後也可從顧客概況修改。",
-    keywords: "美業 家人 共用 次數 方案 授權 餘額",
+    keywords: "美業 方案開通 購買成功 LINE 通知 家人 共用 次數 方案 授權 餘額",
     path: "收費方式 → 新增收費方式 → 次數方案；顧客管理 → 顧客概況 → 共用設定",
     steps: [
       "建立店家自訂次數與價格的方案，選適用服務、有效天數並勾選允許共用。",
@@ -91,6 +92,7 @@ export const beautyOperationGuides: OperationGuide[] = [
       "家人共用同一份餘額；預約先占用，完成扣次。取消與未到依預約成立時的規則處理。",
     success: "每張方案可分辨剩餘、已預約占用及可用次數。",
     details: [
+      planActivationGuideDetail,
       "未具名的同行者可以單次預約，不能直接使用別人的方案。",
       "方案退款會結清該張方案並清零剩餘，需先處理所有占用；退款紀錄不等於銀行已退刷。",
     ],

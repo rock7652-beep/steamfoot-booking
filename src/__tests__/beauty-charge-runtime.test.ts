@@ -1,3 +1,5 @@
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 vi.mock('@/lib/db',()=>({prisma:{}}));vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
 vi.mock('@/server/beauty/access',()=>({command:async(_tx:unknown,_a:unknown,_key:unknown,_d:unknown,work:()=>unknown)=>work(),audit:vi.fn()}));

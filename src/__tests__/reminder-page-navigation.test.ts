@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/services/plan-activation-enqueue",()=>({getPlanActivationEnabled:vi.fn(async()=>true)}));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.module }));
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";

@@ -1,0 +1,11 @@
+{
+  "baselineCommit": "4fa18ba9746fa209007dcf12a7a3b0574d3dcefa",
+  "scope": "68 failing files from optional full CI rerun in baseline and revised feature",
+  "baselineFailedTests": 58,
+  "revisedFailedTests": 58,
+  "newFailures": 0,
+  "baselinePassedTests": 675,
+  "revisedPassedTests": 675,
+  "remainingFailures": "Pre-existing tests preserved; no checks disabled",
+  "changes": "Extend existing purchase/reminder unit fixtures for notification dependency; add notification guidance to existing articles without changing historical article inventory"
+}
