@@ -1,0 +1,8 @@
+
+ RUN  v4.1.4 /tmp/steamfoot-beauty-money-consistency
+
+
+ Test Files  4 passed (4)
+      Tests  43 passed (43)
+   Start at  22:25:33
+   Duration  524ms (transform 423ms, setup 0ms, import 630ms, tests 77ms, environment 0ms)

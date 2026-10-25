@@ -17,3 +17,25 @@ it('supports native manager and method filters without joining current customer 
 it('fails closed on wrong module and invalid dates before reading money',async()=>{await expect(getBeautyRevenueReport('s',{...filters,startDate:'2026-02-30'})).rejects.toThrow();expect(m.payments).not.toHaveBeenCalled();m.scope.mockRejectedValue(Error('wrong store'));await expect(getBeautyRevenueReport('foreign',filters)).rejects.toThrow('wrong store');expect(m.payments).not.toHaveBeenCalled();});
 
 it('does not invent historical manager ownership from the payment operator',async()=>{m.audits.mockResolvedValue([]);const report=await getBeautyRevenueReport('s',filters,{customers:true});expect(report.data[0]).toMatchObject({staffId:null,coachName:null,createdByName:'操作人員'});});
+
+it('reads single-service ownership and fixed fee from the original receipt, including discounts',async()=>{
+ m.payments.mockImplementation(async({where})=>where.createdAt?[{...sale,cardId:null,appointmentId:'booking',amount:900}]:[]);
+ m.cards.mockResolvedValue([]);m.bookings.mockResolvedValue([{id:'booking',customerId:'c',personName:'顧客',serviceName:'按摩',isTrial:false}]);
+ m.audits.mockResolvedValue([{body:JSON.stringify({paymentId:'sale',revenueStaffId:'manager',allocation:{storeAmount:300,developerAmount:600,shortfall:0}})}]);
+ const report=await getBeautyRevenueReport('s',filters,{customers:true});
+ expect(report.data[0]).toMatchObject({staffId:'manager',coachName:'原所屬店長',netAmount:900,saleAllocation:{storeAmount:300,managerAmount:600,unassignedAmount:0,unknownAmount:0}});
+ expect(report.kpi.saleAllocation).toEqual({storeAmount:300,managerAmount:600,unassignedAmount:0,unknownAmount:0});
+ expect(moduleStaffRevenueSummary(report)[0]).toMatchObject({coachId:'manager',saleAllocation:{storeAmount:300,managerAmount:600}});
+});
+it('keeps cross-month refund rounding and owner filters consistent with the original frozen allocation',async()=>{
+ const original={...sale,amount:3,createdAt:new Date('2026-08-01T01:00Z')};
+ const first={...sale,id:'r1',kind:'REFUND',amount:-1,originalPaymentId:'sale',createdAt:new Date('2026-09-01T01:00Z')};
+ const second={...first,id:'r2',createdAt:new Date('2026-10-02T01:00Z')};
+ m.payments.mockImplementation(async({where})=>where.kind==='REFUND'?[first,second]:where.createdAt?[second]:[original]);
+ m.audits.mockResolvedValue([{body:JSON.stringify({paymentId:'sale',cardId:'card',revenueStaffId:'manager',allocation:{storeAmount:1,developerAmount:2,shortfall:0}})}]);
+ const report=await getBeautyRevenueReport('s',{...filters,coachId:'manager',paymentMethod:'TRANSFER'});
+ expect(report.data).toHaveLength(1);expect(report.data[0]).toMatchObject({id:'r2',staffId:'manager',saleAllocation:{storeAmount:-1,managerAmount:0}});
+ expect(report.kpi).toMatchObject({netRevenue:-1,saleAllocation:{storeAmount:-1,managerAmount:0}});
+ expect(report.data.reduce((n,row)=>n+Object.values(row.saleAllocation!).reduce((a,b)=>a+b,0),0)).toBe(report.kpi.netRevenue);
+ expect(m.payments).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'s',kind:'REFUND',originalPaymentId:{in:['sale']}})}));
+});

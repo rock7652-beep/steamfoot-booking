@@ -1,5 +1,6 @@
 import 'server-only';
-import {beautyCardSaleAttribution,beautyPaymentVisibility,beautyTransactionRevisions} from '@/server/beauty/transaction-revisions';
+import {beautyCardSaleAttribution,beautyPaymentVisibility,beautyTransactionRevisions,beautySaleAllocations} from '@/server/beauty/transaction-revisions';
+import {beautyReceiptAllocations,beautySaleShare} from '@/lib/beauty/receipt-allocation';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {hasStoreFeature} from '@/lib/feature-gate';
 import {FEATURES} from '@/lib/feature-flags';
@@ -27,7 +28,12 @@ export async function getBeautyRevenueReport(storeId:string,filters:ReportFilter
    prisma.staff.findMany({where:{storeId},select:{id:true,userId:true,displayName:true,user:{select:{role:true}}}}),
    beautyCardSaleAttribution(tx,storeId),
   ]);
-  const revisions=await beautyTransactionRevisions(tx,storeId,receipts.map(p=>p.id));
+  const saleIds=[...new Set(receipts.filter(p=>p.kind==='SALE').map(p=>p.id))];
+  const [revisions,allocations,priorRefunds]=await Promise.all([
+   beautyTransactionRevisions(tx,storeId,saleIds),beautySaleAllocations(tx,storeId,saleIds),
+   payments.some(p=>p.kind==='REFUND')?tx.beautyPayment.findMany({where:{storeId,kind:'REFUND',originalPaymentId:{in:saleIds},createdAt:{lte:range.lte},...(await beautyPaymentVisibility(tx,storeId))},orderBy:[{createdAt:'asc'},{id:'asc'}]}):Promise.resolve([]),
+  ]);
+  const receiptAllocations=beautyReceiptAllocations([...receipts,...priorRefunds],allocations);
 
   const ids=[...new Set([...cards.map(c=>c.customerId),...appointments.flatMap(b=>b.customerId?[b.customerId]:[])])];
   const customers=access.customers?await prisma.customer.findMany({where:{storeId,id:{in:ids}},select:{id:true,name:true,phone:true}}):[];
@@ -38,9 +44,11 @@ export async function getBeautyRevenueReport(storeId:string,filters:ReportFilter
    const card=cards.find(c=>c.id===(original?.cardId??payment.cardId)),booking=appointments.find(b=>b.id===(original?.appointmentId??payment.appointmentId));
    const customerId=card?.customerId??booking?.customerId??null,person=customers.find(c=>c.id===customerId),actor=staff.find(s=>s.userId===payment.actorUserId);
    const metadata=revisions.get(original?.id??payment.id);
-   const owner=metadata?staff.find(s=>s.id===metadata.revenueStaffId):card&&attribution.has(card.id)?staff.find(s=>s.id===attribution.get(card.id)):undefined;
+   const frozen=allocations.get(original?.id??payment.id);
+   const ownerId=metadata?metadata.revenueStaffId:frozen?frozen.revenueStaffId:card&&attribution.has(card.id)?attribution.get(card.id):null;
+   const owner=staff.find(s=>s.id===ownerId);
    const unit=card?'SESSION':booking?.isTrial?'TRIAL':'SINGLE';
-   return {id:payment.id,transactionNo:null,transactionDate:toLocalDateStr(payment.createdAt),storeName:store.name,customerName:access.customers?person?.name??booking?.personName??'顧客資料待核對':'顧客',customerPhone:access.customers?person?.phone??booking?.personPhone??'':'',customerId,coachName:owner?.displayName??null,coachRole:owner?.user.role??null,staffId:owner?.id??null,planName:card?.name??booking?.serviceName??'交易資料待核對',planType:unit,unit,grossAmount:payment.amount,discountAmount:0,netAmount:payment.amount,paymentMethod:payment.method==='BANK_TRANSFER'?'TRANSFER':payment.method==='CARD'?'CREDIT_CARD':payment.method,paymentSplits:[],status:payment.kind==='REFUND'?'REFUNDED':'SUCCESS',isFirstPurchase:payment.kind==='SALE'&&firstIds.has(payment.id),note:access.customers?metadata?.note??payment.note:null,createdByName:actor?.displayName??null,createdAt:payment.createdAt.toISOString(),refund:payment.kind==='REFUND'};
+   return {id:payment.id,transactionNo:null,transactionDate:toLocalDateStr(payment.createdAt),storeName:store.name,customerName:access.customers?person?.name??booking?.personName??'顧客資料待核對':'顧客',customerPhone:access.customers?person?.phone??booking?.personPhone??'':'',customerId,coachName:owner?.displayName??(ownerId?'人員資料待核對':null),coachRole:owner?.user.role??null,staffId:ownerId??null,planName:card?.name??booking?.serviceName??'交易資料待核對',planType:unit,unit,grossAmount:payment.amount,discountAmount:0,netAmount:payment.amount,paymentMethod:payment.method==='BANK_TRANSFER'?'TRANSFER':payment.method==='CARD'?'CREDIT_CARD':payment.method,paymentSplits:[],status:payment.kind==='REFUND'?'REFUNDED':'SUCCESS',isFirstPurchase:payment.kind==='SALE'&&firstIds.has(payment.id),note:access.customers?metadata?.note??payment.note:null,createdByName:actor?.displayName??null,createdAt:payment.createdAt.toISOString(),refund:payment.kind==='REFUND',saleAllocation:beautySaleShare(payment.amount,receiptAllocations.get(payment.id),!!ownerId)};
   });
   const report=moduleRevenueReport(rows,storeId,store.name,filters);
   return {...report,data:report.data.map(row=>access.customers?row:{...row,customerId:null,note:null})};

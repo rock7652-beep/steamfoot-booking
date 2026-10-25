@@ -1,4 +1,4 @@
-import {beautyAllocationAfterRefund} from '@/lib/beauty/sale-allocation';
+import {beautyAllocationSummary} from '@/lib/beauty/sale-allocation';
 import {CourseRevenue} from '@/app/(dashboard)/dashboard/revenue/_components/course-revenue';
 import {RevenueTabs} from '@/app/(dashboard)/dashboard/revenue/_components/revenue-tabs';
 import {readBeautyRevenue,readBeautyReceiptSummary} from '@/server/beauty/native-revenue';
@@ -35,6 +35,6 @@ export async function BeautyNativeOperations({data,query,readOnly}:{data:BeautyD
  return <CourseRevenue storeId={data.storeId} params={query} readOnly={readOnly} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card} canEdit={canEdit} canVoid={canVoid} source={{columns:[
  {key:'assigned-manager',header:'所屬店長',accessor:row=>data.assignmentStaff.find(s=>s.id===row.revenueStaffId)?.displayName??(row.revenueStaffId?'人員資料待核對':'未歸屬')},
  {key:'technician',header:'服務技師',accessor:row=>row.technicianName??'—'},
- {key:'allocation',header:'店家／所屬店長',accessor:row=>{if(row.storeCostSnapshot==null)return '未設定（不回推舊交易）';if(row.status==='VOIDED')return '已作廢';const value=beautyAllocationAfterRefund(row.price,row.storeCostSnapshot,row.refunds.reduce((n,r)=>n+r.amount,0));return `店家 $${value.storeAmount.toLocaleString()}／所屬店長 $${value.developerAmount.toLocaleString()}${row.storeCostShortfall?'（實收低於固定費用）':''}`;}},
- ],statusLabels:{CONFIRMED:"已收款"},read:readBeautyRevenue,summary:readBeautyReceiptSummary,href:beautyRevenueHref,queryFields:{tab:'營運'},fees,actions:order=><BeautyNativeTransaction canEdit={canEdit} canVoid={canVoid} staffOptions={data.assignmentStaff.map(s=>({id:s.id,name:s.displayName}))} storeId={data.storeId} order={order} cardAccess={data.access.planAccess} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card}/>}}/>;
+ {key:'allocation',header:'店家／所屬店長',accessor:beautyAllocationSummary},
+ ],statusLabels:{CONFIRMED:"已收款"},read:readBeautyRevenue,summary:readBeautyReceiptSummary,href:beautyRevenueHref,queryFields:{tab:'營運'},fees,actions:order=><BeautyNativeTransaction allocationSummary={beautyAllocationSummary(order)} canEdit={canEdit} canVoid={canVoid} staffOptions={data.assignmentStaff.map(s=>({id:s.id,name:s.displayName}))} storeId={data.storeId} order={order} cardAccess={data.access.planAccess} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card}/>}}/>;
 }
