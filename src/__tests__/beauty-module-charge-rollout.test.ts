@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {beautyStoreChargeRollout} from '../../scripts/beauty-charge-rollout.mjs';
+const env={BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_ENABLED:'1',BEAUTY_CHARGE_EDITING_ENABLED:'1',BEAUTY_MODULE_ENABLED:'1',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking'};
+describe('Beauty module charge activation',()=>{
+ it('lets a newly authorized Beauty store use charges without another deployment or a per-store env edit',()=>{expect(beautyStoreChargeRollout('store-new-beauty',env)).toBe(true);expect(beautyStoreChargeRollout('store-second-beauty',env)).toBe(true);});
+ it.each([{VERCEL_ENV:'preview'},{VERCEL:'0'},{VERCEL_GIT_COMMIT_REF:'other'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{BEAUTY_DATABASE_MODE:'legacy'},{BEAUTY_DATABASE_ROLE:'postgres'},{BEAUTY_MODULE_ENABLED:'0'},{BEAUTY_CHARGE_RULES_ENABLED:'0'},{BEAUTY_CHARGE_RULES_SCOPE:'unknown'}])('fails closed for an unreviewed runtime %j',patch=>{expect(beautyStoreChargeRollout('store-new-beauty',{...env,...patch})).toBe(false);});
+ it('preserves explicit store rollout for isolated tests and existing previews',()=>{const preview={...env,VERCEL_ENV:'preview',BEAUTY_CHARGE_RULES_SCOPE:'stores',BEAUTY_CHARGE_RULES_STORE_IDS:' qa-one , qa-two '};expect(beautyStoreChargeRollout('qa-one',preview)).toBe(true);expect(beautyStoreChargeRollout('other',preview)).toBe(false);expect(beautyStoreChargeRollout('qa-one',{...preview,BEAUTY_CHARGE_RULES_SCOPE:undefined})).toBe(true);});
+ it('does not activate empty or malformed store context',()=>{for(const id of ['', ' ', ' store-new-beauty'])expect(beautyStoreChargeRollout(id,env)).toBe(false);});
+});

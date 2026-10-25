@@ -4,7 +4,7 @@ import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { ALL_PERMISSIONS, createDefaultPermissions, requirePermission } from "@/lib/permissions";
+import { ALL_PERMISSIONS, createDefaultPermissions, getDefaultPermissionsForRole, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { deriveCourseBaseUrl } from "@/server/services/course-delivery-links";
@@ -74,6 +74,12 @@ export async function createStoreAction(
     const ownerRole: UserRole = "OWNER";
 
     const createRecords = async (db: Prisma.TransactionClient | typeof prisma): Promise<ActionResult<StoreDeliverySummary>> => {
+      // Beauty provisioning is atomic, including every initial account's permissions.
+      const initializePermissions = async (staffId:string, role:UserRole) => {
+        if(industryModule!=="BEAUTY")return createDefaultPermissions(staffId,role);
+        const defaults=getDefaultPermissionsForRole(role);
+        await db.staffPermission.createMany({data:ALL_PERMISSIONS.map(permission=>({staffId,permission,granted:defaults.includes(permission)})),skipDuplicates:true});
+      };
       // 1. Store + ShopConfig
       const store = await db.store.create({
         data: {
@@ -85,7 +91,7 @@ export async function createStoreAction(
           isDefault: false,
           isDemo: input.isDemo,
           industryModule,
-          plan: industryModule === "COURSE" ? "EXPERIENCE" : input.plan,
+          plan: industryModule === "COURSE" || industryModule === "BEAUTY" ? "EXPERIENCE" : input.plan,
           operatingStatus: "TRIAL",
           planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
           shopConfig: {
@@ -143,7 +149,7 @@ export async function createStoreAction(
           await db.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({
             staffId: ownerUser.staff!.id, permission, granted: COURSE_PERMISSIONS.includes(permission),
           })), skipDuplicates: true });
-        } else await createDefaultPermissions(ownerUser.staff.id, ownerRole);
+        } else await initializePermissions(ownerUser.staff.id, ownerRole);
       }
 
       // 3. Initial STAFF：保留真實後台角色，不把店長升為老闆。
@@ -172,7 +178,7 @@ export async function createStoreAction(
           include: { staff: true },
         });
         if (staffUser.staff) {
-          await createDefaultPermissions(staffUser.staff.id, dbRole);
+          await initializePermissions(staffUser.staff.id, dbRole);
         }
         staffAccounts.push({
           name: staffInput.name,
@@ -262,7 +268,7 @@ export async function createStoreAction(
 
       return { success: true, data: summary };
     };
-    return industryModule === "COURSE"
+    return industryModule === "COURSE" || industryModule === "BEAUTY"
       ? await prisma.$transaction(createRecords, { timeout: 20000 })
       : await createRecords(prisma);
   } catch (e) {

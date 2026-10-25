@@ -1,4 +1,7 @@
 import "server-only";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
+import { getPlanActivationEnabled } from "@/server/services/plan-activation-enqueue";
 import { prisma } from "@/lib/db";
 import { requirePermission,checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -33,12 +36,13 @@ async function access(module: ReminderModule, expectedStoreId?: string, expected
   const lineEnabled=await hasStoreFeature(storeId,FEATURES.LINE_REMINDER);
   const canUnassigned=module === "course" && (await Promise.all([checkPermission(user.role,user.staffId,"customer.read"),checkPermission(user.role,user.staffId,"wallet.read")])).every(Boolean);
   if(!lineEnabled&&!canUnassigned)throw new AppError("FORBIDDEN","無法存取提醒管理");
-  return {storeId,actorId:user.id,lineEnabled,canUnassigned};
+  const readOnly=isReadOnlyStoreTarget(user,storeId)||!!(await resolveStoreViewContextFromCookie(user))?.isViewMode;
+  return {storeId,actorId:user.id,lineEnabled,canUnassigned,readOnly};
 }
 export async function readSteamReminderPanel(params: ReminderParams, expectedStoreId?: string, expectedActorId?: string) {
  const timing = new OperationTiming("steam-reminders.read");
  try {
- const { storeId, actorId } = await access("steamfoot", expectedStoreId, expectedActorId);
+ const { storeId, actorId,readOnly } = await access("steamfoot", expectedStoreId, expectedActorId);
  const [plan, workOrdersEnabled] = await Promise.all([getCurrentStorePlan(), hasStoreFeature(storeId, FEATURES.WORK_ORDERS)]);
   const activeTab =
     params.tab === "logs"
@@ -68,7 +72,7 @@ const contentRequest = (async () => {
  if (activeTab === "manager") return { kind: "manager" as const, recipients: await timing.measure("recipients", listStoreLineNotificationRecipients) };
  if (activeTab === "logs") return { kind: "logs" as const, logs: await listNotificationCenterLogs(params) };
  const [workOrderEnabled] = await pendingSettings;
-    const [state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore] =
+    const [state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, activationEnabled] =
       await Promise.all([
         getStoreReminderState(storeId),
         getSessionBalanceNotificationSetting(storeId),
@@ -79,18 +83,19 @@ const contentRequest = (async () => {
         prisma.trialCareSetting.findUnique({ where: { storeId } }),
         prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
         prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, shopConfig: { select: { lineOfficialUrl: true } } } }),
+        getPlanActivationEnabled(storeId),
       ]);
-return { kind: "customer" as const, state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled };
+return { kind: "customer" as const, state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled, activationEnabled };
 })();
 const [health, settings, content] = await Promise.all([healthRequest, pendingSettings, contentRequest]);
-return { module: "steamfoot" as const, actorId, storeId, params, plan, activeTab, customerSection, workOrdersEnabled, previewBlocked, health, quotaEmail: settings[1], content };
+return { module: "steamfoot" as const, actorId, storeId, readOnly, params, plan, activeTab, customerSection, workOrdersEnabled, previewBlocked, health, quotaEmail: settings[1], content };
 } finally { timing.finish(); }
 }
 export type SteamReminderData = Awaited<ReturnType<typeof readSteamReminderPanel>>;
 export async function readCourseReminderPanel(params: ReminderParams, expectedStoreId?: string, expectedActorId?: string) {
  const timing = new OperationTiming("course-reminders.read");
  try {
- const { storeId, actorId,lineEnabled,canUnassigned } = await access("course", expectedStoreId, expectedActorId);
+ const { storeId, actorId,lineEnabled,canUnassigned,readOnly } = await access("course", expectedStoreId, expectedActorId);
  const [musicGrant, workOrdersEnabled] = await Promise.all([prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}), hasStoreFeature(storeId, FEATURES.WORK_ORDERS)]);
  const music = !!musicGrant;
  const active = !lineEnabled ? "manager" : params.tab === "coach" ? "coach" : params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
@@ -109,7 +114,7 @@ export async function readCourseReminderPanel(params: ReminderParams, expectedSt
         const binding = await timing.measure("coach-binding", () => Promise.all(teachers.map(t=>coachBindingStatus(storeId,t.id))));
 return {kind: "coach" as const, initial: Object.fromEntries(COACH_NOTICE_KINDS.map(kind=>[kind,templates.some(t=>t.id===coachNoticeSettingId(storeId,kind)&&t.body==="enabled")])) as Record<CoachNoticeKind,boolean>, teachers: teachers.map((t,i)=>({...t,bound:binding[i]})), logs};
  }
-      const [setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled] = await timing.measure("customer-data", () => Promise.all([
+      const [setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled, activationEnabled] = await timing.measure("customer-data", () => Promise.all([
         getCourseReminderSetting(),
         getCourseExpiryReminderSetting(),
         getCoursePlanReminderSettings(),
@@ -118,11 +123,12 @@ return {kind: "coach" as const, initial: Object.fromEntries(COACH_NOTICE_KINDS.m
         prisma.trialCareLog.findMany({where:{storeId,module:"COURSE"},orderBy:{createdAt:"desc"},take:50,include:{customer:{select:{name:true}}}}),
         prisma.shopConfig.findUnique({where:{storeId},select:{mapUrl:true}}),
         workOrdersEnabled ? timing.measure("work-order-setting", () => getWorkOrderNotificationEnabled()) : Promise.resolve(false),
+        getPlanActivationEnabled(storeId),
       ]));
-return {kind: "customer" as const, setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled};
+return {kind: "customer" as const, setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled, activationEnabled};
  }
  const [lineHealth, content, quotaEmail] = await Promise.all([lineHealthRequest, readContent(), lineEnabled && active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null)]);
- return { module: "course" as const, actorId, storeId, params, active, music,lineEnabled,canUnassigned, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
+ return { module: "course" as const, actorId, storeId, readOnly, params, active, music,lineEnabled,canUnassigned, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
  } finally { timing.finish(); }
 }
 export type CourseReminderData = Awaited<ReturnType<typeof readCourseReminderPanel>>;

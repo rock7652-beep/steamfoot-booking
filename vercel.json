@@ -4,6 +4,10 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/plan-activation-notifications",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/marketing-usage",
       "schedule": "0 17 * * *"
     },
@@ -50,6 +54,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/plan-activation-line-notification": false,
       "review/beauty-production-integration-20261025": false,
       "feat/default-notice-sound": false,
       "perf/shared-notice-bell-loading": false,

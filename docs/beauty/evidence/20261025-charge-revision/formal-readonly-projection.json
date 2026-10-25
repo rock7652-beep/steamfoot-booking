@@ -1,0 +1,16 @@
+{
+  "formalReadonlyInput": true,
+  "databaseWrites": false,
+  "results": [
+    {
+      "catalogRevision": 2,
+      "storedRuleRevision": 1,
+      "effectiveRuleRevision": 2,
+      "mode": "SELECTED",
+      "techniciansPreserved": true,
+      "serviceScopePreserved": true,
+      "inputUnchanged": true,
+      "auditCount": 1
+    }
+  ]
+}

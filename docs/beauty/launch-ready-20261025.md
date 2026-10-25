@@ -1,0 +1,65 @@
+# 美業開店啟動接點修復（2026-10-25）
+
+## 目標與範圍
+
+讓 HQ 建立美業店後，可直接使用已確認的共用服務／收費／技師介面與開店檢查，不需要再請工程師修改逐店環境變數。遵守既有範圍：本次不建立正式店、不修改既有顧客或交易、不複製測試資料、不開 LINE；不使用 SPA 介面。
+
+## 修復
+
+1. 新增 Production 專用 module rollout，須同時符合正式 Vercel/main/repository、受限 Beauty connection、模組及收費旗標。只有已經由 beautyManager/requireBeauty 授權的美業流程使用此能力；不取代權限、跨店與業務檢查。Preview 保留原逐店 rollout。
+2. 新店立即具備新版收費與開店檢查入口。價格、體驗時間及技師限制仍由店家明確設定；不建立預設服務或方案。保留獨立的收費編輯開關，暫停編輯不會關閉既有預約限制。
+3. 美業建店改為同一 Prisma transaction 完成店舖、設定、模組紀錄、負責人／初始人員、角色權限與七天營業資料。權限初始化使用同一 transaction client；後段失敗整批回復，不留下部分帳號或權限。沿用既有角色預設，音樂／運動／蒸足流程保留。
+4. 沿用新店自行預約預設關閉與開店引導。店家先設定基本資料、營業時間、位置、服務、技師、收費，再做開店檢查，由店家決定開啟顧客自行預約。檢查本身不建預約、不收款、不開 LINE。
+
+## 驗證
+
+- 174 檔、1,562 項相關離線回歸通過，包含新店 rollout、建店交易呼叫與失敗回復、角色、收費儲存、開店檢查、權限及共用流程。
+- 建店回復測試使用 transaction mock，沒有在正式庫建立店家。既有 Prisma transaction 原子性由資料庫提供；不將 mock 當成真實正式店驗收。
+- TypeScript noEmit 通過；本輪異動檔 ESLint 通過。沒有改 UI 標記或重新設計介面；沿用前一版 307 張假資料版面及使用者先前手機／平板確認。
+- 正式唯讀基準 Beauty store=0；只新增 Production BEAUTY_CHARGE_RULES_SCOPE=module，其他旗標、主連線及 LINE 關閉保留。
+
+## 發布狀態
+
+後續正式結果與試用入口修正如下；最新已發布版本以本文最後一節為準。
+
+## 第一批正式更新確認
+
+- 正式部署 dpl_Hansuh7ffKFMR9KRTE1UyWfnwX5K 已 READY，程式 50a2772cd5adb7db83e70613f45bd61c8206059f；steamfoot.com 與 www.steamfoot.com 均已指向此部署。
+- 正式建置確認 runtime_login=true、tls=true、prisma=true、schema_tables=14、readonly=true、migration_target_absent=true、charge_scope=module、editing_enabled=true。ci-migrate 回報 migration_skipped_no_target；此輪未執行 migration。
+
+## 30 天試用入口補齊
+
+使用者於正式 HQ 建店頁發現英文方案選單。實查美業仍使用舊方案選單且可能沿用前一模組 GROWTH 值，未接回共用 30 天試用呈現。
+
+- 美業選擇時帶入 EXPERIENCE，表單清楚顯示「30 天完整功能試用」。後端同步固定新美業店方案為 EXPERIENCE，避免舊客戶端帶入其他方案。
+- 建店只準備待啟用資料，沒有提前起算。HQ 在店舖詳情點既有「開通 30 天單店試用」，才使用共用開通服務寫入當日起算、含末日的 30 天訂閱。
+- 沿用既有訂閱 transaction 及 advisory lock；美業亦拒絕已有訂閱、期限或歷史 TRIAL_STARTED 的重複開通，保留既有期限；不透過新增訂閱重設倒數。
+- 既有正式店及訂閱未修改。蒸足原有自訂試用與音樂／運動的試用流程保留。美業店名提示改為「美業 XX店」。
+- 180 檔、1,636 項相關回歸通過；TypeScript noEmit、異動檔 ESLint、差異檢查通過。
+- 本機真實共用表單以合成畫面驗收 1366×900、1024×768、768×1024、390×844，選項、模組切換與起算說明正確，沒有水平溢出或前端例外。後端與外網封鎖，未建立正式店，這不是正式登入建店驗收。
+- [調整前](evidence/20261025-launch-ready/trial-ui/before-1024.png)／[調整後](evidence/20261025-launch-ready/trial-ui/after-1024.png)。
+
+試用修正候選尚待正式建置與網域核對，完成後補記實際部署 ID。
+
+手機實看後將美業試用選單與說明改為完整欄寬，避免文字擠在右側半欄；四種尺寸再次通過，更新畫面證據。候選 dpl_Bqv9yv5Fe4794ZF5gCS8wfcobW2k 在 BUILDING 時取消，未發布，改由包含此手機修正的後繼版本發布。
+
+
+## 最終正式結果：已發布（台灣時間 2026-10-25 18:13 核對）
+
+- Production READY：`dpl_ANWs7d1tLNza8JXuYHMsYP5aKuDp`；程式來源 `4d30dc62a0fbaec57e1987e8acc1e37665c86e0d`。
+- 正式 `steamfoot.com`、`www.steamfoot.com` 均已核對指向該部署。HQ 建店入口：https://steamfoot.com/hq/dashboard/stores/new 。
+- 完整建置／雲端 TypeScript 通過；實際 pg／Prisma、TLS／角色／RLS／14 表及所需欄位的唯讀 gate 通過，收費 scope=module、editing_enabled=true。migration_skipped_no_target；本輪無 migration 或業務資料寫入。
+- 官網、HQ 登入 200；未登入美業後台／新增店家均 307→HQ 登入；session 200/null；既有竹北蒸足入口正常轉址，沒有 5xx。
+- 新部署最近十分鐘 error/fatal logs 查核未找到紀錄；這是短時間與指定部署範圍，不代表完整業務流程或全部營運流量驗收。
+- Production BEAUTY_NOTIFICATIONS_ENABLED=0；主連線及既有顧客／訂閱／交易保留。本輪未代建正式店或替任何店開通試用，沒有複製 Preview 資料。
+- 現在 HQ 可使用共用表單建立美業店，再於店舖詳情明確開通 30 天試用；店長完成開店設定與檢查後，自行決定開放顧客預約。沒有替未指定的正式店開放預約。
+- 尚未進行「有權限使用者在正式庫實際建立店家與開通訂閱」的寫入驗收，因使用者先前指定暫不建立店家。現有證據為合成介面、mock 交易回歸、正式完整建置、真實唯讀連線與公開 HTTP；不將它們記為正式店收款或登入後完整流程驗收。
+- 可回退至上一個 READY 部署或先暫停新模組／收費編輯入口；保留 schema 與資料，不自動 DROP 或還原整庫。
+
+部署、旗標、gate 與日誌摘要：[deployment-result.json](evidence/20261025-launch-ready/deployment-result.json)；公開 HTTP：[http-results.json](evidence/20261025-launch-ready/http-results.json)。
+
+
+2026-10-25 19:15 後續正式更新：美業首頁待辦共用讀取接點已修復，最新發布紀錄見 [首頁待辦修復](home-todo-read-fix-20261025.md)。此處早先的試用／開店驗證為當次發布紀錄。
+
+
+2026-10-25 20:20 後續正式更新：[方案提醒造成的收費版本差異與設定頁隔離修復](charge-reminder-revision-fix-20261025.md) 已發布；過往部署 ID 為各輪歷史驗證紀錄。

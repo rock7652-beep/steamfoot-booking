@@ -29,7 +29,7 @@ export async function saveCourseCustomerNote(input: z.infer<typeof schema>,modul
       await tx.auditLog.create({ data: { actorUserId, targetType: "Customer", targetId: data.customerId, action: "SERVICE_NOTE_UPDATED" } });
       return { success: true as const };
     });
-    if (result.success&&module==='beauty'){try{revalidatePath("/dashboard/beauty");}catch{return {...result,syncWarning:true};}}else if (result.success&&!sportsNativePreview(storeId)) revalidatePath("/dashboard/courses");
+    if (result.success&&module==='beauty'){try{revalidatePath("/dashboard/beauty");}catch{return {...result,syncWarning:true};}}else if (result.success&&!(await sportsNativePreview(storeId))) revalidatePath("/dashboard/courses");
     return result;
   } catch (error) { return handleActionError(error); }
 }

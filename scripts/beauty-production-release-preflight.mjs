@@ -1,3 +1,4 @@
+import {beautyModuleChargeRollout} from './beauty-charge-rollout.mjs';
 import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
@@ -6,6 +7,7 @@ export function validateBeautyProductionRelease(env){
  if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'||env.BEAUTY_HOSTED_PREVIEW!==undefined||
     env.PRODUCTION_MIGRATION_TARGET||Object.keys(env).some(k=>/(?:_QA|_ACCEPTANCE)$/.test(k)&&env[k]==='1')||
     (env.BEAUTY_CHARGE_RULES_STORE_IDS??'').trim())throw Error('Beauty production release scope is not verified');
+ if(env.BEAUTY_CHARGE_RULES_SCOPE!==undefined&&env.BEAUTY_CHARGE_RULES_SCOPE!==''&&env.BEAUTY_CHARGE_RULES_SCOPE!=='stores'&&(env.BEAUTY_CHARGE_RULES_SCOPE!=='module'||!beautyModuleChargeRollout(env)||!['0','1'].includes(env.BEAUTY_CHARGE_EDITING_ENABLED)))throw Error('Beauty charge rollout scope is not verified');
  const value=beautyDatabaseSelection(env),u=new URL(value),project='qijlnhtpbintanzpxkvf',user=decodeURIComponent(u.username);
  if(!(u.hostname===`db.${project}.supabase.co`&&user===BEAUTY_PRODUCTION_ROLE||/^aws-\d+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(u.hostname)&&user===`${BEAUTY_PRODUCTION_ROLE}.${project}`)||u.pathname!=='/postgres')throw Error('Beauty production connection identity mismatch');
  return value;
@@ -39,7 +41,7 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   const privileges=await client.query(`SELECT has_column_privilege(current_user,'public."User"','passwordHash','SELECT') AS secret_read,has_table_privilege(current_user,'public."BeautyPayment"','UPDATE,DELETE,TRUNCATE') AS finance_write`);
   if(privileges.rows[0]?.secret_read!==false||privileges.rows[0]?.finance_write!==false)throw Error('Beauty runtime privileges not verified');
   stage='columns';
-  for(const [table,fields] of [['Store','id,"industryModule","operatingStatus"'],['Customer','id,name,phone,"assignedStaffId","updatedAt"'],['Staff','id,"userId","displayName",status'],['User','id,status'],['CourseRoom','id,name,"rentalEnabled"'],['CourseDisplayOrder','kind,ids,revision'],['CourseStoreNotice','id,kind,revision'],['CashDrawerSession','id,status,"updatedAt"'],['CashbookEntry','id,amount,"paymentMethod"'],['BeautyService','"singleChargeName","singlePriceConfigured","chargeTechnicianRule","trialDuration"'],['BeautyPlan','"chargeTechnicianRule"'],['BeautyCard','"chargeRuleSnapshot"'],['BeautyAppointment','"chargeRuleSnapshot"']])await client.query(`SELECT ${fields} FROM "${table}" LIMIT 0`);
+  for(const [table,fields] of [['Store','id,"industryModule","operatingStatus"'],['Customer','id,name,phone,"assignedStaffId","updatedAt"'],['Staff','id,"userId","displayName",status'],['User','id,status'],['CourseRoom','id,name,"rentalEnabled"'],['CourseDisplayOrder','kind,ids,revision'],['CourseStoreNotice','id,kind,revision'],['CashDrawerSession','id,status,"updatedAt"'],['CashbookEntry','id,amount,"paymentMethod"'],['BeautyService','"singleChargeName","singlePriceConfigured","chargeTechnicianRule","trialDuration"'],['BeautyPlan','"chargeTechnicianRule"'],['BeautyCard','"chargeRuleSnapshot"'],['BeautyAppointment','"chargeRuleSnapshot"'],['BeautyEvent','"storeId",kind,status,body']])await client.query(`SELECT ${fields} FROM "${table}" LIMIT 0`);
   await client.query('ROLLBACK');return {schemaTables:14,tls:true,role:BEAUTY_PRODUCTION_ROLE,readonly:true};
  }catch(error){
   const candidate=error?.code??error?.errorCode;
@@ -48,12 +50,32 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
  }finally{if(client)await client.end();}
 }
-if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
+if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>beautySharedTodosProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
 
 export function beautyProductionFailureDiagnostic(error){
  const d=error?.beautyPreflightDiagnostic;
- if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-readonly','prisma-identity','prisma-columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
+ if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-readonly','prisma-identity','prisma-columns','shared-todos-connect','shared-todos-readonly','shared-todos-columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
  return `[beauty-production-preflight] blocked stage=${d.stage} code=${d.code}${/^[0-9A-Z]{5}$/.test(d.sqlState??'')?' sqlstate='+d.sqlState:''}; no migrations applied`;
+}
+
+/** Shared follow-up belongs to the existing main core, never the restricted Beauty role. */
+export async function beautySharedTodosProductionPreflight(env=process.env,createClient){
+ let client,stage='scope';
+ try{
+  validateBeautyProductionRelease(env);
+  const factory=createClient??(async config=>{const {PrismaClient}=await import('@prisma/client');return new PrismaClient(config);});
+  client=await factory({datasources:{db:{url:env.DATABASE_URL}},log:[]});stage='shared-todos-connect';await client.$connect();
+  await client.$transaction(async tx=>{
+   stage='shared-todos-readonly';await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+   stage='shared-todos-columns';await tx.$queryRawUnsafe('SELECT id,"storeId","customerDisplayName","assignedStaffId","createdAt",status FROM "DigitalButlerLead" WHERE status IN (\'NEW\',\'CONTACTING\',\'QUOTED\') LIMIT 0');
+  });
+  return {sharedTodos:true,readonly:true};
+ }catch(error){
+  const candidate=error?.code??error?.errorCode;
+  const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
+  const sqlState=typeof error?.meta?.code==='string'&&/^[0-9A-Z]{5}$/.test(error.meta.code)?error.meta.code:undefined;
+  error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
+ }finally{if(client)await client.$disconnect();}
 }
 
 /** Exercise the same Prisma engine/TLS options as the live Beauty client, without store writes. */

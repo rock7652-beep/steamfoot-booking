@@ -1,18 +1,28 @@
 import 'server-only';
+import {beautyStoreChargeRollout} from '../../../scripts/beauty-charge-rollout.mjs';
 import {AppError} from '@/lib/errors';
 import {readStoredChargeRule,snapshotStoredChargeRule,storedChargeRule,type ChargeRuleOwner} from '@/lib/beauty/charge-rule-storage';
 import {resolveChargeTechnicians} from '@/lib/beauty/charge-technician-rule';
+import {reminderCompatibleChargeRule} from '@/lib/beauty/charge-reminder-revision';
 import type {Prisma} from '../../../generated/beauty-client';
 export type ChargeTx=Prisma.TransactionClient;
-/** Both switches are required; configuration is deliberately unchanged by this implementation. */
-export function beautyChargeRulesEnabled(storeId:string){return process.env.BEAUTY_CHARGE_RULES_ENABLED==='1'&&(process.env.BEAUTY_CHARGE_RULES_STORE_IDS??'').split(',').map(id=>id.trim()).includes(storeId);}
+/** Store authorization remains in beautyManager/requireBeauty; this controls the verified catalog capability. */
+export function beautyChargeRulesEnabled(storeId:string){return beautyStoreChargeRollout(storeId,process.env);}
 export function beautyChargeEditingEnabled(storeId:string){return beautyChargeRulesEnabled(storeId)&&process.env.BEAUTY_CHARGE_EDITING_ENABLED==='1';}
 type CatalogRow={ruleIsNull?:boolean;id:string;revision:number;chargeTechnicianRule:unknown;singlePriceConfigured?:boolean|null;singleChargeName?:string|null;serviceIds?:string[]};
 export async function readCatalogCharge(tx:ChargeTx,storeId:string,kind:'single'|'plan',id:string){
  const rows=kind==='single'?await tx.$queryRaw<CatalogRow[]>`SELECT id,revision,"chargeTechnicianRule","singlePriceConfigured","singleChargeName",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyService" WHERE "storeId"=${storeId} AND id=${id}`:await tx.$queryRaw<CatalogRow[]>`SELECT id,revision,"chargeTechnicianRule","serviceIds",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyPlan" WHERE "storeId"=${storeId} AND id=${id}`;
  const row=rows[0];if(!row)throw new AppError('NOT_FOUND','找不到收費方式');
  const owner:ChargeRuleOwner={storeId,chargeId:`${kind==='single'?'service':'plan'}:${id}`,revision:row.revision,serviceIds:kind==='single'?[id]:row.serviceIds!};
- try{return {row,owner,snapshot:snapshotStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),owner,storeId,'catalog')};}catch{throw new AppError('CONFLICT','收費規則待核對，請聯絡店家');}
+ try{return {row,owner,snapshot:storedChargeRule.parse({version:1,rule:await catalogChargeRule(tx,storedColumn(row.chargeTechnicianRule,row.ruleIsNull),owner)})};}catch{throw new AppError('CONFLICT','收費規則待核對，請聯絡店家');}
+}
+async function catalogChargeRule(tx:ChargeTx,value:unknown,owner:ChargeRuleOwner){
+ // Validate identity and scope before consulting immutable, store-scoped audit evidence.
+ const rule=readStoredChargeRule(value,owner,owner.storeId,'snapshot');
+ if(rule.revision===owner.revision)return readStoredChargeRule(value,owner,owner.storeId,'catalog');
+ if(!owner.chargeId.startsWith('plan:')||rule.revision>owner.revision||owner.revision-rule.revision>1000)throw Error('收費規則版本不符');
+ const events=await tx.beautyEvent.findMany({where:{storeId:owner.storeId,kind:'PLAN_REMINDER_SETTING',status:'AUDIT',body:{contains:JSON.stringify({planId:owner.chargeId.slice(5)}).slice(1,-1)}},select:{body:true}});
+ return reminderCompatibleChargeRule(value,owner,events);
 }
 export async function readCardCharge(tx:ChargeTx,storeId:string,card:{id:string;planId:string;serviceIds:string[]}){
  const [row]=await tx.$queryRaw<{chargeRuleSnapshot:unknown;ruleIsNull?:boolean}[]>`SELECT "chargeRuleSnapshot",("chargeRuleSnapshot" IS NULL) AS "ruleIsNull" FROM "BeautyCard" WHERE "storeId"=${storeId} AND id=${card.id}`;
@@ -39,7 +49,7 @@ export async function maintainCatalogCharge(tx:ChargeTx,storeId:string,kind:'ser
  const {row,owner}=await readCatalogChargeForRevision(tx,storeId,kind,record);
  storedColumn(row.chargeTechnicianRule,row.ruleIsNull);
  if(row.chargeTechnicianRule===null)return;
- let value;try{value=storedChargeRule.parse(row.chargeTechnicianRule);if(value.rule.revision!==record.revision-1)throw Error('規則版本不符');readStoredChargeRule(value,{...owner,revision:value.rule.revision},storeId,'catalog');}catch{throw new AppError('CONFLICT','收費服務範圍或規則已變更，請重新核對');}
+ let value;try{value=storedChargeRule.parse({version:1,rule:await catalogChargeRule(tx,row.chargeTechnicianRule,{...owner,revision:record.revision-1})});}catch{throw new AppError('CONFLICT','收費服務範圍或規則已變更，請重新核對');}
  const json=JSON.stringify({...value,rule:{...value.rule,revision:record.revision}});
  if(kind==='service')await tx.$executeRaw`UPDATE "BeautyService" SET "chargeTechnicianRule"=${json}::jsonb WHERE "storeId"=${storeId} AND id=${record.id}`;
  else await tx.$executeRaw`UPDATE "BeautyPlan" SET "chargeTechnicianRule"=${json}::jsonb WHERE "storeId"=${storeId} AND id=${record.id}`;
@@ -55,7 +65,7 @@ export async function readChargeCatalogForUi(tx:ChargeTx,storeId:string){
   tx.$queryRaw<(CatalogRow&{singlePriceConfigured:boolean|null;singleChargeName:string|null})[]>`SELECT id,revision,"singleChargeName","singlePriceConfigured","chargeTechnicianRule",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyService" WHERE "storeId"=${storeId}`,
   tx.$queryRaw<(CatalogRow&{serviceIds:string[]})[]>`SELECT id,revision,"serviceIds","chargeTechnicianRule",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyPlan" WHERE "storeId"=${storeId}`,
  ]);
- return {enabled:true as const,editingEnabled:beautyChargeEditingEnabled(storeId),singles:singles.map(row=>({id:row.id,revision:row.revision,name:row.singleChargeName,configured:row.singlePriceConfigured,rule:readStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`service:${row.id}`,revision:row.revision,serviceIds:[row.id]},storeId,'catalog')})),plans:plans.map(row=>({id:row.id,revision:row.revision,rule:readStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`plan:${row.id}`,revision:row.revision,serviceIds:row.serviceIds},storeId,'catalog')}))};
+ return {enabled:true as const,editingEnabled:beautyChargeEditingEnabled(storeId),singles:singles.map(row=>({id:row.id,revision:row.revision,name:row.singleChargeName,configured:row.singlePriceConfigured,rule:readStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`service:${row.id}`,revision:row.revision,serviceIds:[row.id]},storeId,'catalog')})),plans:await Promise.all(plans.map(async row=>({id:row.id,revision:row.revision,rule:await catalogChargeRule(tx,storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`plan:${row.id}`,revision:row.revision,serviceIds:row.serviceIds})})))};
 }
 /** Called only during the first explicit service creation, under the store write lock. Never from a read check. */
 export async function initializeEmptyBeautyOpening(tx:ChargeTx,storeId:string){

@@ -23,7 +23,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("unactivated 30 day trials", () => {
-  it.each(["course", "steamfoot", "spa"])("does not start the %s clock from store creation", async industry => {
+  it.each(["course", "steamfoot", "spa", "beauty"])("does not start the %s clock from store creation", async industry => {
     m.industry.mockResolvedValue(industry);
     vi.setSystemTime(new Date("2027-10-06T05:00:00Z"));
     const trial = await getTrialStatus("pending-store");

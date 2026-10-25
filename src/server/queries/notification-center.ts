@@ -58,7 +58,7 @@ export async function listNotificationCenterLogs(
     rows: rows.slice(0, 30),
     page,
     hasMore: rows.length > 30,
-    typeOptions: ["手動發送", "LINE 額度 Email 通知", ...rules.map((r) => r.name)],
+    typeOptions: ["手動發送", "LINE 額度 Email 通知", "方案開通通知", ...rules.map((r) => r.name)],
   };
 }
 

@@ -35,9 +35,8 @@ it("music room editing uses the shared rental settings, preserves capacity and r
  try {
   await act(async()=>root.render(createElement(CourseWorkspace,props)));
   expect([...host.querySelectorAll("thead th")].map(th=>th.textContent)).toEqual(["空間名稱","分類","開放租借","每小時租金","狀態","操作"]);
-  expect([...host.querySelectorAll("tbody button")].map(b=>b.textContent)).toEqual(["A","⋯"]);
-  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>("tbody button")].find(b=>b.textContent==="A")!.click());
-  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>("button")].find(b=>b.textContent==="編輯教室")!.click());
+  expect([...host.querySelectorAll("tbody button")].map(b=>b.textContent)).toEqual(["A","編輯","⋯"]);
+  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>("tbody button")].find(b=>b.textContent==="編輯")!.click());
   const form=document.querySelector<HTMLFormElement>("#course-edit-form") ?? document.querySelector<HTMLFormElement>("form")!;
   const enabled=form.querySelector<HTMLInputElement>('[name="rentalEnabled"]')!;
   expect(enabled.checked).toBe(false);

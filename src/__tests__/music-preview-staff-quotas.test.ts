@@ -6,6 +6,7 @@ vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager }))
 vi.mock("@/server/services/music-finance-access", () => ({ canMusicFinance: async () => true, requireMusicFinance: async () => {}, isMusicFinanceStore: m.music, readMusicFinanceScope: async () => null }));
 vi.mock("@/lib/revalidation", () => ({ revalidateStaff: vi.fn(), revalidateStaffPermissions: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: async () => [{enabled:false}],
   storeFeatureEntitlement: { findUnique: m.entitlement },
   $transaction: m.transaction,
 } }));

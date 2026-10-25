@@ -82,7 +82,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
             <InfoRow label="店名" value={result.store.name} />
             <InfoRow label="Slug" value={result.store.slug} mono />
             <InfoRow label="Store ID" value={result.store.id} mono />
-            <InfoRow label="方案" value={result.store.plan} />
+            <InfoRow label="方案" value={result.store.industryModule === "BEAUTY" && result.store.plan === "EXPERIENCE" ? "30 天完整功能試用" : result.store.plan} />
             <InfoRow label="狀態" value={result.store.planStatus} />
             <InfoRow
               label="類型"
@@ -181,7 +181,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
               {result.store.isDemo
                 ? "ℹ️ Demo 店不可啟用為正式店"
                 : result.store.currentSubscriptionId
-                  ? "✅ 已開通 30 天完整功能試用，可交由店長完成課程設定"
+                  ? "✅ 已開通 30 天完整功能試用，可交由店長完成設定"
                 : result.canActivate
                   ? "✅ 建置完成，可開通 30 天後台試用；前台透過裝置預覽，LINE 可稍後設定"
                   : "⚠️ 部分項目未通過，建議先修正"}
@@ -242,7 +242,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
               />
               <ModuleOption checked={industryModule === "BEAUTY"} title="美業"
                 description="服務預約、技師、位置、次數方案與拆帳"
-                onSelect={() => {setIndustryModule("BEAUTY");setBusinessProfile("FITNESS");setDutySchedulingEnabled(false);}} />
+                onSelect={() => {setIndustryModule("BEAUTY");setBusinessProfile(null);setPlan("EXPERIENCE");setDutySchedulingEnabled(false);}} />
               <ModuleOption checked={industryModule === "COURSE" && businessProfile === "FITNESS"} title="運動教室"
                 description="教練／教室排課、共卡與出席；底層使用 COURSE 引擎"
                 onSelect={() => { setIndustryModule("COURSE"); setBusinessProfile("FITNESS"); setPlan("EXPERIENCE"); setDutySchedulingEnabled(false); }} />
@@ -259,7 +259,7 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
               label="店名 *"
               value={name}
               onChange={setName}
-              placeholder={businessProfile === "MUSIC" ? "陸比音樂｜Music Pilot" : businessProfile === "FITNESS" ? "運動教室 XX店" : "蒸足 XX店"}
+              placeholder={industryModule === "BEAUTY" ? "美業 XX店" : businessProfile === "MUSIC" ? "陸比音樂｜Music Pilot" : businessProfile === "FITNESS" ? "運動教室 XX店" : "蒸足 XX店"}
             />
             <Field
               label="Slug *"
@@ -269,16 +269,18 @@ export default function NewStoreForm({ previewOnly = false }: { previewOnly?: bo
               hint="小寫英數字 + 短橫線"
             />
             <SelectField
-              label="PricingPlan"
+              className={industryModule === "BEAUTY" ? "col-span-2 sm:col-span-1" : undefined}
+              label="系統方案"
               value={plan}
               onChange={setPlan as (v: string) => void}
-              options={industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用（人員不限）" }] : [
+              options={industryModule === "BEAUTY" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用" }] : industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用（人員不限）" }] : [
                 { value: "EXPERIENCE", label: "EXPERIENCE" },
                 { value: "BASIC", label: "BASIC" },
                 { value: "GROWTH", label: "GROWTH" },
                 { value: "ALLIANCE", label: "ALLIANCE" },
               ]}
             />
+            {industryModule === "BEAUTY" && <p className="col-span-2 text-sm text-earth-500">建店後尚未起算；於店舖詳情點「開通 30 天單店試用」才開始倒數。試用到期日可於訂閱管理查看。</p>}
             <Field
               label="自訂網域"
               value={domain}
@@ -484,18 +486,20 @@ function Field({
 }
 
 function SelectField({
+  className,
   label,
   value,
   onChange,
   options,
 }: {
+  className?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
   return (
-    <div>
+    <div className={className}>
       <label className="block text-xs font-medium text-earth-600">
         {label}
       </label>

@@ -1,4 +1,7 @@
 "use server";
+import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 import { sportsEntitlementSnapshot } from "@/lib/sports-entitlement";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import {musicPurchaseTerms} from "@/lib/music-course-products";
@@ -243,7 +246,9 @@ export async function confirmCoursePurchase(input: unknown) {
           confirmedBy: user.id,
         },
       });
+      await enqueuePlanActivation(tx,{storeId,customerId:order.customerId,module:"COURSE",sourceId:order.id,entitlementId:card.id,planName:order.name,quantity:order.points,unit:order.unit==="POINT"?"點":"堂",expiresDate:musicCard?`首堂上課起算 ${order.validDays} 天`:activationExpiry(card.expiresAt)});
     });
+    kickPlanActivationNotifications(storeId);
     refresh();
     return { success: true as const };
   } catch (e) {

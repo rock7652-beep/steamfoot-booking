@@ -1,4 +1,7 @@
 import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
+import { enqueuePlanActivation } from "../services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "../services/plan-activation-notification-kick";
 import {snapshotStoredChargeRule} from '@/lib/beauty/charge-rule-storage';
 import "server-only";
 import {serviceCharges} from "./service-charges";
@@ -196,6 +199,8 @@ export async function issueCard(
     await cash(tx, a, d.method, d.paid, receipt.id, receipt.note);
     // Immutable sale attribution: later customer reassignment must not move revenue.
     await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d, ...(options?{checkout:options}:{}), revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
+    await enqueuePlanActivation(tx,{storeId:a.storeId,customerId:d.customerId,module:"BEAUTY",sourceId:receipt.id,entitlementId:card.id,planName:card.name,quantity:card.sessions,unit:"次",expiresDate:activationExpiry(card.expiresAt)});
+    kickPlanActivationNotifications(a.storeId,true);
     return { cardId: card.id };
   });
 }

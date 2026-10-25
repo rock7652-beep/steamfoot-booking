@@ -145,9 +145,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       },
     },
   } as const;
-  if (sportsStagingEnabled(storeId)) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
+  if ((await sportsStagingEnabled(storeId))) await coursePrisma.$transaction(tx=>assertSportsProductionReady(tx,storeId));
   const sportsRules=(await sportsRulesAvailable(coursePrisma,storeId))?await coursePrisma.$queryRaw<Array<{sessionId:string;enrollment:string;planId:string|null;trialPrice:number;payload?:unknown}>>`SELECT "sessionId",enrollment,"planId","trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
-  const sportsWaitlist=new Map(sportsNativePreview(storeId)?sportsRules.flatMap(row=>{const parsed=sportsScheduleRule.safeParse(row.payload);return parsed.success&&parsed.data.waitlist?[[row.sessionId,{enabled:parsed.data.enrollment==="OPEN"&&parsed.data.waitlist.limit>0,limit:parsed.data.waitlist.limit}] as const]:[];}):[]);
+  const sportsWaitlist=new Map((await sportsNativePreview(storeId))?sportsRules.flatMap(row=>{const parsed=sportsScheduleRule.safeParse(row.payload);return parsed.success&&parsed.data.waitlist?[[row.sessionId,{enabled:parsed.data.enrollment==="OPEN"&&parsed.data.waitlist.limit>0,limit:parsed.data.waitlist.limit}] as const]:[];}):[]);
   const assignedSportsIds=sportsRules.filter(row=>row.enrollment==='ASSIGNED').map(row=>row.sessionId);
   const [
     sessions,

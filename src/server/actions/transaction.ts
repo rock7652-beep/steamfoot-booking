@@ -1,4 +1,7 @@
 "use server";
+import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
 import { createFinancialTransaction, lockExistingTransactionCash } from "@/server/services/financial-transaction";
 
@@ -350,6 +353,7 @@ export async function confirmTransactionPayment(
         amount: true,
         planSessionCountSnapshot: true,
         pendingWalletExpiryDateSnapshot: true,
+        planNameSnapshot: true,
         bookingId: true,
       },
     });
@@ -434,6 +438,7 @@ export async function confirmTransactionPayment(
           },
         });
         await seedWalletSessions(tx, wallet.id, original.planSessionCountSnapshot);
+        await enqueuePlanActivation(tx,{storeId:original.storeId,customerId,module:"STEAMFOOT",sourceId:transactionId,entitlementId:wallet.id,planName:original.planNameSnapshot??"方案",quantity:original.planSessionCountSnapshot,unit:"堂",expiresDate:activationExpiry(wallet.expiryDate)});
         await tx.transaction.update({
           where: { id: transactionId },
           data: { customerPlanWalletId: wallet.id },
@@ -535,6 +540,7 @@ export async function confirmTransactionPayment(
       }
     });
 
+    kickPlanActivationNotifications(original.storeId);
     revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {

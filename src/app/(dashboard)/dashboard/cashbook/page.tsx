@@ -125,6 +125,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const useInlineEditor = true;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const nativeSports = await sportsNativePreview(cashbookStoreId ?? undefined);
   const isViewMode = !!storeViewContext?.isViewMode || isReadOnlyStoreTarget(user, cashbookStoreId);
   const canManageCashbook =
     !isViewMode && (await checkPermission(user.role, user.staffId, "cashbook.create"));
@@ -382,10 +383,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       {isViewMode ? (
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
-                        <CashbookActionsMenu compact={sportsNativePreview(cashbookStoreId??undefined)}>
-                          <OperationHistoryButton portal={sportsNativePreview(cashbookStoreId??undefined)} targetType="CashbookEntry" targetId={e.id} />
+                        <CashbookActionsMenu compact={nativeSports}>
+                          <OperationHistoryButton portal={nativeSports} targetType="CashbookEntry" targetId={e.id} />
                           {e.id.startsWith("inventory:") ? <Link href={`/dashboard/inventory?reference=${encodeURIComponent(e.id.split(":")[1])}`} className="text-sm text-primary-700 hover:underline">進銷存連動・查看原單</Link> : <>
-                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} inMenu={sportsNativePreview(cashbookStoreId??undefined)} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} inMenu={nativeSports} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >

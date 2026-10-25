@@ -1,14 +1,23 @@
-import {beforeEach,it,expect,vi} from 'vitest';
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {AppError} from '@/lib/app-error';
 import {defaultTrialCareRules} from '@/lib/trial-care';
-const m=vi.hoisted(()=>({actor:vi.fn(),member:vi.fn(),feature:vi.fn(),beautyTx:vi.fn(),coreTx:vi.fn(),audit:vi.fn(),update:vi.fn(),query:vi.fn(),care:vi.fn(),upsert:vi.fn(),coreAudit:vi.fn(),person:vi.fn(),preference:vi.fn(),template:vi.fn()}));
+const m=vi.hoisted(()=>({actor:vi.fn(),member:vi.fn(),feature:vi.fn(),beautyTx:vi.fn(),coreTx:vi.fn(),audit:vi.fn(),update:vi.fn(),query:vi.fn(),care:vi.fn(),upsert:vi.fn(),coreAudit:vi.fn(),person:vi.fn(),preference:vi.fn(),template:vi.fn(),planRaw:vi.fn(),planWrite:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.actor,beautyMember:m.member,beautyTransaction:m.beautyTx,audit:m.audit}));
 vi.mock('@/lib/db',()=>({prisma:{$transaction:m.coreTx}}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
 import {saveBeautyPlanReminderSetting,saveBeautyTrialCareSettings,stopBeautyCustomerTrialCare,setBeautyPlanReminderPreference,setBeautyTrialCarePreference} from '@/server/actions/beauty-reminders';
 const base={planId:'plan',expectedStoreId:'store',expectedRevision:7,enabled:true,threshold:2,expiry:{enabled:true,days:[14,7]}};
 const care=()=>({storeId:'store',expectedRevision:null,enabled:true,rules:defaultTrialCareRules()});
-beforeEach(()=>{vi.resetAllMocks();m.actor.mockResolvedValue({storeId:'store',userId:'owner'});m.member.mockResolvedValue({storeId:'store',customerId:'self',userId:'member'});m.query.mockResolvedValue([{id:'store'}]);m.care.mockResolvedValue(null);m.person.mockResolvedValue({id:'self'});m.update.mockResolvedValue({count:1});m.beautyTx.mockImplementation((_a,work)=>work({beautyPlan:{updateMany:m.update}}));m.coreTx.mockImplementation(work=>work({$queryRaw:m.query,trialCareSetting:{findUnique:m.care,upsert:m.upsert},auditLog:{create:m.coreAudit},customer:{findFirst:m.person},trialCarePreference:{upsert:m.preference},messageTemplate:{upsert:m.template}}));});
+beforeEach(()=>{vi.resetAllMocks();m.actor.mockResolvedValue({storeId:'store',userId:'owner'});m.member.mockResolvedValue({storeId:'store',customerId:'self',userId:'member'});m.query.mockResolvedValue([{id:'store'}]);m.care.mockResolvedValue(null);m.person.mockResolvedValue({id:'self'});m.update.mockResolvedValue({count:1});m.planWrite.mockResolvedValue(1);m.beautyTx.mockImplementation((_a,work)=>work({beautyPlan:{updateMany:m.update},$queryRaw:m.planRaw,$executeRaw:m.planWrite}));m.coreTx.mockImplementation(work=>work({$queryRaw:m.query,trialCareSetting:{findUnique:m.care,upsert:m.upsert},auditLog:{create:m.coreAudit},customer:{findFirst:m.person},trialCarePreference:{upsert:m.preference},messageTemplate:{upsert:m.template}}));});
+afterEach(()=>vi.unstubAllEnvs());
+it('advances a configured charge rule in the same reminder transaction while preserving its selected technicians',async()=>{
+ vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','store');
+ const rule={version:1,rule:{storeId:'store',chargeId:'plan:plan',revision:7,serviceIds:['s'],mode:'SELECTED',technicianIds:['t']}};
+ m.planRaw.mockResolvedValue([{id:'plan',revision:8,serviceIds:['s'],chargeTechnicianRule:rule}]);
+ expect(await saveBeautyPlanReminderSetting(base)).toEqual({success:true,revision:8});
+ const saved=JSON.parse(m.planWrite.mock.calls[0][1]);expect(saved).toEqual({...rule,rule:{...rule.rule,revision:8}});
+ expect(m.planWrite.mock.invocationCallOrder[0]).toBeLessThan(m.audit.mock.invocationCallOrder[0]);expect(m.coreTx).not.toHaveBeenCalled();
+});
 it('saves low/expiry rules and increments the same Beauty plan revision atomically',async()=>{expect(await saveBeautyPlanReminderSetting(base)).toEqual({success:true,revision:8});expect(m.actor).toHaveBeenCalledWith('business_hours.manage',true);expect(m.update).toHaveBeenCalledWith({where:{storeId:'store',id:'plan',revision:7},data:{lowBalanceEnabled:true,lowBalanceThreshold:2,expiryReminder:{enabled:true,days:[14,7]},revision:{increment:1}}});expect(m.audit).toHaveBeenCalled();expect(m.coreTx).not.toHaveBeenCalled();});
 it('rejects a foreign store before any transaction',async()=>{expect(await saveBeautyPlanReminderSetting({...base,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.beautyTx).not.toHaveBeenCalled();});
 it('rejects a foreign plan or stale revision without an audit claiming success',async()=>{m.update.mockResolvedValue({count:0});expect(await saveBeautyPlanReminderSetting(base)).toMatchObject({success:false});expect(m.audit).not.toHaveBeenCalled();});

@@ -16,3 +16,8 @@ it('requires both the feature and explicit store allowlist, and never retries a 
 it('rejects missing staff read permission before any transaction',async()=>{m.permission.mockRejectedValue(Error('denied'));expect(await saveBeautyCharge(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
 
 it('can stop charge editing without disabling existing booking enforcement',async()=>{vi.stubEnv('BEAUTY_CHARGE_EDITING_ENABLED','0');expect(await saveBeautyCharge(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();const {beautyChargeRulesEnabled}=await import('@/server/beauty/charge-runtime');expect(beautyChargeRulesEnabled('store')).toBe(true);});
+
+it('accepts the first explicit price in a production Beauty store without a manual store allowlist',async()=>{
+ for(const [key,value] of Object.entries({BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_STORE_IDS:'',BEAUTY_MODULE_ENABLED:'1',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking'}))vi.stubEnv(key,value);
+ expect(await saveBeautyCharge(input)).toMatchObject({success:true,data:{id:'s',revision:3}});expect(m.write).toHaveBeenCalledOnce();
+});

@@ -348,13 +348,14 @@ export function CourseWorkspace({
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
   const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
-  const [nativeCalendar,setNativeCalendar]=useState<{month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
+  const [nativeCalendar,setNativeCalendar]=useState<{schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
   const calendarRequest=useRef(0);
   const calendarReadsInFlight=useRef(0);
   const calendarTargetMonth=useRef(loadedDate.slice(0,7));
   const [calendarReading,setCalendarReading]=useState(false);
   const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
+  const activeSchedulingModes=nativeCalendar?.schedulingModes??schedulingModes;
   const sessions:Session[]=nativeCalendar?.sessions??sourceSessions;
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
@@ -460,6 +461,7 @@ export function CourseWorkspace({
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
   >(canCreate && params.get("action") === "create" && view!=="schedule" ? "catalog" : canCreate && params.get("action") === "schedule" ? "schedule" : params.get("returnStudentId") && sessions.some(session=>session.id===params.get("session")) ? null : params.get("action") === "booking" || params.get("session") ? "day" : null);
+  useEffect(()=>{if(sportsNative&&!calendarSource&&panel==="schedule")void refreshNativeCalendar(nativeDateRef.current,false,true);},[sportsNative,calendarSource,panel,refreshNativeCalendar]);
   const [dirty, setDirty] = useState(false);
   const backgroundRefreshRequestedAt = useRef(0);
   useEffect(() => {
@@ -1334,7 +1336,7 @@ export function CourseWorkspace({
           {businessProfile === "MUSIC" && <p className="text-sm text-earth-500">
             共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆
           </p>}
-          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+          <div className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className={`${(!catalogSource||!!catalogSource.rentalModule) && businessProfile !== "MUSIC" && view === "rooms" ? "min-w-[860px]" : "min-w-[740px]"} w-full text-left text-sm`}>
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
@@ -1352,7 +1354,7 @@ export function CourseWorkspace({
                     <th
                       key={label}
                       scope="col"
-                      className={`whitespace-nowrap px-3 py-2 font-medium ${businessProfile!=="MUSIC" ? ({"空間名稱":"w-[28%]","分類":"w-[20%]","課程名稱":"w-[30%]","班別":"w-[16%]","時長":"w-[14%]","每堂扣抵":"w-[20%]","人數上限":"w-[14%]","容納人數":"w-[12%]","開放租借":"w-[14%]","每小時租金":"w-[20%]"} as Record<string,string>)[label] ?? "" : ""} ${label==="操作"&&businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}
+                      className={`whitespace-nowrap px-3 py-2 font-medium ${businessProfile!=="MUSIC" ? ({"空間名稱":"w-[28%]","分類":"w-[20%]","課程名稱":"w-[30%]","班別":"w-[16%]","時長":"w-[14%]","每堂扣抵":"w-[20%]","人數上限":"w-[14%]","容納人數":"w-[12%]","開放租借":"w-[14%]","每小時租金":"w-[20%]"} as Record<string,string>)[label] ?? "" : ""} ${label==="操作"?(view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-earth-50 text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""):""}`}
                     >
                       {label}
                     </th>
@@ -1408,10 +1410,12 @@ export function CourseWorkspace({
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>)}
-                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-white text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                         {sportsNative || businessProfile === "MUSIC" ? <>
-                        <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
-                          {canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
+                        <div className="flex items-center justify-center gap-1">
+                          {view==="rooms"&&canEdit&&<button type="button" className={`${button} min-h-11`} aria-label={`編輯${item.name}`} disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing({kind:"room",value:item});open("edit");}}>編輯</button>}
+                          <ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
+                          {view!=="rooms"&&canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
                           {canEdit && (template ? <>{[...(catalogSource?["PUBLIC","OFF"]:["PUBLIC","HIDDEN","OFF"])].filter(v=>v!==(template.visibility??"PUBLIC")).map(v=><button type="button" key={v} className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>changeStatus(item,v)}>{v==="PUBLIC"?"上架":v==="HIDDEN"?"隱藏":"下架"}</button>)}{canCreate&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:courseDisplayName(template.name)+"（複製）"}});open("edit");}}>複製</button>}</> : <><CourseStatusButton driver={catalogSource?.status} quiet kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/>{!catalogSource&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button>}</>)}
                         </ExclusiveMenu></div>
 </> : <>
@@ -2138,11 +2142,11 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && !calendarSource && sportsNative && (sportsData?<SportsScheduleFields schedulingModes={schedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && !calendarSource && sportsNative && (sportsData?<SportsScheduleFields schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard
-                schedulingModes={schedulingModes}
+                schedulingModes={activeSchedulingModes}
                 key={requestKey}
                 onGuard={updateMusicScheduleGuard}
                 onRefresh={()=>refreshWorkspace()}

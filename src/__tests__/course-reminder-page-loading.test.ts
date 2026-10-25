@@ -1,3 +1,4 @@
+vi.mock("@/server/services/plan-activation-enqueue",()=>({getPlanActivationEnabled:vi.fn(async()=>true)}));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
 vi.mock("@/server/actions/line-quota-notifications", () => ({ getLineQuotaNotificationSetting: async () => ({}) }));
 vi.mock("@/app/(dashboard)/dashboard/reminders/line-quota-email-setting", () => ({ LineQuotaEmailSetting: () => null }));
