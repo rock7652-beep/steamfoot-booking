@@ -12,7 +12,7 @@ import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { resolveCentralLineRecipientForCustomer } from "./central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "./verified-reminder-line-route";
 import { getPlanActivationEnabled } from "./plan-activation-enqueue";
-import { planActivationSettingId, PLAN_ACTIVATION_TEMPLATE, type PlanActivationSnapshot } from "@/lib/plan-activation-notification";
+import { planActivationEnabled, planActivationSettingId, PLAN_ACTIVATION_TEMPLATE, type PlanActivationSnapshot } from "@/lib/plan-activation-notification";
 
 type Route = {channel:"STORE"|"CENTRAL";recipient:string;destination:string|null};
 type Event = {
@@ -43,7 +43,7 @@ async function sourceValid(db: SourceDb, e: Event) {
 }
 async function writeLog(tx: Prisma.TransactionClient, e: Event, status: "PENDING"|"SENT"|"SKIPPED"|"FAILED", reason: string|null = null) {
   const templateId=planActivationSettingId(e.storeId);
-  await tx.messageTemplate.upsert({where:{id:templateId},create:{id:templateId,storeId:e.storeId,name:PLAN_ACTIVATION_TEMPLATE,body:"disabled"},update:{}});
+  await tx.messageTemplate.upsert({where:{id:templateId},create:{id:templateId,storeId:e.storeId,name:PLAN_ACTIVATION_TEMPLATE,body:"enabled"},update:{}});
   const data={status,errorMessage:reason,lineRoute:e.route?.channel??null,sentAt:status==="SENT"?new Date():null};
   await tx.messageLog.upsert({where:{id:`plan-activation:${e.id}`},create:{id:`plan-activation:${e.id}`,storeId:e.storeId,customerId:e.customerId,templateId,renderedBody:e.body,...data},update:data});
 }
@@ -99,7 +99,7 @@ async function dispatch(db:SourceDb,candidate:Event) {
   const reserved=await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${e.storeId} FOR UPDATE`;
     const setting=await tx.messageTemplate.findUnique({where:{id:planActivationSettingId(e.storeId)},select:{body:true}});
-    if(setting?.body!=="enabled")return false;
+    if(!planActivationEnabled(setting?.body))return false;
     const range=monthRange(toLocalMonthStr(new Date()));
     const usage=await tx.messageLog.count({where:{storeId:e.storeId,id:{not:`plan-activation:${e.id}`},OR:[{status:"SENT",sentAt:{gte:range.start,lte:range.end}},{status:"PENDING",createdAt:{gte:range.start,lte:range.end}}]}});
     if(!checkReminderSendLimit(plan,usage).allowed)return false;

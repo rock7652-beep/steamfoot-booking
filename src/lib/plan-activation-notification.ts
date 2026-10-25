@@ -2,6 +2,10 @@ import { toLocalDateStr } from "@/lib/date-utils";
 
 export const PLAN_ACTIVATION_TEMPLATE = "方案開通通知";
 export const planActivationSettingId = (storeId: string) => `plan-activation-setting:${storeId}`;
+/** Existing and new stores start enabled; preserve an explicit opt-out. */
+export function planActivationEnabled(body: string | null | undefined) {
+  return body == null || body === "enabled";
+}
 export type PlanActivationSnapshot = {
   storeName: string; customerName: string; planName: string;
   quantity: number; unit: string; expiresDate: string | null;

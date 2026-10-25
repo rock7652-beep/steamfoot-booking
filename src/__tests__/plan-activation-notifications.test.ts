@@ -12,7 +12,7 @@ vi.mock("@/lib/store-plan",()=>({getStoreForPlanByStoreId:vi.fn(async()=>({plan:
 vi.mock("@/lib/reminder-send-limit",()=>({checkReminderSendLimit:m.quota}));
 vi.mock("@/server/services/central-line-recipient-loader",()=>({resolveCentralLineRecipientForCustomer:m.central}));
 vi.mock("@/server/services/verified-reminder-line-route",()=>({resolveVerifiedReminderLineRoute:m.route}));
-import {enqueuePlanActivation} from "@/server/services/plan-activation-enqueue";
+import {enqueuePlanActivation,getPlanActivationEnabled} from "@/server/services/plan-activation-enqueue";
 import {runPlanActivationNotifications} from "@/server/services/plan-activation-notifications";
 import {planActivationSettingId} from "@/lib/plan-activation-notification";
 
@@ -82,6 +82,15 @@ beforeEach(async()=>{
 });
 
 describe("transactional activation outbox",()=>{
+  it.each(["STEAMFOOT","COURSE","BEAUTY"] as const)("defaults %s stores without saved settings to enabled through enqueue and dispatch",async module=>{
+    await pg.exec('DELETE FROM "MessageTemplate"');
+    await pg.query('UPDATE "Store" SET "industryModule"=$1',[module]);
+    expect(await getPlanActivationEnabled("s")).toBe(true);
+    await queue(module);expect((await first()).status).toBe("PENDING");
+    await runPlanActivationNotifications("s",module==="BEAUTY");
+    expect(m.push).toHaveBeenCalledTimes(1);expect((await logs())[0].status).toBe("SENT");
+    expect(await getPlanActivationEnabled("s")).toBe(true);
+  });
   it("restricts dedicated Beauty roles to Beauty outbox rows",async()=>{
     await queue();await queue("BEAUTY");
     try {
@@ -105,6 +114,7 @@ describe("transactional activation outbox",()=>{
   });
   it("never backfills purchases opened with the switch off",async()=>{
     await pg.exec('UPDATE "MessageTemplate" SET body=\'disabled\'');await queue();
+    expect(await getPlanActivationEnabled("s")).toBe(false);
     await pg.exec('UPDATE "MessageTemplate" SET body=\'enabled\'');await runPlanActivationNotifications("s");
     expect(m.push).not.toHaveBeenCalled();expect((await logs())[0].status).toBe("SKIPPED");
   });

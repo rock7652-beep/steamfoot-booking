@@ -28,21 +28,21 @@ try{
   });
   await page.goto(`https://synthetic.invalid/?module=${encodeURIComponent(moduleLabel)}${width===480?'&narrow=1':''}`);await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
   const toggle=page.getByRole('switch',{name:'方案開通通知開關'});
-  if(await toggle.isChecked())throw Error('Default must be off');
+  if(!await toggle.isChecked())throw Error('Default must be on');
   if(await page.locator('details').getAttribute('open')!==null)throw Error('Preview must be collapsed');
-  await toggle.check();await page.waitForFunction(()=>document.querySelector('input[role="switch"]')?.disabled===false);
-  if(!await toggle.isChecked()||calls!==1)throw Error('Toggle did not save once');
+  await toggle.uncheck();await page.waitForFunction(()=>document.querySelector('input[role="switch"]')?.disabled===false);
+  if(await toggle.isChecked()||calls!==1)throw Error('Toggle did not save once');
   await page.getByText('查看訊息預覽',{exact:true}).click();
-  await page.setViewportSize({width:height,height:width});await page.setViewportSize({width,height});if(!await toggle.isChecked())throw Error('Resize lost state');
+  await page.setViewportSize({width:height,height:width});await page.setViewportSize({width,height});if(await toggle.isChecked())throw Error('Resize lost state');
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Viewport overflow');
-  fail=true;await toggle.uncheck();await page.getByRole('alert').filter({hasText:'隔離儲存失敗'}).waitFor();
-  if(!await toggle.isChecked())throw Error('Failed toggle did not roll back');
+  fail=true;await toggle.check();await page.getByRole('alert').filter({hasText:'隔離儲存失敗'}).waitFor();
+  if(await toggle.isChecked())throw Error('Failed toggle did not roll back');
   if(width===1366&&moduleLabel==='蒸足'){await page.waitForTimeout(250);await page.screenshot({path:path.join(output,'failed-toggle.png'),fullPage:true});}
-  fail=false;await toggle.uncheck();await page.waitForFunction(()=>document.querySelector('input[role="switch"]')?.disabled===false);await toggle.check();await page.waitForFunction(()=>document.querySelector('input[role="switch"]')?.disabled===false);await page.waitForTimeout(250);
+  fail=false;await toggle.check();await page.waitForFunction(()=>document.querySelector('input[role="switch"]')?.disabled===false);await page.waitForTimeout(250);
   await page.screenshot({path:path.join(output,`${width}-${moduleLabel}.png`),fullPage:true});
   if(errors.length)throw Error(errors.join('\n'));evidence.push({module:moduleLabel,width,height,calls,overflow:false,resizePreserved:true,failedToggleRolledBack:true});await page.close();
  }
  const page=await browser.newPage({viewport:{width:768,height:1024}});
  await page.route('**/*',route=>route.fulfill({contentType:'text/html',body:'<div id="root"></div>'}));await page.goto('https://synthetic.invalid/?module=美業&readonly=1');await page.addScriptTag({path:path.join(output,'fixture.js')});if(!await page.getByRole('switch').isDisabled())throw Error('Read-only must disable control');await page.close();
- writeFileSync(path.join(output,'results.json'),JSON.stringify({kind:'synthetic-component-preview',readOnly:true,evidence},null,2));console.log(JSON.stringify({cases:evidence.length,readOnly:true,output}));
+ writeFileSync(path.join(output,'results.json'),JSON.stringify({kind:'synthetic-component-preview',defaultEnabled:true,readOnly:true,evidence},null,2));console.log(JSON.stringify({cases:evidence.length,defaultEnabled:true,readOnly:true,output}));
 }finally{await browser.close();}

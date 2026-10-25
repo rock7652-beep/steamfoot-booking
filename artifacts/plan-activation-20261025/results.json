@@ -1,12 +1,13 @@
 {
   "kind": "synthetic-component-preview",
+  "defaultEnabled": true,
   "readOnly": true,
   "evidence": [
     {
       "module": "蒸足",
       "width": 1366,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -15,7 +16,7 @@
       "module": "運動",
       "width": 1366,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -24,7 +25,7 @@
       "module": "音樂",
       "width": 1366,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -33,7 +34,7 @@
       "module": "美業",
       "width": 1366,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -42,7 +43,7 @@
       "module": "蒸足",
       "width": 1920,
       "height": 1080,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -51,7 +52,7 @@
       "module": "運動",
       "width": 1920,
       "height": 1080,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -60,7 +61,7 @@
       "module": "音樂",
       "width": 1920,
       "height": 1080,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -69,7 +70,7 @@
       "module": "美業",
       "width": 1920,
       "height": 1080,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -78,7 +79,7 @@
       "module": "蒸足",
       "width": 1024,
       "height": 768,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -87,7 +88,7 @@
       "module": "運動",
       "width": 1024,
       "height": 768,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -96,7 +97,7 @@
       "module": "音樂",
       "width": 1024,
       "height": 768,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -105,7 +106,7 @@
       "module": "美業",
       "width": 1024,
       "height": 768,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -114,7 +115,7 @@
       "module": "蒸足",
       "width": 768,
       "height": 1024,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -123,7 +124,7 @@
       "module": "運動",
       "width": 768,
       "height": 1024,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -132,7 +133,7 @@
       "module": "音樂",
       "width": 768,
       "height": 1024,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -141,7 +142,7 @@
       "module": "美業",
       "width": 768,
       "height": 1024,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -150,7 +151,7 @@
       "module": "蒸足",
       "width": 480,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -159,7 +160,7 @@
       "module": "運動",
       "width": 480,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -168,7 +169,7 @@
       "module": "音樂",
       "width": 480,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true
@@ -177,7 +178,7 @@
       "module": "美業",
       "width": 480,
       "height": 900,
-      "calls": 4,
+      "calls": 3,
       "overflow": false,
       "resizePreserved": true,
       "failedToggleRolledBack": true

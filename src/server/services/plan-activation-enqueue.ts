@@ -3,11 +3,11 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
-import { planActivationMessage, planActivationSettingId, type PlanActivationSnapshot } from "@/lib/plan-activation-notification";
+import { planActivationEnabled, planActivationMessage, planActivationSettingId, type PlanActivationSnapshot } from "@/lib/plan-activation-notification";
 
 type Tx = Pick<Prisma.TransactionClient, "$queryRaw" | "$executeRaw">;
 export async function getPlanActivationEnabled(storeId: string) {
-  return (await prisma.messageTemplate.findUnique({where:{id:planActivationSettingId(storeId)},select:{body:true}}))?.body === "enabled";
+  return planActivationEnabled((await prisma.messageTemplate.findUnique({where:{id:planActivationSettingId(storeId)},select:{body:true}}))?.body);
 }
 /** Same transaction as issuance; never called by imports, corrections or balance grants. */
 export async function enqueuePlanActivation(tx: Tx, value: {
@@ -17,7 +17,7 @@ export async function enqueuePlanActivation(tx: Tx, value: {
   const {storeId,customerId,module,sourceId,entitlementId}=value;
   // Beauty may use an isolated database; its customer-facing preferences live in the main database.
   const enabled = module === "BEAUTY" ? await getPlanActivationEnabled(storeId) :
-    (await tx.$queryRaw<Array<{body:string}>>`SELECT body FROM "MessageTemplate" WHERE id=${planActivationSettingId(storeId)} AND "storeId"=${storeId} FOR SHARE`)[0]?.body === "enabled";
+    planActivationEnabled((await tx.$queryRaw<Array<{body:string}>>`SELECT body FROM "MessageTemplate" WHERE id=${planActivationSettingId(storeId)} AND "storeId"=${storeId} FOR SHARE`)[0]?.body);
   const [person] = await tx.$queryRaw<Array<{customerName:string;storeName:string}>>`SELECT c.name AS "customerName",s.name AS "storeName" FROM "Customer" c JOIN "Store" s ON s.id=c."storeId" WHERE c.id=${customerId} AND c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL`;
   if (!person) throw new Error("Plan activation customer does not belong to store");
   const snapshot:PlanActivationSnapshot={...person,planName:value.planName,quantity:value.quantity,unit:value.unit,expiresDate:value.expiresDate};
