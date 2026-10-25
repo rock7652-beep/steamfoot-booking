@@ -85,6 +85,7 @@ model CourseTemplate {
 }
 
 model CourseSession {
+  chargeSnapshot Json?
   scheduleType String @default("LEGACY")
   scheduleFrequency String @default("NONE")
   enrollmentMode String @default("OPEN")
@@ -155,6 +156,7 @@ model CourseSessionMove {
 }
 
 model CoursePointPlan {
+  chargeSettings Json?
   sportsMode String @default("LEGACY")
   sportsSubjectId String?
   sportsCost Int?

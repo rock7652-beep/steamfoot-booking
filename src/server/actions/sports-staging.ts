@@ -1,5 +1,6 @@
 "use server";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import {courseChargeSettings} from "@/lib/course-charge-settings";
 import { z } from "zod";
 import { sportsCompensation } from "@/lib/sports-staging-types";
 import { createHash } from "node:crypto";
@@ -145,6 +146,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
       return {
         id: p.id,
         subject: p.sportsSubjectId??t?.musicSubjectId ?? t?.id ?? "",
+        chargeSettings:p.chargeSettings,
         sportsMode:p.sportsMode,
         name: p.name,
         unit: p.unit === "POINT" ? "點數" : "堂數",
@@ -242,6 +244,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
           active: s.isActive,
           updatedAt: s.updatedAt.toISOString(),
           templateId:templates.find(t=>t.id===sportsTeachingTemplateId(storeId,s.id))?.id,
+          durationMinutes:templates.find(t=>t.id===sportsTeachingTemplateId(storeId,s.id))?.durationMinutes,
         })),
         fees,
         lessons,
@@ -365,6 +368,7 @@ export async function saveSportsFee(input: unknown) {
   try {
     const d = z
       .object({
+        chargeSettings:courseChargeSettings.nullable().optional(),
         active:z.boolean().optional(),
         customerPurchasable:z.boolean().optional(),
         compensation: sportsCompensation.optional(),
@@ -392,6 +396,7 @@ export async function saveSportsFee(input: unknown) {
     return await saveCoursePointPlan({
       ...base,
       id: d.id,
+      chargeSettings:d.chargeSettings??base.chargeSettings??null,
       name: d.name,
       unit: d.unit === "點數" ? "POINT" : "SESSION",
       points: d.amount,
@@ -523,6 +528,7 @@ export async function sportsStagingCommand(input: unknown) {
       if (d.kind === "體驗") await courseManager("trial.create");
       return await result(
         createCourseSchedule({
+          chargePlanId:plan?.chargeSettings?plan.id:undefined,
           templateId: template.id,
           roomId: room.id,
           coachId: coach.id,

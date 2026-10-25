@@ -4,13 +4,13 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {loadCourseScheduleEnrollmentOptions} from "@/server/actions/course-schedule-enrollment";
 import type {ScheduleLearner} from "./course-schedule-learners";
 
-export function MusicTrialLearners({templateId,value,onChange,onValidityChange,disabled=false}:{templateId:string;value:ScheduleLearner[];onChange:(rows:ScheduleLearner[])=>void;onValidityChange:(valid:boolean)=>void;disabled?:boolean}) {
+export function MusicTrialLearners({configuredPrice,templateId,value,onChange,onValidityChange,disabled=false}:{configuredPrice?:number;templateId:string;value:ScheduleLearner[];onChange:(rows:ScheduleLearner[])=>void;onValidityChange:(valid:boolean)=>void;disabled?:boolean}) {
   const reader=usePanelReader("music-trial-price",loadCourseScheduleEnrollmentOptions,"",0);
   const [quote,setQuote]=useState<{key:string;price:number;enabled:boolean}|null>(null);
   const [error,setError]=useState<{key:string;message:string}|null>(null);
   useEffect(()=>{let current=true;if(!templateId)return;
-    reader.read(templateId).then(result=>{if(!current)return;if(result.success)setQuote({key:templateId,price:result.trialSettings.price,enabled:result.trialSettings.enabled});else setError({key:templateId,message:result.error});}).catch(()=>{if(current)setError({key:templateId,message:"體驗費用讀取失敗，請重新選擇課程"});});return()=>{current=false;};
-  },[reader,templateId]);
+    reader.read(templateId).then(result=>{if(!current)return;if(result.success)setQuote({key:templateId,price:configuredPrice??result.trialSettings.price,enabled:result.trialSettings.enabled});else setError({key:templateId,message:result.error});}).catch(()=>{if(current)setError({key:templateId,message:"體驗費用讀取失敗，請重新選擇課程"});});return()=>{current=false;};
+  },[reader,templateId,configuredPrice]);
   const ready=quote?.key===templateId;
   useEffect(()=>{if(ready&&quote&&value.some(row=>row.trialPrice!==quote.price))onChange(value.map(row=>({...row,trialPrice:quote.price})));},[ready,quote,value,onChange]);
   const valid=!!ready&&!!quote?.enabled&&value.length>0&&value.every(row=>!!row.name.trim()&&/^09\d{8}$/.test(row.participantPhone??""));

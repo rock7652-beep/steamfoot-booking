@@ -412,6 +412,16 @@ it("manager proxy booking retains the mature exemption from member opening windo
 });
 
 describe("course trial shares booking safety without using a card",()=>{
+ it('uses the captured fee price on every trial entry and retry, preserving a zero price',async()=>{
+  const settings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
+  m.tx.courseSession.findFirst.mockResolvedValue({id:'session',template:{isActive:true,visibility:'PUBLIC'},startsAt:new Date('2026-09-16T10:00:00Z'),capacity:2,pointCost:1,chargeSnapshot:{planId:'fee',name:'單次',price:800,settings,trialPrice:0,isTrial:true}});
+  await reserveTrialCourse({storeId:'store-a',userId:'manager',name:'店長'},{sessionId:'session',customerId:'b',requestKey:'trial',trialPrice:499});
+  expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({bookingKind:'TRIAL',trialPrice:0,pointCost:0})});
+  m.tx.courseBooking.findUnique.mockResolvedValue({operatorUserId:'manager',sessionId:'session',customerId:'b',cardId:null,trialPrice:0,bookingKind:'TRIAL'});
+  m.tx.courseBooking.create.mockClear();
+  await reserveTrialCourse({storeId:'store-a',userId:'manager',name:'店長'},{sessionId:'session',customerId:'b',requestKey:'trial',trialPrice:999});
+  expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
+ });
  it("reserves a real seat and writes no point entry",async()=>{await reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499});expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:null,bookingKind:"TRIAL",pointCost:0,trialPrice:499,customerId:"b"})});expect(m.tx.coursePointCard.findFirst).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();});
  it("blocks duplicate learner and full class even without quota",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"existing"});await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("已預約");m.tx.courseBooking.findFirst.mockResolvedValue(null);m.tx.courseBooking.count.mockResolvedValue(2);await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("滿班");});
  it("does not let a member call the internal manager trial reservation",async()=>{await expect(reserveTrialCourse(actor,{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("僅由");});

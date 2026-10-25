@@ -31,6 +31,7 @@ export const courseTemplateInput = z.object({
   waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  chargePlanId:id.optional(),
   sportsStaging: sportsScheduleRule.optional(),
   bookingAudience:z.enum(["ASSIGNED","OPEN"]).default("OPEN"),
   enrollmentMode:z.enum(["ASSIGNED","OPEN"]).optional(),
