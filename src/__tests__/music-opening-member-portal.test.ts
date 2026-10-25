@@ -27,6 +27,7 @@ vi.mock("@/lib/shop-config", () => ({
 }));
 vi.mock("@/app/(customer)/book/course-portal-client", () => ({ CoursePortalClient: () => null }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: async () => [{label:null}],
   staffMemberLink: { findUnique: m.identity, findFirst: m.staffLink },
   store: { findUniqueOrThrow: m.store }, shopConfig: { findUnique: m.config },
   businessHours: { findMany: m.hours }, specialBusinessDay: { findMany: m.special },

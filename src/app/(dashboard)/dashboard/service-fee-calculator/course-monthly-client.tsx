@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {DashboardLink} from "@/components/dashboard-link";
 import {useSearchParams} from "next/navigation";
 import {toLocalDateStr} from "@/lib/date-utils";
@@ -16,6 +17,7 @@ const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50";
 export function CourseMonthlyPeople({entries,children,actions,category="ALL",music=false}:{music?:boolean;entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode;actions?:ReactNode;category?:"ALL"|"PROFIT"|"FEE"}){
+  const personnelText = useCoursePersonnelText();
  const [query,setQuery]=useState("");
  const nodes=Children.toArray(children);
  const sorted=entries.map((entry,index)=>({...entry,node:nodes[index]})).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name,"zh-Hant"));
@@ -26,13 +28,14 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL",mus
  {actions&&<div className="ml-auto flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">{actions}</div>}
  </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
- <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-3 py-2 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?(music ? "教師授課費" : "教練授課費"):"應領合計"}</span><span className="sr-only">明細</span></div>
+ <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-3 py-2 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?(music ? personnelText("教師授課費") : personnelText("教練授課費")):"應領合計"}</span><span className="sr-only">明細</span></div>
  {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
  {!!entries.length&&!visible.length&&<p role="status" className="p-4 text-sm">找不到符合的人員。</p>}
  </div></section>;
 }
 
 export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,music=false,initialTeacherId="",canReadBookings=false}:{canReadBookings?:boolean;lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
+  const personnelText = useCoursePersonnelText();
  const params=useSearchParams();
  const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">((params.get("settlementCategory")==="PROFIT"||params.get("settlementCategory")==="FEE")?params.get("settlementCategory") as "PROFIT"|"FEE":initialTeacherId ? "FEE" : "ALL");
  const [teacherId,setTeacherId]=useState(params.get("settlementTeacher")??initialTeacherId);
@@ -42,9 +45,9 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  const total=people.reduce((sum,person)=>sum+person.profit+person.fee,0);
  return <>
  <div className="flex flex-wrap items-center gap-2">
- {music && <div className="flex flex-wrap items-center gap-2 text-sm"><label>教師<select aria-label="薪資教師" className="min-h-11 rounded-lg border px-3" value={teacherId} onChange={e=>setTeacherId(e.target.value)}><option value="">全部人員</option>{[...new Map(lines.filter(l=>l.staffId).map(l=>[l.staffId!,l.name])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}{teacherId && !lines.some(l=>l.staffId===teacherId) && <option value={teacherId}>所選教師（本月無紀錄）</option>}</select></label>{teacherId && <button type="button" className={button} onClick={()=>setTeacherId("")}>查看全店月結</button>}</div>}
+ {music && <div className="flex flex-wrap items-center gap-2 text-sm"><label>{personnelText("教師")}<select aria-label={personnelText("薪資教師")} className="min-h-11 rounded-lg border px-3" value={teacherId} onChange={e=>setTeacherId(e.target.value)}><option value="">全部人員</option>{[...new Map(lines.filter(l=>l.staffId).map(l=>[l.staffId!,l.name])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}{teacherId && !lines.some(l=>l.staffId===teacherId) && <option value={teacherId}>{personnelText("所選教師（本月無紀錄）")}</option>}</select></label>{teacherId && <button type="button" className={button} onClick={()=>setTeacherId("")}>查看全店月結</button>}</div>}
  <div className="flex flex-wrap items-center gap-2" role="group" aria-label="收入類別">
- {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:(music ? "教師授課費" : "教練授課費")}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
+ {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:(music ? personnelText("教師授課費") : personnelText("教練授課費"))}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
  </div></div>
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
  {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?"授課費合計":"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{!teacherId && confirm}
@@ -61,7 +64,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  </summary>
  <RosterTable label={`${person.name} 月結明細`} columns={["日期／課程", "類別／狀態", "應付", "已付", "未付／溢付", "明細／操作"]}>{person.lines.map(line=><tr key={line.kind+line.id}>
  <td><p>{formatTWDateTime(new Date(line.date))}</p><p className="font-medium">{line.label}</p></td>
- <td>{line.kind==="PROFIT"?"店長利潤":music?"教師鐘點費":"授課費"}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}</td>
+ <td>{line.kind==="PROFIT"?"店長利潤":music?personnelText("教師鐘點費"):"授課費"}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}</td>
  <td className="text-right tabular-nums">{line.amount===null?"待核對":money(line.amount)}</td><td className="text-right tabular-nums">{money(line.paid)}</td><td className="text-right tabular-nums">{line.amount===null?"待核對":line.paid>line.amount?`溢付 ${money(line.paid-line.amount)}`:money(line.amount-line.paid)}</td>
  <td>{canReadBookings&&line.kind==="FEE"&&<DashboardLink className="inline-flex min-h-11 items-center text-primary-700 underline" href={`/dashboard/courses?${new URLSearchParams({action:"booking",session:line.id,date:toLocalDateStr(new Date(line.date)),returnMonthlyMonth:params.get("month")??toLocalDateStr(new Date(line.date)).slice(0,7),returnMonthly_settlementTeacher:teacherId,returnMonthly_settlementCategory:category,returnMonthly_settlementPerson:person.id,...(params.get("teacherId")?{returnMonthly_teacherId:params.get("teacherId")!}:{}),...(params.get("salaryData")==="legacy"?{returnMonthly_salaryData:"legacy"}:{})})}`}>查看課堂</DashboardLink>}{(line.endsAt || !!line.feeDetails?.length) && <details><summary className="min-h-11 cursor-pointer py-2 text-primary-700">計算明細</summary>{line.endsAt&&<p>下課：{formatTWDateTime(new Date(line.endsAt))}</p>}{line.feeDetails?.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</td>
  </tr>)}</RosterTable>

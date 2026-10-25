@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import { useState, useCallback, useEffect } from "react";
 import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
@@ -155,6 +156,7 @@ export function RevenueReportClient({
   defaultStartDate,
   defaultEndDate,
 }: Props) {
+  const personnelText = useCoursePersonnelText();
   // Filters
   const [periodType, setPeriodType] = useState<"today" | "month" | "custom">("month");
   const [startDate, setStartDate] = useState(defaultStartDate);
@@ -388,7 +390,7 @@ export function RevenueReportClient({
           {mode === "coach" && coaches.length > 0 && (
             <>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{personnelText("教練")}</label>
                 <select
                   value={coachId}
                   onChange={(e) => setCoachId(e.target.value)}
@@ -399,7 +401,7 @@ export function RevenueReportClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練角色</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{personnelText("教練角色")}</label>
                 <select
                   value={coachRole}
                   onChange={(e) => setCoachRole(e.target.value)}
@@ -508,7 +510,7 @@ export function RevenueReportClient({
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收總表" : "教練營收總表"}
+          {mode === "store" ? "店營收總表" : personnelText("教練營收總表")}
         </button>
         <button
           type="button"
@@ -519,7 +521,7 @@ export function RevenueReportClient({
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收明細" : "教練營收明細"}
+          {mode === "store" ? "店營收明細" : personnelText("教練營收明細")}
         </button>
       </div>
 
@@ -585,14 +587,14 @@ export function RevenueReportClient({
           )}
 
           {mode === "coach" && coachSummary.length === 0 && (
-            <EmptyState title="無資料" description="所選條件下無教練營收資料" />
+            <EmptyState title="無資料" description={personnelText("所選條件下無教練營收資料")} />
           )}
           {mode === "coach" && coachSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
               <table className="min-w-full text-sm">
                 <thead className="bg-earth-50">
                   <tr>
-                    {["教練姓名", "教練角色", "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
+                    {[personnelText("教練姓名"), personnelText("教練角色"), "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -638,7 +640,7 @@ export function RevenueReportClient({
                     <tr>
                       {(mode === "store"
                         ? (courseMode ? ["入帳日期", "分店", "客戶", "電話", "方案", "類型", "收退款金額", "收款方式", "狀態", "備註", "操作人員", "入帳時間"] : ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"])
-                        : ["交易日期", "交易單號", "分店", "教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
+                        : ["交易日期", "交易單號", "分店", personnelText("教練"), "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
                       ).map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                       ))}

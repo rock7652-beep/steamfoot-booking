@@ -1,3 +1,5 @@
+import { coursePersonnelText } from "@/lib/course-personnel-label";
+import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import { sportsCourseName } from "@/lib/course-template-presentation";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsScheduleRule} from "@/lib/sports-staging-types";
@@ -93,6 +95,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   ]);
   const memberEnabled = access ? previewIdentity!.memberEnabled : identity?.courseMemberEnabled !== false;
   const workLink = access ? (previewIdentity!.workStaffId ? { staffId: previewIdentity!.workStaffId } : null) : link;
+  const personnelLabel = await readCoursePersonnelLabel(storeId);
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
   const sharedCardState = musicStore ? "ENABLED" as const : await getCourseSharedCardState(storeId);
   const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
@@ -342,6 +345,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
   const initialRole = access ? (access.role === "work" ? "coach" as const : "member" as const) : resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
   return {
+    personnelLabel,
+    storeId,
     rolePreferenceKey,
     initialRole,
     referralShare: referralShare?.available ? referralShare : null,
@@ -386,7 +391,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           openingMakeup: isMusicOpeningMakeupBooking(nextBooking),
           name: sportsCourseName(nextBooking.session.nameSnapshot,nextBooking.session.templateId),
           startsAt: nextBooking.session.startsAt.toISOString(),
-          coach: coachNames.get(nextBooking.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
+          coach: coachNames.get(nextBooking.session.coachId) ?? coursePersonnelText(musicStore ? "教師待確認" : "教練待確認",personnelLabel),
           room: nextBooking.session.room.name,
           participants: [...new Map(nextParticipants.map((participant) => [participant.id, {
             id: participant.id,
@@ -412,7 +417,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       name: sportsCourseName(s.nameSnapshot,s.templateId),
       startsAt: s.startsAt.toISOString(),
       coachId: s.coachId,
-      coach: coachNames.get(s.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
+      coach: coachNames.get(s.coachId) ?? coursePersonnelText(musicStore ? "教師待確認" : "教練待確認",personnelLabel),
       room: s.room.name,
       cost: s.pointCost,
       capacity: s.capacity,
@@ -430,7 +435,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       classType: b.session.template.classType,
       name: sportsCourseName(b.session.nameSnapshot,b.session.templateId),
       startsAt: b.session.startsAt.toISOString(),
-      coach: coachNames.get(b.session.coachId) ?? (musicStore ? "教師待確認" : "教練待確認"),
+      coach: coachNames.get(b.session.coachId) ?? coursePersonnelText(musicStore ? "教師待確認" : "教練待確認",personnelLabel),
       room: b.session.room.name,
       ...({bookingAudience: sportsRules.find(r=>r.sessionId===b.sessionId)?.enrollment??b.session.bookingAudience, sessionCancelled:!!b.session.cancelledAt} as Partial<{bookingAudience:string;sessionCancelled:boolean}>),
       customerName: b.customerName,

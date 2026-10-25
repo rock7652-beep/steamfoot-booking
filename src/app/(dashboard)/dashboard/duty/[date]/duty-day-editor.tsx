@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import { useState, useTransition } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -84,6 +85,7 @@ export function DutyDayEditor({
   preferredStaffId,
   course = false,
 }: Props) {
+  const personnelText = useCoursePersonnelText();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [addingSlot, setAddingSlot] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function DutyDayEditor({
   const [formParticipation, setFormParticipation] = useState<ParticipationType>("PRIMARY");
   const [formNotes, setFormNotes] = useState("");
 
-  const roleLabels = course ? {...DUTY_ROLE_LABELS, INTERN_COACH: "教練"} : DUTY_ROLE_LABELS;
+  const roleLabels = course ? {...DUTY_ROLE_LABELS, INTERN_COACH: personnelText("教練")} : DUTY_ROLE_LABELS;
 
   function showMessage(type: "success" | "error", text: string) {
     setMessage({ type, text });

@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { musicDataScope } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
@@ -11,11 +12,13 @@ import { type CareItem } from "./care-section";
 import { CareWorkspaceServer } from "./care-workspace-server";
 
 export async function CourseCare({ dataScope, storeId, month, readOnly, canFollowUp, canBook, segment, staffScope = null }: { dataScope?:string; storeId: string; month: string; readOnly: boolean; canFollowUp: boolean; canBook: boolean; segment?: string; staffScope?: string | null }) {
+ const personnelText = await getCoursePersonnelText(storeId);
+
   const legacy=musicDataScope(storeId,dataScope)==="legacy";
   const scopeQuery=legacy?"&dataScope=legacy":"";
   if(legacy){readOnly=true;canFollowUp=false;canBook=false;}
   const [overview, birthdays, businessEntitlements] = await Promise.all([getCourseCustomerCare(storeId, new Date(), staffScope, dataScope), getBirthdayCustomersForMonth(storeId, month, staffScope, dataScope), prisma.storeFeatureEntitlement.findMany({ where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" }, select: { featureKey: true } })]);
-  const staffLabel = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey)) === "MUSIC" ? "所屬人員" : "所屬教練";
+  const staffLabel = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey)) === "MUSIC" ? "所屬人員" : personnelText("所屬教練");
   const selected = isCourseCareKind(segment) ? segment : null;
   const mode = { staffLabel, courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value || "未提供電話";

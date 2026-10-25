@@ -76,3 +76,5 @@ it("sports follows the common six steps and repairs teaching qualifications on t
  expect(courseSetupHref(steps[2])).toContain("setupFlow=sports");
  expect(courseSetupSteps(empty,true).map(s=>s.id)).toEqual(["hours","room","course","plan","coach","schedule"]);
 });
+
+it("requires explicit confirmation even when all seven default weekdays are open",()=>{const counts={...empty,openDays:7,hoursConfirmed:false};expect(courseSetupSteps(counts,false,true).find(s=>!s.done)).toMatchObject({id:"hours",label:"確認營業時間與公休",status:"missing"});expect(courseSetupSteps({...counts,hoursConfirmed:true},false,true).find(s=>!s.done)?.id).toBe("room");expect(courseSetupSteps({...counts,hoursConfirmed:true,openDays:0},false,true)[0].done).toBe(false);});

@@ -1,3 +1,5 @@
+import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
+import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import { getStoreFeaturePresentations } from "@/lib/feature-gate";
 import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -253,6 +255,7 @@ async function readDashboardLayout({
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
+    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
     <DashboardShell
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
@@ -317,6 +320,7 @@ async function readDashboardLayout({
       <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await settingsStep("read_labels", loadCustomerLabels) : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
       <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
+    </CoursePersonnelLabelProvider>
     </OperationAuditAccessProvider>
     </FeaturePresentationProvider>
     </OperationScope>

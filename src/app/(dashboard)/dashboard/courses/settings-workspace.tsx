@@ -1,4 +1,6 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
+import {useCoursePersonnelLabel} from "@/components/course-personnel-label";
 import {CourseOperationSwitch} from "@/components/admin/course-operation-switch";
 import { toast } from "sonner";
 
@@ -96,18 +98,21 @@ const lead = (minutes: number) => {
 };
 
 export function CourseSettingsWorkspace(sourceProps: Props) {
+  const personnelText = useCoursePersonnelText();
+  const personnel = useCoursePersonnelLabel();
   const reminderState = useFeaturePresentation(FEATURES.LINE_REMINDER);
   const referralState = useFeaturePresentation(FEATURES.REFERRAL_SHARE);
   const butlerState = useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
   type SectionRow={id:string;values:CourseSettingsSectionInput|TrialSettings};
   const sources=useMemo<SectionRow[]>(()=>[
+    {id:"personnel",values:{section:"personnel",personnelLabel:personnel.label}},
     {id:"store",values:{section:"store",name:sourceProps.name,address:sourceProps.address,mapUrl:sourceProps.mapUrl,lineOfficialUrl:sourceProps.lineOfficialUrl,shopPhone:sourceProps.shopPhone??"",lineOfficialId:sourceProps.lineOfficialId??""}},
     {id:"booking",values:{section:"booking",bookingLeadMinutes:sourceProps.bookingLeadMinutes,cancellationLeadMinutes:sourceProps.cancellationLeadMinutes}},
     {id:"payment",values:{section:"payment",bankName:sourceProps.bankName,bankCode:sourceProps.bankCode,bankAccountNumber:sourceProps.bankAccountNumber}},
     ...(sourceProps.trialSettings?[{id:"trial",values:sourceProps.trialSettings}]:[]),
-  ],[sourceProps]);
+  ],[sourceProps,personnel.label]);
   const confirmed=useConfirmedSettingsRows(sources,row=>"section" in row.values?courseSettingsSectionRevision(row.values):trialSettingsRevision(row.values));
-  const sections=confirmed.rows.filter(row=>row.id!=="trial").map(row=>row.values);
+  const sections=confirmed.rows.filter(row=>row.id!=="trial"&&row.id!=="personnel").map(row=>row.values);
   const waitlistSource=useMemo(()=>sourceProps.waitlistSettings?[{id:"waitlist",values:sourceProps.waitlistSettings}]:[],[sourceProps.waitlistSettings]);
   const confirmedWaitlist=useConfirmedSettingsRows(waitlistSource,row=>waitlistRevision(row.values));
   const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
@@ -138,7 +143,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   }
   const onSaved = (row: CourseSettingsSectionInput, syncWarning: boolean) => {
     confirmed.confirm({id:row.section,values:row});
-    closeSavedRow(row.section === "booking" ? "booking-cutoff" : row.section === "payment" ? "payment-bank" : "store", syncWarning);
+    closeSavedRow(row.section === "booking" ? "booking-cutoff" : row.section === "payment" ? "payment-bank" : row.section === "personnel" ? "personnel" : "store", syncWarning);
   };
   const allowLeave = useRef(false);
   const hasDirty = Object.values(status).some(value => value.dirty);
@@ -195,6 +200,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   >
       <section hidden={active !== "store"} aria-label="店家資料">
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定")} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
+        <Row title="授課人員稱呼" summary={personnel.label??(props.music?personnelText("教師（模組預設）"):personnelText("教練（模組預設）"))} expanded={expandedRow==="personnel"} onEdit={props.canEdit?()=>openRow("personnel"):undefined}>{editor({section:"personnel",personnelLabel:personnel.label},props.canEdit)}</Row>
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>
         <CourseSchedulingModeSettings key={props.storeId} storeId={props.storeId} open={props.selfBookingEnabled??true} assigned={props.assignedSchedulingEnabled??true} revision={props.selfBookingRevision??0} canEdit={props.canEdit}/>
@@ -235,7 +241,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>
         <CustomerLabelsSettings />
-        {props.canUnassignedPlans ? <Row title="提醒管理" summary={courseDisplayText("顧客待辦・顧客提醒・教師通知・發送紀錄", !!props.music)} action="管理" href="/dashboard/courses/reminders?tab=manager" /> : props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music)} action="管理" href="/dashboard/courses/reminders?tab=customer" /></FeatureEntry>}
+        {props.canUnassignedPlans ? <Row title="提醒管理" summary={personnelText(courseDisplayText("顧客待辦・顧客提醒・教師通知・發送紀錄", !!props.music))} action="管理" href="/dashboard/courses/reminders?tab=manager" /> : props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={personnelText(courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music))} action="管理" href="/dashboard/courses/reminders?tab=customer" /></FeatureEntry>}
         {props.canCare && <Row title="顧客關懷" summary="生日・未回課・方案關懷" action="查看" href="/dashboard/growth" />}
         {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href="/dashboard/settings/referral-share" /></FeatureEntry>}
         {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href="/dashboard/settings/digital-butler" /></FeatureEntry>}

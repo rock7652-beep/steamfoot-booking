@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -27,6 +28,7 @@ export function CourseTodayList({
   canCreate: boolean;
   canEdit: boolean;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [selected, setSelected] = useState<string | null>(null);
   const session = sessions.find((s) => s.id === selected);
   return (
@@ -40,7 +42,7 @@ export function CourseTodayList({
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["時間", "課程", courseDisplayText("教練", music), "教室", "已預約／上限", "名單與出席"].map((h) => (
+              {["時間", "課程", personnelText(courseDisplayText("教練", music)), "教室", "已預約／上限", "名單與出席"].map((h) => (
                 <th className="whitespace-nowrap px-4 py-3" key={h}>
                   {h}
                 </th>

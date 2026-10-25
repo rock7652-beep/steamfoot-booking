@@ -2,17 +2,20 @@
 import { useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import {savedWeeklyHours,weeklyState} from "@/lib/course-weekly-hours-save";
+import { SETTINGS_SAVED } from "@/lib/music-subject-save";
 import { usePathname } from "next/navigation";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 type Period = { openTime: string; closeTime: string };
 type Day = { dayOfWeek: number; dayName: string; persisted?: boolean; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
-export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }: { storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
+export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, confirmationRequired = false }: { confirmationRequired?:boolean; storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
   const [days, setDays] = useState(() => initial.map(day => ({ ...day, periods: day.periods.length ? day.periods.map(p => ({ openTime: p.openTime, closeTime: p.closeTime })) : [{ openTime: day.openTime ?? "10:00", closeTime: day.closeTime ?? "22:00" }] })));
   const [saved, setSaved] = useState(() => days.filter(day => day.persisted !== false));
   const initialDays = useRef(days);
   const [source, setSource] = useState(1);
   const [targets, setTargets] = useState<number[]>([]);
+  const [confirmedSetup, setConfirmedSetup] = useState(!confirmationRequired);
+  const needsConfirmation = confirmationRequired && !confirmedSetup;
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
@@ -23,13 +26,15 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }
   useSettingsPanelGuard(changed.length > 0, pending || request.uncertain);
   function update(dow: number, change: Partial<Day>) { setDays(previous => previous.map(day => day.dayOfWeek === dow ? { ...day, ...change } : day)); setMessage(""); }
   return <form aria-label="每週營業時間" className="rounded-xl border bg-white p-3" onSubmit={event => {
-    event.preventDefault(); if (saving.current || (!changed.length && !request.uncertain) || !canManage) return;
+    event.preventDefault(); if (saving.current || (!changed.length && !needsConfirmation && !request.uncertain) || !canManage) return;
     saving.current = true; setMessage("");
     start(async () => {
       try {
-        const result = await request.save({days:changed.map(({ dayOfWeek, isOpen, periods }) => ({ dayOfWeek, isOpen, periods })),expected:authority.map(day=>weeklyState.parse(day))});
+        const result = await request.save({confirmForSetup:needsConfirmation,days:(needsConfirmation?days:changed).map(({ dayOfWeek, isOpen, periods }) => ({ dayOfWeek, isOpen, periods })),expected:authority.map(day=>weeklyState.parse(day))});
         if (!result.success) { setMessage(result.error ?? "儲存失敗，修改已保留"); return; }
         const confirmed=result.data.map(day=>({...day,periods:day.periods.length?day.periods:[{openTime:day.openTime??"10:00",closeTime:day.closeTime??"22:00"}]}));
+        setConfirmedSetup(true);
+        window.dispatchEvent(new CustomEvent(SETTINGS_SAVED,{detail:{storeId}}));
         setAuthority(result.data);setDays(confirmed);setSaved(confirmed.filter(day=>day.persisted));setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存每週營業時間");
         // Calendar reconciliation is independent of the committed editor state.
         void Promise.resolve().then(()=>onSaved(result.data)).catch(()=>setMessage("每週設定已儲存；月曆更新失敗，請重新整理核對。"));
@@ -56,6 +61,6 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }
       </div>
     </fieldset>}
     {message && <p role="status" className="mt-3 whitespace-pre-wrap text-sm text-amber-800">{message}</p>}
-    {canManage && <div className="sticky bottom-0 z-10 mt-3 flex flex-wrap items-center justify-end gap-3 border-t bg-white py-3"><span className="mr-auto text-xs text-earth-500">{changed.length ? `${changed.length} 天尚未儲存` : "尚未變更"}</span><button type="button" disabled={pending || request.uncertain || !changed.length} onClick={() => { setDays(initialDays.current.map(day => saved.find(s => s.dayOfWeek === day.dayOfWeek) ?? day)); setMessage(""); }} className="min-h-11 rounded border px-3 disabled:opacity-50">還原修改</button><button type="submit" disabled={pending || (!changed.length && !request.uncertain)} className="min-h-11 rounded bg-primary-700 px-4 text-white disabled:opacity-50">{pending ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : "儲存每週設定"}</button></div>}
+    {canManage && <div className="sticky bottom-0 z-10 mt-3 flex flex-wrap items-center justify-end gap-3 border-t bg-white py-3"><span className="mr-auto text-xs text-earth-500">{changed.length ? `${changed.length} 天尚未儲存` : "尚未變更"}</span><button type="button" disabled={pending || request.uncertain || !changed.length} onClick={() => { setDays(initialDays.current.map(day => saved.find(s => s.dayOfWeek === day.dayOfWeek) ?? day)); setMessage(""); }} className="min-h-11 rounded border px-3 disabled:opacity-50">還原修改</button><button type="submit" disabled={pending || (!changed.length && !needsConfirmation && !request.uncertain)} className="min-h-11 rounded bg-primary-700 px-4 text-white disabled:opacity-50">{pending ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : needsConfirmation ? "確認並儲存營業時間" : "儲存每週設定"}</button></div>}
   </form>;
 }

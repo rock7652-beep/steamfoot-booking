@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -20,6 +21,7 @@ export function ReminderTabs({
   coach?: boolean;
   music?: boolean;
 }) {
+  const personnelText = useCoursePersonnelText();
   const router = useRouter();
   const panelNavigate = useSettingsPanelNavigation();
   const storageKey = `reminder-tab:${storeId}:${baseHref}`;
@@ -43,7 +45,7 @@ export function ReminderTabs({
       {[
         { key: "manager", label: "店長通知" },
         { key: "customer", label: "顧客提醒" },
-        ...(coach?[{key:"coach",label:music ? "教師通知" : "教練通知"}]:[]),
+        ...(coach?[{key:"coach",label:music ? personnelText("教師通知") : personnelText("教練通知")}]:[]),
         { key: "logs", label: "發送紀錄" },
       ].filter(t => !customerOnly || t.key !== "manager").map((t) => (
         <DashboardLink

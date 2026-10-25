@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -14,6 +15,7 @@ type Preference = { mode: "show" | "later" | "never"; login?: string };
 export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, login, manual = false, localSections = false, studentHref: sourceStudentHref }: {
   localSections?:boolean; storeId?: string; steps: CourseSetupStep[]; preference: Preference; login: string; manual?: boolean; studentHref?: string;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [updated, setUpdated] = useState<{ source: CourseSetupStep[]; steps: CourseSetupStep[]; studentHref?: string } | null>(null);
   const steps = updated?.source === sourceSteps ? updated.steps : sourceSteps;
   const studentHref = updated?.source === sourceSteps ? updated.studentHref : sourceStudentHref;
@@ -66,12 +68,12 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
     if (manual || !reminderEnabled) return;
     const saved = steps.filter(step => step.done && previous.some(old => old.id === step.id && !old.done));
     if (!saved.length) return;
-    toast.success(completed ? "基本設定已完成" : `${saved.map(step => step.label).join("、")} · 已完成`, {
-      description: next ? `下一步：${next.label}` : "可查看課表，或在課程詳情加入學員。",
+    toast.success(completed ? "基本設定已完成" : `${saved.map(step => personnelText(step.label)).join("、")} · 已完成`, {
+      description: next ? `下一步：${personnelText(next.label)}` : "可查看課表，或在課程詳情加入學員。",
       duration: 10000,
       action: { label: next ? "繼續下一步" : "查看課表", onClick: () => router.push(resolveDashboardHref(next ? courseSetupHref(next) : "/dashboard/courses", pathname)) },
     });
-  }, [steps, manual, reminderEnabled, completed, next, pathname, router]);
+  }, [steps, manual, reminderEnabled, completed, next, pathname, router, personnelText]);
   function remind(mode: Preference["mode"]) {
     if (pending) return;
     start(async () => {
@@ -82,17 +84,17 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
   }
   const stepList = <ol className="divide-y divide-earth-100">{steps.map((s, i) => <li key={s.id} className="flex items-center gap-3 py-2">
     <span className={s.done ? "text-primary-700" : "text-earth-500"}>{s.done ? "✓" : i + 1}</span>
-    <div className="min-w-0 flex-1"><strong className="text-sm text-primary-900">{s.label}</strong>
+    <div className="min-w-0 flex-1"><strong className="text-sm text-primary-900">{personnelText(s.label)}</strong>
       {!s.done && <span className={`ml-2 text-sm ${s.status === "repair" ? "text-amber-800" : "text-earth-600"}`}>{s.status === "repair" ? "需修正" : "尚未設定"}</span>}
-      <p className="text-sm text-earth-600">{s.hint}</p></div>
+      <p className="text-sm text-earth-600">{personnelText(s.hint)}</p></div>
     <DashboardLink href={courseSetupHref(s)} onClick={() => setOpen(false)} className="inline-flex min-h-11 shrink-0 items-center px-3 text-sm text-primary-800">{s.done ? "查看" : s.status === "repair" ? "前往修正" : "前往設定"} →</DashboardLink>
   </li>)}</ol>;
   return <>
     {manual ? <button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-800" onClick={() => setOpen(true)}>{completed ? "設定完成" : "開始設定"} · {count}/{steps.length}</button>
       : (current || reminderEnabled && !completed) ? <section aria-label="開始設定" className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-primary-50/50 px-4 py-2 text-sm">
-        <strong className="text-primary-900">{current ? `第 ${currentIndex + 1}/${steps.length} 步 · ${current.label}${current.done ? " · 已完成" : ""}` : "繼續設定"}</strong>
+        <strong className="text-primary-900">{current ? `第 ${currentIndex + 1}/${steps.length} 步 · ${personnelText(current.label)}${current.done ? " · 已完成" : ""}` : "繼續設定"}</strong>
         <span className="text-earth-600">已完成 {count}/{steps.length}</span>
-        {next ? <DashboardLink href={courseSetupHref(next)} className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800">{current?.done ? "繼續下一步" : "下一步"}：{next.label} →</DashboardLink>
+        {next ? <DashboardLink href={courseSetupHref(next)} className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800">{current?.done ? "繼續下一步" : "下一步"}：{personnelText(next.label)} →</DashboardLink>
           : <DashboardLink href="/dashboard/courses" className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800">查看課表 →</DashboardLink>}
         <button type="button" className="ml-auto min-h-11 px-3 font-medium text-primary-800" onClick={() => setOpen(true)}>查看全部步驟 →</button>
         {!current && <><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={() => remind("later")}>稍後設定</button><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={() => remind("never")}>不再提醒</button></>}

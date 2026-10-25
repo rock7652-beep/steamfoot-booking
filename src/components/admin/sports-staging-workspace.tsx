@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {
   useState,
   useId,
@@ -53,6 +54,7 @@ export function SportsStagingWorkspace({
   production?: boolean;
   storeName?: string;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [live, setLive] = useState(initial),
     [pending, setPending] = useState(false);
   const readGeneration = useRef(0);
@@ -379,7 +381,7 @@ export function SportsStagingWorkspace({
               <input
                 aria-label="搜尋"
                 placeholder={
-                  tab === "課表" ? "搜尋運動、老師或空間" : "搜尋名稱"
+                  tab === "課表" ? personnelText("搜尋運動、老師或空間") : "搜尋名稱"
                 }
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -801,7 +803,7 @@ export function SportsStagingWorkspace({
                   堂；點數依適用課程扣抵。已售方案與歷史課次保留原資料。
                 </p>
                 <fieldset className="full learner">
-                  <legend>本課程可授課教練（由有權限者設定）</legend>
+                  <legend>{personnelText("本課程可授課教練（由有權限者設定）")}</legend>
                   {live.coaches.map((c) => (
                     <label key={c.id} className="check">
                       <input
@@ -947,7 +949,7 @@ export function SportsStagingWorkspace({
                   </Field>
                 )}
                 {!rental && (
-                  <Field label="授課教練">
+                  <Field label={personnelText("授課教練")}>
                     <select
                       value={draft.coachId}
                       onChange={(e) => patch({ coachId: e.target.value, coach: live.coaches.find(c => c.id === e.target.value)?.name ?? "" })}

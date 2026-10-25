@@ -122,6 +122,7 @@ interface Props {
   canManage: boolean;
   isHeadquarters: boolean;
   isCourseStore?: boolean;
+  courseHoursConfirmationRequired?: boolean;
   isSpaStore: boolean;
 }
 
@@ -149,6 +150,7 @@ export function ScheduleManager({
   isHeadquarters,
   isSpaStore,
   isCourseStore = false,
+  courseHoursConfirmationRequired = false,
 }: Props) {
   // 蒸足採 30/60/90/120；SPA 保留既有 15/30 排程設定，不受此頁變更影響。
   const intervalOptions = isSpaStore
@@ -1237,7 +1239,7 @@ export function ScheduleManager({
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
-        {isCourseStore ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage&&!locked} onSaved={async days => {
+        {isCourseStore ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} confirmationRequired={courseHoursConfirmationRequired} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage&&!locked} onSaved={async days => {
           setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, persisted:updated.persisted, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
           dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
           await invalidateAndReloadCurrentMonth();

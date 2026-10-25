@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {musicBatchLabel,musicPeriodLabel} from "@/lib/music-purchase-periods";
 import { useState } from "react";
 import type { CourseMemberRecords } from "@/server/queries/course-member-records";
@@ -7,10 +8,11 @@ import { formatTWDateTime } from "@/lib/date-utils";
 const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const method=(s:string)=>({CASH:"現金",BANK_TRANSFER:"轉帳",CARD:"刷卡",OTHER:"其他"}[s]??"其他");
 export function CourseMemberPaymentRecords({records,music,templates,embedded=false}:{records:CourseMemberRecords;music:boolean;templates:Array<{id:string;name:string}>;embedded?:boolean}) {
+  const personnelText = useCoursePersonnelText();
  const [subject,setSubject]=useState("");
  const rows=records.filter(r=>!subject||r.templateIds.includes(subject));
  const subjects=templates.filter(t=>records.some(r=>r.templateIds.includes(t.id)));
- const lessons=(rows:CourseMemberRecords[number]["lessons"])=>rows.length?<ul className="cp-member-lessons">{rows.map(l=><li key={l.id}><time>{formatTWDateTime(new Date(l.date))}</time><span>{l.ordinal?`第 ${l.ordinal} 堂 · `:""}{l.name}</span><span>{l.status}{!music&&l.used?` · ${l.used} ${l.unit === "SESSION" ? "堂" : "點"}`:""}</span></li>)}</ul>:<p className="cp-muted">尚無課堂</p>;
+ const lessons=(rows:CourseMemberRecords[number]["lessons"])=>rows.length?<ul className="cp-member-lessons">{rows.map(l=><li key={l.id}><time>{formatTWDateTime(new Date(l.date))}</time><span>{l.ordinal?`第 ${l.ordinal} 堂 · `:""}{l.name}</span><span>{personnelText(l.status)}{!music&&l.used?` · ${l.used} ${l.unit === "SESSION" ? "堂" : "點"}`:""}</span></li>)}</ul>:<p className="cp-muted">尚無課堂</p>;
  const content=(r:CourseMemberRecords[number])=><>
   <div className="cp-member-money">{r.due!==null&&<span>應收 {money(r.due)}</span>}<span>已收 {money(r.received)}</span>{r.due!==null&&r.status==="CONFIRMED"&&<span>未收 {money(Math.max(0,r.due-r.received))}</span>}{r.status!=="CONFIRMED"&&<span>{r.status==="PENDING"?"待核帳":r.status==="REFUNDED"?"已退款":r.status==="VOIDED"?"已作廢":r.status}</span>}</div>
   {r.receipts.map(receipt=><p className="cp-payment-line" key={receipt.id}><time>{formatTWDateTime(new Date(receipt.date))}</time><span>{method(receipt.method)}</span><strong>{money(receipt.amount)}</strong></p>)}

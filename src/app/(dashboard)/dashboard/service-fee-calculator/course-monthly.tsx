@@ -1,3 +1,4 @@
+import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { canViewCourseMonthly, canOperateCourseMonthly } from "@/lib/course-monthly-access";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import { RosterTable } from "@/components/admin/roster-table";
@@ -22,7 +23,9 @@ const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 export async function CourseMonthly({storeId,month,readOnly=false,teacherId,salaryData}:{storeId:string;month:string;readOnly?:boolean;teacherId?:string;salaryData?:string}){
  const user=await getCurrentUser();
  if(!user||!canViewCourseMonthly(user.role,musicNativeWorkflowEnabled(storeId))||!await checkPermission(user.role,user.staffId,"report.read"))return <p>僅店長可查看課程月結。</p>;
- if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p>尚未授權查看教師月結。</p>;
+ const personnelText = await getCoursePersonnelText(storeId);
+ if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p>{personnelText("尚未授權查看教師月結。")}</p>;
+
  const music=await isMusicFinanceStore(storeId);
  if(!canOperateCourseMonthly(user.role,musicNativeWorkflowEnabled(storeId)))readOnly=true;
  const scope=await readMusicFinanceScope(user,storeId);
@@ -49,8 +52,8 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  {user.role==="ADMIN"&&<p className="text-sm text-earth-600">HQ 測試站操作：可確認月結、登錄發薪及沖回；操作會留下紀錄。</p>}
- <PageHeader title={music ? "教師薪資與月結" : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">返回教師管理</Link>}<IncomeMonthFilter month={month}/></div>}/>
- {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}
+ <PageHeader title={music ? personnelText("教師薪資與月結") : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">{personnelText("返回教師管理")}</Link>}<IncomeMonthFilter month={month}/></div>}/>
+ {scope!==null&&<p className="text-sm text-earth-500">{personnelText("僅顯示授權教師；全店月結確認由全店授權人員處理。")}</p>}
  <CourseMonthlyReport canReadBookings={await checkPermission(user.role,user.staffId,"booking.read")} music={music} initialTeacherId={music?teacherId:undefined} canPay={canPay&&!readOnly} key={`${month}:${teacherId??"all"}:${legacyView}`} lines={report.lines} status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>} confirm={!confirmed&&!readOnly&&canConfirm&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
  {!readOnly&&scope===null&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&canConfirm&&!readOnly}/>
