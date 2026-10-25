@@ -32,4 +32,12 @@
 
 ## 發布
 
-待記錄正式建置、網域與唯讀檢查結果。證據位於 artifacts/beauty-money-consistency-20261026/。
+- PR #1424 已合併：https://github.com/rock7652-beep/steamfoot-booking/pull/1424。
+- 正式提交：`cffb9265abcb72a80e8b6a8195e23a40b555a72d`。
+- Production：`dpl_gnV42baMM67Q7UWAwn72qUcnDV7n`，READY。readonly preflight 通過，`migration_skipped_no_target`；未執行資料庫升級。
+- `www.steamfoot.com` 與 `steamfoot.com` 均指向本次部署。前版 `dpl_44bvEDCAvkGm7pNSq9vQG2p9KyWV` 留存。
+- 唯讀匿名檢查官網／HQ 登入／session 回應正常；私有美業頁正確轉至登入，沒有 5xx。這不是登入後實際收退款驗收。
+- 截至 2026-10-25 22:34:23 UTC，新部署近五分鐘未查到 error／fatal；僅代表該查詢視窗。
+- 未查核或更正既有正式交易的實際分配。已受舊邏輯影響的分配快照仍保留，需逐筆核對及另行更正，不以本次程式發布回填。
+
+證據位於 artifacts/beauty-money-consistency-20261026/。

@@ -1,0 +1,35 @@
+{
+  "state": "READY",
+  "deploymentId": "dpl_gnV42baMM67Q7UWAwn72qUcnDV7n",
+  "url": "steamfoot-booking-gchizs6un-rock7652-2111s-projects.vercel.app",
+  "commit": "cffb9265abcb72a80e8b6a8195e23a40b555a72d",
+  "previousDeploymentId": "dpl_44bvEDCAvkGm7pNSq9vQG2p9KyWV",
+  "aliases": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "alias": "www.steamfoot.com",
+        "deploymentId": "dpl_gnV42baMM67Q7UWAwn72qUcnDV7n",
+        "redirect": null
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "alias": "steamfoot.com",
+        "deploymentId": "dpl_gnV42baMM67Q7UWAwn72qUcnDV7n",
+        "redirect": "www.steamfoot.com"
+      }
+    }
+  ],
+  "buildChecks": [
+    "[store-line-additions-preflight] passed",
+    "[beauty-notification-preflight] enabled=true worker=shared-main-v1 readonly=true",
+    "[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=module editing_enabled=true",
+    "ci-migrate: migration_skipped_no_target"
+  ],
+  "buildFinal": [
+    "Build Completed in /vercel/output [3m]"
+  ],
+  "errorScan": "No error/fatal logs for this deployment during five-minute query ending 2026-10-25T22:34:23Z. Not authenticated financial workflow validation."
+}
