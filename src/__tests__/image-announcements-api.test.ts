@@ -80,3 +80,5 @@ describe("公開圖片及後台預覽", () => {
     mock.store.mockResolvedValue({ id: "store-a", operatingStatus: "DISABLED" }); expect((await read(item.id)).status).toBe(404);
   });
 });
+
+it("serves published announcements for trial stores without weakening disabled-store or preview checks",async()=>{mock.store.mockResolvedValue({id:"store-a",operatingStatus:"TRIAL"});expect((await read("list")).status).toBe(200);expect((await read(item.id)).status).toBe(200);mock.store.mockResolvedValue({id:"store-a",operatingStatus:"DISABLED"});expect((await read("list")).status).toBe(404);});

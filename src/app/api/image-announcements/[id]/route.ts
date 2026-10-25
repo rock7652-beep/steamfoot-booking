@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const store = await prisma.store.findUnique({ where: { slug: url.searchParams.get("store") ?? "" }, select: { id: true, operatingStatus: true } });
   const missing = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-  if (!store || store.operatingStatus !== "ACTIVE") return missing();
+  if (!store || !["ACTIVE", "TRIAL"].includes(store.operatingStatus)) return missing();
   let preview = false;
   if (url.searchParams.get("preview") === "1") {
     const user = await getCurrentUser();

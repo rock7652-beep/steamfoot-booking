@@ -203,7 +203,9 @@ it("renders the requested beauty menu in order while keeping personnel separate 
  for(let i=0;i<positions.length;i++){expect(positions[i],labels[i]).toBeGreaterThanOrEqual(0);if(i)expect(positions[i]).toBeGreaterThan(positions[i-1]);}
  expect(html).toContain('href="/s/store-a/admin/dashboard/staff"');
  expect(html).toContain('href="/s/store-a/admin/dashboard/image-announcements"');
- expect(html).not.toContain('href="/s/store-a/admin/dashboard/inventory"');
+ // Shared inventory/work orders are now part of the approved beauty navigation.
+ expect(html).toContain('href="/s/store-a/admin/dashboard/inventory"');
+ expect(html).toContain('href="/s/store-a/admin/dashboard/work-orders"');
  expect(html).not.toContain('href="/s/store-a/admin/dashboard/courses"');
 });
 
@@ -212,4 +214,10 @@ it("shows the steamfoot bell only in an authorized single-store scope",()=>{
  expect(render("steamfoot",null)).not.toContain('data-steamfoot-notice-store=');
  expect(render("steamfoot","a","/s/a/admin/dashboard",false,false,[])).not.toContain('data-steamfoot-notice-store=');
  expect(render("course","a","/s/a/admin/dashboard")).not.toContain('data-steamfoot-notice-store=');
+});
+
+it('beauty exposes shared work orders and inventory while respecting hidden entitlements and permissions',()=>{
+ const enabled=render('beauty','a','/s/a/admin/dashboard/beauty');expect(enabled).toContain('工單');expect(enabled).toContain('進銷存');
+ expect(render('beauty','a','/s/a/admin/dashboard/beauty',false,false,['booking.read'])).not.toContain('>進銷存<');
+ const hidden=render('beauty','a','/s/a/admin/dashboard/beauty',false,true,[...ALL_PERMISSIONS],true);expect(hidden).not.toContain('>進銷存<');
 });

@@ -8,4 +8,6 @@ export const BEAUTY_PERMISSIONS:readonly PermissionCode[]=[
  'cashbook.read','cashbook.create','cashDrawer.read','cashDrawer.open','cashDrawer.close','cashDrawer.entry',
  'teacher.compensation.read','teacher.compensation.manage','teacher.settlement.read','teacher.settlement.confirm',
  'staff.view','staff.manage',
+ 'work_order.read','work_order.write',
+ 'inventory.read','inventory.write','inventory.manage','inventory.cost.read','inventory.receive','inventory.purchase.pay','inventory.price.manage','inventory.price.override','inventory.refund','inventory.payment.correct',
 ];

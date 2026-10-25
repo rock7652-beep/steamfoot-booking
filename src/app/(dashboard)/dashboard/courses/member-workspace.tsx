@@ -722,6 +722,7 @@ export function CourseMemberWorkspace({
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
+                {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {(source?.canManageMembers??canAssign) && sharingVisible && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
