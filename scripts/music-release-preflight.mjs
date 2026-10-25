@@ -33,9 +33,10 @@ export async function runMusicNativeSchemaPreflight(env=process.env){
 }
 export async function musicBuildPreflight(env=process.env){
  if(env.VERCEL_ENV==='production'&&env.BEAUTY_MODULE_ENABLED==='1'){
-  const {beautyProductionReleasePreflight}=await import('./beauty-production-release-preflight.mjs');
+  const {beautyProductionReleasePreflight,beautyPrismaProductionPreflight}=await import('./beauty-production-release-preflight.mjs');
   await beautyProductionReleasePreflight(env);
-  console.info('[beauty-production-preflight] runtime_login=true tls=true schema_tables=14 readonly=true migration_target_absent=true');
+  await beautyPrismaProductionPreflight(env);
+  console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true');
  }
 
  const refs=[env.VERCEL_GIT_COMMIT_REF,env.WORKERS_CI_BRANCH,env.CF_PAGES_BRANCH];

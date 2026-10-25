@@ -1,9 +1,26 @@
+import {parse} from 'pg-connection-string';
+import {beautyProductionCaPath,verifyBeautyProductionCa} from '../../scripts/beauty-production-ca.mjs';
 import {describe,expect,it,vi} from 'vitest';
 import {musicBuildPreflight} from '../../scripts/music-release-preflight.mjs';
 import {beautyDatabaseSelection} from '../../scripts/beauty-database-scope.mjs';
-import {beautyProductionReleasePreflight,validateBeautyProductionRelease} from '../../scripts/beauty-production-release-preflight.mjs';
+import {beautyProductionReleasePreflight,validateBeautyProductionRelease,beautyProductionFailureDiagnostic,beautyPrismaProductionPreflight} from '../../scripts/beauty-production-release-preflight.mjs';
 const env={NODE_ENV:'production' as const,VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:'postgresql://postgres.qijlnhtpbintanzpxkvf:original@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?schema=public',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',BEAUTY_DATABASE_PASSWORD:'a'.repeat(64),BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',BEAUTY_CHARGE_RULES_STORE_IDS:''};
 describe('reviewed production Beauty connection',()=>{
+ it('checks the live Prisma adapter identity in a read-only transaction and disconnects',async()=>{
+  const execute=vi.fn(),query=vi.fn().mockResolvedValueOnce([{role:env.BEAUTY_DATABASE_ROLE,database:'postgres'}]).mockResolvedValueOnce([]);
+  const disconnect=vi.fn(),factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:execute,$queryRawUnsafe:query}),$disconnect:disconnect}));
+  await expect(beautyPrismaProductionPreflight(env,factory)).resolves.toMatchObject({prisma:true,readonly:true});expect(execute).toHaveBeenCalledWith('SET TRANSACTION READ ONLY');expect(disconnect).toHaveBeenCalledOnce();
+ });
+
+ it('pins the public Supabase root and keeps strict verification for Prisma and pg',async()=>{
+  expect(verifyBeautyProductionCa().ca).toBe(true);const u=new URL(beautyDatabaseSelection(env)!);
+  expect(u.searchParams.get('sslrootcert')).toBe(beautyProductionCaPath());expect(u.searchParams.get('sslaccept')).toBe('strict');
+  let captured='';const create=vi.fn(async(config:{connectionString:string})=>{captured=config.connectionString;return {connect:vi.fn().mockRejectedValue(Object.assign(new Error('secret URL must never be logged'),{code:'SELF_SIGNED_CERT_IN_CHAIN'})),end:vi.fn()};});
+  let diagnostic='';try{await beautyProductionReleasePreflight(env,create);}catch(e){diagnostic=beautyProductionFailureDiagnostic(e);}
+  expect(diagnostic).toContain('stage=connect code=SELF_SIGNED_CERT_IN_CHAIN');expect(diagnostic).not.toContain('secret URL');expect(diagnostic).not.toContain(env.BEAUTY_DATABASE_PASSWORD);
+  const config=parse(captured);expect(new URL(captured).searchParams.get('sslmode')).toBe('verify-full');expect(config.ssl).toMatchObject({ca:expect.stringContaining('BEGIN CERTIFICATE')});expect((config.ssl as {rejectUnauthorized?:boolean}).rejectUnauthorized).not.toBe(false);
+ });
+
  it('blocks the actual build entry before database construction when a migration target leaks in',async()=>{await expect(musicBuildPreflight({...env,PRODUCTION_MIGRATION_TARGET:'unreviewed'})).rejects.toThrow('scope');});
  it('derives only the endpoint and uses distinct credentials without mutating the main URL',()=>{const before={...env};const u=new URL(beautyDatabaseSelection(env)!);expect(u.hostname).toBe(new URL(env.DATABASE_URL).hostname);expect(decodeURIComponent(u.username)).toBe('steamfoot_beauty_prod_20261025.qijlnhtpbintanzpxkvf');expect(u.password).toBe(env.BEAUTY_DATABASE_PASSWORD);expect(u.searchParams.get('sslmode')).toBe('require');expect(u.searchParams.get('pgbouncer')).toBe('true');expect(env).toEqual(before);});
  it('also derives a verified direct host',()=>{expect(new URL(beautyDatabaseSelection({...env,DATABASE_URL:'postgresql://postgres:original@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres'})!).username).toBe(env.BEAUTY_DATABASE_ROLE);});

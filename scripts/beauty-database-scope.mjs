@@ -1,3 +1,4 @@
+import {beautyProductionCaPath} from './beauty-production-ca.mjs';
 /** Server configuration only. Errors deliberately omit URLs and credentials. */
 export function beautyDatabaseSelection(env) {
   const mode = env.BEAUTY_DATABASE_MODE ?? 'legacy';
@@ -21,7 +22,7 @@ export function beautyDatabaseSelection(env) {
     if(!['postgres:','postgresql:'].includes(endpoint.protocol)||endpoint.pathname!=='/postgres'||endpoint.hash||!['','5432','6543'].includes(endpoint.port)||(!direct&&!pooled))return invalid();
     endpoint.username=env.BEAUTY_DATABASE_ROLE+(pooled?'.'+project:'');
     endpoint.password=env.BEAUTY_DATABASE_PASSWORD;
-    endpoint.search='';endpoint.searchParams.set('schema','public');endpoint.searchParams.set('sslmode','require');
+    endpoint.search='';endpoint.searchParams.set('schema','public');endpoint.searchParams.set('sslmode','require');endpoint.searchParams.set('sslaccept','strict');endpoint.searchParams.set('sslrootcert',beautyProductionCaPath());
     endpoint.searchParams.set('connection_limit','1');endpoint.searchParams.set('pool_timeout','10');endpoint.searchParams.set('connect_timeout','10');
     if(pooled){endpoint.searchParams.set('pgbouncer','true');endpoint.searchParams.set('statement_cache_size','0');}
     value=endpoint.toString();

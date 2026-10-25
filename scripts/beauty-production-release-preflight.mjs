@@ -1,3 +1,4 @@
+import {verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
 export const BEAUTY_PRODUCTION_ROLE='steamfoot_beauty_prod_20261025';
@@ -12,7 +13,10 @@ export function validateBeautyProductionRelease(env){
 export async function beautyProductionReleasePreflight(env=process.env,createClient){
  let stage='scope',client;
  try{
- const connectionString=validateBeautyProductionRelease(env);
+ const selected=validateBeautyProductionRelease(env);
+ stage='certificate';verifyBeautyProductionCa();
+ const pgUrl=new URL(selected);pgUrl.searchParams.set('sslmode','verify-full');
+ const connectionString=pgUrl.toString();
  const factory=createClient??(config=>import('pg').then(({Client})=>new Client(config)));
  client=await factory({connectionString,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000});
   stage='connect';
@@ -42,10 +46,30 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   error.beautyPreflightDiagnostic={stage,code};throw error;
  }finally{if(client)await client.end();}
 }
-if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
+if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
 
 export function beautyProductionFailureDiagnostic(error){
  const d=error?.beautyPreflightDiagnostic;
- if(!d||!['scope','connect','TLS','identity','role','schema','privileges','columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
+ if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-identity'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
  return `[beauty-production-preflight] blocked stage=${d.stage} code=${d.code}; no migrations applied`;
+}
+
+/** Exercise the same Prisma engine/TLS options as the live Beauty client, without store writes. */
+export async function beautyPrismaProductionPreflight(env=process.env,createClient){
+ let client,stage='scope';
+ try{
+  const url=validateBeautyProductionRelease(env);stage='certificate';verifyBeautyProductionCa();
+  const factory=createClient??(async config=>{const {PrismaClient}=await import('../generated/beauty-client/index.js');return new PrismaClient(config);});
+  client=await factory({datasources:{db:{url}},log:[]});stage='prisma-connect';await client.$connect();stage='prisma-identity';
+  await client.$transaction(async tx=>{
+   await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+   const rows=await tx.$queryRawUnsafe('SELECT current_user AS role,current_database() AS database');
+   if(rows.length!==1||rows[0].role!==BEAUTY_PRODUCTION_ROLE||rows[0].database!=='postgres')throw Error('Beauty Prisma runtime identity mismatch');
+   await tx.$queryRawUnsafe('SELECT id FROM "BeautySetting" LIMIT 0');
+  });
+  return {prisma:true,readonly:true};
+ }catch(error){
+  const code=typeof error?.code==='string'&&/^[A-Z0-9_]{2,64}$/.test(error.code)?error.code:'CHECK';
+  error.beautyPreflightDiagnostic={stage,code};throw error;
+ }finally{if(client)await client.$disconnect();}
 }
