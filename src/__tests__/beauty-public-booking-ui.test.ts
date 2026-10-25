@@ -171,6 +171,11 @@ it("retries notification finalization with the identical committed booking reque
   expect(m.submit.mock.calls[1]).toEqual(["soulife",original,"verified-entry"]);
   expect(host.textContent).toContain("LINE 通知已連結");expect(host.textContent).toContain("預約成功");
 });
+it("starts another verified booking through a fresh identity entry instead of reusing the consumed token", async () => {
+  const host=mount({entry:"used-after-success",publicInfo:{lineEntryHref:"https://liff.line.me/902-synthetic/public-trial"}});
+  await chooseTime(host);set(field(host,"姓名"),"預約人");await act(async()=>button(host,"確認預約").click());
+  expect([...host.querySelectorAll("a")].find(a=>a.textContent==="再預約一筆")?.href).toBe("https://liff.line.me/902-synthetic/public-trial");
+});
 it("does not collect personal data when no trial service is available", () => {
   const host = mount({ catalog: { ...catalog, services: [] } }); expect(host.querySelector("input")).toBeNull(); expect(host.textContent).toContain("目前尚無可預約的體驗服務");
 });

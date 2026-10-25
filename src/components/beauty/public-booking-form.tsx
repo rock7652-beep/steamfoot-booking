@@ -173,7 +173,9 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
         {mapUrl && <a href={mapUrl} target="_blank" rel="noopener noreferrer">查看地圖</a>}
         <a href={`/s/${slug}/beauty`}>會員專區（需登入）</a>
       </div>
-    </div><button type="button" onClick={() => { requestKey.current = crypto.randomUUID(); setPeople([blank(sequence.current++)]); setTime(""); setSlots([]); setQueried(false); setSeparateContact(false); setContactName(""); setContactPhone(""); setStage("service"); setErrors({}); setError(""); }}>再預約一筆</button>
+    </div>{entry
+      ? <a href={publicInfo?.lineEntryHref ?? `/beauty-trial/${encodeURIComponent(slug)}`} aria-disabled={pending} onClick={event => { if (lock.current) event.preventDefault(); }} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-earth-200 bg-white px-4 py-2">再預約一筆</a>
+      : <button type="button" disabled={pending} onClick={() => { if (lock.current) return; requestKey.current = crypto.randomUUID(); setPeople([blank(sequence.current++)]); setTime(""); setSlots([]); setQueried(false); setSeparateContact(false); setContactName(""); setContactPhone(""); setStage("service"); setErrors({}); setError(""); }}>再預約一筆</button>}
   </section>;
   return <form noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
     {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified}/>}

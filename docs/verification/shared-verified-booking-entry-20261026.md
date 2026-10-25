@@ -23,9 +23,11 @@
 
 成功頁只依後端finalization結果顯示「LINE通知已連結」，不憑entry參數宣稱成功。提醒仍受好友／封鎖、本店通道可達性、配額、方案與通知設定控制，沒有宣稱實際送達。未驗證的訪客仍按各模組原規則使用；本次沒有授予僅憑電話自動連結既有顧客的能力。
 
+已驗證預約的「再預約一筆」重新開啟本店LINE驗證入口，取得新的單次憑證，不重用已消耗entry；連結確認中禁止同時切換到新預約。
+
 ## 驗證與限制
 
-最終25檔／273項相關測試通過，TypeScript與diff檢查通過；修改檔ESLint無錯誤，LiffShell的hasWorkAccess未使用警告在原main已存在。
+相關測試、TypeScript與diff檢查通過；修改檔ESLint無錯誤，LiffShell的hasWorkAccess未使用警告在原main已存在。最終整合項數及CI結果記於PR。
 
 - 相關測試涵蓋API audience／店家／模組、本店Messaging探測、跨店與共用OA、外部登入啟動、既有phone與blocked身分、原命令恢復、opaque secret、一般token不可重用、會員登入／登記與通知路由。
 - PGlite隔離Postgres執行實際身分SQL，驗證新帳號、跨店沿用、不搶全域phone、staff／停用／owner衝突、重試、唯一scope、身分交易回復。這不代表已在正式受限角色或真人LINE跑過完整預約。
