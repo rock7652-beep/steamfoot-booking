@@ -22,4 +22,17 @@
 
 ## 發布狀態
 
-待提交、PR 合併與正式 Vercel 建置；本節完成後另附實際部署結果，不把候選驗證稱為已上線。
+PR #1415 已合併；正式 main `1f751f51c3bd2c2f7f25a52cb53ad65964f2f3b0` 建置中，deployment `dpl_HWZbgdhFaQJWWjr84yWjxJ9xGiSH`。已通過正式專用角色、TLS、Prisma、14 表與 shared todos 的 READ ONLY 預檢，`charge_scope=module editing_enabled=true`；既有 LINE worker 預檢通過，ci-migrate 為 `migration_skipped_no_target`。網站編譯與型別檢查完成，等待輸出發布及網域核對。
+
+
+## 正式發布完成
+
+- Vercel Production **READY**：`dpl_HWZbgdhFaQJWWjr84yWjxJ9xGiSH`，正式提交 `1f751f51c3bd2c2f7f25a52cb53ad65964f2f3b0`，PR [#1415](https://github.com/rock7652-beep/steamfoot-booking/pull/1415) 已合併。
+- `steamfoot.com` 與 `www.steamfoot.com` 都已指向此部署；apex 保留 308 導向 www。
+- 正式完整建置成功；美業 runtime/TLS/Prisma/shared todos/14 表唯讀預檢通過，收費 module scope 與編輯旗標正確，`ci-migrate: migration_skipped_no_target`。
+- 官網、HQ 登入、匿名 session 回應 200；HQ 美業及店家收費／營運未登入入口正常 307 導向登入，沒有 5xx 或 server error page。匿名 session 回傳 null 為正常，驗證腳本首次未處理 null 而中止，修正腳本後重新核對通過；沒有更動應用或原始測試。
+- 2026-10-26 04:40 台灣時間，按本 deployment 篩選最近五分鐘 error/fatal runtime logs 未找到紀錄；這是短時段 smoke，不代表全部正式業務流量驗收。
+- 本輪未登入正式店寫入收款／退款測試，未變更資料庫結構、環境旗標、既有交易或 LINE 設定。新成本由店家填寫後適用後續交易，舊交易不回推。
+- 本輪仍未發布 #1406 中其他不屬成本／分帳的修復。正式回退基準為先前 `feff085f` READY 部署 `dpl_7tJh4fM91dvRWy3bVxkW7gfzTQQh`；不自動 DROP 表或還原業務資料。
+
+[正式入口 HTTP 證據](evidence/20261026-cost-production-release/production-http.json)。

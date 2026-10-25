@@ -1,0 +1,31 @@
+{
+  "productionCommit": "1f751f51c3bd2c2f7f25a52cb53ad65964f2f3b0",
+  "pullRequest": 1415,
+  "candidateCommit": "0cb93e79045fdaefd504d91c5141a6616ba8f641",
+  "deploymentId": "dpl_HWZbgdhFaQJWWjr84yWjxJ9xGiSH",
+  "target": "production",
+  "projectId": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+  "tests": {
+    "beautyAndShared": {
+      "files": 34,
+      "passed": 317
+    },
+    "latestSports": {
+      "files": 8,
+      "passed": 92
+    }
+  },
+  "typescript": "passed",
+  "eslint": "passed",
+  "viewports": 4,
+  "schemaChanges": false,
+  "migrationTargetProvided": false,
+  "productionBusinessTestWrites": false,
+  "lineConfigurationChanged": false,
+  "status": "READY",
+  "verifiedAliases": [
+    "steamfoot.com",
+    "www.steamfoot.com"
+  ],
+  "postReleaseErrorLogCheck": "No error/fatal logs found in deployment-scoped 5m window at 2026-10-25T20:40:14Z"
+}
