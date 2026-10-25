@@ -27,4 +27,3 @@ Received: "<div data-store-view-content="true" style="display: contents;"><div c
       Tests  1 failed | 2 passed (3)
    Start at  20:24:54
    Duration  915ms (transform 236ms, setup 0ms, import 309ms, tests 199ms, environment 288ms)
-
