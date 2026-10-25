@@ -30,3 +30,22 @@ it("does not contact LINE at all while preview sending is disabled", async () =>
   expect(await pushMessage("a", "recipient", [{ type: "text", text: "test" }])).toMatchObject({ success: false, errorType: "preview_blocked" });
   expect(fetcher).not.toHaveBeenCalled();
 });
+it("uses an additional store's credentials and checks its bot before sending", async () => {
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([{
+    storeId: "store-soulife", slug: "soulife", providerId: "2005295754",
+    loginChannelId: "2010761154", messagingProviderId: "2005295754",
+    messagingChannelId: "2012197466", liffId: "2010761154-CmcQZ9Db",
+    basicId: "@046mqwnp", destination: "U" + "b".repeat(32),
+    accessTokenEnv: "LINE_SOULIFE_CHANNEL_ACCESS_TOKEN", channelSecretEnv: "LINE_SOULIFE_CHANNEL_SECRET",
+  }]));
+  vi.stubEnv("LINE_SOULIFE_CHANNEL_ACCESS_TOKEN", "soulife-test-only");
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ displayName: "test", basicId: "@046mqwnp", userId: "U" + "b".repeat(32) })))
+    .mockResolvedValueOnce(new Response("{}"));
+  vi.stubGlobal("fetch", fetcher);
+  expect(await pushMessage("store-soulife", "recipient", [{ type: "text", text: "test" }])).toMatchObject({ success: true });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetcher.mock.calls) {
+    expect(init.headers.Authorization).toBe("Bearer soulife-test-only");
+  }
+});

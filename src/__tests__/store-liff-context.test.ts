@@ -16,3 +16,36 @@ it.each(["STEAMFOOT", "SPA"])("preserves legacy %s central routing", async indus
   m.store.mockResolvedValue({ industryModule, liffId: null });
   await expect(assertStoreLiffContext({ id: "a", slug: "a" }, resolveStoreLiffContext("a"))).resolves.toBeUndefined();
 });
+
+const beautyConfig = {
+  storeId: "store-soulife", slug: "soulife", identityMode: "CENTRAL",
+  providerId: "2005295754", loginChannelId: "2010761154", messagingProviderId: "2005295754",
+  messagingChannelId: "2012197466", liffId: "2010761154-CmcQZ9Db", basicId: "@046mqwnp",
+  destination: "U" + "b".repeat(32), accessTokenEnv: "LINE_SOULIFE_CHANNEL_ACCESS_TOKEN",
+  channelSecretEnv: "LINE_SOULIFE_CHANNEL_SECRET",
+};
+function beautyContext() {
+  vi.stubEnv("CENTRAL_LINE_PROVIDER_ID", beautyConfig.providerId);
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([beautyConfig]));
+  return resolveStoreLiffContext("soulife");
+}
+it("accepts the registered beauty store and preserves its central account namespace", async () => {
+  const context = beautyContext();
+  m.store.mockResolvedValue({ industryModule: "BEAUTY", liffId: null });
+  expect(context).toMatchObject({ channelId: "2010761154", identityProvider: "line" });
+  await expect(assertStoreLiffContext({ id: "store-soulife", slug: "soulife" }, context)).resolves.toBeUndefined();
+});
+it.each([
+  { industryModule: "BEAUTY", liffId: "2010761154-another-store" },
+  { industryModule: "STEAMFOOT", liffId: null },
+  { industryModule: "SPA", liffId: null },
+])("rejects a conflicting module or LIFF for a registered store %j", row => {
+  const context = beautyContext();
+  m.store.mockResolvedValue(row);
+  return expect(assertStoreLiffContext({ id: "store-soulife", slug: "soulife" }, context)).rejects.toThrow();
+});
+it("does not authorize another store with the beauty store's context", async () => {
+  const context = beautyContext();
+  m.store.mockResolvedValue({ industryModule: "BEAUTY", liffId: beautyConfig.liffId });
+  await expect(assertStoreLiffContext({ id: "other", slug: "other" }, context)).rejects.toThrow("店家設定不匹配");
+});

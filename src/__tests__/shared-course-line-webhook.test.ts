@@ -53,3 +53,16 @@ it("keeps timestamp ordering predicates for redelivered friendship events", asyn
   const input = request(); await handleConfiguredCourseLineWebhook(input);
   expect(m.update.mock.calls[0][0].where.OR).toContainEqual({ lineLinkedAt: { lt: new Date(input.events[0].timestamp) } });
 });
+it("routes an additional official account only to its own verified memberships", async () => {
+  const addition = {
+    ...a, storeId: "store-soulife", slug: "soulife", sharedAccountKey: undefined,
+    messagingChannelId: "904", liffId: "902-soulife", basicId: "@046mqwnp",
+    destination: "U" + "c".repeat(32), accessTokenEnv: "SOULIFE_TOKEN", channelSecretEnv: "SOULIFE_SECRET",
+  };
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([addition]));
+  expect(await handleConfiguredCourseLineWebhook({ ...request(), destination: addition.destination })).toBe("handled");
+  expect(m.verify).toHaveBeenCalledWith("store-soulife", "signed-body", "signature");
+  expect(m.store).toHaveBeenCalledOnce();
+  expect(m.update).toHaveBeenCalledOnce();
+  expect(m.update.mock.calls[0][0].where.storeId).toBe("store-soulife");
+});
