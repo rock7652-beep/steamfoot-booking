@@ -18,7 +18,7 @@ describe("October 1 guide review", () => {
     expect(findOperationGuides("候補 5人 4小時", course).map(item => item.id)).toContain("C158");
     expect(findOperationGuides("同行 立即遞補", course).map(item => item.id)).toContain("C159");
     expect(findOperationGuides("總部 各店 操作人", hq).map(item => item.id)).toContain("I12");
-    expect(findOperationGuides("五分類 側邊面板", { module: "spa", permissions: [], features: {} }).map(item => item.id)).toContain("I13");
+    expect(findOperationGuides("五分類 側邊面板", { module: "steamfoot", permissions: [], features: {} }).map(item => item.id)).toContain("I13");
     expect(findCoursePortalGuides("member", true, "候補 取消候補").map(item => item.id)).toContain("CP19");
     expect(coursePortalGuides).toHaveLength(22);
   });
@@ -27,7 +27,7 @@ describe("October 1 guide review", () => {
     expect(availableGuides({ ...course, features: {} }).some(item => item.id === "C158")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["booking.update"] }).some(item => item.id === "C158")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["business_hours.manage"] }).some(item => item.id === "C159")).toBe(false);
-    expect(availableGuides({ module: "spa", permissions: ["audit.read"], features: {} }).some(item => item.id === "I12")).toBe(true);
+    expect(availableGuides({ module: "steamfoot", permissions: ["audit.read"], features: {} }).some(item => item.id === "I12")).toBe(true);
     expect(availableGuides({ module: "course", permissions: [], features: {} }).some(item => item.id === "I13")).toBe(false);
     for (const id of ["I11", "I12"]) {
       expect(guide(id).permission).toBe("audit.read");

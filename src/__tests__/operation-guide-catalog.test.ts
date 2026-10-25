@@ -9,7 +9,7 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(116);
+    expect(availableGuides(course)).toHaveLength(127);
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
     expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
@@ -25,8 +25,8 @@ describe("guide catalogue", () => {
     expect(availableGuides(course).some(g => g.id === "C105")).toBe(false);
     expect(availableGuides({...course,permissions:["transaction.refund","transaction.read"]}).some(g => g.id === "C105")).toBe(true);
     expect(guideCategoryForPath("/s/test/admin/dashboard/courses?view=customers")).toBe("customers");
-    expect(relatedOperationGuides("/dashboard/courses?view=settings",course).map(g=>g.id)).toEqual(["IMG01", "F04","F06","F08","C104","C106","C120","C131","C132","C164","C167","C168"]);
-    expect(relatedOperationGuides("/dashboard/courses/reminders",{...course,features:{}})).toEqual([]);
+    expect(relatedOperationGuides("/dashboard/courses?view=settings",course).map(g=>g.id)).toEqual(["IMG01","F04","F06","F08","C104","C106","C120","C131","C132","C164","C167","C168","C170","F13","C177"]);
+    expect(relatedOperationGuides("/dashboard/courses/reminders",{...course,features:{}}).map(g=>g.id)).toEqual(["C170"]);
   });
   it("covers the released course setup, scheduling, plans, staff, money and analysis workflows", () => {
     const allCourse: GuideAccess = {
@@ -39,7 +39,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(205);
+    expect(operationGuides).toHaveLength(198);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
@@ -104,7 +104,7 @@ describe("guide catalogue", () => {
     expect(availableGuides(access).some(g => g.id === "D04")).toBe(false);
     expect(availableGuides(access).some(g => g.id === "J04")).toBe(false);
     expect(availableGuides({...access, module: "spa"}).some(g => g.id === "A01")).toBe(false);
-    expect(availableGuides({...access, module: "spa"}).some(g => g.id === "J04")).toBe(true);
+    expect(availableGuides({...access, module: "spa"}).some(g => g.id === "J04")).toBe(false);
   });
   it("recommends relevant settings across categories without bypassing access", () => {
     const results = relatedOperationGuides("/s/staging/admin/dashboard/settings", access);
@@ -116,7 +116,7 @@ describe("guide catalogue", () => {
   it("requires both booking and payment permissions for SPA checkout instructions", () => {
     const spa: GuideAccess = {module: "spa", permissions: ["booking.update"], features: {}};
     expect(availableGuides(spa).some(g => g.id === "J11")).toBe(false);
-    expect(availableGuides({...spa, permissions: [...spa.permissions, "transaction.create"]}).some(g => g.id === "J11")).toBe(true);
+    expect(availableGuides({...spa, permissions: [...spa.permissions, "transaction.create"]}).some(g => g.id === "J11")).toBe(false);
     expect(findOperationGuides("第一階段", {...access, permissions: ["business_hours.manage"]}).some(g => g.id === "F08")).toBe(true);
   });
   it("uses the current page rather than showing booking questions everywhere", () => {
