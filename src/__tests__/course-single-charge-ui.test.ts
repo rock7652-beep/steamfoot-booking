@@ -76,3 +76,11 @@ it('reopens saved trial cost and shows free-trial loss without treating zero as 
  expect(document.querySelector('[data-fee-section="trial"]')!.textContent).toContain('NT$ -120');
  fill(input('體驗店家成本'),'0');expect(document.querySelector('[data-fee-section="trial"]')!.textContent).toContain('NT$ 0');
 });
+
+it('keeps a visible pricing section when a trial fee is switched to a multi-lesson plan',()=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},null,true);
+ act(()=>[...document.querySelectorAll('nav button')].find(b=>b.textContent==='體驗設定')!.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+ act(()=>{const kind=document.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!;kind.value='plan';kind.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(document.querySelector('[data-fee-section="trial"]')).toBeNull();
+ expect(document.querySelector('[data-fee-section="pricing"]')!.getAttribute('data-active')).toBe('true');
+});
