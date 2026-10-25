@@ -183,11 +183,12 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
  </>:null;
  const sportsProviderFields=<fieldset className={feeLayout.providers}><legend>{personnelText("此收費可安排的教練（至少一位）")}</legend><div className={feeLayout.providerList}>{nativeProviders.map(t=><label key={t.id}><input type="checkbox" checked={parseIds(draft.values.teacherIds).includes(t.id)} onChange={e=>draft.set('teacherIds',JSON.stringify(e.target.checked?[...parseIds(draft.values.teacherIds),t.id]:parseIds(draft.values.teacherIds).filter(id=>id!==t.id)))}/>{t.name}</label>)}{retiredProviderIds.map(id=><label key={id}><input type="checkbox" checked onChange={()=>draft.set('teacherIds',JSON.stringify(parseIds(draft.values.teacherIds).filter(value=>value!==id)))}/>{sportsData?.coaches.find(t=>t.id===id)?.name??'已移除人員'}（請移除）</label>)}</div><p className="text-sm text-earth-600">只限這筆收費，不變更授課資格。</p></fieldset>;
  const hasSportsTrial=compactSports&&nativeSingle&&sportsMode!=="OPEN";
+ const visibleFeeSection=feeSection==="trial"&&!hasSportsTrial?"pricing":feeSection;
  const trialProfit=draft.values.nativeTrialPrice!==""&&draft.values.nativeTrialStoreCost!==""?Number(draft.values.nativeTrialPrice)-Number(draft.values.nativeTrialStoreCost):null;
  const compactSportsFields=<>
-  <nav className={feeLayout.feeTabs} data-has-trial={hasSportsTrial} aria-label="收費方式分區">{[["pricing","收費設定"],...(hasSportsTrial?[["trial","體驗設定"]]:[]),["teaching","授課設定"]].map(([id,label])=><button type="button" key={id} aria-pressed={feeSection===id} onClick={()=>setFeeSection(id)}>{label}</button>)}</nav>
+  <nav className={feeLayout.feeTabs} data-has-trial={hasSportsTrial} aria-label="收費方式分區">{[["pricing","收費設定"],...(hasSportsTrial?[["trial","體驗設定"]]:[]),["teaching","授課設定"]].map(([id,label])=><button type="button" key={id} aria-pressed={visibleFeeSection===id} onClick={()=>setFeeSection(id)}>{label}</button>)}</nav>
   <div className={feeLayout.panes} data-has-trial={hasSportsTrial}>
-   <section className={feeLayout.pane} data-fee-section="pricing" data-active={feeSection==="pricing"} aria-label="收費設定">
+   <section className={feeLayout.pane} data-fee-section="pricing" data-active={visibleFeeSection==="pricing"} aria-label="收費設定">
     <h3>一般收費</h3>
     <label>名稱 *<input className={field} name="name" required value={draft.values.name} onChange={e=>draft.set('name',e.target.value)}/></label>
     <label>狀態<select className={field} name="active" value={draft.values.active} onChange={e=>draft.set('active',e.target.value)}><option value="yes">上架</option><option value="no">下架</option></select></label>
@@ -201,7 +202,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
     <div className={feeLayout.summary}><p>單位價格 <strong>NT$ {unitPrice.toLocaleString('zh-TW')}／{draft.values.unit==='POINT'?'點':'堂'}</strong></p>{profitEnabled&&<p>預估利潤 <strong className={estimatedProfit<0?'text-red-700':''}>NT$ {estimatedProfit.toLocaleString('zh-TW')}</strong></p>}</div>
     <p className={feeLayout.full+' text-sm text-earth-500'}>修改僅影響新購買；下架保留既有額度。</p>
    </section>
-   {hasSportsTrial&&<section className={feeLayout.pane} data-fee-section="trial" data-active={feeSection==="trial"} aria-label="體驗收費">
+   {hasSportsTrial&&<section className={feeLayout.pane} data-fee-section="trial" data-active={visibleFeeSection==="trial"} aria-label="體驗收費">
     <h3>體驗收費</h3>
     <label>體驗價（元）<input aria-label="體驗價" className={field} type="number" min={0} max={1000000} required={draft.values.nativeTrialStoreCost!==''} value={draft.values.nativeTrialPrice} onChange={e=>draft.set('nativeTrialPrice',e.target.value)}/></label>
     {profitEnabled&&<label>體驗店家成本<input aria-label="體驗店家成本" className={field} type="number" min={0} max={10000000} value={draft.values.nativeTrialStoreCost} onChange={e=>draft.set('nativeTrialStoreCost',e.target.value)}/></label>}
@@ -209,7 +210,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
     {profitEnabled&&<p className={feeLayout.summary}>體驗預估利潤 <strong className={trialProfit!==null&&trialProfit<0?'text-red-700':''}>{trialProfit===null?'—':`NT$ ${trialProfit.toLocaleString('zh-TW')}`}</strong></p>}
     <p className={feeLayout.full+' text-sm text-earth-600'}>體驗價留白不提供，0 為免費；時間留白沿用一般時間。{profitEnabled&&'體驗成本留白為未設定，不沿用一般成本。'}</p>
    </section>}
-   <section className={feeLayout.pane} data-fee-section="teaching" data-active={feeSection==="teaching"} aria-label="授課設定">
+   <section className={feeLayout.pane} data-fee-section="teaching" data-active={visibleFeeSection==="teaching"} aria-label="授課設定">
     <h3>授課設定</h3>
     {(enabledModes.open&&enabledModes.assigned||!!plan&&sportsMode==='LEGACY')&&<label className={feeLayout.full}>方案適用方式<select aria-label="方案適用方式" className={field} disabled={!!plan&&sportsMode==='LEGACY'} value={sportsMode} onChange={e=>draft.set('sportsMode',e.target.value)}>{plan&&(plan.sportsMode??'LEGACY')==='LEGACY'&&<option value="LEGACY">既有方案（保留原規則）</option>}{enabledModes.assigned&&<option value="ASSIGNED">指定項目方案</option>}{enabledModes.open&&<option value="OPEN">開放選課通用卡</option>}</select></label>}
     {closedPlanMode&&<p role="status" className={feeLayout.full}>此方案的排課模式已關閉；既有紀錄保留，目前不提供新增購買或指派。</p>}
