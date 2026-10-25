@@ -56,6 +56,7 @@
  .feeTabs { display: none; }
  .panes { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
  .pane[data-active] { display: grid; }
+ .providerList { max-height: 220px; }
  .pane h3 { display: block; grid-column: 1 / -1; font-weight: 600; color: var(--color-primary-800); }
 }
 
