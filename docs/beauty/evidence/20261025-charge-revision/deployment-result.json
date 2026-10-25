@@ -1,0 +1,33 @@
+{
+  "id": "dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ",
+  "state": "READY",
+  "url": "steamfoot-booking-i4v3d9o9q-rock7652-2111s-projects.vercel.app",
+  "sha": "1ffebcb9827b447ccfaa75287c6240224e56d7fe",
+  "aliases": [
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ"
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ"
+    }
+  ],
+  "gates": [
+    {
+      "text": "[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=module editing_enabled=true",
+      "type": "stdout",
+      "created": 1792930475254
+    },
+    {
+      "text": "ci-migrate: migration_skipped_no_target",
+      "type": "stdout",
+      "created": 1792930479378
+    }
+  ],
+  "runtime": [
+    "## Runtime Logs\n\n**Project:** prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR\n**Deployment:** dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ\n**Time range:** 2026-10-25T12:10:14.777Z → 2026-10-25T12:20:14.777Z\n\nNo logs found for the specified criteria."
+  ],
+  "authenticatedBrowser": false,
+  "formalBusinessWrites": false
+}

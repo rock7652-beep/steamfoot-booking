@@ -22,4 +22,16 @@
 
 ## 發布狀態
 
-候選已驗證，待完整正式建置與網域核對。此輪只修復執行錯誤；前一輪列出的引導第 8 步、重複入口與欄位對齊，沒有混入此緊急修復。
+正式更新已完成，結果如下。此輪只修復執行錯誤；前一輪列出的引導第 8 步、重複入口與欄位對齊，沒有混入此緊急修復。
+
+
+## 正式發布結果（台灣時間 2026-10-25 20:20）
+
+- Production READY：`dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ`，程式 `1ffebcb9827b447ccfaa75287c6240224e56d7fe`；steamfoot.com、www.steamfoot.com 皆已指向此部署。
+- 真實 pg／Prisma／TLS／RLS／必要欄位 READ ONLY 檢查、完整編譯與 TypeScript 通過；包含新增的 BeautyEvent 所需欄位權限。日誌為 migration_skipped_no_target，未套用 migration。
+- 正式公開 HTTP：官網與 HQ 登入 200；未登入保護頁 307→登入、session 200/null，既有竹北入口轉址正常，沒有 5xx。
+- 指定新部署近十分鐘 error/fatal logs 未找到紀錄；短窗口與公開 HTTP 不視為已在店家登入分頁驗收。沒有操作店家既有登入帳號或建立正式存取連結。
+- 已使用受影響正式方案的唯讀資料驗證版本相容，只有有效 audit 鏈才允許，規則與技師限制保留；沒有正式資料回寫或調整價錢／次數／歷史快照。原始診斷資料僅存暫存檔，已於保存去識別結果後移除。
+- LINE 依原發布 gate 保持關閉；模組專用角色、主資料庫連線與環境旗標未更動。
+
+證據：[部署與 gate](evidence/20261025-charge-revision/deployment-result.json)、[正式唯讀資料相容檢查](evidence/20261025-charge-revision/formal-readonly-projection.json)、[回歸](evidence/20261025-charge-revision/regression.log)、[合成版面](evidence/20261025-charge-revision/results.json)。
