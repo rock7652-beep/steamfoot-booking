@@ -4,7 +4,9 @@ import { NotificationSwitch } from "./notification-switch";
 import { useSettingsPanelGuard } from "./settings-panel-context";
 import { useReminderSettingMutation } from "@/app/(dashboard)/dashboard/reminders/reminder-setting-feedback";
 import { setPlanActivationNotificationEnabled } from "@/server/actions/plan-activation-notification";
-import { planActivationMessage } from "@/lib/plan-activation-notification";
+import { PlanActivationCardPreview } from "./plan-activation-card-preview";
+
+const sampleCard = {storeName:"示範門市",customerName:"王小美",planName:"十堂方案",quantity:10,unit:"堂",expiresDate:"2027-01-31"};
 
 export function PlanActivationNotificationSetting({storeId,initialEnabled,readOnly=false}:{storeId:string;initialEnabled:boolean;readOnly?:boolean}) {
   const [enabled,setEnabled]=useState(initialEnabled);
@@ -26,7 +28,7 @@ export function PlanActivationNotificationSetting({storeId,initialEnabled,readOn
       <summary className="min-h-11 cursor-pointer px-3 py-2.5 font-medium text-primary-700">查看訊息預覽</summary>
       <div className="space-y-2 border-t border-earth-100 p-3">
         <p className="text-earth-500">示範資料，不會發送。</p>
-        <div className="whitespace-pre-wrap break-words rounded-lg bg-earth-50 p-4">{planActivationMessage({storeName:"示範門市",customerName:"王小美",planName:"十堂方案",quantity:10,unit:"堂",expiresDate:"2027-01-31"})}</div>
+        <PlanActivationCardPreview value={sampleCard}/>
       </div>
     </details>
     {mutation.toggleError&&<p role="alert" className="break-words text-red-700">{mutation.toggleError}</p>}

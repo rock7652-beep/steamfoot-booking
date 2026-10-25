@@ -490,7 +490,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - Settings Workspace / Nav / List Row → 共用 settings primitives
 - Settings Panel → 共用 panel 容器，逐步取代只屬於單一模組的 panel wrapper
 - Reminder Center → 共用 tabs、panel、dirty guard、發送紀錄與健康狀態元件
-- 方案開通通知 → `src/components/admin/plan-activation-notification-setting.tsx`；蒸足、運動、音樂與美業共用顧客提醒開關、收合預覽與儲存回饋，各模組在實際購買／核帳開通時建立事件，保留原帳務規則。
+- 方案開通通知 → `src/components/admin/plan-activation-notification-setting.tsx`；蒸足、運動、音樂與美業共用顧客提醒開關、LINE Flex 卡片、收合卡片預覽與儲存回饋，各模組在實際購買／核帳開通時建立事件，保留原帳務規則。
 - 顧客概況 → `src/app/(dashboard)/dashboard/courses/customer-overview.tsx`；顧客基本資料編輯沿用同目錄 `CourseCustomerDraftForm`，美業注入有門市／權限／版本檢查的儲存接點，不改用課程寫入。
 - 人員／技師編輯的基本欄位、分頁、服務資格列與後台權限 → `src/app/(dashboard)/dashboard/courses/staff-editor-fields.tsx`，由原課程及美業共同使用；可服務時間、拆帳基準及工作權限由原模組保留。
 - 顧客詳情的備註、歸屬、LINE 與基本資料編輯 → `src/components/admin/use-customer-panel-guard.ts` 收集既有 SettingsPanelContext 的 dirty／pending 狀態；運動／音樂與 SPA 各自注入原有資料及業務操作。

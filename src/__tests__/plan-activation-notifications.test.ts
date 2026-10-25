@@ -109,7 +109,7 @@ describe("transactional activation outbox",()=>{
     await pg.query('UPDATE "Store" SET "industryModule"=$1',[module]);await queue(module);
     await runPlanActivationNotifications("s",module==="BEAUTY");await runPlanActivationNotifications("s",module==="BEAUTY");
     expect(m.push).toHaveBeenCalledTimes(1);expect(m.push.mock.calls[0][0]).toBe("s");expect(m.push.mock.calls[0][1]).toBe("line-buyer");
-    expect(m.push.mock.calls[0][2][0].text).toContain("十堂方案");expect(m.push.mock.calls[0][2][0].text).toContain("10 堂");
+    expect(m.push.mock.calls[0][2][0]).toMatchObject({type:"flex",altText:expect.stringContaining("十堂方案")});expect(JSON.stringify(m.push.mock.calls[0][2][0].contents)).toContain("10 堂");
     expect((await logs())[0].status).toBe("SENT");expect((await first()).status).toBe("SENT");
   });
   it("never backfills purchases opened with the switch off",async()=>{
@@ -125,6 +125,18 @@ describe("transactional activation outbox",()=>{
     await queue();m.push.mockResolvedValueOnce({success:false,error:"timeout"});await runPlanActivationNotifications("s");
     expect((await logs())[0].status).toBe("PENDING");await due();await runPlanActivationNotifications("s");
     expect(m.push.mock.calls[1]).toEqual(m.push.mock.calls[0]);expect((await logs())[0].status).toBe("SENT");
+  });
+  it("keeps an existing text route unchanged across the Flex release",async()=>{
+    await queue();
+    await pg.query('UPDATE "PlanActivationNotification" SET route=$1::jsonb',[JSON.stringify({channel:"STORE",recipient:"line-buyer",destination:"channel-s"})]);
+    m.push.mockResolvedValueOnce({success:false,error:"timeout"});await runPlanActivationNotifications("s");await due();await runPlanActivationNotifications("s");
+    expect(m.push.mock.calls[0][2]).toEqual([{type:"text",text:(await first()).body}]);
+    expect(m.push.mock.calls[1]).toEqual(m.push.mock.calls[0]);
+  });
+  it("sends the same Flex presentation through the central LINE route",async()=>{
+    await queue();m.route.mockResolvedValue({status:"READY",channel:"CENTRAL",recipientLineUserId:"line-buyer"});
+    await runPlanActivationNotifications("s");
+    expect(m.push).not.toHaveBeenCalled();expect(m.centralPush.mock.calls[0][1][0].type).toBe("flex");
   });
   it("does not revive an event switched off while LINE was in flight",async()=>{
     await queue();m.push.mockImplementationOnce(async()=>{
