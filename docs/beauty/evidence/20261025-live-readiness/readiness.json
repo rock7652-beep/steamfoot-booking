@@ -1,0 +1,1450 @@
+{
+  "checkedAt": "2026-10-25T04:28:26Z",
+  "authorization": "read-only metadata and backup readiness; no writes/migration/deployment",
+  "projects": {
+    "production": "qijlnhtpbintanzpxkvf",
+    "preview": "ttworfzgwejdeolegkxl"
+  },
+  "schemas": {
+    "production": [
+      {
+        "readiness": {
+          "rls": [],
+          "role": "postgres",
+          "tables": [
+            {
+              "name": "BeautyAppointment",
+              "present": false
+            },
+            {
+              "name": "BeautyCard",
+              "present": false
+            },
+            {
+              "name": "BeautyCommand",
+              "present": false
+            },
+            {
+              "name": "BeautyEvent",
+              "present": false
+            },
+            {
+              "name": "BeautyGroup",
+              "present": false
+            },
+            {
+              "name": "BeautyLedger",
+              "present": false
+            },
+            {
+              "name": "BeautyPayment",
+              "present": false
+            },
+            {
+              "name": "BeautyPlan",
+              "present": false
+            },
+            {
+              "name": "BeautyPurchase",
+              "present": false
+            },
+            {
+              "name": "BeautyService",
+              "present": false
+            },
+            {
+              "name": "BeautySetting",
+              "present": false
+            },
+            {
+              "name": "BeautySettlement",
+              "present": false
+            },
+            {
+              "name": "BeautyTechnician",
+              "present": false
+            },
+            {
+              "name": "BeautyTransactionRevision",
+              "present": false
+            }
+          ],
+          "columns": [],
+          "database": "postgres",
+          "policies": [],
+          "checked_at": "2026-10-25T04:28:19.603947+00:00"
+        }
+      }
+    ],
+    "preview": [
+      {
+        "readiness": {
+          "rls": [
+            {
+              "owner": "postgres",
+              "table": "BeautyAppointment",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyCard",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyCommand",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyEvent",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyGroup",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyLedger",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyPayment",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyPlan",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyPurchase",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyService",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautySetting",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautySettlement",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyTechnician",
+              "forced": false,
+              "enabled": true
+            },
+            {
+              "owner": "postgres",
+              "table": "BeautyTransactionRevision",
+              "forced": false,
+              "enabled": true
+            }
+          ],
+          "role": "postgres",
+          "tables": [
+            {
+              "name": "BeautyAppointment",
+              "present": true
+            },
+            {
+              "name": "BeautyCard",
+              "present": true
+            },
+            {
+              "name": "BeautyCommand",
+              "present": true
+            },
+            {
+              "name": "BeautyEvent",
+              "present": true
+            },
+            {
+              "name": "BeautyGroup",
+              "present": true
+            },
+            {
+              "name": "BeautyLedger",
+              "present": true
+            },
+            {
+              "name": "BeautyPayment",
+              "present": true
+            },
+            {
+              "name": "BeautyPlan",
+              "present": true
+            },
+            {
+              "name": "BeautyPurchase",
+              "present": true
+            },
+            {
+              "name": "BeautyService",
+              "present": true
+            },
+            {
+              "name": "BeautySetting",
+              "present": true
+            },
+            {
+              "name": "BeautySettlement",
+              "present": true
+            },
+            {
+              "name": "BeautyTechnician",
+              "present": true
+            },
+            {
+              "name": "BeautyTransactionRevision",
+              "present": true
+            }
+          ],
+          "columns": [
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "groupId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "customerId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "personName",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "personPhone",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "serviceId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "serviceName",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "technicianId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "locationId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "preference",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "specifiedTechnicianId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyAppointment",
+              "column": "startsAt",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyAppointment",
+              "column": "endsAt",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyAppointment",
+              "column": "occupiedEndsAt",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyAppointment",
+              "column": "duration",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyAppointment",
+              "column": "buffer",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyAppointment",
+              "column": "price",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyAppointment",
+              "column": "isTrial",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "status",
+              "default": "'RESERVED'::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "cardId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyAppointment",
+              "column": "rate",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyAppointment",
+              "column": "cancelDeduct",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyAppointment",
+              "column": "noShowDeduct",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyAppointment",
+              "column": "debit",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyAppointment",
+              "column": "fee",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyAppointment",
+              "column": "notes",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyAppointment",
+              "column": "revision",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyAppointment",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCard",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCard",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCard",
+              "column": "customerId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "ARRAY",
+              "table": "BeautyCard",
+              "column": "memberIds",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCard",
+              "column": "planId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCard",
+              "column": "name",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyCard",
+              "column": "sessions",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyCard",
+              "column": "remaining",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyCard",
+              "column": "listPrice",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyCard",
+              "column": "paid",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "ARRAY",
+              "table": "BeautyCard",
+              "column": "serviceIds",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyCard",
+              "column": "allowShared",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyCard",
+              "column": "expiresAt",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyCard",
+              "column": "closedAt",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyCard",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCommand",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCommand",
+              "column": "requestKey",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCommand",
+              "column": "actorKey",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyCommand",
+              "column": "intent",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyCommand",
+              "column": "result",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyCommand",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "kind",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "appointmentId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "customerId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "userId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "body",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyEvent",
+              "column": "status",
+              "default": "'PENDING'::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyEvent",
+              "column": "attempts",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyEvent",
+              "column": "leaseUntil",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyEvent",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyGroup",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyGroup",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyGroup",
+              "column": "customerId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyGroup",
+              "column": "contactName",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyGroup",
+              "column": "phone",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyGroup",
+              "column": "startsAt",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyGroup",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "cardId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "appointmentId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "kind",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyLedger",
+              "column": "delta",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyLedger",
+              "column": "actorUserId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyLedger",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "appointmentId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "cardId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "technicianId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "originalPaymentId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "kind",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPayment",
+              "column": "amount",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "method",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "note",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPayment",
+              "column": "actorUserId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyPayment",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPlan",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPlan",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPlan",
+              "column": "name",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPlan",
+              "column": "sessions",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPlan",
+              "column": "price",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPlan",
+              "column": "validDays",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "ARRAY",
+              "table": "BeautyPlan",
+              "column": "serviceIds",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyPlan",
+              "column": "allowShared",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyPlan",
+              "column": "customerPurchasable",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyPlan",
+              "column": "active",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPlan",
+              "column": "revision",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyPlan",
+              "column": "lowBalanceEnabled",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyPlan",
+              "column": "lowBalanceThreshold",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyPlan",
+              "column": "expiryReminder",
+              "default": "'{\"days\": [14, 7], \"enabled\": false}'::jsonb",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "customerId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "planId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyPurchase",
+              "column": "snapshot",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "lastFour",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "status",
+              "default": "'PENDING'::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyPurchase",
+              "column": "cardId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyPurchase",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyService",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyService",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyService",
+              "column": "name",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyService",
+              "column": "category",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "duration",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "buffer",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "price",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "trialPrice",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyService",
+              "column": "active",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "revision",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyService",
+              "column": "defaultRate",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyService",
+              "column": "trialDuration",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautySetting",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautySetting",
+              "column": "revision",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "notifications",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "selfBooking",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "selfCancel",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "selfReschedule",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "cancelDeduct",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "noShowDeduct",
+              "default": "false",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautySetting",
+              "column": "leadMinutes",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautySetting",
+              "column": "cancelLeadMinutes",
+              "default": "240",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautySetting",
+              "column": "bookableDays",
+              "default": "30",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySetting",
+              "column": "bookableUntilDate",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautySetting",
+              "column": "backendNoticesEnabled",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySettlement",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySettlement",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySettlement",
+              "column": "month",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySettlement",
+              "column": "fingerprint",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautySettlement",
+              "column": "lines",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautySettlement",
+              "column": "actorUserId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautySettlement",
+              "column": "createdAt",
+              "default": "CURRENT_TIMESTAMP",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "id",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "name",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "gender",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "userId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "ARRAY",
+              "table": "BeautyTechnician",
+              "column": "serviceIds",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyTechnician",
+              "column": "weekly",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyTechnician",
+              "column": "exceptions",
+              "default": "'{}'::jsonb",
+              "nullable": "NO"
+            },
+            {
+              "type": "jsonb",
+              "table": "BeautyTechnician",
+              "column": "rates",
+              "default": "'{}'::jsonb",
+              "nullable": "NO"
+            },
+            {
+              "type": "ARRAY",
+              "table": "BeautyTechnician",
+              "column": "grants",
+              "default": "ARRAY[]::text[]",
+              "nullable": "YES"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyTechnician",
+              "column": "sort",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "boolean",
+              "table": "BeautyTechnician",
+              "column": "active",
+              "default": "true",
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyTechnician",
+              "column": "revision",
+              "default": "0",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "phone",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "contactEmail",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "birthday",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "emergencyContactName",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "emergencyContactPhone",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTechnician",
+              "column": "emergencyContactRelation",
+              "default": "''::text",
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "storeId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "transactionId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "integer",
+              "table": "BeautyTransactionRevision",
+              "column": "revision",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "note",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "revenueStaffId",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyTransactionRevision",
+              "column": "voidedAt",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "voidReason",
+              "default": null,
+              "nullable": "YES"
+            },
+            {
+              "type": "text",
+              "table": "BeautyTransactionRevision",
+              "column": "actorUserId",
+              "default": null,
+              "nullable": "NO"
+            },
+            {
+              "type": "timestamp with time zone",
+              "table": "BeautyTransactionRevision",
+              "column": "createdAt",
+              "default": "now()",
+              "nullable": "NO"
+            }
+          ],
+          "database": "postgres",
+          "policies": [],
+          "checked_at": "2026-10-25T04:28:26.66133+00:00"
+        }
+      }
+    ]
+  },
+  "deployment": {
+    "id": "dpl_3hvffPdypf9z2wT4YjFAwXzbzjPe",
+    "url": "steamfoot-booking-6w43di0br-rock7652-2111s-projects.vercel.app",
+    "state": "READY",
+    "target": "production",
+    "meta": {
+      "githubCommitRef": "main",
+      "githubCommitSha": "62480ec422d7952f7b1dc9310350b38d2a258fca",
+      "githubCommitMessage": "Merge pull request #1400 from rock7652-beep/release/music-production-20261023\n\nfeat: simplify music student operations and arrange personal makeups inline",
+      "githubRepo": "steamfoot-booking",
+      "githubOrg": "rock7652-beep"
+    }
+  },
+  "backup": {
+    "verified": false,
+    "reason": "Connected Supabase tools expose no backup/PITR listing; get_project supplies no backup metadata"
+  }
+}
