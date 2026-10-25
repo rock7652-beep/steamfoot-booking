@@ -68,7 +68,7 @@ export async function beautyPrismaProductionPreflight(env=process.env,createClie
    // PostgreSQL name is not a Prisma raw result type; expose these metadata identifiers as text.
    const rows=await tx.$queryRawUnsafe('SELECT current_user::text AS role,current_database()::text AS database');
    if(rows.length!==1||rows[0].role!==BEAUTY_PRODUCTION_ROLE||rows[0].database!=='postgres')throw Error('Beauty Prisma runtime identity mismatch');
-   stage='prisma-columns';await tx.$queryRawUnsafe('SELECT id FROM "BeautySetting" LIMIT 0');
+   stage='prisma-columns';await tx.beautySetting.findMany({select:{storeId:true},take:1});
   });
   return {prisma:true,readonly:true};
  }catch(error){

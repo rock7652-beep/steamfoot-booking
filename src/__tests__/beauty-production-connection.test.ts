@@ -8,8 +8,8 @@ const env={NODE_ENV:'production' as const,VERCEL:'1',VERCEL_ENV:'production',VER
 describe('reviewed production Beauty connection',()=>{
  it('checks the live Prisma adapter identity in a read-only transaction and disconnects',async()=>{
   const execute=vi.fn(),query=vi.fn().mockResolvedValueOnce([{role:env.BEAUTY_DATABASE_ROLE,database:'postgres'}]).mockResolvedValueOnce([]);
-  const disconnect=vi.fn(),factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:execute,$queryRawUnsafe:query}),$disconnect:disconnect}));
-  await expect(beautyPrismaProductionPreflight(env,factory)).resolves.toMatchObject({prisma:true,readonly:true});expect(execute).toHaveBeenCalledWith('SET TRANSACTION READ ONLY');expect(disconnect).toHaveBeenCalledOnce();
+  const findMany=vi.fn().mockResolvedValue([]),disconnect=vi.fn(),factory=vi.fn(async()=>({$connect:vi.fn(),$transaction:async(work:(tx:unknown)=>Promise<unknown>)=>work({$executeRawUnsafe:execute,$queryRawUnsafe:query,beautySetting:{findMany}}),$disconnect:disconnect}));
+  await expect(beautyPrismaProductionPreflight(env,factory)).resolves.toMatchObject({prisma:true,readonly:true});expect(execute).toHaveBeenCalledWith('SET TRANSACTION READ ONLY');expect(disconnect).toHaveBeenCalledOnce();expect(findMany).toHaveBeenCalledWith({select:{storeId:true},take:1});
  });
 
  it('pins the public Supabase root and keeps strict verification for Prisma and pg',async()=>{

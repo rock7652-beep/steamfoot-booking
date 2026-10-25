@@ -31,3 +31,6 @@
 
 
 修正版 CA 診斷 dpl_7pVpak6nMXGnWWC3HF1P4Zpr5Z8N 已通過 pg 端全部 readonly 檢查，再於 prisma-connect 停止。核對 Prisma 官方 PostgreSQL 文件確認 server certificate 參數是 sslcert，與 node-postgres 的 sslrootcert 不同；現已分別配置，沒有把 CA 當成 pg 的 client identity。相關 56 項測試與 ESLint 通過，沒有重送 schema／role migration。
+
+
+後續唯讀診斷顯示 Prisma TLS 已可連線；先將 current_user/current_database 的 PostgreSQL name 結果轉為 text，通過身分核對。最後一個測試查詢誤用 BeautySetting.id（實際鍵為 storeId），已改為 tx.beautySetting.findMany(select storeId, take 1)，在 READ ONLY transaction 內測試真實模型。這是預檢引用修正，沒有新增欄位或重送升級。56 項連線／隔離測試及 ESLint 通過，準備完整建置，唯讀 gate 仍先執行。
