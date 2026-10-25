@@ -1,4 +1,5 @@
 "use client";
+import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
 import type { SteamReminderData } from "@/server/queries/reminder-panel";
 import { ReminderSectionPicker } from "./reminder-section-picker";
 import { LineQuotaEmailSetting } from "./line-quota-email-setting";
@@ -35,7 +36,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
       />
     );
   } else {
-    const { state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled } = data.content;
+    const { state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled, activationEnabled } = data.content;
     content = (
       <ReminderSectionPicker key={storeId} initial={customerSection} sections={[
         { key: "booking-reminders", label: "預約前提醒", content: (
@@ -55,9 +56,10 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
             <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
           </section>
         ) },
-        { key: "plan-reminders", label: "方案使用提醒", content: (
+        { key: "plan-reminders", label: "方案提醒", content: (
           <section aria-labelledby="plan-reminders-title" className="space-y-3">
-            <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
+            <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案提醒</h3><p className="mt-1 text-sm text-earth-500">管理方案開通、剩餘堂數與到期通知。</p></div>
+            <PlanActivationNotificationSetting key={`${storeId}-activation`} storeId={storeId} initialEnabled={activationEnabled} readOnly={data.readOnly}/>
             <div className="grid items-start gap-3 lg:grid-cols-3">
               <SimpleSessionBalanceReminders key={`${storeId}-balance`} initialSetting={balance} />
               <PlanExpiryReminderSettingCard key={`${storeId}-expiry`} initialEnabled={expiry} />

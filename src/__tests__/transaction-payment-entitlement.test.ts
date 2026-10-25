@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 
+import {enqueuePlanActivation} from "@/server/services/plan-activation-enqueue";
 const transactionFindUnique = vi.fn();
 const transactionUpdateMany = vi.fn();
 const transactionUpdate = vi.fn();
@@ -72,6 +75,7 @@ describe("pending payment entitlement", () => {
       expiryDate: new Date("2026-12-31T00:00:00.000Z"), totalSessions: 3,
     }) }));
     expect(seedWalletSessions).toHaveBeenCalledWith(expect.anything(), "wallet_1", 3);
+    expect(enqueuePlanActivation).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:"store_1",customerId:"customer_1",module:"STEAMFOOT",sourceId:"tx_1",entitlementId:"wallet_1",quantity:3,unit:"堂"}));
     expect(transactionUpdate).toHaveBeenCalledWith({ where: { id: "tx_1" }, data: { customerPlanWalletId: "wallet_1" } });
   });
 
