@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock('@/server/actions/course-charge',()=>({loadCourseChargeOptions:vi.fn().mockResolvedValue({success:true,rows:[],enabled:true,defaultTrialPrice:499})}));
 import React,{act} from 'react';
 import {createRoot} from 'react-dom/client';
 import {it,expect,vi} from 'vitest';
