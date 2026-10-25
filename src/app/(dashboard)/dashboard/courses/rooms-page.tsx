@@ -9,6 +9,7 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { readCourseOrders } from "@/server/services/course-display-order";
 import type { getCurrentUser } from "@/lib/session";
 import { CourseWorkspace } from "./workspace";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 type User = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 /** Parent page checks booking.read, feature access and the active module first. */
@@ -35,7 +36,7 @@ async function readRoomsPage(storeId: string, user: User) {
 }
 export async function CourseRoomsPage({ storeId, user }: { storeId: string; user: User }) {
   const { rooms, businessProfile, writable, canCreate, canEdit, orders, viewContext } = await readRoomsPage(storeId, user);
-  return <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
+  return <PageShell className="course-workspace mx-auto flex w-full min-w-0 max-w-[1440px] flex-col gap-1 px-6 py-1">
     <PageHeader title="空間管理" subtitle={businessProfile === "MUSIC" ? "管理上課教室" : undefined} />
     <CourseWorkspace key={`${storeId}:rooms`} storeId={storeId} view="rooms"
       selectedDate={toLocalDateStr()} today={toLocalDateStr()} nowIso={new Date().toISOString()}
@@ -43,6 +44,7 @@ export async function CourseRoomsPage({ storeId, user }: { storeId: string; user
       rooms={rooms.map(({ sessions, ...room }) => ({ ...room, uses: sessions.map(item => ({ ...item, nameSnapshot: courseDisplayName(item.nameSnapshot), startsAt: item.startsAt.toISOString() })) }))}
       templates={[]} sessions={[]} coaches={[]} cancelledBookings={[]}
       displayOrder={orders.room} canCreate={canCreate && writable} canEdit={canEdit && writable}
-      canDelete={user.role === "OWNER" && !viewContext?.isViewMode} businessProfile={businessProfile} />
+      canDelete={user.role === "OWNER" && !viewContext?.isViewMode} businessProfile={businessProfile}
+      sportsNative={businessProfile === "FITNESS" && sportsNativePreview(storeId)} />
   </PageShell>;
 }

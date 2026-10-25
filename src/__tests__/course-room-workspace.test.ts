@@ -51,16 +51,16 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
   } finally { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
 });
 
-it("edits a confirmed room without refresh and preserves it through stale props",async()=>{
+it.each(["MUSIC", "FITNESS"] as const)("%s directly edits a confirmed room without refresh and preserves stale props",async businessProfile=>{
  const {courseRoomRevision}=await import("@/lib/course-room-input");
  vi.spyOn(window,"scrollTo").mockImplementation(()=>{});vi.stubGlobal("fetch",m.fetch);m.fetch.mockReset();m.refresh.mockReset();
  const original={...courseRoomInput.parse({name:"教室 A"}),id:"room",isActive:true};
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
- const render=(rooms=[original])=>createElement(CourseWorkspace,{...props,businessProfile:"MUSIC",rooms});
+ const render=(rooms=[original])=>createElement(CourseWorkspace,{...props,businessProfile,sportsNative:businessProfile==="FITNESS",rooms});
  try{
   await act(async()=>root.render(render()));
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="教室 A")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")==="編輯教室 A")!.click());
   host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
   m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});
   const submit=()=>host.querySelector("#course-edit-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
