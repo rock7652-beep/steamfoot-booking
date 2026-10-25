@@ -10,6 +10,9 @@ import {useState} from 'react';
 import {SportsScheduleDialog} from '@/app/(dashboard)/dashboard/courses/sports-schedule-dialog';
 import {SportsScheduleFields} from '@/app/(dashboard)/dashboard/courses/sports-schedule-fields';
 
+async function measureBooking<T>(operation:'availability'|'submit',work:()=>Promise<T>){
+ const at=performance.now();try{return await work();}finally{try{performance.measure?.('beauty.booking.'+operation,{start:at,end:performance.now()});}catch{/* Observability cannot change the booking result. */}}
+}
 /** View data and core ports. The original form owns every field and action. */
 export function beautyNativeScheduleSource(data:BeautyDashboardData):{initial:SportsSnapshot;source:SportsScheduleSource}{
  const locations=orderCourseRows(data.locations,data.displayOrders?.room?.ids??[]);
@@ -25,7 +28,7 @@ export function beautyNativeScheduleSource(data:BeautyDashboardData):{initial:Sp
   },
   source:{catalogHref:'?tab=服務項目',
    reservation:{services:services.filter(s=>s.active),technicians:techs.filter(t=>t.active).map(t=>({id:t.id,name:t.name,serviceIds:t.serviceIds})),locations:locations.filter(r=>r.isActive).map(r=>({id:r.id,name:r.name})),customers:data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone})),cards:data.cards,policyRevision:data.policy.revision,
-    readAvailability:intent=>readBeautySlots('manager','',intent),submit:intent=>bookBeautyParty('manager',intent),
+    readAvailability:intent=>measureBooking('availability',()=>readBeautySlots('manager','',intent)),submit:intent=>measureBooking('submit',()=>bookBeautyParty('manager',intent)),
     ...(data.manage.customer&&data.access.customerAccess?{createCustomer:(input:{name:string;phone:string})=>createRentalCustomer(input,'beauty')}:{}),
    },
    createCustomer:input=>createRentalCustomer(input,'beauty'),

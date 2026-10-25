@@ -1,0 +1,23 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({manager:vi.fn(),can:vi.fn(),people:vi.fn(),rows:vi.fn(),rentals:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people},businessHours:{findMany:async()=>[]},specialBusinessDay:{findMany:async()=>[]}}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$queryRaw:m.rentals,beautyAppointment:{findMany:m.rows}}}));
+vi.mock('@/lib/permissions',()=>({checkPermission:m.can}));
+vi.mock('@/lib/session',()=>({getCurrentUser:async()=>({role:'PARTNER',staffId:'self'})}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({assignedStaffId:'self'})}));
+vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:async()=>true,requireStoreFeature:vi.fn()}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager}));
+vi.mock('@/server/beauty/charge-runtime',()=>({beautyChargeRulesEnabled:()=>false,readChargeCatalogForUi:vi.fn()}));
+vi.mock('@/server/beauty/booking',()=>({settings:vi.fn(),publicReceipt:(b:{id:string;personName:string;startsAt:Date})=>({id:b.id,personName:b.personName,startsAt:b.startsAt.toISOString()})}));
+vi.mock('@/server/beauty/commerce',()=>({settlement:vi.fn()}));
+vi.mock('@/server/beauty/health',()=>({beautyHealthEnabled:async()=>false}));
+vi.mock('@/server/beauty/service-charges',()=>({serviceCharges:async()=>[],servicePaymentLabel:vi.fn()}));
+import {beautyCalendar} from '@/server/beauty/queries';
+const row={id:'booking',customerId:'customer',personName:'預約時姓名',personPhone:'0900000000',serviceId:'s',revision:1,groupId:'g',technicianId:'tech',locationId:'room',buffer:15,cardId:null,fee:0,notes:'',startsAt:new Date('2026-10-26T01:00Z'),occupiedEndsAt:new Date('2026-10-26T02:15Z')};
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'store'});m.can.mockImplementation(async(_role,_staff,p)=>p==='customer.read');m.people.mockResolvedValue([{id:'customer',name:'更新姓名',phone:'0999999999'}]);m.rows.mockResolvedValue([row]);m.rentals.mockResolvedValue([]);});
+it('projects current visible contacts using one bounded same-store lookup without changing the booking',async()=>{
+ const data=await beautyCalendar('2026-10-26','day');expect(data.items[0]).toMatchObject({personName:'更新姓名',personPhone:'0999999999',revision:1});
+ expect(m.people).toHaveBeenCalledOnce();expect(m.people).toHaveBeenCalledWith({where:{assignedStaffId:'self',storeId:'store',mergedIntoCustomerId:null,id:{in:['customer']}},select:{id:true,name:true,phone:true}});expect(row.personName).toBe('預約時姓名');
+});
+it('never reads current contacts without the customer permission and masks phones',async()=>{m.can.mockResolvedValue(false);const data=await beautyCalendar('2026-10-26','day');expect(data.items[0]).toMatchObject({personName:'預約時姓名',personPhone:'',customerId:null});expect(m.people).not.toHaveBeenCalled();});
+it('uses the snapshot if the linked customer is no longer visible to this manager',async()=>{m.people.mockResolvedValue([]);expect((await beautyCalendar('2026-10-26','day')).items[0]).toMatchObject({personName:'預約時姓名',personPhone:'0900000000'});});

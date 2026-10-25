@@ -62,3 +62,15 @@ it("lets an unchanged default week be explicitly confirmed without advancing aft
  m.save.mockResolvedValueOnce({success:false,error:"未儲存"});await submit();expect(m.saved).not.toHaveBeenCalled();expect(button().disabled).toBe(false);
  await submit();expect(JSON.parse(m.fetch.mock.calls[1][1].body)).toMatchObject({confirmForSetup:true,days:expect.any(Array)});expect(JSON.parse(m.fetch.mock.calls[1][1].body).days).toHaveLength(7);expect(m.saved).toHaveBeenCalledTimes(1);expect(host.textContent).not.toContain("確認並儲存營業時間");
 });
+
+it('uses the Beauty dropdown while preserving custom minutes and the confirmed weekly save contract',async()=>{
+ const transport=vi.fn(async(input:Record<string,unknown>)=>{
+  const changes=input.days as {dayOfWeek:number;isOpen:boolean;periods:{openTime:string;closeTime:string}[]}[];
+  return {success:true,storeId:'store',data:days.map(day=>{const changed=changes.find(c=>c.dayOfWeek===day.dayOfWeek);const next=changed??day;return {...day,...next,persisted:true,openTime:next.periods[0].openTime,closeTime:next.periods.at(-1)!.closeTime};})};
+ });
+ await act(async()=>root.render(createElement(CourseWeeklyHoursEditor,{key:'beauty-dropdown',storeId:'store',initial:days.map(day=>({...day,periods:[{openTime:'09:15',closeTime:'18:00'}]})),canManage:true,onSaved:m.saved,source:{selectTimes:true,values:()=>({expectedRevision:'a'.repeat(64)}),transport}})));
+ const select=host.querySelector<HTMLSelectElement>('select[aria-label="週一第1段開始"]')!;expect(select.value).toBe('09:15');
+ await act(async()=>{select.value='10:30';select.dispatchEvent(new Event('change',{bubbles:true}));});await submit();
+ expect(transport).toHaveBeenCalledOnce();expect(transport.mock.calls[0][0]).toMatchObject({expectedRevision:'a'.repeat(64),days:[{dayOfWeek:1,isOpen:true,periods:[{openTime:'10:30',closeTime:'18:00'}]}]});
+ expect(m.saved).toHaveBeenCalledOnce();expect(host.textContent).toContain('已儲存每週營業時間');
+});

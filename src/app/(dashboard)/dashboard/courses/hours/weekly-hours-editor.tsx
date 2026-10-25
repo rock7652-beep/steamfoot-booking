@@ -1,4 +1,5 @@
 "use client";
+import {TimeOfDayField} from "@/components/admin/time-of-day-field";
 import { useRef, useState, useTransition } from "react";
 import type {SettingsSaveTransport} from "@/components/admin/use-settings-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -9,7 +10,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 
 type Period = { openTime: string; closeTime: string };
 type Day = { dayOfWeek: number; dayName: string; persisted?: boolean; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
-export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, confirmationRequired=false, source:transportSource }: { confirmationRequired?:boolean; source?:{transport:SettingsSaveTransport;values:()=>Record<string,unknown>};storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
+export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, confirmationRequired=false, source:transportSource }: { confirmationRequired?:boolean; source?:{selectTimes?:boolean;transport:SettingsSaveTransport;values:()=>Record<string,unknown>};storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
   const [days, setDays] = useState(() => initial.map(day => ({ ...day, periods: day.periods.length ? day.periods.map(p => ({ openTime: p.openTime, closeTime: p.closeTime })) : [{ openTime: day.openTime ?? "10:00", closeTime: day.closeTime ?? "22:00" }] })));
   const [saved, setSaved] = useState(() => days.filter(day => day.persisted !== false));
   const initialDays = useRef(days);
@@ -48,8 +49,8 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, 
       {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-2 py-1">
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={day.isOpen} onChange={e => update(day.dayOfWeek, { isOpen: e.target.checked })} />{day.dayName}</label>
         {day.isOpen ? <div className="min-w-0 flex-1 space-y-2">{day.periods.map((period, index) => <div key={index} className="flex flex-wrap items-center gap-2">
-          <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" /><span>至</span>
-          <input aria-label={`${day.dayName}第${index + 1}段結束`} type="time" required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" />
+          <TimeOfDayField selectTimes={transportSource?.selectTimes} aria-label={`${day.dayName}第${index + 1}段開始`} step={60} required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" /><span>至</span>
+          <TimeOfDayField selectTimes={transportSource?.selectTimes} aria-label={`${day.dayName}第${index + 1}段結束`} step={60} required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" />
           {day.periods.length > 1 && <button type="button" aria-label={`移除${day.dayName}第${index + 1}段`} onClick={() => update(day.dayOfWeek, { periods: day.periods.filter((_, i) => i !== index) })} className="min-h-11 px-2 text-sm text-red-700">移除</button>}
         </div>)}</div> : <span className="py-3 text-sm text-earth-500">公休</span>}
         {day.isOpen && day.periods.length < 8 && <button type="button" onClick={() => update(day.dayOfWeek, { periods: [...day.periods, { openTime: "10:00", closeTime: "22:00" }] })} className="min-h-11 px-2 text-sm text-primary-700">＋ 時段</button>}

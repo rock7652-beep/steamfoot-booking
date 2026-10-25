@@ -1,6 +1,6 @@
 "use server";
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
-import {traceBeautyRead} from "@/server/beauty/read-timing";
+import {traceBeautyRead,beautyReadStep} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
 import {persistBeautyCatalog} from '@/server/beauty/catalog';
 import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
@@ -163,20 +163,21 @@ async function bookingActor(mode: "manager" | "member" | "work", write = true) {
       ? beautyWorker(write)
       : beautyMember(write);
 }
-export async function bookBeautyParty(
+async function bookBeautyPartyCore(
   mode: "manager" | "member",
   input: unknown,
 ) {
   return result(async () => {
-    const a = await bookingActor(mode),
-      d = await resolveBeautyBookingInput(mode,input,a);
+    const a = await beautyReadStep('authorization',()=>bookingActor(mode)),
+      d = await beautyReadStep('booking-input',()=>resolveBeautyBookingInput(mode,input,a));
     if (d.people.some((p) => p.cardId))
       await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
-    const booked=await beautyTransaction(a, (tx) => reserveParty(tx, a, d));
+    const booked=await beautyReadStep('booking-transaction',()=>beautyTransaction(a, (tx) => reserveParty(tx, a, d)));
     if(mode==="member")await notifyBeautyBookingManagers(a.storeId,booked.groupId);
     return booked;
   });
 }
+export async function bookBeautyParty(mode:'manager'|'member',input:unknown){return (await traceBeautyRead('booking.submit',()=>bookBeautyPartyCore(mode,input))).value;}
 export async function submitBeautyTrial(
   slug: string,
   input: unknown,
@@ -246,7 +247,7 @@ export async function submitBeautyTrial(
     return booked;
   });
 }
-export async function readBeautySlots(
+async function readBeautySlotsCore(
   mode: "manager" | "member" | "public",
   slug: string,
   input: unknown,
@@ -261,10 +262,11 @@ export async function readBeautySlots(
       if (!s) throw new AppError("NOT_FOUND", "找不到店家");
       await requireBeauty(s.id);
       a = { storeId: s.id, userId: null };
-    } else a = await bookingActor(mode, false);
+    } else a = await beautyReadStep('authorization',()=>bookingActor(mode, false));
     return beautySlotsForActor(mode,input,a);
   });
 }
+export async function readBeautySlots(mode:'manager'|'member'|'public',slug:string,input:unknown){return (await traceBeautyRead('booking.availability',()=>readBeautySlotsCore(mode,slug,input))).value;}
 export async function changeBeautyStatus(
   mode: "manager" | "member" | "work",
   input: unknown,
