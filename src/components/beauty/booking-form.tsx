@@ -1,6 +1,7 @@
 "use client";
 import {serviceDuration} from "@/lib/beauty/service-duration";
 import {BeautyMemberBookingForm} from "./member-booking-form";
+import {BeautyPublicBookingForm, type PublicBookingInfo} from "./public-booking-form";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   bookBeautyParty,
@@ -539,7 +540,8 @@ function BeautyDetailedBookingForm({
   );
 }
 
-export function BeautyBookingForm(props:Parameters<typeof BeautyDetailedBookingForm>[0]&{onViewBookings?:()=>void;readOnly?:boolean;readSlots?:typeof readBeautySlots}){
+export function BeautyBookingForm(props:Parameters<typeof BeautyDetailedBookingForm>[0]&{onViewBookings?:()=>void;readOnly?:boolean;readSlots?:typeof readBeautySlots;publicInfo?:PublicBookingInfo}){
  if(props.mode==='member')return <BeautyMemberBookingForm {...props}/>;
+ if(props.mode==='public')return <BeautyPublicBookingForm key={props.slug} {...props}/>;
  return <BeautyDetailedBookingForm {...props}/>;
 }

@@ -652,6 +652,18 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
+    const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
+    if (req.nextUrl.pathname !== "/beauty-public-preview" || process.env.VERCEL_ENV !== "preview" ||
+      process.env.VERCEL_GIT_COMMIT_REF !== "codex/beauty-public-booking-ux" ||
+      process.env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || process.env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking") {
+      return new NextResponse("Not found", { status: 404, headers });
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") return new NextResponse("Method not allowed", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+    const response = routePassThrough(req);
+    Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
+  }
   if (isRetiredModuleRoute(req.nextUrl.pathname, req.nextUrl.searchParams)) {
     return new NextResponse("此模組已移除", { status: 410, headers: { "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
   }

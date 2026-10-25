@@ -4,7 +4,7 @@ import {prisma} from '@/lib/db';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {AppError} from '@/lib/errors';
 import {memberPartyInput} from '@/lib/beauty/member-booking';
-import {partyInput} from '@/lib/beauty/contracts';
+import {partyInput,publicTrialAvailabilityInput} from '@/lib/beauty/contracts';
 import type {BeautyActor} from './access';
 import {loadAvailability,findAllocation,type BookingPartyInput} from './booking';
 import type {Prisma} from '../../../generated/beauty-client';
@@ -18,7 +18,10 @@ export async function resolveBeautyBookingInput(mode:"manager"|"member",input:un
 }
 
 export async function beautySlotsForActor(mode:"manager"|"member"|"public",input:unknown,a:BeautyActor){
-    const d=mode==='public'?partyInput.parse(input):await resolveBeautyBookingInput(mode,input,a);
+    // Empty names are internal allocation-only values; no customer/contact is
+    // created by a read. Submission still requires the complete partyInput.
+    const publicInput=mode==='public'?publicTrialAvailabilityInput.parse(input):null;
+    const d=publicInput?{...publicInput,people:publicInput.people.map(p=>({...p,isTrial:true,name:'',customerId:null,cardId:null,notes:''}))}:await resolveBeautyBookingInput(mode as 'manager'|'member',input,a);
     for(const person of d.people)if(person.isTrial??d.isTrial)await assertBeautyTrialEligibility(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,person);
     const loaded = await loadAvailability(
       beautyPrisma as unknown as Prisma.TransactionClient,
