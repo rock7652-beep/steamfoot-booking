@@ -1,4 +1,4 @@
-/* Only the guarded sports Preview opts into this layout. Keep normal type and 44px controls. */
+/* Shared course fee layouts keep normal type and 44px controls. */
 .form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -35,7 +35,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Sports fees keep cost in the primary pricing area. Narrow sheets switch sections. */
+/* Native music and sports fees keep costs visible; narrow sheets switch sections. */
 .compactForm { container-type: inline-size; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .compactForm > div:empty { display: none; }
 .feeTabs { display: flex; gap: 8px; }
