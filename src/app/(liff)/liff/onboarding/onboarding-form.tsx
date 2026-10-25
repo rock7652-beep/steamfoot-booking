@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
+import { courseLineOnboardingReturnPath } from "@/lib/course-delivery-links";
 import {
   initLiff,
   isInLineClient,
@@ -82,11 +83,17 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
     let cancelled = false;
     (async () => {
       try {
-        await initLiff(liffId);
+        const sdk = await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
-          setState({ kind: "not_in_line_app" });
-          return;
+          if (new URLSearchParams(window.location.search).get("booking") !== "1") {
+            setState({ kind: "not_in_line_app" });
+            return;
+          }
+          if (!sdk.isLoggedIn()) {
+            sdk.login({ redirectUri: window.location.href });
+            return;
+          }
         }
         const idToken = getIDToken();
         if (!idToken) {
@@ -96,7 +103,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         const session = await refreshLiffSession({ idToken, storeSlug });
         if (cancelled) return;
         if (session.status === "session_created") {
-          router.replace(`/s/${storeSlug}/liff`);
+          router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search));
           return;
         }
         if (session.status !== "need_onboarding") {
@@ -176,7 +183,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             : { kind: session.status === "expired" ? "expired" : "service_unavailable" });
           return;
         }
-        router.replace(`/s/${storeSlug}/liff`);
+        router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search));
         return;
       }
 

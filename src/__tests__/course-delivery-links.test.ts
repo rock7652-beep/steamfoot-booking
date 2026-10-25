@@ -1,7 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { courseMemberReturnPath } from "@/lib/course-delivery-links";
+import { courseMemberReturnPath, courseLineOnboardingReturnPath } from "@/lib/course-delivery-links";
 import { deriveCourseBaseUrl, courseMemberNotificationUrl } from "@/server/services/course-delivery-links";
 afterEach(() => vi.unstubAllEnvs());
+it("returns a newly registered booking visitor to the same verified store entry",()=>{
+  expect(courseLineOnboardingReturnPath("b","?booking=1&next=https://evil.test&store=a")).toBe("/s/b/liff/public-trial?bookingStore=b");
+  expect(courseLineOnboardingReturnPath("b","?next=https://evil.test")).toBe("/s/b/liff");
+});
 it("preserves date and mode after LIFF login but cannot redirect to a different store or host", () => {
   const path = courseMemberReturnPath("store-a", "?courseDate=2026-10-01&courseView=bookings&next=https://evil.test&store=store-b");
   expect(path).toBe("/s/store-a/book?date=2026-10-01&month=2026-10&view=bookings");

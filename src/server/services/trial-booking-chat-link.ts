@@ -71,6 +71,7 @@ export type TrialBookingChatLinkContext = {
 export async function resolveTrialBookingChatLink(
   token: string,
   now = new Date(),
+  committedReservation = false,
 ): Promise<TrialBookingChatLinkContext | null> {
   const parts = token.split(".");
   if (parts.length !== 2) return null;
@@ -91,7 +92,10 @@ export async function resolveTrialBookingChatLink(
       identityKeyVersion: true,
     },
   });
-  if (!link || link.consumedAt || link.expiresAt <= now) return null;
+  // Completed-entry reads are internal recovery only. Callers must first
+  // prove the exact committed command's actor hash and booking/store scope.
+  // Default reads still reject consumed/expired entries for every booking.
+  if (!link || (committedReservation ? !link.consumedAt : link.consumedAt || link.expiresAt <= now)) return null;
   const expected = Buffer.from(link.tokenHash, "hex");
   const received = Buffer.from(hashToken(secret), "hex");
   if (expected.length !== received.length || !timingSafeEqual(expected, received)) return null;

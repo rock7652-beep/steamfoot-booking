@@ -22,6 +22,9 @@ import {
   isSteamButlerLineDestination,
 } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
+import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
+import { deriveBaseUrl } from "@/lib/base-url";
+import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { normalizePhone } from "@/lib/normalize";
 import {
   captureLineRebindCandidate,
@@ -321,7 +324,7 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
 
   // 回覆歡迎訊息
   if (replyToken) {
-    const result = await replyMessage(storeId, replyToken, [
+    let messages: Parameters<typeof replyMessage>[2] = [
       {
         type: "text",
         text: [
@@ -334,7 +337,14 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
           "系統會依照店舖與手機號碼對應到店長建立的顧客資料。",
         ].join("\n"),
       },
-    ]);
+    ];
+    try {
+      const store = await prisma.store.findUnique({ where: { id: storeId }, select: {
+        name: true, slug: true, shopConfig: { select: { shopPhone: true, address: true, mapUrl: true } },
+      } });
+      if (store && resolvePublicTrialLiffConfig(store.slug)) messages = buildStoreLineWelcome([store], deriveBaseUrl());
+    } catch { /* Metadata failure preserves the existing manual recovery entry. */ }
+    const result = await replyMessage(storeId, replyToken, messages);
     console.log("[LINE] Follow reply result:", result);
   }
 }

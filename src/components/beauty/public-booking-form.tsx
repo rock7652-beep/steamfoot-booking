@@ -11,8 +11,9 @@ import { serviceDuration } from "@/lib/beauty/service-duration";
 import type { PartyInput } from "@/lib/beauty/contracts";
 import type { BeautyBookingCatalog } from "./booking-form";
 import styles from "./public-booking-form.module.css";
+import { BookingLineEntry } from "@/components/booking-line-entry";
 
-export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string; massageReminder?: boolean };
+export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string; massageReminder?: boolean; lineEntryHref?: string; lineIdentityVerified?: boolean };
 type Person = { key: number; name: string; phone: string; serviceId: string; arrangement: string; technicianId: string; notes: string };
 type Errors = Record<string, string>;
 type Props = {
@@ -55,6 +56,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   const [separateContact, setSeparateContact] = useState(false), [contactName, setContactName] = useState(""), [contactPhone, setContactPhone] = useState("");
   const [errors, setErrors] = useState<Errors>({}), [error, setError] = useState(""), [pending, setPending] = useState(false), [uncertain, setUncertain] = useState(false);
   const submission = useRef<PartyInput | null>(null);
+  const [notificationLinked, setNotificationLinked] = useState(false);
   useCourseDraftGuard(stage !== "success", pending || uncertain);
   const contactUrl = normalizeLineOfficialUrl(publicInfo?.contactUrl), mapUrl = safeMap(publicInfo?.mapUrl);
   const fieldId = (key: string) => `${formId}-${key}`;
@@ -139,16 +141,33 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
     try {
       const result = await submitTrial(slug, sent, entry);
       setUncertain(false);
-      if (result.success) { generation.current++; setStage("success"); }
+      if (result.success) { generation.current++; setNotificationLinked("notificationSetup" in result.data && (result.data.notificationSetup as { status?: string })?.status === "linked"); setStage("success"); }
       else setError(result.error);
     } catch { setUncertain(true); setError("尚未確認預約結果，請按「重試確認」。我們會核對同一筆預約，避免重複建立。"); }
+    finally { lock.current = false; setPending(false); }
+  }
+  async function retryNotification() {
+    if (lock.current || stage !== "success" || !entry || !submission.current) return;
+    lock.current = true; setPending(true); setError("");
+    try {
+      // The identical requestKey/payload reopens only the committed command.
+      // The backend repairs identity without creating another reservation.
+      const result = await submitTrial(slug, submission.current, entry);
+      const linked = result.success && "notificationSetup" in result.data && (result.data.notificationSetup as { status?: string })?.status === "linked";
+      setNotificationLinked(linked);
+      if (!linked) setError("預約已保留，LINE 連結尚未完成；請稍後重試或聯繫店家。");
+    } catch { setError("預約已保留，暫時無法確認 LINE 連結；請稍後再試。"); }
     finally { lock.current = false; setPending(false); }
   }
   if (catalog.policy?.selfBooking === false) return <p>店家暫未開放自行預約，請聯絡店家安排。</p>;
   if (!services.length) return <section className={styles.card}><h2>目前尚無可預約的體驗服務</h2><p>請聯絡店家確認可預約的項目。</p>{contactUrl && <a href={contactUrl} target="_blank" rel="noopener noreferrer">聯絡店家</a>}</section>;
   if (stage === "success") return <section className={styles.success} aria-label="預約成功" role="status">
     <h2 ref={stageHeading} tabIndex={-1}>預約成功</h2><Summary catalog={catalog} date={date} time={time} people={people} showNames/>
-    <div className={styles.card}><p>聯絡人：{separateContact ? contactName.trim() : people[0].name.trim()} · {normalizePhone(separateContact ? contactPhone : people[0].phone)}</p><p>請保留此確認畫面。查詢、取消或改期，請聯絡店家；LINE 提醒需完成帳號連結並依店家設定發送。</p>
+    <div className={styles.card}><p>聯絡人：{separateContact ? contactName.trim() : people[0].name.trim()} · {normalizePhone(separateContact ? contactPhone : people[0].phone)}</p>
+      <p className="font-semibold">{notificationLinked ? "LINE 通知已連結" : "預約已成功，LINE 通知尚未連結"}</p>
+      <p>{notificationLinked ? "不必再輸入電話。請加入本店官方 LINE 並保持未封鎖，提醒依店家設定發送。" : "您的預約已保留。請透過官方 LINE 聯繫店家核對通知身分，無須重複預約。"}</p>
+      {!notificationLinked && entry && <button type="button" disabled={pending} onClick={() => void retryNotification()}>{pending ? "確認連結中…" : "重新確認 LINE 連結"}</button>}
+      {error && <p role="alert">{error}</p>}
       {publicInfo?.address && <p>{publicInfo.address}</p>}<div className={styles.actions}>
         {contactUrl && <a href={contactUrl} target="_blank" rel="noopener noreferrer">聯絡店家</a>}
         {mapUrl && <a href={mapUrl} target="_blank" rel="noopener noreferrer">查看地圖</a>}
@@ -157,6 +176,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
     </div><button type="button" onClick={() => { requestKey.current = crypto.randomUUID(); setPeople([blank(sequence.current++)]); setTime(""); setSlots([]); setQueried(false); setSeparateContact(false); setContactName(""); setContactPhone(""); setStage("service"); setErrors({}); setError(""); }}>再預約一筆</button>
   </section>;
   return <form noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
+    {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified}/>}
     <ol className={styles.steps} aria-label="預約步驟"><li aria-current={stage === "service" ? "step" : undefined}>1 選擇服務與時段</li><li aria-current={stage === "contact" ? "step" : undefined}>2 聯絡資料與確認</li></ol>
     <fieldset disabled={pending || uncertain}>
       {stage === "service" ? <>
