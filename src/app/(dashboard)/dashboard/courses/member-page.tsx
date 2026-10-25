@@ -1,3 +1,4 @@
+import {DashboardLink} from "@/components/dashboard-link";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { loadSportsStaging } from "@/server/actions/sports-staging";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
@@ -130,7 +131,7 @@ export async function CourseMemberPage({
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
-      {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "收費方式" : "方案管理"} />}
+      {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "收費方式" : "方案管理"} actions={await hasStoreFeature(storeId,FEATURES.BASIC_REPORTS)&&(user.role==="OWNER"||user.role==="ADMIN")&&(await Promise.all((["report.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean)?<DashboardLink href={`/dashboard/courses/cost-review${musicDataScope(storeId,query.dataScope)?`?dataScope=${musicDataScope(storeId,query.dataScope)}`:""}`} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm">成本核對</DashboardLink>:undefined}/>}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
