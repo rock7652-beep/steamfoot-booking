@@ -2,11 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
 const mocks = vi.hoisted(() => ({ construct: vi.fn(), audit: vi.fn((client: unknown) => client), resend: vi.fn(), sendMail: vi.fn() }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
-vi.mock("@/lib/generated-prisma-runtime", () => ({
-  loadCoursePrismaRuntime: () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("course", options); } } }),
-  loadSpaPrismaRuntime: () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("spa", options); } } }),
-}));
+vi.mock("@prisma/client", async original => ({...(await original<typeof import("@prisma/client")>()), PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
+vi.mock("@/lib/generated-prisma-runtime", async () => {const runtime=await import("../../generated/course-client");return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{constructor(options:unknown){mocks.construct("course",options);}}})}});
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: mocks.sendMail }; constructor() { mocks.resend(); } } }));
 

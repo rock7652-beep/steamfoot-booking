@@ -10,6 +10,6 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
   const user = await getCurrentUser();
   if (!user || !await checkPermission(user.role, user.staffId, "business_hours.manage")) notFound();
   const { storeId } = await courseManager("business_hours.manage");
-  if (!await hasStoreFeature(storeId, FEATURES.LINE_REMINDER)) return <p>此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p>;
+
   return <ReminderPanelReader initial={await readCourseReminderPanel(await searchParams, storeId)} />;
 }

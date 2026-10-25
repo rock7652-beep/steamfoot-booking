@@ -45,16 +45,19 @@ describe("course settings side panel", () => {
     m.replace.mockClear(); await act(async () => host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     const target = new URL(m.replace.mock.calls[0][0], "https://example.com"); expect(target.pathname).toBe("/s/a/admin/dashboard/courses"); expect(new URLSearchParams(target.searchParams.get("panelQuery")!).get("search")).toBe("測試");
   });
-  it("guards close, Escape, tab changes and reload while retaining the draft", async () => {
-    await render(); await click("修改"); await click("關閉視窗"); expect(m.replace).not.toHaveBeenCalled(); expect(host.textContent).toContain("尚有未儲存");
-    await click("繼續編輯"); await click("發送紀錄"); expect(m.replace).not.toHaveBeenCalled(); await click("繼續編輯");
-    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(host.textContent).toContain("尚有未儲存");
-    const unload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
-    await click("不儲存並關閉"); expect(m.replace).not.toHaveBeenCalled(); expect(new URLSearchParams(window.location.search).has("panel")).toBe(false);
+  it("discards dirty drafts silently on close, Escape, tab changes and reload", async () => {
+    const confirm=vi.spyOn(window,"confirm");
+    await render(); await click("修改"); await click("發送紀錄"); expect(m.replace).toHaveBeenCalledOnce();
+    m.replace.mockClear();await click("關閉視窗");
+    expect(host.querySelector("[data-right-sheet]")?.getAttribute("aria-hidden")).toBe("true");expect(m.replace).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+    await act(async()=>root.unmount());window.history.replaceState(null,"","/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&month=2026-09");root=createRoot(host);
+    await render(); await click("修改");await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
+    expect(host.querySelector("[data-right-sheet]")?.getAttribute("aria-hidden")).toBe("true");expect(confirm).not.toHaveBeenCalled();
+    const unload=new Event("beforeunload",{cancelable:true});window.dispatchEvent(unload);expect(unload.defaultPrevented).toBe(false);confirm.mockRestore();
   });
   it("blocks dismissing a pending save and allows closing after successful save", async () => {
     await render(true); await click("關閉視窗"); expect(host.textContent).toContain("設定仍在儲存"); expect(host.textContent).not.toContain("不儲存並關閉"); expect(m.replace).not.toHaveBeenCalled();
-    await render(false); await click("繼續編輯"); await click("修改"); await click("模擬儲存成功"); await click("返回設定"); expect(m.replace).not.toHaveBeenCalled(); expect(new URLSearchParams(window.location.search).has("panel")).toBe(false);
+    await render(false); await click("修改"); await click("模擬儲存成功"); await click("返回設定"); expect(host.querySelector("[data-right-sheet]")?.getAttribute("aria-hidden")).toBe("true");expect(m.replace).not.toHaveBeenCalled();
   });
   it("leaves Escape to nested editors", async () => {
     await render(); const nested = document.createElement("div"); nested.setAttribute("data-right-sheet", ""); nested.setAttribute("aria-hidden", "false"); host.querySelector('[role="dialog"]')!.append(nested);

@@ -28,7 +28,8 @@ import { getTrialRetention, type TrialRetention } from "@/lib/trial-retention";
 import { prisma } from "@/lib/db";
 import { addTaiwanDuration, toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { isSingleStoreTrial, isPendingSingleStoreTrial, singleStoreTrialSummary } from "@/lib/single-store-trial";
-import { getPlanLimits, PLAN_LIMITS } from "@/lib/feature-flags";
+import { PLAN_LIMITS } from "@/lib/feature-flags";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 import type { PricingPlan } from "@prisma/client";
 
 // ============================================================
@@ -341,10 +342,10 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
   const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
   const industry = trialStore.plan === "EXPERIENCE" ? await (await import("@/lib/industry-module-server")).getStoreIndustryModule(storeId) : "steamfoot";
   const course = industry === "course";
-  const staff = course ? { current: await prisma.staff.count({ where: { storeId, status: "ACTIVE" } }), limit: getPlanLimits(trialStore).maxStaff ?? Infinity } : undefined;
+  const staff = course ? { current: await prisma.staff.count({ where: { storeId, status: "ACTIVE" } }), limit: getEffectivePlanLimits(trialStore).maxStaff ?? Infinity } : undefined;
   const summary = singleStoreTrialSummary(trialStore);
   if (summary) {
-    const limits = getPlanLimits(trialStore);
+    const limits = getEffectivePlanLimits(trialStore);
     const { started, expired, pending, trialDays, daysRemaining, expiresOn } = summary;
     const [customers, bookings] = await Promise.all([
       prisma.customer.count({ where: { storeId } }),
@@ -381,7 +382,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     };
   }
 
-  const limits = PLAN_LIMITS.EXPERIENCE;
+  const limits = getEffectivePlanLimits(trialStore, PLAN_LIMITS.EXPERIENCE);
   const maxCustomers = limits.maxCustomers ?? Infinity;
   const maxBookings = limits.maxMonthlyBookings ?? Infinity;
 
@@ -446,7 +447,7 @@ export async function checkCustomerLimit(storeId: string): Promise<{ allowed: bo
   const plan = await getStorePlan(storeId);
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
-  const limits = PLAN_LIMITS.EXPERIENCE;
+  const limits = getEffectivePlanLimits(trialStore, PLAN_LIMITS.EXPERIENCE);
   const maxCustomers = limits.maxCustomers ?? Infinity;
 
   const config = await getShopConfig(storeId);
@@ -470,7 +471,7 @@ export async function checkBookingLimit(storeId: string): Promise<{ allowed: boo
   const plan = await getStorePlan(storeId);
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
-  const limits = PLAN_LIMITS.EXPERIENCE;
+  const limits = getEffectivePlanLimits(trialStore, PLAN_LIMITS.EXPERIENCE);
   const maxBookings = limits.maxMonthlyBookings ?? Infinity;
 
   const config = await getShopConfig(storeId);

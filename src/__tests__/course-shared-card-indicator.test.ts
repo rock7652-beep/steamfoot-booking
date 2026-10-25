@@ -30,7 +30,7 @@ it("keeps six sports table columns with one inline detail indicator and no hidde
   expect(source).not.toContain('"購買方式", "共卡", "操作"');
   expect(source).toContain('sharingVisible && p.allowShared && <CourseSharedCardIndicator');
   expect(source).toContain('sharedCardState === "HIDDEN" ? "all" : savedSharedFilter');
-  expect(source).toContain('colSpan={music ? 5 : 6}');
+  expect(source).toContain('colSpan={6}');
   expect(source).toContain('overflow-x-auto rounded-lg');
   expect(source).toContain('if (!sharingEnabled) { e.preventDefault(); return; }');
   expect(source).toContain('<CourseCardSummary card={card} />');

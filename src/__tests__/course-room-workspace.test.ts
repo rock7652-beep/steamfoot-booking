@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 import { courseRoomInput } from "@/lib/course-room-input";
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: () => null }));
+vi.mock("@/components/admin/course-customer-picker", () => ({ CourseCustomerPicker: () => null }));
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
@@ -53,8 +60,7 @@ it("edits a confirmed room without refresh and preserves it through stale props"
  try{
   await act(async()=>root.render(render()));
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="查看教室")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="編輯教室")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="教室 A")!.click());
   host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
   m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});
   const submit=()=>host.querySelector("#course-edit-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));

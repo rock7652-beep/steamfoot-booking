@@ -28,7 +28,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
   const [spaPending, setSpaPending] = useState(false);
   const version = useRef(0), lock = useRef(false), dirty = useRef(false), requestKey = useRef("");
   useEffect(() => () => { version.current++; }, []);
-  function close() { if (pending || lock.current) return; if (dirty.current && !window.confirm("尚有未儲存的預約資料，要捨棄嗎？")) return; version.current++; setOpen(false); }
+  function close() {  version.current++; setOpen(false); }
   async function show() {
     const current = ++version.current; setOpen(true); setLoading(true); setError(""); setOptions(null); dirty.current = false; requestKey.current = crypto.randomUUID();
     try { const res = await reader.read(item.customerId); if (current !== version.current) return; if (!res.success) setError(res.error); else setOptions(res.data); }

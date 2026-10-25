@@ -779,3 +779,15 @@
 
 /* Four or five destinations share the same touch area. */
 .cp-nav button { min-width: 0; min-height: 48px; padding-inline: 2px; white-space: nowrap; }
+
+/* Member calendar and payment records share compact, touch-friendly controls. */
+.cp-calendar-modes{display:flex;gap:8px}.cp-calendar-modes>button{flex:1;min-height:44px}
+.cp-member-records{display:grid;gap:10px;min-width:0}.cp-member-records h2{margin:0}
+.cp-payment-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;min-height:44px;cursor:pointer}
+.cp-member-money{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 0;color:var(--cp-muted,#6b7280)}
+.cp-payment-line{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;margin:6px 0}
+.cp-member-period{border-top:1px solid #e7e5e4;padding:4px 0}.cp-member-period>summary{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;min-height:44px;cursor:pointer}
+.cp-member-lessons{list-style:none;padding:0;margin:4px 0}.cp-member-lessons li{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;padding:8px 0;border-top:1px solid #f0eeeb;overflow-wrap:anywhere}
+@media(min-width:640px){.cp-member-lessons li{grid-template-columns:170px minmax(0,1fr) auto}}
+
+.cp-member-records-embedded{border-top:1px solid #e7e5e4;padding-top:8px}.cp-purchased-quantity{display:block;font-size:14px;font-weight:400;line-height:1.5}.cp-member-purchase>summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;min-height:44px;align-items:center;cursor:pointer}.cp-plan-overview:has(.cp-plan-summary>button:only-child){padding:0;background:transparent;border:0;box-shadow:none}.cp-plan-overview .cp-plan-summary>button:only-child{margin-left:auto}

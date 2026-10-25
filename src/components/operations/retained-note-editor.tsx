@@ -12,8 +12,8 @@ function validDraft(value: unknown): value is Draft {
   return (draft.base === null || typeof draft.base === "string") && typeof draft.text === "string" && draft.text.length <= 2000;
 }
 export type NoteSaveResult = { success: boolean; error?: string; currentValue?: string | null };
-export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, emptyActionLabel, optimistic = false, confirmDiscard=true,save, onSaved }: {
-  confirmDiscard?:boolean;quiet?: boolean; emptyActionLabel?: string; optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
+export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, emptyActionLabel, optimistic = false, confirmDiscard=false,formatDisplay,save, onSaved }: {
+  formatDisplay?:(value:string|null)=>string|null;confirmDiscard?:boolean;quiet?: boolean; emptyActionLabel?: string; optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
   value: string | null; canEdit: boolean; maxLength: number; tone?: "green" | "gold";
   save: (text: string | null, expected: string | null) => Promise<NoteSaveResult>;
   onSaved: (value: string | null) => void;
@@ -92,12 +92,12 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
         <span className="text-xs text-earth-500">{draft.text.length} / {maxLength} 字</span>
         <div className="flex gap-2">
           <button type="button" disabled={saving} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50" onClick={() => {
-            if (confirmDiscard&&dirty && !window.confirm("捨棄這次尚未儲存的備註？")) return;
+
             setDraft(null); setConflict(null); setMessage("");
           }}>取消</button>
           <button type="button" disabled={saving || !!conflict} onClick={() => { void submit(); }} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>
         </div>
       </div>
-    </div> : current?.trim() ? <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{current}</p> : null}
+    </div> : current?.trim() ? <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{formatDisplay ? formatDisplay(current) : current}</p> : null}
   </div>;
 }

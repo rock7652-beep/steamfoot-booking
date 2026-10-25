@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission,checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { isStoreFeatureEnabledForRead as hasStoreFeature } from "@/lib/feature-gate";
@@ -30,8 +30,10 @@ async function access(module: ReminderModule, expectedStoreId?: string, expected
   if (!storeId || (expectedStoreId && storeId !== expectedStoreId)) throw new AppError("FORBIDDEN", "店舖已變更，請重新開啟提醒管理。");
   if (await getStoreIndustryModule(storeId) !== module) throw new AppError("FORBIDDEN", "店舖模組已變更，請重新開啟提醒管理。");
   if (module === "course" && (await courseManager("business_hours.manage")).storeId !== storeId) throw new AppError("FORBIDDEN", "無法存取此店舖。");
-  if (!await hasStoreFeature(storeId, FEATURES.LINE_REMINDER)) throw new AppError("FORBIDDEN", "此店舖尚未開通 LINE 提醒功能。");
-  return { storeId, actorId: user.id };
+  const lineEnabled=await hasStoreFeature(storeId,FEATURES.LINE_REMINDER);
+  const canUnassigned=module === "course" && (await Promise.all([checkPermission(user.role,user.staffId,"customer.read"),checkPermission(user.role,user.staffId,"wallet.read")])).every(Boolean);
+  if(!lineEnabled&&!canUnassigned)throw new AppError("FORBIDDEN","無法存取提醒管理");
+  return {storeId,actorId:user.id,lineEnabled,canUnassigned};
 }
 export async function readSteamReminderPanel(params: ReminderParams, expectedStoreId?: string, expectedActorId?: string) {
  const timing = new OperationTiming("steam-reminders.read");
@@ -88,13 +90,14 @@ export type SteamReminderData = Awaited<ReturnType<typeof readSteamReminderPanel
 export async function readCourseReminderPanel(params: ReminderParams, expectedStoreId?: string, expectedActorId?: string) {
  const timing = new OperationTiming("course-reminders.read");
  try {
- const { storeId, actorId } = await access("course", expectedStoreId, expectedActorId);
+ const { storeId, actorId,lineEnabled,canUnassigned } = await access("course", expectedStoreId, expectedActorId);
  const [musicGrant, workOrdersEnabled] = await Promise.all([prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}), hasStoreFeature(storeId, FEATURES.WORK_ORDERS)]);
  const music = !!musicGrant;
- const active = params.tab === "coach" ? "coach" : params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
+ const active = !lineEnabled ? "manager" : params.tab === "coach" ? "coach" : params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
  const previewBlocked = isPreviewExternalIntegrationBlocked();
- const lineHealthRequest = previewBlocked ? Promise.resolve(null) : timing.measure("line-health", () => getCurrentLineOfficialAccountStatus());
+ const lineHealthRequest = previewBlocked || !lineEnabled ? Promise.resolve(null) : timing.measure("line-health", () => getCurrentLineOfficialAccountStatus());
  async function readContent() {
+ if(!lineEnabled)return {kind:"local" as const};
  if (active === "manager") return { kind: "manager" as const, recipients: await timing.measure("manager-data", listStoreLineNotificationRecipients) };
  if (active === "logs") return { kind: "logs" as const, logs: await timing.measure("log-data", () => listNotificationCenterLogs(params)) };
  if (active === "coach") {
@@ -118,8 +121,8 @@ return {kind: "coach" as const, initial: Object.fromEntries(COACH_NOTICE_KINDS.m
       ]));
 return {kind: "customer" as const, setting, expiry, plans, care, careStore, careLogs, map, workOrderEnabled};
  }
- const [lineHealth, content, quotaEmail] = await Promise.all([lineHealthRequest, readContent(), active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null)]);
- return { module: "course" as const, actorId, storeId, params, active, music, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
+ const [lineHealth, content, quotaEmail] = await Promise.all([lineHealthRequest, readContent(), lineEnabled && active === "manager" ? getLineQuotaNotificationSetting() : Promise.resolve(null)]);
+ return { module: "course" as const, actorId, storeId, params, active, music,lineEnabled,canUnassigned, workOrdersEnabled, previewBlocked, lineHealth, content, quotaEmail };
  } finally { timing.finish(); }
 }
 export type CourseReminderData = Awaited<ReturnType<typeof readCourseReminderPanel>>;

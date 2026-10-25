@@ -23,7 +23,7 @@ beforeEach(()=>{
 describe("course analysis export authorization",()=>{
  it("uses the authorized store, not URL storeId, and escapes spreadsheet formulas",async()=>{
   const result=await GET(request());expect(result.status).toBe(200);
-  expect(m.analytics).toHaveBeenCalledWith("authorized",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true);
+  expect(m.analytics).toHaveBeenCalledWith("authorized",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true,undefined);
   const csv=await result.text();expect(csv).toContain('"使用點數","3"');expect(csv).toContain('"使用堂數","1"');expect(csv).toContain("'=FORMULA");
  });
  it("rejects unauthenticated and permission-denied downloads",async()=>{
@@ -37,14 +37,14 @@ describe("course analysis export authorization",()=>{
  });
  it("does not read financial data without transaction permission",async()=>{
   m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=="transaction.read");
-  expect((await GET(request())).status).toBe(200);expect(m.analytics).toHaveBeenCalledWith("authorized",expect.any(Object),false,true);
+  expect((await GET(request())).status).toBe(200);expect(m.analytics).toHaveBeenCalledWith("authorized",expect.any(Object),false,true,undefined);
  });
  it("keeps cash permissions separate and exports attribution without a misleading partial total",async()=>{
   m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=="cashbook.read");
   const baseline=await m.analytics();
   m.analytics.mockResolvedValue({...baseline,financial:{purchaseIncome:1000,manualIncome:null,manualExpense:null,totalIncome:null,net:null,categories:[{name:"點數方案",income:1000,refunds:0,expense:0,net:1000}],staff:[{id:"coach",orders:1,customers:1,purchaseIncome:1000,refunds:0,manualIncome:0,manualExpense:0}]}});
   const result=await GET(request());
-  expect(m.analytics).toHaveBeenLastCalledWith("authorized",expect.any(Object),true,false);
+  expect(m.analytics).toHaveBeenLastCalledWith("authorized",expect.any(Object),true,false,undefined);
   const csv=await result.text();
   expect(csv).toContain('"點數方案","1000","0","0","1000"');
   expect(csv).toContain('"\'=FORMULA","1","1","1000","無檢視權限"');
@@ -72,7 +72,7 @@ describe("business analysis export boundary",()=>{
   m.business.mockResolvedValue({staff:[],counts:{},conversionRate:null,eligibleTrials:0,sessions:0,hours:0,attendance:0,retentionRate:null,retentionBase:0,retentionRange:null,netRevenue:null,profit:0,knownProfit:0,missingProfit:2,fee:null});
   const response=await GET(businessRequest("perspective=manager&person=all&storeId=foreign"));
   expect(response.status).toBe(200);
-  expect(m.business).toHaveBeenCalledWith("authorized",{startDate:"2026-09-01",endDate:"2026-09-03"},{view:"manager",person:"all"},{money:true,customers:false,fees:true});
+  expect(m.business).toHaveBeenCalledWith("authorized",{startDate:"2026-09-01",endDate:"2026-09-03"},{view:"manager",person:"all"},{money:true,customers:false,fees:true},undefined);
   const csv=await response.text();expect(csv).toContain('"方案利潤已確認金額（待核對未計入）","待核對"');expect(csv).not.toContain('"收款淨額"');
  });
 });

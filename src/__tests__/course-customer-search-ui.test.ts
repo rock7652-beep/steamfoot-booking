@@ -72,3 +72,21 @@ it("incomplete index still queries all authorized customers",async()=>{
  await type("遠端");await act(async()=>vi.advanceTimersByTime(250));
  expect(m.search).toHaveBeenCalledWith("遠端");expect(host.textContent).toContain("遠端學員");
 });
+it("compact schedule search picks an independent learner by phone or name and clears in place",async()=>{
+ const selected=vi.fn();
+ m.index.mockResolvedValue({success:true,scope:"user:store",complete:true,rows:[{id:"child-a",name:"林小一",phone:"0999001244",lineName:null},{id:"child-b",name:"林小二",phone:"0999001244",lineName:null}]});
+ await act(async()=>root.render(React.createElement(CourseCustomerPicker,{name:"scheduleStudent",compact:true,onChange:selected})));
+ await act(async()=>host.querySelector('input')!.focus());
+ expect(host.querySelector('[aria-label="搜尋學員姓名或電話"]')).not.toBeNull();
+ await type("0999001244");
+ expect(host.textContent).toContain("林小一");expect(host.textContent).toContain("林小二");
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('林小二'))!.click());
+ expect(selected).toHaveBeenLastCalledWith([expect.objectContaining({id:"child-b"})]);
+ expect((host.querySelector('input:not([type="hidden"])') as HTMLInputElement).value).toContain("林小二");
+ expect(host.textContent).not.toContain("林小一");
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="清除學員搜尋"]')!.click());
+ expect(selected).toHaveBeenLastCalledWith([]);
+ expect((host.querySelector('input') as HTMLInputElement).value).toBe("");
+ await type("林小一");
+ expect(host.textContent).toContain("林小一");expect(host.textContent).not.toContain("林小二");
+});

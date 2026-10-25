@@ -102,7 +102,7 @@ describe("data_export route gates", () => {
     );
 
     const { GET } = await import("@/app/api/export/customers/route");
-    const response = await GET();
+    const response = await GET(new Request("https://preview.example/api/export"));
 
     expect(response.status).toBe(403);
     expect(await response.text()).toBe(DATA_EXPORT_LOCKED_MESSAGE);
@@ -114,21 +114,21 @@ describe("data_export route gates", () => {
     courseExport.module.mockResolvedValue("course");
     mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="wallet.read");
     const { GET } = await import("@/app/api/export/customers/route");
-    const response=await GET();
+    const response=await GET(new Request("https://preview.example/api/export"));
     expect(response.status).toBe(200);expect(await response.text()).toBe("course-csv");
-    expect(courseExport.csv).toHaveBeenCalledWith("store-1",{cards:false,bookings:true});
+    expect(courseExport.csv).toHaveBeenCalledWith("store-1",{cards:false,bookings:true},undefined);
     expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
 
   it("routes beauty CSV through the same export entry with separate wallet and booking permissions",async()=>{
     courseExport.module.mockResolvedValue("beauty");mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="booking.read");
-    const {GET}=await import("@/app/api/export/customers/route");const response=await GET();expect(await response.text()).toBe("beauty-csv");expect(courseExport.beauty).toHaveBeenCalledWith("store-1",{cards:true,bookings:false});expect(courseExport.csv).not.toHaveBeenCalled();expect(mockCustomerFindMany).not.toHaveBeenCalled();
+    const {GET}=await import("@/app/api/export/customers/route");const response=await GET(new Request("https://preview.example/api/export/customers"));expect(await response.text()).toBe("beauty-csv");expect(courseExport.beauty).toHaveBeenCalledWith("store-1",{cards:true,bookings:false});expect(courseExport.csv).not.toHaveBeenCalled();expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
   it("rejects a course export without customer.read even when export permission exists", async () => {
     courseExport.module.mockResolvedValue("course");
     mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="customer.read");
     const { GET } = await import("@/app/api/export/customers/route");
-    expect((await GET()).status).toBe(403);
+    expect((await GET(new Request("https://preview.example/api/export"))).status).toBe(403);
     expect(courseExport.csv).not.toHaveBeenCalled();expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
 
@@ -156,7 +156,7 @@ describe("data_export route gates", () => {
     activeStoreCookie = "__all__";
 
     const { GET } = await import("@/app/api/export/customers/route");
-    const response = await GET();
+    const response = await GET(new Request("https://preview.example/api/export"));
 
     expect(response.status).toBe(403);
     expect(await response.text()).toBe(DATA_EXPORT_SELECT_STORE_MESSAGE);

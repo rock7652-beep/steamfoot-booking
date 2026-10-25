@@ -6,7 +6,7 @@ import {OperationScope} from "@/components/operations/operation-scope";
 import {CoursePlanDraftForm} from "@/app/(dashboard)/dashboard/courses/course-profile-forms";
 const m=vi.hoisted(()=>({sportsSave:vi.fn(),save:vi.fn(),refresh:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:vi.fn(),saveCoursePointPlan:m.save}));
-vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
+vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams(),usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>({json:async()=>m.save(JSON.parse(String(init.body)))}));sessionStorage.clear();vi.resetAllMocks();m.save.mockResolvedValue({success:false,error:"保留輸入"});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
@@ -47,8 +47,9 @@ it("does not submit an unsaved sharing addition after the gate changes",async()=
  await act(async()=>host.querySelector<HTMLInputElement>('input[name="allowShared"]')!.click());
  await mount({plan,sharedCardState:"HIDDEN"});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(false);
 });
-it("keeps music sharing control independent of this sports gate",async()=>{
- await mount({music:true,sharedCardState:"HIDDEN"});expect(host.querySelector('input[name="allowShared"]')).not.toBeNull();
+it("preserves existing music sharing independently of the sports gate",async()=>{
+ await mount({music:true,plan:{...sharedPlan,templateIds:["t"]},sharedCardState:"HIDDEN",subjects:[{id:"guitar",name:"吉他",category:"",isActive:true}],templates:[{id:"t",name:"吉他",category:"",isActive:true,musicSubjectId:"guitar"}],musicTeachers:[{id:"teacher",name:"教師",active:true,qualificationIds:["t"]}]});
+ await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(true);
 });
 it("delivers the committed plan and retains the original payload after an ambiguous reply",async()=>{
  const saved=vi.fn();await mount({onSaved:saved});

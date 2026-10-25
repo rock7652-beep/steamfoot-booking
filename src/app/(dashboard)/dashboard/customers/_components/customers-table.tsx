@@ -87,6 +87,9 @@ interface Props {
   stickyActions?: boolean;
   hideAssignedStaff?: boolean;
   assignedStaffLabel?: string;
+  renderNote?: (row: CustomerRow) => ReactNode;
+  compactActions?: boolean;
+  onEdit?: (row: CustomerRow) => void;
 }
 
 /**
@@ -128,6 +131,9 @@ export function CustomersTable({
   stickyActions = true,
   hideAssignedStaff = false,
   assignedStaffLabel = "所屬店長",
+  renderNote,
+  compactActions = false,
+  onEdit,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -282,7 +288,7 @@ export function CustomersTable({
     },
     {
       key: "notes", header: "標籤／備註", noLink: true, width: "min-w-[14rem]",
-      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/><p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p></div>,
+      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/>{renderNote ? renderNote(c) : <p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p>}</div>,
     },
     {
       key: "actions",
@@ -290,7 +296,7 @@ export function CustomersTable({
       header: "操作",
       noLink: true,
       align: "center",
-      width: "w-36 min-w-36",
+      width: compactActions ? "w-16 min-w-16" : "w-36 min-w-36",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -299,7 +305,7 @@ export function CustomersTable({
         }
         return (
           <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-            {onQuickAssign&&!quickAssignInMenu ? (
+            {onQuickAssign&&!quickAssignInMenu&&!compactActions ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -312,7 +318,7 @@ export function CustomersTable({
                 {quickAssignLabel}
               </button>
             ) : null}
-            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet>{quickAssignInMenu&&onQuickAssign&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onQuickAssign(c)}>{quickAssignLabel}</button>}<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet>{(quickAssignInMenu||compactActions)&&onQuickAssign&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onQuickAssign(c)}>{quickAssignLabel}</button>}<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>{compactActions?"查看資料":"查看／編輯顧客"}</button>{onEdit&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onEdit(c)}>編輯資料</button>}</ExclusiveMenu>
           </div>
         );
       },

@@ -7,7 +7,8 @@ import { organizationSubscriptionRows } from "@/lib/alliance-subscription";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
-import { getPlanLimits, type PlanLimits } from "@/lib/feature-flags";
+import type { PlanLimits } from "@/lib/feature-flags";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 import type { PricingPlan } from "@prisma/client";
 
 export interface UsageMetric {
@@ -68,7 +69,7 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
 
   if (!store) return null;
 
-  const limits = getPlanLimits(store);
+  const limits = getEffectivePlanLimits(store);
 
   // 本月範圍
   const { start: monthStart, end: monthEnd } = monthRange(toLocalMonthStr());

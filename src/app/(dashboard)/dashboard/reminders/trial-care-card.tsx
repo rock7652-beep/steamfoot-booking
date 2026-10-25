@@ -39,9 +39,11 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
     update(index, { body: body.slice(0, from) + token + body.slice(to) });
     requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(from + token.length, from + token.length); });
   }
-  return <section className="rounded-2xl border border-earth-200 bg-white shadow-sm md:col-span-2">
+  const Container = course ? "details" : "section";
+  return <Container className="rounded-2xl border border-earth-200 bg-white shadow-sm md:col-span-2 [&_button]:min-h-11 [&_input]:min-h-11">
+    {course && <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm"><strong>體驗客後續關懷</strong><span role="status">{saved.enabled ? "已開啟" : "已關閉"}{pending ? " · 儲存中…" : dirty ? " · 未儲存" : ""}{message ? ` · ${message}` : ""}</span></summary>}
     <header className="flex items-start justify-between gap-4 p-5">
-      <div><h2 className="font-semibold text-earth-900">體驗客後續關懷</h2><p className="mt-1 text-sm text-earth-500">先關心，再邀請。各店獨立設定，僅適用於啟用後新完成的體驗。</p></div>
+      <div><h2 className="font-semibold text-earth-900">{course ? "整組關懷與發送設定" : "體驗客後續關懷"}</h2><p className="mt-1 text-sm text-earth-500">先關心，再邀請。各店獨立設定，僅適用於啟用後新完成的體驗。</p></div>
       <CareSwitch checked={enabled} label="啟用整組體驗關懷" disabled={pending || readOnly} onChange={value => { setEnabled(value); setMessage(""); }} />
     </header>
     <div role="status" className={`mx-5 rounded-xl px-4 py-3 text-sm ${saved.enabled ? "bg-primary-50 text-primary-800" : "bg-earth-50 text-earth-700"}`}>
@@ -81,7 +83,7 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
                 <p className="mt-1 text-xs text-earth-500">姓名與店名會自動帶入。{i === 0 ? "這封以關心感受為主。" : "可加入本店優惠，顧客也能直接回覆 LINE 詢問。"}</p>
               </div>
             </fieldset>
-            <div className="min-w-0"><p className="mb-2 text-xs font-medium text-earth-500">LINE 卡片預覽 · 示意，按鈕不會發送訊息</p><div className="rounded-2xl bg-[#e5ece8] p-4"><p className="mb-2 text-xs text-earth-600">{storeName}</p><div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl bg-white shadow-sm"><div className="whitespace-pre-wrap break-words p-5 text-sm leading-7 text-earth-800">{renderTrialCareBody(rule.body, "小雅", storeName) || "請輸入訊息內容"}</div><div className="space-y-2 px-4 pb-4">{<div className="rounded-lg bg-[#376452] px-3 py-3 text-center text-sm font-medium text-white">查看本店方案</div>}<div className="px-2 py-2 text-center text-sm text-primary-700">不再接收此類訊息</div></div></div></div><p className="mt-2 text-xs text-earth-500">{course ? "查看方案會開啟本店會員中心的公開方案。" : "查看方案會直接回傳本店公開方案，不會通知店長。"}停止接收不影響預約通知。</p></div>
+            <details className="min-w-0"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">查看 LINE 卡片預覽</summary><p className="mb-2 text-xs font-medium text-earth-500">LINE 卡片預覽 · 示意，按鈕不會發送訊息</p><div className="rounded-2xl bg-[#e5ece8] p-4"><p className="mb-2 text-xs text-earth-600">{storeName}</p><div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl bg-white shadow-sm"><div className="whitespace-pre-wrap break-words p-5 text-sm leading-7 text-earth-800">{renderTrialCareBody(rule.body, "小雅", storeName) || "請輸入訊息內容"}</div><div className="space-y-2 px-4 pb-4">{<div className="rounded-lg bg-[#376452] px-3 py-3 text-center text-sm font-medium text-white">查看本店方案</div>}<div className="px-2 py-2 text-center text-sm text-primary-700">不再接收此類訊息</div></div></div></div><p className="mt-2 text-xs text-earth-500">{course ? "查看方案會開啟本店會員中心的公開方案。" : "查看方案會直接回傳本店公開方案，不會通知店長。"}停止接收不影響預約通知。</p></details>
           </div>}
         </div>)}
         <details className="px-1 py-2 text-xs text-earth-500"><summary className="cursor-pointer">發送規則與避免打擾</summary><p className="mt-2 leading-6">台灣時間，每 5 分鐘檢查。各階段至少間隔 3 天。購買申請待核帳時略過邀請，不補發；已購買方案或儲值停止邀請；已預約略過該次邀請。每階段只發一次，不補發、不循環。重新啟用整組關懷只處理新體驗。</p></details>
@@ -91,5 +93,5 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
       </div>
     </form>
     <details className="border-t border-earth-100 p-5"><summary className="cursor-pointer text-sm text-earth-700">最近關懷紀錄</summary><div className="mt-3 space-y-2">{logs.length === 0 && <p className="text-sm text-earth-500">尚無紀錄，啟用不會補發歷史體驗。</p>}{logs.map(log => <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-earth-50 p-3 text-xs"><div><p>{log.customerName} · {TRIAL_CARE_LABELS[log.stage]} · {STATUS[log.status] ?? log.status}</p><p className="mt-1 text-earth-500">{new Date(log.createdAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })} {log.reason}</p></div><button type="button" disabled={pending || readOnly || !canStop} className="text-earth-600 underline" onClick={() => start(async () => { try { const result = await stopCare(log.customerId); setMessage(result.success ? `已停止 ${log.customerName} 的後續體驗關懷` : result.error??"操作失敗"); router.refresh(); } catch { setMessage("停止失敗，請稍後重試"); } })}>停止此顧客關懷</button></div>)}</div></details>
-  </section>;
+  </Container>;
 }

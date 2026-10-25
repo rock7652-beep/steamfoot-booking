@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  const { resetMessengerRepairRateLimitForTests } = await import("@/server/services/messenger-audit-rate-limit");
+  const { resetMessengerRepairRateLimitForTests } = await import("@/server/services/messenger-route-rate-limit-state");
   resetMessengerRepairRateLimitForTests();
 });
 

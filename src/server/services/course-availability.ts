@@ -1,9 +1,11 @@
 import { isMusicCourseStore } from "./course-business-profile";
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import { ResourceConflict } from "./course-resources";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
-import { COURSE_DURATION_OPTIONS, normalizeAvailabilityPeriods, periodContains } from "@/lib/course-availability";
+import { normalizeAvailabilityPeriods, periodContains } from "@/lib/course-availability";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Reader=Pick<Prisma.TransactionClient,"$queryRaw">;
@@ -11,9 +13,7 @@ type SessionRange={startsAt:Date;endsAt:Date};
 
 export async function assertMusicCourseDuration(tx:Reader,storeId:string,durationMinutes:number) {
   if(!(await isMusicCourseStore(tx,storeId))) return;
-  if(!(COURSE_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
-    throw new AppError("VALIDATION","音樂教室課程時長限 30／60／90／120 分鐘");
-  }
+  if(!Number.isInteger(durationMinutes)||durationMinutes<1||durationMinutes>480) throw new AppError("VALIDATION","課程時長請填 1–480 分鐘");
 }
 
 export async function assertMusicCourseAvailability(
@@ -28,9 +28,6 @@ export async function assertMusicCourseAvailability(
     const duration=Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000);
     if(music) await assertMusicCourseDuration(tx,storeId,duration);
     const start=formatTWDateTime(session.startsAt).slice(11);
-    if(music&&!start.endsWith(":00")&&!start.endsWith(":30")) {
-      throw new AppError("VALIDATION","音樂教室課程請從整點或半點開始");
-    }
     const date=toLocalDateStr(session.startsAt);
     if(date!==toLocalDateStr(session.endsAt)) throw new AppError("VALIDATION","課程不可跨日");
     const dayOfWeek=new Date(date+"T00:00:00Z").getUTCDay();
@@ -66,9 +63,9 @@ export async function assertMusicCourseAvailability(
 /** Read affected lessons under the scheduling lock; weekly changes preserve them. */
 export async function listOutsideTeacherAvailability(tx:Reader,storeId:string,staffId:string) {
   const [sessions,weekly,exceptions]=await Promise.all([
-    tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>`
+    tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>(RetirementPrisma.sql`
       SELECT id,"nameSnapshot" AS name,"startsAt","endsAt",capacity FROM "CourseSession"
-      WHERE "storeId"=${storeId} AND "coachId"=${staffId} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP ORDER BY "startsAt"`,
+      WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${staffId} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP ORDER BY "startsAt"`),
     tx.$queryRaw<Array<{dayOfWeek:number;segments:unknown}>>`
       SELECT "dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
     tx.$queryRaw<Array<{date:Date;type:string;segments:unknown}>>`

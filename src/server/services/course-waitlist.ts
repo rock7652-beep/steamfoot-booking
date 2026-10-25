@@ -103,6 +103,7 @@ export async function joinCourseWaitlist(
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
     const activeCard = card!;
+    if (actor.customerId && activeSession.bookingAudience === "ASSIGNED") fail("此堂為指定學員課程，不開放自行候補");
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
     const policy=await sessionWaitlistPolicy(tx,actor.storeId,activeSession.id,activeSession.template);
     if (!policy.waitlistEnabled) fail("本課程未開放候補");
@@ -110,7 +111,8 @@ export async function joinCourseWaitlist(
       fail("本課程目前不開放候補");
     if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
     if (activeCard.closedAt) fail("方案已退款或結清，不能候補");
-    if (activeCard.expiresAt < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
+    if (activeCard.musicOpeningStateRequired || activeCard.expiresAt === null) fail("期初方案須由店家使用已核對的來源堂次流程安排");
+    if (activeCard.expiresAt! < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
     const sportsRule=await readSportsSessionRule(tx,actor.storeId,activeSession.id);
     if(sportsRule?.enrollment==="ASSIGNED")fail("指定學員課程不開放候補");
     const rights=resolveSportsEntitlement({...activeCard,templateRestricted:activeCard.requestKey?.startsWith("no-show-makeup:")??false},{templateId:activeSession.templateId,subjectId:activeSession.template.musicSubjectId??null,pointCost:activeSession.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
@@ -262,6 +264,7 @@ export async function promoteCourseWaitlistForSession(
   if (!session) return [];
   const policy=await sessionWaitlistPolicy(tx,storeId,session.id,session.template);
   if(!policy.waitlistEnabled)return [];
+  if (session.bookingAudience === "ASSIGNED" && !options.manual) return [];
   const stopMinutes = policy.waitlistStopMinutes ?? settings.autoPromoteStopMinutes;
   if (!options.ignoreCutoff && !withinAutoPromoteWindow(session.startsAt, stopMinutes)) return [];
 

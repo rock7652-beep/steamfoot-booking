@@ -35,9 +35,9 @@ import { SubscriptionStatusBanner } from "@/components/subscription-status-banne
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
-import {coursePrisma} from "@/lib/course-db";
 import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { prisma } from "@/lib/db";
+import { coursePrisma } from "@/lib/course-db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
@@ -137,7 +137,7 @@ async function readDashboardLayout({
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }

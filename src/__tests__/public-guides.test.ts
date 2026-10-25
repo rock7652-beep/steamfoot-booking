@@ -739,14 +739,14 @@ describe("public editorial guides", () => {
     expect(customLegacy.headers.get("x-robots-tag")).toBe("noindex, nofollow");
   });
 
-  it("fails closed before migrations and builds on both review branches and provider environments", () => {
+  it("fails closed before migrations and builds on both review branches and provider environments", async () => {
     for (const branch of ["fix/public-seo-crawlers-20261007", "content/approved-business-guides-20261008"]) {
       expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[branch]).toBe(false);
       for (const file of ["scripts/ci-migrate.mjs", "next.config.ts"]) {
         const source = readFileSync(file, "utf8");
-        const guard = new Function("process", source.slice(0, source.indexOf("import ")));
-        for (const key of ["VERCEL_GIT_COMMIT_REF", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) expect(() => guard({ env: { [key]: branch } })).toThrow(/review branch deployment is disabled/);
-        expect(() => guard({ env: { VERCEL_GIT_COMMIT_REF: "main" } })).not.toThrow();
+        const guard = new (Object.getPrototypeOf(async function() {}).constructor)("process", source.slice(0, source.indexOf("\nimport ")));
+        for (const key of ["VERCEL_GIT_COMMIT_REF", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) await expect(guard({ env: { [key]: branch } })).rejects.toThrow(/review branch deployment is disabled/);
+        await expect(guard({ env: { VERCEL_GIT_COMMIT_REF: "main" } })).resolves.toBeUndefined();
       }
     }
   });

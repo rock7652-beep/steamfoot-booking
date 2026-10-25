@@ -16,7 +16,7 @@ beforeEach(() => {
   mockResolveStore.mockResolvedValue({ id: "store-zhubei", slug: "zhubei" });
   mockDiagnose.mockResolvedValue({ fingerprintsMatch: true });
 });
-afterEach(async () => { const { resetMessengerTokenFingerprintRateLimitForTests } = await import("@/server/services/messenger-audit-rate-limit"); resetMessengerTokenFingerprintRateLimitForTests(); });
+afterEach(async () => { const { resetMessengerTokenFingerprintRateLimitForTests } = await import("@/server/services/messenger-route-rate-limit-state"); resetMessengerTokenFingerprintRateLimitForTests(); });
 
 describe("Messenger token fingerprint admin API", () => {
   it("rejects unauthenticated, unauthorized and malformed requests", async () => {

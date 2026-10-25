@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filters: ReportFilters = {
+    dataScope: sp.get("dataScope"),
     startDate,
     endDate,
     storeId: getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") : reportsStoreId,

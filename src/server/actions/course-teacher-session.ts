@@ -71,11 +71,11 @@ export async function changeCourseTeacherSession(input: unknown) {
         const endsAt = new Date(+startsAt + +s.endsAt - +s.startsAt);
         const range = {startsAt,endsAt};
         await assertCourseResources(tx,storeId,{templateId:s.templateId,roomId:s.roomId,coachId:staffId,capacity:s.capacity},s);
-        if (s.bookings.some(b=>b.status!=="CANCELLED" && b.card && b.card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過學員方案期限，原課保留");
+        if (s.bookings.some(b=>b.status!=="CANCELLED" && b.card && b.card.expiresAt && b.card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過學員方案期限，原課保留");
         const waitingCardIds=[...new Set(waiting.map(w=>w.cardId))];
         if (waitingCardIds.length) {
           const cards=await tx.coursePointCard.findMany({where:{storeId,id:{in:waitingCardIds}},select:{id:true,expiresAt:true}});
-          if (cards.length!==waitingCardIds.length || cards.some(card=>card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過候補學員方案期限，原課保留");
+          if (cards.length!==waitingCardIds.length || cards.some(card=>card.expiresAt && card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過候補學員方案期限，原課保留");
         }
         const collision = await tx.courseSession.findFirst({where:{storeId,id:{not:s.id},cancelledAt:null,releasedAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:s.roomId},{coachId:staffId}]}});
         if (collision) throw new AppError("CONFLICT", "這個時間教室或老師已有課，原課保留");

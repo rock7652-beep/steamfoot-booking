@@ -1,5 +1,8 @@
 import { courseDisplayName } from "@/lib/course-template-presentation";
+import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
 import "server-only";
+import { musicPurchaseWhere, musicTrialBookingWhere } from "@/server/services/music-finance-scope";
+import { musicDataScope } from "@/server/services/music-data-scope";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
@@ -18,17 +21,17 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const range = { gte: dayRange(filters.startDate).start, lte: dayRange(filters.endDate).end };
   return coursePrisma.$transaction(async (tx) => {
   const [orders, refunds, store, trialReceipts] = await Promise.all([
-    tx.coursePurchase.findMany({ where: { storeId, status: { in: ["CONFIRMED","REFUNDED"] }, confirmedAt: range } }),
-    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range }, include: { purchase: true } }),
+    coursePurchaseCashflow(tx,storeId,range,filters.dataScope),
+    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range, ...(musicDataScope(storeId,filters.dataScope??undefined)?{purchase:musicPurchaseWhere(storeId,filters.dataScope)}:{}) }, include: { purchase: true } }),
     prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true } }),
-    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}]},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
+    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}],...(musicDataScope(storeId,filters.dataScope??undefined)?{booking:musicTrialBookingWhere(storeId,filters.dataScope)}:{})},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
   ]);
   const purchases = [...orders,...refunds.map((r) => r.purchase)];
   const customerIds = [...new Set([...purchases.map((p) => p.customerId).filter((id): id is string => !!id),...trialReceipts.map(p=>p.booking.customerId).filter((id): id is string => !!id)])];
   const [people, staff, firstOrders] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: customerIds } }, select: { id:true,name:true,phone:true } }),
     prisma.staff.findMany({ where: { storeId }, select: { id:true,userId:true,displayName:true,user:{select:{role:true}} } }),
-    tx.coursePurchase.findMany({ where: { storeId, customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
+    tx.coursePurchase.findMany({ where: { storeId, ...musicPurchaseWhere(storeId,filters.dataScope), customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
   ]);
   type Row = ModuleRevenueRow;
   const rows: Row[] = [];
@@ -46,7 +49,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
       paymentMethod:splits.length?"MIXED":method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
       note,createdByName:staffByUser.get(actorId ?? "")?.displayName??null,createdAt:date.toISOString(),refund });
   }
-  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
+  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.cashflowId,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
   for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId,refund.method);
   for (const receipt of trialReceipts) {
     const order={id:receipt.id,customerId:receipt.booking.customerId,customerName:receipt.booking.customerName,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${courseDisplayName(receipt.booking.session.nameSnapshot)}`,unit:"TRIAL"};

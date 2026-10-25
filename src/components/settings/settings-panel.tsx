@@ -59,7 +59,7 @@ export function SettingsPanel({
   }, [router, closeHref, dismiss, reader]);
 
   const request = useCallback((href: string) => {
-    if (dirty || pending) setDestination(href);
+    if (pending) setDestination(href);
     else go(href);
   }, [dirty, pending, go]);
 
@@ -86,7 +86,7 @@ export function SettingsPanel({
   useEffect(() => {
     if (dismissed) return;
     const unload = (event: BeforeUnloadEvent) => {
-      if (dirty || pending) {
+      if (pending) {
         event.preventDefault();
         event.returnValue = "";
       }

@@ -9,6 +9,14 @@ if (process.env.BEAUTY_HOSTED_PREVIEW === '1' || [process.env.VERCEL_GIT_COMMIT_
 // Historical implementation branch stays review-only; deploy only the clean Preview branch.
 if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/beauty-module-20261020")) throw new Error("Beauty review cannot deploy or execute migrations.");
 
+// Release candidates are read-only isolated previews; never apply pending migrations.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("release/music-production-20261023")) {
+ const {runMusicNativeSchemaPreflight}=await import("./music-release-preflight.mjs");
+ await runMusicNativeSchemaPreflight(process.env);
+ console.info("[music-release-preview] isolated_database=true migrations_skipped=true");
+ process.exit(0);
+}
+
 // Isolated feature review: hosted builds must stop before migrations or deployment.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
   throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");
@@ -154,6 +162,12 @@ if (releaseMode === "hq-legacy-import-preview") {
 }
 if (releaseMode === "hq-intake-list-preview") {
   console.info("[hq-intake-list-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "music-opening-preview") {
+  // Opening schema is separately approved and checked by the read-only preflight.
+  // Never apply unrelated pending migrations in this isolated Preview.
+  console.info("[music-opening-preview-preflight] isolated_database=true notifications_blocked=true migrations_skipped=true");
   process.exit(0);
 }
 if (releaseMode === "course-self-booking-preview") {

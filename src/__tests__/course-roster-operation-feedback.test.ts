@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 /** Real CourseRoster failure/concurrency tests using synthetic data.
  * These establish DOM/state behavior, not browser geometry or live DB writes. */
@@ -53,7 +54,7 @@ async function render(musicLayout = false, sessionId = "session-a", store = "sto
     createElement(CourseRoster, { sessionId, sportsNative, capacity: 10, canCreate: false, canEdit, musicLayout, classType: "GROUP", teacherName: "老師", onAttendanceOptimistic: m.confirmed }))));
 }
 
-const row = (name = "甲同學") => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 更多操作"]`)!.closest("li")!;
+const row = (name = "甲同學") => host.querySelector<HTMLButtonElement>(`button[aria-label^="${name}："]`)!.closest("li")!;
 const attendance = (name = "甲同學") => row(name).querySelector<HTMLButtonElement>("button[data-roster-action-trigger]")!;
 async function clickAttendance(name = "甲同學") { await act(async () => attendance(name).click()); }
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; }

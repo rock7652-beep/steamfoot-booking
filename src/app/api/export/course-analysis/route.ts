@@ -1,3 +1,4 @@
+import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -28,23 +29,27 @@ export async function GET(req:NextRequest) {
   if(gate) return gate;
   const plan=await getStoreForPlanByStoreId(storeId);
   if(!plan || !checkReportLimit(plan,0).allowed) return new NextResponse("目前方案未開通報表匯出",{status:403});
+  const dataScope=req.nextUrl.searchParams.get("dataScope")??undefined;
   let range;
   try { range=courseAnalysisRange(Object.fromEntries(req.nextUrl.searchParams)); } catch { return new NextResponse("日期格式不正確",{status:400}); }
   if(req.nextUrl.searchParams.get("report")==="business") {
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}));
     let scope;
     try {scope=resolveBusinessScope(Object.fromEntries(req.nextUrl.searchParams),user.role==="OWNER"||user.role==="ADMIN",user.staffId,music);} catch {return new NextResponse("分析對象無權限",{status:403});}
+    const financeScope=music?await readMusicFinanceScope(user,storeId):null;
+    const feesAllowed=await checkPermission(user.role,user.staffId,"cashbook.read") && (music?await canMusicFinance(user,storeId,"teacher.compensation.read")&&(financeScope===null||(scope.view==="coach"&&financeScope.includes(scope.person))):user.role==="OWNER");
     let report;
-    try {report=await getCourseBusinessAnalytics(storeId,range,scope,{money:await checkPermission(user.role,user.staffId,"transaction.read"),customers:false,fees:user.role==="OWNER"&&await checkPermission(user.role,user.staffId,"cashbook.read")});}
+    try {report=await getCourseBusinessAnalytics(storeId,range,scope,{money:await checkPermission(user.role,user.staffId,"transaction.read"),customers:false,fees:feesAllowed},dataScope);}
     catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象")return new NextResponse(error.message,{status:404});throw error;}
     const rows:Array<Array<string|number>>=[["開始日期",range.startDate],["結束日期",range.endDate],["視角",scope.view],["對象",scope.person==="all"?"全部":scope.person==="unassigned"?"未歸屬":report.staff.find(s=>s.id===scope.person)?.displayName??scope.person],["體驗人數",report.counts.trial],["新卡人數",report.counts.newCard],["續卡人數",report.counts.renewal],["體驗開卡率",report.conversionRate===null?"—":`${report.conversionRate.toFixed(1)}%`],["開卡率體驗母數",report.eligibleTrials],["本期體驗開卡",report.counts.converted],["過往體驗追蹤開卡",report.counts.tracked],["未開卡",report.counts.unconverted],["實際授課堂數",report.sessions],["授課時數",report.hours],["來客人次",report.attendance],["不重複來客人數",report.counts.visitors],["新客人數",report.counts.newVisitors],["舊客人數",report.counts.oldVisitors],["已回流人數",report.counts.returned],["尚未回流人數",report.counts.notReturned],["回流基準人數",report.retentionBase],["回流率",report.retentionRate===null?"—":`${report.retentionRate.toFixed(1)}%`],["回流基準開始",report.retentionRange?.startDate??"—"],["回流基準結束",report.retentionRange?.endDate??"—"]];
     if(report.netRevenue!==null)rows.push(["收款淨額",report.netRevenue]);
     if(report.profit!==null)rows.push([report.missingProfit>0?"方案利潤已確認金額（待核對未計入）":"方案利潤",report.missingProfit>0&&report.knownProfit===0?"待核對":report.profit],["利潤待核對筆數",report.missingProfit]);
     if(report.fee!==null)rows.push([report.missingFees>0?"授課費已確認金額（待核對未計入）":"應計授課費",report.missingFees>0&&report.sessions===report.missingFees?"待核對":report.fee],["費率待核對堂數",report.missingFees]);
+    rows.push(["授課堂數口徑","已結束且有出席的課次；授課時數依同一範圍計算"],["費率待核對口徑","已結束但費率無法確認的課次，不限有出席課次；未計入授課費金額，筆數不代表應付堂數"]);
     const csv=rows.map(row=>row.map(value=>`"${String(typeof value==="string"&&/^[=+@\-\t\r]/.test(value)?"'"+value:value).replaceAll('"','""')}"`).join(",")).join("\r\n");
     return new NextResponse("\uFEFF"+csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-business-${range.startDate}-${range.endDate}.csv"`,"Cache-Control":"no-store"}});
   }
-  const data=await getCourseAnalytics(storeId,range,await checkPermission(user.role,user.staffId,"transaction.read"),await checkPermission(user.role,user.staffId,"cashbook.read"));
+  const data=await getCourseAnalytics(storeId,range,await checkPermission(user.role,user.staffId,"transaction.read"),await checkPermission(user.role,user.staffId,"cashbook.read"),dataScope);
   const c=data.current;
   const rows:Array<Array<string|number>>=[
     ["開始日期",range.startDate],["結束日期",range.endDate],["統計口徑","台灣時間；課程日期統計出席，取消排除；方案依核帳／退款日，體驗依收款／沖銷日，收款紀錄數不代表上課次數"],

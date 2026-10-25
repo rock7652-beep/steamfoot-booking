@@ -555,7 +555,8 @@ export async function requirePermission(
   }
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
-  const user = await measurePermission(timing, "permission.session", () => requireStaffSession());
+  const { permissionRequestSession } = await import("./permission-request-session");
+  const user = await measurePermission(timing, "permission.session", () => permissionRequestSession(() => requireStaffSession()));
   const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
   const explicitStoreId = options.storeId

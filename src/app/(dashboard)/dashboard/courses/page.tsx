@@ -2,6 +2,8 @@ import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {loadSportsStaging} from "@/server/actions/sports-staging";
 import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
+import { musicSessionWhere, musicDataScope } from "@/server/services/music-data-scope";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -27,7 +29,6 @@ import {
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
 import { MusicTypesShowcase } from "./showcase/music-types-showcase";
-import { LubyRealDayShowcase } from "./showcase/luby-real-day-showcase";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -75,22 +76,13 @@ export default async function CoursesPage({
     const date = query.date && parseTaipeiDateTime(query.date, "00:00")
       ? query.date
       : "2026-09-26";
-    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
     return (
       <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <MusicTypesShowcase date={date} showLubyReplica={activeStore?.slug === "lubymusic"} />
+        <MusicTypesShowcase date={date} showLubyReplica={false} />
       </PageShell>
     );
   }
-  if (query.showcase === "luby-day" && process.env.VERCEL_ENV === "preview") {
-    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
-    if (activeStore?.slug !== "lubymusic") redirect("/dashboard/courses");
-    return (
-      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <LubyRealDayShowcase date="2026-09-26" mode={query.scheduleView === "week" ? "week" : "day"} />
-      </PageShell>
-    );
-  }
+  if (query.showcase === "luby-day") redirect("/dashboard/courses");
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
@@ -139,7 +131,7 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
-  const rentals = await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
+  const rentals = musicDataScope(storeId,query.dataScope)==="legacy" ? [] : await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
   const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
   const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
   const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
@@ -188,7 +180,7 @@ export default async function CoursesPage({
           category: true,
           isActive: true,
           visibility:true,classType:true,musicSubjectId:true,musicSubject:{select:{id:true,name:true,isActive:true}},
-          musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
+          musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTeacherShare:true,
           musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
           _count:{select:{sessions:true}},
           durationMinutes: true,
@@ -205,6 +197,7 @@ export default async function CoursesPage({
       }),
       coursePrisma.courseSession.findMany({
         where: {
+          ...musicSessionWhere(storeId,query.dataScope),
           storeId,
           cancelledAt: null,
           OR: [
@@ -215,6 +208,7 @@ export default async function CoursesPage({
         select: {
           id: true,
           isTrial: true,
+          bookingAudience: true, scheduleType:true, scheduleFrequency:true, enrollmentMode:true,
           nameSnapshot: true,
           templateId: true,
           startsAt: true,
@@ -302,6 +296,11 @@ export default async function CoursesPage({
   const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
   templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
   const sportsFixedRows=sportsNative?await coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string}>>`SELECT "sessionId",frequency FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  if(view === "catalog" && businessProfile === "MUSIC") {
+    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
+    const writable=user.role==="ADMIN"||user.storeId===storeId;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+  }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
         by: ["requestKey"],
@@ -348,18 +347,7 @@ export default async function CoursesPage({
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1"
       }
     >
-      {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
-        <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
-          {showLubyReplica && (
-            <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
-              查看 9/26 陸比原課表對照（9/12 截圖移日）
-            </a>
-          )}
-          <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
-            查看 9/26 七種班型示意（49 堂）
-          </a>
-        </div></details>
-      )}
+
       {view !== "schedule" && (
         <PageHeader
           title={view === "catalog" ? "課程管理" : "空間管理"}
@@ -391,6 +379,7 @@ export default async function CoursesPage({
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && writableStore}}
         cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
         sportsNative={sportsNative}
+        schedulingModes={await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined}
         sportsData={await sportsFormPromise}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
@@ -402,8 +391,8 @@ export default async function CoursesPage({
           ...s,
           nameSnapshot: sportsCourseName(s.nameSnapshot, s.templateId),
           sportsPalette:sportsNative,
-          isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
-          isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):biweeklyKeys.has(s.requestKey),
+          isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : s.scheduleType === "FIXED" || s.scheduleType === "LEGACY" && (recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED"),
+          isBiweekly: sportsNative?sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency==="BIWEEKLY"):s.scheduleFrequency === "BIWEEKLY" || s.scheduleType === "LEGACY" && biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           bookings: s.bookings.map((booking) => ({

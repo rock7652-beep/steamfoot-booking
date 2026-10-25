@@ -4,14 +4,11 @@ import { CONSULTATION_PREVIEW_BRANCH } from "../../scripts/consultation-preview-
 const mocks = vi.hoisted(() => ({
   construct: vi.fn(), query: vi.fn(), audit: vi.fn((client: unknown) => client),
 }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class {
+vi.mock("@prisma/client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("main", options); }
 } }));
-vi.mock("@/lib/generated-prisma-runtime", () => ({
-  loadCoursePrismaRuntime: () => ({ PrismaClient: class { $queryRaw = mocks.query; constructor(options: unknown) { mocks.construct("course", options); } } }),
-  loadSpaPrismaRuntime: () => ({ PrismaClient: class { $queryRaw = mocks.query; constructor(options: unknown) { mocks.construct("spa", options); } } }),
-}));
+vi.mock("@/lib/generated-prisma-runtime", async () => {const runtime=await import("../../generated/course-client");return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{$queryRaw=mocks.query;constructor(options:unknown){mocks.construct("course",options);}}})}});
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";

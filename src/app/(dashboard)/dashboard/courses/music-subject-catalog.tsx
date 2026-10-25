@@ -5,6 +5,8 @@ import type {CourseOrderWriter} from "@/lib/course-display-order";
 import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import type { SportsTeachingRule } from "@/lib/sports-teaching-rule";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
+import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
 
@@ -21,7 +23,8 @@ import type {SettingsSaveTransport} from "@/components/admin/use-settings-save";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { DashboardLink } from "@/components/dashboard-link";
-export type MusicSubjectView={catalogSnapshot?:unknown;sportsRule?:(Omit<SportsTeachingRule,"compensation"|"expectedCompensation">&{compensation:{mode:"CLASS"|"SHARE"|"HOUR";value:number}|null;expectedCompensation:{mode:"CLASS"|"SHARE"|"HOUR";value:number}|null});revision?:number;id:string;name:string;category:string;description:string;isActive:boolean;updatedAt?:string};
+export type MusicSubjectView={catalogSnapshot?:unknown;sportsRule?:(Omit<SportsTeachingRule,"compensation"|"expectedCompensation">&{compensation:{mode:"CLASS"|"SHARE"|"HOUR";value:number}|null;expectedCompensation:{mode:"CLASS"|"SHARE"|"HOUR";value:number}|null});revision?:number;id:string;name:string;category:string;description:string;isActive:boolean;updatedAt?:string;classType?:string|null;durationMinutes?:number;capacity?:number;musicTeacherShare?:number;musicScheduleMode?:string|null;visibility?:string;precautions?:string};
+
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export type SubjectCatalogPort={serviceRules?:boolean;canEditRules?:boolean;transport?:SettingsSaveTransport;rowSchema?:z.ZodType<MusicSubjectView,z.ZodTypeDef,unknown>;values?:(data:FormData,subject:MusicSubjectView|null)=>Record<string,unknown>;label:string;status:CatalogStatusDriver;order:CourseOrderWriter;feeHref:(id:string)=>string;fields:(subject:MusicSubjectView|null)=>ReactNode;save:(data:FormData,subject:MusicSubjectView|null)=>Promise<{success:true;data:MusicSubjectView;syncWarning?:boolean}|{success:false;error:string}>};
@@ -46,14 +49,14 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
  const [committedWarning,setCommittedWarning]=useState(false);
  const [created,setCreated]=useState(false);
  useCourseDraftGuard((!sportsNative||!!catalog)&&editing!==undefined&&dirty,(!sportsNative||!!catalog)&&(pending||mutation.uncertain));
- function close(){if(!pending&&!mutation.uncertain&&((sportsNative&&!catalog)||!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
+ function close(){if(!pending&&!mutation.uncertain)setEditing(undefined);}
  const order=useCourseDisplayOrder("subject",subjects,displayOrder,canEdit&&!search&&!category&&status==="all"&&!hideTestData&&!busyIds.length,s=>s.isActive,catalog?.order);
  const categories=[...new Set(subjects.map(s=>s.category).filter(Boolean))].sort();
  const rows=subjects.filter(s=>s.id===lastSavedId||((!hideTestData||!isCourseTestData(s.name))&&(!search||s.name.includes(search)||s.category.includes(search))&&(!category||s.category===category)&&(status==="all"||s.isActive===(status==="active")))).sort((a,b)=>Number(b.isActive)-Number(a.isActive)||order.compare(a,b));
  const activeRows=rows.filter(s=>s.isActive),inactiveRows=rows.filter(s=>!s.isActive);
- const inactiveForced=status==="inactive"||!!search||!!category;
+ const inactiveForced=status==="inactive"||!!search;
  const inactiveExpanded=inactiveForced||showInactive;
- const subjectRow=(s:MusicSubjectView)=><tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}{s.id===lastSavedId&&<span className="ml-2 text-sm text-primary-700">剛儲存</span>}</td><td className="px-4 py-2">{s.category||<span className={s.isActive?"rounded bg-amber-50 px-2 py-1 text-amber-800":""}>未分類</span>}</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?"上架":"下架"}</span></td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{mutation.reset();setCommittedWarning(false);setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(catalog?catalog.feeHref(s.id):`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>{catalog||sportsNative?"收費方式":"班型與學費"}</button></td></tr>;
+ const subjectRow=(s:MusicSubjectView)=>sportsNative||catalog ? <tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}{s.id===lastSavedId&&<span className="ml-2 text-sm text-primary-700">剛儲存</span>}</td><td className="px-4 py-2">{s.category||<span className={s.isActive?"rounded bg-amber-50 px-2 py-1 text-amber-800":""}>未分類</span>}</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?"上架":"下架"}</span></td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{mutation.reset();setCommittedWarning(false);setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(catalog?catalog.feeHref(s.id):`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>{catalog||sportsNative?"收費方式":"班型與學費"}</button></td></tr> : <tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}</td><td className="px-4 py-2">{s.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES} 分鐘</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?(s.visibility==="HIDDEN"?"僅後台安排":"開放預約"):"不開放"}</span></td><td className="px-3 py-1"><ExclusiveMenu label={`${s.name}操作`} triggerText="⋯">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>收費方式</button></ExclusiveMenu></td></tr>;
  return <>{created&&<div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-800"><span>{itemLabel}已建立</span>{!catalog&&!guided&&<DashboardLink href="/dashboard/courses?view=plans&action=create&setupStep=plan" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定班型與學費 →</DashboardLink>}</div>}<div className="flex flex-wrap items-center gap-2">
  <input aria-label={`搜尋${itemLabel}`} className={`${field} max-w-xs`} placeholder={`搜尋${itemLabel}名稱或分類`} value={search} onChange={e=>{setSelected([]);setSearch(e.target.value);}}/>
  <select aria-label="分類篩選" className={button} value={category} onChange={e=>{setSelected([]);setCategory(e.target.value);}}><option value="">全部分類</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
@@ -63,7 +66,7 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
  <CourseTestDataFilter names={subjects.map(s=>s.name)} checked={hideTestData} onChange={v=>{setSelected([]);setHideTestData(v);}}/>
  {canEdit&&<CourseBatchBar driver={catalog?.status} key={`${hideTestData}:${search}:${category}:${status}`} kind="subject" blockedIds={busyIds} states={Object.fromEntries(rows.map(item=>[item.id,item.isActive]))} ids={rows.map(s=>s.id)} names={Object.fromEntries(rows.map(s=>[s.id,s.name]))} selected={selected} onChange={setSelected} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
 </div>
- <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{[`${itemLabel}名稱`,"分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架{itemLabel}（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的{itemLabel}</p>}</div>
+ <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{(sportsNative||catalog?[`${itemLabel}名稱`,"分類","狀態","操作"]:["項目名稱","預設時長","開放狀態","操作"]).map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架{itemLabel}（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的{itemLabel}</p>}</div>
  <RightSheet open={editing!==undefined} onClose={close} presentation="centered" width={560} fitContent labelledById="music-subject-title">
  <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?`編輯${itemLabel}`:`新增${itemLabel}`}{!catalog&&<CourseSetupStepBadge step="course" />}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
  {editing!==undefined&&<form id="music-subject-form" onChange={()=>setDirty(true)} className="min-h-0 overflow-y-auto overscroll-contain p-4" onSubmit={e => {
@@ -74,7 +77,7 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
    const d = new FormData(e.currentTarget);
    start(async () => {
      try {
-       if (editing?.isActive && d.get("active") !== "yes") {
+       if (editing?.isActive && ((sportsNative||catalog)?d.get("active") !== "yes":d.get("visibility")==="OFF")) {
          const impact = await (catalog?.status.impact??courseStatusImpact)({kind: "subject", ids: [editing.id]});
          if (!impact.success) {
            setError(impact.error);
@@ -86,11 +89,9 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
        const result = catalog?.transport?await mutation.save(catalog.values?.(d,editing)??{}):catalog?await catalog.save(d,editing):await mutation.save({
          ...(sportsNative&&sportsCoaches?{sportsRule:{pointCost:Number(d.get("sportsPointCost")),coachIds:d.getAll("sportsCoachIds"),expectedCoachIds:editing?.sportsRule?.coachIds??[],compensation:{mode:d.get("sportsCompensationMode"),value:Number(d.get("sportsCompensationValue"))},expectedCompensation:editing?.sportsRule?.expectedCompensation??null}}:{}),
          id: editing?.id,
-         expectedUpdatedAt: editing?.updatedAt,
-         name: d.get("name"),
-         category: d.get("category"),
-         description: d.get("description"),
-         isActive: d.get("active") === "yes",
+         ...(sportsNative?{category:d.get("category"),isActive:d.get("active")==="yes"}:{category:editing?.category??"",isActive:d.get("visibility")!=="OFF",nativeDefaults:{durationMinutes:Number(d.get("durationMinutes")),visibility:d.get("visibility"),precautions:d.get("precautions")}}),
+         expectedUpdatedAt: editing?.updatedAt, name: d.get("name"),
+         description: d.get("description"), precautions: d.get("precautions"),
        });
        if (!result.success) {
          setError(result.error);
@@ -102,7 +103,7 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
        window.dispatchEvent(new CustomEvent(SETTINGS_SAVED,{detail:{storeId}}));
        setDirty(false);
        if (!canCloseConfirmedSettingsSave(result, setError)) { setCommittedWarning(true); return; }
-       setCreated(!editing&&d.get("active")==="yes");
+       setCreated(!editing&&(sportsNative?d.get("active")==="yes":d.get("visibility")!=="OFF"));
        setEditing(undefined);
        // The authoritative receipt renders immediately; no page refresh is needed.
      } catch {
@@ -111,12 +112,20 @@ export function MusicSubjectCatalog({catalog,sportsCoaches,sportsNative=false,st
    });
  }}>
 
+ {(sportsNative||catalog) ? <>
  <fieldset disabled={pending||mutation.uncertain||committedWarning} className="grid gap-3 sm:grid-cols-2"><label className="sm:col-span-2">{itemLabel}名稱（必填）<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
  <label>分類（選填）<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
  {sportsNative&&sportsCoaches&&<fieldset disabled={catalog?.canEditRules===false} className="grid gap-3 sm:col-span-2 sm:grid-cols-2"><legend className="py-2 font-medium">{catalog?.serviceRules?"服務與技師設定":"授課與開放選課設定"}</legend>{!catalog?.serviceRules&&<><label>開放選課每堂扣點<input aria-label="開放選課每堂扣點" className={field} name="sportsPointCost" type="number" min="1" max="10000" required defaultValue={editing?.sportsRule?.pointCost??1}/></label><p className="self-center text-sm text-earth-600">指定學員依學員購入方案扣抵；堂數卡每次扣 1 堂。</p></>}<fieldset className="sm:col-span-2"><legend>{catalog?.serviceRules?"可服務技師":"可授課教練（兩種選課模式共用）"}</legend><div className="flex flex-wrap gap-3">{sportsCoaches.map(c=><label key={c.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="sportsCoachIds" value={c.id} defaultChecked={editing?.sportsRule?.coachIds.includes(c.id)??false}/>{c.name}</label>)}</div></fieldset><label>{catalog?.serviceRules?"技師預設計酬方式":"教練計酬方式"}<select className={field} name="sportsCompensationMode" defaultValue={editing?.sportsRule?.compensation?.mode??(catalog?.serviceRules?"":"SHARE")}>{catalog?.serviceRules&&<option value="">僅使用技師個別設定</option>}<option value="SHARE">拆帳</option><option value="HOUR">固定鐘點</option>{catalog?.serviceRules&&<option value="CLASS">固定每次</option>}</select></label><label>{catalog?.serviceRules?"百分比／每小時／每次金額":"拆帳百分比／每小時金額"}<input className={field} name="sportsCompensationValue" type="number" min="0" max="1000000" step="0.01" required={!catalog?.serviceRules} defaultValue={editing?.sportsRule?.compensation?.value??(catalog?.serviceRules?"":60)}/></label></fieldset>}
  {catalog?catalog.fields(editing):<details className="sm:col-span-2"><summary className="cursor-pointer py-2">教學項目介紹（選填）</summary><textarea aria-label="教學項目介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>}
  {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}</fieldset>
+</> : <>
+ <fieldset disabled={pending} className="grid gap-3 sm:grid-cols-2"><label className="sm:col-span-2">項目名稱<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
+ <label>預設時長（分鐘）<input className={field} name="durationMinutes" type="number" required min={1} max={480} list="music-item-durations" defaultValue={editing?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES}/><datalist id="music-item-durations">{[30,45,50,60,90,120].map(n=><option key={n} value={n}/>)}</datalist></label>
+ <label>開放狀態<select className={field} name="visibility" defaultValue={editing?.isActive===false?"OFF":editing?.visibility??"PUBLIC"}><option value="PUBLIC">開放預約</option><option value="HIDDEN">僅後台安排</option><option value="OFF">不開放</option></select></label>
+ <details className="sm:col-span-2"><summary className="min-h-11 cursor-pointer py-2">更多設定</summary><div className="grid gap-3 sm:grid-cols-2"><label className="block">項目說明<textarea className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></label><label className="block">注意事項<textarea className={field} name="precautions" rows={3} maxLength={5000} defaultValue={editing?.precautions??""}/></label></div></details>
+ {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}</fieldset>
+</>}
  </form>}
  <footer className="sticky bottom-0 shrink-0 border-t border-earth-100 bg-white p-4"><button type="submit" form="music-subject-form" className="min-h-11 w-full rounded-lg bg-primary-700 px-4 text-white" disabled={pending||committedWarning}>{pending?"儲存中…":"儲存"}</button></footer>
  </RightSheet></>;

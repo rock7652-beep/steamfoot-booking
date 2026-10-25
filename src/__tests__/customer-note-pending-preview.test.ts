@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NoteSaveResult } from "@/components/operations/retained-note-editor";
 
 const m = vi.hoisted(() => ({ steam: vi.fn(), spa: vi.fn(), onSaved: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/server/actions/customer", () => ({ updateCustomerServiceNoteAction: m.steam }));
 vi.mock("@/server/actions/spa-customer-profile", () => ({ saveSpaCustomerNote: m.spa }));
 vi.mock("@/components/frontend-preview/quick-link", () => ({ FrontendPreviewQuickLink: () => null }));

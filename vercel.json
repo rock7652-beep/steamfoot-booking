@@ -50,6 +50,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "review/beauty-production-integration-20261025": false,
       "feat/default-notice-sound": false,
       "perf/shared-notice-bell-loading": false,
       "feat/steamfoot-backend-notices": false,

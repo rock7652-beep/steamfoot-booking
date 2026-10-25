@@ -1,4 +1,5 @@
 import { CareFilters } from "./care-filters";
+import { musicDataScope } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { isCourseCareKind } from "@/server/queries/course-home";
@@ -10,15 +11,17 @@ import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday
 import { type CareItem } from "./care-section";
 import { CareWorkspaceServer } from "./care-workspace-server";
 
-export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBook, segment, staffScope = null }: { storeId: string; month: string; readOnly: boolean; canFollowUp: boolean; canBook: boolean; segment?: string; staffScope?: string | null }) {
-  const [overview, birthdays, businessEntitlements] = await Promise.all([getCourseCustomerCare(storeId, new Date(), staffScope), getBirthdayCustomersForMonth(storeId, month, staffScope), prisma.storeFeatureEntitlement.findMany({ where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" }, select: { featureKey: true } })]);
+export async function CourseCare({ dataScope, storeId, month, readOnly, canFollowUp, canBook, segment, staffScope = null }: { dataScope?:string; storeId: string; month: string; readOnly: boolean; canFollowUp: boolean; canBook: boolean; segment?: string; staffScope?: string | null }) {
+  const legacy=musicDataScope(storeId,dataScope)==="legacy";
+  if(legacy){readOnly=true;canFollowUp=false;canBook=false;}
+  const [overview, birthdays, businessEntitlements] = await Promise.all([getCourseCustomerCare(storeId, new Date(), staffScope, dataScope), getBirthdayCustomersForMonth(storeId, month, staffScope, dataScope), prisma.storeFeatureEntitlement.findMany({ where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" }, select: { featureKey: true } })]);
   const staffLabel = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey)) === "MUSIC" ? "所屬人員" : "所屬教練";
   const selected = isCourseCareKind(segment) ? segment : null;
   const mode = { staffLabel, courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value || "未提供電話";
   const rows = (kind: "low" | "inactive" | "expiring"): CareItem[] => overview[kind].map(customer => {
-    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
-    const details = cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${formatTWTime(card.expiresAt, { dateOnly: true })} 到期`);
+    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => (a.expiresAt?.getTime() ?? Infinity) - (b.expiresAt?.getTime() ?? Infinity));
+    const details = cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${card.expiresAt ? `${formatTWTime(card.expiresAt, { dateOnly: true })} 到期` : "無期限"}`);
     return {
       ...mode, customerId: customer.id, name: customer.name, phoneLabel: phone(customer.phone), staffName: customer.assignedStaff?.displayName ?? null,
       lastFollowUpText: customer.followUps[0] ? `最後追蹤：${customer.followUps[0].createdBy.name}・${formatTWTime(customer.followUps[0].createdAt)}` : null,
@@ -31,8 +34,8 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   const counts = { birthday: birthdayItems.length, inactive: overview.inactive.length, low: overview.low.length, expiring: overview.expiring.length, trial: overview.trial.length };
   return <PageShell compact>
     <PageHeader compact title="顧客經營" subtitle="今天要關心誰，一頁看懂。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
-    <CareFilters month={month} selected={selected} counts={counts}/>
-    <CareWorkspaceServer storeId={storeId} module="course" month={month} staffScope={staffScope} readOnly={readOnly} canFollowUp={canFollowUp} canBook={canBook} selected={selected} sections={[
+    <CareFilters month={month} selected={selected} counts={counts} query={legacy?{dataScope:"legacy"}:{}}/>
+    <CareWorkspaceServer key={dataScope??"operational"} dataScope={dataScope} storeId={storeId} module="course" month={month} staffScope={staffScope} readOnly={readOnly} canFollowUp={canFollowUp} canBook={canBook} selected={selected} sections={[
       { reason: "birthday", title: "本月生日", description: "本月生日祝福。", emptyText: "本月沒有待祝福顧客。", items: birthdayItems },
       { reason: "inactive", title: "好久不見", description: "超過 30 天未出席。", emptyText: "目前沒有需要回課關懷的顧客。", items: rows("inactive") },
       { reason: "low", title: "額度快用完", description: "依方案門檻逐卡判斷。", emptyText: "目前沒有低額度提醒。", items: rows("low") },

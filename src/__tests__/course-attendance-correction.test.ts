@@ -1,5 +1,7 @@
 vi.mock("@/server/services/course-store-notices",()=>({recordCourseStoreNotice:vi.fn()}));
 import { beforeEach, describe, it, expect, vi } from "vitest";
+import { PGlite } from "@electric-sql/pglite";
+import { readFileSync } from "node:fs";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({
@@ -8,6 +10,7 @@ vi.mock("@/server/services/course-access", () => ({
 import { correctCourseAttendance } from "@/server/services/course-booking";
 import type { Prisma } from "../../generated/course-client";
 const m = {
+  $executeRaw: vi.fn(),
   courseSession: { findFirst: vi.fn(), update: vi.fn() },
   courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), count: vi.fn(), update: vi.fn() },
   coursePointCard: { update: vi.fn(), findUnique: vi.fn() },
@@ -25,6 +28,7 @@ const booking = (status: string, remaining = 7) => ({
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  m.$executeRaw.mockResolvedValue(1);
   m.coursePointCard.findUnique.mockResolvedValue(null);
   m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 0 } });
   m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
@@ -40,6 +44,8 @@ describe("direct cancellation corrections",()=>{
   await correctCourseAttendance(tx,actor,"b","CANCELLED",row.status);
   expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:3}}});
   expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"CANCELLED",absenceKind:null,checkedInAt:null}});
+  expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^RELEASE:[0-9a-f-]{36}$/);
+  expect(m.$executeRaw.mock.calls.some(c=>c[0].join("").includes("COURSE_ATTENDANCE_CANCEL_CORRECTION"))).toBe(true);
   m.courseBooking.findFirst.mockResolvedValue({...row,status:"CANCELLED",absenceKind:null});
   await expect(correctCourseAttendance(tx,actor,"b","CANCELLED",row.status)).rejects.toThrow("無法更正");
   expect(m.coursePointCard.update).toHaveBeenCalledTimes(1);
@@ -60,6 +66,20 @@ describe("direct cancellation corrections",()=>{
   await expect(correctCourseAttendance(tx,actor,"b","CANCELLED","NO_SHOW")).rejects.toThrow("補課券已使用");
   expect(m.coursePointCard.update).not.toHaveBeenCalled();
  });
+});
+
+it("writes a cancellation correction accepted by the unchanged PostgreSQL entry constraint",async()=>{
+  const db=new PGlite();
+  try{
+    const migration=readFileSync("prisma/migrations/20261003105340_course_companion_booking/migration.sql","utf8");
+    const constraint=migration.match(/ALTER TABLE "CoursePointEntry" ADD CONSTRAINT "CoursePointEntry_values" CHECK \([\s\S]*?\n\);/)![0];
+    await db.exec('CREATE TABLE "CoursePointEntry" (kind text, points integer);'+constraint);
+    await expect(db.query('INSERT INTO "CoursePointEntry" VALUES ($1,$2)',[`CORRECT:ATTENDED:CANCELLED:${crypto.randomUUID()}`,3])).rejects.toThrow("CoursePointEntry_values");
+    m.courseBooking.findFirst.mockResolvedValue({...booking("ATTENDED"),sessionId:"session"});
+    m.coursePointEntry.create.mockImplementationOnce(async({data})=>{await db.query('INSERT INTO "CoursePointEntry" VALUES ($1,$2)',[data.kind,data.points]);return data;});
+    await correctCourseAttendance(tx,actor,"b","CANCELLED","ATTENDED");
+    expect((await db.query('SELECT count(*)::int AS count FROM "CoursePointEntry"')).rows).toEqual([{count:1}]);
+  }finally{await db.close();}
 });
 
 describe("restore music student leave", () => {

@@ -24,140 +24,29 @@ const props: ComponentProps<typeof CourseSettingsWorkspace> = {
   bankName: "", bankCode: "", bankAccountNumber: "", bookingLeadMinutes: 60, cancellationLeadMinutes: 120,
   canEdit: true, canPayment: false, canStaff: false, canPlans: false,
 };
-const row = () => [...host.querySelectorAll("h3")].find(node => node.textContent === "允許學員自行預約")!.closest("section")!;
-const button = (label: string, scope: ParentNode = row()) => [...scope.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent === label && !node.closest("[hidden]"))!;
-async function click(label: string, scope?: ParentNode) { const node = button(label, scope); expect(node, label).toBeTruthy(); await act(async () => node.click()); }
-async function render(extra: Partial<typeof props> = {}) { await act(async () => root.render(el(CourseSettingsWorkspace, { ...props, ...extra }))); }
-async function toggle() { await act(async () => row().querySelector<HTMLInputElement>("input")!.click()); }
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.stubGlobal("fetch",m.fetch.mockImplementation(async (_url:string,init:RequestInit)=>{
-    const input=JSON.parse(String(init.body));const result=await m.save({enabled:input.enabled});
-    return {json:async()=>result.success?{success:true,storeId:input.expectedStoreId,data:{enabled:result.enabled,revision:result.revision}}:result};
-  }));
-  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&section=booking");
-  host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  let revision = 0;
-  m.save.mockImplementation(async ({ enabled }) => ({ success: true, enabled, revision: ++revision }));
+
+const switches=()=>[...host.querySelectorAll<HTMLInputElement>('fieldset[aria-label="排課模式"] input')];
+const button=(label:string)=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label)!;
+async function render(extra:Partial<typeof props>={}) {await act(async()=>root.render(el(CourseSettingsWorkspace,{...props,...extra})));}
+async function toggle(index=0) {await act(async()=>switches()[index].click());}
+beforeEach(()=>{
+ vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ window.history.replaceState(null,"","/s/a/admin/dashboard/courses?view=settings&section=booking");
+ host=document.createElement("div");document.body.append(host);root=createRoot(host);
+ vi.stubGlobal("fetch",m.fetch.mockImplementation(async(_url:string,init:RequestInit)=>{const d=JSON.parse(String(init.body));return {json:async()=>({success:true,storeId:d.expectedStoreId,data:{open:d.mode==="OPEN"?d.enabled:true,assigned:d.mode==="ASSIGNED"?d.enabled:true,revision:1}})};}));
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove();vi.unstubAllGlobals(); });
-
-describe("per-store student self-booking settings", () => {
-  it("defaults on and uses the existing collapsed row with explicit edit/save/cancel", async () => {
-    await render(); expect(row().querySelector("p")!.textContent).toBe("開啟");
-    expect(row().querySelector("form")!.closest("[hidden]")).not.toBeNull();
-    await click("修改"); expect(button("儲存").disabled).toBe(true);
-    await toggle(); expect(row().textContent).toContain("未儲存");
-    await click("取消"); expect(m.save).not.toHaveBeenCalled();
-    await click("修改"); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(true);
-  });
-
-  it("reports scoped dirty state, preserves the draft across categories and guards leaving", async () => {
-    await render(); await click("修改"); await toggle();
-    expect(host.querySelector('nav[aria-label="設定分類"]')!.textContent).toContain("營業與預約未儲存");
-    const unload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
-    await click("店家資料", host); await render();
-    await click("營業與預約未儲存", host); await render(); await click("修改");
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    await click("取消");
-    const cleanUnload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(cleanUnload); expect(cleanUnload.defaultPrevented).toBe(false);
-  });
-
-  it("submits only the flag once, blocks pending navigation, and keeps confirmed state across stale refreshes", async () => {
-    let resolve!: (value: { success: true; enabled: boolean; revision: number }) => void;
-    m.save.mockReturnValueOnce(new Promise(done => { resolve = done; }));
-    await render(); await click("修改"); await toggle();
-    const save = button("儲存");
-    await act(async () => { save.click(); save.click(); });
-    expect(m.save).toHaveBeenCalledExactlyOnceWith({ enabled: false });
-    expect(button("取消").disabled).toBe(true); expect(button("儲存中…").disabled).toBe(true);
-    await click("店家資料", host); expect(window.location.search).toContain("section=booking");
-    await act(async () => resolve({ success: true, enabled: false, revision: 1 }));
-    expect(row().querySelector("p")!.textContent).toBe("關閉"); expect(row().textContent).toContain("已儲存 ✓");
-    expect(host.querySelector('nav[aria-label="設定分類"]')!.textContent).not.toContain("未儲存");
-    await render({ selfBookingEnabled: true }); expect(row().querySelector("p")!.textContent).toBe("關閉");
-    await click("修改"); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    m.save.mockResolvedValueOnce({ success: true, enabled: true, revision: 2 });
-    await toggle(); await click("儲存"); expect(m.save).toHaveBeenLastCalledWith({ enabled: true });
-    expect(row().querySelector("p")!.textContent).toBe("開啟"); expect(m.refresh).not.toHaveBeenCalled();
-  });
-
-  it.each(["response", "network"])("keeps a failed %s save editable, dirty and recoverable", async mode => {
-    if (mode === "response") m.save.mockResolvedValueOnce({ success: false, error: "沒有設定權限" });
-    else m.save.mockRejectedValueOnce(new Error("offline"));
-    await render(); await click("修改"); await toggle(); await click("儲存");
-    expect(row().querySelector('[role="alert"]')).not.toBeNull(); expect(row().textContent).toContain("未儲存");
-    const label=mode==="network"?"重試確認儲存結果":"儲存";
-    expect(button(label).disabled).toBe(false); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    if(mode==="network"){expect(button("取消").disabled).toBe(true);expect(row().querySelector<HTMLInputElement>("input")!.disabled).toBe(true);}
-    await click(label);
-    if(mode==="network")expect(m.fetch.mock.calls[0][1].body).toBe(m.fetch.mock.calls[1][1].body); expect(row().querySelector("p")!.textContent).toBe("關閉");
-  });
-
-  it("shows the saved status without edit permission and isolates a different store", async () => {
-    await render({ canEdit: false, selfBookingEnabled: false });
-    expect(row().querySelector("p")!.textContent).toBe("關閉"); expect(button("修改")).toBeUndefined();
-    await render({ storeId: "store-b", selfBookingEnabled: true });
-    expect(row().querySelector("p")!.textContent).toBe("開啟");
-  });
-
-  it.each([true, false])("reconciles clean same-store external updates when canEdit is %s", async canEdit => {
-    await render({ canEdit, selfBookingEnabled: true, selfBookingRevision: 0 });
-    await render({ canEdit, selfBookingEnabled: false, selfBookingRevision: 1 });
-    expect(row().querySelector("p")!.textContent).toBe("關閉");
-    if (canEdit) {
-      await click("修改");
-      expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-      expect(button("儲存").disabled).toBe(true);
-    }
-    await render({ canEdit, selfBookingEnabled: true, selfBookingRevision: 2 });
-    expect(row().querySelector("p")!.textContent).toBe("開啟");
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(true);
-    await render({ canEdit, selfBookingEnabled: false, selfBookingRevision: 1 });
-    expect(row().querySelector("p")!.textContent).toBe("開啟");
-  });
-
-  it("retains a dirty draft while advancing the authoritative same-store revision", async () => {
-    await render(); await click("修改"); await toggle();
-    await render({ selfBookingEnabled: true, selfBookingRevision: 2 });
-    expect(row().querySelector("p")!.textContent).toBe("開啟");
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    expect(row().textContent).toContain("未儲存");
-    await render({ selfBookingEnabled: false, selfBookingRevision: 3 });
-    expect(row().querySelector("p")!.textContent).toBe("關閉");
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    expect(button("儲存").disabled).toBe(true);
-  });
-
-  it("accepts a newer receipt and ignores an older refresh without losing a later draft", async () => {
-    m.save.mockResolvedValueOnce({ success: true, enabled: false, revision: 4 });
-    await render({ selfBookingRevision: 1 }); await click("修改"); await toggle(); await click("儲存");
-    await render({ selfBookingEnabled: true, selfBookingRevision: 3 });
-    expect(row().querySelector("p")!.textContent).toBe("關閉");
-    await click("修改"); await toggle();
-    await render({ selfBookingEnabled: false, selfBookingRevision: 4 });
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(true);
-    expect(row().textContent).toContain("未儲存");
-    await click("取消"); expect(row().querySelector("p")!.textContent).toBe("關閉");
-  });
-
-  it("preserves a pending draft and refuses an older save receipt after newer authority arrives", async () => {
-    let resolve!: (value: { success: true; enabled: boolean; revision: number }) => void;
-    m.save.mockReturnValueOnce(new Promise(done => { resolve = done; }));
-    await render({ selfBookingRevision: 1 }); await click("修改"); await toggle(); await click("儲存");
-    await render({ selfBookingEnabled: false, selfBookingRevision: 5 });
-    await render({ selfBookingEnabled: true, selfBookingRevision: 6 });
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    expect(button("取消").disabled).toBe(true);
-    await act(async () => resolve({ success: true, enabled: false, revision: 4 }));
-    expect(row().querySelector("p")!.textContent).toBe("開啟");
-    expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    expect(row().querySelector('[role="alert"]')!.textContent).toContain("設定已由其他人更新");
-    expect(row().textContent).not.toContain("已儲存 ✓"); expect(button("儲存").disabled).toBe(false);
-    await click("取消"); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(true);
-  });
-
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+describe("scheduling mode settings workspace",()=>{
+ it("presents both independent modes once in the existing booking settings",async()=>{await render();expect(switches()).toHaveLength(2);expect(switches().map(s=>s.checked)).toEqual([true,true]);expect(host.textContent).not.toContain("允許學員自行預約");});
+ it("confirms only the chosen mode and preserves later state across stale refresh",async()=>{await render();await toggle();expect(switches().map(s=>s.checked)).toEqual([false,true]);await render({selfBookingEnabled:true,selfBookingRevision:0});expect(switches()[0].checked).toBe(false);expect(m.fetch).toHaveBeenCalledTimes(1);});
+ it("isolates store switches and respects read-only permission",async()=>{await render({canEdit:false,selfBookingEnabled:false,assignedSchedulingEnabled:false});expect(switches().every(s=>s.disabled)).toBe(true);expect(switches().map(s=>s.checked)).toEqual([false,false]);await render({storeId:"b",selfBookingEnabled:true});expect(switches().map(s=>s.checked)).toEqual([true,true]);});
+ it("blocks navigation while a save is unresolved and accepts the authoritative receipt",async()=>{
+  let finish!:(r:unknown)=>void;m.fetch.mockReturnValue(new Promise(resolve=>{finish=resolve;}));await render();await toggle();
+  expect(switches().every(s=>s.disabled)).toBe(true);await act(async()=>button("店家資料").click());expect(window.location.search).toContain("section=booking");
+  await act(async()=>finish({json:async()=>({success:true,storeId:"store-a",data:{open:false,assigned:true,revision:1}})}));expect(switches()[0].checked).toBe(false);
+ });
+ it("rejects a failed save without pretending the stored flag changed",async()=>{m.fetch.mockResolvedValueOnce({json:async()=>({success:false,error:"沒有設定權限"})});await render();await toggle();expect(host.textContent).toContain("沒有設定權限");expect(switches().map(s=>s.checked)).toEqual([true,true]);expect(switches().every(s=>!s.disabled)).toBe(true);});
+ it("reconciles newer external revisions for both flags",async()=>{await render();await render({selfBookingEnabled:false,assignedSchedulingEnabled:false,selfBookingRevision:2});expect(switches().map(s=>s.checked)).toEqual([false,false]);await render({selfBookingEnabled:true,selfBookingRevision:1});expect(switches().map(s=>s.checked)).toEqual([false,false]);});
 });
 it('Beauty exposes self-service settings as immediate switches using the existing scoped writer',async()=>{
  const write=vi.fn().mockImplementation(async(input:{enabled:boolean})=>({success:true,data:{enabled:input.enabled}}));
@@ -171,7 +60,7 @@ it('Beauty exposes self-service settings as immediate switches using the existin
 });
 it('the immediate booking switch retains the original revision receipt and rolls back a rejected change',async()=>{
  const {CourseSelfBookingSettings}=await import('@/app/(dashboard)/dashboard/courses/course-self-booking-settings');
- m.save.mockResolvedValue({success:false,error:'設定已更新'});
+ m.fetch.mockResolvedValueOnce({json:async()=>({success:false,error:'設定已更新'})});
  await act(async()=>root.render(el(CourseSelfBookingSettings,{immediate:true,storeId:'store-a',savePath:'/test-booking',title:'允許顧客自行預約',initialEnabled:false,initialRevision:7,canEdit:true,expanded:false,onEdit:vi.fn(),onClose:vi.fn()})));
  const control=host.querySelector<HTMLInputElement>('[role=switch]')!;await act(async()=>control.click());
  expect(control.checked).toBe(false);expect(host.textContent).toContain('設定已更新');expect(m.fetch).toHaveBeenCalledOnce();

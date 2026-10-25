@@ -1,0 +1,19 @@
+{
+  "files": [
+    "src/__tests__/legacy-spa-runtime-removal.test.ts",
+    "src/__tests__/legacy-spa-store-scope.test.ts",
+    "src/__tests__/sports-shared-card-preview-runtime.test.ts",
+    "src/__tests__/consultation-preview-runtime.test.ts",
+    "src/__tests__/music-opening-composed-preview.test.ts",
+    "src/__tests__/course-self-booking-preview-runtime.test.ts",
+    "src/__tests__/beauty-database-client.test.ts",
+    "src/__tests__/beauty-database-url.test.ts",
+    "src/__tests__/course-settings-panel.test.ts",
+    "src/__tests__/settings-panel-dismissal.test.ts",
+    "src/__tests__/retained-note-editor.test.ts",
+    "src/__tests__/messenger-page-repair-route.test.ts",
+    "src/__tests__/messenger-graph-diagnostic-route.test.ts",
+    "src/__tests__/messenger-production-audit-route.test.ts",
+    "src/__tests__/messenger-token-fingerprint-route.test.ts"
+  ]
+}

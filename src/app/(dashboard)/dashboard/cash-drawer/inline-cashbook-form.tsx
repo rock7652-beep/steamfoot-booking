@@ -25,6 +25,8 @@ import { usePathname } from "next/navigation";
 import { postCashDrawerForm } from "@/lib/cash-drawer-form-client";
 
 import { FormSection } from "@/components/desktop";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -68,14 +70,16 @@ export function InlineCashbookForm({
     async (_previous, formData) => {
       requestId.current ??= crypto.randomUUID();
       formData.set("requestId", requestId.current);
-      return postCashDrawerForm<{ entryId: string }>(pathname, "CASHBOOK", formData);
+      const result=await postCashDrawerForm<{ entryId: string }>(pathname, "CASHBOOK", formData);
+      if(result.success)publishMusicFinanceChange();
+      return result;
     },
     null,
   );
 
   useEffect(() => {
     if (state?.success) {
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 

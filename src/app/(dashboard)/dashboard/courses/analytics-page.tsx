@@ -1,4 +1,6 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { canMusicFinance, readMusicFinanceScope } from "@/server/services/music-finance-access";
+import { musicDataScope, musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -21,7 +23,7 @@ import { AnalysisReturnState } from "./analysis-return-state";
 import { getIndustrySixMonthRevenueMixTrend } from "@/server/queries/industry-revenue-mix";
 import { RevenueMixTrend } from "@/components/revenue-mix-trend";
 
-export async function CourseAnalyticsPage({params}:{params:{preset?:string;startDate?:string;endDate?:string;month?:string;perspective?:string;person?:string}}) {
+export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;preset?:string;startDate?:string;endDate?:string;month?:string;perspective?:string;person?:string}}) {
   const user=await getCurrentUser();
   if(!user || !(await checkPermission(user.role,user.staffId,"report.read"))) notFound();
   const storeId=await getActiveStoreForRead(user);
@@ -34,17 +36,21 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   catch {return <PageShell compact><PageHeader compact title="營運分析"/><p role="alert">日期或分析對象不正確，或沒有檢視權限。</p><DashboardLink href="/dashboard/courses?view=analytics">返回本月分析</DashboardLink></PageShell>;}
   const [money,customers,cash]=await Promise.all([checkPermission(user.role,user.staffId,"transaction.read"),checkPermission(user.role,user.staffId,"customer.read"),checkPermission(user.role,user.staffId,"cashbook.read")]);
   const canExport=!(await resolveStoreViewContextFromCookie(user))?.isViewMode && await checkPermission(user.role,user.staffId,"report.export") && await hasDataExportFeature(storeId);
+  const financeScope=music?await readMusicFinanceScope(user,storeId):null;
+  const feesAllowed=cash && (music ? await canMusicFinance(user,storeId,"teacher.compensation.read") && (financeScope===null || (scope.view==="coach" && financeScope.includes(scope.person))) : user.role==="OWNER");
   let data;
-  try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:cash&&user.role==="OWNER"});} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
+  try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:feesAllowed},params.dataScope);} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
   if(!all) data.staff=data.staff.filter(s=>s.id===user.staffId);
   const native=sportsNativePreview(storeId);
-  const periodControls=<ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery compact={native}/>;
+  const periodControls=<ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery compact={native||music}/>;
   const revenuePoints=money&&scope.view==="store" ? await getIndustrySixMonthRevenueMixTrend(storeId) : null;
+  const scopeQuery=musicDataScope(storeId,params.dataScope)==="legacy"?"&dataScope=legacy":"";
   const query=new URLSearchParams({...range,perspective:scope.view,person:scope.person,report:"business"});
+  if(scopeQuery)query.set("dataScope","legacy");
   return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell compact>
-    <PageHeader compact title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
-    {!native&&periodControls}
-    <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`} periodControls={native?periodControls:undefined} data={data} music={music} all={all} staffId={user.staffId}/>
+    <PageHeader compact title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href={`/dashboard/store-revenue?${scopeQuery.slice(1)}`} className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
+    {!(native||music)&&periodControls}
+    <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`} periodControls={native||music?periodControls:undefined} data={data} music={music} all={all} staffId={user.staffId}/>
     {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支"><RevenueMixTrend points={revenuePoints}/></section>}
   </PageShell></AnalysisReturnState>;
 }

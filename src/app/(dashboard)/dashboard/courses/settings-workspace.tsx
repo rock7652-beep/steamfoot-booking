@@ -27,7 +27,8 @@ import { BookableUntilForm } from "../settings/hours/bookable-until-form";
 import { DutySchedulingToggle } from "../settings/duty/duty-toggle";
 import { TrialSettingsForm } from "../settings/trial/trial-form";
 import type { TrialSettings } from "@/lib/shop-config";
-import { CourseSelfBookingSettings } from "./course-self-booking-settings";
+import {CourseSelfBookingSettings} from "./course-self-booking-settings";
+import { CourseSchedulingModeSettings } from "@/components/admin/course-scheduling-mode-settings";
 import {waitlistRevision} from "@/lib/course-waitlist-save";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@/components/settings";
@@ -47,6 +48,7 @@ export type CourseSettingsWorkspaceProps = {
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
   bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
+  assignedSchedulingEnabled?:boolean;
   selfBookingEnabled?: boolean; selfBookingRevision?: number;
   selfLeaveEnabled?:boolean;selfRescheduleEnabled?:boolean;backendNoticesEnabled?:boolean;
   waitlistFeatureAvailable?: boolean;
@@ -130,7 +132,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
   const pathname = usePathname();
   const active = courseSettingsSection(search.get("section") === "commerce" ? "payment" : search.get("section"));
   const panel = search.get("panel");
-  const featurePanelAllowed = panel === "reminders" ? props.canReminders && reminderState !== "HIDDEN" && reminderState !== "LOCKED"
+  const featurePanelAllowed = panel === "reminders" ? props.canUnassignedPlans || (props.canReminders && reminderState !== "HIDDEN" && reminderState !== "LOCKED")
     : panel === "referral" ? props.canReferralShare && referralState !== "HIDDEN" && referralState !== "LOCKED"
     : panel === "butler" ? props.canDigitalButler && butlerState !== "HIDDEN" && butlerState !== "LOCKED"
     : true;
@@ -163,7 +165,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
   }, []);
   const context = useMemo(() => ({ report, navigate: (href: string) => router.push(href) }), [report, router]);
   useEffect(() => {
-    if ((!hasDirty||props.source?.confirmDiscard===false) && !pending) return;
+    if (!pending) return;
     function intercept(event: MouseEvent) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
@@ -174,7 +176,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
       if (link.closest("[data-course-settings-panel]") && courseSettingsPanelHref(url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "") + url.search).includes("view=settings")) return;
       event.preventDefault(); event.stopPropagation(); if(!pending||props.source?.confirmDiscard!==false)setLeaveHref(url.href);
     }
-    function unload(event: BeforeUnloadEvent) { if (!allowLeave.current) { event.preventDefault(); event.returnValue = ""; } }
+    function unload(event: BeforeUnloadEvent) { if (pending && !allowLeave.current) { event.preventDefault(); event.returnValue = ""; } }
     document.addEventListener("click", intercept, true);
     window.addEventListener("beforeunload", unload);
     return () => { document.removeEventListener("click", intercept, true); window.removeEventListener("beforeunload", unload); };
@@ -205,9 +207,9 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定") + `・Google Maps：${storeMapHref ? "已設定" : "未設定"}`} controls={storeMapHref ? <a href={storeMapHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 min-w-24 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">開啟地圖</a> : undefined} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>{props.moduleContent ? props.moduleContent.sections.booking : <>
-        <CourseSelfBookingSettings immediate={!!props.source} savePath={props.source?.selfBookingSavePath} title={props.source?.selfBookingTitle} storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
-        <CourseOperationSwitch key={`leave:${props.storeId}:${props.selfLeaveEnabled}`} storeId={props.storeId} title={props.source?.selfCancelTitle??"允許學員自行請假"} save={props.source?.operationSave} setting="selfLeaveEnabled" initialEnabled={props.selfLeaveEnabled??true} canEdit={props.canEdit}/>
-        <CourseOperationSwitch key={`move:${props.storeId}:${props.selfRescheduleEnabled}`} storeId={props.storeId} title={props.source?.selfRescheduleTitle??"允許學員自行改期"} save={props.source?.operationSave} setting="selfRescheduleEnabled" initialEnabled={props.selfRescheduleEnabled??props.selfBookingEnabled??true} canEdit={props.canEdit}/>
+        {props.source?<CourseSelfBookingSettings immediate={!!props.source} savePath={props.source?.selfBookingSavePath} title={props.source?.selfBookingTitle} storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} /> : <CourseSchedulingModeSettings key={props.storeId} storeId={props.storeId} open={props.selfBookingEnabled??true} assigned={props.assignedSchedulingEnabled??true} revision={props.selfBookingRevision??0} canEdit={props.canEdit}/>}
+        <CourseOperationSwitch key={`leave:${props.storeId}:${props.selfLeaveEnabled}`} storeId={props.storeId} compact={props.music} expanded={expandedRow==="self-leave"} onEdit={!props.source&&!props.music?()=>openRow("self-leave"):undefined} onClose={()=>setExpandedRow(null)} title={props.source?.selfCancelTitle??"允許學員自行請假"} save={props.source?.operationSave} setting="selfLeaveEnabled" initialEnabled={props.selfLeaveEnabled??true} canEdit={props.canEdit}/>
+        <CourseOperationSwitch key={`move:${props.storeId}:${props.selfRescheduleEnabled}`} storeId={props.storeId} compact={props.music} expanded={expandedRow==="self-reschedule"} onEdit={!props.source&&!props.music?()=>openRow("self-reschedule"):undefined} onClose={()=>setExpandedRow(null)} title={props.source?.selfRescheduleTitle??"允許學員自行改期"} save={props.source?.operationSave} setting="selfRescheduleEnabled" initialEnabled={props.selfRescheduleEnabled??props.selfBookingEnabled??true} canEdit={props.canEdit}/>
         {props.today && <BookableUntilForm savePath={props.source?.bookingWindowSavePath} key={`booking-window:${props.storeId}`} storeId={props.storeId} initialOpensAt={props.bookingOpensAt??null} course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}
         <Row title="營業與公休" summary="每週營業時間・特殊公休" controls={props.canHours ? <><DashboardLink href={(props.source?.href??courseSettingsPanelHref)("/dashboard/courses/hours?tab=weekly")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">營業時間</DashboardLink><DashboardLink href={(props.source?.href??courseSettingsPanelHref)("/dashboard/courses/hours?tab=special")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">特殊公休</DashboardLink></> : undefined} />
         <Row title="預約與取消截止" summary={"預約 " + (props.source&&!props.bookingLeadMinutes?"服務開始前":lead(props.bookingLeadMinutes)) + "・取消 " + lead(props.cancellationLeadMinutes)} expanded={expandedRow === "booking-cutoff"} onEdit={props.canEdit ? () => openRow("booking-cutoff") : undefined}>

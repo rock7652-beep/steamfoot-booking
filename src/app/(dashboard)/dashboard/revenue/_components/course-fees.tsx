@@ -6,7 +6,7 @@ import {capturedTeacherFee,readTeacherFeeSeats,type CapturedTeacherFee} from "@/
 import {formatTWTime} from "@/lib/date-utils";
 import {CourseFeePaymentButton,CourseFeeCorrectionButton} from "./course-fee-payment-button";
 
-export async function CourseFees({storeId,range,readOnly}: {storeId:string;range:{gte:Date;lte:Date};readOnly:boolean}) {
+export async function CourseFees({dataScope,storeId,range,readOnly}: {dataScope?:string;storeId:string;range:{gte:Date;lte:Date};readOnly:boolean}) {
   const user=await getCurrentUser();
   if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"cashbook.read"))return null;
   if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return null;

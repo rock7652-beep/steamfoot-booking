@@ -1,4 +1,5 @@
 import {assertBeautySharedPagesLocalQaEnvironment,assertBeautySharedPagesBuildQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
+import {MUSIC_RELEASE_BRANCH,assertMusicNativeReleaseEnvironment} from "./music-native-workflow-scope.mjs";
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
 import { assertBeautyLocalQaEnvironment } from "./beauty-local-qa-scope.mjs";
 import { assertBeautySandboxQaEnvironment } from "./beauty-sandbox-qa-scope.mjs";
@@ -7,6 +8,7 @@ import { assertBeautyProductionQaEnvironment } from "./beauty-production-qa-scop
 import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH, YOUNGSKY_SETTINGS_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
+import { MUSIC_OPENING_BRANCH, assertMusicOpeningPreviewEnvironment } from "./music-opening-preview-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
 import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "./store-notices-preview-preflight.mjs";
 import { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRANCH } from "./store-member-workorder-review-gate.mjs";
@@ -275,7 +277,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"beauty-hosted-preview" | "mocked-unit-test" | "production" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if(env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'){assertBeautySharedPagesBuildQaEnvironment(env);return 'local-beauty-qa';}
@@ -357,6 +359,14 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === STORE_OPERATION_AUDIT_PREVIEW_BRANCH) {
     assertStoreOperationAuditPreviewEnvironment(env);
     return "store-operation-audit-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === MUSIC_RELEASE_BRANCH) {
+    assertMusicNativeReleaseEnvironment(env);
+    return "music-opening-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === MUSIC_OPENING_BRANCH) {
+    assertMusicOpeningPreviewEnvironment(env);
+    return "music-opening-preview";
   }
   if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
     assertCourseSelfBookingPreviewEnvironment(env);

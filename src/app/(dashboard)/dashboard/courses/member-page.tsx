@@ -1,6 +1,9 @@
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { loadSportsStaging } from "@/server/actions/sports-staging";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
+import { musicPlanWhere } from "@/server/services/music-plan-scope";
+import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
+import { musicDataScope, musicSessionWhere, musicCustomerWhere } from "@/server/services/music-data-scope";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -70,14 +73,14 @@ export async function CourseMemberPage({
     await Promise.all([
       view === "customers" && canReadPeople
         ? prisma.customer.findMany({
-            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds } },
+            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds }, AND:[musicCustomerWhere(storeId,query.dataScope)] },
             select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
         : [],
       canReadCards
         ? coursePrisma.coursePointPlan.findMany({
-            where: { storeId },
+            where: { storeId, ...musicPlanWhere(storeId,query.dataScope) },
             orderBy: { name: "asc" },
           })
         : [],
@@ -110,23 +113,26 @@ export async function CourseMemberPage({
   const canReadTermSessions = view === "plans" && await checkPermission(user.role, user.staffId, "booking.read");
   const [assignmentStaff, termSessions, templates, subjects, displayOrders] = await Promise.all([
     prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
-    canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
+    canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,...musicSessionWhere(storeId,query.dataScope),cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]}),
     (music || sportsNative) ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
     readCourseOrders(storeId),
   ]);
+  const musicTeachers = music ? (await prisma.staff.findMany({where:{storeId,courseCoachEnabled:true},select:{id:true,displayName:true,status:true,courseQualifiedTemplateIds:true},orderBy:{displayName:"asc"}})).map(t=>({id:t.id,name:t.displayName,active:t.status==="ACTIVE",qualificationIds:t.courseQualifiedTemplateIds})) : [];
+  const canEditMusicTeachers = !isViewMode && await checkPermission(user.role,user.staffId,"staff.manage");
+
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
   subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
-  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
+  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,query.dataScope),status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId);
   const labelSnapshot = view === "customers" && canReadPeople ? await customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS;
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
-      {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "班型與學費" : "方案管理"} />}
-      {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "收費方式" : "方案管理"} />}
+      {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
+      <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
@@ -138,8 +144,10 @@ export async function CourseMemberPage({
         termSessions={termSessions.map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString()}))}
         templates={presentCourseTemplates(templates,plans,music)}
         subjects={subjects}
+        musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers}
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
+        canSchedule={!isViewMode&&await checkPermission(user.role,user.staffId,"booking.create")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}

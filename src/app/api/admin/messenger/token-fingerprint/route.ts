@@ -1,4 +1,4 @@
-import { lastFingerprintByActorAndStore } from "@/server/services/messenger-audit-rate-limit";
+import {token_fingerprintRateState as lastFingerprintByActorAndStore} from "@/server/services/messenger-route-rate-limit-state";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { diagnoseMessengerPageToken, getTokenFormat } from "@/server/services/messenger-token-fingerprint";

@@ -22,14 +22,14 @@ vi.mock("@/server/services/referral-events", () => ({ createReferralEvent: m.cre
 
 import { registerHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { POST as audit } from "@/app/api/admin/messenger/audit/route";
-import { resetMessengerAuditRateLimitForTests } from "@/server/services/messenger-audit-rate-limit";
+import {resetMessengerAuditRateLimitForTests} from "@/server/services/messenger-route-rate-limit-state";
 import { GET as readAudit } from "@/app/api/admin/messenger/audit/[id]/route";
 import { POST as repair } from "@/app/api/admin/messenger/repair/route";
-import { resetMessengerRepairRateLimitForTests } from "@/server/services/messenger-audit-rate-limit";
+import {resetMessengerRepairRateLimitForTests} from "@/server/services/messenger-route-rate-limit-state";
 import { POST as graph } from "@/app/api/admin/messenger/graph-diagnostic/route";
-import { resetMessengerGraphDiagnosticRateLimitForTests } from "@/server/services/messenger-audit-rate-limit";
+import {resetMessengerGraphDiagnosticRateLimitForTests} from "@/server/services/messenger-route-rate-limit-state";
 import { POST as fingerprint } from "@/app/api/admin/messenger/token-fingerprint/route";
-import { resetMessengerTokenFingerprintRateLimitForTests } from "@/server/services/messenger-audit-rate-limit";
+import {resetMessengerTokenFingerprintRateLimitForTests} from "@/server/services/messenger-route-rate-limit-state";
 import { recordReferralEvent, trackReferralEvent } from "@/server/actions/referral-events";
 
 function post(storeId: string) {

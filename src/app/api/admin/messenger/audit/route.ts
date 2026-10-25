@@ -1,4 +1,4 @@
-import { lastAuditByActorAndStore } from "@/server/services/messenger-audit-rate-limit";
+import {auditRateState as lastAuditByActorAndStore} from "@/server/services/messenger-route-rate-limit-state";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { createMessengerAuditRun } from "@/server/services/messenger-production-audit";

@@ -23,7 +23,7 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, 
   const changed = days.filter(day => JSON.stringify(day) !== JSON.stringify(saved.find(s => s.dayOfWeek === day.dayOfWeek)));
   useSettingsPanelGuard(changed.length > 0, pending || request.uncertain);
   function update(dow: number, change: Partial<Day>) { setDays(previous => previous.map(day => day.dayOfWeek === dow ? { ...day, ...change } : day)); setMessage(""); }
-  return <form aria-label="每週營業時間" className="rounded-xl border bg-white p-4" onSubmit={event => {
+  return <form aria-label="每週營業時間" className="rounded-xl border bg-white p-3" onSubmit={event => {
     event.preventDefault(); if (saving.current || (!changed.length && !request.uncertain) || !canManage) return;
     saving.current = true; setMessage("");
     start(async () => {
@@ -39,12 +39,12 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved, 
     });
   }}>
     <h3 className="font-semibold">每週營業時間</h3><p className="mt-1 text-xs text-earth-600">直接調整各日，最後一次儲存。公休與多段時間皆可設定。</p>
-    <fieldset disabled={!canManage || pending || request.uncertain} className="mt-3 min-w-0 divide-y">
-      {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-3 py-3">
+    <fieldset disabled={!canManage || pending || request.uncertain} className="mt-2 min-w-0 divide-y">
+      {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-2 py-1">
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={day.isOpen} onChange={e => update(day.dayOfWeek, { isOpen: e.target.checked })} />{day.dayName}</label>
         {day.isOpen ? <div className="min-w-0 flex-1 space-y-2">{day.periods.map((period, index) => <div key={index} className="flex flex-wrap items-center gap-2">
-          <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 min-w-0 rounded border px-2" /><span>至</span>
-          <input aria-label={`${day.dayName}第${index + 1}段結束`} type="time" required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className="min-h-11 min-w-0 rounded border px-2" />
+          <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" /><span>至</span>
+          <input aria-label={`${day.dayName}第${index + 1}段結束`} type="time" required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className="min-h-11 w-36 max-w-full min-w-0 shrink-0 rounded border px-2" />
           {day.periods.length > 1 && <button type="button" aria-label={`移除${day.dayName}第${index + 1}段`} onClick={() => update(day.dayOfWeek, { periods: day.periods.filter((_, i) => i !== index) })} className="min-h-11 px-2 text-sm text-red-700">移除</button>}
         </div>)}</div> : <span className="py-3 text-sm text-earth-500">公休</span>}
         {day.isOpen && day.periods.length < 8 && <button type="button" onClick={() => update(day.dayOfWeek, { periods: [...day.periods, { openTime: "10:00", closeTime: "22:00" }] })} className="min-h-11 px-2 text-sm text-primary-700">＋ 時段</button>}

@@ -7,7 +7,7 @@ import {CoursePlanDraftForm} from '@/app/(dashboard)/dashboard/courses/course-pr
 const m=vi.hoisted(()=>({save:vi.fn(),course:vi.fn(),refresh:vi.fn()}));
 vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:m.course}));
 vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:m.course}));
-vi.mock('next/navigation',()=>({usePathname:()=>'/s/test/admin/dashboard/beauty',useRouter:()=>({refresh:m.refresh})}));
+vi.mock('next/navigation',()=>({useSearchParams:()=>new URLSearchParams(),usePathname:()=>'/s/test/admin/dashboard/beauty',useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{sessionStorage.clear();vi.resetAllMocks();vi.stubGlobal('fetch',m.course);m.save.mockResolvedValue({success:false,error:'保留輸入'});host=document.createElement('div');document.body.append(host);root=createRoot(host);});

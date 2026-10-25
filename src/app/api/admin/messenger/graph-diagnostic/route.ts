@@ -1,4 +1,4 @@
-import { lastDiagnosisByActorAndStore } from "@/server/services/messenger-audit-rate-limit";
+import {graph_diagnosticRateState as lastDiagnosisByActorAndStore} from "@/server/services/messenger-route-rate-limit-state";
 import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { diagnoseMessengerGraph } from "@/server/services/messenger-graph-diagnostic";

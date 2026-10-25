@@ -1,4 +1,6 @@
 "use server";
+import { canOperateCourseMonthly } from "@/lib/course-monthly-access";
+import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
@@ -7,12 +9,13 @@ import { FEATURES } from "@/lib/feature-flags";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { settlementConfirmInput, settlementSettingsInput } from "@/lib/course-monthly-settlement";
-import { readCourseMonthlySettlement, readSettlementSettings } from "@/server/services/course-monthly-settlement";
+import { readSettlementSettings } from "@/server/services/course-monthly-settlement";
+import { confirmCourseMonth } from "@/server/services/confirm-course-month";
 import { recordCourseProfitPayment, voidCourseProfitPayment } from "@/server/services/course-profit-payment";
 import type { PermissionCode } from "@/lib/permissions";
 async function actor(permission:PermissionCode){
  const a=await courseManager(permission);
- if(a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可處理課程月結");
+ if(!canOperateCourseMonthly(a.user.role,musicNativeWorkflowEnabled(a.storeId)))throw new AppError("FORBIDDEN","僅店長可處理課程月結");
  await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  await assertStoreSubscriptionWritable(a.storeId);
  return a;
@@ -32,15 +35,7 @@ export async function saveCourseSettlementSettings(input:unknown){try{
 export async function confirmCourseMonthlySettlement(input:unknown){try{
  const d=settlementConfirmInput.parse(input),a=await actor("report.read");
  await requireMusicFinance(a.user,a.storeId,"teacher.settlement.confirm");
- await courseTransaction(a.storeId,async tx=>{
-  const report=await readCourseMonthlySettlement(tx,a.storeId,d.month);
-  if(report.fingerprint!==d.fingerprint)throw new AppError("CONFLICT","明細已變更，請重新整理核對");
-  const last=report.revisions[0];
-  if(last?.fingerprint===report.fingerprint)return;
-  if((last?.revision??0)!==d.revision)throw new AppError("CONFLICT","已有新版月結，請重新整理");
-  if(report.lines.some(l=>l.issue))throw new AppError("BUSINESS_RULE","仍有待核對明細，不能確認月結");
-  await tx.$executeRaw`INSERT INTO "CourseMonthlySettlement" (id,"storeId",month,revision,fingerprint,snapshot,"actorUserId",reason) VALUES (${crypto.randomUUID()},${a.storeId},${d.month},${d.revision+1},${d.fingerprint},${JSON.stringify(report.lines)}::jsonb,${a.user.id},${d.reason})`;
- });refresh();return {success:true as const};
+ await courseTransaction(a.storeId,tx=>confirmCourseMonth(tx,{storeId:a.storeId,userId:a.user.id},d));refresh();return {success:true as const};
 }catch(e){return handleActionError(e);}}
 export async function payCourseProfit(input:unknown){try{
  const a=await actor("cashbook.create");await courseTransaction(a.storeId,tx=>recordCourseProfitPayment(tx,{storeId:a.storeId,userId:a.user.id},input));refresh();return {success:true as const};

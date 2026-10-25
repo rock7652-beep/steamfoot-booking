@@ -1,3 +1,6 @@
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
+import { musicDataScope, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
+import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import "server-only";
 import { Prisma } from "@prisma/client";
@@ -17,6 +20,8 @@ export async function getCourseCustomerPage(
   storeId: string, role: string, staffId: string | null, params: URLSearchParams,
   canReadCards: boolean, now = new Date(), music = false,
 ): Promise<CourseCustomerPage> {
+  const cohort=musicDataScope(storeId,params.get("dataScope")??undefined);
+  const cohortSql=cohort?Prisma.sql`AND (c.id = ANY(${LEGACY_MUSIC_CUSTOMER_IDS}::text[])) = ${cohort==="legacy"}`:Prisma.empty;
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
   const staffScope = typeof visibility.assignedStaffId === "string" ? visibility.assignedStaffId : null;
   const labelIds = await customerLabelFilterIds(storeId, params.get("label") ?? undefined);
@@ -34,6 +39,7 @@ export async function getCourseCustomerPage(
   const order = sort === "points" && canReadCards ? (music ? Prisma.sql`sessions DESC` : Prisma.sql`points DESC`)
     : sort === "created" ? Prisma.sql`"createdAt" DESC`
       : Prisma.sql`"lastVisitAt" DESC NULLS LAST`;
+  const noExpiry = canReadCards ? await readCourseNoExpiryProofs(storeId, now) : [];
   const [result] = await prisma.$queryRaw<CourseCustomerPage[]>(Prisma.sql`
     WITH attendance AS (
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
@@ -49,14 +55,14 @@ export async function getCourseCustomerPage(
         SUM(CASE WHEN c.unit='SESSION' THEN GREATEST(0,c.remaining-COALESCE(h.amount,0)) ELSE 0 END)::int AS sessions
       FROM "CoursePointCard" c JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId"
       LEFT JOIN held h ON h."cardId"=c.id
-      WHERE c."storeId"=${storeId} AND ${canReadCards} AND c."closedAt" IS NULL AND c."expiresAt">=${now}
+      WHERE c."storeId"=${storeId} AND ${canReadCards} AND c."closedAt" IS NULL AND ${courseCardActiveExpirySql(now, true, noExpiry)}
       GROUP BY m."customerId"
     ), filtered AS (
       SELECT c.id,c.name,c."createdAt",a."lastVisitAt",COALESCE(b.points,0) AS points,
         COALESCE(b.sessions,0) AS sessions,COALESCE(b."hasPoints",false) AS "hasPoints",COALESCE(b."hasSessions",false) AS "hasSessions",CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
       FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
       LEFT JOIN attendance a ON a."customerId"=c.id LEFT JOIN balances b ON b."customerId"=c.id
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter}
+      WHERE c."storeId"=${storeId} ${musicRetirementSql(storeId,"Customer","c.id")} AND c."mergedIntoCustomerId" IS NULL ${labelFilter} ${cohortSql}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
         AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)

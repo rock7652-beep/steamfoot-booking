@@ -33,3 +33,10 @@ it("failed cash check can be retried and does not block card payments",async()=>
  expect(host.textContent).toContain("無法確認現金抽屜");expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:false});
  await change('[name="paymentMethod"]',"CARD");expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:true});
 });
+
+it("preserves music's 85 percent input when using the shared discount fields",async()=>{
+ await render({musicPeriods:[4],profitEnabled:false});await change('select','RATE');await change('[aria-label="優惠數值"]','85');
+ expect(host.querySelector<HTMLInputElement>('[aria-label="優惠數值"]')!.max).toBe('100');
+ expect(host.querySelector<HTMLInputElement>('[name="discountValue"]')!.value).toBe('15');
+ await change('[name="paymentMethod"]','CARD');expect(summary).toHaveBeenLastCalledWith({paid:850,valid:true});
+});

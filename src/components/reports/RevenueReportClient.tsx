@@ -86,6 +86,7 @@ type ReportMode = "store" | "coach";
 interface Props {
   canReadDetails?:boolean;
   serviceMode?:boolean;
+  dataScope?: string;
   courseMode?: boolean;
   musicMode?: boolean;
   mode: ReportMode;
@@ -147,6 +148,7 @@ export function RevenueReportClient({
   canReadDetails=true,
   serviceMode=false,
   courseMode = false,
+  dataScope,
   musicMode = false,
   stores,
   coaches,
@@ -185,6 +187,7 @@ export function RevenueReportClient({
   // Build query string
   const buildParams = useCallback(() => {
     const p = new URLSearchParams();
+    if(courseMode&&dataScope==="legacy")p.set("dataScope","legacy");
     p.set("startDate", startDate);
     p.set("endDate", endDate);
     if (storeId) p.set("storeId", storeId);
@@ -194,7 +197,7 @@ export function RevenueReportClient({
     if (paymentMethod) p.set("paymentMethod", paymentMethod);
     if (keyword) p.set("keyword", keyword);
     return p;
-  }, [startDate, endDate, storeId, coachId, coachRole, planType, paymentMethod, keyword]);
+  }, [startDate, endDate, storeId, coachId, coachRole, planType, paymentMethod, keyword,courseMode,dataScope]);
 
   // Fetch data
   const fetchData = useCallback(async () => {

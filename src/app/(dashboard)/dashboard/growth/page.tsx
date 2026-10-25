@@ -93,7 +93,7 @@ function CustomerCareLockedState() {
 export default async function CustomerCarePage({
   searchParams = Promise.resolve({}),
 }: {
-  searchParams: Promise<{ segment?: string; month?: string; startDate?: string; endDate?: string; preset?: string }>;
+  searchParams: Promise<{ dataScope?:string; segment?: string; month?: string; startDate?: string; endDate?: string; preset?: string }>;
 } = { searchParams: Promise.resolve({}) }) {
   const params = await searchParams;
   const requestedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")
@@ -122,7 +122,7 @@ export default async function CustomerCarePage({
       checkPermission(user.role, user.staffId, "customer.update"),
       checkPermission(user.role, user.staffId, "booking.create"),
     ]);
-    return <CourseCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} segment={params.segment} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
+    return <CourseCare dataScope={params.dataScope} storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} segment={params.segment} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
   }
   if (isCustomerKpiSegment(params.segment)) {
     const selectedSegment = params.segment;

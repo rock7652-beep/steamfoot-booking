@@ -14,7 +14,7 @@ beforeEach(() => {
   mockResolveStore.mockResolvedValue({ id: "store-zhubei", slug: "zhubei" });
   mockDiagnose.mockResolvedValue({ classification: "NO_GRAPH_ERROR" });
 });
-afterEach(async () => { const { resetMessengerGraphDiagnosticRateLimitForTests } = await import("@/server/services/messenger-audit-rate-limit"); resetMessengerGraphDiagnosticRateLimitForTests(); });
+afterEach(async () => { const { resetMessengerGraphDiagnosticRateLimitForTests } = await import("@/server/services/messenger-route-rate-limit-state"); resetMessengerGraphDiagnosticRateLimitForTests(); });
 
 describe("Messenger Graph diagnostic API", () => {
   it("rejects unauthenticated, non-admin and cross-store calls", async () => {

@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "../../scripts/course-self-booking-preview-scope.mjs";
 const m=vi.hoisted(()=>({construct:vi.fn(),query:vi.fn()}));
-vi.mock('@prisma/client',()=>({PrismaClient:class{constructor(){m.construct('main');}$queryRaw=m.query;}}));
-vi.mock('../../generated/spa-client',()=>({PrismaClient:class{constructor(){m.construct('spa');}$queryRaw=m.query;}}));
-vi.mock('../../generated/course-client',()=>({PrismaClient:class{constructor(){m.construct('course');}$queryRaw=m.query;}}));
+vi.mock('@prisma/client', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()),PrismaClient:class{constructor(){m.construct('main');}$queryRaw=m.query;}}));
+vi.mock('@/lib/generated-prisma-runtime',async()=>{const runtime=await import('../../generated/course-client');return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{constructor(){m.construct('course');}$queryRaw=m.query;}})}});
 vi.mock('@/lib/audit-db-context',()=>({withAuditDatabaseContext:(client:unknown)=>client}));
 const direct='postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres';
 const clients=[{key:'prisma',load:async()=>(await import('@/lib/db')).prisma},{key:'coursePrisma',load:async()=>(await import('@/lib/course-db')).coursePrisma}];

@@ -1,0 +1,30 @@
+
+/workspace/steamfoot-beauty-production-review/scripts/ci-migrate.mjs
+  395:7   warning  'RECURRING_CONFIRMATION_MIGRATION_FILE' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  397:7   warning  'STAFF_MEMBER_LINK_MIGRATION_FILE' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  901:16  warning  'readNamedMigrationLedger' is defined but never used                        @typescript-eslint/no-unused-vars
+  906:16  warning  'readRecurringConfirmationSnapshot' is defined but never used               @typescript-eslint/no-unused-vars
+  932:16  warning  'readStaffMemberLinkSnapshot' is defined but never used                     @typescript-eslint/no-unused-vars
+  986:10  warning  'isAppliedNamedMigration' is defined but never used                         @typescript-eslint/no-unused-vars
+
+/workspace/steamfoot-beauty-production-review/src/app/(dashboard)/dashboard/courses/roster.tsx
+  439:21  warning  The ref value 'readVersion.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'readVersion.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/workspace/steamfoot-beauty-production-review/src/app/(dashboard)/dashboard/courses/staff-workspace.tsx
+  263:6  warning  React Hook useEffect has missing dependencies: 'dirty', 'loadedFeeRevision', 'pending', and 'syncRevision'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/steamfoot-beauty-production-review/src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx
+  448:6  warning  React Hook useCallback has an unnecessary dependency: 'dayDraftDirty'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  530:5  warning  React Hook useCallback has an unnecessary dependency: 'dayDraftDirty'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/steamfoot-beauty-production-review/src/components/admin/use-customer-panel-guard.ts
+  7:39  warning  '_confirmDiscard' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/workspace/steamfoot-beauty-production-review/src/components/reports/RevenueReportClient.tsx
+  316:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+/workspace/steamfoot-beauty-production-review/src/components/sidebar.tsx
+  895:6  warning  React Hook useMemo has an unnecessary dependency: 'industryModule'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 13 problems (0 errors, 13 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.

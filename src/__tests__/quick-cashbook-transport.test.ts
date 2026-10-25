@@ -6,7 +6,7 @@ import { GET } from "@/app/api/cashbook/quick/route";
 import { readQuickCashbook } from "@/lib/quick-cashbook-client-transport";
 const data = { today: "2026-10-05", page: 2, total: 21, canWrite: true, closedDates: [], canDrawer: true, balance: 0, balanceLabel: "關店實點現金", entries: [] };
 beforeEach(() => { vi.resetAllMocks(); m.read.mockResolvedValue(data); });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 it("route delegates scoped authorization once and returns only JSON with no-store", async () => {
   const response = await GET(new Request("https://example.com/api/cashbook/quick?storeId=a&page=2"));
   expect(m.read).toHaveBeenCalledExactlyOnceWith("a", 2);
@@ -55,4 +55,14 @@ it("client retries the network after failure instead of reusing a failed result"
   await expect(readQuickCashbook("a", 2)).rejects.toThrow("暫時無法讀取");
   expect(await readQuickCashbook("a", 2)).toEqual(data);
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("music preview reads through the visible store route without changing other environments", async()=>{
+ vi.stubGlobal("window",{location:{pathname:"/s/lubymusic/admin/dashboard/revenue"}});
+ vi.stubEnv("NEXT_PUBLIC_BUILD_ENV","staging");
+ const fetchMock=vi.fn().mockImplementation(async()=>Response.json({storeId:"store-lubymusic",data}));vi.stubGlobal("fetch",fetchMock);
+ await readQuickCashbook("store-lubymusic",2);
+ expect(fetchMock.mock.calls[0][0]).toBe("/s/lubymusic/admin/dashboard/music-cashbook?storeId=store-lubymusic&page=2");
+ vi.stubEnv("NEXT_PUBLIC_BUILD_ENV","production");await readQuickCashbook("store-lubymusic",2);
+ expect(fetchMock.mock.calls[1][0]).toBe("/api/cashbook/quick?storeId=store-lubymusic&page=2");
 });

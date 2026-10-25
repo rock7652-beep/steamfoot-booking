@@ -26,6 +26,8 @@ import { useActionState, useEffect, type ReactNode } from "react";
 
 import { usePathname } from "next/navigation";
 import { postCashDrawerForm } from "@/lib/cash-drawer-form-client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -69,9 +71,11 @@ export function CashDrawerActionForm({
   const pathname = usePathname();
   const [state, formAction] = useActionState<ActionResult<unknown> | null, FormData>(
     async (previous, form) => {
-      if (!direct) return action(previous, form);
-      form.set("sessionId", direct.sessionId);
-      return postCashDrawerForm(pathname, direct.kind, form);
+      let result;
+      if(!direct)result=await action(previous,form);
+      else {form.set("sessionId",direct.sessionId);result=await postCashDrawerForm(pathname,direct.kind,form);}
+      if(result.success)publishMusicFinanceChange();
+      return result;
     },
     null,
   );
@@ -80,7 +84,7 @@ export function CashDrawerActionForm({
     if (state?.success) {
       // 等效 F5：full page navigation，重新跑 page server components，
       // 不依賴 server action response 內 inline 的 RSC payload。
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 
