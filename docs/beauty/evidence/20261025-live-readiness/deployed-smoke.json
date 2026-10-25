@@ -1,0 +1,24 @@
+{
+  "deployment": "dpl_DtNZuHcCH168q5WhBnK8frykD46W",
+  "pages": [
+    {
+      "name": "hq-login",
+      "status": 200,
+      "path": "/hq/login",
+      "title": "蒸管家｜服務品牌成長系統",
+      "text": "後台登入\n\n登入管理您的店務\n\nEmail\n密碼\n登入\n\n忘記密碼？",
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "name": "customer-login",
+      "status": 200,
+      "path": "/s/beauty-hosted-20261021",
+      "title": "蒸管家｜服務品牌成長系統",
+      "text": "美業獨立測試店\n\n會員登入與預約\n\nLINE 登入\nGoogle 登入\n或使用手機登入\n手機號碼\n下一步\n註冊新帳號\n後台登入",
+      "width": 1366,
+      "scrollWidth": 1366
+    }
+  ],
+  "errors": []
+}

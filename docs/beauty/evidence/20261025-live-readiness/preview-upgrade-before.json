@@ -1,0 +1,38 @@
+{
+  "checkedAtUTC": "2026-10-25 05:07:37 UTC",
+  "project": "ttworfzgwejdeolegkxl",
+  "store": "beauty-hosted-20261021",
+  "scope": "read only; digest excludes six newly proposed columns",
+  "rows": [
+    {
+      "table_name": "BeautyService",
+      "row_count": 4,
+      "content_digest": "2ee4ec795874c6e8678bbc77ea049e79"
+    },
+    {
+      "table_name": "BeautyPlan",
+      "row_count": 7,
+      "content_digest": "eeee36862fc1a4b4a9aa6c38d735275d"
+    },
+    {
+      "table_name": "BeautyCard",
+      "row_count": 5,
+      "content_digest": "8ecc816f6994ed289025a24a768609a9"
+    },
+    {
+      "table_name": "BeautyAppointment",
+      "row_count": 35,
+      "content_digest": "9bb285fa476343b547bf99b0a5ad5b7c"
+    },
+    {
+      "table_name": "BeautyLedger",
+      "row_count": 39,
+      "content_digest": "89b09c02d061a918e76379ead7075062"
+    },
+    {
+      "table_name": "BeautyPayment",
+      "row_count": 25,
+      "content_digest": "5ddd9c210a5655e059dbd138d8f20e45"
+    }
+  ]
+}
