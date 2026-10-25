@@ -84,3 +84,5 @@ it("read-only mismatch inspection never repairs the stored destination", async (
   expect(await getCurrentLineOfficialAccountStatus()).toMatchObject({ status: "NEEDS_ATTENTION" });
   expect(m.update).not.toHaveBeenCalled();
 });
+
+it('includes an unconfigured beauty store in HQ diagnostics without sending or repairing',async()=>{m.stores.mockResolvedValue([{id:'beauty',slug:'soulife',name:'美業店',lineDestination:null}]);m.config.mockReturnValue({accessToken:null,channelSecret:null,expectedBasicId:null});const result=await getAllLineOfficialAccountStatuses();expect(result).toContainEqual({storeSlug:'soulife',storeName:'美業店',status:'NOT_CONFIGURED'});expect(m.stores.mock.calls[0][0].where.OR).toContainEqual({industryModule:'BEAUTY',isDemo:false,archivedAt:null});expect(m.bot).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();});

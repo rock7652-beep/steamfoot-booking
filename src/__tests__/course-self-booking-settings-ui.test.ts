@@ -66,3 +66,9 @@ it('the immediate booking switch retains the original revision receipt and rolls
  expect(control.checked).toBe(false);expect(host.textContent).toContain('設定已更新');expect(m.fetch).toHaveBeenCalledOnce();
  expect(JSON.parse(m.fetch.mock.calls[0][1].body)).toMatchObject({enabled:true,expectedRevision:7,expectedStoreId:'store-a'});
 });
+
+it('renders no empty bordered content below an unchanged immediate booking switch',async()=>{
+ const {CourseSelfBookingSettings}=await import('@/app/(dashboard)/dashboard/courses/course-self-booking-settings');
+ await act(async()=>root.render(el(CourseSelfBookingSettings,{immediate:true,storeId:'store-a',title:'允許顧客自行預約',initialEnabled:true,canEdit:true,expanded:false,onEdit:vi.fn(),onClose:vi.fn()})));
+ expect(host.querySelector('[role=switch]')).toBeTruthy();expect(host.querySelector('section > div.border-t')).toBeNull();
+});

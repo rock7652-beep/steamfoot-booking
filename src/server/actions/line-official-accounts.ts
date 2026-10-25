@@ -73,6 +73,7 @@ async function collectStatuses(repair: boolean): Promise<LineOfficialAccountStat
     where: { OR: [
       { slug: { in: storeSlugs } },
       { industryModule: "COURSE", isDemo: false, archivedAt: null },
+      { industryModule: "BEAUTY", isDemo: false, archivedAt: null },
     ] },
     select: { id: true, slug: true, name: true, lineDestination: true },
   });

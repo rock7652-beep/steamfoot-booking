@@ -1,3 +1,5 @@
+import {customerLabelSnapshot} from "@/server/services/customer-label-snapshot";
+import {CustomerLabelsSeed} from "@/components/customer-labels";
 import {CashbookShortcut} from "../cashbook/_components/cashbook-shortcut";
 import {BeautyHome} from '@/components/beauty/home';
 import {CourseUnassignedPlans} from '../courses/unassigned-plans-view';
@@ -124,7 +126,8 @@ export default async function BeautyPage({
   ]);
   const sharedSettings=tab==='設定'?await prisma.shopConfig.findUnique({where:{storeId:a.storeId},select:{address:true,shopPhone:true,mapUrl:true,lineOfficialId:true,lineOfficialUrl:true,bankName:true,bankCode:true,bankAccountNumber:true}}):null;
   const [systemPlan,usage]=tab==='設定'?await Promise.all([getCurrentStorePlan(),getStoreUsage(a.storeId)]):[null,null];
-  return (
+  const initialLabels=data.access.customerAccess&&["班表","顧客管理","顧客經營"].includes(tab)?await customerLabelSnapshot(data.customers.slice(0,500).map(c=>c.id)):null;
+  const content = (
     <PageShell compact className="course-workspace min-w-0">
       {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
       {tab!=='首頁'&&tab!=='班表'&&tab!=='顧客管理'&&tab!=='營運'&&<PageHeader compact title={tab} />}
@@ -147,4 +150,5 @@ export default async function BeautyPage({
       {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel confirmDiscard={false} panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
     </PageShell>
   );
+  return initialLabels?<CustomerLabelsSeed initial={initialLabels}>{content}</CustomerLabelsSeed>:content;
 }

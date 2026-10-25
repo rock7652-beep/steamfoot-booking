@@ -72,3 +72,5 @@ it('does not send trial fee fields for a multi-session plan',async()=>{
  expect(document.querySelector('[name="trialStoreCost"]')).toBeNull();
  await submit();expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).not.toHaveProperty('trialStoreCost');
 });
+
+it('shows a readable validation message rather than a raw JSON array when no technician is selected',async()=>{mount({perChargeTechnicians:true,save:vi.fn()});fill('name','按摩');fill('price','1000');await submit();const message=document.querySelector('[role="alert"]')?.textContent??'';expect(message).toContain('至少');expect(message).not.toContain('"code"');expect(message).not.toContain('"path"');});

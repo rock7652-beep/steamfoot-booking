@@ -1,0 +1,140 @@
+{
+  "synthetic": true,
+  "databaseWrites": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "view": "expiry",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "expiry",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "expiry",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "expiry",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "close",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "close",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "close",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "close",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "public",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "public",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "public",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "public",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "nav",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "nav",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "nav",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "nav",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    }
+  ],
+  "labelReads": 1,
+  "calls": [
+    {
+      "name": "saveBeautyCardManagement",
+      "args": [
+        {
+          "expectedStoreId": "synthetic",
+          "requestKey": "8951ee8b-8986-4f65-801e-ea4f8d0c737f",
+          "cardId": "synthetic-card",
+          "operation": "expiry",
+          "expectedRemaining": 4,
+          "expectedExpiresAt": "2027-04-22T15:59:59.999Z",
+          "reason": "合成驗收調整",
+          "expiresDate": "2027-03-01"
+        }
+      ]
+    },
+    {
+      "name": "saveBeautyCardManagement",
+      "args": [
+        {
+          "expectedStoreId": "synthetic",
+          "requestKey": "94409cc6-4e57-494d-ac21-a339faf8ce92",
+          "cardId": "synthetic-card",
+          "operation": "close",
+          "expectedRemaining": 4,
+          "expectedExpiresAt": "2027-03-01T15:59:59.999Z",
+          "reason": "合成驗收註銷"
+        }
+      ]
+    },
+    {
+      "name": "getCurrentLineOfficialAccountStatus",
+      "args": []
+    }
+  ],
+  "errors": []
+}
