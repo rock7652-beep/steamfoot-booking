@@ -1,0 +1,38 @@
+
+ RUN  v4.1.4 /tmp/steamfoot-beauty-main-baseline
+
+ ❯ src/__tests__/qa-beauty-fastpath-repro.test.ts (4 tests | 2 failed) 16ms
+   × validates only the selected time for a manager and returns its authorized arrangement 9ms
+   × validates the three nearest alternatives only after a selected-time conflict 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/qa-beauty-fastpath-repro.test.ts > validates only the selected time for a manager and returns its authorized arrangement
+AssertionError: expected "vi.fn()" to be called once, but got 7 times
+ ❯ src/__tests__/qa-beauty-fastpath-repro.test.ts:13:59
+     11| it('validates only the selected time for a manager and returns its aut…
+     12|  const result=await beautySlotsForActor('manager',intent,{storeId:'sto…
+     13|  expect(m.load).toHaveBeenCalledOnce();expect(m.allocate).toHaveBeenCa…
+       |                                                           ^
+     14|  expect(result).toEqual({slots:['11:00'],arrangement:[{technicianId:'t…
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/qa-beauty-fastpath-repro.test.ts > validates the three nearest alternatives only after a selected-time conflict
+AssertionError: expected "vi.fn()" to be called 4 times, but got 7 times
+ ❯ src/__tests__/qa-beauty-fastpath-repro.test.ts:19:21
+     17|  m.allocate.mockImplementation(async(_tx,_actor,d)=>{if(d.time==='11:0…
+     18|  const result=await beautySlotsForActor('manager',intent,{storeId:'sto…
+     19|  expect(m.allocate).toHaveBeenCalledTimes(4);expect(result).toEqual({s…
+       |                     ^
+     20| });
+     21| it('does not turn an unexpected database error into available alternat…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  21:37:24
+   Duration  351ms (transform 124ms, setup 0ms, import 167ms, tests 16ms, environment 0ms)
