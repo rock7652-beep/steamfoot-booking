@@ -352,7 +352,7 @@ export async function updateCourseSession(input: unknown) {
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
           await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
-        const refreshSportsFee=sportsNativePreview(storeId) && (data.coachId !== session.coachId || (data.templateId ?? session.templateId) !== session.templateId || +range.endsAt - +range.startsAt !== +session.endsAt - +session.startsAt);
+        const refreshSportsFee=(await sportsNativePreview(storeId)) && (data.coachId !== session.coachId || (data.templateId ?? session.templateId) !== session.templateId || +range.endsAt - +range.startsAt !== +session.endsAt - +session.startsAt);
         if (refreshSportsFee) {
           const reason=await sportsMoveBlockedReason(tx,storeId,session);
           if(reason)throw new AppError("CONFLICT",reason);
@@ -483,7 +483,7 @@ export async function createCourseSchedule(input: unknown) {
       .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
     if(data.sportsStaging){
-      requireSportsStaging(storeId);
+      (await requireSportsStaging(storeId));
       const fitness=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:'business.fitness',status:'ENABLED'}});
       if(!fitness)throw new AppError('FORBIDDEN','此排課方式僅適用已授權運動店');
       if(data.isTrial){
@@ -629,7 +629,7 @@ export async function createCourseSchedule(input: unknown) {
           const issues=findOngoingFixedSeriesConflicts({requestKey:data.requestKey,roomId:data.roomId,coachId:data.coachId,startsAt:occurrences[0].startsAt,endsAt:occurrences[0].endsAt,frequency:data.scheduleFrequency,untilDate:null,excludedDates:[],cancelledAt:null},rules,[...occupied,...rentals.map(row=>({startsAt:row.occupiedStartsAt,endsAt:row.occupiedEndsAt,roomId:data.roomId}))]);
           if(issues.length)throw new AppError("CONFLICT",issues.map(issue=>`${issue.date} · ${issue.reason}`).join("；"));
         }
-        if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
+        if((await sportsStagingEnabled(storeId))){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,data.roomId,occurrences);}
         const {assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
         await assertSportsSeriesFree(tx,storeId,occurrences,data,data.requestKey,data.sportsStaging?.perpetual?data.sportsStaging.frequency:undefined);
         const conflict = await tx.courseSession.findFirst({
@@ -845,7 +845,7 @@ export async function moveCourseSessions(input: unknown) {
       coachId: z.string().min(1),
       restore: z.boolean().optional(),
     }).parse(input);
-    const native=sportsNativePreview(storeId);
+    const native=(await sportsNativePreview(storeId));
     if(!native&&(d.durationMinutes!==undefined||!/(?:00|30)$/.test(d.time)))throw new AppError("VALIDATION","請選擇原有時段");
     if (d.scope === "WEEKS" && !d.weeks)
       throw new AppError("VALIDATION", "請選擇週數");
@@ -980,7 +980,7 @@ export async function moveCourseSessions(input: unknown) {
       const {readSportsSeries,assertSportsSeriesFree}=await import("@/server/services/sports-permanent-series");
       const permanent=(await readSportsSeries(tx,storeId)).find(r=>r.requestKey===source.requestKey);
       await assertSportsSeriesFree(tx,storeId,changes,{roomId:d.roomId,coachId:d.coachId},source.requestKey,d.scope==="FUTURE"?permanent?.frequency:undefined,d.scope!=="FUTURE"?sessions.map(s=>toLocalDateStr(s.rescheduledFromStartsAt??s.startsAt)):undefined);
-      if(sportsStagingEnabled(storeId)){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
+      if((await sportsStagingEnabled(storeId))){const {assertSportsRentalFree}=await import("@/server/services/sports-staging-schedule");await assertSportsRentalFree(tx,storeId,d.roomId,changes);}
       await assertCourseSessionsFitHours(tx, storeId, changes);
       await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
       await assertCourseDutyCoverage(tx, storeId, changes.map((change) => ({ ...change, coachId: d.coachId })));
@@ -1080,7 +1080,7 @@ export async function moveCourseSessions(input: unknown) {
     });
 
     kickCoachNotifications(storeId);
-    if(!(await import("@/lib/sports-native-preview")).sportsNativePreview(storeId)){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/book");}
+    if(!(await (await import("@/lib/sports-native-preview")).sportsNativePreview(storeId))){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/book");}
     return { success: true as const, data: result };
   } catch (error) {
     return handleCourseActionError(error);
@@ -1340,7 +1340,7 @@ export async function updateCourseSeries(input: unknown) {
         data: { cancelledAt: new Date() },
       });
       for (const c of changes) {
-        const refreshSportsFee=sportsNativePreview(storeId) && (d.coachId !== c.session.coachId || (d.templateId ?? c.session.templateId) !== c.session.templateId || +c.endsAt - +c.startsAt !== +c.session.endsAt - +c.session.startsAt);
+        const refreshSportsFee=(await sportsNativePreview(storeId)) && (d.coachId !== c.session.coachId || (d.templateId ?? c.session.templateId) !== c.session.templateId || +c.endsAt - +c.startsAt !== +c.session.endsAt - +c.session.startsAt);
         if (refreshSportsFee) {
           const reason=await sportsMoveBlockedReason(tx,storeId,c.session);
           if(reason)throw new AppError("CONFLICT",reason);
@@ -1415,7 +1415,7 @@ export async function batchCourseTemplates(input: unknown) {
 export async function checkSportsCourseMove(sessionId:string) {
   try {
     const {storeId}=await courseManager("booking.update");
-    if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
+    if(!(await sportsNativePreview(storeId)))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
     const session=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true}});
     if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
     const reason=await sportsMoveBlockedReason(coursePrisma,storeId,session);
@@ -1426,7 +1426,7 @@ export async function checkSportsCourseMove(sessionId:string) {
 /** Read-only recovery when a paste response is lost. Never retries the write. */
 export async function readSportsMoveResult(sessionId:string){try{
  const {storeId}=await courseManager("booking.read");
- if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
+ if(!(await sportsNativePreview(storeId)))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
  const row=await coursePrisma.courseSession.findFirst({where:{id:z.string().min(1).max(100).parse(sessionId),storeId,cancelledAt:null},select:{id:true,startsAt:true,endsAt:true,roomId:true,coachId:true,rescheduledFromStartsAt:true,rescheduledFromEndsAt:true,rescheduledFromRoomId:true,rescheduledFromCoachId:true,rescheduleKind:true,rescheduledAt:true,releasedAt:true}});
  if(!row)throw new AppError("NOT_FOUND","課程已取消或不存在，請返回課表核對");
  return {success:true as const,data:{...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),rescheduledFromStartsAt:row.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:row.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:row.rescheduledAt?.toISOString()??null,releasedAt:row.releasedAt?.toISOString()??null}};

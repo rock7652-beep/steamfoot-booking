@@ -45,6 +45,6 @@ export async function CourseRoomsPage({ storeId, user }: { storeId: string; user
       templates={[]} sessions={[]} coaches={[]} cancelledBookings={[]}
       displayOrder={orders.room} canCreate={canCreate && writable} canEdit={canEdit && writable}
       canDelete={user.role === "OWNER" && !viewContext?.isViewMode} businessProfile={businessProfile}
-      sportsNative={businessProfile === "FITNESS" && sportsNativePreview(storeId)} />
+      sportsNative={businessProfile === "FITNESS" && await sportsNativePreview(storeId)} />
   </PageShell>;
 }

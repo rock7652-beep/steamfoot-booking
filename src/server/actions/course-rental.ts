@@ -36,13 +36,13 @@ export async function createRentalCustomer(input:unknown,module:RentalModule="co
       const created=await tx.customer.create({data:{storeId,...data},select:{id:true,name:true,phone:true}});
       await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:module==='beauty'?"BEAUTY":"COURSE",summary:"租借新增顧客",targetType:"Customer",targetId:created.id,action:"CREATE_RENTAL_CUSTOMER",afterJson:{storeId,...created}}});
       return {...created,existing:false};
-    });if(!sportsNativePreview(storeId))refresh();return {success:true as const,customer};
+    });if(!(await sportsNativePreview(storeId)))refresh();return {success:true as const,customer};
   }catch(error){return {success:false as const,error:handleCourseActionError(error).error??"操作失敗"};}
 }
 export async function saveCourseRental(input:unknown,module:RentalModule="course") {
   try {
     const {storeId,user}=await rentalManager(module,(input as {id?:string})?.id?"booking.update":"booking.create");
-    const d=(sportsNativePreview(storeId)?sportsRentalInput:rentalInput).extend({calendar:z.boolean().default(false),payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);
+    const d=((await sportsNativePreview(storeId))?sportsRentalInput:rentalInput).extend({calendar:z.boolean().default(false),payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);
     if(d.payment){
       if(d.id)throw new AppError("VALIDATION","已建立租借請使用收款或更正功能");
       await rentalManager(module,"cashbook.create");

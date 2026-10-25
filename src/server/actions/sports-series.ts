@@ -13,7 +13,7 @@ import {cancelCourseWaitlistForSession} from "@/server/services/course-waitlist"
 import {reserveCourseInTransaction,settleCourseBooking} from "@/server/services/course-booking";
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(d=>!!parseTaipeiDateTime(d,"00:00"));
 async function actor(permission:Parameters<typeof courseManager>[0]){
- const a=await courseManager(permission);if(!sportsNativePreview(a.storeId)||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
+ const a=await courseManager(permission);if(!(await sportsNativePreview(a.storeId))||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
  if(process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId)));
  return {storeId:a.storeId,userId:a.user.id,name:a.user.name??"門市人員"};
 }

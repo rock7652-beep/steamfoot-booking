@@ -39,7 +39,7 @@ export async function attachSportsSessionRules(
   input: SportsScheduleRule,
   sessionIds?:string[],
 ) {
-  requireSportsStaging(actor.storeId);
+  (await requireSportsStaging(actor.storeId));
   await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
   if(rule.waitlist?.limit){
@@ -141,7 +141,7 @@ export async function assertSportsRentalFree(
   roomId: string,
   ranges: Array<{ startsAt: Date; endsAt: Date }>,
 ) {
-  if (!sportsStagingEnabled(storeId)) return;
+  if (!(await sportsStagingEnabled(storeId))) return;
   for (const range of ranges)
     if (
       await tx.courseRental.findFirst({

@@ -132,7 +132,7 @@ export async function getStoreForPlanByStoreId(
   client: Pick<Prisma.TransactionClient, "store"> = prisma,
 ): Promise<StorePlanFields> {
 
-  const store = client===prisma&&sportsNativePreview(storeId)?await readPreviewPlan(storeId):await client.store.findUnique({
+  const store = client===prisma&&(await sportsNativePreview(storeId))?await readPreviewPlan(storeId):await client.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
   });

@@ -55,7 +55,7 @@ export async function batchCourseStatus(input: unknown) {
         if(!d.active && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) for(const id of ids) await assertNoCourseResourceUse(tx,storeId,{roomId:id});
         await tx.courseRoom.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
       } else if(d.kind==="subject") {
-        if(!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:sportsNativePreview(storeId)?"business.fitness":"business.music",status:"ENABLED"}})) throw new AppError("FORBIDDEN","僅適用已開通教學項目的門市");
+        if(!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:(await sportsNativePreview(storeId))?"business.fitness":"business.music",status:"ENABLED"}})) throw new AppError("FORBIDDEN","僅適用已開通教學項目的門市");
         const result=await tx.musicSubject.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
         if(result.count!==ids.length)throw new AppError("FORBIDDEN","找不到本店課程");
       } else {

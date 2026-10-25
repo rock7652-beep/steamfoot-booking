@@ -5,7 +5,7 @@ import { checkPermission } from "@/lib/permissions";
 import { loadSportsStaging } from "@/server/actions/sports-staging";
 import { SportsStagingWorkspace } from "@/components/admin/sports-staging-workspace";
 export default async function SportsStagingPage() {
-  if (!sportsStagingEnabled()) notFound();
+  if (!(await sportsStagingEnabled())) notFound();
   const user = await requireSession();
   if (!(await checkPermission(user.role, user.staffId, "booking.read")))
     return <p>無權限</p>;

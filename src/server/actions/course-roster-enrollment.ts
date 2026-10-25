@@ -30,7 +30,7 @@ export async function enrollCourseSeries(input:unknown) {
     const {storeId,user}=await courseManager("booking.create");
     const limits=await getStoreLimitsByStoreId(storeId);
     const count=await courseTransaction(storeId,async tx=>{
-      if(data.autoCard){const {sportsNativePreview}=await import("@/lib/sports-native-preview");if(!sportsNativePreview(storeId))throw new AppError("FORBIDDEN","自動選卡僅適用運動店");}
+      if(data.autoCard){const {sportsNativePreview}=await import("@/lib/sports-native-preview");if(!(await sportsNativePreview(storeId)))throw new AppError("FORBIDDEN","自動選卡僅適用運動店");}
       const sessions=await enrollmentScope(tx,storeId,data.sessionId,data.customerId);
       const previous=await tx.courseBooking.findMany({where:{storeId,bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,operatorUserId:user.id,customerId:data.customerId,cardId:data.cardId,requestKey:{in:data.sessionIds.map(sessionId=>`${data.requestKey}:${sessionId}`)}},select:{sessionId:true}});
       // A complete replay is idempotent; partial or changed scopes require another preview.

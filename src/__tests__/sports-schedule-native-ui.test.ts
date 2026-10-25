@@ -13,7 +13,7 @@ const data:SportsSnapshot={storeId:"sports-live-flow-store",date:"2026-10-18",su
 async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={},source?:SportsScheduleSource){
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
- return {host,close:async()=>{await act(async()=>root.unmount());host.remove();}};
+ return {host,rerenderModes:async(schedulingModes:{selfBookingEnabled:boolean;assignedSchedulingEnabled:boolean})=>{await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,schedulingModes,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));},close:async()=>{await act(async()=>root.unmount());host.remove();}};
 }
 it("從空間格子排課即帶入空間及時間，指定學員無人數上限或堂數欄",async()=>{
  const m=await mount({roomId:"selected",time:"15:30"});
@@ -104,4 +104,21 @@ it("injecting another module core does not substitute any original scheduling ma
  const props={initial:data,date:"2026-10-18",requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()};
  const source:SportsScheduleSource={command:vi.fn(),createCustomer:vi.fn(),catalogHref:"/dashboard/courses?view=catalog"};
  expect(renderToStaticMarkup(createElement(SportsScheduleFields,{...props,source}))).toBe(renderToStaticMarkup(createElement(SportsScheduleFields,props)));
+});
+
+it("關閉開放選課時移除已選模式及容量欄位，保留排課草稿",async()=>{
+ const m=await mount({time:"15:30"});
+ try{
+  const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==="開放選課") as HTMLInputElement;
+  await act(async()=>radio.click());expect(m.host.querySelector('[aria-label="排課人數"]')).not.toBeNull();
+  await m.rerenderModes({selfBookingEnabled:false,assignedSchedulingEnabled:true});
+  expect(m.host.textContent).not.toContain("開放選課");
+  expect(m.host.querySelector('[aria-label="排課人數"]')).toBeNull();
+  expect(m.host.querySelector('[aria-label="候補人數"]')).toBeNull();
+  expect((m.host.querySelector('input[name="enrollment"]') as HTMLInputElement).checked).toBe(true);
+  expect((m.host.querySelector('[aria-label="排課時間"]') as HTMLInputElement).value).toBe("15:30");
+  await m.rerenderModes({selfBookingEnabled:false,assignedSchedulingEnabled:false});
+  expect(m.host.querySelectorAll('input[name="enrollment"]')).toHaveLength(0);
+  expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==="新增")!.disabled).toBe(true);
+ }finally{await m.close();}
 });
