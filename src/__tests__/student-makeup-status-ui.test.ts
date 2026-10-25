@@ -26,11 +26,22 @@ it("shows the person's pending count in the roster, then arranges against the or
 it("shows the original and makeup dates directly on basic information",async()=>{
  m.read.mockResolvedValue({success:true,data:{customerName:"測試學員",canArrange:false,rows:[{...row,state:"已安排",booking:{date:"2026-10-20T10:00:00Z"}}]}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
- try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student"})));expect(host.textContent).toContain("已排補課 1 堂");expect(host.textContent).toContain("2026-10-01");expect(host.textContent).toContain("2026-10-20");expect([...host.querySelectorAll("button")].some(b=>b.textContent==="安排補課")).toBe(false);}finally{await act(async()=>root.unmount());host.remove();}
+ try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student"})));expect(host.textContent).toContain("已安排 1 堂・2026-10-20 18:00");expect(host.textContent).toContain("2026-10-01");expect(host.textContent).toContain("2026-10-20");expect([...host.querySelectorAll("button")].some(b=>b.textContent==="安排補課")).toBe(false);}finally{await act(async()=>root.unmount());host.remove();}
 });
 
 it("counts a second leave on a makeup once, without counting its historical source again",async()=>{
  m.read.mockResolvedValue({success:true,data:{customerName:"測試學員",canArrange:true,rows:[{...row,state:"補課再次請假"},{...row,id:"makeup-leave",state:"待安排"}]}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student",compact:true})));expect(host.textContent).toBe("待補課 1 堂");}finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("shows scheduled dates in Taipei time in the roster without opening details",async()=>{
+ m.read.mockResolvedValue({success:true,data:{customerName:"測試學員",canArrange:true,rows:[{...row,state:"已安排",booking:{date:"2026-10-22T10:00:00Z"}},{...row,id:"earlier",state:"已安排",booking:{date:"2026-10-20T16:30:00Z"}},{...row,id:"pending"}]}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student",compact:true})));expect(host.textContent).toBe("待補課 1 堂・已安排 2 堂・最早 2026-10-21 00:30");expect(m.create).not.toHaveBeenCalled();}finally{await act(async()=>root.unmount());host.remove();}
+});
+it("uses the same completed label in both views without offering another makeup",async()=>{
+ m.read.mockResolvedValue({success:true,data:{customerName:"測試學員",canArrange:true,rows:[{...row,state:"已補課",booking:{date:"2026-10-20T10:00:00Z"}}]}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student",compact:true})));expect(host.textContent).toBe("已補課 1 堂");await act(async()=>root.render(createElement(StudentMakeupStatus,{customerId:"student"})));expect(host.textContent).toContain("已補課 1 堂");expect(host.textContent).toContain("2026-10-20 18:00");expect([...host.querySelectorAll("button")].some(b=>b.textContent==="安排補課")).toBe(false);expect(m.create).not.toHaveBeenCalled();}finally{await act(async()=>root.unmount());host.remove();}
 });
