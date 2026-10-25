@@ -1,4 +1,5 @@
-import {readBeautyChargeCosts} from './charge-finance';
+import {beautyServiceStoreCost} from '@/lib/beauty/sale-allocation';
+import {readBeautyChargeFinance} from './charge-finance';
 import {beautyChargeRulesEnabled,isEmptyBeautyStore,readCatalogCharge,readCardCharge,readAppointmentCharge,chargeAllowedIds,writeAppointmentCharge} from './charge-runtime';
 import {assertBeautyTrialEligibility} from "./trial-eligibility";
 import {beautyPaymentVisibility} from "./transaction-revisions";
@@ -388,7 +389,7 @@ export async function reserveParty(
         startsAt,
       },
     });
-    const costs=beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeCosts(tx,a.storeId,d.people.filter(p=>!p.cardId).map(p=>({kind:'single',id:p.serviceId}))):new Map<string,number|null>();
+    const costs=beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeFinance(tx,a.storeId,d.people.filter(p=>!p.cardId).map(p=>({kind:'single',id:p.serviceId}))):new Map<string,{storeCost:number|null;trialStoreCost:number|null}>();
     const ids: string[] = [];
     for (const [i, p] of d.people.entries()) {
       const s = services.find((s) => s.id === p.serviceId)!,
@@ -424,7 +425,7 @@ export async function reserveParty(
         },
       });
       if(chargeSnapshots)await writeAppointmentCharge(tx,a.storeId,item.id,chargeSnapshots[i]);
-      if(!p.cardId&&beautyChargeRulesEnabled(a.storeId))await audit(tx,a,'SERVICE_FINANCE_RULE',JSON.stringify({storeCost:costs.get('single:'+s.id)??null}),item.id);
+      if(!p.cardId&&beautyChargeRulesEnabled(a.storeId))await audit(tx,a,'SERVICE_FINANCE_RULE',JSON.stringify({storeCost:beautyServiceStoreCost(costs.get('single:'+s.id),p.isTrial??d.isTrial)}),item.id);
       ids.push(item.id);
       await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,item,"BOOKING");
       if (p.cardId)
