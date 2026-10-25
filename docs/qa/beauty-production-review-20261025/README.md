@@ -1,5 +1,7 @@
 # 美業正式升級審查包
 
+**最新狀態：已完成可執行候選 `10-install.candidate.sql`、`20-runtime-role.candidate.sql`、唯讀 postflight，並於無網路的本機 Postgres 17.6 通過 63 項驗證。正式庫未執行。請以 [最新執行與權限說明](RUNBOOK.md) 為準；以下為最初 reference 審查包記錄，非最新待辦。**
+
 狀態：**可審查，不能執行或部署**。本包不在自動 migration 目錄。兩份 DDL 參考檔開頭均以 unconditional exception 阻止直接執行；不得只移除該行便當作正式 installer。
 
 ## 包內檔案

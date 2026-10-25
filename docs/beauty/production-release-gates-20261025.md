@@ -6,6 +6,8 @@
 
 現金待辦已於同日使用者明確授權金額 1,000 元後完成：補關舊抽屜、今日開店、折扣現金收款 900／退款 900、重送不重複、今日閉店差額零，詳見 [現金驗收](cash-acceptance-20261025.md)。以下舊抽屜待辦保留為核對歷史，不再列為阻擋。
 
+升級包後續也已完成本機首次安裝與權限驗證：完整 14 表／受限 LOGIN 角色／模組 restrictive RLS／共享約束候選，Postgres 17.6 共 63 項通過；正式庫僅唯讀核對 64 個共享欄位全存在。[最新執行關卡](../qa/beauty-production-review-20261025/RUNBOOK.md) 取代下方角色與本機安裝尚缺敘述；正式備份、目標店、正式連線環境及執行授權仍待確認。
+
 ## 重新確認的正式庫缺口
 
 目標 project `qijlnhtpbintanzpxkvf`，database `postgres`。查詢 pg_class、pg_enum、pg_roles，沒有查顧客個資。

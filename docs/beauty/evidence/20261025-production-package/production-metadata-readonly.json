@@ -1,0 +1,79 @@
+{
+  "project": "qijlnhtpbintanzpxkvf",
+  "access": "metadata SELECT only; no writes",
+  "columns": [
+    {
+      "result": {
+        "missing": [],
+        "requiredColumns": 64
+      }
+    }
+  ],
+  "shared": [
+    {
+      "metadata": {
+        "version": "17.6",
+        "spaceGuard": "CREATE TRIGGER course_space_disable BEFORE UPDATE OF \"isActive\" ON public.\"CourseRoom\" FOR EACH ROW EXECUTE FUNCTION course_space_disable_guard()",
+        "sharedTables": [
+          {
+            "rls": true,
+            "name": "BusinessHours"
+          },
+          {
+            "rls": true,
+            "name": "CashDrawerSession"
+          },
+          {
+            "rls": true,
+            "name": "CashbookEntry"
+          },
+          {
+            "rls": true,
+            "name": "CourseDisplayOrder"
+          },
+          {
+            "rls": true,
+            "name": "CourseRental"
+          },
+          {
+            "rls": true,
+            "name": "CourseRoom"
+          },
+          {
+            "rls": true,
+            "name": "CourseStoreNotice"
+          },
+          {
+            "rls": true,
+            "name": "Customer"
+          },
+          {
+            "rls": true,
+            "name": "SlotOverride"
+          },
+          {
+            "rls": true,
+            "name": "SpecialBusinessDay"
+          },
+          {
+            "rls": true,
+            "name": "Staff"
+          },
+          {
+            "rls": true,
+            "name": "Store"
+          },
+          {
+            "rls": true,
+            "name": "TrialBookingLink"
+          },
+          {
+            "rls": true,
+            "name": "User"
+          }
+        ],
+        "noticeConstraint": "CHECK ((kind = ANY (ARRAY['BOOKING'::text, 'LEAVE'::text, 'CANCEL'::text, 'MOVE'::text, 'STOP'::text, 'RESTORE'::text])))"
+      }
+    }
+  ]
+}

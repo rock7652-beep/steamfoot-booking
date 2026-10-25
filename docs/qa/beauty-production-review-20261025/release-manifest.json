@@ -1,0 +1,169 @@
+{
+  "status": "CANDIDATE_REQUIRES_FORMAL_AUTHORIZATION",
+  "marker": "beauty-production-20261025-v1",
+  "project": "qijlnhtpbintanzpxkvf",
+  "databaseGuardDoesNotProveProjectIdentity": true,
+  "sharedRead": {
+    "Store": [
+      "id",
+      "industryModule",
+      "operatingStatus"
+    ],
+    "Customer": [
+      "id",
+      "storeId",
+      "userId",
+      "name",
+      "phone",
+      "notes",
+      "email",
+      "gender",
+      "birthday",
+      "address",
+      "emergencyContactName",
+      "emergencyContactPhone",
+      "assignedStaffId",
+      "mergedIntoCustomerId",
+      "createdAt",
+      "updatedAt"
+    ],
+    "Staff": [
+      "id",
+      "storeId",
+      "userId",
+      "displayName",
+      "status"
+    ],
+    "User": [
+      "id",
+      "status"
+    ],
+    "CourseRoom": null,
+    "BusinessHours": null,
+    "SpecialBusinessDay": null,
+    "SlotOverride": null,
+    "CourseRental": null,
+    "CourseDisplayOrder": null,
+    "CashDrawerSession": null,
+    "CashbookEntry": null,
+    "TrialBookingLink": [
+      "id",
+      "storeId",
+      "expiresAt",
+      "consumedAt"
+    ],
+    "CourseStoreNotice": null
+  },
+  "sharedInsert": {
+    "Customer": [
+      "id",
+      "storeId",
+      "name",
+      "phone",
+      "notes",
+      "authSource",
+      "customerStage",
+      "selfBookingEnabled",
+      "lineUserId",
+      "lineLinkStatus",
+      "lineLinkedAt",
+      "createdAt",
+      "updatedAt"
+    ],
+    "CourseRoom": [
+      "id",
+      "storeId",
+      "name",
+      "capacity",
+      "details",
+      "category",
+      "isActive",
+      "createdAt",
+      "equipment",
+      "location",
+      "rentalEnabled",
+      "rentalHourlyRate",
+      "rentalBufferMinutes"
+    ],
+    "CashbookEntry": [
+      "id",
+      "storeId",
+      "entryDate",
+      "type",
+      "paymentMethod",
+      "category",
+      "amount",
+      "note",
+      "createdByUserId",
+      "updatedAt"
+    ],
+    "CourseStoreNotice": null,
+    "CourseDisplayOrder": [
+      "storeId",
+      "kind",
+      "ids",
+      "revision"
+    ]
+  },
+  "sharedUpdate": {
+    "Store": [
+      "id"
+    ],
+    "CashbookEntry": [
+      "id"
+    ],
+    "Customer": [
+      "name",
+      "phone",
+      "notes",
+      "email",
+      "gender",
+      "birthday",
+      "address",
+      "emergencyContactName",
+      "emergencyContactPhone",
+      "updatedAt"
+    ],
+    "CourseRoom": [
+      "name",
+      "isActive",
+      "capacity",
+      "rentalEnabled",
+      "rentalHourlyRate",
+      "rentalBufferMinutes",
+      "details",
+      "category",
+      "equipment",
+      "location"
+    ],
+    "TrialBookingLink": [
+      "consumedAt"
+    ],
+    "CashDrawerSession": [
+      "updatedAt"
+    ],
+    "CourseStoreNotice": null,
+    "CourseDisplayOrder": [
+      "ids",
+      "revision"
+    ]
+  },
+  "appendOnly": [
+    "BeautyCommand",
+    "BeautyLedger",
+    "BeautyPayment",
+    "BeautySettlement",
+    "BeautyTransactionRevision"
+  ],
+  "files": {
+    "20-runtime-role.candidate.sql": "3d175f4473bdbdac56eabc0f178f3fcf787db966db8e7f19c83122695eacf833",
+    "10-install.candidate.sql": "930cec851bc799eda0105392c575c35bd6b1840b15843171e8e29fa4403bc233"
+  },
+  "sources": {
+    "beauty-prisma/schema.prisma": "73cdf789ab3c8460f98a4b1250a387fb5548be214f5b90c493d429921d41dde3",
+    "src/server/actions/beauty.ts": "8243de4c0c0a6713c44d996b8a41eef95437a522fe8a9ea822d1a8803b0dec5e",
+    "src/server/actions/beauty-display-order.ts": "71c51c289c84c985afb8e6c2b79404db583f91ad16f85167a1b6dbf1bc6f8e8c",
+    "src/server/beauty/access.ts": "b7fa36697748c2f17b0a2082a9d226b8a1a2684c89b912822d251d29a31db9da",
+    "src/server/beauty/transaction-correction.ts": "738017cf9533322c7fce72ad36542345dc546b0e4a963d9984b8740703e327c9"
+  }
+}

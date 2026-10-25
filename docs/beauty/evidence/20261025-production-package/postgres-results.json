@@ -1,0 +1,397 @@
+{
+  "postgresVersion": "17.6",
+  "image": "sha256:d741b376874687de90374fd34f55c6b2760e8f7bd7e4ae5cd47f50757fc08cf8",
+  "network": "none",
+  "ports": [],
+  "syntheticOnly": true,
+  "remoteWrites": false,
+  "checks": [
+    {
+      "name": "shared-main-and-course-model-prerequisites",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "synthetic-shared-security-prerequisites",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "no-beauty-before-install",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "missing-marker-stops-without-write",
+      "passed": true,
+      "expectedError": "Explicit reviewed release marker",
+      "role": "postgres"
+    },
+    {
+      "name": "missing-prerequisite-stops-atomically",
+      "passed": true,
+      "expectedError": "Missing shared prerequisite",
+      "role": "postgres"
+    },
+    {
+      "name": "failed-preflight-leaves-no-beauty",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "restore-only-local-test-prerequisite",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "first-install-14-tables-and-integrity",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "all-14-tables-have-rls",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "schema-rerun-stops",
+      "passed": true,
+      "expectedError": "already exist",
+      "role": "postgres"
+    },
+    {
+      "name": "public-inherited-privilege-stops-role-creation",
+      "passed": true,
+      "expectedError": "Unexpected PUBLIC privileges",
+      "role": "postgres"
+    },
+    {
+      "name": "failed-role-install-rolls-back-created-role",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "remove-only-local-test-public-grant",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "runtime-role-and-shared-permissions-install",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "enable-only-synthetic-beauty-stores",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "role-rerun-stops",
+      "passed": true,
+      "expectedError": "NEW dedicated Beauty LOGIN role required",
+      "role": "postgres"
+    },
+    {
+      "name": "login-as-dedicated-runtime",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "runtime-is-not-owner-or-privileged",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "preexisting-policy-preserved",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "enum-addition-committed",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "metadata-postflight-executes",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "actual-14-table-column-coverage",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "runtime-shared-lookups-and-profile-edits",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "password-hash-read-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "full-user-profile-read-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "staff-profile-write-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "drawer-amount-write-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "store-lock-grant-cannot-mutate-store",
+      "passed": true,
+      "expectedError": "lock but not mutate",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "non-beauty-store-invisible-to-runtime",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "course-room-cannot-be-modified-by-beauty-runtime",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "non-beauty-insert-rejected-by-rls",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "restrictive-module-policy-survives-permissive-public-policy",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "public-policy-does-not-expose-course-room",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "browser-role-cannot-read-beauty",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "anon"
+    },
+    {
+      "name": "authenticated-role-cannot-read-beauty",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "authenticated"
+    },
+    {
+      "name": "service-role-not-granted-beauty",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "service_role"
+    },
+    {
+      "name": "runtime-beauty-catalog-and-card-writes",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "store-scoped-query-does-not-return-foreign-customer",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "cross-store-customer-fk-denied",
+      "passed": true,
+      "expectedError": "23503",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "cross-store-service-fk-denied",
+      "passed": true,
+      "expectedError": "23503",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "cross-store-room-fk-denied",
+      "passed": true,
+      "expectedError": "23503",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "overlapping-room-and-technician-denied",
+      "passed": true,
+      "expectedError": "23P01",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "pending-companion-cannot-use-nonshared-card",
+      "passed": true,
+      "expectedError": "companion card requires",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "runtime-shared-customer-and-room-create",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "cashbook-select-for-update-allowed",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "cashbook-lock-grant-cannot-rewrite-id",
+      "passed": true,
+      "expectedError": "lock but not mutate",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "payment-update-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "ledger-update-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "revision-update-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "payment-delete-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "payment-truncate-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "immutable-trigger-protects-even-migration-role",
+      "passed": true,
+      "expectedError": "financial history is immutable",
+      "role": "postgres"
+    },
+    {
+      "name": "revision-trigger-protects-even-migration-role",
+      "passed": true,
+      "expectedError": "revisions are immutable",
+      "role": "postgres"
+    },
+    {
+      "name": "command-replay-cannot-overwrite-receipt",
+      "passed": true,
+      "expectedError": "23505",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "command-receipt-update-denied",
+      "passed": true,
+      "expectedError": "42501",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "notice-upsert-preserves-shared-course-kinds",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "beauty-notice-kind-cannot-leak-into-course-subject",
+      "passed": true,
+      "expectedError": "23514",
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "all-original-course-notice-kinds-still-valid",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "six-original-course-notices-preserved",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "course-notices-invisible-to-beauty-runtime",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "non-runtime-shared-store-writes-still-work",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    },
+    {
+      "name": "finance-and-command-originals-remain-intact",
+      "passed": true,
+      "expectedError": null,
+      "role": "steamfoot_beauty_release_qa"
+    },
+    {
+      "name": "postgres-version",
+      "passed": true,
+      "expectedError": null,
+      "role": "postgres"
+    }
+  ],
+  "candidateHashes": {
+    "20-runtime-role.candidate.sql": "3d175f4473bdbdac56eabc0f178f3fcf787db966db8e7f19c83122695eacf833",
+    "10-install.candidate.sql": "930cec851bc799eda0105392c575c35bd6b1840b15843171e8e29fa4403bc233"
+  },
+  "limitations": [
+    "DB role is trusted server-side. Restrictive RLS blocks non-Beauty stores, not access between different Beauty stores. Application actor/store/permission checks remain required.",
+    "Main/course schemas and RLS prerequisites are locally generated fixtures, not a backup or full production clone.",
+    "No production roles, credentials, data, deployment or LINE settings changed."
+  ]
+}
