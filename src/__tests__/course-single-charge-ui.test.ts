@@ -84,3 +84,20 @@ it('keeps a visible pricing section when a trial fee is switched to a multi-less
  expect(document.querySelector('[data-fee-section="trial"]')).toBeNull();
  expect(document.querySelector('[data-fee-section="pricing"]')!.getAttribute('data-active')).toBe('true');
 });
+
+it('music shares pricing and trial sections and saves independent costs without sports fields',async()=>{
+ mount(true,undefined,null,true);
+ expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();expect(document.body.textContent).not.toMatch(/通用卡|開放選課|計費方式/);
+ fill(document.querySelector<HTMLInputElement>('input[name="price"]')!,'800');fill(document.querySelector<HTMLInputElement>('input[name="storeCost"]')!,'200');fill(input('體驗價'),'300');fill(input('體驗店家成本'),'120');fill(input('體驗時間'),'30');
+ fill(input('教師拆帳比例'),'45');
+ await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.save.mock.calls[0][0]).toMatchObject({price:800,storeCost:200,unit:'SESSION',musicTerms:1,musicSetup:{musicTeacherShare:0.45},chargeSettings:{trialPrice:300,trialStoreCost:120,trialDuration:30,providerIds:['teacher']}});
+ expect(document.body.textContent).toContain('未扣教師費');
+});
+it('music preserves period sizes and bonus lessons when editing an existing fee price',async()=>{
+ mount(true,undefined,{id:'fee',name:'鋼琴兩期',points:12,price:8000,storeCost:200,validDays:140,isActive:true,unit:'SESSION',templateIds:['template'],musicTerms:2,musicTermSizes:[5,5],musicBonusLessons:2,chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['teacher']}},true);
+ expect(document.body.textContent).toContain('總堂數（保留期別）');expect(document.querySelector('[data-fee-section="trial"]')).toBeNull();
+ fill(document.querySelector<HTMLInputElement>('input[name="price"]')!,'8001');
+ await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.save.mock.calls[0][0]).toMatchObject({points:12,price:8001,validDays:140,musicTerms:2,musicBonusLessons:2,musicSetup:{musicTermLessons:5,musicValidityDaysPerTerm:70,totalPrice:8001}});
+});

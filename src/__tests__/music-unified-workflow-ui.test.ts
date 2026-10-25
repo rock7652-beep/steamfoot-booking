@@ -31,9 +31,10 @@ it('item editing exposes only the agreed item fields and accepts a 45-minute def
  expect(m.subject.mock.calls[0][0]).not.toHaveProperty('capacity');expect(m.subject.mock.calls[0][0]).not.toHaveProperty('classType');
 });
 it('fee teacher selection carries both the new selection and the original qualification version',async()=>{
- await act(async()=>root.render(React.createElement(OperationScope,{scope:'music-owner'},React.createElement(CoursePlanDraftForm,{storeId:"store-lubymusic",music:true,plan:null,initialTemplateId:'A',subjects:[{id:'A',name:'鋼琴',category:'',isActive:true}],templates:[{id:'a1',musicSubjectId:'A',name:'鋼琴',category:'',isActive:true}],musicTeachers:[{id:'t1',name:'老師一',active:true,qualificationIds:['a1']},{id:'t2',name:'老師二',active:true,qualificationIds:[]}],canEditMusicTeachers:true,termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}}))));
+ await act(async()=>root.render(React.createElement(OperationScope,{scope:'music-owner'},React.createElement(CoursePlanDraftForm,{storeId:"store-lubymusic",music:true,plan:null,initialTemplateId:'A',subjects:[{id:'A',name:'鋼琴',category:'',isActive:true}],templates:[{id:'a1',musicSubjectId:'A',name:'鋼琴',category:'',isActive:true}],musicTeachers:[{id:'t1',name:'老師一',active:true,qualificationIds:['a1']},{id:'t2',name:'老師二',active:true,qualificationIds:['a1']},{id:'t3',name:'無資格老師',active:true,qualificationIds:[]}],canEditMusicTeachers:true,termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}}))));
+ expect(host.textContent).not.toContain('無資格老師');
  const teacher=Array.from(host.querySelectorAll('label')).find(l=>l.textContent==='老師二')!.querySelector('input')!;
  await act(async()=>teacher.click());
  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.fee).toHaveBeenCalledWith(expect.objectContaining({musicTeacherIds:['t1','t2'],expectedMusicTeacherIds:['t1'],musicTerms:1,musicSetup:expect.objectContaining({subjectId:'A'})}));
+ expect(m.fee).toHaveBeenCalledWith(expect.objectContaining({musicTeacherIds:['t1'],expectedMusicTeacherIds:['t1','t2'],chargeSettings:expect.objectContaining({providerIds:['t1']}),musicTerms:1,musicSetup:expect.objectContaining({subjectId:'A'})}));
 });
