@@ -13,8 +13,9 @@ import { resolveCentralLineRecipientForCustomer } from "./central-line-recipient
 import { resolveVerifiedReminderLineRoute } from "./verified-reminder-line-route";
 import { getPlanActivationEnabled } from "./plan-activation-enqueue";
 import { planActivationEnabled, planActivationSettingId, PLAN_ACTIVATION_TEMPLATE, type PlanActivationSnapshot } from "@/lib/plan-activation-notification";
+import { buildPlanActivationCard } from "@/lib/plan-activation-card";
 
-type Route = {channel:"STORE"|"CENTRAL";recipient:string;destination:string|null};
+type Route = {channel:"STORE"|"CENTRAL";recipient:string;destination:string|null;messageFormat?:"flex-v1"};
 type Event = {
   id:string;storeId:string;customerId:string;module:"STEAMFOOT"|"COURSE"|"BEAUTY";
   sourceId:string;entitlementId:string;snapshot:PlanActivationSnapshot;body:string;status:string;
@@ -88,7 +89,7 @@ async function dispatch(db:SourceDb,candidate:Event) {
     if(resolved.reason.includes("unavailable"))throw new Error("LINE verification temporarily unavailable");
     await finish(`LINE 身分未確認：${resolved.reason}`);return;
   }
-  const route:Route={channel:resolved.channel,recipient:resolved.recipientLineUserId,destination:getConfiguredStoreLine(e.storeId)?.destination??null};
+  const route:Route={channel:resolved.channel,recipient:resolved.recipientLineUserId,destination:getConfiguredStoreLine(e.storeId)?.destination??null,messageFormat:"flex-v1"};
   if(e.route&&!sameRoute(e.route,route)){await finish("LINE 身分或通道已變更，停止補送");return;}
   if(!e.route){
     // Commit before any push; never change recipient/payload after ambiguity.
@@ -115,9 +116,11 @@ async function dispatch(db:SourceDb,candidate:Event) {
   // attempt marker durable even if the process stops after LINE accepts it.
   const prepared=await db.$executeRaw`UPDATE "PlanActivationNotification" SET "lastAttemptAt"=NOW() WHERE id=${e.id} AND status IN ('PENDING','FAILED')`;
   if(!prepared)return;
+  // Old in-flight routes retain text; never change the payload behind a LINE retry key.
+  const messages=e.route.messageFormat==="flex-v1"?[buildPlanActivationCard(e.snapshot)]:[{type:"text" as const,text:e.body}];
   const result=route.channel==="STORE"
-    ?await pushMessage(e.storeId,route.recipient,[{type:"text",text:e.body}],e.retryKey)
-    :await pushSteamButlerMessage(route.recipient,[{type:"text",text:e.body}],e.retryKey);
+    ?await pushMessage(e.storeId,route.recipient,messages,e.retryKey)
+    :await pushSteamButlerMessage(route.recipient,messages,e.retryKey);
   const status=result.success?"SENT":"FAILED";
   // Keep an uncertain send's quota reservation; retries use the frozen payload.
   await prisma.$transaction(tx=>writeLog(tx,e,result.success?"SENT":result.httpStatus?"FAILED":"PENDING",result.success?null:result.error??"LINE 未接受或結果不確定"));
