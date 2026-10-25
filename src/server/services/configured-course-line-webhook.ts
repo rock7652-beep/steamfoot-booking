@@ -5,6 +5,8 @@ import { handleConfiguredCourseLineFollow } from "./course-line-follow";
 import { handleMemberConnectionWebhook } from "./store-member-connection-webhook";
 import { captureStoreMemberConnection, connectionReplyText } from "./store-member-connection";
 import { normalizePhone } from "@/lib/normalize";
+import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
+import { deriveBaseUrl } from "@/lib/base-url";
 
 /** OA events describe friendship, not a booking's store. Never choose the
  * first store or run legacy phone binding for a configured course account. */
@@ -23,7 +25,7 @@ export async function handleConfiguredCourseLineWebhook(input: {
   }
   const stores = await Promise.all(configs.map(config => prisma.store.findFirst({
     where: { id: config.storeId, slug: config.slug },
-    select: { id: true },
+    select: { id: true, name: true, slug: true, shopConfig: { select: { shopPhone: true, address: true, mapUrl: true } } },
   })));
   if (stores.some(store => !store)) return "handled";
   for (const event of input.events) {
@@ -41,6 +43,17 @@ export async function handleConfiguredCourseLineWebhook(input: {
         await handleConfiguredCourseLineFollow(config, event);
       } catch {
         console.error("[Course LINE] Friendship event failed", { storeId: config.storeId });
+      }
+    }
+    if (event.type === "follow" && event.replyToken && event.source?.userId &&
+      Number.isFinite(event.timestamp) && Number.isFinite(new Date(event.timestamp!).getTime()) && event.timestamp! <= Date.now() + 60_000) {
+      try {
+        // Reply once per physical account. A shared OA must offer explicit
+        // store entries, never select the first store for a phone claim.
+        const messages = buildStoreLineWelcome(stores.filter((store): store is NonNullable<typeof store> => store !== null), deriveBaseUrl());
+        await replyMessage(configs[0].storeId, event.replyToken, messages);
+      } catch {
+        console.error("[Store LINE] Welcome reply failed", { shared: configs.length > 1 });
       }
     }
   }

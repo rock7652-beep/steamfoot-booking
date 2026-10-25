@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn() }));
+const m = vi.hoisted(() => ({ store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn(), reply: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
   store: { findFirst: m.store }, customerIdentityLink: { findMany: m.links }, customer: { updateMany: m.update },
 } }));
-vi.mock("@/lib/line", () => ({ verifyLineSignature: m.verify }));
+vi.mock("@/lib/line", () => ({ verifyLineSignature: m.verify, replyMessage: m.reply }));
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
 const a = { storeId: "a", slug: "a", providerId: "901", loginChannelId: "902", messagingProviderId: "901", messagingChannelId: "903", liffId: "902-first", basicId: "@test", destination: "U" + "a".repeat(32), accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET", sharedAccountKey: "ufun" };
 const b = { ...a, storeId: "b", slug: "b", liffId: "902-second" };
@@ -11,10 +11,44 @@ const request = () => ({ destination: a.destination, body: "signed-body", signat
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([a, b]));
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
+  vi.stubEnv("NEXTAUTH_URL", "https://booking.example");
   m.verify.mockReturnValue(true);
-  m.store.mockImplementation(async ({ where }) => ({ id: where.id }));
+  m.store.mockImplementation(async ({ where }) => ({ id: where.id, slug: where.slug, name: `門市 ${where.id}`, shopConfig: null }));
   m.links.mockImplementation(async ({ where }) => [{ customerId: "customer-" + where.storeId }]);
   m.update.mockResolvedValue({ count: 1 });
+});
+it("welcomes a shared-account follower once with explicit store entries and never captures a phone", async () => {
+  m.links.mockResolvedValue([]);
+  const input = { ...request(), events: [{ type: "follow", source: { userId: "new" }, timestamp: Date.now(), replyToken: "reply" }] };
+  await handleConfiguredCourseLineWebhook(input);
+  expect(m.reply).toHaveBeenCalledOnce();
+  const text = m.reply.mock.calls[0][2][0].text;
+  expect(text).toContain("https://booking.example/member-connect?store=a");
+  expect(text).toContain("https://booking.example/member-connect?store=b");
+  expect(text).toContain("請選擇本次預約的門市");
+  expect(m.update).not.toHaveBeenCalled();
+});
+it("welcomes a single configured store using only its own contact and map", async () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{ ...a, sharedAccountKey: undefined }]));
+  m.links.mockResolvedValue([]);
+  m.store.mockResolvedValue({ id: "a", slug: "a", name: "音樂範例教室", shopConfig: { shopPhone: "02-00000000", address: "範例地址", mapUrl: "https://maps.app.goo.gl/example" } });
+  await handleConfiguredCourseLineWebhook({ ...request(), events: [{ type: "follow", source: { userId: "new" }, timestamp: Date.now(), replyToken: "reply" }] });
+  expect(m.reply.mock.calls[0][2][0].text).toContain("歡迎加入音樂範例教室");
+  expect(m.reply.mock.calls[0][2][0].text).toContain("02-00000000");
+  expect(m.reply.mock.calls[0][2][0].text).toContain("https://maps.app.goo.gl/example");
+  expect(m.reply.mock.calls[0][2][0].text).toContain("手機號碼");
+  expect(m.update).not.toHaveBeenCalled();
+});
+it("does not welcome an invalid signature, non-follow event or invalid timestamp", async () => {
+  m.verify.mockReturnValue(false);
+  const input = { ...request(), events: [{ type: "follow", source: { userId: "new" }, timestamp: Date.now(), replyToken: "reply" }] };
+  await handleConfiguredCourseLineWebhook(input);
+  expect(m.store).not.toHaveBeenCalled(); expect(m.reply).not.toHaveBeenCalled();
+  m.verify.mockReturnValue(true);
+  await handleConfiguredCourseLineWebhook({ ...input, events: [{ ...input.events[0], timestamp: NaN }] });
+  await handleConfiguredCourseLineWebhook({ ...input, events: [{ ...input.events[0], type: "unfollow" }] });
+  expect(m.reply).not.toHaveBeenCalled();
 });
 afterEach(() => vi.unstubAllEnvs());
 it("updates both verified memberships with their own store predicates", async () => {
