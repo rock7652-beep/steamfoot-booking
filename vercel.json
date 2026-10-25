@@ -132,7 +132,8 @@
       "release/beauty-candidate-20261021": false,
       "fix/beauty-retire-spa-runtime": false,
       "fix/remove-legacy-spa": false,
-      "review/beauty-spa-integration-20261024": false
+      "review/beauty-spa-integration-20261024": false,
+      "codex/course-line-setup-20261026": false
     }
   }
 }

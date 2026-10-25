@@ -30,6 +30,20 @@ it("does not probe a configured slug mapped to the wrong database store", async 
   expect((await getAllLineOfficialAccountStatuses()).at(-1)).toMatchObject({ status: "NEEDS_ATTENTION" });
   expect(m.bot).not.toHaveBeenCalled();
 });
+it("includes every unconfigured formal course store in headquarters checks without probing or writing", async () => {
+  m.stores.mockResolvedValue([
+    { id: "music", slug: "myguitar", name: "音樂正式店", lineDestination: null },
+    { id: "fitness", slug: "youngsky", name: "運動正式店", lineDestination: null },
+  ]);
+  m.config.mockReturnValue({ accessToken: null, channelSecret: null, expectedBasicId: null });
+  const statuses = await getAllLineOfficialAccountStatuses();
+  expect(statuses.slice(3)).toEqual([
+    { storeSlug: "myguitar", storeName: "音樂正式店", status: "NOT_CONFIGURED" },
+    { storeSlug: "youngsky", storeName: "運動正式店", status: "NOT_CONFIGURED" },
+  ]);
+  expect(m.stores.mock.calls[0][0].where.OR).toContainEqual({ industryModule: "COURSE", isDemo: false, archivedAt: null });
+  expect(m.bot).not.toHaveBeenCalled(); expect(m.update).not.toHaveBeenCalled();
+});
 it("retains a missing configured store as not configured", async () => {
   m.entries.mockReturnValue([{ storeId: "a", slug: "ido-xinzhuang" }]);
   m.stores.mockResolvedValue([]);

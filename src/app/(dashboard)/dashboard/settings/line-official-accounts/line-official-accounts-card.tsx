@@ -35,7 +35,7 @@ export function LineOfficialAccountsCard({ initialStatuses }: Props) {
           type="button"
           onClick={recheck}
           disabled={pending}
-          className="h-9 rounded-lg bg-primary-600 px-4 text-sm font-medium text-white disabled:opacity-50"
+          className="min-h-11 shrink-0 rounded-lg bg-primary-600 px-4 text-sm font-medium text-white disabled:opacity-50"
         >
           {pending ? "驗證中…" : "重新驗證"}
         </button>
@@ -48,8 +48,8 @@ export function LineOfficialAccountsCard({ initialStatuses }: Props) {
           const normal = item.status === "NORMAL";
           return (
             <div key={item.storeSlug} className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm font-medium text-earth-800">{item.storeName}</span>
-              <span className={`text-sm font-semibold ${normal ? "text-green-700" : item.status === "NOT_CONFIGURED" ? "text-earth-500" : "text-red-700"}`}>
+              <span className="min-w-0 break-words text-sm font-medium text-earth-800">{item.storeName}</span>
+              <span className={`shrink-0 whitespace-nowrap text-sm font-semibold ${normal ? "text-green-700" : item.status === "NOT_CONFIGURED" ? "text-earth-500" : "text-red-700"}`}>
                 {normal ? "✅ 正常" : item.status === "NOT_CONFIGURED" ? "— 未設定" : "⚠️ 需檢查"}
               </span>
             </div>
