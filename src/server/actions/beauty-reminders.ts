@@ -9,6 +9,7 @@ import {requireStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
 import {beautyManager,beautyMember,beautyTransaction,audit} from "@/server/beauty/access";
 import {beautyPlanReminderSchema,beautyTrialCareSchema,beautyPlanPreferenceId} from "@/lib/beauty/reminders";
+import {maintainCatalogCharge} from '@/server/beauty/charge-runtime';
 
 async function lockCoreBeauty(tx:Prisma.TransactionClient,storeId:string) {
   const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Store" WHERE id=${storeId} AND "industryModule"::text='BEAUTY' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
@@ -23,6 +24,7 @@ export async function saveBeautyPlanReminderSetting(input:unknown) {
     const revision=await beautyTransaction(a,async tx=>{
       const changed=await tx.beautyPlan.updateMany({where:{storeId:a.storeId,id:d.planId,revision:d.expectedRevision},data:{lowBalanceEnabled:d.enabled,lowBalanceThreshold:d.threshold,expiryReminder:d.expiry,revision:{increment:1}}});
       if(changed.count!==1)throw new AppError("CONFLICT","方案已更新或不屬於本店，請重新開啟");
+      await maintainCatalogCharge(tx,a.storeId,'plan',{id:d.planId,revision:d.expectedRevision+1},false);
       await audit(tx,a,"PLAN_REMINDER_SETTING",JSON.stringify(d));
       return d.expectedRevision+1;
     });

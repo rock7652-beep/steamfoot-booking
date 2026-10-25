@@ -198,6 +198,7 @@ export async function beautyDashboard(
   financialDates?:{startDate:string;endDate:string},
   includeTechnicianAssignments=false,
   nativeCalendar=false,
+  includeChargeCatalog=true,
 ) {
   const a = await beautyManager("booking.read"),
     u = await getCurrentUser();
@@ -389,7 +390,7 @@ export async function beautyDashboard(
   const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId)):[];
   return {
     chargeRulesActive:beautyChargeRulesEnabled(a.storeId),
-    chargeCatalog:beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?await readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
+    chargeCatalog:includeChargeCatalog&&beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?await readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
     assignmentStaff,
     displayOrders,
     rentals:rentals.map(r=>({...r,customerName:customerAccess?r.customerName:"空間租借",customerPhone:customerAccess?r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),

@@ -1,0 +1,37 @@
+# 美業設定頁收費版本錯誤修復（2026-10-25）
+
+## 已確認原因
+
+使用者以店家 OWNER 帳號開啟設定／通知頁，正式 SSR digest 1031598375，錯誤為「收費規則版本不符」。正式唯讀核對：受影響方案資料列 revision=2，收費規則 revision=1；19:47:16（台灣時間）的 PLAN_REMINDER_SETTING audit 記錄 expectedRevision=1。提醒設定更新了方案版本，漏同步收費規則；beautyDashboard 又在所有分頁讀取完整收費目錄，使無關設定頁也因該差異中斷。
+
+## 修復與限制
+
+1. 提醒儲存於原 beautyTransaction 內同步維護收費規則版本，再記錄成功 audit。保留既有權限、訂閱、同店／CAS 檢查；不修改價格、服務範圍、技師名單或歷史方案卡／預約快照。
+2. 舊資料只在同店同方案、每一個版本差異都有完整 PLAN_REMINDER_SETTING／AUDIT 紀錄，且紀錄通過原提醒 schema 時，允許唯讀投影到目前版本。不是略過檢查或改為無限制：跨店、適用服務改變、未來版本、缺少任一版本證據、損壞 JSON／規則及服務單次規則版本差異仍拒絕。最大相容跨度 1,000 版，超過即要求核對。
+3. readStoredChargeRule 原始嚴格語意與歷史快照讀取未變。投影只供有驗證證據的目前目錄／預約讀取；不回寫資料庫。之後店家明確儲存時，原 transaction 再同步規則版本。
+4. 正式頁面只有「收費方式」需要完整 chargeCatalog；設定、通知等其他分頁不再執行無關目錄檢查。開店檢查入口依原模組能力與方案／人員權限保留，仍使用原共用元件；沒有重新設計表單。
+5. Production 唯讀 gate 增加 BeautyEvent 必要欄位 LIMIT 0 權限核對。不修改 role／RLS、環境旗標或 migration；LINE 保持關閉。
+
+## 驗證
+
+- 180 檔、1,598 項相關回歸通過；另外檢查權限／頁面隔離與發布 gate，非新增總數。
+- TypeScript noEmit、異動檔 ESLint、diff --check 通過。
+- 使用正式唯讀取得的受影響方案及原 audit，執行相同相容函式：stored=1、catalog=2、effective=2，原指定技師、服務範圍與輸入物件完整保留。只保存去識別的檢查結果，沒有正式 DB 寫入。
+- 新增測試涵蓋完整／缺漏版本鏈、不同店／方案、未來版本、損壞紀錄、歷史快照保留、提醒與規則同 transaction、設定頁不受目錄錯誤阻擋，以及無目錄資料時原開店檢查仍可用。
+- 原 RightSheet／開店引導，以封鎖後端與外網的合成 Preview 驗證 1366、1024、768、390 四種寬度，無水平溢出或前端例外；這不是正式登入／開店驗收。React 檢查：沒有新 hooks、依賴或 CSS，權限在伺服端保留，避免無關 await 與資料傳輸。
+
+## 發布狀態
+
+正式更新已完成，結果如下。此輪只修復執行錯誤；前一輪列出的引導第 8 步、重複入口與欄位對齊，沒有混入此緊急修復。
+
+
+## 正式發布結果（台灣時間 2026-10-25 20:20）
+
+- Production READY：`dpl_3TLxBt47Tv9Rbq4g7GqzgEaRJjoZ`，程式 `1ffebcb9827b447ccfaa75287c6240224e56d7fe`；steamfoot.com、www.steamfoot.com 皆已指向此部署。
+- 真實 pg／Prisma／TLS／RLS／必要欄位 READ ONLY 檢查、完整編譯與 TypeScript 通過；包含新增的 BeautyEvent 所需欄位權限。日誌為 migration_skipped_no_target，未套用 migration。
+- 正式公開 HTTP：官網與 HQ 登入 200；未登入保護頁 307→登入、session 200/null，既有竹北入口轉址正常，沒有 5xx。
+- 指定新部署近十分鐘 error/fatal logs 未找到紀錄；短窗口與公開 HTTP 不視為已在店家登入分頁驗收。沒有操作店家既有登入帳號或建立正式存取連結。
+- 已使用受影響正式方案的唯讀資料驗證版本相容，只有有效 audit 鏈才允許，規則與技師限制保留；沒有正式資料回寫或調整價錢／次數／歷史快照。原始診斷資料僅存暫存檔，已於保存去識別結果後移除。
+- LINE 依原發布 gate 保持關閉；模組專用角色、主資料庫連線與環境旗標未更動。
+
+證據：[部署與 gate](evidence/20261025-charge-revision/deployment-result.json)、[正式唯讀資料相容檢查](evidence/20261025-charge-revision/formal-readonly-projection.json)、[回歸](evidence/20261025-charge-revision/regression.log)、[合成版面](evidence/20261025-charge-revision/results.json)。
