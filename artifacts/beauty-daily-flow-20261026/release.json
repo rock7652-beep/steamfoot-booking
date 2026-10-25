@@ -1,0 +1,35 @@
+{
+  "deploymentId": "dpl_3afGi7NgDh2U1i8emZfeueXCJ99Y",
+  "state": "READY",
+  "commit": "d537b996e7cb5a0c3088fb115f0dc6e194c28906",
+  "previousDeploymentId": "dpl_5qmbPdtfCNp1zVhqA3haKxzWXnYe",
+  "aliases": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "alias": "www.steamfoot.com",
+        "deploymentId": "dpl_3afGi7NgDh2U1i8emZfeueXCJ99Y",
+        "redirect": null
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "alias": "steamfoot.com",
+        "deploymentId": "dpl_3afGi7NgDh2U1i8emZfeueXCJ99Y",
+        "redirect": "www.steamfoot.com"
+      }
+    }
+  ],
+  "buildChecks": [
+    "ci-migrate: migration_skipped_no_target",
+    "[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=module editing_enabled=true",
+    "[beauty-notification-preflight] enabled=true worker=shared-main-v1 readonly=true",
+    "[store-line-additions-preflight] passed",
+    "[store-line-additions-preflight] passed"
+  ],
+  "buildFinal": [
+    "Build Completed in /vercel/output [3m]"
+  ],
+  "runtimeErrorScan": "No error/fatal logs found for this deployment in five-minute query ending 2026-10-25T21:54:42Z. This is a short observation window, not authenticated transaction verification."
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "location": null,
+    "serverErrorPage": false,
+    "hasSessionUser": null
+  },
+  {
+    "path": "/hq/login",
+    "status": 200,
+    "location": null,
+    "serverErrorPage": false,
+    "hasSessionUser": null
+  },
+  {
+    "path": "/api/auth/session",
+    "status": 200,
+    "location": null,
+    "serverErrorPage": false,
+    "hasSessionUser": false
+  },
+  {
+    "path": "/hq/dashboard/beauty",
+    "status": 307,
+    "location": "/hq/login",
+    "serverErrorPage": false,
+    "hasSessionUser": null
+  },
+  {
+    "path": "/s/soulife/admin/dashboard/beauty?tab=%E6%94%B6%E8%B2%BB%E6%96%B9%E5%BC%8F",
+    "status": 307,
+    "location": "/hq/login?store=soulife",
+    "serverErrorPage": false,
+    "hasSessionUser": null
+  },
+  {
+    "path": "/s/soulife/admin/dashboard/beauty?tab=%E7%87%9F%E9%81%8B",
+    "status": 307,
+    "location": "/hq/login?store=soulife",
+    "serverErrorPage": false,
+    "hasSessionUser": null
+  }
+]

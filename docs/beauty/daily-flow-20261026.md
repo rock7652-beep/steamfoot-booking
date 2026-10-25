@@ -16,4 +16,14 @@
 
 ## 發布範圍
 
-無 schema／migration、正式測試交易、權限、LINE 或環境變數變更。發布前整合最新主線，保留音樂／運動改動。正式部署與唯讀檢查結果待記錄。
+無 schema／migration、正式測試交易、權限、LINE 或環境變數變更。已整合最新主線，保留音樂／運動改動；整合後追加七檔 39 項回歸與 TypeScript 通過。
+
+## 正式發布結果
+
+- PR：https://github.com/rock7652-beep/steamfoot-booking/pull/1423（已合併）。
+- 正式提交：`d537b996e7cb5a0c3088fb115f0dc6e194c28906`。
+- Vercel Production：`dpl_3afGi7NgDh2U1i8emZfeueXCJ99Y`，READY；建置完成，readonly preflight 通過，`migration_skipped_no_target`。
+- `www.steamfoot.com` 及 `steamfoot.com` 均指向本次部署；前版 `dpl_5qmbPdtfCNp1zVhqA3haKxzWXnYe` 留存。
+- 唯讀匿名檢查：官網、HQ 登入及 session 回應 200；美業 HQ、店家私有頁正確 307 至登入，無 5xx 或伺服器錯誤頁。不是登入後正式交易驗收。
+- 截至 2026-10-25 21:54:42 UTC，本部署近五分鐘 error／fatal 查詢無紀錄；短期觀察不代表所有業務流程均已實測。
+- 證據：`artifacts/beauty-daily-flow-20261026/`。遠端實際預約耗時需透過此次新增的分段計時觀察，不宣稱已從 3–5 秒降低至特定秒數。
