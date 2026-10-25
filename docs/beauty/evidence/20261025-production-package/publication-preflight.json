@@ -1,6 +1,6 @@
 {
   "checkedAtTaipei": "2026-10-25 15:35",
-  "status": "AWAITING_EXPLICIT_FORMAL_AUTHORIZATION_RUNTIME_CONNECTION_PENDING",
+  "status": "AUTHORIZED_BLOCKED_TOOL_INVALID_REQUEST_STATE",
   "releaseScope": {
     "hqCanCreateBeautyStores": true,
     "createStoresNow": false,
@@ -99,5 +99,8 @@
     "lastUpdatedUTC": "2026-10-23T10:54:49Z",
     "incidentResolved": false,
     "tokyoUnaffectedProven": false
-  }
+  },
+  "formalAuthorizationGranted": true,
+  "formalUpgradeApplied": false,
+  "deploymentCreated": false
 }

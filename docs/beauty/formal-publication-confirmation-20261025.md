@@ -1,6 +1,8 @@
-# 美業正式發布確認單（備份已核對，待明確執行授權）
+# 美業正式發布確認單（已授權；執行受工具狀態阻擋）
 
 核對日期：2026-10-25，台灣時間。使用者已確認本次是**先發布模組，暫不建立店家**。
+
+後續使用者已明確「允許」本確認單的正式升級、連線與發布範圍。首次升級呼叫遇 `Invalid or expired requestState`，依約停止不重送；唯讀核對仍為 0 Beauty 表／無 BEAUTY enum／無新角色／無升級紀錄，正式站未變。[執行紀錄](formal-release-attempt-20261025.md) 為最新狀態，下方保留核准時的完整變更包。
 
 ## 本次精確範圍
 
@@ -54,7 +56,7 @@
 
 ## 可供使用者確認的正式變更包
 
-僅在使用者明確同意後，允許對正式專案 `qijlnhtpbintanzpxkvf` 執行以下順序；截圖本身不是正式寫入或部署授權。
+使用者已在本確認單後明確同意對正式專案 `qijlnhtpbintanzpxkvf` 執行以下順序；授權來源是後續「允許」，不是備份截圖。本輪因工具請求狀態錯誤已停止，不能直接繼續提交。
 
 1. 套用已驗證結構與受限角色候選：
    - `10-install.candidate.sql` SHA256 `930cec851bc799eda0105392c575c35bd6b1840b15843171e8e29fa4403bc233`。
@@ -68,6 +70,6 @@
 
 正式建置沿用既有 main 發布流程：`music-native-workflow-scope.mjs` 要求 Production 的 ref 為 main，不能直接把整合支線偽裝成正式。只有取得正式合併／發布授權後才將候選接入 main、固定新提交，並保留音樂 preflight。main 自動部署目前在 vercel.json 關閉，不把推送或合併當成已部署。
 
-目前結論：**備份與發布範圍已補齊，可提出上述明確正式授權確認；目前仍未獲正式寫入／部署授權。新的 runtime 連線需在獲准建立後實測，通過才可發布，不預先宣稱完成。**
+目前結論：**正式授權已取得，但首次升級工具請求失效，唯讀確認升級未套用；沒有重送，也沒有發布。新的 runtime 連線仍未建立或實測，不預先宣稱完成。**
 
 證據：[本輪唯讀摘要](evidence/20261025-production-package/publication-preflight.json)、[執行包](../qa/beauty-production-review-20261025/RUNBOOK.md)、[63 項結果](evidence/20261025-production-package/postgres-results.json)。
