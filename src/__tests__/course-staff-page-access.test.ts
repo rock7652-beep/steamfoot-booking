@@ -1,9 +1,12 @@
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   user: vi.fn(), permission: vi.fn(), store: vi.fn(),
   staff: vi.fn(), requireCourse: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
+vi.mock("@/components/ui/empty-state", () => ({ EmptyState: ({title}:{title:string}) => React.createElement("p", null, title) }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/permissions", () => ({
   checkPermission: m.permission, ALL_PERMISSIONS: [], PERMISSION_GROUPS: {},
@@ -47,7 +50,8 @@ describe("course staff page permission boundary", () => {
   it("rejects a role without staff.view before any staff query", async () => {
     m.user.mockResolvedValue({ id: "staff", role: "STAFF", staffId: "staff", storeId: "course-store" });
     m.permission.mockResolvedValue(false);
-    await expect(CourseStaffPage()).rejects.toThrow("NOT_FOUND");
+    expect(renderToStaticMarkup(await CourseStaffPage())).toContain("沒有查看人員管理的權限");
+    expect(m.store).not.toHaveBeenCalled();
     expect(m.staff).not.toHaveBeenCalled();
   });
   it("does not query staff without a concrete store", async () => {

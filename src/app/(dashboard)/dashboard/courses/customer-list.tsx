@@ -1,4 +1,6 @@
 "use client";
+import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
+import { musicNoteDisplay } from "@/lib/music-display";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -12,16 +14,20 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false }: {
+export function CourseCustomerList({ rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
+  onViewPlans?:(id:string)=>void;onEdit?:(id:string)=>void;
   onPurchase?:()=>void; onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
   canMerge?: boolean; canExport?: boolean; music?: boolean; sportsNative?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
+  const cohortSuffix=music&&params.get("dataScope")==="legacy"?"&dataScope=legacy":"";
+  const listBasePath=`/dashboard/courses?view=customers${cohortSuffix}`;
   const router = useRouter();
+  const customerPage=useMusicCustomerPage(sourceCustomerPage,params.toString(),rows.map(row=>row.id),music,router.refresh);
   const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({ scope: "", ids: new Set() });
   const [result, setResult] = useState("");
   const scopeParams = new URLSearchParams(params.toString());
@@ -51,21 +57,21 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
+    <CustomersToolbar labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
-      basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
+      basePath={listBasePath} searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
-      quickAssignLabel="購買方案" quickAssignInMenu={sportsNative}
+      quickAssignLabel={music?"購課／續購":"購買方案"} quickAssignInMenu={sportsNative}
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
-      lastVisitLabel="最近來店"
+      lastVisitLabel={music ? "最近上課" : "最近來店"}
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
-        ? <button type="button" aria-label={`查看 ${row.name} 的有效方案`} onClick={()=>onView(row.id)} className="min-h-11 whitespace-nowrap text-sm text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
+        ? <button type="button" aria-label={music ? `查看 ${row.name} 的學費與堂數` : `查看 ${row.name} 的有效方案`} onClick={event=>{event.stopPropagation();(onViewPlans ?? onView)(row.id);}} className="min-h-11 whitespace-nowrap text-sm font-semibold tabular-nums text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>

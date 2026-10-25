@@ -1,3 +1,6 @@
+import { registerHqStoreViewContext } from "@/lib/hq-store-view-context";
+const previewScope=vi.hoisted(()=>({enabled:false}));
+vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:(id:string)=>previewScope.enabled && id==="store-lubymusic"}));
 // Cost access is covered by inventory-finance-access.test.ts; these cases retain their original finance scope.
 vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:async()=>true,inventoryCashbookReadFilter:async()=>({})}));
 import React from "react";
@@ -90,10 +93,10 @@ vi.mock("@/components/desktop", () => ({
 }));
 
 vi.mock("@/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace", () => ({
-  CashDrawerWorkspace: (props: {returnPath: string; canOpen: boolean; canClose: boolean}) => React.createElement("section", {"data-return-path": props.returnPath, "data-can-open": String(props.canOpen), "data-can-close": String(props.canClose)}, "cash drawer workspace"),
+  CashDrawerWorkspace: (props: {returnPath: string; canOpen: boolean; canClose: boolean; canInit:boolean}) => React.createElement("section", {"data-return-path": props.returnPath, "data-can-init": String(props.canInit), "data-can-open": String(props.canOpen), "data-can-close": String(props.canClose)}, "cash drawer workspace"),
 }));
 
-import CashDrawerPage from "@/app/(dashboard)/dashboard/cash-drawer/page";
+import CashDrawerPage from "@/app/(dashboard)/dashboard/cash-drawer/cash-drawer-page-content";
 
 const OWNER = {
   id: "user-1",
@@ -104,6 +107,7 @@ const OWNER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  previewScope.enabled=false;
   mockGetCurrentUser.mockResolvedValue(OWNER);
   mockIndustryModule.mockResolvedValue("steamfoot");
   mockStaffMembership.mockResolvedValue(null);
@@ -162,4 +166,18 @@ describe("cash drawer embedded store boundary", () => {
     expect(html).toContain("沒有查看現金抽屜的權限");
     expect(mockGetCashDrawerView).not.toHaveBeenCalled();
   });
+});
+
+it("authorized preview HQ can initialize in panel without staff membership; production remains restricted", async()=>{
+ const user=registerHqStoreViewContext({id:"hq",role:"ADMIN",staffId:null,storeId:null},"store-lubymusic");
+ mockGetCurrentUser.mockResolvedValue(user);
+ mockGetActiveStoreForRead.mockResolvedValue("store-lubymusic");
+ mockIndustryModule.mockResolvedValue("course");
+ previewScope.enabled=true;
+ const args={searchParams:Promise.resolve({cashDrawerPanel:"1",panelStoreId:"store-lubymusic"})};
+ const html=renderToStaticMarkup(await CashDrawerPage(args));
+ expect(html).toContain('data-can-init="true"');
+ expect(mockStaffMembership).not.toHaveBeenCalled();
+ previewScope.enabled=false;
+ expect(renderToStaticMarkup(await CashDrawerPage(args))).toContain("目前人員無法存取此店");
 });

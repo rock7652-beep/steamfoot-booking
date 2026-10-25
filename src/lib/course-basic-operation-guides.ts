@@ -72,7 +72,7 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     path: "顧客管理 → 顧客詳情 → 基本資料；課表 → 課程名單 → 本次備註鉛筆", keywords: "備註 長期提醒 本次上課 教練 教師 留言 草稿 原列編輯 全文 標籤 取消 資料已有更新",
     steps: ["長期服務提醒在學員基本資料編輯店內備註。", "只涉及這一堂時，在正確課次及學員列點本次備註鉛筆，原列展開編輯後明確儲存。", "核對原列更新內容；摘要截斷時點標籤與備註區查看全文，關閉後回原名單。"],
     important: "備註供授權人員查看，不是私人筆記；保留草稿不代表已儲存，備註不能代替點名或收款。",
-    details: ["店內備註需顧客編輯權限；後台本次備註需預約編輯權限，且需符合原課次及預約狀態。已取消課程預約不能修改本次備註。", "課程本次備註最多 1000 字；原列鉛筆不跳整筆詳情。Enter 可換行，取消或 Escape 遇未儲存修改會先詢問。", "失敗保留輸入；資料已被別人更新時先核對目前內容，需要時選保留我的輸入，再確認後儲存。原列編輯沒有剛才儲存復原按鈕，不應與顧客長期備註編輯器混用。", "草稿依目前帳號、門市、瀏覽器及課次隔離，不會自動送出；儲存只改本次備註，不改點名、期數、付款或歷史。"],
+    details: ["店內備註需顧客編輯權限；後台本次備註需預約編輯權限，且需符合原課次及預約狀態。已取消課程預約不能修改本次備註。", "課程本次備註最多 1000 字；原列鉛筆不跳整筆詳情。Enter 可換行，取消或 Escape 遇未儲存修改會先詢問；儲存進行中會鎖住儲存與取消，避免重複送出。", "只有看到明確成功提示與原列新內容才算完成。失敗會保留輸入；資料已被別人更新時先核對目前內容，需要時選保留我的輸入，再確認後儲存。", "草稿依目前帳號、門市、瀏覽器及課次隔離，不會自動送出；儲存只改本次備註，不改點名、期數、付款或歷史。"],
     success: "長期與本次內容各保留在正確位置，預約及帳務狀態不變。",
     permission: "customer.read", feature: null, modules: ["course"], kind: "explanation", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/components/admin/inline-roster-note.tsx", "src/components/admin/roster-reminders.tsx", "src/server/actions/course-members.ts"],

@@ -2,6 +2,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/hq/dashboard/courses", useSearchParams: () => new URLSearchParams() }));
 const m = vi.hoisted(() => ({ card: vi.fn(), growth: vi.fn() }));
 vi.mock("@/server/actions/course-browse", () => ({ browseCourseCards: m.card }));
 vi.mock("@/server/actions/growth-drawer", () => ({ fetchGrowthCustomerDrawer: m.growth }));
@@ -70,8 +71,8 @@ it.each(["pointerover", "focusin", "touchstart"])("actual course browser %s star
   await act(async () => root.render(React.createElement(PanelReadProvider,null,React.createElement(CourseCardBrowser,{state:{search:"",history:false,page:0},onChange:vi.fn(),onSelect:vi.fn()}))));
   await act(async () => { await new Promise(resolve=>setTimeout(resolve,250)); });
   const pending=deferred<ReturnType<typeof card>>();m.card.mockReturnValueOnce(pending.promise);
-  await act(async () => { Array.from(host.querySelectorAll("button")).find(b=>b.textContent?.includes("plan-a"))!.dispatchEvent(new Event(event,{bubbles:true})); });
-  expect(m.card).toHaveBeenLastCalledWith({cardId:"a"});
+  await act(async () => { Array.from(host.querySelectorAll("button")).find(b=>b.getAttribute("aria-label")==="查看 plan-a 明細")!.dispatchEvent(new Event(event,{bubbles:true})); });
+  expect(m.card).toHaveBeenLastCalledWith({cardId:"a",dataScope:undefined});
   await renderCard("a"); expect(m.card).toHaveBeenCalledTimes(2);
   await act(async () => pending.resolve(card("a"))); expect(host.textContent).toContain("fresh-a");
 });

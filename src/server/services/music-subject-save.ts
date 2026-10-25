@@ -11,11 +11,12 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
   const started = performance.now();
   let outcome = "error";
   try {
-    const { id, expectedUpdatedAt, expectedStoreId, requestKey, sportsRule, ...values } = musicSubjectSaveInput.parse(input);
+    const { id, expectedUpdatedAt, expectedStoreId, requestKey, sportsRule, nativeDefaults, ...values } = musicSubjectSaveInput.parse(input);
     const { storeId, user } = await courseManager(id ? "booking.update" : "booking.create");
     if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "店舖已切換，請回原店確認後再操作。");
     if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:sportsNativePreview(storeId)?"business.fitness":"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("FORBIDDEN", "此功能僅適用音樂教室");
+    if(nativeDefaults&&sportsNativePreview(storeId))throw new AppError("FORBIDDEN","音樂項目設定不可套用運動店");
     if (sportsRule) {
       if(id&&!expectedUpdatedAt)throw new AppError("CONFLICT","請重新開啟教學項目後再編輯規則");
       if (!sportsNativePreview(storeId)) throw new AppError("FORBIDDEN", "此設定僅適用運動店");
@@ -26,6 +27,13 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     const receiptId = id ?? `subject_${createHash("sha256").update(JSON.stringify([storeId, user.id, requestKey])).digest("hex")}`;
     const row = await courseTransaction(storeId, async tx => {
       const applyRule = async (row: {id:string;name:string}, replay = false) => {
+        if(nativeDefaults){
+          const defaults={...nativeDefaults,description:values.description};
+          const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:row.id},select:{id:true,durationMinutes:true,visibility:true,description:true,precautions:true}});
+          if(replay){if(!versions.length||versions.some(v=>Object.entries(defaults).some(([key,value])=>v[key as keyof typeof v]!==value)))throw new AppError("CONFLICT","項目設定已有更新，請重新開啟核對");}
+          else if(versions.length)await tx.courseTemplate.updateMany({where:{storeId,musicSubjectId:row.id},data:defaults});
+          else await tx.courseTemplate.create({data:{id:`subject_schedule_${row.id}`,storeId,musicSubjectId:row.id,name:`${row.name} · 排課`,...defaults,capacity:1,pointCost:1,musicScheduleMode:"APPOINTMENT"}});
+        }
         if (sportsRule) {
           const {assertSportsProductionReady}=await import("./sports-production-readiness");await assertSportsProductionReady(tx,storeId);
           await saveSportsTeachingRule(tx, storeId, row, sportsRule, replay);
@@ -63,7 +71,7 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     });
     const savedRule = sportsRule ? await courseTransaction(storeId, tx => readSportsTeachingRule(tx, storeId, row.id)) : undefined;
     outcome = "saved";
-    return {storeId,data:{...(savedRule ? {sportsRule:savedRule} : {}),id:row.id,name:row.name,category:row.category,description:row.description,isActive:row.isActive,updatedAt:row.updatedAt.toISOString()}};
+    return {storeId,data:{...(nativeDefaults??{}),...(savedRule ? {sportsRule:savedRule} : {}),id:row.id,name:row.name,category:row.category,description:row.description,isActive:row.isActive,updatedAt:row.updatedAt.toISOString()}};
   } finally {
     console.info("[MUSIC_SUBJECT_SAVE_PERF]", {outcome,totalMs:Math.round(performance.now()-started)});
   }

@@ -182,7 +182,6 @@ export function ScheduleManager({
   const [editReason, setEditReason] = useState("");
   const [copyWeeks, setCopyWeeks] = useState(0);
   const [targetDates, setTargetDates] = useState<string[]>([]);
-  const [dateConflictMode, setDateConflictMode] = useState<"skip" | "replace">("skip");
   const [includeSlotOverrides, setIncludeSlotOverrides] = useState(false);
   const [dateSelectionAttempted, setDateSelectionAttempted] = useState(false);
   const [pickerYear, setPickerYear] = useState(initialYear);
@@ -235,7 +234,7 @@ export function ScheduleManager({
     );
   }, [editPeriods, editStatus]);
 
-  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, targetDates, dateConflictMode, includeSlotOverrides, templateWeeks, dayDetail?.slots]);
+  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, targetDates, includeSlotOverrides, templateWeeks, dayDetail?.slots]);
   const reviewing = reviewedDraft === draftKey;
   const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
     ? validateServicePeriods(editPeriods,isCourseStore) : { valid: true };
@@ -273,15 +272,7 @@ export function ScheduleManager({
     });
   }, [applyMode, isCourseStore, pickerMonth, pickerYear]);
 
-  useEffect(() => {
-    if (!dayDraftDirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dayDraftDirty]);
+
 
   /** 失效並強制重抓「目前月份」cache（mutation 後使用） */
   const invalidateAndReloadCurrentMonth = useCallback(async () => {
@@ -449,7 +440,6 @@ export function ScheduleManager({
   // ── 換月 ──
   const changeMonth = useCallback(async (dir: 1 | -1) => {
     if(locked||daySaveLock.current)return;
-    if (dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換月份嗎？")) return;
     let newMonth = month + dir;
     let newYear = year;
     if (newMonth < 1) { newMonth = 12; newYear--; }
@@ -472,7 +462,6 @@ export function ScheduleManager({
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
       if((locked||daySaveLock.current)&&!opts.bypassCache)return;
-      if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
       setSaveError(null);
       setDateSelectionAttempted(false);
@@ -589,10 +578,10 @@ export function ScheduleManager({
           toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"營業設定已儲存");return;
         }
         if(!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
-        const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:dateConflictMode,includeSlotOverrides}});
+        const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:"replace",includeSlotOverrides}});
         if(!result.success){setSaveError(result.error);toast.error(result.error);return;}
         adoptServiceReceipt(result.data);
-        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":result.data.skipped.length?`設定已儲存；略過 ${result.data.skipped.length} 個已有設定的日期`:"營業設定已儲存",result.data.operationId?{duration:10000,action:{label:"復原",onClick:()=>void undoServiceDates(result.data.operationId!,result.data.day.hoursRevision)}}:undefined);
+        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":applyMode==="dates"?`來源日已儲存；已套用 ${result.data.count} 個日期${result.data.skipped.length?`；略過 ${result.data.skipped.length} 個日期`:""}`:"營業設定已儲存",result.data.operationId?{duration:10000,action:{label:"復原",onClick:()=>void undoServiceDates(result.data.operationId!,result.data.day.hoursRevision)}}:undefined);
       } catch {
         toast.error("儲存失敗");
       } finally {daySaveLock.current=false;}
@@ -1098,13 +1087,7 @@ export function ScheduleManager({
                                 一併複製來源日的 {sourceOverrideCount} 個單一時段調整
                               </label>
                             )}
-                            <div className="mt-3 border-t border-earth-100 pt-2">
-                              <p className="mb-1 text-[10px] font-medium text-earth-600">若日期已有整日設定或單一時段調整</p>
-                              <div className="flex flex-wrap gap-3 text-[11px] text-earth-700">
-                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "skip"} onChange={() => setDateConflictMode("skip")} className="accent-primary-600" />保留原設定並略過</label>
-                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "replace"} onChange={() => setDateConflictMode("replace")} className="accent-primary-600" />覆蓋原設定</label>
-                              </div>
-                            </div>
+                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">選取的日期會更新為本次設定，取代原有服務時間、名額與單一時段調整。儲存後可復原。</p>
                           </div>
                         )}
                       </div>
@@ -1201,7 +1184,7 @@ export function ScheduleManager({
                         <div className="space-y-1 text-xs text-earth-700">
                           <p>來源：{selectedDate}；目標：{targetDates.join("、")}</p>
                           <p>只建立這些日期的特殊設定，不會變更每週固定規則。</p>
-                          <p>{dateConflictMode === "skip" ? "已有設定或單一時段調整的日期會保留並略過。" : "已有設定或單一時段調整會被本次內容覆蓋。"}{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}</p>
+                          <p>這 {targetDates.length} 個日期原有的服務時間、名額與單一時段調整，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>
                         </div>
                       )}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}

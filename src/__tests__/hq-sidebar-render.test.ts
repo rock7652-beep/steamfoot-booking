@@ -95,9 +95,19 @@ describe("actual HQ shell rendering", () => {
     const html = render(module, "a", "/s/store-a/admin/dashboard", music);
     expect(html).toContain("日常工作"); expect(html).toContain("店務管理");
     expect(html).not.toContain("店務設定");
-    expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
-    expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
-    expect(html.indexOf("方案管理")).toBeLessThan(html.indexOf("人員管理"));
+    if (music) {
+      const daily = html.slice(html.indexOf("日常工作"),html.indexOf("店務管理"));
+      const labels = ["首頁", "課表", "學員管理", "顧客經營", "營運", "分析"];
+      for (let i=1;i<labels.length;i++) expect(daily.indexOf(`${labels[i-1]}</span>`)).toBeLessThan(daily.indexOf(`${labels[i]}</span>`));
+      expect(daily).not.toContain("請假與補課");
+      expect(html).not.toContain("其他功能");
+      expect(html).not.toContain("收款與營收");
+      expect(html).not.toContain("進銷存");
+    } else {
+      expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
+      expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+    }
+    expect(html.indexOf(music ? "收費方式" : "方案管理")).toBeLessThan(html.indexOf("人員管理"));
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
   });

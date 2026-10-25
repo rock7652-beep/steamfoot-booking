@@ -1,22 +1,25 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-23",
+  "auditDateTaipei": "2026-10-25",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "7cb8c26127f60337c159b05391bc90f3263246ad",
-  "previousSuccessfulAuditCommit": "abfe50b1092e9f78a1db76b575b255df5cf3524f",
+  "lastInventoriedMainCommit": "4efcd72bf513953521665f2556f719d1f73b5e8c",
+  "previousSuccessfulAuditCommit": "7cb8c26127f60337c159b05391bc90f3263246ad",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261012",
   "newGuideIds": [
-    "F13"
+    "C177"
   ],
   "updatedGuideIds": [
-    "F01",
-    "F04",
+    "B11",
     "C123",
-    "I21",
-    "I22",
-    "W06"
+    "C130",
+    "C144",
+    "C148",
+    "C149",
+    "C150",
+    "C152",
+    "C154"
   ],
   "cumulativeDraftNewGuideIds": [
     "C170",
@@ -31,7 +34,8 @@
     "IMG01",
     "CG01",
     "A17",
-    "F13"
+    "F13",
+    "C177"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -102,7 +106,12 @@
     "I08",
     "C161",
     "C124",
-    "I19"
+    "I19",
+    "C130",
+    "C144",
+    "C150",
+    "C152",
+    "C154"
   ],
   "interactionPendingGuideIds": [
     "I20",
@@ -187,9 +196,15 @@
     "C124",
     "I19",
     "A17",
-    "F13"
+    "F13",
+    "C130",
+    "C144",
+    "C150",
+    "C152",
+    "C154",
+    "C177"
   ],
-  "articleCount": 197,
+  "articleCount": 198,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -496,12 +511,15 @@
     1391,
     1392,
     1393,
-    1394
+    1394,
+    1395,
+    1396,
+    1399
   ],
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-23 核對 main abfe50b1..7cb8c261 共8筆提交（#1387～#1394）。新增 F13 LINE 額度 Email 通知，更新 F01、F04、C123、I21、I22、W06，涵蓋提醒分類下拉選單、精簡通知人員列、開關獨立儲存、工單入口授權、提醒分頁獨立載入與設定視窗返回。現行197題／15類，83題待隔離登入驗收；前台及SPA維持封存，指南分支不改業務規則或自動合併。",
+  "continuation": "2026-10-25 核對 main 7cb8c261..4efcd72b 的3筆第一層整合（#1395、#1396、#1399，共237筆提交）。新增 C177 排課模式，更新 B11、C123、C130、C144、C148、C149、C150、C152、C154，涵蓋指定日期直接取代、音樂期數／續購／單期收款／調課／名單與備註。現行198題／15類，89題待隔離登入驗收；前台及SPA維持封存，指南分支不改業務規則或自動合併。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -533,9 +551,9 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 83,
-  "totalInteractionPendingCount": 83,
-  "reviewedMainCommitCount": 8,
+  "backendInteractionPendingCount": 89,
+  "totalInteractionPendingCount": 89,
+  "reviewedMainCommitCount": 237,
   "reviewedStandaloneCommits": [],
   "publishedGuidePullRequests": [
     1042,
@@ -627,19 +645,19 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "7cb8c26127f60337c159b05391bc90f3263246ad",
+    "sourceCommit": "4efcd72bf513953521665f2556f719d1f73b5e8c",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
     "isolation": "本版 Preview 尚未完成已登入且確認資料隔離、通知封鎖的後台工作階段驗收",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "前輪82題未完成；本輪新增F13，六篇修訂原已在待驗清單，去重為83題。來源核對、功能PR畫面、測試與HTTP 200均不抵扣。",
+    "note": "前輪83題未完成；本輪新增C177，C130、C144、C150、C152、C154重新加入，去重為89題。來源核對、功能PR畫面、測試與HTTP 200均不抵扣。",
     "blockers": [
       "本版 Preview 的 Vercel 存取及隔離後台登入待確認",
       "I20 仍需具 store_operation_audit 的隔離 OWNER 身分"
     ],
     "nonBlockingFollowups": [
-      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；F13只核對開關、信箱數、預覽封鎖與搜尋，不寄測試信；F01／C123核對分類下拉、精簡人員列、獨立載入與關閉返回，不儲存設定或發通知。"
+      "桌機1366px／寬螢幕及iPad1024×768／768×1024唯讀核對指南搜尋、展開、返回與角色可見性；音樂名單、累計期數、購買批次、單期／整筆收款、調課返回與排課模式只讀核對，不購買、收款、排課、點名或修改設定。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"
@@ -990,29 +1008,27 @@
     "scope": "Store backend period consumption list, manager filters and authorized CSV export"
   },
   "currentMainAudit": {
-    "range": "abfe50b1092e9f78a1db76b575b255df5cf3524f..7cb8c26127f60337c159b05391bc90f3263246ad",
-    "commitCount": 8,
+    "range": "7cb8c26127f60337c159b05391bc90f3263246ad..4efcd72bf513953521665f2556f719d1f73b5e8c",
+    "commitCount": 237,
     "pullRequests": [
-      1387,
-      1388,
-      1389,
-      1390,
-      1391,
-      1392,
-      1393,
-      1394
+      1395,
+      1396,
+      1399
     ],
     "frontendOnlyOrEditorial": [],
     "newGuideIds": [
-      "F13"
+      "C177"
     ],
     "updatedGuideIds": [
-      "F01",
-      "F04",
+      "B11",
       "C123",
-      "I21",
-      "I22",
-      "W06"
+      "C130",
+      "C144",
+      "C148",
+      "C149",
+      "C150",
+      "C152",
+      "C154"
     ],
     "businessRulesChangedByGuideBranch": false
   },

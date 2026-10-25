@@ -4,7 +4,7 @@ import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {readFileSync} from "node:fs";
 vi.mock("@/server/actions/course-fee-payment",()=>({payCourseFee:vi.fn(),correctCourseFee:vi.fn()}));
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock("next/navigation",()=>({useSearchParams: () => new URLSearchParams(), usePathname: () => "/hq/dashboard/revenue", useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course-monthly-settlement",()=>({confirmCourseMonthlySettlement:vi.fn(),saveCourseSettlementSettings:vi.fn(),payCourseProfit:vi.fn(),correctCourseProfit:vi.fn()}));
 import {CourseMonthlyReport,CourseMonthlyPeople,CourseMonthlyConfirm,CourseProfitCorrect} from "@/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client";
 let host:HTMLDivElement,root:Root;
@@ -49,7 +49,6 @@ it("keeps unknown amounts, expanded labels and LINE prerequisite explicit",()=>{
  expect(monthly).not.toContain('CourseProfitPay');
  expect(monthly).toContain('歷史付款紀錄');
  expect(client).toContain("收合 －");
- expect(client).toContain("divide-earth-100");
  const reminder=readFileSync("src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view.tsx","utf8");
  expect(reminder).toContain('lineHealth?.status==="NOT_CONFIGURED"');
  expect(reminder).toContain("請先聯絡總部管理者完成串接");

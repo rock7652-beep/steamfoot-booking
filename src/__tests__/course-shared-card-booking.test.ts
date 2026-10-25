@@ -345,3 +345,20 @@ describe("explicit sports rights in the booking transaction", () => {
     await expect(reserveCourseInTransaction(tx, actor, input, null)).resolves.toMatchObject({ pointCost: 2 });
   });
 });
+describe("per-session assigned audience",()=>{
+ it("rejects member reservations before any booking or balance write",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(reserveCourseInTransaction(tx,actor,companion,null)).rejects.toThrow("指定學員");
+  expect(db.courseBooking.create).not.toHaveBeenCalled();expect(db.coursePointCard.updateMany).not.toHaveBeenCalled();
+ });
+ it("keeps authorized staff reservations available",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(reserveCourseInTransaction(tx,manager,{sessionId:"session",cardId:"card",customerId:"owner",requestKey:"staff-assigned"},null)).resolves.toMatchObject({customerId:"owner",operatorUserId:"manager"});
+ });
+ it("rejects member waitlist joins and automatic promotion",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(joinCourseWaitlist(actor,{sessionId:"session",cardId:"card",customerIds:["owner"],requestKey:"6c1a52c3-bb19-4e66-94b2-460a76594d1b"})).rejects.toThrow("指定學員");
+  expect(await promoteCourseWaitlistForSession(tx,"sports","session")).toEqual([]);
+  expect(db.courseWaitlistEntry.create).not.toHaveBeenCalled();expect(db.courseBooking.create).not.toHaveBeenCalled();
+ });
+});

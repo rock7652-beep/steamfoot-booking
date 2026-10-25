@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORE_OPERATION_AUDIT_PREVIEW_BRANCH } from "../../scripts/store-operation-audit-preview-scope.mjs";
 
 const mocks = vi.hoisted(() => ({ construct: vi.fn(), audit: vi.fn((client: unknown) => client), resend: vi.fn(), sendMail: vi.fn() }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("course", options); } } }));
+vi.mock("@prisma/client", async (importOriginal) => ({ Prisma: (await importOriginal<typeof import("@prisma/client")>()).Prisma, PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
+vi.mock("../../generated/course-client", async (importOriginal) => ({ Prisma: (await importOriginal<typeof import("../../generated/course-client")>()).Prisma, PrismaClient: class { constructor(options: unknown) { mocks.construct("course", options); } } }));
 vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("spa", options); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: mocks.sendMail }; constructor() { mocks.resend(); } } }));

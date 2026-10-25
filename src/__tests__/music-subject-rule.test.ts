@@ -1,5 +1,7 @@
 import { describe,it,expect,vi } from "vitest";
 vi.mock("server-only",()=>({}));
+vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:()=>true}));
+vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:()=>true}));
 import type {Prisma} from "../../generated/course-client";
 import {resolveMusicSubjectRule} from "@/server/services/music-subject-rule";
 import {musicSubjectRuleSchema} from "@/lib/music-subject-rule";
@@ -12,4 +14,11 @@ describe("music subject rules",()=>{
  it.each([-0.1,1.1,0.601,NaN])("rejects invalid teacher share %s",n=>expect(musicSubjectRuleSchema.safeParse({...rule,musicTeacherShare:n}).success).toBe(false));
  it("defaults teacher share to 0.6",()=>{const input={...rule,musicTeacherShare:undefined};expect(musicSubjectRuleSchema.parse(input).musicTeacherShare).toBe(0.6);});
  it.each([0,-1,1.5,1001])("rejects invalid lesson count %s",n=>expect(musicSubjectRuleSchema.safeParse({...rule,musicTermLessons:n}).success).toBe(false));
+});
+
+it("keeps each fee teacher share independent without rewriting existing tuition versions",async()=>{
+ const tx=db({name:"吉他",category:"",description:""});
+ tx.courseTemplate.findFirst.mockResolvedValueOnce({...rule,id:"existing",musicTeacherShare:0.6}).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+ const result=await resolveMusicSubjectRule(tx as unknown as Prisma.TransactionClient,"store-a",{...rule,totalPrice:3201,musicTeacherShare:0.7});
+ expect(result.musicTeacherShare).toBe(0.7);expect(result).not.toHaveProperty("totalPrice");expect(tx.courseTemplate.updateMany).not.toHaveBeenCalled();
 });

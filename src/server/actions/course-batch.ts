@@ -1,5 +1,6 @@
 "use server";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { prisma } from "@/lib/db";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
@@ -23,8 +24,9 @@ export async function batchCourseStatus(input: unknown) {
     await courseTransaction(storeId,async tx=>{
       if(d.kind==="staff") {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
-        const rows=await tx.$queryRaw<Array<{id:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
+        const rows=await tx.$queryRaw<Array<{id:string;userId:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,"userId",status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店人員，未變更任何資料");
+        for (const row of rows) await assertMusicSourceTeacherDraftEditable(tx, row, storeId);
         const accounts=await tx.$queryRaw<Array<{id:string;role:UserRole}>>`SELECT s.id,u.role::text AS role FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.id=ANY(${ids}::text[])`;
         if(accounts.some(a=>a.role!=="CUSTOMER")&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
         if(accounts.some(a=>a.role!=="CUSTOMER" && !canManageStaffRole(getEffectiveActorRole(user),a.role))) throw new AppError("FORBIDDEN","店長只能管理門市人員");

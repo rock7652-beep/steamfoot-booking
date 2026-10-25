@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 const m = vi.hoisted(() => ({ update: vi.fn() }));
 vi.mock("@/app/hq/dashboard/trial-applications/actions", () => ({ updateApplication: m.update }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/hq/dashboard/trial-applications", useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/hq/dashboard/trial-applications", useRouter: () => ({ refresh: vi.fn() }) }));
 import { OperationScope } from "@/components/operations/operation-scope";
 vi.mock("@/app/hq/dashboard/trial-applications/consultation-actions", () => ({ updateConsultationLead: m.update }));
 import { ConsultationNoteForm } from "@/app/hq/dashboard/trial-applications/consultation-forms";

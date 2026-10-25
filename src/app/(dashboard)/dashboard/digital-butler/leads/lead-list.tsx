@@ -130,7 +130,7 @@ export function DigitalButlerLeadList({
           <p className="mt-0.5 text-xs text-amber-700">選擇負責人並儲存，就代表已接手，也不會再列入每日提醒。</p>
         </div>
       )}
-      <div className="space-y-2 rounded-xl border border-earth-200 bg-white p-3">
+      <div className="space-y-2 border-b border-earth-200 py-1">
         <div className="flex min-h-11 items-center justify-between gap-3">
           <span role="status" className="text-sm text-earth-500">{filterPending ? "篩選中…" : `共 ${leads.length} 筆名單`}</span>
           <button
@@ -183,7 +183,7 @@ export function DigitalButlerLeadList({
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {leads.length === 0 && (
-        <div className="rounded-xl border border-earth-200 bg-white p-10 text-center text-sm text-earth-500">
+        <div className="rounded-xl border border-earth-200 bg-white p-4 text-center text-sm text-earth-500">
           目前沒有符合條件的名單
         </div>
       )}

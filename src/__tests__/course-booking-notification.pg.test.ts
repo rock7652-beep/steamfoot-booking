@@ -79,14 +79,17 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   it("moves one reservation atomically and repeated requests do not reserve twice", async () => {
     const f = await fixture();
     await db!.courseBookingRule.create({ data: { storeId: f.storeId, selfBookingEnabled: false, selfRescheduleEnabled: true, backendNoticesEnabled: true } });
+    const initialNotice = await db!.courseStoreNotice.findUniqueOrThrow({ where: { storeId_subjectKey: { storeId: f.storeId, subjectKey: `booking:${f.original.id}` } } });
     const input = { bookingId: f.original.id, sessionId: f.sessions[1].id };
     const result = await rescheduleMemberCourseBooking(input);
     expect(result).toMatchObject({ success: true });
     if (!result.success || !("bookingId" in result)) throw new Error("Missing rescheduled booking ID");
-    expect(await rescheduleMemberCourseBooking(input)).toEqual(result);
-    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([
-      expect.objectContaining({subjectKey:`booking:${result.bookingId}`,kind:"MOVE",customerName:"驗收學員",coachName:"驗收教師",startsAt:f.sessions[1].startsAt,previousStartsAt:f.sessions[0].startsAt,handledAt:null,revision:1}),
+    const movedNotices = await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } });
+    expect(movedNotices).toEqual([
+      expect.objectContaining({subjectKey:`booking:${result.bookingId}`,kind:"MOVE",customerName:"驗收學員",coachName:"驗收教師",startsAt:f.sessions[1].startsAt,previousStartsAt:f.sessions[0].startsAt,handledAt:null,id:initialNotice.id,revision:initialNotice.revision + 1}),
     ]);
+    expect(await rescheduleMemberCourseBooking(input)).toEqual(result);
+    expect(await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } })).toEqual(movedNotices);
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "CANCELLED" });
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId, status: "RESERVED" } })).toBe(1);
     expect(await held(f.card.id)).toBe(1);
@@ -97,22 +100,26 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const f = await fixture();
     await db!.courseBookingRule.create({data:{storeId:f.storeId,backendNoticesEnabled:true}});
     await db!.courseBooking.create({ data: { storeId: f.storeId, sessionId: f.sessions[1].id, operatorUserId: f.userId, operatorName: "店長", customerName: "其他學員", pointCost: 0, requestKey: randomUUID() } });
+    const initialNotices = await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } });
     expect(await rescheduleMemberCourseBooking({ bookingId: f.original.id, sessionId: f.sessions[1].id })).toMatchObject({ success: false });
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "RESERVED" });
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { bookingId: f.original.id, kind: "RELEASE" } })).toBe(0);
-    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([expect.objectContaining({subjectKey:`booking:${f.original.id}`,kind:"BOOKING",revision:0})]);
+    expect(initialNotices).toEqual([expect.objectContaining({ subjectKey: `booking:${f.original.id}`, kind: "BOOKING" })]);
+    expect(await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } })).toEqual(initialNotices);
   });
   it("an uncovered lesson date rolls back cancellation and all ledger writes", async () => {
     const f = await fixture();
     await db!.courseBookingRule.create({data:{storeId:f.storeId,backendNoticesEnabled:true}});
     await db!.coursePointCard.update({ where: { id: f.card.id }, data: { expiresAt: f.sessions[0].endsAt } });
+    const initialNotices = await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } });
     expect(await rescheduleMemberCourseBooking({ bookingId: f.original.id, sessionId: f.sessions[1].id })).toMatchObject({ success: false });
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "RESERVED" });
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId } })).toBe(1);
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { storeId: f.storeId } })).toBe(1);
-    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([expect.objectContaining({subjectKey:`booking:${f.original.id}`,kind:"BOOKING",revision:0})]);
+    expect(initialNotices).toEqual([expect.objectContaining({ subjectKey: `booking:${f.original.id}`, kind: "BOOKING" })]);
+    expect(await db!.courseStoreNotice.findMany({ where: { storeId: f.storeId } })).toEqual(initialNotices);
   });
   it("trial confirmation changes no attendance or receipt; rescheduling moves the same receipt", async () => {
     const f = await fixture(true);

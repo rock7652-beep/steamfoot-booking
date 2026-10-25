@@ -11,7 +11,7 @@ const guide = (id: string) => operationGuides.find(g => g.id === id)!;
 
 describe("2026-10-15 backend guide review", () => {
   it("archives SPA verbatim without presenting retirement as acceptance", () => {
-    expect(operationGuides).toHaveLength(197);
+    expect(operationGuides).toHaveLength(198);
     expect(guideCategories).toHaveLength(15);
     expect(retiredSpaOperationGuides).toHaveLength(18);
     expect(availableGuides(access("spa"))).toEqual([]);

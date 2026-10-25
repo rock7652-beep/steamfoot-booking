@@ -11,7 +11,7 @@ vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 import {confirmMemberCourseTrial,rescheduleMemberCourseBooking,loadCourseBookingNotification} from "@/server/actions/course-booking-notification";
 const tx={courseStoreNotice:{findUnique:vi.fn()},courseBookingRule:{findUnique:m.rules},courseBooking:{findFirst:m.booking,findUnique:m.prior},courseSession:{findFirst:m.target},courseTrialPayment:{updateMany:m.payments},$queryRaw:m.raw,$executeRaw:m.exec};
-const original=()=>({id:"old",storeId:"s",customerId:"member",customerName:"小美",status:"RESERVED",bookingKind:"TRIAL",cardId:null,card:null,trialPrice:500,sessionId:"original",session:{nameSnapshot:"課程 · 83f866",templateId:"t",startsAt:new Date("2099-10-07T15:00:00+08:00"),cancelledAt:null}});
+const original=()=>({id:"old",storeId:"s",customerId:"member",customerName:"小美",status:"RESERVED",bookingKind:"TRIAL",cardId:null,card:null,trialPrice:500,sessionId:"original",session:{nameSnapshot:"課程 · 83f866",templateId:"t",startsAt:new Date("2099-10-07T15:00:00+08:00"),cancelledAt:null,template:{classType:"PRIVATE"}}});
 beforeEach(()=>{vi.resetAllMocks();m.member.mockResolvedValue({user:{id:"u"},storeId:"s",customer:{id:"member",name:"小美"}});m.transaction.mockImplementation(async(_s,work)=>work(tx));m.booking.mockResolvedValue(original());m.prior.mockResolvedValue(null);m.target.mockResolvedValue({id:"new-session",startsAt:new Date("2099-10-08T15:00:00+08:00")});m.raw.mockResolvedValue([{bookableUntilDate:new Date("2099-12-31T00:00:00Z"),bookingOpensAt:null,bookingWindowDays:null}]);m.reserve.mockResolvedValue({id:"new",sessionId:"new-session"});m.limits.mockResolvedValue({maxMonthlyBookings:500});});
 it("records intent without attendance, balance or receipt writes",async()=>{
  expect(await confirmMemberCourseTrial("old")).toMatchObject({success:true});
@@ -40,6 +40,13 @@ it("retains fixed-term, makeup and checked-in lessons for staff assistance",asyn
 it("does not release a booking when the cancellation deadline fails",async()=>{
  m.settle.mockRejectedValue(new Error("已超過取消截止時間"));
  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false});expect(m.reserve).not.toHaveBeenCalled();
+});
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("blocks customer trial confirmation and rescheduling for either opening marker: %j",async marker=>{
+ m.booking.mockResolvedValue({...original(),...marker});
+ expect(await confirmMemberCourseTrial("old")).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ for(const write of [m.exec,m.reserve,m.settle,m.payments])expect(write).not.toHaveBeenCalled();
 });
 
 it.each(["TRIAL", "CARD"])("blocks %s rescheduling before cancelling when student self-booking is off", async bookingKind => {
@@ -83,4 +90,29 @@ it.each([[true,"GROUP","團體課請假仍會扣 1 堂，不提供補課。"],[t
  expect(result).toMatchObject({success:true,leaveMessage:message});
  expect(m.settle).not.toHaveBeenCalled();
  expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{id:"old",storeId:"s"}}));
+});
+// Merge contract: disabling student self-booking must never reopen imported
+// lesson routes, and enabling it must not bypass their source-binding safeguards.
+it.each([true, false])("keeps opening-state reschedule candidates hidden with self-booking=%s", async selfBookingEnabled => {
+ for (const marker of [{musicOpeningStateRequired:true}, {musicOpeningState:{id:"synthetic-opening"}}]) {
+  m.booking.mockResolvedValue({...original(),bookingKind:"CARD",cardId:"card",card:{termSessionIds:[],members:[{customerId:"member"}],...marker}});
+  m.rules.mockResolvedValue({selfBookingEnabled});
+  m.config.mockResolvedValue({bookableUntilDate:new Date("2099-12-31"),bookingWindowDays:14});
+  expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled,sessions:[]});
+  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("期初方案改期")});
+  expect(m.sessions).not.toHaveBeenCalled();expect(m.target).not.toHaveBeenCalled();
+  for (const write of [m.exec,m.reserve,m.settle,m.payments]) expect(write).not.toHaveBeenCalled();
+ }
+});
+
+it("blocks rescheduling an assigned lesson before cancelling the original",async()=>{
+ const old=original();m.booking.mockResolvedValue({...old,session:{...old.session,bookingAudience:"ASSIGNED"}});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("指定學員")});
+ expect(m.settle).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();
+});
+it("blocks an assigned target even for the trial reschedule staff-like booking actor",async()=>{
+ m.target.mockResolvedValue({id:"new-session",bookingAudience:"ASSIGNED",startsAt:new Date("2099-10-08T15:00:00+08:00")});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false});
+ expect(m.settle).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();
+ expect(m.target).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingAudience:"OPEN"})}));
 });

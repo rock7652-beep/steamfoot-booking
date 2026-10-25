@@ -1,12 +1,13 @@
+import {musicTrialBookingWhere} from "@/server/services/music-finance-scope";
 import {coursePrisma} from "@/lib/course-db";
 import {getCurrentUser} from "@/lib/session";
 import {checkPermission} from "@/lib/permissions";
 import {formatTWDateTime} from "@/lib/date-utils";
 import {CourseRoster} from "../../courses/roster";
 import {DashboardLink as Link} from "@/components/dashboard-link";
-export async function CourseTrialTransactions({storeId,range,readOnly,page,basePath,query,staff,status}:{storeId:string;range:{gte:Date;lte:Date};readOnly:boolean;page:number;basePath:string;query:Record<string,string>;staff?:string;status?:string}){
+export async function CourseTrialTransactions({storeId,range,readOnly,page,basePath,query,staff,status,dataScope}:{dataScope?:string;storeId:string;range:{gte:Date;lte:Date};readOnly:boolean;page:number;basePath:string;query:Record<string,string>;staff?:string;status?:string}){
  const user=await getCurrentUser();if(!user||!await checkPermission(user.role,user.staffId,"trial.read"))return null;
- const where={storeId,bookingKind:"TRIAL",createdAt:range,...(status==="PENDING"?{trialPayments:{none:{status:"SUCCESS"}}}:status==="CONFIRMED"?{trialPayments:{some:{status:"SUCCESS"}}}:status==="VOIDED"?{trialPayments:{some:{status:"VOIDED"}}}:status==="REFUNDED"?{id:"__no_refunded_trial__"}:{}),...(staff?{AND:[{trialPayments:{some:{actorUserId:staff,...(status==="VOIDED"?{status:"VOIDED"}:status==="CONFIRMED"?{status:"SUCCESS"}:{})}}}]}:{})};
+ const where={storeId,AND:[musicTrialBookingWhere(storeId,dataScope),...(staff?[{trialPayments:{some:{actorUserId:staff,...(status==="VOIDED"?{status:"VOIDED"}:status==="CONFIRMED"?{status:"SUCCESS"}:{})}}}]:[])],bookingKind:"TRIAL",createdAt:range,...(status==="PENDING"?{trialPayments:{none:{status:"SUCCESS"}}}:status==="CONFIRMED"?{trialPayments:{some:{status:"SUCCESS"}}}:status==="VOIDED"?{trialPayments:{some:{status:"VOIDED"}}}:status==="REFUNDED"?{id:"__no_refunded_trial__"}:{})};
  const count=await coursePrisma.courseBooking.count({where});const pages=Math.max(1,Math.ceil(count/20));const selected=Math.min(pages,page);
  const unpaidWhere={AND:[where,{trialPayments:{none:{status:"SUCCESS" as const}}}]};
  const [bookings,unpaidSummary]=await Promise.all([coursePrisma.courseBooking.findMany({where,include:{session:true,trialPayments:{orderBy:{createdAt:"desc"}}},orderBy:{createdAt:"desc"},skip:(selected-1)*20,take:20}),coursePrisma.courseBooking.aggregate({where:unpaidWhere,_count:true,_sum:{trialPrice:true}})]);

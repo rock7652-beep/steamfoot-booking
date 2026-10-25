@@ -197,7 +197,7 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
             <span className="text-sm text-earth-500">
               {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
-            <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
+            <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { mutation.reset(); const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"
               disabled={pending || invalid || draft === savedDraft}

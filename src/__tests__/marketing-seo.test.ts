@@ -149,18 +149,18 @@ describe("public crawler documents", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     expect(await nextConfig.headers!()).toEqual([]);
   });
-  it("publishes the review branch with automatic deployment disabled and both build paths guarded", () => {
+  it("publishes the review branch with automatic deployment disabled and both build paths guarded", async () => {
     const branch = "fix/public-seo-crawlers-20261007";
     expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[branch]).toBe(false);
     for (const path of ["scripts/ci-migrate.mjs", "next.config.ts"]) {
       const source = readFileSync(path, "utf8");
       expect(source.indexOf(`.includes("${branch}")`)).toBeLessThan(source.indexOf("import "));
       expect(source).toContain("SEO review branch deployment is disabled");
-      const guard = new Function("process", source.slice(0, source.indexOf("import ")));
+      const guard = new (Object.getPrototypeOf(async function() {}).constructor)("process", source.slice(0, source.indexOf("\nimport ")));
       for (const key of ["VERCEL_GIT_COMMIT_REF", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) {
-        expect(() => guard({ env: { [key]: branch } })).toThrow("SEO review branch deployment is disabled");
+        await expect(guard({ env: { [key]: branch } })).rejects.toThrow("SEO review branch deployment is disabled");
       }
-      expect(() => guard({ env: { VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" } })).not.toThrow();
+      await expect(guard({ env: { VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" } })).resolves.toBeUndefined();
     }
     expect(readFileSync("next.config.ts", "utf8")).toContain('key: "X-Robots-Tag", value: "noindex, nofollow"');
   });

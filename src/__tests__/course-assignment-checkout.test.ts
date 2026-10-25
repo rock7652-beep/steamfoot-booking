@@ -1,5 +1,7 @@
 import {beforeEach,it,expect,vi} from "vitest";
 vi.mock("server-only",()=>({}));
+const musicScope=vi.hoisted(()=>({ledger:vi.fn()}));
+vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:musicScope.ledger}));
 import {assignCourseWithCheckout} from "@/server/services/course-assignment-checkout";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
 import type {Prisma} from "../../generated/course-client";
@@ -7,7 +9,7 @@ const tx={courseSession:{findFirst:vi.fn(),count:vi.fn()},coursePurchase:{findUn
 const db=tx as unknown as Prisma.TransactionClient;
 const actor={storeId:"A",userId:"manager"};
 const input={revenueStaffId:"developer",expectedStoreCost:0,planId:"plan",customerId:"customer",expiresDate:"2099-01-01",requestKey:"key",discountKind:"AMOUNT" as const,discountValue:200,paymentMethod:"BANK_TRANSFER" as const,transferLastFour:"0123",expectedListPrice:1000};
-beforeEach(()=>{vi.resetAllMocks();tx.coursePurchase.findUnique.mockResolvedValue(null);tx.coursePointCard.findUnique.mockResolvedValue(null);tx.coursePointPlan.findFirst.mockResolvedValue({id:"plan",name:"十堂",unit:"SESSION",points:10,price:1000,validDays:30,templateIds:[],storeCost:0,termSessionIds:[]});tx.$queryRaw.mockResolvedValue([{id:"customer",displayName:"開發人"}]);tx.coursePointCard.create.mockResolvedValue({id:"card",termSessionIds:[]});tx.coursePurchase.create.mockImplementation(async({data})=>({id:"order",...data}));});
+beforeEach(()=>{vi.resetAllMocks();musicScope.ledger.mockReturnValue(false);tx.coursePurchase.findUnique.mockResolvedValue(null);tx.coursePointCard.findUnique.mockResolvedValue(null);tx.coursePointPlan.findFirst.mockResolvedValue({id:"plan",name:"十堂",unit:"SESSION",points:10,price:1000,validDays:30,templateIds:[],storeCost:0,termSessionIds:[]});tx.$queryRaw.mockResolvedValue([{id:"customer",displayName:"開發人"}]);tx.coursePointCard.create.mockResolvedValue({id:"card",termSessionIds:[]});tx.coursePurchase.create.mockImplementation(async({data})=>({id:"order",...data}));});
 it.each([["AMOUNT",200,800],["PERCENT",20,800],["PERCENT",100,0]] as const)("calculates %s %s",(kind,value,paid)=>expect(calculateCourseCheckout(1000,kind,value).paid).toBe(paid));
 it.each([["AMOUNT",1001],["PERCENT",101],["AMOUNT",-1]] as const)("rejects invalid %s %s",(kind,value)=>expect(()=>calculateCourseCheckout(1000,kind,value)).toThrow());
 it("saves discounted paid amount, method and four digits with one linked income",async()=>{const order=await assignCourseWithCheckout(db,actor,input);expect(order.price).toBe(800);expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({status:"CONFIRMED",cardId:"card",price:800,paymentMethod:"BANK_TRANSFER",transferLastFour:"0123",listPrice:1000})});expect(tx.$executeRaw).toHaveBeenCalledTimes(2);expect(tx.$executeRaw.mock.calls[0].slice(1)).toContain(800);});
@@ -57,4 +59,19 @@ it("rejects forged purchase terms before issuing quota",async()=>{
  tx.coursePointPlan.findFirst.mockResolvedValue({...musicPlan(),points:4,price:3200,validDays:35,musicTermSizes:[4],musicBonusLessons:0});
  await expect(assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:3200,musicPurchaseTerms:6})).rejects.toThrow("售價已變更");
  expect(tx.coursePointCard.create).not.toHaveBeenCalled();
+});
+
+it.each([false,true])("distinguishes an unpaid music receivable from a fully discounted purchase (fullDiscount=%s)",async fullDiscount=>{
+ musicScope.ledger.mockReturnValue(true);
+ tx.coursePointPlan.findFirst.mockResolvedValue({...musicPlan(),points:4,price:3200,validDays:35,musicTermSizes:[4],musicBonusLessons:0});
+ const order=await assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:6400,discountValue:fullDiscount?6400:0,musicPurchaseTerms:2,musicReceived:0,transferLastFour:""});
+ expect(order.price).toBe(0);expect(order.points).toBe(8);expect(order.validDays).toBe(70);
+ // Preserve the database's zero-price invariant, including unpaid receivables.
+ expect(order.paymentMethod).toBe("DISCOUNT");
+ expect(order.note).toContain(fullDiscount?"全額折抵":"本次未收款");
+ if(!fullDiscount)expect(order.note).not.toContain("全額折抵");
+ const writes=tx.$executeRaw.mock.calls;
+ expect(writes).toHaveLength(2);
+ expect(writes.some(([sql])=>sql.join("").includes('"CashbookEntry"'))).toBe(false);
+ expect(writes.find(([sql])=>sql.join("").includes('INSERT INTO "CourseMusicTuition"'))?.slice(1)).toContain(fullDiscount?0:6400);
 });

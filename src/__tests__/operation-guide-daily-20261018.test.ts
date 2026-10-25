@@ -34,7 +34,7 @@ describe("2026-10-18 backend guide review", () => {
     expect(findOperationGuides("交易更新", { ...access, module: "course" }).map(g => g.id)).toEqual(expect.arrayContaining(["C105", "C112"]));
   });
   it("keeps the current backend catalog count", () => {
-    expect(operationGuides).toHaveLength(197);
+    expect(operationGuides).toHaveLength(198);
     expect(guideCategories).toHaveLength(15);
   });
 });

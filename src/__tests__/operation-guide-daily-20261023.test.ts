@@ -24,16 +24,16 @@ const guide = (id: string) => operationGuides.find((item) => item.id === id)!;
 describe("2026-10-23 backend guide audit", () => {
   it("records the exact main range and backend-only accounting", () => {
     const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
-    expect(state.auditDateTaipei).toBe("2026-10-23");
-    expect(state.previousSuccessfulAuditCommit).toBe("abfe50b1092e9f78a1db76b575b255df5cf3524f");
-    expect(state.lastInventoriedMainCommit).toBe("7cb8c26127f60337c159b05391bc90f3263246ad");
-    expect(state.currentMainAudit.commitCount).toBe(8);
-    expect(state.currentMainAudit.pullRequests).toEqual([1387, 1388, 1389, 1390, 1391, 1392, 1393, 1394]);
-    expect(state.newGuideIds).toEqual(["F13"]);
-    expect(state.updatedGuideIds).toEqual(["F01", "F04", "C123", "I21", "I22", "W06"]);
-    expect(state.backendInteractionPendingCount).toBe(83);
+    expect(state.auditDateTaipei).toBe("2026-10-25");
+    expect(state.previousSuccessfulAuditCommit).toBe("7cb8c26127f60337c159b05391bc90f3263246ad");
+    expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
+    expect(state.currentMainAudit.commitCount).toBe(237);
+    expect(state.currentMainAudit.pullRequests).toEqual([1395, 1396, 1399]);
+    expect(state.newGuideIds).toEqual(["C177"]);
+    expect(state.updatedGuideIds).toEqual(["B11", "C123", "C130", "C144", "C148", "C149", "C150", "C152", "C154"]);
+    expect(state.backendInteractionPendingCount).toBe(89);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(197);
+    expect(operationGuides).toHaveLength(198);
     expect(guideCategories).toHaveLength(15);
   });
 

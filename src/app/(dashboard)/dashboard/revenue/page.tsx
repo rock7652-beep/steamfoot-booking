@@ -77,6 +77,7 @@ interface PageProps {
     kind?: string;
     status?: string;
     summary?: string;
+    dataScope?:string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;

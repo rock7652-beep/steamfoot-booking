@@ -13,7 +13,7 @@ vi.mock("@/server/services/course-booking", () => ({ reserveCourse: vi.fn(), set
 import { saveCourseRosterNote } from "@/server/actions/course-members";
 import { AppError } from "@/lib/errors";
 const input = { sessionId: "session-a", bookingId: "booking-a", note: " next\nline ", expectedNote: "old" };
-const scope = { id: "booking-a", sessionId: "session-a", storeId: "store-a", status: { not: "CANCELLED" } };
+const scope = { id: "booking-a", sessionId: "session-a", storeId: "store-a", status: { not: "CANCELLED" }, bookingKind: { not: "OPENING_MAKEUP" }, musicOpeningMakeupEntitlementId: null };
 beforeEach(() => {
   vi.resetAllMocks();
   m.access.mockResolvedValue({ storeId: "store-a", user: { id: "user-a" } });

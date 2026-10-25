@@ -16,8 +16,7 @@ export function useCustomerPanelGuard() {
   }, []);
   const allowLeave = useCallback(() => {
     const rows = [...states.current.values()];
-    return !rows.some(row => row.pending) &&
-      (!rows.some(row => row.dirty) || window.confirm("尚有未儲存的修改，確定離開？"));
+    return !rows.some(row => row.pending);
   }, []);
   const context = useMemo(() => ({ report, navigate: () => {} }), [report]);
   return { ...summary, context, allowLeave };
