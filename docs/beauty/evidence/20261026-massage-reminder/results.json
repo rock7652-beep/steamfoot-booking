@@ -1,0 +1,62 @@
+{
+  "synthetic": true,
+  "actualBackend": false,
+  "actualLINE": false,
+  "errors": [],
+  "sizes": [
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    }
+  ],
+  "tests": [
+    "service selector remains visible even with one configured trial",
+    "three gentle massage reminders appear on confirmation without a consent checkbox",
+    "reduced-height viewport keeps submit reachable (keyboard simulation only)",
+    "synthetic booking success and complete receipt",
+    "multi-person long service names remain responsive; per-person trial duration and total match",
+    "unknown result locks edits, then retries same booking",
+    "empty and closed states avoid collecting personal information"
+  ]
+}

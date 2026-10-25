@@ -34,9 +34,15 @@ try {
   });
   await page.goto(origin + "/"); await page.addStyleTag({ path: path.join(output, "fixture.css") }); await page.addScriptTag({ path: path.join(output, "fixture.js") });
   await page.getByRole("heading", { name: "體驗預約", exact: true }).waitFor({ timeout: 10000 });
+  if (await page.getByRole("complementary", { name: "按摩小提醒" }).count()) throw Error("Reminder shown before confirmation");
+  await page.getByLabel("服務項目", { exact: true }).waitFor();
+  if (await page.getByLabel("服務項目", { exact: true }).locator('option:not([value=""])').count() !== 1) throw Error("Single trial service selector missing");
+  tests.push("service selector remains visible even with one configured trial");
   await page.getByLabel("手機", { exact: true }).fill("0900000000"); await page.getByLabel("技師安排", { exact: true }).selectOption("ANY");
   await page.getByRole("button", { name: "查詢可用時段", exact: true }).click(); await page.getByRole("button", { name: "09:00", exact: true }).click();
   await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click();
+  await page.getByRole("complementary", { name: "按摩小提醒" }).waitFor();
+  tests.push("three gentle massage reminders appear on confirmation without a consent checkbox");
   await page.getByLabel("姓名", { exact: true }).fill("預約測試者"); await page.getByLabel("手機", { exact: true }).fill("0911111111");
   await page.getByText("特殊需求／備註（選填）", { exact: true }).click(); await page.getByLabel("本次備註", { exact: true }).fill("測試草稿保留");
   for (const [width, height] of [[360, 800], [390, 844], [768, 1024], [1024, 768], [1366, 900]]) {
