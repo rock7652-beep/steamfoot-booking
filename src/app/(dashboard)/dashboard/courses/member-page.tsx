@@ -158,6 +158,7 @@ export async function CourseMemberPage({
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
         canDiscount={!isViewMode&&await checkPermission(user.role,user.staffId,"transaction.discount")}
         sharedCardState={music ? "ENABLED" : await getCourseSharedCardState(storeId)}
+        schedulingModes={sportsNative?await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined:undefined}
         sportsData={await sportsDataPromise}
         music={music}
       />

@@ -121,6 +121,7 @@ export function CourseMemberWorkspace({
   canExport = false,
   canDiscount = false,
   sportsData,
+  schedulingModes,
   music = false,
   sharedCardState = "ENABLED",
 }: {
@@ -129,6 +130,7 @@ export function CourseMemberWorkspace({
   catalogSource?:{order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;form:CoursePlanCatalogPort};
   sportsNative?:boolean;
   sportsData?: SportsSnapshot;
+  schedulingModes?: import("@/lib/course-scheduling-modes").CourseSchedulingModes;
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
   subjects?:{id:string;name:string;category:string;isActive:boolean}[];
@@ -323,7 +325,8 @@ export function CourseMemberWorkspace({
   const activePlans = order.rows.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
   const planItems=(p:Plan)=>musicPlanItems(p.templateIds,templates,subjects);
   const purchaseItems=[...new Map(activePlans.flatMap(p=>planItems(p)).map(s=>[s.id,s])).values()];
-  const purchasablePlans=activePlans.filter(p=>!sportsData||coursePlanModeAllowed(sportsData.schedulingModes,p.sportsMode));
+  const activeModes=schedulingModes??sportsData?.schedulingModes;
+  const purchasablePlans=activePlans.filter(p=>!sportsNative||coursePlanModeAllowed(activeModes,p.sportsMode));
   const purchasePlans=music?activePlans.filter(p=>planItems(p).some(s=>s.id===purchaseSubjectId)):purchasablePlans;
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
@@ -388,7 +391,7 @@ export function CourseMemberWorkspace({
         {!compactCatalog&&planFilters}
         {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?`${subjectLabel}篩選`:"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?`全部${subjectLabel}`:"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{music?t.name:`${t.category || "未分類"} · ${t.name}`}</option>)}</select>}
         {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
-        {canCreate && (view!=="plans"||!sportsData||sportsData.schedulingModes?.selfBookingEnabled!==false||sportsData.schedulingModes?.assignedSchedulingEnabled!==false) && (view === "customers" || planArea === "catalog") && (
+        {canCreate && (view!=="plans"||!sportsNative||activeModes?.selfBookingEnabled!==false||activeModes?.assignedSchedulingEnabled!==false) && (view === "customers" || planArea === "catalog") && (
           <button
             className={music || view === "customers" ? button : "min-h-11 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"}
             onClick={() => {
@@ -404,7 +407,7 @@ export function CourseMemberWorkspace({
         {canAssign && ((view === "customers"&&!sportsNative) || (view === "plans"&&planArea === "cards")) && (
           <button
             className={button}
-            disabled={(view === "customers" && !people.length) || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
+            disabled={(view === "customers" && !people.length) || !purchasablePlans.some((p) => !music || p.unit === "SESSION")}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
             {music ? "購課／續購" : "購買方案"}
@@ -431,8 +434,8 @@ export function CourseMemberWorkspace({
         onEdit={music && canEdit ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab("info"); setEditingPerson(true); } : undefined}
         onViewPlans={music && canReadCards ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab(music ? "courses" : "plans"); setCustomerCardBrowse({search:"",history:false,page:0}); } : undefined}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
-        onPurchase={canAssign&&people.length>0&&activePlans.length>0 ? ()=>{setPerson(null);open("assign");setRevenueStaffId("");}:undefined}
-        onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
+        onPurchase={canAssign&&people.length>0&&purchasablePlans.length>0 ? ()=>{setPerson(null);open("assign");setRevenueStaffId("");}:undefined}
+        onAssign={canAssign&&purchasablePlans.length>0 ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
@@ -454,7 +457,7 @@ export function CourseMemberWorkspace({
                     {...order.rowProps(p.id)}
                     className={` ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    {music ? <><td className="px-3 py-2">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td><td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span>{sportsData&&!coursePlanModeAllowed(sportsData.schedulingModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
+                    {music ? <><td className="px-3 py-2">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td><td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span>{sportsNative&&!coursePlanModeAllowed(activeModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
                     <td className={` whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className={` whitespace-nowrap px-3 py-2`}>NT$ {p.price.toLocaleString("zh-TW")}{!music && p.price > 0 && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</p>}</td>
                     {!music && <>
