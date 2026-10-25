@@ -34,3 +34,30 @@
 .form > fieldset > div:has(> label > input[name="price"]):not(:has(input[name="points"])) {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Sports fees keep cost in the primary pricing area. Narrow sheets switch sections. */
+.compactForm { container-type: inline-size; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.compactForm > div:empty { display: none; }
+.feeTabs { display: flex; gap: 8px; }
+.feeTabs button { min-height: 44px; padding: 8px 16px; border-radius: 8px; }
+.feeTabs button[aria-pressed="true"] { background: var(--color-primary-50); color: var(--color-primary-800); font-weight: 600; }
+.panes { display: grid; min-width: 0; }
+.pane { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-content: start; gap: 8px 12px; min-width: 0; }
+.pane[data-active="false"] { display: none; }
+.pane h3 { display: none; }
+.pane > label { min-width: 0; }
+.full, .providers, .summary { grid-column: 1 / -1; min-width: 0; }
+.summary { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--color-earth-600); font-size: 14px; }
+.summary strong { color: var(--color-primary-800); }
+.providerList { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 88px; overflow-y: auto; overscroll-behavior: contain; }
+.providerList label { display: flex; align-items: center; min-height: 44px; gap: 8px; overflow-wrap: anywhere; }
+.providerList input { flex-shrink: 0; }
+@container (min-width: 680px) {
+ .feeTabs { display: none; }
+ .panes { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+ .pane[data-active] { display: grid; }
+ .pane h3 { display: block; grid-column: 1 / -1; font-weight: 600; color: var(--color-primary-800); }
+}
+
+.trialGrid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.trialGrid > label { min-width: 0; }
