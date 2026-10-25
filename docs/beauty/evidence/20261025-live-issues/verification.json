@@ -1,0 +1,14 @@
+{
+  "scope": "local synthetic UI and offline regression",
+  "mainBaseline": "fbe2759f",
+  "implementationCommit": "e836c91ad6cb0e66fa8a4d5c982167c131c5d2bf",
+  "testFiles": 129,
+  "testsPassed": 1044,
+  "typescript": "passed",
+  "eslintErrors": 0,
+  "eslintPreexistingWarnings": 1,
+  "browserScreens": 16,
+  "databaseWrites": false,
+  "deployed": false,
+  "lineDeliveryEnabledByThisBatch": false
+}
