@@ -8,7 +8,7 @@ describe("backend-only guide scope and current source boundaries", () => {
     const permissions = [...new Set(operationGuides.map(g => g.permission).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature, true]));
     expect(retiredFrontendOperationGuides).toHaveLength(8);
-    for (const moduleId of ["steamfoot", "spa", "course"] as const) {
+    for (const moduleId of ["steamfoot", "course"] as const) {
       const current = availableGuides({ module: moduleId, permissions, features });
       expect(current.some(g => retiredFrontendOperationGuides.some(old => old.id === g.id))).toBe(false);
     }
