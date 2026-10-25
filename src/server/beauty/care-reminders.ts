@@ -1,12 +1,13 @@
 import {beautyCareId} from '@/lib/beauty/care-id';
+import {beautyNotificationDeliveryBlocked,beautyNotificationActivationAt} from '@/lib/beauty/notification-policy';
+import {beautyWorkerLineAllowed} from './notification-worker-context';
 import "server-only";
 import type {Prisma} from "@prisma/client";
 import {prisma} from "@/lib/db";
 import {beautyPrisma} from "@/lib/beauty-db";
-import {isPreviewExternalIntegrationBlocked} from "@/lib/runtime-env";
 import {hasStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
-import {dayRange,toLocalDateStr} from "@/lib/date-utils";
+import {dayRange,toLocalDateStr,parseTaipeiDateTime} from "@/lib/date-utils";
 import {deriveBaseUrl} from "@/lib/base-url";
 import {beautyPlanReminderKinds,beautyPlanPreferenceId,beautyPlanStopped} from "@/lib/beauty/reminders";
 import {trialCareRulesSchema,trialCareDueAt,trialCareSkipReason,renderTrialCareBody,TRIAL_CARE_LABELS} from "@/lib/trial-care";
@@ -39,7 +40,7 @@ async function deliver(tx:Prisma.TransactionClient,store:Store,person:Person,id:
   await tx.messageTemplate.upsert({where:{id:templateId},create:{id:templateId,storeId:store.id,name:nameFor(kind),channel:"LINE",body:"美業通知紀錄類型"},update:{}});
   await tx.messageLog.create({data:{id,storeId:store.id,customerId:person.id,templateId,channel:"LINE",status:"PENDING",renderedBody:body}});
   const hash=id.slice("beauty-care:".length),retryKey=`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
-  return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:beautyCareMessages(body,store.slug),retryKey,now});
+  return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:beautyCareMessages(body,store.slug),retryKey,now,transactionScoped:true});
 }
 async function failedReceipt(storeId:string,customerId:string,id:string) {
   // A result lost after transport must not become an automatic new delivery.
@@ -50,7 +51,7 @@ function count(result:Summary,status:string) {if(status==="SENT")result.sent++;e
 /** Authorized cron only. Preview / LINE-off returns before any data read or queue write. */
 export async function runBeautyCareReminders(now=new Date()):Promise<Summary> {
   const result:Summary={sent:0,skipped:0,failed:0};
-  if(process.env.BEAUTY_MODULE_ENABLED!=="1"||process.env.BEAUTY_NOTIFICATIONS_ENABLED!=="1"||isPreviewExternalIntegrationBlocked())return result;
+  if(beautyNotificationDeliveryBlocked())return result;
   const stores=await prisma.store.findMany({where:{industryModule:"BEAUTY",operatingStatus:"ACTIVE",isDemo:false},select:{id:true,name:true,slug:true}});
   for(const store of stores) {
     if(!await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))continue;
@@ -60,6 +61,7 @@ export async function runBeautyCareReminders(now=new Date()):Promise<Summary> {
   return result;
 }
 async function runPlans(store:Store,now:Date,result:Summary) {
+  const activatedAt=beautyNotificationActivationAt();
   const plans=await beautyPrisma.beautyPlan.findMany({where:{storeId:store.id,active:true}});
   const enabled=plans.filter(p=>p.lowBalanceEnabled||(p.expiryReminder as {enabled?:boolean})?.enabled===true);
   if(!enabled.length)return;
@@ -68,10 +70,14 @@ async function runPlans(store:Store,now:Date,result:Summary) {
     const plan=enabled.find(p=>p.id===candidate.planId)!;
     const held=await beautyPrisma.beautyAppointment.count({where:{storeId:store.id,cardId:candidate.id,status:"RESERVED"}});
     for(const kind of beautyPlanReminderKinds(candidate,held,plan,now))for(const customerId of [...new Set(candidate.memberIds)]) {
+      if(activatedAt&&kind.startsWith("PLAN_EXPIRY")&&parseTaipeiDateTime(toLocalDateStr(now),"18:00")!<activatedAt)continue;
+      // Existing balances do not enroll on global enable. A new grant/use or
+      // other ledger change after activation starts the current balance journey.
+      if(activatedAt&&!kind.startsWith("PLAN_EXPIRY")&&!await beautyPrisma.beautyLedger.findFirst({where:{storeId:store.id,cardId:candidate.id,createdAt:{gte:activatedAt}},select:{id:true}}))continue;
       const id=beautyCareId(store.id,customerId,kind.startsWith("PLAN_EXPIRY")?`${candidate.id}:${toLocalDateStr(candidate.expiresAt)}`:candidate.id,kind);
       try {
         const status=await prisma.$transaction(async tx=>{
-          if(!await lockStore(tx,store.id)||!await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))return "SKIPPED";
+          if(!await lockStore(tx,store.id)||!await beautyWorkerLineAllowed(tx,store.id,now))return "SKIPPED";
           if(await tx.messageLog.findFirst({where:{id,storeId:store.id}}))return "SKIPPED";
           const [person,pref,card,currentPlan,currentHeld]=await Promise.all([
             personFor(tx,store.id,customerId),
@@ -94,17 +100,20 @@ async function runTrialCare(store:Store,now:Date,result:Summary) {
   const setting=await prisma.trialCareSetting.findUnique({where:{storeId:store.id}});
   const rules=trialCareRulesSchema.safeParse(setting?.rules);
   if(!setting?.enabled||!setting.activatedAt||!rules.success)return;
+  const globalActivation=beautyNotificationActivationAt();
+  const activatedAt=globalActivation&&globalActivation>setting.activatedAt?globalActivation:setting.activatedAt;
   // First completion markers are append-only. Restoring/re-completing cannot re-enroll history.
   const trials=await beautyPrisma.$queryRaw<Array<{id:string;customerId:string;completedAt:Date}>>`
     SELECT b.id,b."customerId",GREATEST(e."createdAt",b."endsAt") AS "completedAt"
     FROM "BeautyEvent" e JOIN "BeautyAppointment" b ON b.id=e."appointmentId" AND b."storeId"=e."storeId"
     WHERE e."storeId"=${store.id} AND e.kind='TRIAL_CARE_COMPLETED' AND e.status='AUDIT'
-      AND e."createdAt">=${setting.activatedAt}
+      AND e."createdAt">=${activatedAt}
       AND NOT EXISTS (SELECT 1 FROM "BeautyEvent" h WHERE h."storeId"=e."storeId" AND h."appointmentId"=b.id AND h.kind='COMPLETED' AND h."createdAt"<${setting.activatedAt})
       AND b."isTrial"=true AND b.status='COMPLETED' AND b."customerId" IS NOT NULL AND b."endsAt"<=${now}
     ORDER BY "completedAt",b.id`;
   const seen=new Set<string>();
   for(const trial of trials) {
+    if(globalActivation&&trial.completedAt<globalActivation)continue;
     if(seen.has(trial.customerId))continue;seen.add(trial.customerId);
     for(const [stage,rule] of rules.data.entries()) {
       const dueAt=trialCareDueAt(trial.completedAt,rule);if(dueAt>now)continue;
@@ -112,7 +121,7 @@ async function runTrialCare(store:Store,now:Date,result:Summary) {
       const id=beautyCareId(store.id,trial.customerId,"trial-care",`TRIAL_CARE:${stage}`);
       try {
         const status=await prisma.$transaction(async tx=>{
-          if(!await lockStore(tx,store.id)||!await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))return "SKIPPED";
+          if(!await lockStore(tx,store.id)||!await beautyWorkerLineAllowed(tx,store.id,now))return "SKIPPED";
           if(await tx.trialCareLog.findUnique({where:{storeId_customerId_stage:key}})||await tx.messageLog.findFirst({where:{id,storeId:store.id}}))return "SKIPPED";
           const [current,person,pref,booking,purchased,pending,booked]=await Promise.all([
             tx.trialCareSetting.findUnique({where:{storeId:store.id}}),personFor(tx,store.id,trial.customerId),

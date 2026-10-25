@@ -439,7 +439,7 @@ export async function reserveParty(
         data: {
           storeId: a.storeId,
           kind: "BOOKED",
-          status: policy.notifications ? "PENDING" : "SKIPPED",
+          status: policy.notifications && !beautyNotificationDeliveryBlocked() ? "PENDING" : "SKIPPED",
           appointmentId: item.id,
           customerId: p.customerId ?? groupCustomerId,
           body: `${s.name}｜${d.date} ${d.time}｜預約成功`,
@@ -646,7 +646,7 @@ export async function transition(
     data: {
       storeId: a.storeId,
       kind: input.target,
-      status: policy.notifications ? "PENDING" : "SKIPPED",
+      status: policy.notifications && !beautyNotificationDeliveryBlocked() ? "PENDING" : "SKIPPED",
       appointmentId: b.id,
       customerId: b.customerId ?? b.group.customerId,
       body: `${b.serviceName}｜${toLocalDateStr(b.startsAt)}｜${({ COMPLETED: "服務完成", CANCELLED: "預約取消", NO_SHOW: "未到紀錄", RESERVED: "恢復預約" } as Record<string, string>)[input.target]}`,

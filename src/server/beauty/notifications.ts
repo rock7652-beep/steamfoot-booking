@@ -1,5 +1,6 @@
 import "server-only";
-import { beautyNotificationDeliveryBlocked } from "@/lib/beauty/notification-policy";
+import { beautyNotificationDeliveryBlocked,beautyNotificationActivationAt } from "@/lib/beauty/notification-policy";
+import {beautyWorkerLineAllowed} from "./notification-worker-context";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -19,6 +20,7 @@ import { deliverCourseCardNotification } from "@/server/services/course-card-not
 export async function runBeautyNotifications(now = new Date()) {
   const summary = { sent: 0, skipped: 0, failed: 0 };
   if (beautyNotificationDeliveryBlocked()) return summary;
+  const activatedAt=beautyNotificationActivationAt();
   const stores = await prisma.store.findMany({
     where: {
       industryModule: "BEAUTY",
@@ -32,10 +34,12 @@ export async function runBeautyNotifications(now = new Date()) {
       where: { storeId: store.id },
     });
     if (!policy?.notifications) continue;
+    if(activatedAt)await beautyPrisma.beautyEvent.updateMany({where:{storeId:store.id,status:{in:["PENDING","FAILED"]},createdAt:{lt:activatedAt},kind:{in:["BOOKED","MOVED","REMINDER","RESERVED","CANCELLED","NO_SHOW","COMPLETED"]}},data:{status:"SKIPPED"}});
     const tomorrow = dayRange(addTaiwanDuration(toLocalDateStr(now), 1, "DAY"));
     // Deterministic reminder ids change on reschedule. Existing events remain auditable.
+    const reminderAt=parseTaipeiDateTime(toLocalDateStr(now), "18:00")!;
     const upcoming =
-      now < parseTaipeiDateTime(toLocalDateStr(now), "18:00")!
+      now < reminderAt || !!activatedAt && reminderAt < activatedAt
         ? []
         : await beautyPrisma.beautyAppointment.findMany({
             where: {
@@ -71,6 +75,7 @@ export async function runBeautyNotifications(now = new Date()) {
         storeId: store.id,
         status: { in: ["PENDING", "FAILED"] },
         attempts: { lt: 3 },
+        ...(activatedAt?{createdAt:{gte:activatedAt}}:{}),
       },
       orderBy: { createdAt: "asc" },
       take: 100,
@@ -80,6 +85,7 @@ export async function runBeautyNotifications(now = new Date()) {
         const outcome = await prisma.$transaction(
           async (tx) => {
             await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} AND "industryModule"::text='BEAUTY' FOR UPDATE`;
+            if(!await beautyWorkerLineAllowed(tx,store.id,now))return "SKIPPED";
             const enabled = await tx.$queryRaw<
               Array<{ storeId: string }>
             >`SELECT p."storeId" FROM "BeautySetting" p JOIN "Store" s ON s.id=p."storeId" WHERE p."storeId"=${store.id} AND p.notifications=true AND s."operatingStatus"::text IN ('ACTIVE','TRIAL')`;
@@ -104,6 +110,7 @@ export async function runBeautyNotifications(now = new Date()) {
             if (now.getTime() - event.createdAt.getTime() > 23 * 60 * 60 * 1000)
               return skip("通知已過期，避免跨重試期限重複送出");
             if (!current.customerId) return skip("未綁定可驗證的通知身分");
+            if(activatedAt&&event.createdAt<activatedAt)return skip("啟用前通知不補發");
             const person = await tx.customer.findFirst({
               where: {
                 id: current.customerId,
@@ -168,6 +175,7 @@ export async function runBeautyNotifications(now = new Date()) {
               messages: [{ type: "text", text: event.body }],
               retryKey,
               now,
+              transactionScoped:true,
             });
             await tx.$executeRaw`UPDATE "BeautyEvent" SET status=${status},attempts=attempts+1 WHERE id=${event.id}`;
             return status;

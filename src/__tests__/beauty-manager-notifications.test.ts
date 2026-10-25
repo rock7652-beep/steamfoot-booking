@@ -26,3 +26,17 @@ it("daily digest reads Beauty orders/actual prior-day service ends, stable Taiwa
 it("empty digests and missed 9am window do not send or catch up",async()=>{await runBeautyManagerReminders(now);m.orders.mockResolvedValue(2);await runBeautyManagerReminders(new Date("2026-10-22T03:00Z"));expect(m.send).not.toHaveBeenCalled();});
 
 it("re-enabling never enrolls original off-period bookings or purchase requests",async()=>{m.source.mockResolvedValue({userId:"user",body:JSON.stringify({groupId:"g",orderId:"order",managerNoticeEligible:false})});await notifyBeautyBookingManagers("s","g",now);await notifyBeautyPurchaseManagers("s","order",now);expect(m.send).not.toHaveBeenCalled();});
+it('never enrolls even fresh pre-activation manager events',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-22T01:04:00.000Z');
+ m.group.mockResolvedValue({id:'g',storeId:'s',createdAt:new Date('2026-10-22T01:03Z')});
+ m.order.mockResolvedValue({id:'order',storeId:'s',createdAt:new Date('2026-10-22T01:03Z')});
+ await notifyBeautyBookingManagers('s','g',now);await notifyBeautyPurchaseManagers('s','order',now);
+ expect(m.send).not.toHaveBeenCalled();
+});
+it('does not catch up the 9am digest or old incomplete services on activation',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-22T01:04:00.000Z');
+ m.orders.mockResolvedValue(2);
+ await runBeautyManagerReminders(now);
+ expect(m.appointments.mock.calls[0][0].where.endsAt.gte).toEqual(new Date('2026-10-22T01:04Z'));
+ expect(m.send).not.toHaveBeenCalled();
+});

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
-import { beautyNotificationDeliveryBlocked } from "@/lib/beauty/notification-policy";
+import { beautyNotificationDeliveryBlocked,beautyNotificationActivationAt } from "@/lib/beauty/notification-policy";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { addTaiwanDuration, dayRange, formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
@@ -25,7 +25,10 @@ async function storeFor(storeId:string) {
   if (!await beautyManagerDeliveryAllowed(storeId)) return null;
   return prisma.store.findFirst({where:{id:storeId,industryModule:"BEAUTY"},select:{id:true,name:true,slug:true}});
 }
-const fresh = (date:Date,now:Date) => date<=now && now.getTime()-date.getTime()<15*60_000;
+const fresh = (date:Date,now:Date) => {
+  const activatedAt=beautyNotificationActivationAt();
+  return date<=now && now.getTime()-date.getTime()<15*60_000 && (!activatedAt||date>=activatedAt);
+};
 
 /** Post-commit observers: a notification error can never undo a booking/purchase.
  * No scanning/backfill on re-enable. Same request uses the original group/order key. */
@@ -83,11 +86,13 @@ export async function runBeautyManagerReminders(now=new Date()) {
       if (!await beautyManagerDeliveryAllowed(store.id)) continue;
       const today=toLocalDateStr(now),yesterday=dayRange(addTaiwanDuration(today,-1,"DAY"));
       const due=new Date(now.getTime()-60*60_000);
-      const candidates=await beautyPrisma.beautyAppointment.findMany({where:{storeId:store.id,status:"RESERVED",endsAt:{gte:yesterday.start,lte:due}},orderBy:{endsAt:"asc"},take:100});
+      const activatedAt=beautyNotificationActivationAt();
+      const starts=activatedAt&&activatedAt>yesterday.start?activatedAt:yesterday.start;
+      const candidates=await beautyPrisma.beautyAppointment.findMany({where:{storeId:store.id,status:"RESERVED",endsAt:{gte:starts,lte:due}},orderBy:{endsAt:"asc"},take:100});
       for (const b of candidates) count(await deliverManagerNotification({storeId:store.id,type:"INCOMPLETE_SERVICE_REMINDER",eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,messages:[{type:"text",text:["服務尚未完成",store.name,`${b.personName}｜${b.serviceName}`,`${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`,"服務結束一小時後仍未完成，請核對。",`前往後台處理：${managerUrl(store.slug,b.startsAt)}`].join("\n")}],beforeDeliver:async()=>!!await beautyPrisma.beautyAppointment.findFirst({where:{id:b.id,storeId:store.id,status:"RESERVED",endsAt:b.endsAt},select:{id:true}})}));
       // Only the 09:00 quarter-hour window, never late catch-up after a disabled period.
       const nine=parseTaipeiDateTime(today,"09:00")!;
-      if(now<nine||now.getTime()-nine.getTime()>=15*60_000)continue;
+      if(now<nine||now.getTime()-nine.getTime()>=15*60_000||activatedAt&&nine<activatedAt)continue;
       const counts=async()=>Promise.all([
         beautyPrisma.beautyPurchase.count({where:{storeId:store.id,status:"PENDING"}}),
         beautyPrisma.beautyAppointment.count({where:{storeId:store.id,status:"RESERVED",endsAt:{gte:yesterday.start,lte:yesterday.end}}}),

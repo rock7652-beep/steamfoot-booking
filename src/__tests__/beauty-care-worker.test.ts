@@ -1,9 +1,10 @@
+vi.mock("@/server/beauty/notification-worker-context",()=>({beautyWorkerLineAllowed:vi.fn(async()=>true)}));
 import {PGlite} from "@electric-sql/pglite";
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {defaultTrialCareRules} from '@/lib/trial-care';
-const m=vi.hoisted(()=>({blocked:vi.fn(),stores:vi.fn(),feature:vi.fn(),plans:vi.fn(),cards:vi.fn(),plan:vi.fn(),card:vi.fn(),count:vi.fn(),purchased:vi.fn(),pending:vi.fn(),trials:vi.fn(),booking:vi.fn(),care:vi.fn(),transaction:vi.fn(),query:vi.fn(),person:vi.fn(),pref:vi.fn(),planPref:vi.fn(),existing:vi.fn(),messageCreate:vi.fn(),failure:vi.fn(),template:vi.fn(),careExisting:vi.fn(),careCount:vi.fn(),careCreate:vi.fn(),careUpdate:vi.fn(),send:vi.fn()}));
+const m=vi.hoisted(()=>({blocked:vi.fn(),stores:vi.fn(),feature:vi.fn(),plans:vi.fn(),cards:vi.fn(),plan:vi.fn(),card:vi.fn(),count:vi.fn(),purchased:vi.fn(),pending:vi.fn(),trials:vi.fn(),booking:vi.fn(),care:vi.fn(),transaction:vi.fn(),query:vi.fn(),person:vi.fn(),pref:vi.fn(),planPref:vi.fn(),existing:vi.fn(),messageCreate:vi.fn(),failure:vi.fn(),template:vi.fn(),careExisting:vi.fn(),careCount:vi.fn(),careCreate:vi.fn(),careUpdate:vi.fn(),send:vi.fn(),ledger:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{store:{findMany:m.stores},trialCareSetting:{findUnique:m.care},messageLog:{upsert:m.failure},$transaction:m.transaction}}));
-vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyPlan:{findMany:m.plans,findFirst:m.plan},beautyCard:{findMany:m.cards,findFirst:m.card,count:m.purchased},beautyAppointment:{count:m.count,findFirst:m.booking},beautyPurchase:{count:m.pending},$queryRaw:m.trials}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyLedger:{findFirst:m.ledger},beautyPlan:{findMany:m.plans,findFirst:m.plan},beautyCard:{findMany:m.cards,findFirst:m.card,count:m.purchased},beautyAppointment:{count:m.count,findFirst:m.booking},beautyPurchase:{count:m.pending},$queryRaw:m.trials}}));
 vi.mock('@/lib/runtime-env',()=>({isPreviewExternalIntegrationBlocked:m.blocked,isPreview:()=>false,isProduction:()=>true}));
 vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:m.feature}));vi.mock('@/server/services/course-card-notification-delivery',()=>({deliverCourseCardNotification:m.send}));
 import {runBeautyCareReminders} from '@/server/beauty/care-reminders';
@@ -48,4 +49,17 @@ it('actual enrollment SQL includes a newly completed overnight trial and exclude
   INSERT INTO "BeautyEvent" VALUES ('old-complete','store','COMPLETED','SKIPPED','old','2026-10-19T01:00Z'),('foreign-marker','other','TRIAL_CARE_COMPLETED','AUDIT','foreign','2026-10-21T01:00Z');`);
   const result=await db.query<{id:string}>(sql,values.map((v:unknown)=>v instanceof Date?v.toISOString():v));expect(result.rows.map(r=>r.id)).toEqual(['overnight']);
  }finally{await db.close();}
+});
+
+it('does not enroll existing low balances merely by enabling global LINE',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-21T00:00:00.000Z');m.ledger.mockResolvedValue(null);
+ await runBeautyCareReminders(now);expect(m.send).not.toHaveBeenCalled();expect(m.ledger).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'store',cardId:'card',createdAt:{gte:new Date('2026-10-21T00:00Z')}})}));
+});
+it('enrolls an existing card after a new post-activation ledger event',async()=>{
+ vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-21T00:00:00.000Z');m.ledger.mockResolvedValue({id:'fresh-use'});
+ expect(await runBeautyCareReminders(now)).toMatchObject({sent:1});
+});
+it('does not backfill pre-activation completed trials',async()=>{
+ trial();vi.stubEnv('BEAUTY_NOTIFICATIONS_ACTIVATED_AT','2026-10-22T01:00:00.000Z');
+ await runBeautyCareReminders(now);expect(m.send).not.toHaveBeenCalled();expect(m.trials.mock.calls[0].slice(1)).toContainEqual(new Date('2026-10-22T01:00Z'));
 });
