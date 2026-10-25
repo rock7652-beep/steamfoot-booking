@@ -50,8 +50,9 @@ export default async function BeautyPage({
   }>;
 }) {
   const u = await getCurrentUser();
-  if (!u || !(await checkPermission(u.role, u.staffId, "booking.read")))
-    redirect("/dashboard");
+  if (!u) redirect("/dashboard");
+  if (!(await checkPermission(u.role, u.staffId, "booking.read")))
+    return <PageShell><PageHeader title="美業" /><p role="alert">目前帳號尚未取得美業預約檢視權限，請聯絡店長調整。</p></PageShell>;
   if (process.env.BEAUTY_MODULE_ENABLED !== "1")
     return <PageShell><PageHeader title="美業" /><BeautyClosedNotice /></PageShell>;
   const q = await searchParams,
