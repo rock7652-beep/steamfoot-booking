@@ -8,6 +8,7 @@ import { beautyManager } from "./access";
 import { notificationCenterWhere, type NotificationRow } from "@/server/queries/notification-center";
 
 export const beautyNoticeLabels: Record<string,string> = {
+  "方案開通通知":"方案開通通知",
   SAME_DAY_BOOKING_CREATED:"當日新預約", PUBLIC_TRIAL_BOOKING_CREATED:"新體驗預約", TRANSFER_PENDING_CONFIRMATION:"待確認付款", INCOMPLETE_SERVICE_REMINDER:"服務未完成", DAILY_ACTION_DIGEST:"每日待辦摘要",
   BOOKED: "預約成立", MOVED: "預約改期", REMINDER: "明日服務提醒",
   RESERVED: "恢復預約", CANCELLED: "預約取消", NO_SHOW: "未到", COMPLETED: "服務完成",
@@ -30,7 +31,7 @@ export async function listBeautyNotificationLogs(params: Record<string,string|un
       UNION ALL SELECT 'message:'||m.id,'customer',c.name,COALESCE(t.name,'美業提醒'),m.status::text,m."renderedBody",m."errorMessage",COALESCE(m."sentAt",m."createdAt"),c.id,'LINE',NULL,NULL,NULL,NULL
       FROM "MessageLog" m JOIN "Customer" c ON c.id=m."customerId" AND c."storeId"=m."storeId"
       LEFT JOIN "MessageTemplate" t ON t.id=m."templateId" AND t."storeId"=m."storeId"
-      WHERE m."storeId"=${storeId} AND m.id LIKE 'beauty-care:%') SELECT * FROM notifications ${notificationCenterWhere(params)} ORDER BY at DESC,id DESC LIMIT ${page*30+1}`),
+      WHERE m."storeId"=${storeId} AND (m.id LIKE 'beauty-care:%' OR m.id LIKE 'plan-activation:%')) SELECT * FROM notifications ${notificationCenterWhere(params)} ORDER BY at DESC,id DESC LIMIT ${page*30+1}`),
   ]);
   const rows = await beautyPrisma.$queryRaw<NotificationRow[]>(Prisma.sql`
     WITH notifications AS (

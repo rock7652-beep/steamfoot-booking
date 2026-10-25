@@ -1,4 +1,6 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 const m=vi.hoisted(()=>({findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requireWritablePermission:m.writable}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:m.config}}}));

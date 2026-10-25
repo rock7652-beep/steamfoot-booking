@@ -1,4 +1,7 @@
 "use server";
+import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
@@ -290,9 +293,11 @@ export async function assignPlanToCustomer(
         }
       }
 
+      if(wallet)await enqueuePlanActivation(tx,{storeId,customerId:data.customerId,module:"STEAMFOOT",sourceId:transaction.id,entitlementId:wallet.id,planName:plan.name,quantity:plan.sessionCount,unit:"堂",expiresDate:activationExpiry(wallet.expiryDate)});
       return { wallet, transaction };
     });
 
+    kickPlanActivationNotifications(operationStoreId);
     revalidatePath(`/dashboard/customers/${data.customerId}`);
     return {
       success: true,

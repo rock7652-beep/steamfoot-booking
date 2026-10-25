@@ -1,7 +1,10 @@
 import {beforeEach,it,expect,vi} from "vitest";
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 vi.mock("server-only",()=>({}));
 const musicScope=vi.hoisted(()=>({ledger:vi.fn()}));
 vi.mock("@/server/services/music-native-workflow",()=>({musicNativeWorkflowEnabled:musicScope.ledger}));
+import {enqueuePlanActivation} from "@/server/services/plan-activation-enqueue";
 import {assignCourseWithCheckout} from "@/server/services/course-assignment-checkout";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
 import type {Prisma} from "../../generated/course-client";
@@ -12,7 +15,7 @@ const input={revenueStaffId:"developer",expectedStoreCost:0,planId:"plan",custom
 beforeEach(()=>{vi.resetAllMocks();musicScope.ledger.mockReturnValue(false);tx.coursePurchase.findUnique.mockResolvedValue(null);tx.coursePointCard.findUnique.mockResolvedValue(null);tx.coursePointPlan.findFirst.mockResolvedValue({id:"plan",name:"十堂",unit:"SESSION",points:10,price:1000,validDays:30,templateIds:[],storeCost:0,termSessionIds:[]});tx.$queryRaw.mockResolvedValue([{id:"customer",displayName:"開發人"}]);tx.coursePointCard.create.mockResolvedValue({id:"card",termSessionIds:[]});tx.coursePurchase.create.mockImplementation(async({data})=>({id:"order",...data}));});
 it.each([["AMOUNT",200,800],["PERCENT",20,800],["PERCENT",100,0]] as const)("calculates %s %s",(kind,value,paid)=>expect(calculateCourseCheckout(1000,kind,value).paid).toBe(paid));
 it.each([["AMOUNT",1001],["PERCENT",101],["AMOUNT",-1]] as const)("rejects invalid %s %s",(kind,value)=>expect(()=>calculateCourseCheckout(1000,kind,value)).toThrow());
-it("saves discounted paid amount, method and four digits with one linked income",async()=>{const order=await assignCourseWithCheckout(db,actor,input);expect(order.price).toBe(800);expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({status:"CONFIRMED",cardId:"card",price:800,paymentMethod:"BANK_TRANSFER",transferLastFour:"0123",listPrice:1000})});expect(tx.$executeRaw).toHaveBeenCalledTimes(2);expect(tx.$executeRaw.mock.calls[0].slice(1)).toContain(800);});
+it("saves discounted paid amount, method and four digits with one linked income",async()=>{const order=await assignCourseWithCheckout(db,actor,input);expect(order.price).toBe(800);expect(enqueuePlanActivation).toHaveBeenCalledWith(db,expect.objectContaining({storeId:"A",customerId:"customer",module:"COURSE",sourceId:"order",entitlementId:"card",planName:"十堂",quantity:10,unit:"堂"}));expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({status:"CONFIRMED",cardId:"card",price:800,paymentMethod:"BANK_TRANSFER",transferLastFour:"0123",listPrice:1000})});expect(tx.$executeRaw).toHaveBeenCalledTimes(2);expect(tx.$executeRaw.mock.calls[0].slice(1)).toContain(800);});
 it("full discount needs no payment reference and writes audit but no income",async()=>{const order=await assignCourseWithCheckout(db,actor,{...input,discountValue:1000,transferLastFour:""});expect(order.paymentMethod).toBe("DISCOUNT");expect(order.price).toBe(0);expect(tx.$executeRaw).toHaveBeenCalledTimes(1);});
 it("rejects missing transfer digits before writing",async()=>{await expect(assignCourseWithCheckout(db,actor,{...input,transferLastFour:"123"})).rejects.toThrow("後四碼");expect(tx.coursePointCard.create).not.toHaveBeenCalled();});
 it("rejects a stale listed price and foreign customer",async()=>{tx.coursePointPlan.findFirst.mockResolvedValueOnce({price:1200});await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow("售價已變更");tx.$queryRaw.mockResolvedValueOnce([]);await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow("本店");expect(tx.coursePointCard.create).not.toHaveBeenCalled();});
