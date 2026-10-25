@@ -44,4 +44,5 @@ export async function musicBuildPreflight(env=process.env){
  }
  if(env.VERCEL_ENV==='production'||refs.includes(MUSIC_RELEASE_BRANCH))await runMusicNativeSchemaPreflight(env);
 }
-if(process.argv[1]===fileURLToPath(import.meta.url))musicBuildPreflight().catch(()=>{console.error('[music-release-preflight] blocked: verify release scope and schema readiness; no migrations applied');process.exitCode=1;});
+if(process.argv[1]===fileURLToPath(import.meta.url))musicBuildPreflight().catch(async error=>{
+ if(error?.beautyPreflightDiagnostic){const {beautyProductionFailureDiagnostic}=await import('./beauty-production-release-preflight.mjs');console.error(beautyProductionFailureDiagnostic(error));}console.error('[music-release-preflight] blocked: verify release scope and schema readiness; no migrations applied');process.exitCode=1;});
