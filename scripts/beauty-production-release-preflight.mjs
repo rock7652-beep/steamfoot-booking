@@ -44,15 +44,16 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
  }catch(error){
   const candidate=error?.code??error?.errorCode;
   const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
-  error.beautyPreflightDiagnostic={stage,code};throw error;
+  const sqlState=typeof error?.meta?.code==='string'&&/^[0-9A-Z]{5}$/.test(error.meta.code)?error.meta.code:undefined;
+  error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
  }finally{if(client)await client.end();}
 }
 if(process.argv[1]===fileURLToPath(import.meta.url))beautyProductionReleasePreflight().then(()=>beautyPrismaProductionPreflight()).then(()=>console.info('[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true')).catch(error=>{console.error(beautyProductionFailureDiagnostic(error));process.exitCode=1;});
 
 export function beautyProductionFailureDiagnostic(error){
  const d=error?.beautyPreflightDiagnostic;
- if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-identity'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
- return `[beauty-production-preflight] blocked stage=${d.stage} code=${d.code}; no migrations applied`;
+ if(!d||!['scope','certificate','connect','TLS','identity','role','schema','privileges','columns','prisma-connect','prisma-readonly','prisma-identity','prisma-columns'].includes(d.stage)||!/^([A-Z0-9_]{2,64})$/.test(d.code))return '[beauty-production-preflight] blocked; diagnostic unavailable';
+ return `[beauty-production-preflight] blocked stage=${d.stage} code=${d.code}${/^[0-9A-Z]{5}$/.test(d.sqlState??'')?' sqlstate='+d.sqlState:''}; no migrations applied`;
 }
 
 /** Exercise the same Prisma engine/TLS options as the live Beauty client, without store writes. */
@@ -61,17 +62,19 @@ export async function beautyPrismaProductionPreflight(env=process.env,createClie
  try{
   const url=validateBeautyProductionRelease(env);stage='certificate';verifyBeautyProductionCa();
   const factory=createClient??(async config=>{const {PrismaClient}=await import('../generated/beauty-client/index.js');return new PrismaClient(config);});
-  client=await factory({datasources:{db:{url}},log:[]});stage='prisma-connect';await client.$connect();stage='prisma-identity';
+  client=await factory({datasources:{db:{url}},log:[]});stage='prisma-connect';await client.$connect();stage='prisma-readonly';
   await client.$transaction(async tx=>{
-   await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-   const rows=await tx.$queryRawUnsafe('SELECT current_user AS role,current_database() AS database');
+   await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');stage='prisma-identity';
+   // PostgreSQL name is not a Prisma raw result type; expose these metadata identifiers as text.
+   const rows=await tx.$queryRawUnsafe('SELECT current_user::text AS role,current_database()::text AS database');
    if(rows.length!==1||rows[0].role!==BEAUTY_PRODUCTION_ROLE||rows[0].database!=='postgres')throw Error('Beauty Prisma runtime identity mismatch');
-   await tx.$queryRawUnsafe('SELECT id FROM "BeautySetting" LIMIT 0');
+   stage='prisma-columns';await tx.$queryRawUnsafe('SELECT id FROM "BeautySetting" LIMIT 0');
   });
   return {prisma:true,readonly:true};
  }catch(error){
   const candidate=error?.code??error?.errorCode;
   const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
-  error.beautyPreflightDiagnostic={stage,code};throw error;
+  const sqlState=typeof error?.meta?.code==='string'&&/^[0-9A-Z]{5}$/.test(error.meta.code)?error.meta.code:undefined;
+  error.beautyPreflightDiagnostic={stage,code,sqlState};throw error;
  }finally{if(client)await client.$disconnect();}
 }
