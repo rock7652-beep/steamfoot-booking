@@ -34,3 +34,24 @@
 
 
 後續唯讀診斷顯示 Prisma TLS 已可連線；先將 current_user/current_database 的 PostgreSQL name 結果轉為 text，通過身分核對。最後一個測試查詢誤用 BeautySetting.id（實際鍵為 storeId），已改為 tx.beautySetting.findMany(select storeId, take 1)，在 READ ONLY transaction 內測試真實模型。這是預檢引用修正，沒有新增欄位或重送升級。56 項連線／隔離測試及 ESLint 通過，準備完整建置，唯讀 gate 仍先執行。
+
+
+## 正式發布結果：已完成
+
+- Vercel Production READY：`dpl_Dto8EFXi9FQTtkP8Y2wwYWsb6tRJ`，程式 SHA `479bad711b71f3a9e0e0ce1af9a4be07ad1ee777`。
+- `steamfoot.com`、`www.steamfoot.com` 已唯讀核對指向該部署。正式入口：https://www.steamfoot.com/hq/login 。唯一部署網址：https://steamfoot-booking-d4p119po6-rock7652-2111s-projects.vercel.app 。
+- 實際建置日誌：`runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true`；後續 `ci-migrate: migration_skipped_no_target`。完整 Next 建置、TypeScript、輸出追蹤成功。
+- 正式 HTTP：官網／HQ 登入 200；未登入美業後台與新增店家皆 307 → /hq/login；session 200；既有蒸足入口正常轉址，無 5xx 或頁面 server error。這是未登入 smoke，不是有權限 HQ 使用者完成新增店家操作。
+- 新部署 error/fatal runtime log 查核未找到紀錄（2026-10-25 17:11–17:21 台灣時間窗口）；不將此短窗口解讀為全部業務流量無錯誤。
+- 最終來源相同版本 171 檔、1,536 項相關回歸再次通過；TLS／連線核心 56 項另驗，不與總數相加。
+- 正式 Store 9、Staff 17、CashbookEntry 110；Beauty 店／預約／卡／付款／事件均 0。Customer 從早先 618 到 619，新增列時間為 17:04:23，早於本次正式發布與 HTTP smoke；沒有把營運中前後筆數相同當成證據，也沒有查出顧客姓名或回復／刪除該新增資料。本次發布及驗證沒有寫入顧客或業務交易。
+- Vercel Production BEAUTY_NOTIFICATIONS_ENABLED 唯讀確認為 0。主 DATABASE_URL／DIRECT_URL 保留；不建立店家、不複製 Preview 資料、不開 LINE。
+- 本機專用新密碼暫存已於收尾移除，Vercel Sensitive 設定保留。無需重跑 schema／credential migration。
+
+## 尚未執行的正式業務範圍
+
+依使用者「只發布模組，暫不建店」，正式庫沒有美業店，因此沒有正式美業收退款、預約、扣次或帳本測試寫入。完整業務流程證據仍來自先前授權的隔離測試店；手機／平板真機驗收由使用者先前確認。這次新增證據是正式 pg 與 Prisma 的嚴格 TLS／角色／READ ONLY、完整建置與公開入口驗證，不能冒充登入後全流程。
+
+未來建立正式美業店後，須依該店完成開店與收費 allowlist 設定；本輪不擴大尚未指定店家的功能 rollout 範圍。回退優先停用新模組／編輯入口並保留 schema 與交易，不自動 DROP／清資料／恢復整庫備份。
+
+證據：[發布結果](evidence/20261025-formal-publication/published-result.json)、[HTTP smoke](evidence/20261025-formal-publication/http-results.json)。
