@@ -2,6 +2,8 @@
 
 本輪只做正式庫 metadata SELECT 及本機候選檔案審查，沒有 DDL、資料寫入、環境修改或部署。上一輪隔離站結果見 [驗收報告](hosted-integration-acceptance-20261025.md)。
 
+後續已產出 [正式升級審查包](../qa/beauty-production-review-20261025/README.md)：包含本機模型產生的 14 表 SQL、完整性參考、權限查詢缺口及 SHA256 校驗。DDL 參考已阻止直接執行；不代表可執行 installer、最小權限或空庫驗證已完成。
+
 ## 重新確認的正式庫缺口
 
 目標 project `qijlnhtpbintanzpxkvf`，database `postgres`。查詢 pg_class、pg_enum、pg_roles，沒有查顧客個資。
