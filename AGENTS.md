@@ -43,6 +43,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 4. UI 相關變更必須完成 Preview，並檢查桌機與 iPad。
 5. 未取得使用者明確授權，不得合併正式站。
 
+## 運動模組正式介面（2026-10-25）
+
+- 使用者已決定：所有已開通 `business.fitness` 的正式課程店家及未來新店，一律使用原生新版，不再逐店加入部署白名單，也不得因舊 rollout 環境變數缺漏退回舊表單。
+- 依店家實際模組資格判斷，保留音樂／其他模組隔離、操作權限及資料庫 readiness；未開通或查詢失敗應明示阻擋，不顯示舊版。
+- 關閉開放選課／指定學員後，新增排課須依最新設定顯示可用模式及欄位；保留其他輸入，後端仍檢查當下設定。
+
 ## 全站 RWD 預設要求
 
 - 官網、HQ、所有模組後台、顧客／工作前台與 LINE LIFF 的新增或修改 UI，MUST 依 Framework 第 40 節納入 RWD；不需要使用者再次提出。
