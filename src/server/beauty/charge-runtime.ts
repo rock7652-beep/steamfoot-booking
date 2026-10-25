@@ -1,4 +1,4 @@
-import {readBeautyChargeCosts} from './charge-finance';
+import {readBeautyChargeCosts,readBeautyChargeFinance} from './charge-finance';
 import 'server-only';
 import {beautyStoreChargeRollout} from '../../../scripts/beauty-charge-rollout.mjs';
 import {AppError} from '@/lib/errors';
@@ -67,8 +67,8 @@ export async function readChargeCatalogForUi(tx:ChargeTx,storeId:string){
   tx.$queryRaw<(CatalogRow&{singlePriceConfigured:boolean|null;singleChargeName:string|null})[]>`SELECT id,revision,"singleChargeName","singlePriceConfigured","chargeTechnicianRule",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyService" WHERE "storeId"=${storeId}`,
   tx.$queryRaw<(CatalogRow&{serviceIds:string[]})[]>`SELECT id,revision,"serviceIds","chargeTechnicianRule",("chargeTechnicianRule" IS NULL) AS "ruleIsNull" FROM "BeautyPlan" WHERE "storeId"=${storeId}`,
  ]);
- const costs=await readBeautyChargeCosts(tx,storeId,[...singles.map(row=>({kind:'single' as const,id:row.id})),...plans.map(row=>({kind:'plan' as const,id:row.id}))]);
- return {enabled:true as const,editingEnabled:beautyChargeEditingEnabled(storeId),singles:singles.map(row=>({id:row.id,revision:row.revision,name:row.singleChargeName,storeCost:costs.get('single:'+row.id)??null,configured:row.singlePriceConfigured,rule:readStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`service:${row.id}`,revision:row.revision,serviceIds:[row.id]},storeId,'catalog')})),plans:await Promise.all(plans.map(async row=>({id:row.id,revision:row.revision,storeCost:costs.get('plan:'+row.id)??null,rule:await catalogChargeRule(tx,storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`plan:${row.id}`,revision:row.revision,serviceIds:row.serviceIds})})))};
+ const costs=await readBeautyChargeFinance(tx,storeId,[...singles.map(row=>({kind:'single' as const,id:row.id})),...plans.map(row=>({kind:'plan' as const,id:row.id}))]);
+ return {enabled:true as const,editingEnabled:beautyChargeEditingEnabled(storeId),singles:singles.map(row=>({id:row.id,revision:row.revision,name:row.singleChargeName,storeCost:costs.get('single:'+row.id)?.storeCost??null,trialStoreCost:costs.get('single:'+row.id)?.trialStoreCost??null,configured:row.singlePriceConfigured,rule:readStoredChargeRule(storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`service:${row.id}`,revision:row.revision,serviceIds:[row.id]},storeId,'catalog')})),plans:await Promise.all(plans.map(async row=>({id:row.id,revision:row.revision,storeCost:costs.get('plan:'+row.id)?.storeCost??null,rule:await catalogChargeRule(tx,storedColumn(row.chargeTechnicianRule,row.ruleIsNull),{storeId,chargeId:`plan:${row.id}`,revision:row.revision,serviceIds:row.serviceIds})})))};
 }
 /** Called only during the first explicit service creation, under the store write lock. Never from a read check. */
 export async function initializeEmptyBeautyOpening(tx:ChargeTx,storeId:string){

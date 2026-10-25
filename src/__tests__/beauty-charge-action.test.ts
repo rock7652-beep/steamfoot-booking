@@ -21,3 +21,10 @@ it('accepts the first explicit price in a production Beauty store without a manu
  for(const [key,value] of Object.entries({BEAUTY_CHARGE_RULES_SCOPE:'module',BEAUTY_CHARGE_RULES_STORE_IDS:'',BEAUTY_MODULE_ENABLED:'1',BEAUTY_DATABASE_MODE:'dedicated',BEAUTY_DATABASE_ROLE:'steamfoot_beauty_prod_20261025',VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking'}))vi.stubEnv(key,value);
  expect(await saveBeautyCharge(input)).toMatchObject({success:true,data:{id:'s',revision:3}});expect(m.write).toHaveBeenCalledOnce();
 });
+
+it('persists the explicit zero trial fee in the same authorized revision audit',async()=>{
+ expect(await saveBeautyCharge({...input,draft:{...single,storeCost:300,trialStoreCost:0}})).toMatchObject({success:true});
+ expect(m.audit).toHaveBeenCalledWith(expect.anything(),expect.anything(),'CHARGE_SETTING',expect.any(String));
+ const call=m.audit.mock.calls.find(c=>c[2]==='CHARGE_SETTING')!;
+ expect(JSON.parse(call[3])).toMatchObject({id:'s',kind:'single',revision:3,storeCost:300,trialStoreCost:0});
+});

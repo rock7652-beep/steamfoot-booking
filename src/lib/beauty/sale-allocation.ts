@@ -5,3 +5,8 @@ export function beautySaleAllocation(paid:number,storeCost:number|null|undefined
  return calculateCourseSaleAllocation(paid,storeCost);
 }
 export {courseAllocationAfterRefund as beautyAllocationAfterRefund};
+
+/** A zero trial fee is explicit; only null/omission inherits the general fee. */
+export function beautyServiceStoreCost(setting:{storeCost:number|null;trialStoreCost?:number|null}|undefined,isTrial:boolean){
+ return (isTrial?setting?.trialStoreCost??setting?.storeCost:setting?.storeCost)??null;
+}

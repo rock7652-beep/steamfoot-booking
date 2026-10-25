@@ -59,3 +59,12 @@ it('freezes the fixed store fee and sale attribution while keeping the technicia
  const {audit}=await import('@/server/beauty/access');const call=vi.mocked(audit).mock.calls.filter(args=>args[2]==='ISSUE_CARD').at(-1)!;
  expect(JSON.parse(call[3])).toMatchObject({paymentId:'receipt',revenueStaffId:'manager',allocation:{storeAmount:300,developerAmount:600,shortfall:0}});
 });
+
+it.each([{trial:false,override:150,expected:300},{trial:true,override:150,expected:150},{trial:true,override:0,expected:0},{trial:true,override:null,expected:300}])('freezes the effective service fee at booking, including explicit zero: %j',async({trial,override,expected})=>{
+ const {audit}=await import('@/server/beauty/access');vi.mocked(audit).mockClear();
+ const f=fixture();vi.mocked(f.tx.beautyEvent.findMany).mockResolvedValue([{body:JSON.stringify({id:'s',kind:'single',revision:1,storeCost:300,trialStoreCost:override})}] as never);
+ await reserveParty(f.tx,actor,{...request,people:[{...person,isTrial:trial}],requestKey:'11111111-1111-4111-8111-111111111111',policyRevision:0,isTrial:!trial,contactName:'顧客',phone:'0900000000'} as BookingPartyInput);
+ const finance=vi.mocked(audit).mock.calls.find(c=>c[2]==='SERVICE_FINANCE_RULE')!;
+ expect(JSON.parse(finance[3]!)).toEqual({storeCost:expected});
+ expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({isTrial:trial,price:trial?500:1000})}));
+});

@@ -6,7 +6,7 @@ const shared={
 };
 /** A multiple-session charge has no trial fields; reject rather than silently save them. */
 export const beautyChargeDraft=z.discriminatedUnion('kind',[
- z.object({...shared,kind:z.literal('single'),sessions:z.literal(1),trialPrice:money.nullable(),trialMinutes:z.number().int().min(5).max(720).nullable()}).strict(),
+ z.object({...shared,kind:z.literal('single'),sessions:z.literal(1),trialStoreCost:money.nullable().optional(),trialPrice:money.nullable(),trialMinutes:z.number().int().min(5).max(720).nullable()}).strict(),
  z.object({...shared,kind:z.literal('plan'),sessions:z.number().int().min(2).max(10000),validDays:z.number().int().min(1).max(3650),allowShared:z.boolean()}).strict(),
 ]);
 export type BeautyChargeDraft=z.infer<typeof beautyChargeDraft>;
@@ -15,6 +15,10 @@ export type ChargeTechnician={id:string;name:string;active:boolean;serviceIds:st
 export function validateBeautyCharge(input:unknown,storeId:string,services:ChargeService[],technicians:ChargeTechnician[]){
  const draft=beautyChargeDraft.parse(input);
  if(draft.storeCost!=null&&draft.storeCost>draft.price)throw Error('店家固定費用不可超過售價');
+ if(draft.kind==='single'&&draft.trialStoreCost!=null){
+  if(draft.trialPrice===null)throw Error('請先設定體驗價格，再設定體驗店家費用');
+  if(draft.trialStoreCost>draft.trialPrice)throw Error('體驗店家費用不可超過體驗價格');
+ }
  if(draft.expectedStoreId!==storeId)throw Error('門市已切換，請重新開啟');
  const service=services.find(s=>s.id===draft.serviceId&&s.active);
  if(!service)throw Error('請選擇本店啟用的服務');

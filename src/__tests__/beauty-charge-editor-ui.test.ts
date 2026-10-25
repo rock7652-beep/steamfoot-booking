@@ -54,3 +54,21 @@ it('retains the same draft after an uncertain save and prevents closing until it
  act(()=>cancel.click());expect(onClose).not.toHaveBeenCalled();
  await submit();expect(save.mock.calls[1][0]).toEqual(save.mock.calls[0][0]);expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it('groups prices before costs and keeps blank inheritance distinct from an explicit zero trial fee',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
+ mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300,trialPrice:750,trialStoreCost:150});
+ expect([...document.querySelectorAll('[aria-label="價格與分帳"] input')].map(n=>n.getAttribute('name'))).toEqual(['price','trialPrice','storeCost','trialStoreCost']);
+ expect(document.querySelectorAll('[name="price"]')).toHaveLength(1);
+ expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('一般服務：店家 $300／所屬店長 $700');
+ expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('體驗：店家 $150／所屬店長 $600');
+ fill('trialStoreCost','');expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('體驗：店家 $300／所屬店長 $450');
+ fill('trialStoreCost','0');expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('體驗：店家 $0／所屬店長 $750');
+ await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({storeCost:300,trialStoreCost:0,trialPrice:750,price:1000}));
+});
+it('does not send trial fee fields for a multi-session plan',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
+ mount({perChargeTechnicians:true,save},{expectedStoreId:'store',kind:'plan',serviceId:'s',name:'五次按摩',price:4500,storeCost:1500,sessions:5,validDays:90,allowShared:true,technicianIds:['t']});
+ expect(document.querySelector('[name="trialStoreCost"]')).toBeNull();
+ await submit();expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).not.toHaveProperty('trialStoreCost');
+});
