@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build",
+    "build": "node scripts/beauty-production-release-gate.mjs && node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build",
     "generate:clients": "prisma generate && prisma generate --schema course-prisma/schema.prisma && prisma generate --schema beauty-prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint",

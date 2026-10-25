@@ -38,3 +38,17 @@ Vercel 的既有敏感 DATABASE_URL API 只回 metadata 與 decrypted=false，�
 目前阻擋是升級工具的 requestState 失效，不是缺少使用者的正式發布授權。保留錯誤與唯讀證據，停止本輪正式寫入；工具的有效請求狀態恢復、並再次唯讀確認仍未安裝後，才可依使用者指示續接。不要自行反覆重試、改走其他寫入通道或把本輪記成部署成功。
 
 證據：[呼叫與前後狀態](evidence/20261025-production-package/formal-execution-attempt.json)、[發布範圍](formal-publication-confirmation-20261025.md)。
+
+## 使用者要求恢復工具後的續行結果
+
+使用者明確要求恢復有效請求狀態、核對現況續行。先重新唯讀確認零 Beauty 表、無角色、無升級紀錄及既有筆數一致，再送出新請求，成功套用核准的 base 與 runtime SQL，並為新角色配置獨立 SCRAM 憑證。沒有重設既有角色密碼。
+
+- 正式 14 張 Beauty 表及 RLS 已建立；六個 nullable/no-default 收費欄位逐項符合。
+- 新角色可登入、無管理權限、無 membership、無 passwordHash 讀取及 BeautyPayment 修改／刪除／截斷權限。
+- 升級後 Store 9、Customer 618、Staff 17、CashbookEntry 110；Beauty 店仍為 0。這是筆數核對，不宣稱所有內容均做相同基準雜湊。
+- Vercel Production 新增專用密碼及功能旗標被自動審核拒絕：可信使用者內容未明確授權將敏感憑證交給此特定目的地。該寫入未執行；未換其他通道繞過。
+- 阻擋目的地：Vercel team `team_IAPnhzLHM4x540wiXg3lTyS9`、project `prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR`（steamfoot-booking）、Production，server-only Sensitive `BEAUTY_DATABASE_PASSWORD`，以及非敏感 Beauty 專用連線／功能旗標。主 DATABASE_URL／DIRECT_URL 保留，LINE flag 為 0。
+- 已在本機 build 最前方接入唯讀 Beauty runtime preflight，保留原音樂及其他 guards，避免連線未驗證即進入 ci-migrate。新增 gate ESLint 與差異檢查通過，連線相關 53 項測試通過。
+- 尚未實測正式 runtime 密碼登入；尚未推送 main、部署、切網域或建店。正式資料庫已升級，正式網站程式仍是原版，不能再描述為正式庫未動。
+
+後續需要明確目的地授權，再配置上述 Vercel 正式環境，實際通過 readonly runtime preflight 後才發布。憑證不納入 Git、報告或工具輸出。
