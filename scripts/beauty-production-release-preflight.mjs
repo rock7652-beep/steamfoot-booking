@@ -1,4 +1,4 @@
-import {verifyBeautyProductionCa} from './beauty-production-ca.mjs';
+import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
 export const BEAUTY_PRODUCTION_ROLE='steamfoot_beauty_prod_20261025';
@@ -15,7 +15,7 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
  try{
  const selected=validateBeautyProductionRelease(env);
  stage='certificate';verifyBeautyProductionCa();
- const pgUrl=new URL(selected);pgUrl.searchParams.set('sslmode','verify-full');
+ const pgUrl=new URL(selected);pgUrl.searchParams.delete('sslcert');pgUrl.searchParams.set('sslrootcert',beautyProductionCaPath());pgUrl.searchParams.set('sslmode','verify-full');
  const connectionString=pgUrl.toString();
  const factory=createClient??(config=>import('pg').then(({Client})=>new Client(config)));
  client=await factory({connectionString,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000});
@@ -42,7 +42,8 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   for(const [table,fields] of [['Store','id,"industryModule","operatingStatus"'],['Customer','id,name,phone,"assignedStaffId","updatedAt"'],['Staff','id,"userId","displayName",status'],['User','id,status'],['CourseRoom','id,name,"rentalEnabled"'],['CourseDisplayOrder','kind,ids,revision'],['CourseStoreNotice','id,kind,revision'],['CashDrawerSession','id,status,"updatedAt"'],['CashbookEntry','id,amount,"paymentMethod"'],['BeautyService','"singleChargeName","singlePriceConfigured","chargeTechnicianRule","trialDuration"'],['BeautyPlan','"chargeTechnicianRule"'],['BeautyCard','"chargeRuleSnapshot"'],['BeautyAppointment','"chargeRuleSnapshot"']])await client.query(`SELECT ${fields} FROM "${table}" LIMIT 0`);
   await client.query('ROLLBACK');return {schemaTables:14,tls:true,role:BEAUTY_PRODUCTION_ROLE,readonly:true};
  }catch(error){
-  const code=typeof error?.code==='string'&&/^[A-Z0-9_]{2,64}$/.test(error.code)?error.code:'CHECK';
+  const candidate=error?.code??error?.errorCode;
+  const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
   error.beautyPreflightDiagnostic={stage,code};throw error;
  }finally{if(client)await client.end();}
 }
@@ -69,7 +70,8 @@ export async function beautyPrismaProductionPreflight(env=process.env,createClie
   });
   return {prisma:true,readonly:true};
  }catch(error){
-  const code=typeof error?.code==='string'&&/^[A-Z0-9_]{2,64}$/.test(error.code)?error.code:'CHECK';
+  const candidate=error?.code??error?.errorCode;
+  const code=typeof candidate==='string'&&/^[A-Z0-9_]{2,64}$/.test(candidate)?candidate:'CHECK';
   error.beautyPreflightDiagnostic={stage,code};throw error;
  }finally{if(client)await client.$disconnect();}
 }

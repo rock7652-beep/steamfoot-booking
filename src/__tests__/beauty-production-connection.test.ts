@@ -14,11 +14,11 @@ describe('reviewed production Beauty connection',()=>{
 
  it('pins the public Supabase root and keeps strict verification for Prisma and pg',async()=>{
   expect(verifyBeautyProductionCa().ca).toBe(true);const u=new URL(beautyDatabaseSelection(env)!);
-  expect(u.searchParams.get('sslrootcert')).toBe(beautyProductionCaPath());expect(u.searchParams.get('sslaccept')).toBe('strict');
+  expect(u.searchParams.get('sslcert')).toBe(beautyProductionCaPath());expect(u.searchParams.get('sslaccept')).toBe('strict');
   let captured='';const create=vi.fn(async(config:{connectionString:string})=>{captured=config.connectionString;return {connect:vi.fn().mockRejectedValue(Object.assign(new Error('secret URL must never be logged'),{code:'SELF_SIGNED_CERT_IN_CHAIN'})),end:vi.fn()};});
   let diagnostic='';try{await beautyProductionReleasePreflight(env,create);}catch(e){diagnostic=beautyProductionFailureDiagnostic(e);}
   expect(diagnostic).toContain('stage=connect code=SELF_SIGNED_CERT_IN_CHAIN');expect(diagnostic).not.toContain('secret URL');expect(diagnostic).not.toContain(env.BEAUTY_DATABASE_PASSWORD);
-  const config=parse(captured);expect(new URL(captured).searchParams.get('sslmode')).toBe('verify-full');expect(config.ssl).toMatchObject({ca:expect.stringContaining('BEGIN CERTIFICATE')});expect((config.ssl as {rejectUnauthorized?:boolean}).rejectUnauthorized).not.toBe(false);
+  const config=parse(captured);expect(new URL(captured).searchParams.has('sslcert')).toBe(false);expect(new URL(captured).searchParams.get('sslmode')).toBe('verify-full');expect(config.ssl).toMatchObject({ca:expect.stringContaining('BEGIN CERTIFICATE')});expect((config.ssl as {rejectUnauthorized?:boolean}).rejectUnauthorized).not.toBe(false);
  });
 
  it('blocks the actual build entry before database construction when a migration target leaks in',async()=>{await expect(musicBuildPreflight({...env,PRODUCTION_MIGRATION_TARGET:'unreviewed'})).rejects.toThrow('scope');});

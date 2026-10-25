@@ -22,7 +22,7 @@ export function beautyDatabaseSelection(env) {
     if(!['postgres:','postgresql:'].includes(endpoint.protocol)||endpoint.pathname!=='/postgres'||endpoint.hash||!['','5432','6543'].includes(endpoint.port)||(!direct&&!pooled))return invalid();
     endpoint.username=env.BEAUTY_DATABASE_ROLE+(pooled?'.'+project:'');
     endpoint.password=env.BEAUTY_DATABASE_PASSWORD;
-    endpoint.search='';endpoint.searchParams.set('schema','public');endpoint.searchParams.set('sslmode','require');endpoint.searchParams.set('sslaccept','strict');endpoint.searchParams.set('sslrootcert',beautyProductionCaPath());
+    endpoint.search='';endpoint.searchParams.set('schema','public');endpoint.searchParams.set('sslmode','require');endpoint.searchParams.set('sslaccept','strict');endpoint.searchParams.set('sslcert',beautyProductionCaPath());
     endpoint.searchParams.set('connection_limit','1');endpoint.searchParams.set('pool_timeout','10');endpoint.searchParams.set('connect_timeout','10');
     if(pooled){endpoint.searchParams.set('pgbouncer','true');endpoint.searchParams.set('statement_cache_size','0');}
     value=endpoint.toString();
@@ -35,7 +35,7 @@ export function beautyDatabaseSelection(env) {
   if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || !url.password ||
       !/^steamfoot_beauty_[a-z][a-z0-9_]{0,39}(?:\.[a-z0-9]+)?$/.test(user) ||
       !/^\/[^/\s\\\u0000-\u001f\u007f]+$/.test(database) || url.hash) return invalid();
-  const allowed = new Set(['schema','sslmode','sslaccept','sslrootcert','connection_limit','pool_timeout','connect_timeout','pgbouncer','statement_cache_size']);
+  const allowed = new Set(['schema','sslmode','sslaccept','sslcert','sslrootcert','connection_limit','pool_timeout','connect_timeout','pgbouncer','statement_cache_size']);
   const seen = new Set();
   for (const [key, val] of url.searchParams) {
     if (!allowed.has(key) || seen.has(key) || !val || /[\u0000-\u001f\u007f]/.test(val)) return invalid();

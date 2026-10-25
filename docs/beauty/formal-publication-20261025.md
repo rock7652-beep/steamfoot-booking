@@ -25,6 +25,9 @@
 
 第一個正式建置 dpl_2XzdPw4f5SCZJgJCeZndP3DfyyJf 在 preflight 停止，未切換 steamfoot.com／www.steamfoot.com；兩域名仍為 dpl_GgMCzNKH4Xvzr3cNDdQRetwVoXKX（main 5f1b419e）。後續唯讀診斷專用建置 dpl_5kxi9i4ose4rs5x1WYVZFuSLUZLW 明確回報 connect／SELF_SIGNED_CERT_IN_CHAIN；診斷指令設定為即使連線通過也不產出可發布版本。正式新角色的 verifier 僅比對是否符合，結果 true，沒有重設密碼或讀出既有憑證。
 
-修正僅針對新 Beauty 連線：納入 Supabase 公開官方 Root 2021 CA，固定 SHA256 指紋 80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA。pg 使用 verify-full；Prisma 使用 require + sslaccept=strict + sslrootcert。憑證納入 server output tracing，不關閉 certificate／hostname 驗證，也不改全域信任或主連線。
+修正僅針對新 Beauty 連線：納入 Supabase 公開官方 Root 2021 CA，固定 SHA256 指紋 80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA。pg 使用 verify-full；Prisma 使用 require + sslaccept=strict + sslcert（Prisma 官方的 server certificate 參數）；pg 專用 URL 使用 sslrootcert。憑證納入 server output tracing，不關閉 certificate／hostname 驗證，也不改全域信任或主連線。
 
 新增實際 Prisma engine 的唯讀 transaction 身分／必要表查詢，與 pg 的 TLS／RLS 檢查皆須通過。最終 171 檔 1,536 項及 TypeScript 通過；TLS 相關異動 ESLint 0 errors／0 warnings。準備以修正版再次執行唯讀診斷，通過後才完整建置。
+
+
+修正版 CA 診斷 dpl_7pVpak6nMXGnWWC3HF1P4Zpr5Z8N 已通過 pg 端全部 readonly 檢查，再於 prisma-connect 停止。核對 Prisma 官方 PostgreSQL 文件確認 server certificate 參數是 sslcert，與 node-postgres 的 sslrootcert 不同；現已分別配置，沒有把 CA 當成 pg 的 client identity。相關 56 項測試與 ESLint 通過，沒有重送 schema／role migration。
