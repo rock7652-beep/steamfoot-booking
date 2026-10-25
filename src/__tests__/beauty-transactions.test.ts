@@ -549,11 +549,11 @@ it('closes a partially refunded plan once and retains independent refund receipt
  let closed=false,returned=0;
  vi.mocked(tx.beautyPayment.findFirst).mockResolvedValue({id:'original',kind:'SALE',amount:900,cardId:'card',appointmentId:null} as never);
  vi.mocked(tx.beautyPayment.aggregate).mockImplementation(()=>Promise.resolve({_sum:{amount:-returned}}) as never);
- vi.mocked(tx.beautyCard.findFirstOrThrow).mockImplementation(()=>Promise.resolve({...card,closedAt:closed?new Date():null}) as never);
+ vi.mocked(tx.beautyCard.findFirstOrThrow).mockImplementation(()=>Promise.resolve({...card,remaining:closed?0:card.remaining,closedAt:closed?new Date():null}) as never);
  vi.mocked(tx.beautyCard.update).mockImplementation(()=>{closed=true;return Promise.resolve({}) as never;});
  vi.mocked(tx.beautyPayment.create).mockImplementation(({data})=>{returned-=Number(data.amount);return Promise.resolve({...data,id:'refund-'+returned}) as never;});
  await refund(tx,a,{requestKey:crypto.randomUUID(),paymentId:'original',amount:300,method:'OTHER',reason:'合成部分退回'},{remaining:2,refundedAmount:0});
- await refund(tx,a,{requestKey:crypto.randomUUID(),paymentId:'original',amount:600,method:'OTHER',reason:'合成剩餘退回'},{remaining:2,refundedAmount:300});
+ await refund(tx,a,{requestKey:crypto.randomUUID(),paymentId:'original',amount:600,method:'OTHER',reason:'合成剩餘退回'},{remaining:0,refundedAmount:300});
  expect(tx.beautyCard.update).toHaveBeenCalledTimes(1);expect(tx.beautyLedger.create).toHaveBeenCalledTimes(1);
  expect(tx.beautyLedger.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({kind:'REFUND',delta:-2})}));
  expect(tx.beautyPayment.create).toHaveBeenCalledTimes(2);expect(returned).toBe(900);
