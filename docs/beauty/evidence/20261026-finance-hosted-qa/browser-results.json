@@ -1,0 +1,794 @@
+{
+  "deployment": "dpl_AraNQ37aQu3wJa6WjSB1sLsNfWus",
+  "identity": "qa-manager",
+  "errors": [],
+  "network": [
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 4699,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1997,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/cash-drawer",
+      "status": 200,
+      "ms": 1691,
+      "action": "70502751"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2239,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2145,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1180,
+      "action": "701fb085"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1322,
+      "action": "609a9c19"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1033,
+      "action": "60691024"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2158,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 6976,
+      "action": "40d43611"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 5144,
+      "action": "40d43611"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2216,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1337,
+      "action": "40e45eff"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1633,
+      "action": "4043f40e"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1270,
+      "action": "40e45eff"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1654,
+      "action": "4043f40e"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1771,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2185,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 887,
+      "action": "60691024"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1792,
+      "action": "40236966"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1848,
+      "action": "40236966"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2744,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2659,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2737,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2578,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 2284,
+      "action": "409e4b90"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1999,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/cash-drawer/save",
+      "status": 200,
+      "ms": 1216
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1959,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1908,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1571,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 1782,
+      "action": "40afcd58"
+    }
+  ],
+  "checks": [
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "MANAGER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa-finance-4310a985-staff"
+      }
+    },
+    {
+      "name": "drawer-open-ui",
+      "value": {
+        "text": "現金抽屜\n關閉",
+        "fields": []
+      }
+    },
+    {
+      "name": "drawer-loaded-ui",
+      "value": {
+        "text": "現金抽屜\n關閉",
+        "fields": []
+      }
+    },
+    {
+      "name": "drawer-diagnostic",
+      "value": {
+        "url": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+        "dialogs": [
+          {
+            "text": "現金抽屜\n關閉",
+            "html": "<div class=\"flex h-full min-h-0 flex-col bg-white\"><header class=\"flex shrink-0 items-center justify-between gap-3 border-b border-earth-200 px-4 py-2\"><h2 id=\"_r_1_\" class=\"font-semibold text-primary-900\">現金抽屜</h2><button type=\"button\" class=\"min-h-11 min-w-11 rounded-lg px-2 text-sm text-earth-700 hover:bg-earth-50 disabled:opacity-50\">關閉</button></header><div class=\"relative min-h-0 flex-1\"><iframe title=\"現金抽屜工作台\" tabindex=\"0\" src=\"/s/beauty-hosted-20261021/admin/dashboard/cash-drawer?cashDrawerPanel=1&amp;panelStoreId=beauty-hosted-20261021&amp;panelPrefix=%2Fs%2Fbeauty-hosted-20261021%2Fadmin\" class=\"h-full w-full border-0\"></iframe></div></div>"
+          }
+        ],
+        "requests": [
+          {
+            "path": "/api/beauty/calendar",
+            "status": 200,
+            "ms": 1057
+          },
+          {
+            "path": "/api/beauty/calendar",
+            "status": 200,
+            "ms": 1063
+          },
+          {
+            "path": "/api/beauty/calendar",
+            "status": 200,
+            "ms": 969
+          },
+          {
+            "path": "/api/beauty/calendar",
+            "status": 200,
+            "ms": 971
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+            "status": 200,
+            "ms": 1997
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "status": 200,
+            "ms": 822
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "status": 200,
+            "ms": 752
+          },
+          {
+            "path": "/favicon.ico",
+            "status": 200,
+            "ms": 223
+          },
+          {
+            "path": "/s/beauty-hosted-20261021/admin/dashboard",
+            "status": 200,
+            "ms": 459
+          },
+          {
+            "path": "/api/beauty/calendar",
+            "status": 200,
+            "ms": 859
+          }
+        ]
+      }
+    },
+    {
+      "name": "drawer-frame-ui",
+      "value": {
+        "text": "今日現金管理　2026/10/26\n尚未開店\n\n今日開店起點\n\nNT$ 1000\n\n從上次閉店（2026/10/25）實際點到的現金開始。\n\n開店點錢\n\n請現場清點抽屜內現金，輸入實際金額。\n\n先完成開店點錢，開店後就可以記收入、提領或補入現金。\n\n實際點到金額（NT$）\n差額原因（若與上日帳面不同必填）\n完成今日開店點錢",
+        "fields": [
+          {
+            "name": "openingActualCash",
+            "type": "number",
+            "aria": null,
+            "value": ""
+          },
+          {
+            "name": "note",
+            "type": "textarea",
+            "aria": null,
+            "value": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "drawer-open",
+      "value": {
+        "text": "今日現金管理　2026/10/26\n尚未開店\n\n今日開店起點\n\nNT$ 1000\n\n從上次閉店（2026/10/25）實際點到的現金開始。\n\n開店點錢\n\n請現場清點抽屜內現金，輸入實際金額。\n\n先完成開店點錢，開店後就可以記收入、提領或補入現金。\n\n實際點到金額（NT$）\n差額原因（若與上日帳面不同必填）\n處理中..."
+      }
+    },
+    {
+      "name": "booking-two-person-ui",
+      "value": {
+        "text": "新增預約\n關閉\n日期\n開始時間\n顧客\n姓名\n服務項目\n測試做臉 · 60 分鐘\n測試按摩 · 90 分鐘\nQA全站1023-服務 · 45 分鐘\n使用方案\n單次付款 · NT$ 1,000\n體驗 · NT$ 500\n位置\n自動安排\n測試空間 A\n測試空間 B\nQA全站1023-出租床位\nQA現金床位A-4310a985\nQA現金床位B-4310a985\n技師\n自動安排\n測試女技師\nQA現金技師A-4310a985\nQA現金技師B-4310a985\n測試男技師\n09:00–10:00 · 60 分鐘\n整理至 10:15\n備註\n同行者 1\n移除同行者 1\n姓名\n服務項目\n測試做臉 · 60 分鐘\n測試按摩 · 90 分鐘\nQA全站1023-服務 · 45 分鐘\n使用方案\n單次付款 · NT$ 1,000\n體驗 · NT$ 500（補齊顧客資料後安排）\n位置\n自動安排\n測試空間 A\n測試空間 B\nQA全站1023-出租床位\nQA現金床位A-4310a985\nQA現金床位B-4310a985\n技師\n自動安排\n測試女技師\nQA現金技師A-4310a985\nQA現金技師B-4310a985\n測試男技師\n09:00–10:00 · 60 分鐘\n整理至 10:15\n備註\n＋新增同行者\n\n2 位 · 方案使用 0 次 · 應收 NT$ 2,000\n\n正在核對時段…\n\n確認預約",
+        "fields": [
+          {
+            "aria": "預約日期",
+            "value": "2026-10-27"
+          },
+          {
+            "aria": "預約開始時間",
+            "value": "09:00"
+          },
+          {
+            "aria": "顧客姓名 1",
+            "value": "QA現金1026-4310a985甲 · 0900432291"
+          },
+          {
+            "aria": "服務項目 1",
+            "value": "beauty-hosted-face",
+            "options": [
+              {
+                "value": "beauty-hosted-face",
+                "text": "測試做臉 · 60 分鐘"
+              },
+              {
+                "value": "beauty-hosted-massage",
+                "text": "測試按摩 · 90 分鐘"
+              },
+              {
+                "value": "cmvkjjv1s0000jw082jcxztys",
+                "text": "QA全站1023-服務 · 45 分鐘"
+              }
+            ]
+          },
+          {
+            "aria": "使用方案 1",
+            "value": "",
+            "options": [
+              {
+                "value": "",
+                "text": "單次付款 · NT$ 1,000"
+              },
+              {
+                "value": "__trial__",
+                "text": "體驗 · NT$ 500"
+              }
+            ]
+          },
+          {
+            "aria": "此位位置 1",
+            "value": "qa-finance-4310a985-room-a",
+            "options": [
+              {
+                "value": "",
+                "text": "自動安排"
+              },
+              {
+                "value": "beauty-hosted-room-a",
+                "text": "測試空間 A"
+              },
+              {
+                "value": "beauty-hosted-room-b",
+                "text": "測試空間 B"
+              },
+              {
+                "value": "bcf97ee2-c1d3-4a65-b1c7-714d6662c92c",
+                "text": "QA全站1023-出租床位"
+              },
+              {
+                "value": "qa-finance-4310a985-room-a",
+                "text": "QA現金床位A-4310a985"
+              },
+              {
+                "value": "qa-finance-4310a985-room-b",
+                "text": "QA現金床位B-4310a985"
+              }
+            ]
+          },
+          {
+            "aria": "此位技師 1",
+            "value": "qa-finance-4310a985-tech-a",
+            "options": [
+              {
+                "value": "",
+                "text": "自動安排"
+              },
+              {
+                "value": "beauty-hosted-female",
+                "text": "測試女技師"
+              },
+              {
+                "value": "qa-finance-4310a985-tech-a",
+                "text": "QA現金技師A-4310a985"
+              },
+              {
+                "value": "qa-finance-4310a985-tech-b",
+                "text": "QA現金技師B-4310a985"
+              },
+              {
+                "value": "beauty-hosted-male",
+                "text": "測試男技師"
+              }
+            ]
+          },
+          {
+            "aria": "本次備註 1",
+            "value": ""
+          },
+          {
+            "aria": "顧客姓名 2",
+            "value": ""
+          },
+          {
+            "aria": "服務項目 2",
+            "value": "beauty-hosted-face",
+            "options": [
+              {
+                "value": "beauty-hosted-face",
+                "text": "測試做臉 · 60 分鐘"
+              },
+              {
+                "value": "beauty-hosted-massage",
+                "text": "測試按摩 · 90 分鐘"
+              },
+              {
+                "value": "cmvkjjv1s0000jw082jcxztys",
+                "text": "QA全站1023-服務 · 45 分鐘"
+              }
+            ]
+          },
+          {
+            "aria": "使用方案 2",
+            "value": "",
+            "options": [
+              {
+                "value": "",
+                "text": "單次付款 · NT$ 1,000"
+              },
+              {
+                "value": "__trial__",
+                "text": "體驗 · NT$ 500（補齊顧客資料後安排）"
+              }
+            ]
+          },
+          {
+            "aria": "此位位置 2",
+            "value": "",
+            "options": [
+              {
+                "value": "",
+                "text": "自動安排"
+              },
+              {
+                "value": "beauty-hosted-room-a",
+                "text": "測試空間 A"
+              },
+              {
+                "value": "beauty-hosted-room-b",
+                "text": "測試空間 B"
+              },
+              {
+                "value": "bcf97ee2-c1d3-4a65-b1c7-714d6662c92c",
+                "text": "QA全站1023-出租床位"
+              },
+              {
+                "value": "qa-finance-4310a985-room-a",
+                "text": "QA現金床位A-4310a985"
+              },
+              {
+                "value": "qa-finance-4310a985-room-b",
+                "text": "QA現金床位B-4310a985"
+              }
+            ]
+          },
+          {
+            "aria": "此位技師 2",
+            "value": "",
+            "options": [
+              {
+                "value": "",
+                "text": "自動安排"
+              },
+              {
+                "value": "beauty-hosted-female",
+                "text": "測試女技師"
+              },
+              {
+                "value": "qa-finance-4310a985-tech-a",
+                "text": "QA現金技師A-4310a985"
+              },
+              {
+                "value": "qa-finance-4310a985-tech-b",
+                "text": "QA現金技師B-4310a985"
+              },
+              {
+                "value": "beauty-hosted-male",
+                "text": "測試男技師"
+              }
+            ]
+          },
+          {
+            "aria": "本次備註 2",
+            "value": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "book-two-person",
+      "value": {
+        "names": [
+          "QA現金1026-4310a985甲",
+          "QA現金1026-4310a985乙"
+        ],
+        "text": false
+      }
+    },
+    {
+      "name": "open-two-person-roster",
+      "value": {
+        "text": "預約清單\n關閉\n預約名單 2\n待服務 2\n篩選\n合併收款\n顧客／電話\n技師／位置\n本次使用\n可用次數\n：方案剩餘次數扣除所有已預約保留次數\n標籤／備註\nQA現金1026-4310a985甲\n✂\n☎ 0900-432-291\n\n測試做臉 · 2026-10-27 09:00–10:00\n\nQA現金技師A-4310a985／QA現金床位A-4310a985\nNT$ 1,000\n收款\n—\n店內\n備註\n：\nQA隔離測試，交易留存\n⋯\nQA現金1026-4310a985乙\n✂\n☎ 0900-728-750\n\n測試按摩 · 2026-10-27 09:00–10:30\n\nQA現金技師B-4310a985／QA現金床位B-4310a985\nNT$ 1,500\n收款\n—\n店內\n備註\n：\nQA隔離測試，交易留存\n⋯",
+        "rows": []
+      }
+    },
+    {
+      "name": "collection-target-race",
+      "value": {
+        "delayed": [
+          "A",
+          "B"
+        ],
+        "blockedWhileLoading": true,
+        "lateAIsolated": true,
+        "customer": "QA現金1026-4310a985乙",
+        "amount": "1500"
+      }
+    },
+    {
+      "name": "cash-B-and-idempotent-replay",
+      "value": {
+        "customer": "QA現金1026-4310a985乙",
+        "amount": 1500,
+        "method": "CASH",
+        "originalHttp": 200,
+        "replayHttp": 200,
+        "replayHasError": false
+      }
+    },
+    {
+      "name": "cash-A-discount",
+      "value": {
+        "customer": "QA現金1026-4310a985甲",
+        "original": 1000,
+        "discount": 100,
+        "collected": 900,
+        "method": "CASH",
+        "rosterStillOpen": true
+      }
+    },
+    {
+      "name": "drawer-after-cash-sales",
+      "value": {
+        "text": "今日現金管理　2026/10/26\n營業中\n\n目前抽屜應有現金\n\nNT$ 3400\n\n今日現金流入\n+ NT$ 2400\n今日現金支出\n− NT$ 0\n今日提領\n− NT$ 0\n今日補入\n+ NT$ 0\n開店差額\nNT$ 0\n閉店點錢\n結束今日營業，清點抽屜現金\n日常操作\n\n記收支走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。\n\n記一筆收支\n您沒有新增現金帳的權限。\n提領現金\n現金從抽屜拿出去（不算店內支出）\n補入現金\n找零金、備用金、保險箱補現金\n提領和支出有什麼不同？\n今日收款總覽\n現金收入\nNT$ 2400\n非現金收入\nNT$ 4400\n今日收款合計\nNT$ 6800\n今日其他異動\n\n系統即時計算，閉店時凍結進快照欄位\n\n無異動\n\n開店紀錄\n開店帳面（應有）\nNT$ 1000\n實際點到\nNT$ 1000\n差額\nNT$ 0\n開店時間\n2026/10/26 上午03:25\n開店備註\nQA隔離驗收：本輪開店測試，測試交易留存\n現金異動紀錄\n\n提領 / 補入 / 調整都只影響現金抽屜結餘，不進營收或費用\n\n今日尚無手動異動\n\n＋ 盤點調整（盤點短少 / 溢出）"
+      }
+    },
+    {
+      "name": "cancel-two-test-appointments",
+      "value": {
+        "text": "預約清單\n關閉\n預約名單 0\n已取消（2）\n篩選\n顧客／電話\n技師／位置\n本次使用\n可用次數\n：方案剩餘次數扣除所有已預約保留次數\n標籤／備註\n尚未加入學員"
+      }
+    },
+    {
+      "name": "revenue-diagnostic",
+      "value": {
+        "url": "/s/beauty-hosted-20261021/admin/dashboard/beauty?tab=%E7%87%9F%E9%81%8B&dateFrom=2026-10-26&dateTo=2026-10-26&staff=qa-finance-4310a985-staff",
+        "text": "展店版\n\n日常工作\n\n首頁\n班表\n顧客管理\n顧客經營\n營運\n分析\n\n店務管理\n\n位置管理\n服務項目\n收費方式\n技師管理\n人員管理\n圖片公告\n設定\nv2.9.0 · staging\n現金抽屜\n？操作指南\n預覽\n▾\n美業獨立測試店\n後台\nQA 現金分帳驗收\n店長\n營運\n待核帳 0 筆\n更多工具\n營收明細\n現金收支\n完整現金管理 →\n實收 NT$ 6,800\n退款 NT$ -0\n淨收款 NT$ 6,800\n待核帳 0 筆\nⓘ\n本日\n本月\n任意區間\n開始日期\n結束日期\n狀態\n全部\n待核帳\n已收款\n已登錄退款\n已作廢\n核帳人員\n全部\n測試店長\nQA1025整合驗收_owner\n清除\n\n沒有符合條件的交易\n\n調整日期或篩選條件重新查詢\n\nv2.9.0 • 2026/10/25 23:35 • staging",
+        "buttons": [
+          "",
+          "現金抽屜",
+          "？操作指南",
+          "預覽▾",
+          "",
+          "QA 現金分帳驗收店長",
+          "現金收支"
+        ]
+      }
+    },
+    {
+      "name": "open-service-refund",
+      "value": {
+        "text": "交易詳情\n關閉\nQA現金1026-4310a985乙・測試按摩\n原交易明細\n登錄退款\n\n已退款 NT$ 0 · 尚可退款 NT$ 1,500\n\n退款金額（元）\n退款方式\n請選擇\n現金\n銀行轉帳\n另行辦理退刷\n其他非現金\n退款原因\n\n登錄退款 NT$ —。歷史紀錄保留。\n\n系統不會自動轉帳或退刷。\n\n返回\n登錄退款"
+      }
+    },
+    {
+      "name": "cash-refund-both-corrected",
+      "value": [
+        {
+          "name": "QA現金1026-4310a985乙",
+          "amount": 1500,
+          "success": true
+        },
+        {
+          "name": "QA現金1026-4310a985甲",
+          "amount": 900,
+          "success": true
+        }
+      ]
+    },
+    {
+      "name": "fixed-cost-editor",
+      "value": {
+        "text": "編輯收費方式\n關閉\n名稱 *\n收費類型\n單次收費\n多次方案\n服務項目\n請選擇服務項目\nQA全站1023-服務\n測試做臉\n測試按摩\n店家固定費用（元，選填）實收扣除此費用，其餘歸顧客所屬店長；未設定不計算分潤。\n可安排技師（至少一位）\n測試女技師\nQA現金技師A-4310a985\nQA現金技師B-4310a985\n測試男技師\n\n實際安排仍依服務資格、排班與位置空位判斷。\n\n總次數 *\n售價 *\n有效期（天） *\n\n單位價格NT$ 1,000／次\n\n購買方式與共卡\n允許共卡\n\n修改僅影響新購買；下架保留既有額度。\n\n取消\n儲存",
+        "fields": [
+          {
+            "name": "name",
+            "aria": null,
+            "type": "text",
+            "value": "QA固定費用1026-4310a985",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": "收費類型",
+            "type": "select-one",
+            "value": "plan"
+          },
+          {
+            "name": "unit",
+            "aria": null,
+            "type": "hidden",
+            "value": "SESSION",
+            "checked": false
+          },
+          {
+            "name": "active",
+            "aria": null,
+            "type": "select-one",
+            "value": "yes"
+          },
+          {
+            "name": "",
+            "aria": "服務項目",
+            "type": "select-one",
+            "value": "beauty-hosted-face"
+          },
+          {
+            "name": "",
+            "aria": "店家固定費用",
+            "type": "number",
+            "value": "",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "on",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "on",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "on",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "on",
+            "checked": false
+          },
+          {
+            "name": "points",
+            "aria": null,
+            "type": "number",
+            "value": "5",
+            "checked": false
+          },
+          {
+            "name": "price",
+            "aria": null,
+            "type": "number",
+            "value": "5000",
+            "checked": false
+          },
+          {
+            "name": "days",
+            "aria": null,
+            "type": "number",
+            "value": "120",
+            "checked": false
+          },
+          {
+            "name": "purchaseMode",
+            "aria": null,
+            "type": "radio",
+            "value": "customer",
+            "checked": true
+          },
+          {
+            "name": "purchaseMode",
+            "aria": null,
+            "type": "radio",
+            "value": "backend",
+            "checked": false
+          },
+          {
+            "name": "allowShared",
+            "aria": null,
+            "type": "checkbox",
+            "value": "yes",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "select-one",
+            "value": "all"
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "text",
+            "value": "",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "qa_beauty_1025_service",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "cmvkjjv1s0000jw082jcxztys",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "beauty-hosted-face",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "beauty-hosted-massage",
+            "checked": false
+          },
+          {
+            "name": "",
+            "aria": null,
+            "type": "checkbox",
+            "value": "cmvj562s20000kz082w4uy7gm",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "fixed-cost-diagnostic",
+      "value": {
+        "value": "",
+        "text": "編輯收費方式\n關閉\n名稱 *\n收費類型\n單次收費\n多次方案\n服務項目\n請選擇服務項目\nQA全站1023-服務\n測試做臉\n測試按摩\n店家固定費用（元，選填）實收扣除此費用，其餘歸顧客所屬店長；未設定不計算分潤。\n可安排技師（至少一位）\n測試女技師\nQA現金技師A-4310a985\nQA現金技師B-4310a985\n測試男技師\n\n實際安排仍依服務資格、排班與位置空位判斷。\n\n總次數 *\n售價 *\n有效期（天） *\n\n單位價格NT$ 1,000／次\n\n購買方式與共卡\n允許共卡\n\n修改僅影響新購買；下架保留既有額度。\n\n取消\n儲存"
+      }
+    }
+  ]
+}
