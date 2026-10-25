@@ -21,3 +21,22 @@
 ## 發布狀態
 
 待同一候選版本完成正式 pg／Prisma 唯讀檢查、完整建置與網域核對後，補上實際結果。本檔目前不是已部署成功證明。
+
+## 第一批正式更新確認
+
+- 正式部署 dpl_Hansuh7ffKFMR9KRTE1UyWfnwX5K 已 READY，程式 50a2772cd5adb7db83e70613f45bd61c8206059f；steamfoot.com 與 www.steamfoot.com 均已指向此部署。
+- 正式建置確認 runtime_login=true、tls=true、prisma=true、schema_tables=14、readonly=true、migration_target_absent=true、charge_scope=module、editing_enabled=true。ci-migrate 回報 migration_skipped_no_target；此輪未執行 migration。
+
+## 30 天試用入口補齊
+
+使用者於正式 HQ 建店頁發現英文方案選單。實查美業仍使用舊方案選單且可能沿用前一模組 GROWTH 值，未接回共用 30 天試用呈現。
+
+- 美業選擇時帶入 EXPERIENCE，表單清楚顯示「30 天完整功能試用」。後端同步固定新美業店方案為 EXPERIENCE，避免舊客戶端帶入其他方案。
+- 建店只準備待啟用資料，沒有提前起算。HQ 在店舖詳情點既有「開通 30 天單店試用」，才使用共用開通服務寫入當日起算、含末日的 30 天訂閱。
+- 沿用既有訂閱 transaction 及 advisory lock；美業亦拒絕已有訂閱、期限或歷史 TRIAL_STARTED 的重複開通，保留既有期限；不透過新增訂閱重設倒數。
+- 既有正式店及訂閱未修改。蒸足原有自訂試用與音樂／運動的試用流程保留。美業店名提示改為「美業 XX店」。
+- 180 檔、1,636 項相關回歸通過；TypeScript noEmit、異動檔 ESLint、差異檢查通過。
+- 本機真實共用表單以合成畫面驗收 1366×900、1024×768、768×1024、390×844，選項、模組切換與起算說明正確，沒有水平溢出或前端例外。後端與外網封鎖，未建立正式店，這不是正式登入建店驗收。
+- [調整前](evidence/20261025-launch-ready/trial-ui/before-1024.png)／[調整後](evidence/20261025-launch-ready/trial-ui/after-1024.png)。
+
+試用修正候選尚待正式建置與網域核對，完成後補記實際部署 ID。

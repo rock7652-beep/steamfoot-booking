@@ -12,14 +12,14 @@ export async function openSingleStoreTrialInTransaction(tx: Prisma.TransactionCl
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`subscription:${input.storeId}`}, 0))`;
   const store = await tx.store.findUnique({ where: { id: input.storeId }, include: { moduleInstallation: true, currentSubscription: true } });
   if (!store) throw new AppError("NOT_FOUND", "店舖不存在");
-  if (store.industryModule === "COURSE") {
+  if (store.industryModule === "COURSE" || store.industryModule === "BEAUTY") {
     // The subscription lock above serializes concurrent trial activation requests.
     // Never cancel/recreate an existing course subscription to restart its clock.
     if (store.currentSubscriptionId || store.planEffectiveAt || store.planExpiresAt ||
         await tx.storePlanChange.findFirst({ where: { storeId: store.id, changeType: "TRIAL_STARTED" }, select: { id: true } })) {
-      throw new AppError("CONFLICT", "此課程店已有試用或訂閱紀錄，不可重新起算；既有期限保持不變");
+      throw new AppError("CONFLICT", "此店已有試用或訂閱紀錄，不可重新起算；既有期限保持不變");
     }
-    if ((input.days ?? SINGLE_STORE_TRIAL_DAYS) !== SINGLE_STORE_TRIAL_DAYS) throw new AppError("VALIDATION", "課程交付試用固定為 30 天");
+    if ((input.days ?? SINGLE_STORE_TRIAL_DAYS) !== SINGLE_STORE_TRIAL_DAYS) throw new AppError("VALIDATION", "單店交付試用固定為 30 天");
   }
   if (store.moduleInstallation?.status !== "ACTIVE") throw new AppError("CONFLICT", "請先完成模組佈建再開通試用，LINE 設定可稍後完成");
   if (store.currentSubscription?.status === "ACTIVE" && !store.currentSubscription.isTrial) throw new AppError("CONFLICT", "正式訂閱不可改為試用");

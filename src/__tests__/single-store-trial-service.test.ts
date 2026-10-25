@@ -70,3 +70,25 @@ describe("course backend trial activation", () => {
     expect(m.create).not.toHaveBeenCalled();
   });
 });
+
+describe("Beauty 30-day trial activation",()=>{
+ const beauty={id:"new-store",industryModule:"BEAUTY",plan:"EXPERIENCE",planStatus:"TRIAL",moduleInstallation:{status:"ACTIVE"},currentSubscriptionId:null};
+ it("opens thirty inclusive days and records the subscription and audit once",async()=>{
+  m.find.mockResolvedValue(beauty);
+  await expect(openSingleStoreTrialInTransaction(tx,input)).resolves.toEqual({id:"trial-1"});
+  expect(m.create).toHaveBeenCalledWith({data:expect.objectContaining({isTrial:true,startedAt:new Date("2026-09-13T00:00:00Z"),expiresAt:new Date("2026-10-12T00:00:00Z")})});
+  expect(m.log).toHaveBeenCalledOnce();
+ });
+ it.each([{currentSubscriptionId:"existing"},{planEffectiveAt:new Date()},{planExpiresAt:new Date()}])("preserves existing trial dates or subscriptions on replay: %j",async existing=>{
+  m.find.mockResolvedValue({...beauty,...existing});
+  await expect(openSingleStoreTrialInTransaction(tx,input)).rejects.toThrow("不可重新起算");expect(m.create).not.toHaveBeenCalled();expect(m.updateSub).not.toHaveBeenCalled();
+ });
+ it("preserves historical trials even when the subscription pointer is missing",async()=>{
+  m.find.mockResolvedValue(beauty);m.history.mockResolvedValue({id:"historical-trial"});
+  await expect(openSingleStoreTrialInTransaction(tx,input)).rejects.toThrow("不可重新起算");expect(m.create).not.toHaveBeenCalled();
+ });
+ it("rejects nonstandard duration before writing",async()=>{
+  m.find.mockResolvedValue(beauty);
+  await expect(openSingleStoreTrialInTransaction(tx,{...input,days:60})).rejects.toThrow("30 天");expect(m.create).not.toHaveBeenCalled();
+ });
+});

@@ -52,6 +52,6 @@
 
 依使用者「只發布模組，暫不建店」，正式庫沒有美業店，因此沒有正式美業收退款、預約、扣次或帳本測試寫入。完整業務流程證據仍來自先前授權的隔離測試店；手機／平板真機驗收由使用者先前確認。這次新增證據是正式 pg 與 Prisma 的嚴格 TLS／角色／READ ONLY、完整建置與公開入口驗證，不能冒充登入後全流程。
 
-未來建立正式美業店後，須依該店完成開店與收費 allowlist 設定；本輪不擴大尚未指定店家的功能 rollout 範圍。回退優先停用新模組／編輯入口並保留 schema 與交易，不自動 DROP／清資料／恢復整庫備份。
+此初次發布當時尚採逐店收費 allowlist；後續已由 [開店啟動修復](launch-ready-20261025.md) 更新為驗證過的 Production 模組範圍，新美業店完成設定後不需工程師逐店補 allowlist。未建立任何正式美業店。回退優先停用新模組／編輯入口並保留 schema 與交易，不自動 DROP／清資料／恢復整庫備份。
 
 證據：[發布結果](evidence/20261025-formal-publication/published-result.json)、[HTTP smoke](evidence/20261025-formal-publication/http-results.json)。

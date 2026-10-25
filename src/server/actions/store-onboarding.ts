@@ -91,7 +91,7 @@ export async function createStoreAction(
           isDefault: false,
           isDemo: input.isDemo,
           industryModule,
-          plan: industryModule === "COURSE" ? "EXPERIENCE" : input.plan,
+          plan: industryModule === "COURSE" || industryModule === "BEAUTY" ? "EXPERIENCE" : input.plan,
           operatingStatus: "TRIAL",
           planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
           shopConfig: {

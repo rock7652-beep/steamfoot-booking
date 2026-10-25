@@ -25,6 +25,12 @@ it('creates all Beauty records and role-specific permissions in the same transac
 it('does not leave a store, account or permissions committed after a later provisioning failure',async()=>{
  m.failHours=true;const silent=vi.spyOn(console,'error').mockImplementation(()=>{});try{expect(await createStoreAction(input)).toMatchObject({success:false});expect(m.writes.some(r=>r.kind==='store')).toBe(true);expect(m.writes.some(r=>r.kind==='permissions')).toBe(true);expect(m.committed).toEqual([]);expect(m.globalPermissions).not.toHaveBeenCalled();}finally{silent.mockRestore();}
 });
+it('prepares a 30-day trial without starting the clock even when a stale client submits a paid plan',async()=>{
+ const result=await createStoreAction({...input,plan:'GROWTH'});
+ expect(result).toMatchObject({success:true,data:{store:{plan:'EXPERIENCE',planStatus:'TRIAL',currentSubscriptionId:null}}});
+ const data=m.committed.find(r=>r.kind==='store')?.data as Record<string,unknown>;
+ expect(data.plan).toBe('EXPERIENCE');expect(data).not.toHaveProperty('planEffectiveAt');expect(data).not.toHaveProperty('planExpiresAt');
+});
 it('requires HQ authorization and module activation before entering creation',async()=>{
  vi.stubEnv('BEAUTY_MODULE_ENABLED','0');expect(await createStoreAction(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();vi.stubEnv('BEAUTY_MODULE_ENABLED','1');m.admin.mockRejectedValueOnce(Error('FORBIDDEN'));await expect(createStoreAction(input)).rejects.toThrow('FORBIDDEN');expect(m.transaction).not.toHaveBeenCalled();
 });
