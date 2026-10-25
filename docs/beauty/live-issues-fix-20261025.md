@@ -51,3 +51,4 @@
 - 環境與通知範圍回歸：5 個測試檔、59 項通過（包含新支線、相似未授權分支及錯誤資料庫阻擋）。
 - 唯讀確認隔離庫 `ttworfzgwejdeolegkxl` 仍有 `beauty-hosted-20261021` 美業測試店，但尚無 `PlanActivationNotification`。最新 main 的方案通知接點依賴該表，不能宣稱購買方案的真實流程驗收完成。
 - 對應既有升級檔：`prisma/migrations/20261025160000_plan_activation_notification/migration.sql`；本批未執行，亦不以停用檢查掩蓋缺項。正式站與既有交易未動。
+- Vercel 首次修復後 Preview 已完成 Next 編譯、TypeScript 與輸出建置（部署 `dpl_Ch93EeLEHki8yMH3EJ8Un55hEdXv`）；補齊正確的支線收費編輯旗標後再建置。測試站可用性不等同缺表交易驗收完成。
