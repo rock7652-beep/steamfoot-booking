@@ -72,6 +72,7 @@ export type SportsLesson = {
   cancelled?: boolean;
 };
 export type SportsSnapshot = {
+  schedulingModes?: import("./course-scheduling-modes").CourseSchedulingModes;
   storeId: string;
   subjects: SportsSubject[];
   fees: SportsFee[];

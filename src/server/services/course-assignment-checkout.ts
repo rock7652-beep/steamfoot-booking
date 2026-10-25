@@ -1,3 +1,4 @@
+import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 import { sportsEntitlementSnapshot } from "@/lib/sports-entitlement";
 import { enqueuePlanActivation } from "./plan-activation-enqueue";
 import { activationExpiry } from "@/lib/plan-activation-notification";
@@ -50,6 +51,7 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const customers=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Customer" WHERE id=${data.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
   const expiresAt=dayRange(plan?.musicTerms ? "2099-12-31" : data.expiresDate).end;
   if(!plan||!customers.length||expiresAt<new Date()) throw new AppError("VALIDATION","請選擇本店方案、顧客及有效期限");
+  await assertCoursePlanMode(tx,storeId,plan.sportsMode);
   if (!actor.music) validateFitnessPurchase(data);
   const musicQuote = actor.music ? await quoteMusicPurchase(tx, storeId, plan, data) : null;
   if((musicQuote?.price??plan.price)!==data.expectedListPrice) throw new AppError("CONFLICT","方案售價已變更，請重新開啟核對");

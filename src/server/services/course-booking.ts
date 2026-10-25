@@ -1,3 +1,4 @@
+import {assertCourseSchedulingMode} from "./course-scheduling-modes";
 import {courseChargeSettings,courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { resolveSportsEntitlement, sportsEntitlementSnapshot, type SportsEntitlementFields } from "@/lib/sports-entitlement";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -298,21 +299,22 @@ export async function reserveCourseInTransaction(
   let entitlementCost: number | null = null;
   {
     const {readSportsSessionRule}=await import('./sports-staging-schedule');
-    const rule=await readSportsSessionRule(tx,storeId,input.sessionId);
-    if(input.companionIndex&&rule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
-    if(actor.customerId&&rule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
+    const sessionRule=await readSportsSessionRule(tx,storeId,input.sessionId);
+    if((sessionRule?.enrollment==="OPEN"||sessionRule?.enrollment==="ASSIGNED")&&!options.memberReschedule)assertCourseSchedulingMode(rule,sessionRule.enrollment);
+    if(input.companionIndex&&sessionRule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
+    if(actor.customerId&&sessionRule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
     if (card && session && !(await isMusicCourseStore(tx,storeId))) {
       const rights = resolveSportsEntitlement(
         { ...card, templateRestricted: card.requestKey?.startsWith("no-show-makeup:") ?? false },
         { templateId: session.templateId, subjectId: session.template.musicSubjectId ?? null,
-          pointCost: session.pointCost, enrollment: rule?.enrollment === "ASSIGNED" ? "ASSIGNED" : rule?.enrollment === "OPEN" ? "OPEN" : null,
-          legacyPlanId: rule?.planId ?? null },
+          pointCost: session.pointCost, enrollment: sessionRule?.enrollment === "ASSIGNED" ? "ASSIGNED" : sessionRule?.enrollment === "OPEN" ? "OPEN" : null,
+          legacyPlanId: sessionRule?.planId ?? null },
       );
       if (!rights.eligible) return fail(rights.reason);
       entitlementCost = rights.cost;
     }
-    if(rule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
-    if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||rule?.enrollment!=='OPEN'||rule.planId!==null))return fail('此課未開放體驗預約');
+    if(sessionRule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
+    if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||sessionRule?.enrollment!=='OPEN'||sessionRule.planId!==null))return fail('此課未開放體驗預約');
   }
   const cardCharge=courseChargeSettings.safeParse(card?.plan?.chargeSettings);
   if(session&&cardCharge.success&&!cardCharge.data.providerIds.includes(session.coachId))return fail('此方案未開放所選授課人員');

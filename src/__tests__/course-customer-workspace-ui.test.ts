@@ -135,3 +135,11 @@ it("keeps exactly one music summary when entering and leaving checkout repeatedl
  }
  expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
 });
+
+
+it("uses scheduling flags without fee-editor data when deciding whether staff can purchase",async()=>{
+ const plans=[{id:"plan",name:"已關閉通用卡",points:10,price:100,validDays:90,isActive:true,unit:"POINT",templateIds:[],sportsMode:"OPEN"}];
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",sportsNative:true,schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},people:[],plans})));
+ await click("顧客持有方案");
+ expect([...host.querySelectorAll("button")].find(b=>b.textContent==="購買方案")!.disabled).toBe(true);
+});

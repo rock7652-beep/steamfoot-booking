@@ -1,3 +1,4 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { loadCoursePrismaRuntime } from "@/lib/generated-prisma-runtime";
 const courseClientRuntime = loadCoursePrismaRuntime();
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
@@ -98,7 +99,7 @@ export async function joinCourseWaitlist(
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),
     ]);
-    if (actor.customerId) assertCourseSelfBookingEnabled(rule);
+    if (actor.customerId || await sportsNativePreview(actor.storeId)) assertCourseSelfBookingEnabled(rule);
     if (!session) fail("找不到本店有效課程");
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
@@ -254,7 +255,7 @@ export async function promoteCourseWaitlistForSession(
   // All callers hold the same store lock as settings writes. Pause before any
   // per-entry processing: disabled self-booking must never turn WAITING into SKIPPED.
   const rule = await tx.courseBookingRule.findUnique({ where: { storeId } });
-  if (!options.manual && !courseSelfBookingEnabled(rule)) return [];
+  if (!courseSelfBookingEnabled(rule) && (!options.manual || await sportsNativePreview(storeId))) return [];
   const settings = await getCourseWaitlistSettings(storeId, tx);
   if (!settings.featureAvailable || !settings.enabled) return [];
   const session = await tx.courseSession.findFirst({

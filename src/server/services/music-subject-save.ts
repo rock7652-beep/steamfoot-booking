@@ -37,7 +37,7 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
         if (sportsRule) {
           const {assertSportsProductionReady}=await import("./sports-production-readiness");await assertSportsProductionReady(tx,storeId);
           await saveSportsTeachingRule(tx, storeId, row, sportsRule, replay);
-          if(!replay){const {enqueueOperationAudit}=await import("./operation-audit-outbox");await enqueueOperationAudit({actorUserId:user.id,storeId,module:"FITNESS",targetType:"MusicSubject",targetId:row.id,action:"SPORTS_ITEM_RULE",summary:"設定項目授課資格與開放選課規則"},tx,requestKey);}
+          if(!replay){const {enqueueOperationAudit}=await import("./operation-audit-outbox");await enqueueOperationAudit({actorUserId:user.id,storeId,module:"FITNESS",targetType:"MusicSubject",targetId:row.id,action:"SPORTS_ITEM_RULE",summary:"設定教學項目授課資格與計酬"},tx,requestKey);}
         }
       };
       if (id) {

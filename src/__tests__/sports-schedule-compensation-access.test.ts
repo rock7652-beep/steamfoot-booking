@@ -1,12 +1,12 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn()}));
+const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn()}));
 vi.mock("@/lib/sports-staging",()=>({requireSportsStaging:()=>{}}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({})},customer:{findMany:async()=>[]},staff:{findMany:async()=>[]}}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans},courseTemplate:{findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans},courseTemplate:{findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseMember:vi.fn(),courseTransaction:vi.fn()}));
 vi.mock("@/server/services/sports-production-readiness",()=>({assertSportsProductionReady:async()=>{}}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({}));
+vi.mock("@/server/actions/course-members",()=>({saveCoursePointPlan:m.savePlan}));
 vi.mock("@/server/actions/course",()=>({}));
 vi.mock("@/server/actions/course-rental",()=>({}));
 vi.mock("@/server/actions/course-trial",()=>({}));
@@ -29,4 +29,14 @@ it("授權管理讀取保留計酬設定",async()=>{
 });
 it.each(["booking.read","customer.read","wallet.read","transaction.read","plans.edit"])("排課仍檢查必要權限 %s",async permission=>{
  m.denied=permission;expect((await loadSportsStaging(true)).success).toBe(false);expect(m.compensation).not.toHaveBeenCalled();
+});
+
+it("新版編輯既有收費不再改寫教學項目的全體授課資格",async()=>{
+ const {saveSportsFee}=await import("@/server/actions/sports-staging");
+ const {coursePlanValues}=await import("@/lib/course-plan-save");
+ m.savePlan.mockResolvedValue({success:true});
+ const snapshot=coursePlanValues.parse({name:"既有舞蹈",points:10,price:5800,validDays:90,unit:"SESSION",templateIds:["existing-template"]});
+ expect(await saveSportsFee({id:"legacy",sportsMode:"LEGACY",subject:"subject",name:"既有舞蹈",unit:"堂數",amount:10,price:5800,days:90,cost:1,shared:false,coachIds:[],requestKey:"00000000-0000-4000-8000-000000000001",snapshot:JSON.stringify(snapshot),chargeSettings:{kind:"plan",durationMinutes:60,providerIds:["coach"],trialPrice:null,trialDuration:null}})).toMatchObject({success:true});
+ expect(m.savePlan).toHaveBeenCalledWith(expect.objectContaining({templateIds:["existing-template"],sportsSetup:undefined}));
+ expect(m.manager.mock.calls.map(call=>call[0])).not.toContain("staff.manage");
 });

@@ -9,7 +9,7 @@ import {CourseCatalogNameField,CourseCatalogDurationField} from "./catalog-field
 import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
 import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
 
-import type {CourseSchedulingModes} from "@/lib/course-scheduling-modes";
+import {coursePlanModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
 import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
@@ -141,7 +141,7 @@ export type Session = {
   id: string;
   templateId: string;
   nameSnapshot: string;
-  bookingAudience?:string;
+  bookingAudience?:string; sportsEnrollment?:string;
   startsAt: string;
   endsAt: string;
   coachId: string;
@@ -2485,14 +2485,15 @@ export function CourseWorkspace({
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
+          const dialogModeAllowed=!sportsNative||coursePlanModeAllowed(activeSchedulingModes,dialogSession.sportsEnrollment);
           const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
                   capacity={dialogSession.capacity}
-                  canCreate={canCreate}
+                  canCreate={canCreate&&dialogModeAllowed}
                   canEdit={canEdit}
-                  view={kind}
+                  view={dialogModeAllowed?kind:"roster"}
                   initialAssignedCoach={businessProfile === "MUSIC" ? "all" : assignedCoachFilter}
                   onSessionCancelled={() => setCourseDialog(null)}
                   musicLayout={businessProfile === "MUSIC"}
@@ -2560,7 +2561,7 @@ export function CourseWorkspace({
                       {sportsNative?(checkingMove?"核對中…":"✂ 剪下"):"✂ 剪下"}
                     </button>
                   )}
-                  {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
+                  {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && dialogModeAllowed && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
                   {(monthlyReturnHref(params.toString())||params.get("returnStudentId"))&&<DashboardLink className={button} aria-disabled={inlineBusy||pending} onClick={e=>{if(inlineBusy||pending)e.preventDefault();}} href={monthlyReturnHref(params.toString())??studentReturnHref(params.get("returnStudentId")!,params.get("returnStudentQuery")??"")}>{monthlyReturnHref(params.toString())?"返回月結":"返回學員"}</DashboardLink>}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
                 </div>
@@ -2588,7 +2589,7 @@ export function CourseWorkspace({
                     : "overflow-y-auto"
                 }`}
               >
-                {rentalDialog && dialogSession.rentalId ? <RentalPanel module={catalogSource?.rentalModule} customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit&&(!catalogSource?.rentalModule||rentalPermissions.edit)}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <>{sportsNative&&courseDialog.kind!=="roster"&&<section aria-label="新增預約" className="@container mb-2 rounded-lg border border-primary-200 p-2" onChangeCapture={()=>{inlineDirty.current=true;}}>
+                {rentalDialog && dialogSession.rentalId ? <RentalPanel module={catalogSource?.rentalModule} customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit&&(!catalogSource?.rentalModule||rentalPermissions.edit)}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <>{sportsNative&&dialogModeAllowed&&courseDialog.kind!=="roster"&&<section aria-label="新增預約" className="@container mb-2 rounded-lg border border-primary-200 p-2" onChangeCapture={()=>{inlineDirty.current=true;}}>
                   <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">{courseDialog.kind==="member-booking"?"新增學員":"新增體驗客"}</h3><button type="button" className={button} disabled={inlineBusy} onClick={()=>changeBooking("roster",dialogSession.id)}>收起</button></div>
                   {rosterContent(courseDialog.kind)}
                   <button type="submit" form={courseDialog.kind==="member-booking"?"course-member-booking-form":"course-trial-booking-form"} disabled={inlineBusy||(courseDialog.kind==="member-booking"&&!memberBookingReady)} className={`${primary} mt-3`}>{inlineBusy?"處理中…":"確認新增"}</button>

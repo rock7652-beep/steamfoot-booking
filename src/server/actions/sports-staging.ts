@@ -84,6 +84,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
       coaches,
       rooms,
       rules,
+      schedulingModes,
     ] = await Promise.all([
       coursePrisma.musicSubject.findMany({
         where: { storeId },
@@ -137,6 +138,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
           trialPrice: number;
         }>
       >`SELECT "sessionId",frequency,enrollment,"planId","trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`,
+      coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}),
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
@@ -237,6 +239,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
       success: true,
       data: {
         storeId,
+        schedulingModes:schedulingModes??undefined,
         subjects: subjects.map((s) => ({
           id: s.id,
           name: s.name,
@@ -389,7 +392,7 @@ export async function saveSportsFee(input: unknown) {
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
-    if(d.sportsMode==="LEGACY"){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
+    if(d.sportsMode==="LEGACY"&&!(d.id&&d.chargeSettings)){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
       : {};
@@ -406,11 +409,11 @@ export async function saveSportsFee(input: unknown) {
       allowShared: d.shared,
       isActive: d.active ?? base.isActive ?? true,
       customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
-      templateIds: [],
+      templateIds: d.sportsMode==="LEGACY"&&d.id&&d.chargeSettings?base.templateIds??[]:[],
       sportsMode:d.sportsMode,
       sportsSubjectId:d.sportsMode==="ASSIGNED"?d.subject??null:null,
       sportsCost:d.sportsMode==="ASSIGNED"?(d.unit==="堂數"?1:d.cost):null,
-      sportsSetup: d.sportsMode==="LEGACY"?{
+      sportsSetup: d.sportsMode==="LEGACY"&&!(d.id&&d.chargeSettings)?{
         compensation: d.compensation,
         expectedCompensation: d.expectedCompensation,
         subject: d.subject,

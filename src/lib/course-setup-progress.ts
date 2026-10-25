@@ -1,14 +1,16 @@
-export type CourseSetupCounts = { coaches:number; rooms:number; templates:number; subjects?:number; plans:number; sessions:number; qualifiedCoaches:number; openDays?:number; hoursConfirmed?:boolean; dutyEnabled?:boolean; existing?:{hours?:number;rooms?:number;courses?:number;plans?:number;coaches?:number} };
+import {courseSchedulingModes,type CourseSchedulingModes} from "./course-scheduling-modes";
+export type CourseSetupCounts = { schedulingModes?:CourseSchedulingModes; coaches:number; rooms:number; templates:number; subjects?:number; plans:number; sessions:number; qualifiedCoaches:number; openDays?:number; hoursConfirmed?:boolean; dutyEnabled?:boolean; existing?:{hours?:number;rooms?:number;courses?:number;plans?:number;coaches?:number} };
 export function courseSetupSteps(counts:CourseSetupCounts, music = false, sports = false) {
   const subjects = music||sports;
+  const {open,assigned}=courseSchedulingModes(counts.schedulingModes);
   const provider = music ? "教師" : "教練";
   const steps = [
     {id:"hours",label:counts.hoursConfirmed===false?"確認營業時間與公休":"設定營業時間與公休",done:counts.hoursConfirmed!==false&&(counts.openDays ?? 0)>0,href:"/dashboard/courses/hours",hint:"確認每週可上課時段與公休日，儲存後繼續設定。"},
     {id:"room",label:"新增空間",done:counts.rooms>0,href:"/dashboard/courses?view=rooms&action=create",hint:"建立啟用的教室或上課空間，確認人數容量。"},
-    {id:"course",label:subjects ? "建立教學項目" : "建立課程",done:(subjects ? counts.subjects ?? counts.templates : counts.templates)>0,href:"/dashboard/courses?view=catalog&action=create",hint:subjects ? (sports?"建立教學項目並設定可授課教練；開放選課另設定每堂扣點。":"建立並上架教學項目，例如吉他。") : "建立課程內容，確認上課時間、人數上限與每人點數。"},
-    {id:"plan",label:sports ? "設定收費方式" : music ? "設定班型與學費" : "建立方案",done:counts.plans>0,href:"/dashboard/courses?view=plans&action=create",hint:sports ? "選指定項目方案或開放選課通用卡，設定額度、售價與效期；通用卡不用綁定課程。" : music ? "選教學項目，設定課型、每堂學費、每期堂數、排課方式與效期。" : "選方案類型，設定售價與效期。"},
+    {id:"course",label:subjects ? "建立教學項目" : "建立課程",done:(subjects ? counts.subjects ?? counts.templates : counts.templates)>0,href:"/dashboard/courses?view=catalog&action=create",hint:subjects ? (sports?"建立教學項目並設定可授課教練。"+(open?"開放選課另設定每堂扣點。":""):"建立並上架教學項目，例如吉他。") : "建立課程內容，確認上課時間、人數上限與每人點數。"},
+    {id:"plan",label:sports ? "設定收費方式" : music ? "設定班型與學費" : "建立方案",done:counts.plans>0,href:"/dashboard/courses?view=plans&action=create",hint:sports ? (open&&assigned?"選指定項目方案或開放選課通用卡":open?"建立開放選課通用卡":"建立指定項目方案")+"，設定額度、售價與效期。" : music ? "選教學項目，設定課型、每堂學費、每期堂數、排課方式與效期。" : "選方案類型，設定售價與效期。"},
     {id:"coach",label:counts.coaches>0 ? `設定${provider}授課資格` : `新增${provider}與授課課程`,done:counts.coaches>0 && counts.qualifiedCoaches>0,href:counts.coaches>0 ? "/dashboard/teachers" : "/dashboard/teachers?action=create",hint:`啟用${provider}並勾選可教授課程${counts.dutyEnabled ? "，值班需涵蓋整堂課" : "，未另設授課時間時沿用營業時間"}。`},
-    {id:"schedule",label:"排第一堂課",done:counts.sessions>0,href:"/dashboard/courses?action=schedule",hint:sports ? "選教學項目、教練、時間與空間；指定學員加入學員，開放選課設定名額。" : `選日期、課程、${provider}與空間，確認空位後建立。`},
+    {id:"schedule",label:"排第一堂課",done:counts.sessions>0,href:"/dashboard/courses?action=schedule",hint:sports ? "選教學項目、教練、時間與空間。"+(assigned?"指定學員加入學員。":"")+(open?"開放選課設定名額。":"") : `選日期、課程、${provider}與空間，確認空位後建立。`},
   ];
   if (sports) {
     const coach = steps.find(step => step.id === "coach")!;
@@ -26,7 +28,7 @@ export function courseSetupSteps(counts:CourseSetupCounts, music = false, sports
     const hint=status!=="repair"?step.hint:({room:"已有空間，請啟用至少一個可上課空間。",course:subjects?"已有教學項目，請將要使用的項目上架。":"已有課程，請將要使用的課程上架。",plan:sports?"已有收費方式，請啟用要使用的收費方式。":music?"已有班型，請啟用要使用的班型與學費。":"已有方案，請啟用要使用的方案。",coach:`啟用${provider}並補齊已上架課程的授課資格${counts.dutyEnabled?"，值班需涵蓋整堂課":""}。`} as Record<string,string>)[step.id]??step.hint;
     if (sports && step.id === "coach" && status === "repair") return {...step,sports,status,label:"啟用教練",hint:"啟用至少一位教練，再到教學項目設定授課資格。",href:"/dashboard/teachers"};
     if (sports && step.id === "course" && (counts.subjects ?? counts.templates) > 0 && counts.qualifiedCoaches === 0) return {...step,sports,status,label:"設定教學項目的授課教練",hint:"編輯教學項目，選取啟用中的可授課教練。",href:"/dashboard/courses?view=catalog"};
-    if (sports && step.id === "plan" && status === "repair") return {...step,sports,status,label:"核對收費方式",hint:"啟用指定項目方案或通用卡；指定項目方案需對應上架項目，通用卡不用綁定課程。",href:"/dashboard/courses?view=plans"};
+    if (sports && step.id === "plan" && status === "repair") return {...step,sports,status,label:"核對收費方式",hint:open?"啟用可用的收費方式；指定項目方案需對應上架項目，通用卡不用綁定課程。":"啟用指定項目方案，並確認對應上架的教學項目。",href:"/dashboard/courses?view=plans"};
     if (status==="missing") return {...step,sports,status};
     const [path,query=""]=step.href.split("?");
     const params=new URLSearchParams(query);params.delete("action");

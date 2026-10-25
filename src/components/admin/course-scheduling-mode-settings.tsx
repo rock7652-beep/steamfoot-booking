@@ -1,4 +1,5 @@
 "use client";
+import {SETTINGS_SAVED} from "@/lib/music-subject-save";
 import { useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSettingsPanelGuard } from "./settings-panel-context";
@@ -23,6 +24,7 @@ export function CourseSchedulingModeSettings({ storeId, open, assigned, revision
         const r = await request.save({ mode, enabled, expectedRevision: state.revision });
         if (!r.success) { setError(r.error); return; }
         setState(r.data);
+        window.dispatchEvent(new CustomEvent(SETTINGS_SAVED,{detail:{storeId}}));
         if (r.syncWarning) setError("已儲存，畫面同步中");
         router.refresh();
       } finally { lock.current = false; }
