@@ -2490,6 +2490,30 @@ model MessageTemplate {
 // MessageLog（訊息發送紀錄）
 // ============================================================
 
+// Cross-module transactional outbox. Source references remain module-owned.
+model PlanActivationNotification {
+  id            String @id
+  storeId       String
+  customerId    String
+  module        String
+  sourceId      String
+  entitlementId String
+  snapshot      Json
+  body          String
+  status        String @default("PENDING")
+  errorMessage  String?
+  retryKey      String
+  route         Json?
+  attempts      Int @default(0)
+  nextAttemptAt DateTime @default(now()) @db.Timestamp(3)
+  createdAt     DateTime @default(now()) @db.Timestamp(3)
+  loggedAt      DateTime? @db.Timestamp(3)
+  lastAttemptAt DateTime? @db.Timestamp(3)
+
+  @@unique([storeId, module, entitlementId], map: "PlanActivationNotification_storeId_module_entitlementId_key")
+  @@index([module, status, nextAttemptAt], map: "PlanActivationNotification_pending_idx")
+}
+
 model MessageLog {
   id              String             @id @default(cuid())
   ruleId          String?

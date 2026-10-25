@@ -1,6 +1,9 @@
 import {readBeautyServiceCost} from './charge-finance';
 import {beautySaleAllocation} from '@/lib/beauty/sale-allocation';
 import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
+import { enqueuePlanActivation } from "../services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "../services/plan-activation-notification-kick";
 import {snapshotStoredChargeRule} from '@/lib/beauty/charge-rule-storage';
 import "server-only";
 import {serviceCharges} from "./service-charges";
@@ -209,6 +212,8 @@ export async function issueCard(
     const allocation=beautySaleAllocation(d.paid,storeCost);
     // Immutable sale attribution: later customer reassignment must not move revenue.
     await audit(tx, a, "ISSUE_CARD", JSON.stringify({ allocation,paymentId:receipt.id,cardId: card.id, ...d, ...(options?{checkout:options}:{}), revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
+    await enqueuePlanActivation(tx,{storeId:a.storeId,customerId:d.customerId,module:"BEAUTY",sourceId:receipt.id,entitlementId:card.id,planName:card.name,quantity:card.sessions,unit:"次",expiresDate:activationExpiry(card.expiresAt)});
+    kickPlanActivationNotifications(a.storeId,true);
     return { cardId: card.id };
   });
 }

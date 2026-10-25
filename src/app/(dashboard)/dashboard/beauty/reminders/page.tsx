@@ -1,5 +1,7 @@
 import {getLineConfigForStore} from '@/lib/line-config';
 import {resolveStoreViewContextFromCookie} from "@/lib/store-view-context-server";
+import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
+import { getPlanActivationEnabled } from "@/server/services/plan-activation-enqueue";
 import {isReadOnlyStoreTarget} from "@/lib/store-read-only";
 import {getCurrentUser} from "@/lib/session";
 import {checkPermission} from "@/lib/permissions";
@@ -39,14 +41,16 @@ export default async function BeautyRemindersPage({searchParams}:{searchParams:P
     const recipients = await prisma.storeLineNotificationRecipient.findMany({where:{storeId},orderBy:[{isActive:"desc"},{createdAt:"asc"}],select:{id:true,displayName:true,roleLabel:true,isActive:true,linkedAt:true,sameDayBookingEnabled:true,preferences:true}});
     content = <LineNotificationRecipientsCard storeId={storeId} recipients={recipients} beauty readOnly={readOnly} bindingUnavailable={blocked?"LINE 通知尚未啟用；請先完成本店官方帳號串接，可先儲存通知偏好。":undefined}/>;
   } else if (enabled) {
-    const [policy,plans,care,careLogs,store] = await Promise.all([
+    const [policy,plans,care,careLogs,store,activationEnabled] = await Promise.all([
       beautyPrisma.beautySetting.findUnique({where:{storeId}}),
       beautyPrisma.beautyPlan.findMany({where:{storeId},orderBy:[{active:"desc"},{name:"asc"}],select:{id:true,name:true,active:true,lowBalanceEnabled:true,lowBalanceThreshold:true,expiryReminder:true,revision:true}}),
       prisma.trialCareSetting.findUnique({where:{storeId}}),
       prisma.trialCareLog.findMany({where:{storeId,module:"BEAUTY"},orderBy:{createdAt:"desc"},take:50,include:{customer:{select:{name:true}}}}),
       prisma.store.findUniqueOrThrow({where:{id:storeId},select:{name:true}}),
+      getPlanActivationEnabled(storeId),
     ]);
     content = <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4">
+      <div className="py-3"><PlanActivationNotificationSetting key={`${storeId}-activation`} storeId={storeId} initialEnabled={activationEnabled} readOnly={readOnly}/></div>
       <SettingsListRow title="服務通知與明日提醒" summary={`店家設定${policy?.notifications?"開啟":"關閉"}・實際發送${blocked?"關閉":"依店家設定"}`}>
         <p className="text-sm text-earth-600">預約成立、改期、取消及服務狀態使用美業事件；明日提醒於前一天 18:00 處理。{blocked?"目前不會向外發送。":"發送結果請查閱發送紀錄。"}</p>
       </SettingsListRow>

@@ -1,4 +1,7 @@
 import { sportsEntitlementSnapshot } from "@/lib/sports-entitlement";
+import { enqueuePlanActivation } from "./plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "./plan-activation-notification-kick";
 import {musicNativeWorkflowEnabled} from "./music-native-workflow";
 import {readMusicTuition,receiveMusicTuition} from "./music-tuition";
 import {musicReceiptAmount,musicPaymentDate} from "@/lib/music-tuition";
@@ -69,5 +72,7 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
     if(received>0)await receiveMusicTuition(tx,actor,{purchaseId:order.id,amount:received,paymentDate:toLocalDateStr(paidAt),method:data.paymentMethod,lastFour:data.transferLastFour,requestKey:data.requestKey,expectedReceived:0,initial:true});
   }
   await enrollCourseTerm(tx,{storeId,userId,name:"店長指派期課"},card,data.customerId);
+  await enqueuePlanActivation(tx,{storeId,customerId:data.customerId,module:"COURSE",sourceId:order.id,entitlementId:card.id,planName:order.name,quantity:order.points,unit:order.unit==="POINT"?"點":"堂",expiresDate:card.musicValidityDays?`首堂上課起算 ${card.musicValidityDays} 天`:activationExpiry(card.expiresAt)});
+  kickPlanActivationNotifications(storeId);
   return ledger?{...order,price:received,storeCostSnapshot:received}:order;
 }
