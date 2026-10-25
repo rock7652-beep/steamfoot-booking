@@ -5,13 +5,21 @@ import { validateStoreAccess } from "@/lib/store";
 import { activeAnnouncements } from "@/lib/image-announcements";
 import { readAnnouncements } from "@/server/services/image-announcements";
 
+import { computeLifecycle } from "@/lib/subscription-lifecycle";
+import { toLocalDateStr } from "@/lib/date-utils";
+
 export const dynamic = "force-dynamic";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const url = new URL(request.url);
   const { id } = await params;
-  const store = await prisma.store.findUnique({ where: { slug: url.searchParams.get("store") ?? "" }, select: { id: true, operatingStatus: true } });
+  const store = await prisma.store.findUnique({ where: { slug: url.searchParams.get("store") ?? "" }, select: { id: true, operatingStatus: true, planStatus: true, planExpiresAt: true } });
   const missing = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-  if (!store || store.operatingStatus !== "ACTIVE") return missing();
+  if (!store || !["ACTIVE", "TRIAL"].includes(store.operatingStatus)) return missing();
+  if (store.operatingStatus === "TRIAL") {
+    if (!["TRIAL", "ACTIVE"].includes(store.planStatus)) return missing();
+    const lifecycle = computeLifecycle({status:store.planStatus,expiresAt:store.planExpiresAt},toLocalDateStr());
+    if (!["TRIAL", "ACTIVE"].includes(lifecycle.state)) return missing();
+  }
   let preview = false;
   if (url.searchParams.get("preview") === "1") {
     const user = await getCurrentUser();

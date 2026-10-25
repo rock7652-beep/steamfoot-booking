@@ -1,10 +1,11 @@
+import {beautyNotificationRelease} from './beauty-notification-release.mjs';
 import {beautyModuleChargeRollout} from './beauty-charge-rollout.mjs';
 import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-production-ca.mjs';
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
 export const BEAUTY_PRODUCTION_ROLE='steamfoot_beauty_prod_20261025';
 export function validateBeautyProductionRelease(env){
- if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'||env.BEAUTY_HOSTED_PREVIEW!==undefined||
+ if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||(env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'&&!beautyNotificationRelease(env))||env.BEAUTY_HOSTED_PREVIEW!==undefined||
     env.PRODUCTION_MIGRATION_TARGET||Object.keys(env).some(k=>/(?:_QA|_ACCEPTANCE)$/.test(k)&&env[k]==='1')||
     (env.BEAUTY_CHARGE_RULES_STORE_IDS??'').trim())throw Error('Beauty production release scope is not verified');
  if(env.BEAUTY_CHARGE_RULES_SCOPE!==undefined&&env.BEAUTY_CHARGE_RULES_SCOPE!==''&&env.BEAUTY_CHARGE_RULES_SCOPE!=='stores'&&(env.BEAUTY_CHARGE_RULES_SCOPE!=='module'||!beautyModuleChargeRollout(env)||!['0','1'].includes(env.BEAUTY_CHARGE_EDITING_ENABLED)))throw Error('Beauty charge rollout scope is not verified');
@@ -68,6 +69,16 @@ export async function beautySharedTodosProductionPreflight(env=process.env,creat
   await client.$transaction(async tx=>{
    stage='shared-todos-readonly';await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
    stage='shared-todos-columns';await tx.$queryRawUnsafe('SELECT id,"storeId","customerDisplayName","assignedStaffId","createdAt",status FROM "DigitalButlerLead" WHERE status IN (\'NEW\',\'CONTACTING\',\'QUOTED\') LIMIT 0');
+   if(beautyNotificationRelease(env)){
+    stage='notification-worker-columns';
+    for(const sql of [
+     'SELECT id,"storeId",kind,status,attempts,"createdAt","appointmentId","customerId",body FROM "BeautyEvent" LIMIT 0',
+     'SELECT "storeId",notifications FROM "BeautySetting" LIMIT 0',
+     'SELECT id,"storeId",status,"renderedBody","errorMessage" FROM "MessageLog" LIMIT 0',
+     'SELECT id,"storeId","lineUserId","lineLinkStatus","lineLinkedAt" FROM "Customer" LIMIT 0',
+     'SELECT id,"storeId","isActive",preferences FROM "StoreLineNotificationRecipient" LIMIT 0',
+    ])await tx.$queryRawUnsafe(sql);
+   }
   });
   return {sharedTodos:true,readonly:true};
  }catch(error){

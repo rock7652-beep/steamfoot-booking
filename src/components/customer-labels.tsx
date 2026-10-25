@@ -11,11 +11,12 @@ import { toast } from "sonner";
 import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
 import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
-type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
+type ContextValue = {snapshot: LabelSnapshot; readErrors:Record<string,string>; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
 const Context = createContext<ContextValue|null>(null);
 const LABEL_CACHE_MS = 60_000;
 export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children:ReactNode;initial?:LabelSnapshot}) {
   const [snapshot,setSnapshot]=useState(initial);
+  const [readErrors,setReadErrors]=useState<Record<string,string>>({});
   const lastInitial=useRef(initial);
   const [pendingIds,setPendingIds]=useState(new Set<string>());
   const pendingRef=useRef(new Set<string>());
@@ -43,6 +44,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
         const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(requested.length/500))},(_,i)=>initial.storeId?loadCustomerLabels(requested.slice(i*500,(i+1)*500),initial.storeId):loadCustomerLabels(requested.slice(i*500,(i+1)*500))));
         if(!mounted.current)return;
         const result={...batches[0],clientRevision,assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
+        if(metadataRevision.current===metadataVersion)setReadErrors(old=>{const next={...old};for(const id of requested){if(pendingRef.current.has(id)||(revisions.current.get(id)??0)!==versions.get(id))continue;if(result.enabled&&!(id in result.assignments))next[id]='無法查看標籤';else delete next[id];}return next;});
         setSnapshot(old=>{
           if(metadataRevision.current!==metadataVersion)return old;
           const metadata=newerLabelSnapshot(old,result)?old:result;
@@ -56,7 +58,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
           }
           return {...metadata,assignments};
         });
-      } catch {if(mounted.current)toast.error("標籤讀取失敗，請重新整理");}
+      } catch {if(mounted.current){setReadErrors(old=>({...old,...Object.fromEntries(requested.map(id=>[id,"標籤讀取失敗"]))}));toast.error("標籤讀取失敗，可點擊重新讀取");}}
       finally {
         inFlight.current=null;
         if(queued.current&&mounted.current){queued.current=false;timer.current=setTimeout(()=>void fetchLabels(),0);}
@@ -110,7 +112,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   },[]);
   const lock=useCallback((id:string)=>{if(pendingRef.current.has(id))return false;pendingRef.current.add(id);setPendingIds(new Set(pendingRef.current));return true;},[]);
   const unlock=useCallback((id:string)=>{pendingRef.current.delete(id);setPendingIds(new Set(pendingRef.current));if(!pendingRef.current.size)void fetchLabels();},[fetchLabels]);
-  return <Context.Provider value={{snapshot,register,refresh,seed,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
+  return <Context.Provider value={{snapshot,readErrors,register,refresh,seed,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
 }
 /** Supply row labels with the server-rendered list, then retain them across shared views. */
 export function useSeedCustomerLabels() { return useContext(Context)?.seed; }
@@ -164,6 +166,7 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hide
     return ()=>{window.removeEventListener("resize",dismiss);window.removeEventListener("scroll",dismiss,true);document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape,true);};
   },[open]);
   if(!ctx || !ctx.snapshot.enabled)return null;
+  if(ctx.readErrors[customerId]&&!(customerId in ctx.snapshot.assignments))return variant==='summary'||displayOnly?<span role="status" className="text-sm text-amber-800">{ctx.readErrors[customerId]}</span>:<button type="button" className="min-h-11 text-sm text-primary-800" onClick={()=>void ctx.refresh()}>重新讀取標籤</button>;
   if(!(customerId in ctx.snapshot.assignments))return <span role="status" aria-label="標籤載入中" className="inline-block h-3 w-16 animate-pulse rounded bg-earth-100"/>;
   const {snapshot,update}=ctx;
   const selected=snapshot.assignments[customerId]??[];

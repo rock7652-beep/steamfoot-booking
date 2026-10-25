@@ -1,3 +1,5 @@
+import {readBeautyServiceCost} from './charge-finance';
+import {beautySaleAllocation} from '@/lib/beauty/sale-allocation';
 import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
 import {snapshotStoredChargeRule} from '@/lib/beauty/charge-rule-storage';
 import "server-only";
@@ -84,6 +86,12 @@ export async function collect(
           actorUserId: a.userId!,
         },
       });
+      if(beautyChargeRulesEnabled(a.storeId)){
+        const storeCost=await readBeautyServiceCost(tx,a.storeId,b.id);
+        const before=beautySaleAllocation(current.collected,storeCost),after=beautySaleAllocation(current.collected+p.amount,storeCost);
+        const [owner]=b.customerId?await tx.$queryRaw<{assignedStaffId:string|null}[]>`SELECT s.id AS "assignedStaffId" FROM "Customer" c LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId" WHERE c.id=${b.customerId} AND c."storeId"=${a.storeId}`:[];
+        await audit(tx,a,'SERVICE_SALE_ATTRIBUTION',JSON.stringify({paymentId:p.id,revenueStaffId:owner?.assignedStaffId??null,allocation:after&&before?{storeAmount:after.storeAmount-before.storeAmount,developerAmount:after.developerAmount-before.developerAmount,shortfall:after.shortfall}:null}),b.id);
+      }
       await cash(
         tx,
         a,
@@ -129,8 +137,8 @@ export async function issueCard(
   tx: Tx,
   a: BeautyActor,
   d: z.infer<typeof cardInput>,
-  frozen?: Pick<BeautyPlan,'id'|'storeId'|'name'|'sessions'|'price'|'validDays'|'serviceIds'|'allowShared'|'revision'> & {chargeRuleSnapshot?:unknown},
-  options?: {expiresDate:string;expectedListPrice:number;transferLastFour?:string},
+  frozen?: Pick<BeautyPlan,'id'|'storeId'|'name'|'sessions'|'price'|'validDays'|'serviceIds'|'allowShared'|'revision'> & {chargeRuleSnapshot?:unknown;storeCost?:number|null},
+  options?: {expiresDate:string;expectedListPrice:number;expectedStoreCost?:number|null;transferLastFour?:string},
 ) {
   return command(tx, a, d.requestKey, options?{...d,options}:d, async () => {
     const p =
@@ -139,9 +147,13 @@ export async function issueCard(
         where: { id: d.planId, storeId: a.storeId, active: true },
       }));
     if (!p) throw new AppError("NOT_FOUND", "找不到有效方案");
-    const chargeSnapshot=beautyChargeRulesEnabled(a.storeId)?frozen?snapshotStoredChargeRule(frozen.chargeRuleSnapshot===undefined?null:frozen.chargeRuleSnapshot,{storeId:a.storeId,chargeId:`plan:${p.id}`,revision:p.revision,serviceIds:p.serviceIds},a.storeId,'snapshot'):(await readCatalogCharge(tx,a.storeId,'plan',p.id)).snapshot:null;
+    const currentCharge=beautyChargeRulesEnabled(a.storeId)&&!frozen?await readCatalogCharge(tx,a.storeId,'plan',p.id,true):null;
+    const chargeSnapshot=beautyChargeRulesEnabled(a.storeId)?frozen?snapshotStoredChargeRule(frozen.chargeRuleSnapshot===undefined?null:frozen.chargeRuleSnapshot,{storeId:a.storeId,chargeId:`plan:${p.id}`,revision:p.revision,serviceIds:p.serviceIds},a.storeId,'snapshot'):currentCharge!.snapshot:null;
+    const storeCost=frozen?frozen.storeCost??null:currentCharge?.storeCost??null;
+    if(storeCost!==null&&(!Number.isSafeInteger(storeCost)||storeCost<0))throw new AppError('VALIDATION','方案店家固定費用待核對');
     if(options){
       if(!a.manager)throw new AppError("FORBIDDEN","此到期日設定僅供後台使用");
+      if(options.expectedStoreCost!==undefined&&options.expectedStoreCost!==storeCost)throw new AppError('CONFLICT','店家固定費用已更新，請重新開啟結帳');
       if(options.expectedListPrice!==p.price)throw new AppError("CONFLICT","方案售價已更新，請重新核對");
       const expiry=dayRange(options.expiresDate);
       if(!/^\d{4}-\d{2}-\d{2}$/.test(options.expiresDate)||Number.isNaN(expiry.end.getTime())||toLocalDateStr(expiry.start)!==options.expiresDate||options.expiresDate<toLocalDateStr()||options.expiresDate>addTaiwanDuration(toLocalDateStr(),3650,"DAY"))throw new AppError("VALIDATION","請選擇有效到期日");
@@ -194,8 +206,9 @@ export async function issueCard(
       },
     });
     await cash(tx, a, d.method, d.paid, receipt.id, receipt.note);
+    const allocation=beautySaleAllocation(d.paid,storeCost);
     // Immutable sale attribution: later customer reassignment must not move revenue.
-    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ cardId: card.id, ...d, ...(options?{checkout:options}:{}), revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
+    await audit(tx, a, "ISSUE_CARD", JSON.stringify({ allocation,paymentId:receipt.id,cardId: card.id, ...d, ...(options?{checkout:options}:{}), revenueStaffId:cs.find(c=>c.id===d.customerId)?.assignedStaffId??null }));
     return { cardId: card.id };
   });
 }

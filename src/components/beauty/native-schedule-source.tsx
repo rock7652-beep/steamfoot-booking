@@ -39,9 +39,10 @@ export function beautyNativeScheduleSource(data:BeautyDashboardData):{initial:Sp
 }
 
 /** Data and request lifetime only; the shared scheduling form selects its service mode. */
-export function BeautyNativeScheduleFields({data,date,seed,onGuard,onCreated}:{data:BeautyDashboardData;date:string;seed:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
+export function BeautyNativeScheduleFields({singlePaymentOnly=false,data,date,seed,onGuard,onCreated}:{singlePaymentOnly?:boolean;data:BeautyDashboardData;date:string;seed:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
  const [requestKey]=useState(()=>crypto.randomUUID());
- return <SportsScheduleFields {...beautyNativeScheduleSource(data)} date={date} seed={seed} requestKey={requestKey} onGuard={onGuard} onCreated={onCreated}/>;
+ const adapter=beautyNativeScheduleSource(data);if(singlePaymentOnly&&adapter.source.reservation)adapter.source.reservation.cards=[];
+ return <SportsScheduleFields {...adapter} date={date} seed={seed} requestKey={requestKey} onGuard={onGuard} onCreated={onCreated}/>;
 }
 
 

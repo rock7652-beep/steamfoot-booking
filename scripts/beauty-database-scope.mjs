@@ -1,3 +1,4 @@
+import {beautyNotificationRelease} from './beauty-notification-release.mjs';
 import {beautyProductionCaPath} from './beauty-production-ca.mjs';
 /** Server configuration only. Errors deliberately omit URLs and credentials. */
 export function beautyDatabaseSelection(env) {
@@ -47,7 +48,7 @@ export function beautyDatabaseSelection(env) {
   if (!['127.0.0.1','localhost','[::1]'].includes(url.hostname) &&
       (!['require','verify-ca','verify-full'].includes(url.searchParams.get('sslmode')) ||
        url.searchParams.get('sslaccept') === 'accept_invalid_certs')) return invalid();
-  if (env.BEAUTY_NOTIFICATIONS_ENABLED === '1') {
+  if (env.BEAUTY_NOTIFICATIONS_ENABLED === '1'&&!beautyNotificationRelease(env)) {
     throw Error('Dedicated Beauty notifications require a separately reviewed worker connection.');
   }
   let main;

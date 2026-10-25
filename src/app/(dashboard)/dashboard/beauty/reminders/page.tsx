@@ -1,3 +1,4 @@
+import {getLineConfigForStore} from '@/lib/line-config';
 import {resolveStoreViewContextFromCookie} from "@/lib/store-view-context-server";
 import {isReadOnlyStoreTarget} from "@/lib/store-read-only";
 import {getCurrentUser} from "@/lib/session";
@@ -28,14 +29,15 @@ export default async function BeautyRemindersPage({searchParams}:{searchParams:P
   const view=await resolveStoreViewContextFromCookie(user);
   const readOnly=!!view?.isViewMode||isReadOnlyStoreTarget(user,storeId);
   const active = params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
-  const blocked = isPreviewExternalIntegrationBlocked() || process.env.BEAUTY_NOTIFICATIONS_ENABLED !== "1";
+  const line=getLineConfigForStore(storeId);
+  const blocked = isPreviewExternalIntegrationBlocked() || process.env.BEAUTY_NOTIFICATIONS_ENABLED !== "1" || !line.accessToken || !line.channelSecret || !line.expectedBasicId;
   let content;
   if (enabled && active === "logs") {
     content = <NotificationLogList data={await listBeautyNotificationLogs(params)} params={params} baseHref="/dashboard/beauty/reminders" beauty typeLabels={beautyNoticeLabels}/>;
   } else if (enabled && active === "manager") {
     // Do not call the legacy recipient read: it migrates rows as a side effect.
     const recipients = await prisma.storeLineNotificationRecipient.findMany({where:{storeId},orderBy:[{isActive:"desc"},{createdAt:"asc"}],select:{id:true,displayName:true,roleLabel:true,isActive:true,linkedAt:true,sameDayBookingEnabled:true,preferences:true}});
-    content = <LineNotificationRecipientsCard storeId={storeId} recipients={recipients} beauty readOnly={readOnly} bindingUnavailable={blocked?"LINE 維持關閉；可儲存通知偏好，目前不建立新綁定或發送。":undefined}/>;
+    content = <LineNotificationRecipientsCard storeId={storeId} recipients={recipients} beauty readOnly={readOnly} bindingUnavailable={blocked?"LINE 通知尚未啟用；請先完成本店官方帳號串接，可先儲存通知偏好。":undefined}/>;
   } else if (enabled) {
     const [policy,plans,care,careLogs,store] = await Promise.all([
       beautyPrisma.beautySetting.findUnique({where:{storeId}}),
@@ -53,5 +55,5 @@ export default async function BeautyRemindersPage({searchParams}:{searchParams:P
 
     </div>;
   }
-  return <ReminderCenter storeId={storeId} active={active} explicit={!!params.tab} baseHref="/dashboard/beauty/reminders" returnHref="/dashboard/beauty?tab=設定&section=notifications" subtitle="美業服務提醒與發送紀錄" enabled={enabled} blockedMessage={blocked?"LINE 維持關閉。設定可儲存；待發送或跳過不代表已送達。":undefined}>{content}</ReminderCenter>;
+  return <ReminderCenter storeId={storeId} active={active} explicit={!!params.tab} baseHref="/dashboard/beauty/reminders" returnHref="/dashboard/beauty?tab=設定&section=notifications" subtitle="美業服務提醒與發送紀錄" enabled={enabled} blockedMessage={blocked?"LINE 通知尚未啟用。請完成本店官方帳號串接；設定可儲存，待發送或跳過不代表已送達。":undefined}>{content}</ReminderCenter>;
 }

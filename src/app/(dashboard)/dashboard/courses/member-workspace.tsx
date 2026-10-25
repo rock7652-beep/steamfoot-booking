@@ -1,4 +1,6 @@
 "use client";
+import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
+import {CardMaintenanceForm} from "./card-maintenance-form";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {CustomerAttributionForm} from "@/components/customer-attribution-form";
@@ -50,7 +52,7 @@ import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -206,6 +208,8 @@ export function CourseMemberWorkspace({
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
+  const [singleService,setSingleService]=useState(false);
+  const guardSingleService=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(params.get("studentRecords")==="bookings"&&canReadBookings?"bookings":canReadTransactions?"purchases":"bookings");
@@ -638,7 +642,9 @@ export function CourseMemberWorkspace({
               <CoursePlanDraftForm catalog={catalogSource?.form} subjectLabel={subjectLabel} sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
-            {panel === "assign" && (
+            {panel === "assign"&&source?.singleServiceForm&&<nav className="mb-3 flex gap-2" aria-label="消費類型">{[[false,'多次方案'],[true,'單次／體驗']] .map(([single,label])=><button key={String(single)} type="button" className="min-h-11 rounded-lg border border-earth-200 px-3" aria-pressed={singleService===single} disabled={pending||formPending||formUncertain} onClick={()=>{if(canLeave()){setSingleService(single as boolean);setDirty(false);}}}>{label as string}</button>)}</nav>}
+            {panel==='assign'&&singleService&&source?.singleServiceForm&&source.singleServiceForm(person?.id??purchaseCustomerId,()=>{setDirty(false);setSingleService(false);setCardRevision(v=>v+1);setPanel(person?'person':null);router.refresh();},guardSingleService)}
+            {panel === "assign" && !(singleService&&source?.singleServiceForm) && (
               <form
                 id="course-member-form"
                 onChange={e=>{if(!music||(e.target as HTMLElement).closest("[data-purchase-details]"))setDirty(true);}}
@@ -649,6 +655,7 @@ export function CourseMemberWorkspace({
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
+                      ...(source?.automaticAllocation?{beautyExpectedStoreCost:(plans.find(p=>p.id===planId)?.catalogSnapshot?.storeCost??null)}:{}),
                       musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:d.get("musicReceivedResolved")!==null?Number(d.get("musicReceivedResolved")):undefined,
                       musicPaymentDate:d.get("musicPaymentDate")?String(d.get("musicPaymentDate")):undefined,
@@ -706,6 +713,7 @@ export function CourseMemberWorkspace({
                 </fieldset>
                 <fieldset data-purchase-details disabled={pending} className={music ? "contents" : "min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5"}>
                   {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split customerId={person?.id??purchaseCustomerId} key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment cashReader={source?.cashStatus} profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
+                {source?.automaticAllocation&&<div className="mt-2 text-sm" role="status">{(()=>{const cost=plans.find(p=>p.id===planId)?.storeCost;if(cost==null)return '尚未設定店家固定費用，本次不計算分潤。';if(assignmentSummary.paid==null)return '確認實收後顯示分配。';const allocation=calculateCourseSaleAllocation(assignmentSummary.paid,cost);return `店家 $${allocation.storeAmount.toLocaleString()}／所屬店長 $${allocation.developerAmount.toLocaleString()}（${customerRows.find(c=>c.id===(person?.id??purchaseCustomerId))?.assignedStaff?.displayName??'未歸屬'}）${allocation.shortfall?'；實收低於固定費用':''}`;})()}</div>}
                 </fieldset>
               </form>
             )}
@@ -714,6 +722,7 @@ export function CourseMemberWorkspace({
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
+                {source?.maintainCard&&!cardLoading&&!cardError&&<CardMaintenanceForm key={card.id+":"+cardOpening} storeId={previewStoreId??""} card={card} save={source.maintainCard} onPending={setFormPending} onDirtyChange={setDirty} onUncertain={setFormUncertain} onSaved={()=>{setDirty(false);cardDetail.retry();setCardRevision(v=>v+1);}}/>}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {(source?.canManageMembers??canAssign) && sharingVisible && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
@@ -744,7 +753,7 @@ export function CourseMemberWorkspace({
               </>
             )}
           </div>
-          {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || ((source?.canManageMembers??canAssign) && sharingVisible && card?.allowShared)) && (
+          {!(panel==="assign"&&singleService&&source?.singleServiceForm)&&panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || ((source?.canManageMembers??canAssign) && sharingVisible && card?.allowShared)) && (
             <footer className={panel === "plan" && !music ? fitnessEditorFooter : `shrink-0 border-t border-earth-100 bg-white px-4 py-3 ${music && panel === "assign" ? "flex flex-wrap items-center gap-3" : ""}`}>
               {panel === "assign" && <p className={`${music ? "min-w-0 flex-1" : "mb-2"} flex flex-wrap justify-between gap-2 text-sm`}><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <div className={`flex gap-2 ${music || (panel === "plan" && !music) ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending || formUncertain} onClick={close}>取消</button>}<button

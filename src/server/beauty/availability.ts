@@ -1,3 +1,4 @@
+import {beautyReadStep} from './read-timing';
 import 'server-only';
 import {assertBeautyTrialEligibility} from './trial-eligibility';
 import {prisma} from '@/lib/db';
@@ -20,16 +21,17 @@ export async function resolveBeautyBookingInput(mode:"manager"|"member",input:un
 export async function beautySlotsForActor(mode:"manager"|"member"|"public",input:unknown,a:BeautyActor){
     const d=mode==='public'?partyInput.parse(input):await resolveBeautyBookingInput(mode,input,a);
     for(const person of d.people)if(person.isTrial??d.isTrial)await assertBeautyTrialEligibility(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,person);
-    const loaded = await loadAvailability(
+    const loaded = await beautyReadStep('availability.load',()=>loadAvailability(
       beautyPrisma as unknown as Prisma.TransactionClient,
       a,
       d.date,
-    );
+    ));
     const slots: string[] = [];
     let arrangement:{technicianId:string;technicianName:string;locationId:string;locationName:string}[]|null=null;
     let arrangementError:string|undefined;
     // Public catalog reveals availability only, never names of other customers.
-    for (const time of mode==='member'?loaded.memberSlots:loaded.slots) {
+    const times=mode==='member'?loaded.memberSlots:mode==='manager'?[d.time,...loaded.slots.filter(time=>time!==d.time)]:loaded.slots;
+    for (const time of times) {
       if(mode==='member'&&!/:(00|30)$/.test(time))continue;
       try {
         const allocation=await findAllocation(
@@ -41,7 +43,12 @@ export async function beautySlotsForActor(mode:"manager"|"member"|"public",input
           loaded,
         );
         slots.push(time);
-        if(time===d.time&&mode==='manager')arrangement=allocation.result.map(item=>({technicianId:item.technicianId,technicianName:loaded.technicians.find(t=>t.id===item.technicianId)?.name??'',locationId:item.locationId,locationName:''}));
+        if(time===d.time&&mode==='manager'){
+          arrangement=allocation.result.map(item=>({technicianId:item.technicianId,technicianName:loaded.technicians.find(t=>t.id===item.technicianId)?.name??'',locationId:item.locationId,locationName:''}));
+          // The manager needs alternatives only when the selected time is unavailable.
+          // Submission still validates allocation and card holds under the store lock.
+          break;
+        }
       } catch (e) {
         if (!(e instanceof AppError)) throw e;
         if(time===d.time)arrangementError=e.message;

@@ -1,3 +1,5 @@
+import {getCurrentLineOfficialAccountStatus} from "@/server/actions/line-official-accounts";
+import {StoreLineHealthCard} from "../reminders/store-line-health-card";
 import {CashbookShortcut} from "../cashbook/_components/cashbook-shortcut";
 import {BeautyHome} from '@/components/beauty/home';
 import {CourseUnassignedPlans} from '../courses/unassigned-plans-view';
@@ -144,7 +146,7 @@ export default async function BeautyPage({
         slug={store.slug}
         readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u, a.storeId)}
       />
-      {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel confirmDiscard={false} panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
+      {tab==='設定'&&isCourseSettingsPanel(q.panel)&&['hours','payment','line','reminders','labels','referral','butler'].includes(q.panel)&&<CourseSettingsPanel confirmDiscard={false} panel={q.panel} workspaceHref="/dashboard/beauty">{q.panel==='line'?(data.manage.settings&&!view?.isViewMode&&!isReadOnlyStoreTarget(u,a.storeId)?<StoreLineHealthCard initialStatus={await getCurrentLineOfficialAccountStatus()}/>:<p role="status" className="p-4">目前為唯讀檢視；請由有店家設定權限的人員檢查通知連線。</p>):q.panel==='reminders'?<BeautyRemindersPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:q.panel==='hours'?<ScheduleSettingsPage searchParams={Promise.resolve(Object.fromEntries(new URLSearchParams(q.panelQuery??'')))}/>:<CourseSettingsPanelContent panel={q.panel} query={q.panelQuery}/>}</CourseSettingsPanel>}
     </PageShell>
   );
 }

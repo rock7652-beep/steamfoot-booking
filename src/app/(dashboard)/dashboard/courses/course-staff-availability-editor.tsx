@@ -19,13 +19,19 @@ const names=["日","一","二","三","四","五","六"];
 const field="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm";
 const button="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-xs text-primary-800";
 
-function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段",showErrors=false}:{label?:string;showErrors?:boolean;compact?:boolean;fitness?:boolean;periods:Period[];onChange:(value:Period[])=>void}) {
+function AvailabilityTime({selectTimes=false,value,onChange,...props}:{selectTimes?:boolean;value:string;onChange:(event:{target:{value:string}})=>void;className:string;'aria-label':string;'aria-invalid':boolean;type:string;step:number}){
+ if(!selectTimes)return <input {...props} type="time" value={value} onChange={onChange}/>;
+ const times=Array.from({length:48},(_,i)=>`${String(Math.floor(i/2)).padStart(2,'0')}:${i%2?'30':'00'}`);
+ if(value&&!times.includes(value))times.push(value);
+ return <select className={props.className} aria-label={props['aria-label']} aria-invalid={props['aria-invalid']} value={value} onChange={onChange}>{!value&&<option value="">請選擇</option>}{times.sort().map(time=><option key={time} value={time}>{time}</option>)}</select>;
+}
+function PeriodRows({selectTimes=false,periods,onChange,fitness=false,compact=false,label="時段",showErrors=false}:{selectTimes?:boolean;label?:string;showErrors?:boolean;compact?:boolean;fitness?:boolean;periods:Period[];onChange:(value:Period[])=>void}) {
   const errors=showErrors?availabilityPeriodErrors(periods):{};
   return <div className="flex flex-wrap items-center gap-1">
     {periods.map((period,index)=><div key={index} className={`flex flex-wrap min-w-0 items-center gap-1 ${errors[index]?"rounded-lg bg-red-50 p-1":""}`}>
-      <input aria-label={`${label}第${index+1}段開始`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
+      <AvailabilityTime selectTimes={selectTimes} aria-label={`${label}第${index+1}段開始`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
       <span className="text-xs text-earth-500">{compact?"–":"至"}</span>
-      <input aria-label={`${label}第${index+1}段結束`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
+      <AvailabilityTime selectTimes={selectTimes} aria-label={`${label}第${index+1}段結束`} aria-invalid={!!errors[index]} className={`${errors[index]?"!border-red-500 !text-red-800":""} ${fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:`${field} w-36 max-w-full min-w-0 shrink-0`}`} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
       {periods.length>1&&<button type="button" aria-label="移除時段" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>×</button>}
       {errors[index]&&<span role="alert" className="w-full text-xs text-red-700">第 {index+1} 段：{errors[index]}</span>}
     </div>)}
@@ -33,7 +39,7 @@ function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段"
   </div>;
 }
 
-export type CourseAvailabilitySource={reasonEnabled?:boolean;read:(id:string)=>Promise<ReturnType<typeof savedCourseAvailability.parse>>;save:SettingsSaveTransport};
+export type CourseAvailabilitySource={selectTimes?:boolean;reasonEnabled?:boolean;read:(id:string)=>Promise<ReturnType<typeof savedCourseAvailability.parse>>;save:SettingsSaveTransport};
 export type CourseAvailabilitySaveHandle={save:()=>Promise<boolean>};
 export function CourseStaffAvailabilityEditor({source,onEntityRevision,staffId,storeId="",fitness=false,readOnly=false,onGuard,saveRef,externalSave=false}:{readOnly?:boolean;onEntityRevision?:(revision:number)=>void;source?:CourseAvailabilitySource;saveRef?:Ref<CourseAvailabilitySaveHandle>;externalSave?:boolean;storeId?:string;staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
   const [showWeeklyErrors,setShowWeeklyErrors]=useState(false);
@@ -134,7 +140,7 @@ export function CourseStaffAvailabilityEditor({source,onEntityRevision,staffId,s
     {!inherit&&<div className={fitness?"grid grid-cols-[repeat(auto-fit,minmax(min(100%,432px),1fr))] items-start gap-x-4 gap-y-2":"space-y-2"}>
       {days.map(day=>{
         const toggle=day.periods.length?<button type="button" className={fitness?"col-start-2 row-start-1 min-h-9 justify-self-start rounded-lg whitespace-nowrap text-sm text-primary-700 hover:text-primary-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 min-[600px]:col-start-3":"text-xs text-earth-500"} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>{fitness?"設為休息":"不授課"}</button>:<button type="button" className={fitness?`${button} col-start-2 row-start-1 justify-self-end min-[600px]:col-start-3`:button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>{fitness?"開放授課":"＋ 開放"}</button>;
-        const periods=<PeriodRows label={`週${names[day.dayOfWeek]}`} showErrors={showWeeklyErrors} fitness={fitness} compact={fitness} periods={day.periods} onChange={periods=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item));}}/>;
+        const periods=<PeriodRows selectTimes={source?.selectTimes} label={`週${names[day.dayOfWeek]}`} showErrors={showWeeklyErrors} fitness={fitness} compact={fitness} periods={day.periods} onChange={periods=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item));}}/>;
         return <div key={day.dayOfWeek} className={fitness?"grid min-w-0 max-w-[436px] grid-cols-[1.75rem_minmax(0,1fr)] items-center min-[600px]:grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-1 border-b border-earth-100 bg-white pb-2":"grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1 @min-[28rem]/staff:grid-cols-[2rem_minmax(0,1fr)_auto]"}>
           {fitness?<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="col-span-2 row-start-2 min-w-0 min-[600px]:col-span-1 min-[600px]:row-start-auto">{day.periods.length>0?periods:<span className="text-sm text-earth-500">休息</span>}</div>{toggle}</>:<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="min-w-0">{periods}</div>{toggle}</>}
         </div>;
@@ -152,7 +158,7 @@ export function CourseStaffAvailabilityEditor({source,onEntityRevision,staffId,s
           <option value="CUSTOM">當日自訂可授課時間</option>
           <option value="INHERIT">取消例外，恢復固定規則</option>
         </select>
-        {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows label="單日" showErrors={showExceptionErrors} periods={exceptionPeriods} onChange={periods=>{setDirtyException(true);setExceptionPeriods(periods);}}/></div>}
+        {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows selectTimes={source?.selectTimes} label="單日" showErrors={showExceptionErrors} periods={exceptionPeriods} onChange={periods=>{setDirtyException(true);setExceptionPeriods(periods);}}/></div>}
         <input hidden={source?.reasonEnabled===false} className={field+" sm:col-span-2"} placeholder="原因（選填）" value={exceptionReason} onChange={e=>setExceptionReason(e.target.value)}/>
         {!externalSave&&<button type="button" disabled={pending} className={fitness?`${fitnessEditorSave} sm:col-span-2 justify-self-end bg-primary-700 text-white disabled:opacity-50`:button} onClick={()=>start(async()=>{await saveException();})}>{pending?"儲存中…":"儲存單日例外"}</button>}
       </fieldset>

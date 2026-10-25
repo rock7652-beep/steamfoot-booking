@@ -1,0 +1,13 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({load:vi.fn(),allocate:vi.fn(),trial:vi.fn(),rooms:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$queryRaw:m.rooms}}));
+vi.mock('@/server/beauty/booking',()=>({loadAvailability:m.load,findAllocation:m.allocate}));
+vi.mock('@/server/beauty/trial-eligibility',()=>({assertBeautyTrialEligibility:m.trial}));
+import {beautySlotsForActor} from '@/server/beauty/availability';
+import {AppError} from '@/lib/errors';
+const intent={requestKey:'00000000-0000-4000-8000-000000000001',date:'2099-01-01',time:'11:00',contactName:'測試',phone:'0900000000',policyRevision:0,isTrial:false,people:[{customerId:'customer',name:'測試',phone:'0900000000',pendingIdentity:false,serviceId:'service',serviceRevision:0,preference:'ANY',specifiedTechnicianId:null,specifiedLocationId:null,cardId:null,notes:''}]};
+beforeEach(()=>{vi.resetAllMocks();m.load.mockResolvedValue({slots:['09:00','10:00','11:00','12:00'],memberSlots:['09:00','10:00','11:00','12:00'],technicians:[{id:'t',name:'技師'}]});m.rooms.mockResolvedValue([{id:'r',name:'位置'}]);m.allocate.mockResolvedValue({result:[{technicianId:'t',locationId:'r'}]});});
+it('checks the selected manager time once instead of every slot',async()=>{const result=await beautySlotsForActor('manager',intent,{storeId:'store',userId:'actor',manager:true});expect(m.allocate).toHaveBeenCalledTimes(1);expect(m.allocate.mock.calls[0][2].time).toBe('11:00');expect(result.slots).toEqual(['11:00']);expect('arrangement' in result?result.arrangement:undefined).toEqual([{technicianId:'t',technicianName:'技師',locationId:'r',locationName:'位置'}]);});
+it('finds alternatives only after the selected time conflicts',async()=>{m.allocate.mockImplementation(async(_tx,_actor,d)=>{if(d.time==='11:00')throw new AppError('CONFLICT','已被預約');return {result:[{technicianId:'t',locationId:'r'}]};});const result=await beautySlotsForActor('manager',intent,{storeId:'store',userId:'actor',manager:true});expect(m.allocate).toHaveBeenCalledTimes(4);expect(result.slots).toEqual(['09:00','10:00','12:00']);expect('arrangement' in result?result.arrangement:undefined).toBeNull();expect('arrangementError' in result?result.arrangementError:undefined).toBe('已被預約');});
+it('preserves the complete public slot catalog',async()=>{const result=await beautySlotsForActor('public',intent,{storeId:'store',userId:null});expect(m.allocate).toHaveBeenCalledTimes(4);expect(result).toEqual({slots:['09:00','10:00','11:00','12:00']});expect(m.rooms).not.toHaveBeenCalled();});

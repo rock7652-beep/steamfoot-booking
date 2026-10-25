@@ -54,3 +54,7 @@ it('retains the same draft after an uncertain save and prevents closing until it
  act(()=>cancel.click());expect(onClose).not.toHaveBeenCalled();
  await submit();expect(save.mock.calls[1][0]).toEqual(save.mock.calls[0][0]);expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it('shows a readable required-technician validation instead of a JSON issue dump',async()=>{mount();fill('name','按摩');fill('price','1000');await submit();const text=document.querySelector('[role="alert"]')?.textContent??'';expect(text).toContain('請至少選一位可安排技師');expect(text).not.toContain('too_small');expect(text).not.toContain('"path"');});
+
+it('submits a configured store fixed fee and preserves it when editing',async()=>{const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:false,error:'合成資料保留'});mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300});expect((document.querySelector('[aria-label="店家固定費用"]') as HTMLInputElement).value).toBe('300');await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({storeCost:300}));});

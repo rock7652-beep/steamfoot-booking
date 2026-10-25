@@ -1,5 +1,5 @@
 import "server-only";
-import { beautyNotificationDeliveryBlocked } from "@/lib/beauty/notification-policy";
+import { beautyNotificationActivationAt,beautyNotificationDeliveryBlocked } from "@/lib/beauty/notification-policy";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -101,6 +101,8 @@ export async function runBeautyNotifications(now = new Date()) {
               await tx.$executeRaw`UPDATE "BeautyEvent" SET status='SKIPPED',body=body||${`\n[${reason}]`} WHERE id=${event.id}`;
               return "SKIPPED";
             };
+            const activatedAt=beautyNotificationActivationAt();
+            if(activatedAt&&event.createdAt<activatedAt)return skip("啟用前通知不補發");
             if (now.getTime() - event.createdAt.getTime() > 23 * 60 * 60 * 1000)
               return skip("通知已過期，避免跨重試期限重複送出");
             if (!current.customerId) return skip("未綁定可驗證的通知身分");

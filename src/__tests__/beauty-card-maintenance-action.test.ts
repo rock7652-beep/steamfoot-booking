@@ -1,0 +1,18 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({actor:vi.fn(),candidate:vi.fn(),people:vi.fn(),current:vi.fn(),reservations:vi.fn(),update:vi.fn(),audit:vi.fn(),feature:vi.fn(),lock:vi.fn(),revalidate:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people}}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyCard:{findFirst:m.candidate}}}));
+vi.mock('@/lib/permissions',()=>({requirePermission:vi.fn()}));
+vi.mock('@/lib/session',()=>({requireSession:async()=>({role:'OWNER',staffId:'staff'})}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({storeId:'store'})}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('next/cache',()=>({revalidatePath:m.revalidate}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.actor,audit:m.audit,command:async(_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>unknown)=>work(),beautyTransaction:async(_a:unknown,work:(tx:unknown)=>unknown)=>{m.lock();return work({beautyCard:{findFirst:m.current,update:m.update},beautyAppointment:{findMany:m.reservations}})}}));
+import {maintainBeautyCustomerCard} from '@/server/actions/beauty-card-maintenance';
+const expiresAt=new Date('2099-01-01T15:59:59.999Z');
+const base={expectedStoreId:'store',cardId:'card',requestKey:'00000000-0000-4000-8000-000000000001',action:'close',reason:'顧客申請停止使用',expectedRemaining:5,expectedExpiresAt:expiresAt.toISOString()};
+beforeEach(()=>{vi.clearAllMocks();m.actor.mockResolvedValue({storeId:'store',userId:'owner'});m.candidate.mockResolvedValue({memberIds:['customer']});m.people.mockResolvedValue([{id:'customer'}]);m.current.mockResolvedValue({id:'card',memberIds:['customer'],remaining:5,expiresAt,closedAt:null});m.reservations.mockResolvedValue([]);m.update.mockResolvedValue({id:'card'});});
+it('closes without deleting balances, payment history or issuing a refund, and audits before/after',async()=>{expect(await maintainBeautyCustomerCard(base)).toMatchObject({success:true});expect(m.actor).toHaveBeenCalledWith('wallet.adjust',true);expect(m.lock).toHaveBeenCalledOnce();expect(m.update).toHaveBeenCalledWith({where:{id:'card'},data:{closedAt:expect.any(Date)}});const body=JSON.parse(m.audit.mock.calls[0][3]);expect(body.before.remaining).toBe(5);expect(body.after.remaining).toBe(5);expect(body.reason).toBe(base.reason);});
+it('rejects stale and closed cards before mutation',async()=>{m.current.mockResolvedValueOnce({id:'card',remaining:4,expiresAt,closedAt:null});expect(await maintainBeautyCustomerCard(base)).toMatchObject({success:false});m.current.mockResolvedValueOnce({id:'card',remaining:5,expiresAt,closedAt:new Date()});expect(await maintainBeautyCustomerCard(base)).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it('blocks closing or expiry shortening across existing reservations',async()=>{m.reservations.mockResolvedValue([{startsAt:new Date('2099-01-01T03:00:00Z')}]);expect(await maintainBeautyCustomerCard(base)).toMatchObject({success:false});expect(await maintainBeautyCustomerCard({...base,action:'expiry',expiresDate:'2027-01-01'})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it('rejects a switched store and invisible customers',async()=>{expect(await maintainBeautyCustomerCard({...base,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.candidate).not.toHaveBeenCalled();m.current.mockResolvedValue(null);expect(await maintainBeautyCustomerCard(base)).toMatchObject({success:false});expect(m.current).toHaveBeenCalledWith({where:{id:'card',storeId:'store',memberIds:{hasSome:['customer']}}});expect(m.update).not.toHaveBeenCalled();});

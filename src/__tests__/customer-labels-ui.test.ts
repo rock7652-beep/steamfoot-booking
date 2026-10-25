@@ -171,3 +171,5 @@ it('shows every selected badge in a work-order customer summary',async()=>{
  expect(host.textContent).toContain('初次');expect(host.textContent).toContain('常客');expect(host.textContent).toContain('重點');expect(host.textContent).not.toContain('＋1');
  expect(host.querySelector('.text-sm')).not.toBeNull();expect(host.querySelector('button')).toBeNull();
 });
+
+it('replaces a failed label load with an explicit retry instead of an endless skeleton',async()=>{vi.useFakeTimers();m.load.mockRejectedValueOnce(Error('offline'));await render({...data,assignments:{}});await act(async()=>vi.advanceTimersByTimeAsync(40));expect(host.querySelector('[aria-label="標籤載入中"]')).toBeNull();expect(host.textContent).toContain('重新讀取標籤');m.load.mockResolvedValue(data);await act(async()=>[...host.querySelectorAll('button')].find(button=>button.textContent==='重新讀取標籤')!.click());expect(host.textContent).toContain('初次');expect(host.textContent).not.toContain('重新讀取標籤');vi.useRealTimers();});

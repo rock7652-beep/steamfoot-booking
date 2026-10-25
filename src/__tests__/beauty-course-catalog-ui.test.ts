@@ -14,6 +14,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () 
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
+vi.mock("@/lib/session",()=>({requireSession:vi.fn(()=>{throw Error('UI fixture must not call real authorization');}),requireStaffSession:vi.fn(()=>{throw Error('UI fixture must not call real authorization');}),getCurrentUser:vi.fn(()=>{throw Error('UI fixture must not call real authorization');})}));
 // Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
 vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
 vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn(), previewSportsCourseCancellation: vi.fn(), stopSportsSeries: vi.fn() }));

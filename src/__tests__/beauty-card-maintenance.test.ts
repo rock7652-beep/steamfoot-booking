@@ -1,0 +1,7 @@
+import {beforeEach,afterEach,expect,it,vi} from 'vitest';
+import {maintenanceExpiry,assertCardMaintenanceReservations} from '@/lib/beauty/card-maintenance';
+import {toLocalDateStr} from '@/lib/date-utils';
+beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-25T12:00:00Z'));});afterEach(()=>vi.useRealTimers());
+it('supports earlier and later valid dates through the end of the Taipei business day',()=>{expect(toLocalDateStr(maintenanceExpiry('2026-10-26'))).toBe('2026-10-26');expect(maintenanceExpiry('2026-10-26').toISOString()).toBe('2026-10-26T15:59:59.999Z');expect(maintenanceExpiry('2027-01-01')>maintenanceExpiry('2026-10-26')).toBe(true);});
+it('rejects invalid, past and excessive extension dates',()=>{for(const date of ['2026-02-30','2026-10-24','2037-10-25','garbage'])expect(()=>maintenanceExpiry(date)).toThrow();});
+it('blocks closing occupied cards or shortening across held appointments',()=>{const reservations=[{startsAt:new Date('2026-10-27T03:00:00Z')}];expect(()=>assertCardMaintenanceReservations('close',maintenanceExpiry('2026-10-30'),reservations)).toThrow('待服務');expect(()=>assertCardMaintenanceReservations('expiry',maintenanceExpiry('2026-10-26'),reservations)).toThrow('既有預約');expect(()=>assertCardMaintenanceReservations('expiry',maintenanceExpiry('2026-10-27'),reservations)).not.toThrow();expect(()=>assertCardMaintenanceReservations('close',maintenanceExpiry('2026-10-30'),[])).not.toThrow();});

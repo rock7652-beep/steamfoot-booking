@@ -137,3 +137,5 @@ it("expired retry windows never send a possibly duplicated LINE request", async 
   await runBeautyNotifications(now);
   expect(m.send).not.toHaveBeenCalled();
 });
+
+it('does not backfill pending notifications from before production activation',async()=>{vi.stubEnv('BEAUTY_NOTIFICATIONS_START_AT',new Date(now.getTime()+1).toISOString());const result=await runBeautyNotifications(now);expect(m.send).not.toHaveBeenCalled();expect(result.skipped).toBe(1);expect(tx.$executeRaw).toHaveBeenCalled();});

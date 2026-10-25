@@ -5,7 +5,7 @@ import {OperationScope} from '@/components/operations/operation-scope';
 import {CourseCustomerDraftForm,type Person} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';
 import {CourseStaffPermissionFields,CourseStaffBasicFields} from '@/app/(dashboard)/dashboard/courses/staff-editor-fields';
 const m=vi.hoisted(()=>({course:vi.fn(),save:vi.fn(),refresh:vi.fn()}));
-vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:m.course}));vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:m.course}));vi.mock('next/navigation',()=>({usePathname:()=>'/s/test/admin/dashboard/beauty',useRouter:()=>({refresh:m.refresh})}));
+vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:m.course}));vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:m.course}));vi.mock('next/navigation',()=>({useSearchParams:()=>new URLSearchParams(),usePathname:()=>'/s/test/admin/dashboard/beauty',useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{vi.resetAllMocks();sessionStorage.clear();host=document.createElement('div');document.body.append(host);root=createRoot(host);});afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 const person:Person={id:'c',updatedAt:'2026-10-22T00:00:00.000Z',name:'原姓名',phone:'0900000000',email:'a@example.invalid',gender:'female',birthday:'1990-03-04',serviceNote:'注意事項',address:'地址',notes:'備註',emergencyContactName:'家人',emergencyContactPhone:'0900000001'};

@@ -95,7 +95,7 @@ export function CourseSelfBookingSettings({
     });
   }
 
-  if(immediate||music)return <SettingsListRow title={title} summary={saveRequest.uncertain?'結果待核對':savedEnabled?'開啟':'關閉'} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label={title} checked={pending||saveRequest.uncertain?enabled:savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={event=>save(event.target.checked)}/></label>}>{error&&<p role="alert" className="py-1 text-sm text-red-700">{error}</p>}{saveRequest.uncertain&&<button type="button" className="min-h-11 px-3 text-sm text-primary-800" disabled={pending} onClick={()=>save()}>核對同次儲存結果</button>}</SettingsListRow>;
+  if(immediate||music)return <SettingsListRow expanded={!!error||saveRequest.uncertain} title={title} summary={saveRequest.uncertain?'結果待核對':savedEnabled?'開啟':'關閉'} controls={<label className="inline-flex min-h-11 min-w-12 items-center justify-center"><NotificationSwitch aria-label={title} checked={pending||saveRequest.uncertain?enabled:savedEnabled} disabled={!canEdit||pending||saveRequest.uncertain} onChange={event=>save(event.target.checked)}/></label>}>{error&&<p role="alert" className="py-1 text-sm text-red-700">{error}</p>}{saveRequest.uncertain&&<button type="button" className="min-h-11 px-3 text-sm text-primary-800" disabled={pending} onClick={()=>save()}>核對同次儲存結果</button>}</SettingsListRow>;
   return (
     <SettingsListRow
       title={title}

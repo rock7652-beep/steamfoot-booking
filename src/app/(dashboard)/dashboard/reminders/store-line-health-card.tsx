@@ -7,10 +7,10 @@ import {
 } from "@/server/actions/line-official-accounts";
 
 type Props = {
-  initialStatus: LineOfficialAccountStatus;
+  initialStatus: LineOfficialAccountStatus;readOnly?:boolean;
 };
 
-export function StoreLineHealthCard({ initialStatus }: Props) {
+export function StoreLineHealthCard({ initialStatus,readOnly=false }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function StoreLineHealthCard({ initialStatus }: Props) {
         <button
           type="button"
           onClick={recheck}
-          disabled={pending}
+          disabled={pending||readOnly}
           className="h-9 rounded-lg border border-earth-200 bg-white px-4 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-50"
         >
           {pending ? "檢測中…" : "重新檢測"}

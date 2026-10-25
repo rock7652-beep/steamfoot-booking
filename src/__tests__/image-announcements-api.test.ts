@@ -59,6 +59,14 @@ describe("圖片公告寫入邊界", () => {
   });
 });
 describe("公開圖片及後台預覽", () => {
+  it("有效試用店可讀取公告，過期及未啟用試用不可讀取", async () => {
+    mock.store.mockResolvedValue({id:"store-a",operatingStatus:"TRIAL",planStatus:"TRIAL",planExpiresAt:new Date("2099-12-31T00:00:00Z")});
+    expect((await read("list")).status).toBe(200);
+    mock.store.mockResolvedValue({id:"store-a",operatingStatus:"TRIAL",planStatus:"TRIAL",planExpiresAt:new Date("2000-01-01T00:00:00Z")});
+    expect((await read("list")).status).toBe(404);
+    mock.store.mockResolvedValue({id:"store-a",operatingStatus:"TRIAL",planStatus:"CANCELLED",planExpiresAt:null});
+    expect((await read("list")).status).toBe(404);
+  });
   it("公開清單只回傳有效圖片，不快取", async () => {
     mock.read.mockResolvedValue({ items: [item, { ...item, id: "hidden", enabled: false }, { ...item, id: "future", startsOn: "2099-01-01" }] });
     const response = await read("list"); expect(await response.json()).toEqual({ items: [item] }); expect(response.headers.get("Cache-Control")).toBe("no-store");
