@@ -1,6 +1,6 @@
 {
   "checkedAtTaipei": "2026-10-25 15:35",
-  "status": "BLOCKED_BACKUP_AND_UNPROVISIONED_BEAUTY_CONNECTION",
+  "status": "AWAITING_EXPLICIT_FORMAL_AUTHORIZATION_RUNTIME_CONNECTION_PENDING",
   "releaseScope": {
     "hqCanCreateBeautyStores": true,
     "createStoresNow": false,
@@ -72,13 +72,32 @@
     "secretsDecrypted": false
   },
   "backup": {
-    "verified": false,
-    "reason": "Supabase connector has no backup-list capability; browser automation cannot start due to insufficient wallet balance. No browser run or top-up requested.",
-    "previewBackupNotApplicable": true
+    "verified": true,
+    "evidenceSource": "User-supplied screenshot; no backup API read or restore drill",
+    "visibleProject": "steamfoot",
+    "visibleBranch": "main",
+    "visibleEnvironment": "PRODUCTION",
+    "latestListedType": "PHYSICAL",
+    "latestListedTimeUTC": "2026-10-24T17:26:47Z",
+    "latestListedTimeTaipei": "2026-10-25T01:26:47+08:00",
+    "restoreEntryVisible": true,
+    "restoreTestPerformed": false,
+    "storageObjectsIncluded": false,
+    "previewBackupNotUsed": true
   },
   "plannedRole": "steamfoot_beauty_prod_20261025",
   "actualRuntimeConnectionTest": false,
   "productionMutations": [],
   "deploymentsCreated": 0,
-  "lineChanges": false
+  "lineChanges": false,
+  "platformStatus": {
+    "source": "https://status.supabase.com/api/v2/summary.json",
+    "summary": "All Systems Operational",
+    "nonOperationalComponents": [],
+    "openIncident": "Elevated Mgmt API Error Rates in Multiple Regions",
+    "incidentState": "monitoring",
+    "lastUpdatedUTC": "2026-10-23T10:54:49Z",
+    "incidentResolved": false,
+    "tokyoUnaffectedProven": false
+  }
 }
