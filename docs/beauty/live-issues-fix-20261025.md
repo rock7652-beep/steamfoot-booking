@@ -68,3 +68,5 @@
 https://steamfoot-booking-3dd4uotjr-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021
 
 登入頁經 Vercel 授權 fetch 回應 200。尚未通過登入後的完整交易驗收：本次工作環境沒有先前的測試帳密檔或可沿用的應用程式 session；雲端 Default profile 僅有 Google／GitHub 登入紀錄。已詢問測試站登入狀態；不合成應用 session、不重設既有人員密碼。正式庫與 Production 環境未操作，LINE 保持關閉。
+
+後續使用者選擇不使用付費 TinyFish，並允許建立隔離驗收帳號；已使用免費本機 Chromium 正常登入，完成轉帳購卡折抵、出席／恢復、未出席扣次／不扣次、取消、期限調整與註銷驗收，帳號已停用。最新通過範圍、證據及尚缺案例見 [免費本機實際驗收](free-hosted-acceptance-20261026.md)。此更新取代上段的登入阻擋狀態，不代表全項交易驗收完成。

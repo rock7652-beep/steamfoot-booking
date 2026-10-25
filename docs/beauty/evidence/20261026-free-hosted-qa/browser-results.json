@@ -1,0 +1,252 @@
+{
+  "deployment": "dpl_AraNQ37aQu3wJa6WjSB1sLsNfWus",
+  "identity": "qa-manager",
+  "errors": [],
+  "network": [
+    {
+      "path": "/hq/login",
+      "status": 303,
+      "ms": 0,
+      "action": "6099899d"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "60691024"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "40236966"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "60691024"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "4033592f"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "60691024"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "701fb085"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "701fb085"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "701fb085"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "60691024"
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "status": 200,
+      "ms": 0
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 200,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "status": 307,
+      "ms": 0,
+      "action": "403fd8d6"
+    },
+    {
+      "path": "/hq/login",
+      "status": 200,
+      "ms": 0
+    }
+  ],
+  "checks": [
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "MANAGER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa-beauty-live-staff-dcb20e3a85"
+      }
+    },
+    {
+      "name": "cancelled-result",
+      "value": {
+        "text": "預約清單\n關閉\n預約名單 0\n已取消（1）\n篩選\n顧客／電話\n技師／位置\n本次使用\n可用次數\n：方案剩餘次數扣除所有已預約保留次數\n標籤／備註\n尚未加入學員",
+        "alerts": []
+      }
+    },
+    {
+      "name": "close-card-ui",
+      "value": {
+        "text": "QA本機驗收1025-甲\n查看會員前台\n關閉\n顧客概況\n紀錄\n健康追蹤\n‹ 返回 QA本機驗收1025-甲 詳情\n測試五次方案\n\n剩餘 5 次 · 已預約 0 次 · 還可預約 5 次\n\n期限：2027-01-20\n\n持有人：QA本機驗收1025-甲\n\n註銷方案\n\n註銷後無法再使用；付款、剩餘次數與使用紀錄保留，不會自動退款。\n\n原因\n取消\n確認註銷\n共卡授權成員\n\n每位成員均可只替另一位成員預約。\n\nQA本機驗收1025-甲 · 0900006527\n移除\n最近額度紀錄（8 筆）\n儲存共卡成員",
+        "fields": [
+          {
+            "aria": "方案調整原因",
+            "type": "text"
+          },
+          {
+            "aria": "搜尋顧客姓名、電話或 LINE 名稱",
+            "type": "text"
+          }
+        ]
+      }
+    },
+    {
+      "name": "card-closed-result",
+      "value": "QA本機驗收1025-甲\n查看會員前台\n關閉\n顧客概況\n紀錄\n健康追蹤\n‹ 返回 QA本機驗收1025-甲 詳情\n測試五次方案\n\n剩餘 5 次 · 已預約 0 次\n\n期限：2027-01-20\n\n持有人：QA本機驗收1025-甲\n\n已停用 · 剩餘額度僅供查詢\n\n共卡授權成員\n\n每位成員均可只替另一位成員預約。\n\nQA本機驗收1025-甲 · 0900006527\n移除\n最近額度紀錄（8 筆）\n儲存共卡成員"
+    },
+    {
+      "name": "card-closed",
+      "success": true
+    },
+    {
+      "name": "tablet-card-no-overflow",
+      "value": {
+        "width": 1024,
+        "overflow": false,
+        "cardClosed": true
+      }
+    },
+    {
+      "name": "card-closed-1024",
+      "success": true
+    },
+    {
+      "name": "mobile-card-no-overflow",
+      "value": {
+        "width": 390,
+        "overflow": false,
+        "cardClosed": true
+      }
+    },
+    {
+      "name": "card-closed-390",
+      "success": true
+    },
+    {
+      "name": "single-trial-entry-live",
+      "value": {
+        "text": "QA本機驗收1025-甲\n查看會員前台\n關閉\n顧客概況\n紀錄\n健康追蹤\n‹ 返回 QA本機驗收1025-甲 詳情\n多次方案\n單次／體驗\n日期\n開始時間\n顧客\n姓名\n服務項目\n測試做臉 · 60 分鐘\n測試按摩 · 90 分鐘\nQA全站1023-服務 · 45 分鐘\n使用方案\n單次付款 · NT$ 1,000\n體驗 · NT$ 500\n位置\n自動安排\n測試空間 A\n測試空間 B\nQA全站1023-出租床位\n技師\n自動安排\n測試女技師\n測試男技師\n09:00–10:00 · 60 分鐘\n整理至 10:15\n備註\n＋新增同行者\n\n1 位 · 方案使用 0 次 · 應收 NT$ 1,000\n\n正在核對時段…\n\n確認預約"
+      }
+    },
+    {
+      "name": "trial-price-live",
+      "success": true
+    },
+    {
+      "name": "single-price-live",
+      "success": true
+    },
+    {
+      "name": "customer-search-preserved",
+      "success": true
+    },
+    {
+      "name": "account-disabled-session",
+      "value": {
+        "hasUser": true
+      }
+    },
+    {
+      "name": "account-disabled-session-final",
+      "value": {
+        "hasUser": false
+      }
+    }
+  ]
+}
