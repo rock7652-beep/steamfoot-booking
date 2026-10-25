@@ -45,7 +45,7 @@ export async function readCourseStaffTeaching(staffId: string) {
     const { user, storeId } = await courseManagerRead("staff.view");
     if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "無人員管理權限");
     id.parse(staffId);
-    const nativeSports=sportsNativePreview(storeId);
+    const nativeSports=(await sportsNativePreview(storeId));
     const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId) && (!nativeSports || await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
     const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
     if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
@@ -112,7 +112,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
       .parse(input);
     if(d.kind==="manager"&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
-    const nativeSports=sportsNativePreview(storeId);
+    const nativeSports=(await sportsNativePreview(storeId));
     if(nativeSports && (d.teachingFees || d.defaultClassFee!==undefined) && !await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))throw new AppError("FORBIDDEN","尚未授權教練計酬設定");
     if(!nativeSports && d.teachingFees?.some(f=>f.value?.mode==="HOUR"))throw new AppError("VALIDATION","此模組不支援按時計酬");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);

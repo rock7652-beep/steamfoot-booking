@@ -14,12 +14,12 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     const { id, expectedUpdatedAt, expectedStoreId, requestKey, sportsRule, nativeDefaults, ...values } = musicSubjectSaveInput.parse(input);
     const { storeId, user } = await courseManager(id ? "booking.update" : "booking.create");
     if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "店舖已切換，請回原店確認後再操作。");
-    if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:sportsNativePreview(storeId)?"business.fitness":"business.music",status:"ENABLED"},select:{storeId:true}}))
+    if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:(await sportsNativePreview(storeId))?"business.fitness":"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("FORBIDDEN", "此功能僅適用音樂教室");
-    if(nativeDefaults&&sportsNativePreview(storeId))throw new AppError("FORBIDDEN","音樂項目設定不可套用運動店");
+    if(nativeDefaults&&(await sportsNativePreview(storeId)))throw new AppError("FORBIDDEN","音樂項目設定不可套用運動店");
     if (sportsRule) {
       if(id&&!expectedUpdatedAt)throw new AppError("CONFLICT","請重新開啟教學項目後再編輯規則");
-      if (!sportsNativePreview(storeId)) throw new AppError("FORBIDDEN", "此設定僅適用運動店");
+      if (!(await sportsNativePreview(storeId))) throw new AppError("FORBIDDEN", "此設定僅適用運動店");
       await courseManager("staff.manage");
       await courseManager("teacher.compensation.manage");
       if (!["OWNER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "僅店長可設定項目計酬");

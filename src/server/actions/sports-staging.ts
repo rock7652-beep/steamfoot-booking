@@ -44,7 +44,7 @@ import { assertSportsProductionReady } from "@/server/services/sports-production
 const id = z.string().min(1).max(100);
 async function actor(permission: Parameters<typeof courseManager>[0]) {
   const a = await courseManager(permission);
-  requireSportsStaging(a.storeId);
+  (await requireSportsStaging(a.storeId));
   const fitness = await prisma.storeFeatureEntitlement.findFirst({
     where: {
       storeId: a.storeId,
@@ -515,7 +515,7 @@ export async function sportsStagingCommand(input: unknown) {
           : d.kind === "隔週固定"
             ? "BIWEEKLY"
             : "SINGLE";
-      const perpetual=sportsNativePreview(storeId)&&frequency!=="SINGLE";
+      const perpetual=(await sportsNativePreview(storeId))&&frequency!=="SINGLE";
       const count=frequency==="SINGLE"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
@@ -542,7 +542,7 @@ export async function sportsStagingCommand(input: unknown) {
           sportsStaging: {
             perpetual:perpetual?true:undefined,
             frequency,
-            ...(sportsNativePreview(storeId)&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
+            ...((await sportsNativePreview(storeId))&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan?.id??null,
             students,
@@ -682,7 +682,7 @@ export async function bookSportsTrial(input: unknown) {
       })
       .parse(input);
     const { storeId, user, customer } = await courseMember({ write: true });
-    requireSportsStaging(storeId);
+    (await requireSportsStaging(storeId));
     const fitness = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.fitness", status: "ENABLED" },
     });

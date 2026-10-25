@@ -41,7 +41,7 @@ export async function CourseAnalyticsPage({params}:{params:{dataScope?:string;pr
   let data;
   try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:feesAllowed},params.dataScope);} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
   if(!all) data.staff=data.staff.filter(s=>s.id===user.staffId);
-  const native=sportsNativePreview(storeId);
+  const native=(await sportsNativePreview(storeId));
   const periodControls=<ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery compact={native||music}/>;
   const revenuePoints=money&&scope.view==="store" ? await getIndustrySixMonthRevenueMixTrend(storeId) : null;
   const scopeQuery=musicDataScope(storeId,params.dataScope)==="legacy"?"&dataScope=legacy":"";

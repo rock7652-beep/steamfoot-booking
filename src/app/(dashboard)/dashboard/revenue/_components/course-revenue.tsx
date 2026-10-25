@@ -32,7 +32,7 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
   basePath?: "/dashboard/revenue" | "/dashboard/transactions";
   canDataExport?: boolean;
 }) {
-  const native=source?true:sportsNativePreview(storeId);
+  const native=source?true:(await sportsNativePreview(storeId));
   const legacy=musicDataScope(storeId,params.dataScope)==="legacy";
   const scopeQuery:Record<string,string>=legacy?{dataScope:"legacy"}:{};
   if(legacy){readOnly=true;canRefund=false;canConfirm=false;canEdit=false;canVoid=false;}

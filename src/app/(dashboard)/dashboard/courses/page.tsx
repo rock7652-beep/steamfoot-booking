@@ -94,7 +94,7 @@ export default async function CoursesPage({
   });
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey));
   // Catalog saves must not wait for the monthly schedule, rental or customer reads.
-  const sportsNative = businessProfile === "FITNESS" && sportsNativePreview(storeId);
+  const sportsNative = businessProfile === "FITNESS" && (await sportsNativePreview(storeId));
   if(sportsNative&&process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>import("@/server/services/sports-production-readiness").then(m=>m.assertSportsProductionReady(tx,storeId)));
 
   if (view === "catalog" && (businessProfile === "MUSIC" || sportsNative)) {

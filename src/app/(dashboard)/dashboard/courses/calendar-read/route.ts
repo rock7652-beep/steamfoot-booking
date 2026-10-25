@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user) return Response.json({success:false,error:"請先登入"},{status:401,headers});
     const storeId = await getActiveStoreForRead(user);
-    if (!storeId || !sportsNativePreview(storeId)) return Response.json({success:false,error:"此入口僅適用運動測試站"},{status:403,headers});
+    if (!storeId || !(await sportsNativePreview(storeId))) return Response.json({success:false,error:"此入口僅適用運動模組"},{status:403,headers});
     const body = await request.text();
     if (body.length > 200) return Response.json({success:false,error:"請求過長"},{status:400,headers});
     const data = JSON.parse(body);

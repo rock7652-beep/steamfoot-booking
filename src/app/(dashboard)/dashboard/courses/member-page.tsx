@@ -52,7 +52,7 @@ export async function CourseMemberPage({
     where: { storeId, featureKey: "business.music", status: "ENABLED" },
     select: { storeId: true },
   }));
-  const sportsNative=sportsNativePreview(storeId);
+  const sportsNative=(await sportsNativePreview(storeId));
   const sportsDataPromise=view==="plans"&&sportsNative&&!isViewMode&&(user.role==="ADMIN"||user.storeId===storeId)?loadSportsStaging(true).then(r=>r.success?r.data:undefined):Promise.resolve(undefined);
   const canReadCards = await checkPermission(
     user.role,

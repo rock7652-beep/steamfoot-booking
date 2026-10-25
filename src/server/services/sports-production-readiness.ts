@@ -12,7 +12,7 @@ export async function assertSportsProductionReady(tx: CatalogClient, storeId: st
 }
 export async function sportsRulesAvailable(tx: CatalogClient, storeId: string) {
  const {sportsStagingEnabled}=await import("@/lib/sports-staging");
- if(sportsStagingEnabled(storeId))return true;
+ if((await sportsStagingEnabled(storeId)))return true;
  if(!sportsProductionRulesEnvironment())return false;
  const [row]=await tx.$queryRawUnsafe<Array<{present:boolean}>>("SELECT to_regclass('public.\"SportsStagingSessionRule\"') IS NOT NULL AS present");
  return row?.present===true;

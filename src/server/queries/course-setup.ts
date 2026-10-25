@@ -15,7 +15,7 @@ export function courseSetupCookieName(storeId:string,userId:string) {
 }
 // Layout and settings render the same guide. Deduplicate only within this RSC request.
 export const getCourseSetup = cache(async function getCourseSetup(storeId:string,userId:string) {
-  const native=sportsNativePreview(storeId);
+  const native=(await sportsNativePreview(storeId));
   const [coaches,rooms,templates,plans,sessions,staff,music,hours,config,existingRooms,existingPlans,existingCoaches,latestSession,hoursConfirmation] = await Promise.all([
     prisma.staff.count({where:{storeId,status:"ACTIVE",courseCoachEnabled:true}}),
     coursePrisma.courseRoom.count({where:{storeId,isActive:true}}),

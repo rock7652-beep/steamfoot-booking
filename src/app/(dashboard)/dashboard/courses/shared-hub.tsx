@@ -77,7 +77,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={`setup:${storeId}`} manual {...await settingsStep("read_setup", () => getCourseSetup(storeId,user.id))} localSections/>}
       <CourseSettingsWorkspace
-        native={sportsNativePreview(storeId)} music={music}
+        native={(await sportsNativePreview(storeId))} music={music}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}
         key={`settings:${storeId}`}
         canDigitalButler={canPayment && !readOnly}

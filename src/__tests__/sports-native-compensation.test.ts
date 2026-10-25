@@ -15,5 +15,5 @@ describe("sports native compensation",()=>{
  it("dispatches only the immutable new version and leaves old hourly unsupported",()=>{expect(capturedTeacherFee({rule:{mode:"HOUR",value:600,durationMinutes:90,calculationVersion:3},revision:1},[seat]).amount).toBe(900);expect(capturedTeacherFee({rule:{mode:"HOUR",value:600},revision:1},[seat]).amount).toBeNull();});
  it("teacher leave/cancel still cancels the new fee",()=>{expect(capturedTeacherFee({rule:{mode:"HOUR",value:600,durationMinutes:90,calculationVersion:3},revision:1,teacherAttendance:"LEAVE"},[seat]).amount).toBe(0);});
  it("validates rates without excluding valid hundredths",()=>{expect(sportsCompensation.safeParse({mode:"SHARE",value:100.01}).success).toBe(false);expect(sportsCompensation.safeParse({mode:"HOUR",value:0.29}).success).toBe(true);});
- it("never enables native sports entry on production or the music store",()=>{expect(sportsNativePreview("store-lubymusic")).toBe(false);expect(sportsNativePreview("sports-live-flow-store")).toBe(false);});
+ it("does not enable sports outside a verified production or isolated preview",async()=>{expect(await sportsNativePreview("store-lubymusic")).toBe(false);expect(await sportsNativePreview("sports-live-flow-store")).toBe(false);});
 });

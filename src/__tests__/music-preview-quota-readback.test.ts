@@ -5,6 +5,7 @@ vi.mock("@/lib/session", () => ({ requireAdminSession: vi.fn(), requireStaffSess
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.activeStore }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: async () => [{enabled:false}],
   store: { findUnique: m.store }, staff: { count: m.staff }, customer: { count: m.customer },
   booking: { count: m.steam }, shopConfig: { findUnique: m.config },
 } }));

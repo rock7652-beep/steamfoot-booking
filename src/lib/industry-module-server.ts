@@ -23,7 +23,7 @@ const previewModule=cache((storeId:string)=>prisma.$queryRaw<Array<{industryModu
 export async function getStoreIndustryModule(
   storeId: string,
 ): Promise<IndustryModuleId> {
-  const stores = sportsNativePreview(storeId)?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  const stores = (await sportsNativePreview(storeId))?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}

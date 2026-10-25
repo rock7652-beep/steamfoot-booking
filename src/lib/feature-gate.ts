@@ -82,7 +82,7 @@ export async function getActiveStoreFeatureEntitlement(
 ): Promise<StoreFeatureEntitlementFields | null> {
   if (!isFeatureKey(feature)) return null;
 
-  const entitlement = sportsNativePreview(storeId)?(await previewEntitlements(storeId)).find(row=>row.featureKey===feature)??null:await getCachedStoreFeatureEntitlement(storeId, feature);
+  const entitlement = (await sportsNativePreview(storeId))?(await previewEntitlements(storeId)).find(row=>row.featureKey===feature)??null:await getCachedStoreFeatureEntitlement(storeId, feature);
   if (!entitlement) return null;
 
   if (entitlement.startsAt && entitlement.startsAt > now) return null;
