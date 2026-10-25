@@ -4,6 +4,8 @@
 
 後續已產出 [正式升級審查包](../qa/beauty-production-review-20261025/README.md)：包含本機模型產生的 14 表 SQL、完整性參考、權限查詢缺口及 SHA256 校驗。DDL 參考已阻止直接執行；不代表可執行 installer、最小權限或空庫驗證已完成。
 
+現金待辦已於同日使用者明確授權金額 1,000 元後完成：補關舊抽屜、今日開店、折扣現金收款 900／退款 900、重送不重複、今日閉店差額零，詳見 [現金驗收](cash-acceptance-20261025.md)。以下舊抽屜待辦保留為核對歷史，不再列為阻擋。
+
 ## 重新確認的正式庫缺口
 
 目標 project `qijlnhtpbintanzpxkvf`，database `postgres`。查詢 pg_class、pg_enum、pg_roles，沒有查顧客個資。

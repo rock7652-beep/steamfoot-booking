@@ -2,6 +2,8 @@
 
 本輪已依授權完成隔離庫六欄升級、完整 Preview 部署及真實登入驗收；正式站、正式資料庫與 LINE 未變更。測試候選可交付，**尚不能宣告正式上線**。
 
+後續更新：使用者授權以 1,000 元補關 10/21 舊抽屜後，已完成 [現金收退款與抽屜驗收](cash-acceptance-20261025.md)。下方現金阻擋敘述為本報告初版狀態，以後續報告為準。
+
 ## 最新版本
 
 - [測試站登入](https://steamfoot-booking-30ep09moz-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021)

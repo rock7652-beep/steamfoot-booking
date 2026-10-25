@@ -1,0 +1,71 @@
+{
+  "deployment": "dpl_28VBekuzbTbf8WKSnGutQYBtFsnG",
+  "state": {
+    "store": "beauty-hosted-20261021",
+    "drawers": [
+      {
+        "id": "cmvi63bxp0001js0899pcq8hd",
+        "date": "2026-10-21",
+        "status": "CLOSED",
+        "difference": 0,
+        "finalBalance": 1000,
+        "closingActualCash": 1000,
+        "openingActualCash": 0,
+        "expectedClosingCash": 1000
+      },
+      {
+        "id": "cmvngshxn0001jv08lqlyt7r8",
+        "date": "2026-10-25",
+        "status": "CLOSED",
+        "difference": 0,
+        "finalBalance": 1000,
+        "closingActualCash": 1000,
+        "openingActualCash": 1000,
+        "expectedClosingCash": 1000
+      }
+    ],
+    "project": "ttworfzgwejdeolegkxl",
+    "cashbook": [
+      {
+        "id": "beauty:cmvnh1zps000ajv08embhzsje",
+        "type": "EXPENSE",
+        "amount": 900,
+        "method": "CASH"
+      },
+      {
+        "id": "beauty:cmvngwuad0006jv08lm52qqf9",
+        "type": "INCOME",
+        "amount": 900,
+        "method": "CASH"
+      }
+    ],
+    "payments": [
+      {
+        "id": "cmvngwuad0006jv08lm52qqf9",
+        "kind": "SALE",
+        "amount": 900,
+        "method": "CASH",
+        "originalPaymentId": null
+      },
+      {
+        "id": "cmvnh1zps000ajv08embhzsje",
+        "kind": "REFUND",
+        "amount": -900,
+        "method": "CASH",
+        "originalPaymentId": "cmvngwuad0006jv08lm52qqf9"
+      }
+    ],
+    "sentEvents": 0,
+    "appointment": {
+      "id": "cmvnguuz50002jv08wp218fuz",
+      "fee": 0,
+      "status": "CANCELLED"
+    },
+    "activeQaRoom": false,
+    "qaUserStatus": "SUSPENDED",
+    "qaStaffStatus": "INACTIVE",
+    "activeQaService": false,
+    "activeQaTechnician": false
+  },
+  "accessLinkRevoked": true
+}
