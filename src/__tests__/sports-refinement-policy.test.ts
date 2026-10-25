@@ -13,13 +13,13 @@ const fallback={waitlistEnabled:true,waitlistLimit:5,waitlistStopMinutes:60};
 beforeEach(()=>{m.native=true;});
 it("課次候補覆蓋不修改課程範本，0明確停用，指定學員不候補",async()=>{
  for(const [enrollment,limit,enabled] of [["OPEN",2,true],["OPEN",0,false],["ASSIGNED",2,false]] as const){
- const tx={$queryRaw:vi.fn().mockResolvedValue([{payload:{...rule,enrollment,waitlist:{limit,stopMinutes:240}}}])};
+ const tx={courseBookingRule:{findUnique:async()=>({selfBookingEnabled:true})},$queryRaw:vi.fn().mockResolvedValue([{payload:{...rule,enrollment,waitlist:{limit,stopMinutes:240}}}])};
  expect(await sessionWaitlistPolicy(tx as unknown as Prisma.TransactionClient,"sports-live-flow-store","session",fallback)).toEqual({waitlistEnabled:enabled,waitlistLimit:limit,waitlistStopMinutes:240});
  expect(fallback.waitlistLimit).toBe(5);
  }
 });
 it("音樂及正式店不查Preview規則、舊課沿用原設定",async()=>{
- const tx={$queryRaw:vi.fn().mockResolvedValue([])};m.native=false;
+ const tx={courseBookingRule:{findUnique:async()=>({selfBookingEnabled:true})},$queryRaw:vi.fn().mockResolvedValue([])};m.native=false;
  expect(await sessionWaitlistPolicy(tx as unknown as Prisma.TransactionClient,"music","session",fallback)).toBe(fallback);expect(tx.$queryRaw).not.toHaveBeenCalled();
  m.native=true;expect(await sessionWaitlistPolicy(tx as unknown as Prisma.TransactionClient,"sports-live-flow-store","old",fallback)).toBe(fallback);
 });
@@ -32,4 +32,10 @@ it("精確出租時間只在運動Preview schema放行，原出租限制保留",
  const rental={requestKey:"00000000-0000-4000-8000-000000000001",roomId:"room",customerName:"學員",customerPhone:"0900000000",date:"2026-12-01",time:"09:15",durationMinutes:45,amount:200};
  expect(sportsRentalInput.safeParse(rental).success).toBe(true);expect(rentalInput.safeParse(rental).success).toBe(false);
  expect(sportsRentalInput.safeParse({...rental,time:"25:00"}).success).toBe(false);
+});
+
+it("關閉開放選課後不沿用任何課次候補功能",async()=>{
+ const tx={courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false})},$queryRaw:vi.fn()};
+ expect(await sessionWaitlistPolicy(tx as unknown as Prisma.TransactionClient,"sports-live-flow-store","session",fallback)).toMatchObject({waitlistEnabled:false});
+ expect(tx.$queryRaw).not.toHaveBeenCalled();
 });

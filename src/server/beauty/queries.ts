@@ -1,3 +1,4 @@
+import {readBeautyChargeCosts} from './charge-finance';
 import {beautyChargeRulesEnabled,readChargeCatalogForUi} from './charge-runtime';
 import {beautyScheduleRange,beautyNativeCalendarRange} from '@/lib/beauty/calendar';
 import {getManagerCustomerWhere} from "@/lib/manager-visibility";
@@ -387,8 +388,11 @@ export async function beautyDashboard(
   const rentals=await beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string;customerPhone:string;customerId:string|null}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName","customerPhone","customerId" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`;
   const technicianAssignments=includeTechnicianAssignments&&staffAccess?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[];
   const assignmentStaff=customerAccess?await prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[];
+  const costs=planAccess&&financeAccess&&beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeCosts(beautyPrisma,a.storeId,plans.map(p=>({kind:'plan',id:p.id}))):new Map<string,number|null>();
+  const planSaleCosts=Object.fromEntries(plans.map(p=>[p.id,costs.get('plan:'+p.id)??null]));
   const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId)):[];
   return {
+    planSaleCosts,
     chargeRulesActive:beautyChargeRulesEnabled(a.storeId),
     chargeCatalog:includeChargeCatalog&&beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?await readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
     assignmentStaff,

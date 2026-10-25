@@ -10,6 +10,7 @@ const tx = {
   coursePurchase: { findUnique: async () => null, create: purchaseCreate },
   coursePointCard: { findUnique: async () => null, create: cardCreate },
   coursePointPlan: { findFirst: planFind },
+  courseBookingRule: { findUnique: async () => ({ selfBookingEnabled: true, assignedSchedulingEnabled: true }) },
   $queryRaw: async () => [{ id: "learner" }],
   $executeRaw: vi.fn(),
 } as unknown as Prisma.TransactionClient;

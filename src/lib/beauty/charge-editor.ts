@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {key,money} from './contracts';
 const shared={
- expectedStoreId:key,serviceId:key,name:z.string().trim().min(1,'請填寫收費名稱').max(100),price:money,
+ storeCost:money.nullable().optional(),expectedStoreId:key,serviceId:key,name:z.string().trim().min(1,'請填寫收費名稱').max(100),price:money,
  technicianIds:z.array(key).min(1,'請至少選一位可安排技師').max(200).refine(ids=>new Set(ids).size===ids.length,'技師不可重複'),
 };
 /** A multiple-session charge has no trial fields; reject rather than silently save them. */
@@ -14,6 +14,7 @@ export type ChargeService={id:string;name:string;active:boolean;duration:number;
 export type ChargeTechnician={id:string;name:string;active:boolean;serviceIds:string[]};
 export function validateBeautyCharge(input:unknown,storeId:string,services:ChargeService[],technicians:ChargeTechnician[]){
  const draft=beautyChargeDraft.parse(input);
+ if(draft.storeCost!=null&&draft.storeCost>draft.price)throw Error('店家固定費用不可超過售價');
  if(draft.expectedStoreId!==storeId)throw Error('門市已切換，請重新開啟');
  const service=services.find(s=>s.id===draft.serviceId&&s.active);
  if(!service)throw Error('請選擇本店啟用的服務');

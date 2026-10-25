@@ -1,7 +1,7 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
-const m=vi.hoisted(()=>({findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
+const m=vi.hoisted(()=>({modeRule:vi.fn(),findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requireWritablePermission:m.writable}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:m.config}}}));
 vi.mock("next/server",()=>({after:vi.fn()}));
@@ -12,7 +12,7 @@ vi.mock("@/server/services/course-booking",()=>({correctCourseAttendance:m.corre
 import {saveCourseAttendance,saveCourseCoachNote,purchaseCoursePlan,confirmCoursePurchase} from "@/server/actions/course-portal";
 import {revalidatePath} from "next/cache";
 const actor={storeId:"store-a",user:{id:"u",name:"教練"},customer:{id:"c"}};
-beforeEach(()=>{vi.clearAllMocks();m.correct.mockImplementation(async(_tx,_actor,id,target)=>({id,status:target,checkedInAt:null,updatedAt:new Date("2026-09-20T03:00:00Z")}));m.settle.mockImplementation(async(_tx,_actor,id)=>({id,status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")}));m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(2);m.updateNote.mockResolvedValue({count:1});m.order.mockResolvedValue(null);m.createOrder.mockResolvedValue({id:"purchase"});m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{findFirst:m.findBooking,findFirstOrThrow:m.findBooking,count:m.count,updateMany:m.updateNote},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
+beforeEach(()=>{vi.clearAllMocks();m.correct.mockImplementation(async(_tx,_actor,id,target)=>({id,status:target,checkedInAt:null,updatedAt:new Date("2026-09-20T03:00:00Z")}));m.settle.mockImplementation(async(_tx,_actor,id)=>({id,status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")}));m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(2);m.updateNote.mockResolvedValue({count:1});m.order.mockResolvedValue(null);m.createOrder.mockResolvedValue({id:"purchase"});m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({courseBookingRule:{findUnique:m.modeRule},$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{findFirst:m.findBooking,findFirstOrThrow:m.findBooking,count:m.count,updateMany:m.updateNote},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
 const attendance={sessionId:"s",target:"ATTENDED",bookings:[{id:"a",status:"RESERVED"},{id:"b",status:"RESERVED"}]};
 describe("course portal mutations",()=>{
  it("undoes check-in without touching quota and records the change",async()=>{
@@ -76,4 +76,11 @@ it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"
  expect(await saveCourseAttendance({...attendance,target:"UNDO_CHECK_IN",bookings:[attendance.bookings[0]]})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
  expect(m.updateNote).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();expect(m.correct).not.toHaveBeenCalled();expect(m.settle).not.toHaveBeenCalled();
  expect(m.count).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null})}));
+});
+
+it("rejects purchase of a disabled open-selection offer without changing existing orders",async()=>{
+ m.plan.mockResolvedValue({id:"p",sportsMode:"OPEN",name:"通用卡",unit:"POINT",points:10,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:[]});
+ m.modeRule.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:true});
+ expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false,error:expect.stringContaining("已關閉開放選課")});
+ expect(m.createOrder).not.toHaveBeenCalled();expect(m.createCard).not.toHaveBeenCalled();
 });

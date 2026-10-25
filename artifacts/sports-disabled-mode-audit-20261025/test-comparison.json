@@ -1,0 +1,13 @@
+{
+  "base": "2e8168878713facf68f7646819964b9e5ef81351",
+  "fullSuite": {
+    "numTotalTests": 13730,
+    "numPassedTests": 13490,
+    "numFailedTests": 59
+  },
+  "baselineFailingSubsetFailedTests": 57,
+  "auditOnlyInitialFailures": {
+    "sports-entitlement-checkout.test.ts": 2
+  },
+  "resolution": "Updated transaction fixture to supply authoritative scheduling modes; final targeted 7 files / 81 tests pass. All other 57 failed assertions reproduced on unchanged base."
+}

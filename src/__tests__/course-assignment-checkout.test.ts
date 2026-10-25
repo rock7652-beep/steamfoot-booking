@@ -8,7 +8,7 @@ import {enqueuePlanActivation} from "@/server/services/plan-activation-enqueue";
 import {assignCourseWithCheckout} from "@/server/services/course-assignment-checkout";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
 import type {Prisma} from "../../generated/course-client";
-const tx={courseSession:{findFirst:vi.fn(),count:vi.fn()},coursePurchase:{findUnique:vi.fn(),create:vi.fn()},coursePointPlan:{findFirst:vi.fn()},coursePointCard:{findUnique:vi.fn(),findFirst:vi.fn(),create:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
+const tx={courseBookingRule:{findUnique:vi.fn()},courseSession:{findFirst:vi.fn(),count:vi.fn()},coursePurchase:{findUnique:vi.fn(),create:vi.fn()},coursePointPlan:{findFirst:vi.fn()},coursePointCard:{findUnique:vi.fn(),findFirst:vi.fn(),create:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
 const db=tx as unknown as Prisma.TransactionClient;
 const actor={storeId:"A",userId:"manager"};
 const input={revenueStaffId:"developer",expectedStoreCost:0,planId:"plan",customerId:"customer",expiresDate:"2099-01-01",requestKey:"key",discountKind:"AMOUNT" as const,discountValue:200,paymentMethod:"BANK_TRANSFER" as const,transferLastFour:"0123",expectedListPrice:1000};
@@ -77,4 +77,11 @@ it.each([false,true])("distinguishes an unpaid music receivable from a fully dis
  expect(writes).toHaveLength(2);
  expect(writes.some(([sql])=>sql.join("").includes('"CashbookEntry"'))).toBe(false);
  expect(writes.find(([sql])=>sql.join("").includes('INSERT INTO "CourseMusicTuition"'))?.slice(1)).toContain(fullDiscount?0:6400);
+});
+
+it('rejects a disabled open-selection purchase before any card or money mutation',async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue({id:'plan',name:'通用卡',sportsMode:'OPEN',unit:'POINT',price:1000,storeCost:0,validDays:90});
+ tx.courseBookingRule.findUnique.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:true});
+ await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow('已關閉開放選課');
+ expect(tx.coursePointCard.create).not.toHaveBeenCalled();expect(tx.coursePurchase.create).not.toHaveBeenCalled();
 });

@@ -37,7 +37,7 @@ export async function saveBeautyCharge(input:unknown){
     const count=await tx.$executeRaw`UPDATE "BeautyPlan" SET name=${draft.name},sessions=${draft.sessions},price=${draft.price},"validDays"=${draft.validDays},"allowShared"=${draft.allowShared},"chargeTechnicianRule"=${json}::jsonb,revision=${patch.revision} WHERE "storeId"=${a.storeId} AND id=${id} AND revision=${d.expectedRevision}`;
     if(count!==1)throw new AppError('CONFLICT','方案收費版本已更新');
    }
-   await audit(tx,a,'CHARGE_SETTING',JSON.stringify({id,kind:draft.kind,revision:patch.revision}));
+   await audit(tx,a,'CHARGE_SETTING',JSON.stringify({id,kind:draft.kind,revision:patch.revision,storeCost:draft.storeCost??null}));
    return {id,kind:draft.kind,revision:patch.revision};
   }));
   let syncWarning=false;try{revalidatePath('/dashboard/beauty');}catch{syncWarning=true;}

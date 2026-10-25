@@ -1,4 +1,6 @@
 "use server";
+import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
+
 import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
 import { activationExpiry } from "@/lib/plan-activation-notification";
 import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
@@ -151,6 +153,7 @@ export async function purchaseCoursePlan(input: unknown) {
         where: { id: data.planId, storeId, isActive: true, customerPurchasable: true },
       });
       if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放顧客購買");
+      await assertCoursePlanMode(tx,storeId,plan.sportsMode);
       if (plan.unit === "POINT") {
         assertCoursePurchaseUnit(await isMusicCourseStore(tx, storeId), plan.unit, "音樂教室只販售堂數方案");
       }
