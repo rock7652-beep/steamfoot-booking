@@ -49,6 +49,7 @@ import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
+import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { Fragment, useLayoutEffect, useRef, useState, type FormEvent } from "react";
@@ -654,6 +655,7 @@ export function CourseMemberWorkspace({
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
+                      ...(source?.automaticAllocation?{beautyExpectedStoreCost:(plans.find(p=>p.id===planId)?.catalogSnapshot?.storeCost??null)}:{}),
                       musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:d.get("musicReceivedResolved")!==null?Number(d.get("musicReceivedResolved")):undefined,
                       musicPaymentDate:d.get("musicPaymentDate")?String(d.get("musicPaymentDate")):undefined,
@@ -711,6 +713,7 @@ export function CourseMemberWorkspace({
                 </fieldset>
                 <fieldset data-purchase-details disabled={pending} className={music ? "contents" : "min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5"}>
                   {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split customerId={person?.id??purchaseCustomerId} key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment cashReader={source?.cashStatus} profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
+                {source?.automaticAllocation&&<div className="mt-2 text-sm" role="status">{(()=>{const cost=plans.find(p=>p.id===planId)?.storeCost;if(cost==null)return '尚未設定店家固定費用，本次不計算分潤。';if(assignmentSummary.paid==null)return '確認實收後顯示分配。';const allocation=calculateCourseSaleAllocation(assignmentSummary.paid,cost);return `店家 ${allocation.storeAmount.toLocaleString()}／所屬店長 ${allocation.developerAmount.toLocaleString()}（${customerRows.find(c=>c.id===(person?.id??purchaseCustomerId))?.assignedStaff?.displayName??'未歸屬'}）${allocation.shortfall?'；實收低於固定費用':''}`;})()}</div>}
                 </fieldset>
               </form>
             )}

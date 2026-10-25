@@ -22,6 +22,14 @@ it.each(['manager','feature'] as const)('denies %s before reading module financi
 it('rejects cross-store and invisible customer histories before module queries',async()=>{expect(await readBeautyNativeCustomerBookings('foreign')).toMatchObject({success:false});expect(await readBeautyNativeCustomerPurchases('foreign')).toMatchObject({success:false});expect(m.bookings).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();});
 it('uses the original issue-card transaction with authoritative expected price and explicit expiry',async()=>{expect(await assignBeautyNativeCard(input)).toMatchObject({success:true});expect(m.issue).toHaveBeenCalledWith({local:true},a,expect.objectContaining({planId:'plan',customerId:'c',paid:4500,method:'BANK_TRANSFER',memberIds:[]}),undefined,{expiresDate:input.expiresDate,expectedListPrice:5000,transferLastFour:'1234'});expect(m.manager.mock.calls.map(c=>c[0])).toContain('wallet.adjust');});
 it('cannot submit a discount without its extra permission',async()=>{m.manager.mockImplementation(async permission=>{if(permission==='wallet.adjust')throw Error('denied');return a;});expect(await assignBeautyNativeCard(input)).toMatchObject({success:false});expect(m.issue).not.toHaveBeenCalled();});
+it('forwards the Beauty fixed-fee quote to the authoritative issue-card check',async()=>{
+ expect(await assignBeautyNativeCard({...input,beautyExpectedStoreCost:1500})).toMatchObject({success:true});
+ expect(m.issue).toHaveBeenCalledWith({local:true},a,expect.anything(),undefined,expect.objectContaining({expectedStoreCost:1500,expectedListPrice:5000}));
+});
+it('still rejects arbitrary course cost fields before issuing a Beauty card',async()=>{
+ expect(await assignBeautyNativeCard({...input,expectedStoreCost:1500,beautyExpectedStoreCost:1500})).toMatchObject({success:false});
+ expect(m.issue).not.toHaveBeenCalled();
+});
 it('rejects unscoped customers, arbitrary revenue attribution, invalid transfers and over-discounts before checkout',async()=>{for(const change of [{customerId:'foreign'},{revenueStaffId:'foreign'},{transferLastFour:'x'},{discountValue:5001}])expect(await assignBeautyNativeCard({...input,...change})).toMatchObject({success:false});expect(m.issue).not.toHaveBeenCalled();});
 it('preserves member CAS and request replay identity through the existing membership core',async()=>{await saveBeautyNativeCardMembers({cardId:'card',expected:['c'],customerIds:['c','c2'],requestKey:input.requestKey});expect(m.members).toHaveBeenCalledWith({id:'card',expected:['c'],memberIds:['c','c2'],requestKey:input.requestKey});});
 it('uses the original profile writer with explicit Beauty authorization',async()=>{await saveBeautyNativeCustomerProfile({id:'c',name:'更新'});expect(m.profile).toHaveBeenCalledWith({id:'c',name:'更新'},'beauty');});

@@ -9,7 +9,7 @@ import type {saveCourseCustomerAttribution,searchCourseReferrerCandidates,bulkAs
 import type {getCourseCheckoutCashStatus} from '@/server/actions/course-checkout-status';
 import type {CustomerProfileWriter} from './course-profile-forms';
 import type {CustomerSearchOption} from '@/lib/customer-search-index';
-export type CourseCustomerSource={confirmDiscard?:boolean;previewEnabled?:boolean;
+export type CourseCustomerSource={automaticAllocation?:boolean;confirmDiscard?:boolean;previewEnabled?:boolean;
  support?:(id:string)=>Promise<{success:true;data:{membership:Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>,{success:true;canConfirm:boolean}>;advanced:Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>}}|{success:false;error:string}>;
  saveProfile:CustomerProfileWriter;saveNote:typeof saveCourseCustomerNote;
  browseCards:typeof browseCourseCards;reservations:typeof loadCourseCardReservations;

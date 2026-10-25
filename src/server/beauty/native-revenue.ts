@@ -1,5 +1,5 @@
 import 'server-only';
-import {beautyCardSaleAttribution,beautyPaymentVisibility,beautyTransactionRevisions} from './transaction-revisions';
+import {beautySaleAllocations,beautyCardSaleAttribution,beautyPaymentVisibility,beautyTransactionRevisions} from './transaction-revisions';
 import {Prisma} from '../../../generated/beauty-client';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {prisma} from '@/lib/db';
@@ -59,12 +59,14 @@ export async function readBeautyRevenue(input:{from:string;to:string;status?:str
   a.customers?prisma.customer.findMany({where:{storeId:a.storeId,id:{in:[...cards.map(c=>c.customerId),...requests.map(q=>q.customerId)]}},select:{id:true,name:true}}):Promise.resolve([]),
   a.cards?beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}):Promise.resolve([]),
  ]);
- const [revisions,attribution]=await Promise.all([beautyTransactionRevisions(beautyPrisma,a.storeId,selected.map(s=>s.id)),beautyCardSaleAttribution(beautyPrisma,a.storeId)]);
+ const [revisions,attribution,allocations]=await Promise.all([beautyTransactionRevisions(beautyPrisma,a.storeId,selected.map(s=>s.id)),beautyCardSaleAttribution(beautyPrisma,a.storeId),beautySaleAllocations(beautyPrisma,a.storeId,selected.map(s=>s.id))]);
+ const technicianRows=appointments.length?await beautyPrisma.beautyTechnician.findMany({where:{storeId:a.storeId,id:{in:appointments.map(b=>b.technicianId)}},select:{id:true,name:true}}):[];
+ const dataTechnicianNames=new Map(technicianRows.map(t=>[t.id,t.name]));
  const rows:CourseRevenueRow[]=selected.map(s=>{
   const sale=payments.find(p=>p.id===s.id),q=requests.find(q=>q.id===s.id),c=cards.find(c=>c.id===sale?.cardId),b=appointments.find(b=>b.id===sale?.appointmentId),plan=q?planInput.parse(q.snapshot):null;
   const customerId=c?.customerId??q?.customerId,metadata=revisions.get(s.id);
   const rs=refunds.filter(r=>r.originalPaymentId===s.id);
-  return {id:s.id,createdAt:s.createdAt,date:formatTWTime(s.createdAt,{dateOnly:true}),confirmedBy:s.confirmedBy,status:s.status,name:c?.name??b?.serviceName??plan?.name??'交易資料待核對',customerName:a.customers?people.find(p=>p.id===customerId)?.name??b?.personName??'顧客資料待核對':'顧客',price:sale?.amount??plan?.price??0,listPrice:c?.listPrice??b?.price??plan?.price??null,paymentMethod:sale?.method??'BANK_TRANSFER',transferLastFour:q?.lastFour??sale?.note.match(/轉帳末四碼 (\d{4})/)?.[1]??null,transferLastFive:'',revision:metadata?.revision??0,note:metadata?.note??sale?.note??'',revenueStaffId:metadata?metadata.revenueStaffId:c&&attribution.has(c.id)?attribution.get(c.id)??null:null,voidReason:metadata?.voidReason??null,points:a.cards?c?.sessions??plan?.sessions??0:0,unit:c||plan?'SESSION':'MONEY',remaining:a.cards?c?.remaining??null:null,reserved:a.cards?held.find(h=>h.cardId===c?.id)?._count.id??0:0,attended:0,usedQuota:0,expiresAt:a.cards&&c?formatTWTime(c.expiresAt,{dateOnly:true}):null,storeCostSnapshot:null,refunds:rs.map(r=>({amount:-r.amount,reason:r.note,date:formatTWTime(r.createdAt,{dateOnly:true}),method:r.method}))};
+  return {id:s.id,createdAt:s.createdAt,date:formatTWTime(s.createdAt,{dateOnly:true}),confirmedBy:s.confirmedBy,status:s.status,name:c?.name??b?.serviceName??plan?.name??'交易資料待核對',customerName:a.customers?people.find(p=>p.id===customerId)?.name??b?.personName??'顧客資料待核對':'顧客',price:sale?.amount??plan?.price??0,listPrice:c?.listPrice??b?.price??plan?.price??null,paymentMethod:sale?.method??'BANK_TRANSFER',transferLastFour:q?.lastFour??sale?.note.match(/轉帳末四碼 (\d{4})/)?.[1]??null,transferLastFive:'',revision:metadata?.revision??0,note:metadata?.note??sale?.note??'',revenueStaffId:metadata?metadata.revenueStaffId:allocations.has(s.id)?allocations.get(s.id)!.revenueStaffId:c&&attribution.has(c.id)?attribution.get(c.id)??null:null,voidReason:metadata?.voidReason??null,points:a.cards?c?.sessions??plan?.sessions??0:0,unit:c||plan?'SESSION':'MONEY',remaining:a.cards?c?.remaining??null:null,reserved:a.cards?held.find(h=>h.cardId===c?.id)?._count.id??0:0,attended:0,usedQuota:0,expiresAt:a.cards&&c?formatTWTime(c.expiresAt,{dateOnly:true}):null,technicianName:b?dataTechnicianNames.get(b.technicianId)??'技師資料待核對':undefined,storeCostShortfall:allocations.get(s.id)?.shortfall??0,storeCostSnapshot:allocations.get(s.id)?.storeAmount??null,refunds:rs.map(r=>({amount:-r.amount,reason:r.note,date:formatTWTime(r.createdAt,{dateOnly:true}),method:r.method}))};
  });
  return {rows,count,page,pages,pendingCount:pending[0]?.count??0,receiptTotals,staffRows,confirmationActors:payments.map(p=>p.actorUserId)};
 }

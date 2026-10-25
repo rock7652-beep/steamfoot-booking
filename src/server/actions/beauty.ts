@@ -551,7 +551,7 @@ export async function requestBeautyPlan(input: unknown) {
             storeId: a.storeId,
             customerId: a.customerId!,
             planId: plan.id,
-            snapshot: beautyChargeRulesEnabled(a.storeId)?{...plan,chargeRuleSnapshot:(await readCatalogCharge(tx,a.storeId,'plan',plan.id)).snapshot}:plan,
+            snapshot: beautyChargeRulesEnabled(a.storeId)?await (async()=>{const charge=await readCatalogCharge(tx,a.storeId,'plan',plan.id,true);return {...plan,chargeRuleSnapshot:charge.snapshot,storeCost:charge.storeCost};})():plan,
             lastFour: d.lastFour,
           },
         });
@@ -596,7 +596,7 @@ export async function confirmBeautyPurchase(input: unknown) {
             paid: snapshot.price,
             method: "BANK_TRANSFER",
           },
-          { ...snapshot, id: snapshot.id, storeId: a.storeId,chargeRuleSnapshot:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'chargeRuleSnapshot' in order.snapshot?order.snapshot.chargeRuleSnapshot:null },
+          { ...snapshot, id: snapshot.id, storeId: a.storeId,storeCost:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'storeCost' in order.snapshot&&typeof order.snapshot.storeCost==='number'?order.snapshot.storeCost:null,chargeRuleSnapshot:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'chargeRuleSnapshot' in order.snapshot?order.snapshot.chargeRuleSnapshot:null },
         );
         await tx.beautyPurchase.update({
           where: { id: order.id },

@@ -54,6 +54,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "release/beauty-cost-allocation-20261026": false,
       "feat/plan-activation-line-notification": false,
       "feat/beauty-line-production-enable": false,
       "feat/plan-activation-flex-card": false,
