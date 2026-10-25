@@ -1,0 +1,12 @@
+{
+  "base": "cffb9265",
+  "baselineFailed": 54,
+  "changedFullSuite": {
+    "numTotalTests": 13850,
+    "numPassedTests": 13621,
+    "numFailedTests": 48
+  },
+  "fixedExistingFailures": 6,
+  "unexplainedNewFailures": 0,
+  "finalTargetedTests": 81
+}

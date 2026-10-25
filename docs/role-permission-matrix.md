@@ -62,3 +62,11 @@ Manager／Staff 由 StaffPermission 控制實際操作，角色預設只在建�
 - `teacher.booking.reschedule`：授課人員替學員改期，僅自己的同課程時段；固定期課及補課沿用門市調課。
 - 後台「人員管理」個別授權。前台授課身份另外驗證有效 LINE 帳號連結、同店授課人員與實際課程歸屬；不取得全店 `booking.update` 權限。
 - 學員自行預約／請假／改期開關不限制已授權的授課操作。
+
+### 課程成本核對（2026-10-26）
+
+`/dashboard/courses/cost-review` 限 OWNER／ADMIN，並檢查 report.read、transaction.read、wallet.read 與 BASIC_REPORTS；店家由授權路由／作用中店家解析，不接受 client storeId。
+
+成本核對確認需 plans.edit、report.read、transaction.read、有效可寫店家及 BASIC_REPORTS。確認僅新增 AuditLog.CONFIRM_COSTS，須吻合當下價格／成本版本；不改收費、餘額、交易或月結。唯讀店家檢視不提供確認。
+
+授課費需要 cashbook.read、teacher.compensation.read、teacher.settlement.read 與完整教師財務範圍；未授權時不查詢薪資。既有音樂資料cohort範圍沿用。

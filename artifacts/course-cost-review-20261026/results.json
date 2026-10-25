@@ -1,0 +1,92 @@
+[
+  {
+    "width": 390,
+    "height": 650,
+    "readonly": false,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 390,
+    "height": 650,
+    "readonly": true,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "readonly": false,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "readonly": true,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "readonly": false,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "readonly": true,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "readonly": false,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "readonly": true,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "readonly": false,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "readonly": true,
+    "noPageOverflow": true,
+    "unknownCostsExplicit": true,
+    "freeTrialLossVisible": true,
+    "confirmationReceiptChecked": true
+  }
+]

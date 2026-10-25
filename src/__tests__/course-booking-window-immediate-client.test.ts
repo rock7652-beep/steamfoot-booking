@@ -8,8 +8,8 @@ vi.mock("@/server/actions/shop",()=>({updateBookableUntilDate:vi.fn(),updateCust
 vi.mock("sonner",()=>({toast:{success:vi.fn(),error:vi.fn()}}));
 import {BookableUntilForm} from "@/app/(dashboard)/dashboard/settings/hours/bookable-until-form";
 let root:Root,host:HTMLDivElement;
-describe.each([{course:true,spa:false,path:"course/"},{course:false,spa:false,path:""},{course:false,spa:true,path:"spa/"}])("confirmed window transport %j",variant=>{
-const props={course:variant.course,spa:variant.spa,direct:true,storeId:"s",initialDate:null,initialDays:14,initialOpensAt:"2026-10-12T00:00:00.000Z",today:"2026-10-10",canManage:true};
+describe.each([{course:true,savePath:undefined,path:"course/"},{course:false,savePath:undefined,path:""},{course:false,savePath:"/s/a/admin/dashboard/settings-save/beauty/booking-window",path:"beauty/"}])("confirmed window transport %j",variant=>{
+const props={course:variant.course,savePath:variant.savePath,direct:true,storeId:"s",initialDate:null,initialDays:14,initialOpensAt:"2026-10-12T00:00:00.000Z",today:"2026-10-10",canManage:true};
 beforeEach(async()=>{
  vi.resetAllMocks();vi.stubGlobal("fetch",m.fetch);Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  host=document.createElement("div");document.body.append(host);root=createRoot(host);

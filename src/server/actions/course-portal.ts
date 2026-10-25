@@ -1,4 +1,5 @@
 "use server";
+import {recordCoursePurchaseCost} from "@/server/services/course-cost-snapshot";
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
 import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
@@ -129,7 +130,7 @@ export async function purchaseCoursePlan(input: unknown) {
         transferLastFive: z.string().regex(/^\d{4}$/, "請填寫轉出帳號後四碼"),
       })
       .parse(input);
-    const { storeId, customer } = await courseMember({ write: true });
+    const { storeId, customer, user } = await courseMember({ write: true });
     const config = await prisma.shopConfig.findUnique({
       where: { storeId },
       select: { bankName: true, bankAccountNumber: true },
@@ -178,6 +179,7 @@ export async function purchaseCoursePlan(input: unknown) {
           templateIds: plan.templateIds,
         },
       });
+      await recordCoursePurchaseCost(tx,{storeId,userId:user.id},created.id,plan,{price:plan.price,points:plan.points});
       return created.id;
     });
     after(async () => {
