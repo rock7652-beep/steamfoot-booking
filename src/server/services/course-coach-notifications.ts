@@ -105,10 +105,12 @@ export async function runCoachNotifications(storeId?:string) {
    if(!await coachNoticeEnabled(notice.storeId,notice.kind)||!await hasStoreFeature(notice.storeId,FEATURES.LINE_REMINDER)){await finish('SKIPPED','通知開關已關閉或提醒功能未開通');counts.skipped++;continue;}
    if(isPreviewExternalIntegrationBlocked()){await finish('SKIPPED','隔離預覽不向外發送 LINE');counts.skipped++;continue;}
    if(Date.now()-(notice.firstAttemptAt??notice.createdAt).getTime()>23*3600000){await finish('BLOCKED','已超過安全重試期限');counts.skipped++;continue;}
+   const store=await prisma.store.findUniqueOrThrow({where:{id:notice.storeId},select:{name:true,slug:true,industryModule:true,operatingStatus:true,isDemo:true}});
+   if(store.industryModule!=='COURSE'||store.isDemo||!['ACTIVE','TRIAL'].includes(store.operatingStatus)){await finish('SKIPPED','非啟用中的正式課程店家');counts.skipped++;continue;}
    target=await targetFor(notice.storeId,notice.staffId);
    if(!target){await finish('SKIPPED','授課人員未完成可用 LINE 綁定或已停用');counts.skipped++;continue;}
    if(notice.recipient&&!sameTarget(notice.recipient,target)){await finish('BLOCKED','通知對象綁定已變更');counts.skipped++;continue;}
-   const store=await prisma.store.findUniqueOrThrow({where:{id:notice.storeId},select:{name:true,slug:true}});
+
    const message=notice.message??await render(notice,store.slug,store.name);
    if(!message){await finish('SKIPPED','目前沒有需要通知的有效異動');counts.skipped++;continue;}
    const limits=await getStoreForPlanByStoreId(notice.storeId),range=monthRange(toLocalMonthStr());
