@@ -1,7 +1,7 @@
 RUN  v4.1.4 /tmp/steamfoot-beauty-revenue-breakdown
 
 
- Test Files  19 passed (19)
-      Tests  200 passed (200)
-   Start at  03:51:04
-   Duration  5.16s (transform 5.58s, setup 0ms, import 8.11s, tests 1.50s, environment 1.14s)
+ Test Files  23 passed (23)
+      Tests  224 passed (224)
+   Start at  03:56:08
+   Duration  7.30s (transform 8.23s, setup 0ms, import 12.16s, tests 1.97s, environment 1.16s)
