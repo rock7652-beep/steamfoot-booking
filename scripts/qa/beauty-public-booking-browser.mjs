@@ -82,6 +82,19 @@ try {
   tests.push("synthetic booking success and complete receipt");
   await page.getByLabel("預覽情境").selectOption("verified");
   await page.getByRole("region", { name: "LINE 身分驗證" }).getByText("LINE 身分已驗證", { exact: true }).waitFor();
+  for (const [width,height] of [[390,844],[768,1024],[1366,900]]) {
+    await page.setViewportSize({width,height});
+    const status = page.getByRole("region", {name:"LINE 身分驗證"});
+    const rect = await status.boundingBox();
+    if (!rect || rect.height > 40) throw Error(`Verified LINE status is no longer compact at ${width}`);
+    if (await status.locator("a").count()) throw Error("Verified status repeats login actions");
+    if (await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)) throw Error(`Compact form overflow at ${width}`);
+    const phoneFont=await page.getByLabel("手機",{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    if(phoneFont<16)throw Error("Compact form shrank input text");
+    await page.screenshot({path:path.join(output,`compact-verified-${width}.png`),fullPage:true});
+  }
+  tests.push("verified LINE status stays within 40px without shrinking input fonts or repeating login actions");
+  await page.setViewportSize({width:390,height:844});
   await page.getByLabel("手機", { exact: true }).fill("0900000000"); await page.getByLabel("技師安排", { exact: true }).selectOption("ANY");
   await page.getByRole("button", { name: "查詢可用時段", exact: true }).click(); await page.getByRole("button", { name: "09:00", exact: true }).click();
   await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click(); await page.getByLabel("姓名", { exact: true }).fill("已驗證範例");
