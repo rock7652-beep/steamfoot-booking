@@ -137,7 +137,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["在顧客提醒編輯上課、低額度、到期及體驗後關懷；低額度與用完可顯示預約、購買／續購或諮詢店長。", "前一日提醒可提供改期、取消與確認會到；店長通知另行授權收件人與偏好。", "到發送紀錄核對門市、對象、操作與狀態；跳過或失敗不代表送達。"],
     important: "上課提醒給實際上課者，不會因共卡而寄給其他成員；隔離預覽不向外發送。",
     success: "設定成功後重新開啟仍保留；實際送達需以成功紀錄及收件端確認。",
-    details: [planActivationGuideDetail, "課程上課提醒於前一日18:00處理，取消預約不發送。改期／取消仍由後端重新檢查門市、身分、期限、名額與方案；確認會到不等於出席。", "低額度依可用額度判斷；到期提醒須同時開啟總開關與方案設定。體驗關懷只納入啟用後且課程結束後完成的體驗。", "共用官方 LINE 的諮詢訊息會帶館名，入口與資料仍依門市隔離；一般聊天不猜門市。", "發送紀錄顯示已略過時先看原因；失敗或略過不能當成送達，也不要直接重發全店通知。"],
+    details: [planActivationGuideDetail, "顧客上課提醒於前一日台灣時間 18:00 處理；教師／教練明日授課摘要為前一日 21:00，需另開啟通知及完成可用 LINE 綁定。取消預約不發送顧客上課提醒。改期／取消仍由後端重新檢查門市、身分、期限、名額與方案；確認會到不等於出席。", "低額度依可用額度判斷；到期提醒須同時開啟總開關與方案設定。體驗關懷只納入啟用後且課程結束後完成的體驗。", "共用官方 LINE 的諮詢訊息會帶館名，入口與資料仍依門市隔離；一般聊天不猜門市。", "發送紀錄顯示已略過時先看原因；失敗或略過不能當成送達，也不要直接重發全店通知。"],
     permission: "business_hours.manage", feature: "line_reminder", sources: ["src/server/services/course-reminders.ts", "src/server/services/course-manager-notifications.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

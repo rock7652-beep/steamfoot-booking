@@ -25,6 +25,7 @@ export async function readBeautyNativeCalendar(date:string,slug:string):Promise<
   const r=await fetch('/api/beauty/calendar?'+new URLSearchParams({date,calendar:'month',native:'1',store:slug}),{cache:'no-store',credentials:'same-origin',signal:controller.signal});
   const value=await r.json();
   if(!value||typeof value.success!=='boolean'||(!r.ok&&value.success))throw Error('課表讀取失敗');
+  if(value.success&&(!value.data||value.data.date!==date||value.data.calendar!=='month'||!Array.isArray(value.data.items)))throw Error('班表日期已變更，請重新讀取');
   return value;
  }finally{clearTimeout(timer);}
 }

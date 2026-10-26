@@ -55,7 +55,7 @@ function readyDelivery(){
  m.customer.mockResolvedValue({id:'coach-customer',lineLinkStatus:'LINKED',lineUserId:'line-coach'});
  m.central.mockResolvedValue({centralUserId:'coach-user',deliverable:true,recipientLineUserId:'line-coach'});
  m.route.mockResolvedValue({status:'READY',channel:'CENTRAL',recipientLineUserId:'line-coach'});
- m.store.mockResolvedValue({name:'店',slug:'store'});m.limit.mockReturnValue({allowed:true});m.usage.mockResolvedValue(0);
+ m.store.mockResolvedValue({name:'店',slug:'store',industryModule:'COURSE',operatingStatus:'ACTIVE',isDemo:false});m.limit.mockReturnValue({allowed:true});m.usage.mockResolvedValue(0);
  m.tx.mockImplementation(fn=>fn({$queryRaw:vi.fn(),$executeRaw:m.execute,messageTemplate:{findFirst:m.template},messageLog:{count:m.usage,upsert:m.upsert}}));
  const message=coachNoticeFlex('DIGEST','店',[{name:'課',startsAt:'2026-10-03T01:00:00Z',endsAt:'2026-10-03T02:00:00Z',room:'A',color:'#40986F',detail:'體驗 1 位'}],'https://example.com');
  const target={userId:'coach-user',customerId:'coach-customer',channel:'CENTRAL',recipient:'line-coach'};
@@ -88,4 +88,9 @@ it('blocks retries beyond the LINE idempotency window',async()=>{
 it('records delivery failures for retry and retains the same retry key',async()=>{
  readyDelivery();m.send.mockResolvedValue({success:false,httpStatus:500});expect((await runCoachNotifications('a')).failed).toBe(1);
  expect(m.execute.mock.calls.some(call=>call.includes('FAILED'))).toBe(true);expect(m.send.mock.calls[0][2]).toBe('persistent-retry-uuid');
+});
+
+it.each([{industryModule:'BEAUTY',operatingStatus:'ACTIVE',isDemo:false},{industryModule:'COURSE',operatingStatus:'CLOSED',isDemo:false},{industryModule:'COURSE',operatingStatus:'ACTIVE',isDemo:true}])('does not activate personnel delivery outside an active formal course store: %j',async eligibility=>{
+ readyDelivery();m.store.mockResolvedValue({name:'店',slug:'store',...eligibility});
+ expect((await runCoachNotifications('a')).skipped).toBe(1);expect(m.send).not.toHaveBeenCalled();expect(m.link).not.toHaveBeenCalled();
 });

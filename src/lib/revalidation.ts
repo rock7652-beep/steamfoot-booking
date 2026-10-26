@@ -151,7 +151,9 @@ export function revalidateStorePlan() {
 /** 單店功能授權異動後呼叫 */
 export function revalidateStoreFeatureEntitlements() {
   updateTag(CACHE_TAGS.storeFeatureEntitlements);
-  revalidatePath("/dashboard");
+  // The feature menu is owned by the shared layout, not the dashboard page.
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/hq/dashboard", "layout");
   revalidatePath("/hq/dashboard/stores");
 }
 

@@ -26,20 +26,20 @@ import '@/app/(customer)/book/course-portal.css';
 import './portal.css';
 type Item=BeautyPortalData['items'][number];
 const statusName=(value:string)=>({RESERVED:'已預約',COMPLETED:'已完成',CANCELLED:'已取消',NO_SHOW:'未到'} as Record<string,string>)[value]??value;
-export function BeautyPortal({data:incoming,initialView,preview}:{data:BeautyPortalData;initialView?:string;preview?:BeautyPreviewSource}){
+export function BeautyPortal({data:incoming,initialView,initialDate,preview}:{data:BeautyPortalData;initialView?:string;initialDate?:string;preview?:BeautyPreviewSource}){
  const [roleData,setRoleData]=useState<{base:BeautyPortalData;value:BeautyPortalData}|null>(null);
  const data=roleData?.base===incoming?roleData.value:incoming;
  const router=useRouter();
  const [profileState,setProfileState]=useState({dirty:false,pending:false});
  const [healthDirty,setHealthDirty]=useState(false),[healthSaving,setHealthSaving]=useState(false);
  useCourseDraftGuard(healthDirty,healthSaving);
- const [requestedView,setView]=useState(preview&&initialView&&['home','book','bookings','schedule','records','cards','shop','income','account','profile','health'].includes(initialView)?initialView:initialView==='book'&&!data.work?'book':initialView==='income'&&data.work?'income':initialView==='health'&&data.healthEnabled?'health':'home');
+ const [requestedView,setView]=useState(preview&&initialView&&['home','book','bookings','schedule','records','cards','shop','income','account','profile','health'].includes(initialView)?initialView:initialView==='book'&&!data.work?'book':initialView==='schedule'&&data.work?'schedule':initialView==='income'&&data.work?'income':initialView==='health'&&data.healthEnabled?'health':'home');
  const view=requestedView==='health'&&!data.healthEnabled?'home':requestedView;
  const [history,setHistory]=useState(false),[workPending,setWorkPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [pending,start]=useTransition(),[refreshItems,setRefreshItems]=useState<BeautyPortalData['items']|null>(null),[now,setNow]=useState(Date.now);
  const updating=refreshItems===data.items,blocked=pending||updating;
  function refreshPortal(){setRefreshItems(data.items);start(()=>router.refresh());}
- const [date,setDate]=useState(toLocalDateStr),[month,setMonth]=useState(toLocalMonthStr),[showMonth,setShowMonth]=useState(false);
+ const [date,setDate]=useState(()=>initialDate??toLocalDateStr()),[month,setMonth]=useState(()=>initialDate?.slice(0,7)??toLocalMonthStr()),[showMonth,setShowMonth]=useState(false);
  const [bookingOpened,setBookingOpened]=useState((!data.work||!!preview)&&initialView==='book'),[bookingState,setBookingState]=useState({dirty:false,pending:false});
  const [incomeMonth,setIncomeMonth]=useState(()=>data.incomeMonth??toLocalMonthStr());
  const [recordMonth,setRecordMonth]=useState(toLocalMonthStr),[recordSearch,setRecordSearch]=useState(''),[historyCards,setHistoryCards]=useState<Record<string,boolean>>({});

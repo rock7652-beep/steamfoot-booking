@@ -1,4 +1,5 @@
 "use client";
+import { ReminderScheduleNote } from '@/components/admin/reminder-schedule-note';
 import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
 import type { SteamReminderData } from "@/server/queries/reminder-panel";
 import { ReminderSectionPicker } from "./reminder-section-picker";
@@ -101,6 +102,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
             </Link>
           }
         />
+        <ReminderScheduleNote/>
         <div className="sticky top-0 z-20 bg-white pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm">
             <span

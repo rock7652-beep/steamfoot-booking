@@ -1,6 +1,6 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({manager:vi.fn(),can:vi.fn(),people:vi.fn(),rows:vi.fn(),rentals:vi.fn()}));
-vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people},businessHours:{findMany:async()=>[]},specialBusinessDay:{findMany:async()=>[]}}}));
+const m=vi.hoisted(()=>({manager:vi.fn(),can:vi.fn(),people:vi.fn(),rows:vi.fn(),rentals:vi.fn(),store:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{store:{findFirst:m.store},customer:{findMany:m.people},businessHours:{findMany:async()=>[]},specialBusinessDay:{findMany:async()=>[]}}}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$queryRaw:m.rentals,beautyAppointment:{findMany:m.rows}}}));
 vi.mock('@/lib/permissions',()=>({checkPermission:m.can}));
 vi.mock('@/lib/session',()=>({getCurrentUser:async()=>({role:'PARTNER',staffId:'self'})}));
@@ -21,3 +21,13 @@ it('projects current visible contacts using one bounded same-store lookup withou
 });
 it('never reads current contacts without the customer permission and masks phones',async()=>{m.can.mockResolvedValue(false);const data=await beautyCalendar('2026-10-26','day');expect(data.items[0]).toMatchObject({personName:'預約時姓名',personPhone:'',customerId:null});expect(m.people).not.toHaveBeenCalled();});
 it('uses the snapshot if the linked customer is no longer visible to this manager',async()=>{m.people.mockResolvedValue([]);expect((await beautyCalendar('2026-10-26','day')).items[0]).toMatchObject({personName:'預約時姓名',personPhone:'0900000000'});});
+it('accepts the HQ-authorized store without requiring a storefront cookie',async()=>{
+ m.store.mockResolvedValue({id:'store'});
+ expect((await beautyCalendar('2026-10-26','day',false,'soulife')).items).toHaveLength(1);
+ expect(m.store).toHaveBeenCalledWith({where:{id:'store',slug:'soulife'},select:{id:true}});
+});
+it('rejects a requested slug outside the authorized store before reading calendar records',async()=>{
+ m.store.mockResolvedValue(null);
+ await expect(beautyCalendar('2026-10-26','day',false,'another-store')).rejects.toThrow('店家已切換');
+ expect(m.rows).not.toHaveBeenCalled();expect(m.people).not.toHaveBeenCalled();
+});

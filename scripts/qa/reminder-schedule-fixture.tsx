@@ -1,0 +1,12 @@
+import {TechnicianNotificationSettings} from '../../src/components/beauty/technician-notification-settings';
+import {createRoot} from 'react-dom/client';
+import {ReminderCenter} from '../../src/components/admin/reminder-center';
+import {SteamReminderView} from '../../src/app/(dashboard)/dashboard/reminders/steam-reminder-view';
+import {CourseReminderView} from '../../src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view';
+import type {SteamReminderData,CourseReminderData} from '../../src/server/queries/reminder-panel';
+const logs={rows:[],page:1,hasMore:false,typeOptions:[]};
+const common={storeId:'synthetic',actorId:'synthetic',params:{tab:'logs'},previewBlocked:true,workOrdersEnabled:false,quotaEmail:null,content:{kind:'logs',logs}};
+const qaModule=new URLSearchParams(location.search).get('module')??'beauty';
+const steam={...common,module:'steamfoot',plan:{plan:'EXPERIENCE',planStatus:'ACTIVE'},activeTab:'logs',health:null} as unknown as SteamReminderData;
+const course={...common,module:'course',active:'logs',music:qaModule==='music',lineEnabled:true,lineHealth:null,canUnassigned:false} as unknown as CourseReminderData;
+createRoot(document.getElementById('root')!).render(<main className="p-4">{qaModule==='steamfoot'?<SteamReminderView data={steam}/>:qaModule==='beauty'?<ReminderCenter storeId="synthetic" active="logs" explicit enabled baseHref="/dashboard/beauty/reminders" returnHref="/dashboard/beauty" subtitle="美業服務提醒與發送紀錄" timingNote="依本店已開啟的通知項目發送；預約異動通知另行處理。"><TechnicianNotificationSettings readOnly initial={{TECH_DIGEST:false,TECH_CHANGE:false}} technicians={[{id:"synthetic",name:"測試技師",linked:false}]}/><p>合成預覽，未發送 LINE。</p></ReminderCenter>:<CourseReminderView data={course}/>}</main>);
