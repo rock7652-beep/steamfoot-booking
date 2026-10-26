@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import storefrontImage from "../../../../../../public/images/hsinchu/trial-booking-storefront.jpg";
 import { notFound } from "next/navigation";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStorePresentation } from "@/lib/store-resolver";
@@ -157,7 +158,7 @@ export default async function StoreTrialBookingPage({
           <section className="mt-10 overflow-hidden rounded-3xl border border-earth-100 bg-white">
             {storeSlug === "hsinchu" && (
               <Image
-                src="/images/hsinchu/trial-booking-storefront.jpg"
+                src={storefrontImage}
                 alt="以斯帖蒸足坊門市外觀，含門口招牌與玻璃入口"
                 width={1280}
                 height={831}
