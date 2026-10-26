@@ -17,3 +17,20 @@ it('does not read a roster after a rejected write',async()=>{m.attendance.mockRe
 it('keeps a committed operation distinct from a failed synchronization',async()=>{m.manager.mockRejectedValue(new Error('read offline'));const r=await updateBeautyRosterAttendance({...base,attendance});expect(r).toMatchObject({success:true,refresh:{success:false}});expect(m.attendance).toHaveBeenCalledOnce();});
 it('uses the existing cancel transaction and a server owned reason',async()=>{expect(await cancelBeautyRosterAppointment({...base,...attendance})).toMatchObject({success:true});expect(m.cancel).toHaveBeenCalledWith('manager',expect.objectContaining({id:'booking',revision:2,target:'CANCELLED',reason:'後台取消預約'}));});
 it('rejects malformed attendance before reaching the transaction',async()=>{expect(await updateBeautyRosterAttendance({...base,attendance:{...attendance,choice:'INVENTED'}})).toMatchObject({success:false});expect(m.attendance).not.toHaveBeenCalled();});
+
+// Exercise the actual read scope with consumers of the shared identity memo.
+it('deduplicates concurrent read identity after the write, without reusing write identity or the next request',async()=>{
+ const {memoizeReadRequest}=await import('@/server/services/read-request-memo');
+ const identity=vi.fn(async()=>({storeId:'test'}));
+ const readIdentity=()=>memoizeReadRequest('session.current-user',identity);
+ m.attendance.mockImplementation(async()=>{await readIdentity();await readIdentity();return {success:true};});
+ m.manager.mockImplementation(async()=>readIdentity());
+ m.calendar.mockImplementation(async()=>{await readIdentity();await readIdentity();return {items:[]};});
+ expect(await updateBeautyRosterAttendance({...base,attendance})).toMatchObject({success:true,refresh:{success:true}});
+ // Two ordinary write lookups, then one fresh shared read lookup.
+ expect(identity).toHaveBeenCalledTimes(3);
+ expect(m.manager).toHaveBeenCalledOnce();
+ expect(await updateBeautyRosterAttendance({...base,attendance})).toMatchObject({success:true,refresh:{success:true}});
+ expect(identity).toHaveBeenCalledTimes(6);
+ expect(m.manager).toHaveBeenCalledTimes(2);
+});
