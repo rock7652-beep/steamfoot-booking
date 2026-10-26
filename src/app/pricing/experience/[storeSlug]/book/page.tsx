@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStorePresentation } from "@/lib/store-resolver";
@@ -153,28 +154,40 @@ export default async function StoreTrialBookingPage({
             </p>
           </section>
 
-          <section className="mt-10 rounded-3xl border border-earth-100 bg-white p-5 sm:p-6">
-            <p className="text-sm font-semibold text-primary-700">門市資訊</p>
-            <h2 className="mt-2 text-xl font-bold">{storeName}</h2>
-            <p className="mt-2 text-sm leading-6 text-earth-600">{storeDetails.address}</p>
+          <section className="mt-10 overflow-hidden rounded-3xl border border-earth-100 bg-white">
+            {storeSlug === "hsinchu" && (
+              <Image
+                src="/images/hsinchu/trial-booking-storefront.jpg"
+                alt="以斯帖蒸足坊門市外觀，含門口招牌與玻璃入口"
+                width={1280}
+                height={831}
+                sizes="(max-width: 768px) 100vw, 688px"
+                className="h-auto w-full"
+              />
+            )}
+            <div className="p-5 sm:p-6">
+              <p className="text-sm font-semibold text-primary-700">{storeSlug === "hsinchu" ? "實際門市外觀" : "門市資訊"}</p>
+              <h2 className="mt-2 text-xl font-bold">{storeName}</h2>
+              <p className="mt-2 text-sm leading-6 text-earth-600">{storeDetails.address}</p>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <a
-                href={storeDetails.mapUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-h-12 items-center justify-center rounded-xl bg-primary-600 px-4 font-semibold text-white"
-              >
-                開啟地圖導航
-              </a>
-              <a
-                href={presentation.contactUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 font-semibold text-primary-700"
-              >
-                聯繫官方 LINE
-              </a>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <a
+                  href={storeDetails.mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-12 items-center justify-center rounded-xl bg-primary-600 px-4 font-semibold text-white"
+                >
+                  開啟地圖導航
+                </a>
+                <a
+                  href={presentation.contactUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 font-semibold text-primary-700"
+                >
+                  聯繫官方 LINE
+                </a>
+              </div>
             </div>
           </section>
         </div>
