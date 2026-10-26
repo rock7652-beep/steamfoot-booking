@@ -16,6 +16,7 @@ import { resolveCentralMemberCustomerForStore } from './central-member-resolver'
 import { resolveCentralLineRecipientForCustomer } from './central-line-recipient-loader';
 import { resolveVerifiedReminderLineRoute } from './verified-reminder-line-route';
 import { deriveCourseBaseUrl } from './course-delivery-links';
+import {isPersonnelReminderBatch} from '@/lib/reminder-schedule';
 
 type Snapshot={id:string;coachId:string;startsAt:string;endsAt:string;roomId:string;cancelledAt:string|null;teacherAttendance:string;nameSnapshot:string};
 type BookingSnapshot={sessionId:string;status:string;customerName:string;session:Snapshot};
@@ -37,7 +38,7 @@ function sameTarget(a:Target,b:Target){return a.userId===b.userId&&a.customerId=
 
 export async function enqueueCoachDigests(now=new Date()) {
  // Runs at 21:00 Taipei; reject an accidental early invocation.
- if(formatTWDateTime(now).slice(11)<'21:00'||formatTWDateTime(now).slice(11)>'21:10')return 0;
+ if(!isPersonnelReminderBatch(now))return 0;
  const date=addTaiwanDuration(toLocalDateStr(now),1,'DAY'),range=dayRange(date);
  const rows=await coursePrisma.courseSession.findMany({where:{cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:['LEAVE','NO_SHOW']},startsAt:{gte:range.start,lte:range.end}},select:{storeId:true,coachId:true,id:true}});
  const groups=new Map<string,typeof rows>();for(const row of rows){const key=`${row.storeId}:${row.coachId}`;groups.set(key,[...(groups.get(key)??[]),row]);}

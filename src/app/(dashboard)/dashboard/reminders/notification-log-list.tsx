@@ -79,6 +79,7 @@ export function NotificationLogList({
             <option value="">全部對象</option>
             <option value="manager">店長</option>
             <option value="customer">顧客</option>
+            {beauty&&<option value="personnel">技師</option>}
           </select>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500">
@@ -165,7 +166,7 @@ export function NotificationLogList({
             <span className="font-medium">
               {r.recipient}
               <span className="ml-2 text-xs text-earth-500">
-                {r.audience === "manager" ? "店長" : "顧客"}
+                {r.audience === "manager" ? "店長" : r.audience === "personnel" ? "技師" : "顧客"}
               </span>
             </span>
             <span>{displayLabels[r.type] ?? r.type}</span>

@@ -59,11 +59,11 @@ const results=[],errors=[];
 try {
  const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>r.request().isNavigationRequest()&&new URL(r.request().url()).hostname==='synthetic.invalid'?r.fulfill({contentType:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}):r.abort());
- for(const qaModule of ['steamfoot','beauty','music','fitness'])for(const [width,height]of [[390,844],[768,1024],[1024,768],[1366,900]]){
+ for(const qaModule of (process.env.QA_MODULES?.split(',')??['steamfoot','beauty','music','fitness']))for(const [width,height]of [[390,844],[768,1024],[1024,768],[1366,900]]){
   await page.setViewportSize({width,height});await page.goto('https://synthetic.invalid/dashboard?module='+qaModule);
   await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
   await page.getByText(/明日提醒（台灣時間）：顧客前一天 18:00；教師／教練／技師前一天 21:00。/).waitFor();
-  if(qaModule==='beauty')await page.getByText('依已開啟項目發送；技師明日班表提醒尚未開放。').waitFor();
+  if(qaModule==='beauty')await page.getByText('依本店已開啟的通知項目發送；預約異動通知另行處理。').waitFor();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);if(overflow)throw Error('overflow '+qaModule+' '+width);
   await page.screenshot({path:path.join(output,qaModule+'-'+width+'.png'),fullPage:true});results.push({module:qaModule,width,height,overflow});
  }

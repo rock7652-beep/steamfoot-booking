@@ -10,6 +10,7 @@ import { notificationCenterWhere, type NotificationRow } from "@/server/queries/
 export const beautyNoticeLabels: Record<string,string> = {
   "方案開通通知":"方案開通通知",
   SAME_DAY_BOOKING_CREATED:"當日新預約", PUBLIC_TRIAL_BOOKING_CREATED:"新體驗預約", TRANSFER_PENDING_CONFIRMATION:"待確認付款", INCOMPLETE_SERVICE_REMINDER:"服務未完成", DAILY_ACTION_DIGEST:"每日待辦摘要",
+  TECH_DIGEST:"技師明日班表",TECH_CHANGE:"技師預約異動",
   BOOKED: "預約成立", MOVED: "預約改期", REMINDER: "明日服務提醒",
   RESERVED: "恢復預約", CANCELLED: "預約取消", NO_SHOW: "未到", COMPLETED: "服務完成",
   "美業剩餘次數提醒":"美業剩餘次數提醒","美業方案用完提醒":"美業方案用完提醒","美業方案到期提醒":"美業方案到期提醒","體驗後關心":"體驗後關心","第一次回訪邀請":"第一次回訪邀請","最後一次邀請":"最後一次邀請",
@@ -35,13 +36,14 @@ export async function listBeautyNotificationLogs(params: Record<string,string|un
   ]);
   const rows = await beautyPrisma.$queryRaw<NotificationRow[]>(Prisma.sql`
     WITH notifications AS (
-      SELECT 'event:'||e.id AS id,'customer' AS audience,COALESCE(c.name,'未建檔顧客') AS recipient,
-        e.kind AS type,e.status,e.body,NULL::text AS error,e."createdAt" AS at,e."customerId",
+      SELECT 'event:'||e.id AS id,CASE WHEN e.kind IN ('TECH_DIGEST','TECH_CHANGE') THEN 'personnel' ELSE 'customer' END AS audience,COALESCE(t.name,c.name,'未建檔顧客') AS recipient,
+        e.kind AS type,e.status,CASE WHEN e.kind='TECH_DIGEST' THEN '明日班表摘要' WHEN e.kind='TECH_CHANGE' THEN '預約安排異動' ELSE e.body END AS body,CASE WHEN e.kind IN ('TECH_DIGEST','TECH_CHANGE') AND e.status='SKIPPED' THEN e.body ELSE NULL END AS error,e."createdAt" AS at,e."customerId",
         'LINE'::text AS channel,NULL::text AS "responseAction",NULL::text AS "planName",NULL::text AS "managerStatus",NULL::text AS "managerError"
       FROM "BeautyEvent" e
       LEFT JOIN jsonb_to_recordset(${JSON.stringify(customers)}::jsonb) AS c(id text,name text) ON c.id=e."customerId"
+      LEFT JOIN "BeautyTechnician" t ON t."storeId"=e."storeId" AND t."userId"=e."userId" AND e.kind IN ('TECH_DIGEST','TECH_CHANGE')
       WHERE e."storeId"=${storeId} AND e.status IN ('PENDING','SENT','FAILED','SKIPPED')
-        AND e.kind IN ('BOOKED','MOVED','REMINDER','RESERVED','CANCELLED','NO_SHOW','COMPLETED')
+        AND e.kind IN ('BOOKED','MOVED','REMINDER','RESERVED','CANCELLED','NO_SHOW','COMPLETED','TECH_DIGEST','TECH_CHANGE')
       UNION ALL
       SELECT * FROM jsonb_to_recordset(${JSON.stringify(managers)}::jsonb) AS m(
         id text,audience text,recipient text,type text,status text,body text,error text,at timestamptz,

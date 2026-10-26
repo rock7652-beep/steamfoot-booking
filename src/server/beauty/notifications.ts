@@ -16,15 +16,17 @@ import { deliverCourseCardNotification } from "@/server/services/course-card-not
 import {isNextDayReminderBatch,nextDayReminderTriggerAt} from '@/lib/next-day-reminder-time';
 import {beautyNotificationMessages} from '@/lib/beauty/notification-message';
 import {getConfiguredStoreLine} from '@/lib/store-line-config';
+import {queueTechnicianDigest,deliverTechnicianEvent} from './technician-notifications';
 
 /** Uses only the shared channel/quota transport, never course bookings or cards.
  * Notifications are opt-in and cron-authenticated. No request-time sending. */
-export async function runBeautyNotifications(now = new Date()) {
+export async function runBeautyNotifications(now = new Date(),storeId?:string) {
   const summary = { sent: 0, skipped: 0, failed: 0 };
   if (beautyNotificationDeliveryBlocked()) return summary;
   const activatedAt=beautyNotificationActivationAt();
   const stores = await prisma.store.findMany({
     where: {
+      ...(storeId?{id:storeId}:{}),
       industryModule: "BEAUTY",
       operatingStatus: { in: ["ACTIVE", "TRIAL"] },
     },
@@ -36,6 +38,7 @@ export async function runBeautyNotifications(now = new Date()) {
       where: { storeId: store.id },
     });
     if (!policy?.notifications) continue;
+    await queueTechnicianDigest(store.id,now);
     if(activatedAt)await beautyPrisma.beautyEvent.updateMany({where:{storeId:store.id,status:{in:["PENDING","FAILED"]},createdAt:{lt:activatedAt},kind:{in:["BOOKED","MOVED","REMINDER","RESERVED","CANCELLED","NO_SHOW","COMPLETED"]}},data:{status:"SKIPPED"}});
     const tomorrow = dayRange(addTaiwanDuration(toLocalDateStr(now), 1, "DAY"));
     // Deterministic reminder ids change on reschedule. Existing events remain auditable.
@@ -79,6 +82,7 @@ export async function runBeautyNotifications(now = new Date()) {
       where: {
         storeId: store.id,
         status: { in: ["PENDING", "FAILED"] },
+        kind: { in: ['BOOKED','MOVED','REMINDER','RESERVED','CANCELLED','NO_SHOW','COMPLETED','TECH_DIGEST','TECH_CHANGE'] },
         attempts: { lt: 3 },
         ...(activatedAt?{createdAt:{gte:activatedAt}}:{}),
       },
@@ -109,11 +113,12 @@ export async function runBeautyNotifications(now = new Date()) {
             )
               return "SKIPPED";
             const skip = async (reason: string) => {
-              await tx.$executeRaw`UPDATE "BeautyEvent" SET status='SKIPPED',body=body||${`\n[${reason}]`} WHERE id=${event.id}`;
-              return "SKIPPED";
+              await tx.$executeRaw`UPDATE "BeautyEvent" SET status='SKIPPED',body=CASE WHEN kind IN ('TECH_DIGEST','TECH_CHANGE') THEN ${reason} ELSE body||${`\n[${reason}]`} END WHERE id=${event.id}`;
+              return "SKIPPED" as const;
             };
             if (now.getTime() - event.createdAt.getTime() > 23 * 60 * 60 * 1000)
               return skip("通知已過期，避免跨重試期限重複送出");
+            if(event.kind==='TECH_DIGEST'||event.kind==='TECH_CHANGE')return deliverTechnicianEvent(tx,store,event,now,skip);
             if(event.kind==='REMINDER'&&!isNextDayReminderBatch(event.createdAt))return skip('非18:00批次建立的明日提醒不補送');
             if (!current.customerId) return skip("未綁定可驗證的通知身分");
             if(activatedAt&&event.createdAt<activatedAt)return skip("啟用前通知不補發");

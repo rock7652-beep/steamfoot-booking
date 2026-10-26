@@ -1,0 +1,11 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({actor:vi.fn(),feature:vi.fn(),query:vi.fn(),execute:vi.fn(),upsert:vi.fn(),revalidate:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{$transaction:async(fn: (tx:unknown)=>unknown)=>fn({$queryRaw:m.query,$executeRaw:m.execute,messageTemplate:{upsert:m.upsert}})}}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.actor}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('next/cache',()=>({revalidatePath:m.revalidate}));
+import {setBeautyTechnicianNotification} from '@/server/actions/beauty-technician-notifications';
+beforeEach(()=>{vi.clearAllMocks();m.actor.mockResolvedValue({storeId:'authorized'});m.feature.mockResolvedValue(undefined);});
+it('uses the authorized store and explicit opt-in rather than an input store id',async()=>{expect(await setBeautyTechnicianNotification({storeId:'foreign',kind:'TECH_DIGEST',enabled:true})).toMatchObject({success:true});expect(m.actor).toHaveBeenCalledWith('business_hours.manage',true);expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({where:{id:'beauty-technician-TECH_DIGEST:authorized'},create:expect.objectContaining({storeId:'authorized',body:'enabled'})}));});
+it.each(['permission','entitlement'])('does not write after %s rejection',async cause=>{(cause==='permission'?m.actor:m.feature).mockRejectedValue(new Error('not allowed'));expect(await setBeautyTechnicianNotification({kind:'TECH_CHANGE',enabled:true})).toMatchObject({success:false});expect(m.upsert).not.toHaveBeenCalled();});
+it('disabling affects only pending/failed events of this store and kind',async()=>{expect(await setBeautyTechnicianNotification({kind:'TECH_CHANGE',enabled:false})).toMatchObject({success:true});const [sql,...values]=m.execute.mock.calls[0];expect(sql.join('')).toContain("status IN ('PENDING','FAILED')");expect(values).toEqual(['authorized','TECH_CHANGE']);expect(m.revalidate).toHaveBeenCalledWith('/dashboard/beauty/reminders');});
