@@ -1,3 +1,4 @@
+import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
 import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { getCourseSetup } from "@/server/queries/course-setup";
@@ -43,7 +44,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     settingsStep("read_config", () => Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
-        select: { name: true, plan: true, currentSubscription: { select: { status: true, expiresAt: true } }, subscriptions: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true, expiresAt: true } } },
+        select: { name: true, slug: true, plan: true, currentSubscription: { select: { status: true, expiresAt: true } }, subscriptions: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true, expiresAt: true } } },
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
@@ -77,6 +78,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={`setup:${storeId}`} manual {...await settingsStep("read_setup", () => getCourseSetup(storeId,user.id))} localSections/>}
       <CourseSettingsWorkspace
+        publicTrialHref={store?.slug ? resolveBookingLineEntry(store.slug)?.url??null : null}
         native={(await sportsNativePreview(storeId))} music={music}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}
         key={`settings:${storeId}`}

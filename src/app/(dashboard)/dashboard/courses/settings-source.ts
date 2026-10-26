@@ -12,5 +12,5 @@ export type CourseSettingsSource={
  notificationSwitches:{key:string;title:string;enabled:boolean}[];
  notificationLabels?:ReactNode;careSummary:string;
  subscription?:ReactNode;
- publicTrialHref?:string;
+ publicTrialHref?:string|null;
 };

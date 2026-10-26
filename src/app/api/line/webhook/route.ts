@@ -1,3 +1,4 @@
+import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
 // ============================================================
@@ -23,7 +24,6 @@ import {
 } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
 import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
-import { deriveBaseUrl } from "@/lib/base-url";
 import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { normalizePhone } from "@/lib/normalize";
 import {
@@ -342,7 +342,7 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
       const store = await prisma.store.findUnique({ where: { id: storeId }, select: {
         name: true, slug: true, shopConfig: { select: { shopPhone: true, address: true, mapUrl: true } },
       } });
-      if (store && resolvePublicTrialLiffConfig(store.slug)) messages = buildStoreLineWelcome([store], deriveBaseUrl());
+      if (store && resolvePublicTrialLiffConfig(store.slug)) messages = buildStoreLineWelcome([{...store, bookingHref: resolveBookingLineEntry(store.slug)?.url}]);
     } catch { /* Metadata failure preserves the existing manual recovery entry. */ }
     const result = await replyMessage(storeId, replyToken, messages);
     console.log("[LINE] Follow reply result:", result);

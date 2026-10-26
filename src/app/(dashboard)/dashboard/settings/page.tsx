@@ -1,3 +1,5 @@
+import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
+import {PublicBookingLinkRow} from "@/components/settings/public-booking-link-row";
 import { SteamfootNoticeSetting } from "@/components/admin/steamfoot-notice-setting";
 import { readSteamfootNoticeEnabled } from "@/server/services/steamfoot-store-notices";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
@@ -197,6 +199,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
           label: "收款與體驗",
           content: (
             <>
+              <PublicBookingLinkRow href={store?.slug?resolveBookingLineEntry(store.slug)?.url??null:null}/>
               <SettingsListRow title="銀行轉帳資訊" summary={bankLine} href="/dashboard/settings/payment" action="修改" />
               {canManageTrial ? <SettingsListRow title="體驗設定" summary={trialLine} href="/dashboard/settings/trial" action="修改" /> : null}
             </>

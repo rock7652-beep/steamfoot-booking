@@ -179,10 +179,10 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   </section>;
   return <form noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
     {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified} friendHref={contactUrl ?? undefined}/>}
-    <ol className={styles.steps} aria-label="預約步驟"><li aria-current={stage === "service" ? "step" : undefined}>1 選擇服務與時段</li><li aria-current={stage === "contact" ? "step" : undefined}>2 聯絡資料與確認</li></ol>
+    <ol className={styles.steps} aria-label="預約步驟"><li aria-current={stage === "service" ? "step" : undefined}>1 服務與時段</li><li aria-current={stage === "contact" ? "step" : undefined}>2 聯絡與確認</li></ol>
     <fieldset disabled={pending || uncertain}>
       {stage === "service" ? <>
-        <section aria-label="服務安排"><h2 ref={stageHeading} tabIndex={-1}>服務安排 · {people.length} 位</h2><p>手機用於核對體驗資格；姓名可在選好時段後填寫。</p>
+        <section aria-label="服務安排"><h2 ref={stageHeading} tabIndex={-1}>服務安排 · {people.length} 位</h2>
           <div className={styles.form}>{people.map((p, index) => <section className={styles.card} key={p.key} aria-label={`服務安排 ${index + 1}`}>
             {people.length > 1 && <div className={styles.heading}><h3>第 {index + 1} 位</h3>{index > 0 && <button type="button" aria-label={`移除第 ${index + 1} 位`} onClick={() => { if (edit(true)) setPeople(previous => previous.filter(item => item.key !== p.key)); }}>移除</button>}</div>}
             <div className={styles.grid}>
