@@ -51,3 +51,5 @@ it('keeps an in-flight collection open even when close is clicked in the same ev
  await act(async()=>{host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));[...host.querySelectorAll('button')].find(b=>b.textContent==='關閉')!.click();});
  expect(m.collect).toHaveBeenCalledOnce();expect(close).not.toHaveBeenCalled();
 });
+
+it('completes a free trial or already settled service without inventing a payment',async()=>{m.read.mockResolvedValue({success:true,data:[{...charge,price:0,netPrice:0,due:0}]});const saved=vi.fn();await act(async()=>root.render(h(BeautyCollectionPanel,{...props,onSaved:saved,ids:['a']})));expect(host.textContent).toContain('本次無待收款金額');const button=[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='完成')!;expect(button.disabled).toBe(false);await act(async()=>button.click());expect(saved).toHaveBeenCalledOnce();expect(m.collect).not.toHaveBeenCalled();});
