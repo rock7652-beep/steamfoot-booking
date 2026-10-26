@@ -480,12 +480,30 @@ it('does not append another receipt or revision for a zero payment with unchange
  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'OTHER',note:'',quotes:[{id:'b',revision:0,price:1000,collected:1000,discount:{kind:'AMOUNT',value:0}}]},{canDiscount:true});
  expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
 });
-it('records a full discount without creating a zero-value cash receipt',async()=>{
+it('records a full discount with a zero-value cash income receipt',async()=>{
  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,price:750,cardId:null,status:'RESERVED'} as never);
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'zero-cash',amount:0} as never);
+ vi.mocked(tx.$queryRaw).mockResolvedValue([{id:'drawer'}]);
  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'CASH',note:'全額折抵',quotes:[{id:'b',revision:0,price:750,collected:0,discount:{kind:'AMOUNT',value:750}}]},{canDiscount:true});
- expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+ expect(tx.beautyPayment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({kind:'SALE',amount:0,method:'CASH'})}));
+ const entry=vi.mocked(tx.$executeRaw).mock.calls.find(([sql])=>Array.isArray(sql)&&sql.join('').includes('INSERT INTO "CashbookEntry"'));
+ expect(entry).toBeDefined();expect(entry!.slice(1)).toEqual(expect.arrayContaining(['beauty:zero-cash','s','INCOME','CASH',0,'operator']));
  expect(tx.beautyEvent.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({kind:'SERVICE_DISCOUNT',body:expect.stringContaining('"netPrice":0')})}));
  expect(tx.beautyAppointment.update).toHaveBeenCalledWith({where:{id:'b'},data:{revision:{increment:1}}});
+});
+
+it('requires an open cash drawer for a zero-value cash collection',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,price:750,cardId:null,status:'RESERVED'} as never);
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'zero-cash',amount:0} as never);
+ vi.mocked(tx.$queryRaw).mockResolvedValue([]);
+ await expect(collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'CASH',note:'全額折抵',quotes:[{id:'b',revision:0,price:750,collected:0,discount:{kind:'AMOUNT',value:750}}]},{canDiscount:true})).rejects.toThrow('請先開啟今日現金抽屜');
+ expect(tx.$executeRaw).not.toHaveBeenCalled();
+});
+it('does not repeat a committed zero cash collection for the same request',async()=>{
+ const input={requestKey:crypto.randomUUID(),ids:['b'],amounts:[0],method:'CASH' as const,note:'全額折抵'};
+ vi.mocked(tx.beautyCommand.findUnique).mockResolvedValue({actorKey:a.userId,intent:JSON.stringify(input),result:{success:true}} as never);
+ await collect(tx,a,input);
+ expect(tx.beautyPayment.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();
 });
 
 it.each([['first',300,0],['second',0,500]] as const)('freezes the correct fixed-fee delta for the %s service collection',async(_kind,storeAmount,previous)=>{

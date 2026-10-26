@@ -72,7 +72,7 @@ try{
  if(await collection.getByLabel('付款方式',{exact:true}).count())throw Error('Zero cash method shown');
  await screens('full-discount');await collection.getByRole('button',{name:'確認折抵',exact:true}).click();await collection.waitFor({state:'hidden'});
  await roster.getByText('免收款',{exact:true}).waitFor();if(await roster.getByRole('button',{name:'收款',exact:true}).count()!==collectBefore-1)throw Error('Settled row still prompts collection');
- const collections=await page.evaluate(()=>window.qaCalls.filter(c=>c.name==='collectBeautyPayment'));if(collections.length!==1||collections[0].args[0].amounts[0]!==0)throw Error('Duplicate or non-zero collection');
+ const collections=await page.evaluate(()=>window.qaCalls.filter(c=>c.name==='collectBeautyPayment'));if(collections.length!==1||collections[0].args[0].amounts[0]!==0||collections[0].args[0].method!=='CASH')throw Error('Duplicate or non-zero collection');
  await screens('settled-roster');
  await choose('charge');await choose('full-flow');await page.setViewportSize({width:1366,height:900});
  await page.getByRole('button',{name:'測試顧客1・長姓名 剪下改期',exact:true}).click();await roster.waitFor({state:'hidden'});await page.getByRole('button',{name:'日表',exact:true}).click();

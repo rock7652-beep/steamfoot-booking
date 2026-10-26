@@ -35,8 +35,9 @@ async function cash(
   amount: number,
   paymentId: string,
   note: string,
+  recordZero = false,
 ) {
-  if (amount === 0) return;
+  if (amount === 0 && !recordZero) return;
   if (method === "CASH") {
     const date = new Date(toLocalDateStr() + "T00:00:00Z");
     const drawers = await tx.$queryRaw<
@@ -46,7 +47,7 @@ async function cash(
       throw new AppError("BUSINESS_RULE", "請先開啟今日現金抽屜");
     await tx.$executeRaw`UPDATE "CashDrawerSession" SET "updatedAt"=GREATEST(clock_timestamp(),"updatedAt"+interval '1 millisecond') WHERE id=${drawers[0].id}`;
   }
-  await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") VALUES (${`beauty:${paymentId}`},${a.storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},${amount > 0 ? "INCOME" : "EXPENSE"}::"CashbookEntryType",${method === "CASH" ? "CASH" : "OTHER"}::"CashbookPaymentMethod",'美業',${Math.abs(amount)},${note},${a.userId},NOW())`;
+  await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") VALUES (${`beauty:${paymentId}`},${a.storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},${amount >= 0 ? "INCOME" : "EXPENSE"}::"CashbookEntryType",${method === "CASH" ? "CASH" : "OTHER"}::"CashbookPaymentMethod",'美業',${Math.abs(amount)},${note},${a.userId},NOW())`;
 }
 export async function collect(
   tx: Tx,
@@ -79,7 +80,7 @@ export async function collect(
       const discountChanged=!!offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value);
       if(d.amounts[i]===0&&!discountChanged)continue;
       if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
-      const p = d.amounts[i]===0?{id:null,amount:0}:await tx.beautyPayment.create({
+      const p = await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
           appointmentId: id,
@@ -90,20 +91,21 @@ export async function collect(
           actorUserId: a.userId!,
         },
       });
-      if(p.id&&beautyChargeRulesEnabled(a.storeId)){
+      if(p.amount>0&&beautyChargeRulesEnabled(a.storeId)){
         const storeCost=await readBeautyServiceCost(tx,a.storeId,b.id);
         const frozen=await beautySaleAllocations(tx,a.storeId,existing.filter(row=>row.kind==='SALE').map(row=>row.id));
         const allocation=beautyServiceCollectionAllocation(p.amount,storeCost,existing,frozen);
         const [owner]=b.customerId?await tx.$queryRaw<{assignedStaffId:string|null}[]>`SELECT s.id AS "assignedStaffId" FROM "Customer" c LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId" WHERE c.id=${b.customerId} AND c."storeId"=${a.storeId}`:[];
         await audit(tx,a,'SERVICE_SALE_ATTRIBUTION',JSON.stringify({paymentId:p.id,revenueStaffId:owner?.assignedStaffId??null,allocation}),b.id);
       }
-      if(p.id)await cash(
+      await cash(
         tx,
         a,
         d.method,
         p.amount,
         p.id,
         `服務收款：${b.serviceName} / ${d.note}`,
+        true,
       );
       if (b.status === "COMPLETED") {
         if (
