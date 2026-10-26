@@ -79,7 +79,7 @@ export async function collect(
       const discountChanged=!!offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value);
       if(d.amounts[i]===0&&!discountChanged)continue;
       if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
-      const p = await tx.beautyPayment.create({
+      const p = d.amounts[i]===0?{id:null,amount:0}:await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
           appointmentId: id,
@@ -90,14 +90,14 @@ export async function collect(
           actorUserId: a.userId!,
         },
       });
-      if(beautyChargeRulesEnabled(a.storeId)){
+      if(p.id&&beautyChargeRulesEnabled(a.storeId)){
         const storeCost=await readBeautyServiceCost(tx,a.storeId,b.id);
         const frozen=await beautySaleAllocations(tx,a.storeId,existing.filter(row=>row.kind==='SALE').map(row=>row.id));
         const allocation=beautyServiceCollectionAllocation(p.amount,storeCost,existing,frozen);
         const [owner]=b.customerId?await tx.$queryRaw<{assignedStaffId:string|null}[]>`SELECT s.id AS "assignedStaffId" FROM "Customer" c LEFT JOIN "Staff" s ON s.id=c."assignedStaffId" AND s."storeId"=c."storeId" WHERE c.id=${b.customerId} AND c."storeId"=${a.storeId}`:[];
         await audit(tx,a,'SERVICE_SALE_ATTRIBUTION',JSON.stringify({paymentId:p.id,revenueStaffId:owner?.assignedStaffId??null,allocation}),b.id);
       }
-      await cash(
+      if(p.id)await cash(
         tx,
         a,
         d.method,

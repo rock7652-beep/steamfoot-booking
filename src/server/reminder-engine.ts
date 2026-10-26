@@ -14,6 +14,7 @@
  */
 
 import { Prisma } from "@prisma/client";
+import {nextDayReminderForDate} from '@/lib/next-day-reminder-time';
 import { prisma } from "@/lib/db";
 import {
   pushMessage,
@@ -108,8 +109,7 @@ export function todayReminderTriggerAt(now: Date = new Date()): Date {
 }
 
 export function reminderTriggerAtForDate(date: string): Date {
-  // 台灣 18:00 = UTC 10:00（offset -8 小時）
-  return new Date(`${date}T10:00:00.000Z`);
+  return nextDayReminderForDate(date);
 }
 
 /**
@@ -279,6 +279,8 @@ export async function runReminders(): Promise<SendResult> {
     const bookings = await prisma.booking.findMany({
       where: {
         storeId: rule.storeId,
+        createdAt:{lte:triggerAt},
+        OR:[{customerRescheduledAt:null},{customerRescheduledAt:{lte:triggerAt}}],
         bookingDate,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },

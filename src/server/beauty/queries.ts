@@ -460,9 +460,10 @@ export async function beautyDashboard(
 export type BeautyDashboardData = Awaited<ReturnType<typeof beautyDashboard>>;
 
 /** Calendar transport: minimal labels, with payment status only for authorized finance readers. */
-export async function beautyCalendar(date:string,calendar:'day'|'week'|'month',native=false){
+export async function beautyCalendar(date:string,calendar:'day'|'week'|'month',native=false,expectedSlug?:string){
  if(native&&calendar!=='month')throw new AppError('VALIDATION','原版課表須讀取完整月份');
  const [a,u]=await Promise.all([beautyManager('booking.read'),getCurrentUser()]);
+ if(expectedSlug&&!await prisma.store.findFirst({where:{id:a.storeId,slug:expectedSlug},select:{id:true}}))throw new AppError('FORBIDDEN','店家已切換，請重新開啟');
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
  const scopes=[['customer.read',FEATURES.CUSTOMER_MANAGEMENT],['wallet.read',FEATURES.PLAN_MANAGEMENT],['teacher.compensation.read',FEATURES.SERVICE_FEE_CALCULATOR]] as const;
  const [customerAccess,planAccess,feeAccess]=await Promise.all(scopes.map(async ([permission,feature])=>{

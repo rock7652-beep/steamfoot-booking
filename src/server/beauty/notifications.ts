@@ -9,11 +9,13 @@ import {
   addTaiwanDuration,
   toLocalDateStr,
   formatTWDateTime,
-  parseTaipeiDateTime,
 } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { deliverCourseCardNotification } from "@/server/services/course-card-notification-delivery";
+import {isNextDayReminderBatch,nextDayReminderTriggerAt} from '@/lib/next-day-reminder-time';
+import {beautyNotificationMessages} from '@/lib/beauty/notification-message';
+import {getConfiguredStoreLine} from '@/lib/store-line-config';
 
 /** Uses only the shared channel/quota transport, never course bookings or cards.
  * Notifications are opt-in and cron-authenticated. No request-time sending. */
@@ -37,19 +39,22 @@ export async function runBeautyNotifications(now = new Date()) {
     if(activatedAt)await beautyPrisma.beautyEvent.updateMany({where:{storeId:store.id,status:{in:["PENDING","FAILED"]},createdAt:{lt:activatedAt},kind:{in:["BOOKED","MOVED","REMINDER","RESERVED","CANCELLED","NO_SHOW","COMPLETED"]}},data:{status:"SKIPPED"}});
     const tomorrow = dayRange(addTaiwanDuration(toLocalDateStr(now), 1, "DAY"));
     // Deterministic reminder ids change on reschedule. Existing events remain auditable.
-    const reminderAt=parseTaipeiDateTime(toLocalDateStr(now), "18:00")!;
+    const reminderAt=nextDayReminderTriggerAt(now);
     const upcoming =
-      now < reminderAt || !!activatedAt && reminderAt < activatedAt
+      !isNextDayReminderBatch(now) || !!activatedAt && reminderAt < activatedAt
         ? []
         : await beautyPrisma.beautyAppointment.findMany({
             where: {
               storeId: store.id,
               status: "RESERVED",
+              createdAt:{lte:reminderAt},
               startsAt: { gte: tomorrow.start, lte: tomorrow.end },
             },
             include: { group: true },
           });
+    const movedAfterCutoff=upcoming.length?await beautyPrisma.beautyEvent.findMany({where:{storeId:store.id,kind:'MOVED',createdAt:{gt:reminderAt},appointmentId:{in:upcoming.map(b=>b.id)}},select:{appointmentId:true,kind:true}}):[];
     for (const b of upcoming) {
+      if(movedAfterCutoff.some(e=>e.kind==='MOVED'&&e.appointmentId===b.id))continue;
       const customerId = b.customerId ?? b.group.customerId;
       if (!customerId) continue;
       const id =
@@ -109,6 +114,7 @@ export async function runBeautyNotifications(now = new Date()) {
             };
             if (now.getTime() - event.createdAt.getTime() > 23 * 60 * 60 * 1000)
               return skip("通知已過期，避免跨重試期限重複送出");
+            if(event.kind==='REMINDER'&&!isNextDayReminderBatch(event.createdAt))return skip('非18:00批次建立的明日提醒不補送');
             if (!current.customerId) return skip("未綁定可驗證的通知身分");
             if(activatedAt&&event.createdAt<activatedAt)return skip("啟用前通知不補發");
             const person = await tx.customer.findFirst({
@@ -121,11 +127,13 @@ export async function runBeautyNotifications(now = new Date()) {
               select: { id: true, lineUserId: true, lineLinkStatus: true },
             });
             if (!person) return skip("通知身分停用或已合併");
+            let messageDetails:{customerName?:string;serviceName?:string;time?:string}={};
             if (event.appointmentId) {
               const [booking] = await tx.$queryRaw<
-                Array<{ status: string; startsAt: Date }>
-              >`SELECT status,"startsAt" FROM "BeautyAppointment" WHERE id=${event.appointmentId} AND "storeId"=${store.id}`;
+                Array<{ status: string; startsAt: Date;personName:string;serviceName:string }>
+              >`SELECT status,"startsAt","personName","serviceName" FROM "BeautyAppointment" WHERE id=${event.appointmentId} AND "storeId"=${store.id}`;
               if (!booking) return skip("預約不存在");
+              messageDetails={customerName:booking.personName,serviceName:booking.serviceName,time:formatTWDateTime(booking.startsAt)};
               if (
                 ["BOOKED", "MOVED", "REMINDER", "RESERVED"].includes(
                   event.kind,
@@ -167,12 +175,14 @@ export async function runBeautyNotifications(now = new Date()) {
               update: { status: "PENDING", errorMessage: null },
             });
             const hash = createHash("sha256").update(id).digest("hex");
+            const line=getConfiguredStoreLine(store.id);
             const retryKey = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
             const status = await deliverCourseCardNotification(tx, {
               id,
               storeId: store.id,
               person,
-              messages: [{ type: "text", text: event.body }],
+              messages:beautyNotificationMessages({kind:event.kind,body:event.body,storeName:store.name,...messageDetails,
+                ...(line?{memberUrl:`https://liff.line.me/${line.liffId}/bookings`,contactUrl:`https://line.me/R/ti/p/${line.basicId}`}:{})}),
               retryKey,
               now,
               transactionScoped:true,

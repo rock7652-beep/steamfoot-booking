@@ -1,7 +1,7 @@
 "use client";
 import {useBeautyCustomerRevision} from "./use-customer-sync";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-import {useCallback,useEffect,useMemo,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useMemo,useState,useRef,type ReactNode} from 'react';
 import {LoadingStatus} from "@/components/loading-status";
 import {useSportsCalendarState,calendarDate,calendarMode} from "@/components/admin/use-sports-calendar-state";
 import {CourseWorkspace,type CourseCalendarSource} from '@/app/(dashboard)/dashboard/courses/workspace';
@@ -17,7 +17,9 @@ import type {BeautyDashboardData} from '@/server/beauty/queries';
 export function BeautyScheduleWorkspace({suspended=false,cashbookShortcut,data,slug,onOpen,onRoster,onDateChange,readOnly,onLoaded,move}:{suspended?:boolean;move?:CourseCalendarSource["move"];cashbookShortcut?:ReactNode;onLoaded:(data:BeautyCalendarData)=>void;data:BeautyDashboardData;slug:string;onOpen:(id:string)=>void;onRoster:()=>void;onDateChange:(date:string)=>void;readOnly:boolean}){
  // Prime the existing scope-owned calendar state before mounting its UI after a full navigation.
  useSportsCalendarState(true,'mode','month',calendarMode);
- useSportsCalendarState(true,'date',data.date,calendarDate);
+ const [,setNativeDate]=useSportsCalendarState(true,'date',data.date,calendarDate);
+ const sourceDate=useRef(data.date);
+ useEffect(()=>{if(sourceDate.current!==data.date){sourceDate.current=data.date;setNativeDate(data.date);}},[data.date,setNativeDate]);
  const [hydrated,setHydrated]=useState(false);
  // Retained state restores in passive subscriptions. Hydration alone can finish before
  // those subscriptions, briefly mounting the original controller with its month default.
