@@ -6,7 +6,7 @@ import Image from "next/image";
 export function LiffBrandHeader({ home }: { home?: boolean } = {}) {
   const segment = useSelectedLayoutSegment();
   // Route segments also identify the homepage after store-prefixed rewrites.
-  if (home ?? segment === null) return null;
+  if ((home ?? segment === null) || segment === "public-trial") return null;
   return (
     <div className="mx-auto flex w-full max-w-md shrink-0 justify-end px-5 pt-[max(12px,env(safe-area-inset-top))]">
       <Image src="/pricing/brand/steam-butler-logo.png" alt="蒸管家"
