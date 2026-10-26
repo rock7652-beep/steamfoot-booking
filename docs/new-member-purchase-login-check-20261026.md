@@ -48,11 +48,11 @@
 - 新的 public-trial-login-customer 服務在 Serializable 交易建立真正新客的 User、Account、CustomerIdentityLink 與 Customer，或重用已驗證的同店連結。重複電話、不同 owner、失效入口、停用帳號或歸屬不一致會阻擋；不靠姓名電話認領舊資料。跨店已有中央帳號的新店會員可沿用同一個已驗證 Account，透過店別 IdentityLink 建立會員關係。
 - 註冊與身分建立獨立於付款；預約仍檢查時段／名額並原子消耗入口，財務流程不變。與原行為一樣，若後續名額不足，已建立且身分合法的顧客可保留以便重試；不會建立收款或方案。
 - 通知綁定只對本次新建的顧客簽發一次性私密能力，並將 Login owner 的雜湊綁入 digest。OA webhook 完成通知時，必須仍為原 ACTIVE Login owner；只改通知欄位，保留登入 Account／IdentityLink。既有 trial token 的 null-owner 限制保留。
-- server-only 的隔離驗收 LIFF 覆寫只允許本支線、zhubei、Vercel Preview、同一 Login channel；同時驗證 DATABASE_URL 與 DIRECT_URL 都是原隔離庫。正式站忽略這兩個測試 ID，正式網址不變。
+- server-only 的隔離驗收 LIFF 覆寫只允許本支線、zhubei、Vercel Preview、同一 Login channel；同時驗證 DATABASE_URL 與 DIRECT_URL 都是原隔離庫。解析新 Login 能力時亦重新確認店別仍為蒸足，避免模組變更後流入美業。正式站忽略這兩個測試 ID，正式網址不變。
 
 ### 本輪驗證與尚待條件
 
-12 組相關測試共 214 項通過，含 AES-GCM 真實加解密、篡改／過期／重放／回滾版本拒絕、跨 Provider Login 保留、通知能力 owner 固定、舊聊天入口相容、重複電話／Account／店別隔離及原開卡登入路徑。型別、ESLint 與新版部署需以本輪最終 commit 核對；前一版 CI／Preview 及一般表單建檔→499 體驗收款→1000 元五堂開卡的 hosted 測試只作前段回歸證據，不能作新增跨 Provider Login 通過。
+12 組相關測試共 215 項通過，含 AES-GCM 真實加解密、篡改／過期／重放／回滾版本拒絕、跨 Provider Login 保留、通知能力 owner 固定、舊聊天入口相容、重複電話／Account／店別隔離及原開卡登入路徑。型別、ESLint 與新版部署需以本輪最終 commit 核對；前一版 CI／Preview 及一般表單建檔→499 體驗收款→1000 元五堂開卡的 hosted 測試只作前段回歸證據，不能作新增跨 Provider Login 通過。
 
 需建立兩個專用隔離 LIFF（體驗、會員），放在原 Login2010761154 下，以 openid／profile、Full、Add friend Off 設定指向本分支固定 Preview alias；不勾 chat_message.write、不取代正式 LIFF。兩個建立表單已備妥，尚未送出。測試站仍須使用已授權的 23 小時臨時存取；若在 LINE endpoint 使用此 bearer 存取能力，應明確確認其存取範圍與期限，不把分享參數寫入 git 或公開 PR。
 

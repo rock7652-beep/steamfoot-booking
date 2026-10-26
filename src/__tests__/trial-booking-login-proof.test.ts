@@ -47,6 +47,11 @@ describe("encrypted public trial Login proof", () => {
     expect(entry.endsWith(".login1")).toBe(true);
     expect(await resolveTrialBookingChatLink(entry.replace(/\.login1$/, ""), now)).toBeNull();
   });
+  it("does not expose Login proof to another module after the store changes", async () => {
+    const entry = await issue();
+    db.store.findUnique.mockResolvedValue({ slug: "zhubei", industryModule: "BEAUTY" });
+    expect(await resolveTrialBookingChatLink(entry, now)).toBeNull();
+  });
   it.each(["MESSENGER", "BEAUTY", "mismatched_subject"])("does not issue Login proof for %s", async problem => {
     if (problem === "BEAUTY") db.store.findUnique.mockResolvedValue({ slug: "beauty", industryModule: "BEAUTY" });
     await expect(createTrialBookingChatLink({ storeId: "store", channel: problem === "MESSENGER" ? "MESSENGER" : "LINE",

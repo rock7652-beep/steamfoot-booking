@@ -127,6 +127,10 @@ export async function resolveTrialBookingChatLink(
       notificationVerified = payload.notificationVerified;
     }
     if (parts.length === 3 && !proof) return null;
+    if (proof) {
+      const store = await prisma.store.findUnique({ where: { id: link.storeId }, select: { slug: true, industryModule: true } });
+      if (store?.industryModule !== "STEAMFOOT" || !SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug)) return null;
+    }
     return {
       linkId: link.id,
       storeId: link.storeId,
