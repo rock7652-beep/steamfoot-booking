@@ -39,3 +39,4 @@ it('keeps cross-month refund rounding and owner filters consistent with the orig
  expect(report.data.reduce((n,row)=>n+Object.values(row.saleAllocation!).reduce((a,b)=>a+b,0),0)).toBe(report.kpi.netRevenue);
  expect(m.payments).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'s',kind:'REFUND',originalPaymentId:{in:['sale']}})}));
 });
+it('can skip first-purchase scanning for a classification-only report without changing frozen amounts',async()=>{const report=await getBeautyRevenueReport('s',filters,{customers:false,includeFirstPurchase:false});expect(m.first).not.toHaveBeenCalled();expect(report.kpi.netRevenue).toBe(1000);});
