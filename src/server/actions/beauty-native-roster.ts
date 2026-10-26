@@ -1,4 +1,5 @@
 "use server";
+import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {beautyRosterContext,beautyRosterWhere,beautyRosterVersion,loadBeautyRoster} from '@/server/beauty/roster-read';
 import {traceBeautyRead,beautyReadStep} from '@/server/beauty/read-timing';
 import {z} from 'zod';
@@ -39,7 +40,7 @@ export async function saveBeautyNativeRosterNote(input:unknown){
 export async function readBeautyRosterOperation(input:unknown){
  try{
   const d=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/)}).parse(input);
-  const [roster,calendar]=await Promise.all([readBeautyNativeRoster(d.sessionId),beautyCalendar(d.date,'day')]);
+  const [roster,calendar]=await withReadRequestMemo(()=>Promise.all([readBeautyNativeRoster(d.sessionId),beautyCalendar(d.date,'day')]));
   if(!roster.success)return roster;
   return {success:true as const,data:{roster:roster.data,calendar}};
  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'讀取失敗':failure.error};}
