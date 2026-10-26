@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({actor:vi.fn(),feature:vi.fn(),query:vi.fn(),execute:vi.fn(),upsert:vi.fn(),revalidate:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{$transaction:async(fn: (tx:unknown)=>unknown)=>fn({$queryRaw:m.query,$executeRaw:m.execute,messageTemplate:{upsert:m.upsert}})}}));
-vi.mock('@/server/beauty/access',()=>({beautyManager:m.actor}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.actor,beautyTransaction:async(_a:unknown,fn:(tx:unknown)=>unknown)=>fn({$executeRaw:m.execute,beautyEvent:{upsert:m.upsert}}),audit:vi.fn()}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('next/cache',()=>({revalidatePath:m.revalidate}));
 import {setBeautyTechnicianNotification} from '@/server/actions/beauty-technician-notifications';

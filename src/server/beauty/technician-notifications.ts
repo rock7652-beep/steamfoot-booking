@@ -1,7 +1,6 @@
 import 'server-only';
 import {createHash} from 'node:crypto';
 import type {Prisma} from '@prisma/client';
-import {prisma} from '@/lib/db';
 import {beautyPrisma} from '@/lib/beauty-db';
 import {addTaiwanDuration,dayRange,toLocalDateStr} from '@/lib/date-utils';
 import {deriveBaseUrl} from '@/lib/base-url';
@@ -13,7 +12,8 @@ import {resolveVerifiedReminderLineRoute} from '@/server/services/verified-remin
 import {deliverCourseCardNotification} from '@/server/services/course-card-notification-delivery';
 
 export async function technicianNoticeEnabled(storeId:string,kind:TechnicianNoticeKind) {
- return !!await prisma.messageTemplate.findFirst({where:{id:technicianNoticeSettingId(storeId,kind),storeId,body:'enabled'},select:{id:true}});
+ const row=await beautyPrisma.beautyEvent.findUnique({where:{id:technicianNoticeSettingId(storeId,kind)},select:{storeId:true,kind:true,status:true,body:true}});
+ return row?.storeId===storeId&&row.kind==='TECH_SETTING'&&row.status==='AUDIT'&&row.body==='enabled';
 }
 export async function queueTechnicianDigest(storeId:string,now:Date) {
  if(beautyNotificationDeliveryBlocked()||!isPersonnelReminderBatch(now)||!await technicianNoticeEnabled(storeId,'TECH_DIGEST'))return;
@@ -30,7 +30,7 @@ export async function deliverTechnicianEvent(tx:Prisma.TransactionClient,store:{
  if(!TECHNICIAN_NOTICE_KINDS.includes(event.kind as TechnicianNoticeKind)||!event.userId)return skip('技師通知對象不明');
  const kind=event.kind as TechnicianNoticeKind,body:TechnicianNoticeBody=JSON.parse(event.body);
  if(beautyNotificationActivationAt()&&event.createdAt<beautyNotificationActivationAt()!)return skip('啟用前通知不補發');
- const [setting]=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "MessageTemplate" WHERE id=${technicianNoticeSettingId(store.id,kind)} AND "storeId"=${store.id} AND body='enabled'`;
+ const [setting]=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "BeautyEvent" WHERE kind='TECH_SETTING' AND status='AUDIT' AND id=${technicianNoticeSettingId(store.id,kind)} AND "storeId"=${store.id} AND body='enabled'`;
  if(!setting)return skip('技師通知已關閉');
  const [technician]=await tx.$queryRaw<{id:string}[]>`SELECT t.id FROM "BeautyTechnician" t JOIN "User" u ON u.id=t."userId" AND u.status::text='ACTIVE' WHERE t.id=${body.technicianId} AND t."storeId"=${store.id} AND t."userId"=${event.userId} AND t.active=true`;
  if(!technician)return skip('技師工作身分已停用或變更');
