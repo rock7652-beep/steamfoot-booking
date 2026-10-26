@@ -9,6 +9,7 @@ import { useState,useOptimistic } from 'react';
 import { toast } from 'sonner';
 import { setCoachNotification } from '@/server/actions/course-coach-notifications';
 import { COACH_NOTICE_KINDS,COACH_NOTICE_LABELS,type CoachNoticeKind } from '@/lib/course-coach-notifications';
+import { PERSONNEL_NEXT_DAY_REMINDER_TIME } from '@/lib/reminder-schedule';
 export function CoachNotificationSettings({initial,teachers,logs,music=false}:{music?:boolean;initial:Record<CoachNoticeKind,boolean>;teachers:{id:string;name:string;bound:boolean}[];logs:{id:string;name:string;kind:CoachNoticeKind;status:string;reason:string;time:string}[]}) {
   const personnelText = useCoursePersonnelText();
  const [settings,setSettings]=useState(initial);
@@ -17,7 +18,7 @@ export function CoachNotificationSettings({initial,teachers,logs,music=false}:{m
  const pending=mutation.pending;
  const [preview,setPreview]=useState<CoachNoticeKind|null>(null);
  useSettingsPanelGuard(false,pending);
- const descriptions={DIGEST:'每日 21:00 · 只通知本人明日課程',CHANGE:'調課、停課、取消與代課',TRIAL:'新增體驗學員及已通知資料異動'};
+ const descriptions={DIGEST:`前一天 ${PERSONNEL_NEXT_DAY_REMINDER_TIME}（台灣時間）· 本人明日課程`,CHANGE:'調課、停課、取消與代課',TRIAL:'新增體驗學員及已通知資料異動'};
  const statuses:Record<string,string>={READY:'待發送',PENDING:'處理中',SENT:'已發送',SKIPPED:'已跳過',FAILED:'待重試',BLOCKED:'需確認'};
  return <div className="space-y-4"><section className="rounded-xl border border-earth-200 bg-white px-4">
  {COACH_NOTICE_KINDS.map(kind=><div key={kind} className="border-b border-earth-100 py-3 last:border-0"><div className="flex items-center justify-between gap-4"><span><span className="font-medium text-primary-800">{COACH_NOTICE_LABELS[kind]}</span><span className="ml-3 text-sm text-earth-500">{descriptions[kind]}</span></span><div className="flex items-center gap-3"><button type="button" className="min-h-11 text-sm text-primary-700" aria-expanded={preview===kind} onClick={()=>setPreview(preview===kind?null:kind)}>{preview===kind?"收合":"預覽"}</button>{mutation.isPending(kind)&&<span role="status" className="text-sm text-earth-500">儲存中…</span>}<NotificationSwitch aria-label={COACH_NOTICE_LABELS[kind]} checked={display[kind]} disabled={mutation.isPending(kind)} aria-busy={mutation.isPending(kind)} onChange={e=>{const enabled=e.target.checked;void mutation.run(kind,()=>setCoachNotification({kind,enabled}),()=>{setSettings(s=>({...s,[kind]:enabled}));toast.success('通知設定已儲存');},()=>{const previous=display[kind];patch({kind,enabled});return()=>patch({kind,enabled:previous});});}}/></div></div>{preview===kind&&<CoachNotificationPreview kind={kind} music={music}/>}</div>)}

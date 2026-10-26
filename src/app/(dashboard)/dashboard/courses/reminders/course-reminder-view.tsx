@@ -1,4 +1,5 @@
 "use client";
+import { ReminderScheduleNote } from '@/components/admin/reminder-schedule-note';
 import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
 import type { CourseReminderData } from "@/server/queries/reminder-panel";
 import { ReminderSectionPicker } from "../../reminders/reminder-section-picker";
@@ -42,6 +43,7 @@ export function CourseReminderView({ data }: { data: CourseReminderData }) {
     return <PageShell>
       <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
       {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="space-y-2">
+        {data.lineEnabled && <ReminderScheduleNote/>}
         {data.lineEnabled && <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />}
         {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
         {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}

@@ -50,12 +50,12 @@ export default async function BeautyRemindersPage({searchParams}:{searchParams:P
     content = <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4">
       <div className="py-3"><PlanActivationNotificationSetting key={`${storeId}-activation`} storeId={storeId} initialEnabled={activationEnabled} readOnly={readOnly}/></div>
       <SettingsListRow title="服務通知與明日提醒" summary={`店家設定${policy?.notifications?"開啟":"關閉"}・實際發送${blocked?"關閉":"依店家設定"}`}>
-        <p className="text-sm text-earth-600">預約成立、改期、取消及服務狀態使用美業事件；明日提醒於前一天 18:00 處理。{blocked?"目前不會向外發送。":"發送結果請查閱發送紀錄。"}</p>
+        <p className="text-sm text-earth-600">預約成立、改期、取消及服務狀態使用美業事件；顧客明日提醒於前一天 18:00（台灣時間）處理。{blocked?"目前不會向外發送。":"發送結果請查閱發送紀錄。"}</p>
       </SettingsListRow>
       <CourseLowBalanceSettings readOnly={readOnly} key={storeId} storeId={storeId} beauty saveSetting={saveBeautyPlanReminderSetting} plans={plans.map(p=>({id:p.id,name:p.name,unit:'VISIT',isActive:p.active,lowBalanceEnabled:p.lowBalanceEnabled,lowBalanceThreshold:p.lowBalanceThreshold,expiry:readBeautyExpiry(p.expiryReminder),revision:p.revision}))}/>
       <TrialCareCard readOnly={readOnly} canStop={!readOnly&&await checkPermission(user.role,user.staffId,"customer.update")} key={storeId+':care'} storeId={storeId} storeName={store.name} initialEnabled={!!care?.enabled&&trialCareRulesSchema.safeParse(care.rules).success} initialRules={trialCareRulesSchema.safeParse(care?.rules).data??defaultTrialCareRules()} initialRevision={care?.updatedAt.toISOString()??null} deliveryBlocked={blocked} saveSettings={saveBeautyTrialCareSettings} stopCare={stopBeautyCustomerTrialCare} logs={careLogs.map(l=>({id:l.id,customerId:l.customerId,customerName:l.customer.name,stage:l.stage,status:l.status,reason:l.reason,createdAt:l.createdAt.toISOString()}))}/>
 
     </div>;
   }
-  return <ReminderCenter storeId={storeId} active={active} explicit={!!params.tab} baseHref="/dashboard/beauty/reminders" returnHref="/dashboard/beauty?tab=設定&section=notifications" subtitle="美業服務提醒與發送紀錄" enabled={enabled} blockedMessage={blocked?"LINE 維持關閉。設定可儲存；待發送或跳過不代表已送達。":undefined}>{content}</ReminderCenter>;
+  return <ReminderCenter storeId={storeId} active={active} explicit={!!params.tab} baseHref="/dashboard/beauty/reminders" returnHref="/dashboard/beauty?tab=設定&section=notifications" subtitle="美業服務提醒與發送紀錄" timingNote="依已開啟項目發送；技師明日班表提醒尚未開放。" enabled={enabled} blockedMessage={blocked?"LINE 維持關閉。設定可儲存；待發送或跳過不代表已送達。":undefined}>{content}</ReminderCenter>;
 }
