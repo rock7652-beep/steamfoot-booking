@@ -26,6 +26,10 @@ const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockResolveCustomer = vi.fn();
 const mockCanOnboardCourse = vi.fn();
+const mockCanOnboardBeauty = vi.fn();
+vi.mock("@/server/services/beauty-line-onboarding", () => ({
+  canOnboardVerifiedBeautyMember: (...args: unknown[]) => mockCanOnboardBeauty(...args),
+}));
 vi.mock("@/lib/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
 vi.mock("@/server/services/verified-line-customer", () => ({
   resolveVerifiedLineCustomer: (...args: unknown[]) => mockResolveCustomer(...args),
@@ -125,6 +129,7 @@ describe("POST /api/liff/exchange", () => {
     mockResolveStoreBySlug.mockReset();
     mockResolveCustomer.mockReset();
     mockCanOnboardCourse.mockReset();
+    mockCanOnboardBeauty.mockReset();
   });
 
   afterEach(() => {
@@ -178,6 +183,28 @@ describe("POST /api/liff/exchange", () => {
     expect(mockCanOnboardCourse).toHaveBeenCalledWith({
       storeId: "course-store", lineUserId: LINE_USER_ID, identityProvider: "line",
     });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it.each([true, false])("offers configured beauty onboarding only when eligible: %s", async eligible => {
+    vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{
+      storeId: "beauty-store", slug: "beauty", providerId: "901", loginChannelId: "902",
+      messagingProviderId: "901", messagingChannelId: "903", liffId: "902-beauty",
+      basicId: "@beauty", destination: "U" + "a".repeat(32),
+      accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET",
+    }]));
+    vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
+    mockModule.mockResolvedValue("beauty");
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce({ id: "beauty-store", slug: "beauty" });
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    mockCanOnboardBeauty.mockResolvedValueOnce(eligible);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "beauty" }));
+    expect(response.status).toBe(eligible ? 200 : 409);
+    expect(await response.json()).toMatchObject(eligible ? { status: "need_onboarding" } : { code: "IDENTITY_REVIEW_REQUIRED" });
+    expect(mockCanOnboardBeauty).toHaveBeenCalledWith({
+      storeId: "beauty-store", lineUserId: LINE_USER_ID, identityProvider: "line-provider:901",
+    });
+    expect(mockVerify).toHaveBeenCalledWith("tok", "902");
     expect(mockSignIn).not.toHaveBeenCalled();
   });
   it("keeps conflicting course memberships in staff review", async () => {
