@@ -13,5 +13,8 @@ export function PortalIcon({ name }: { name: PortalIconName }) {
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
 }
-export function CoursePortalBrand({storeName}:{storeName:string}) {return <div className="cp-brand"><SteamButlerLogo className="w-28"/><small>{storeName}</small></div>;}
+export function CoursePortalBrand({storeName,storeFirst=false}:{storeName:string;storeFirst?:boolean}) {
+  if(storeFirst)return <div aria-label="預約店家" className="flex w-full min-w-0 items-center justify-between gap-3"><SteamButlerLogo className="w-20 shrink-0"/><strong className="min-w-0 break-words text-right text-lg font-semibold text-primary-900">{storeName}</strong></div>;
+  return <div className="cp-brand"><SteamButlerLogo className="w-28"/><small>{storeName}</small></div>;
+}
 export function CoursePortalNavigation({items,current,onSelect,disabled=false}:{disabled?:boolean;items:{id:string;label:string;icon:PortalIconName}[];current:string;onSelect:(id:string)=>void}) {return <nav className="cp-nav" aria-label="主要功能">{items.map(item=><button key={item.id} disabled={disabled} aria-current={current===item.id?'page':undefined} onClick={()=>onSelect(item.id)}><PortalIcon name={item.icon}/>{item.label}</button>)}</nav>;}

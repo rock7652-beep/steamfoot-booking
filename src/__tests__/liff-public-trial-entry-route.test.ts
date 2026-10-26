@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   resolveStore: vi.fn(),
   probe: vi.fn(),
   createLink: vi.fn(),
+  module: vi.fn(),
 }));
 
 vi.mock("@/lib/liff/verify-id-token", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/lib/store-resolver", () => ({
 vi.mock("@/lib/line", () => ({
   probeStoreLineRecipient: (...args: unknown[]) => mocks.probe(...args),
 }));
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.module }));
 vi.mock("@/server/services/trial-booking-chat-link", () => ({
   createTrialBookingChatLink: (...args: unknown[]) => mocks.createLink(...args),
 }));
@@ -37,6 +39,9 @@ function request(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", "");
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
+  mocks.module.mockResolvedValue("beauty");
   mocks.verify.mockResolvedValue({
     lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     channelId: "2010761154",
@@ -50,6 +55,36 @@ beforeEach(() => {
     url: "https://www.steamfoot.com/pricing/experience/zhubei/book?entry=link-id.secret",
     expiresAt: new Date("2026-08-17T11:30:00.000Z"),
   });
+});
+afterEach(() => vi.unstubAllEnvs());
+
+const configured = { storeId: "store-soulife", slug: "soulife", providerId: "901", loginChannelId: "902", messagingProviderId: "901", messagingChannelId: "903", liffId: "902-beauty", basicId: "@beauty", destination: "U" + "a".repeat(32), accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET" };
+
+it("uses the configured beauty audience and issues only its own store entry", async () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
+  mocks.resolveStore.mockResolvedValue({ id: "store-soulife", slug: "soulife" });
+  const response = await POST(request({ idToken: "token", storeSlug: "soulife" }));
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(mocks.verify).toHaveBeenCalledWith("token", "902");
+  expect(mocks.probe).toHaveBeenCalledWith("store-soulife", "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  expect(mocks.createLink).toHaveBeenCalledWith({
+    storeId: "store-soulife", channel: "LINE", chatIdentity: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  });
+});
+it.each([["INCOMPATIBLE", 409], ["UNAVAILABLE", 503]])("retains beauty verification failure %s", async (status, code) => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
+  mocks.resolveStore.mockResolvedValue({ id: "store-soulife", slug: "soulife" });
+  mocks.probe.mockResolvedValue({ status });
+  expect((await POST(request({ idToken: "token", storeSlug: "soulife" }))).status).toBe(code);
+  expect(mocks.createLink).not.toHaveBeenCalled();
+});
+it.each(["wrong-store", "course"])("rejects configured %s before probing or minting", async kind => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
+  mocks.resolveStore.mockResolvedValue({ id: kind === "wrong-store" ? "other" : "store-soulife", slug: "soulife" });
+  mocks.module.mockResolvedValue(kind === "course" ? "course" : "beauty");
+  expect((await POST(request({ idToken: "token", storeSlug: "soulife" }))).status).toBe(404);
+  expect(mocks.probe).not.toHaveBeenCalled(); expect(mocks.createLink).not.toHaveBeenCalled();
 });
 
 describe("POST /api/liff/public-trial-entry", () => {
@@ -114,7 +149,7 @@ describe("POST /api/liff/public-trial-entry", () => {
       storeSlug: "unknown-store",
     }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(mocks.verify).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CoursePortalBrand } from "@/components/course-portal-navigation";
 import {
   getIDToken,
   initLiff,
@@ -14,11 +15,13 @@ export function PublicTrialLiffBridge({
   storeSlug,
   storeName,
   contactUrl,
+  bookingPath,
 }: {
   liffId: string;
   storeSlug: string;
   storeName: string;
   contactUrl: string;
+  bookingPath?: string;
 }) {
   const [state, setState] = useState<BridgeState>("loading");
 
@@ -27,7 +30,7 @@ export function PublicTrialLiffBridge({
     void (async () => {
       const openPublicBooking = () => {
         const publicBooking = new URL(
-          `/pricing/experience/${storeSlug}/book`,
+          bookingPath ?? `/pricing/experience/${storeSlug}/book`,
           window.location.origin,
         );
         publicBooking.searchParams.set("source", "line");
@@ -36,11 +39,13 @@ export function PublicTrialLiffBridge({
       };
 
       try {
-        await initLiff(liffId);
+        const sdk = await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
-          openPublicBooking();
-          return;
+          if (!sdk.isLoggedIn()) {
+            sdk.login({ redirectUri: window.location.href });
+            return;
+          }
         }
 
         const idToken = getIDToken();
@@ -62,7 +67,7 @@ export function PublicTrialLiffBridge({
 
         if (body?.status === "ok" && body.entry) {
           const destination = new URL(
-            `/pricing/experience/${storeSlug}/book`,
+            bookingPath ?? `/pricing/experience/${storeSlug}/book`,
             window.location.origin,
           );
           destination.searchParams.set("entry", body.entry);
@@ -99,12 +104,13 @@ export function PublicTrialLiffBridge({
     return () => {
       cancelled = true;
     };
-  }, [liffId, storeSlug]);
+  }, [liffId, storeSlug, bookingPath]);
 
   return (
+    <>
+    <header className="flex items-center gap-2 border-b border-[#c2ad72] bg-white px-4 py-2"><CoursePortalBrand storeFirst storeName={storeName}/></header>
     <main className="mx-auto flex min-h-dvh max-w-md items-center px-5 py-12">
       <section className="w-full rounded-2xl border border-earth-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary-700">{storeName}</p>
         {state === "loading" ? (
           <>
             <div className="mx-auto mt-5 h-9 w-9 animate-spin rounded-full border-2 border-earth-200 border-t-primary-600" aria-hidden />
@@ -131,5 +137,6 @@ export function PublicTrialLiffBridge({
         )}
       </section>
     </main>
+    </>
   );
 }

@@ -83,7 +83,7 @@ export async function getReferralShareContext(input: {
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),
-    publicTrialReferralUrl: (customer.store.industryModule === "COURSE" ? buildReferralEntryUrl : buildPublicTrialReferralEntryUrl)(
+    publicTrialReferralUrl: buildPublicTrialReferralEntryUrl(
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),

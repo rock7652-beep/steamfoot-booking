@@ -1,12 +1,13 @@
 .page:global(.course-portal) { max-width: 760px; font-size: 16px; }
 .page :global(.cp-main) { max-width: 760px; padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
-.form { min-width: 0; display: grid; gap: 20px; }
-.form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 20px; }
-.steps { display: flex; gap: 12px; padding: 0; margin: 0 0 8px; list-style: none; flex-wrap: wrap; }
+.page :global(.cp-title) { margin-bottom: 8px; }
+.form { min-width: 0; display: grid; gap: 12px; }
+.form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 16px; }
+.steps { display: flex; gap: 12px; padding: 0; margin: 0; list-style: none; flex-wrap: wrap; }
 .steps li { color: #61715c; }
 .steps li[aria-current="step"] { color: #244437; font-weight: 700; }
-.card { border: 1px solid #d4ddd0; background: #fff; border-radius: 12px; padding: 16px; min-width: 0; }
-.grid { display: grid; gap: 16px; min-width: 0; }
+.card { border: 1px solid #d4ddd0; background: #fff; border-radius: 12px; padding: 12px; min-width: 0; }
+.grid { display: grid; gap: 12px; min-width: 0; }
 .field { display: grid; gap: 6px; min-width: 0; align-content: start; }
 .field input, .field select, .field textarea { width: 100%; min-width: 0; font-size: 16px; }
 .field [aria-invalid="true"] { border-color: #b42318; }
@@ -32,6 +33,7 @@
 .total { font-size: 18px; font-weight: 700; color: #244437; }
 .success { display: grid; gap: 16px; }
 .form a, .success a { color: #315b49; text-decoration: underline; text-underline-offset: 3px; }
+.form a[data-line-booking-entry] { color: #fff; text-decoration: none; }
 .form button:focus-visible, .form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible, .form summary:focus-visible { outline: 3px solid #bc983d; outline-offset: 2px; }
 @media (min-width: 640px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

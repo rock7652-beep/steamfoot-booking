@@ -12,8 +12,8 @@ import type {ReportFilters} from '@/lib/report-queries';
 import {AppError} from '@/lib/errors';
 
 /** Trusted callers authorize report scope. PII is redacted unless independently granted. */
-export async function getBeautyRevenueReport(storeId:string,filters:ReportFilters,access:{customers:boolean}={customers:false}){
- await requireBeauty(storeId);access={customers:access.customers&&await hasStoreFeature(storeId,FEATURES.CUSTOMER_MANAGEMENT)};
+export async function getBeautyRevenueReport(storeId:string,filters:ReportFilters,access:{customers:boolean;includeFirstPurchase?:boolean}={customers:false}){
+ await requireBeauty(storeId);access={...access,customers:access.customers&&await hasStoreFeature(storeId,FEATURES.CUSTOMER_MANAGEMENT)};
  for(const date of [filters.startDate,filters.endDate])if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)throw new AppError('VALIDATION','日期格式不正確');
  if(filters.startDate>filters.endDate)throw new AppError('VALIDATION','開始日期不能晚於結束日期');
  const range={gte:dayRange(filters.startDate).start,lte:dayRange(filters.endDate).end};
@@ -37,7 +37,7 @@ export async function getBeautyRevenueReport(storeId:string,filters:ReportFilter
 
   const ids=[...new Set([...cards.map(c=>c.customerId),...appointments.flatMap(b=>b.customerId?[b.customerId]:[])])];
   const customers=access.customers?await prisma.customer.findMany({where:{storeId,id:{in:ids}},select:{id:true,name:true,phone:true}}):[];
-  const first=await tx.$queryRaw<{id:string}[]>`SELECT DISTINCT ON (COALESCE(c."customerId",b."customerId")) p.id FROM "BeautyPayment" p LEFT JOIN "BeautyCard" c ON c.id=p."cardId" AND c."storeId"=p."storeId" LEFT JOIN "BeautyAppointment" b ON b.id=p."appointmentId" AND b."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND p.kind='SALE' AND NOT EXISTS (SELECT 1 FROM "BeautyTransactionRevision" m WHERE m."storeId"=p."storeId" AND m."transactionId"=p.id AND m."voidedAt" IS NOT NULL) AND COALESCE(c."customerId",b."customerId") IS NOT NULL ORDER BY COALESCE(c."customerId",b."customerId"),p."createdAt",p.id`;
+  const first=access.includeFirstPurchase===false?[]:await tx.$queryRaw<{id:string}[]>`SELECT DISTINCT ON (COALESCE(c."customerId",b."customerId")) p.id FROM "BeautyPayment" p LEFT JOIN "BeautyCard" c ON c.id=p."cardId" AND c."storeId"=p."storeId" LEFT JOIN "BeautyAppointment" b ON b.id=p."appointmentId" AND b."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND p.kind='SALE' AND NOT EXISTS (SELECT 1 FROM "BeautyTransactionRevision" m WHERE m."storeId"=p."storeId" AND m."transactionId"=p.id AND m."voidedAt" IS NOT NULL) AND COALESCE(c."customerId",b."customerId") IS NOT NULL ORDER BY COALESCE(c."customerId",b."customerId"),p."createdAt",p.id`;
   const firstIds=new Set(first.map(p=>p.id));
   const rows:ModuleRevenueRow[]=payments.map(payment=>{
    const original=payment.originalPaymentId?originals.find(p=>p.id===payment.originalPaymentId):payment;

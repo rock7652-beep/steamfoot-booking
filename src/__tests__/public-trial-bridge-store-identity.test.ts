@@ -12,6 +12,10 @@ vi.mock("react", async () => ({
   useEffect: (effect: () => void | (() => void)) => { m.effect = effect; },
   useState: () => ["loading", m.state],
 }));
+vi.mock("next/image", () => ({ default: (props: Record<string, unknown>) => {
+  const imageProps = {...props}; delete imageProps.unoptimized;
+  return createElement("img", imageProps);
+} }));
 vi.mock("@/lib/liff/client", () => ({ initLiff: m.init, isInLineClient: m.inLine, getIDToken: m.token }));
 import { PublicTrialLiffBridge } from "@/app/(liff)/liff/public-trial/public-trial-liff-bridge";
 
@@ -52,5 +56,18 @@ describe("store identity is independent of platform OA friendship", () => {
     start();
     await vi.waitFor(() => expect(m.state).toHaveBeenCalledWith("unavailable"));
     expect(m.replace).not.toHaveBeenCalled();
+  });
+  it("routes a verified beauty entry back to that beauty form", async () => {
+    m.fetch.mockResolvedValue({ json: async () => ({ status: "ok", entry: "verified-entry" }) });
+    renderToStaticMarkup(createElement(PublicTrialLiffBridge, { liffId: "902-beauty", storeSlug: "soulife", storeName: "舒生活", contactUrl: "https://line.me/test", bookingPath: "/beauty-trial/soulife" }));
+    m.effect?.();
+    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith("https://preview.example/beauty-trial/soulife?entry=verified-entry#booking-form"));
+  });
+  it("starts official external LINE Login without minting an entry first", async () => {
+    m.inLine.mockReturnValue(false);
+    const login = vi.fn(); m.init.mockResolvedValue({ isLoggedIn: () => false, login });
+    start();
+    await vi.waitFor(() => expect(login).toHaveBeenCalledOnce());
+    expect(m.fetch).not.toHaveBeenCalled(); expect(m.replace).not.toHaveBeenCalled();
   });
 });

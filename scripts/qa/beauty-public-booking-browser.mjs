@@ -80,6 +80,42 @@ try {
   tests.push("returning to the service step and completing a synthetic booking also reset to top");
   await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: path.join(output, "success-390.png"), fullPage: true });
   tests.push("synthetic booking success and complete receipt");
+  await page.getByLabel("預覽情境").selectOption("verified");
+  await page.getByRole("region", { name: "LINE 身分驗證" }).getByText("LINE 身分已驗證", { exact: true }).waitFor();
+  for (const [width,height] of [[390,844],[768,1024],[1366,900]]) {
+    await page.setViewportSize({width,height});
+    const brand = page.locator('[aria-label="預約店家"]');
+    const storeFont = await brand.locator("strong").evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    if(storeFont<18)throw Error("Store name is too small to identify the booking store");
+    const status = page.getByRole("region", {name:"LINE 身分驗證"});
+    const rect = await status.boundingBox();
+    if (!rect || rect.height > 40) throw Error(`Verified LINE status is no longer compact at ${width}`);
+    if (await status.locator("a").count()) throw Error("Verified status repeats login actions");
+    if (await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)) throw Error(`Compact form overflow at ${width}`);
+    const phoneFont=await page.getByLabel("手機",{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    if(phoneFont<16)throw Error("Compact form shrank input text");
+    await page.screenshot({path:path.join(output,`compact-verified-${width}.png`),fullPage:true});
+  }
+  tests.push("verified LINE status stays within 40px without shrinking input fonts or repeating login actions");
+  await page.setViewportSize({width:390,height:844});
+  await page.getByLabel("手機", { exact: true }).fill("0900000000"); await page.getByLabel("技師安排", { exact: true }).selectOption("ANY");
+  await page.getByRole("button", { name: "查詢可用時段", exact: true }).click(); await page.getByRole("button", { name: "09:00", exact: true }).click();
+  await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click(); await page.getByLabel("姓名", { exact: true }).fill("已驗證範例");
+  await page.getByRole("button", { name: "確認預約", exact: true }).click(); await page.getByText("LINE 通知已連結", { exact: true }).waitFor();
+  for (const [width, height] of [[390,844],[768,1024],[1366,900]]) {
+    await page.setViewportSize({width,height});
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error(`Verified receipt overflow at ${width}`);
+    await page.screenshot({path:path.join(output,`verified-success-${width}.png`),fullPage:true});
+  }
+  tests.push("verified identity leads to an explicitly linked receipt without a second phone step (synthetic backend)");
+  await page.getByLabel("預覽情境").selectOption("link-pending");
+  await page.getByLabel("手機", { exact: true }).fill("0900000000");await page.getByLabel("技師安排", { exact: true }).selectOption("ANY");
+  await page.getByRole("button", { name: "查詢可用時段", exact: true }).click();await page.getByRole("button", { name: "09:00", exact: true }).click();
+  await page.getByRole("button", { name: "下一步：填寫聯絡資料", exact: true }).click();await page.getByLabel("姓名", { exact: true }).fill("連結重試範例");
+  await page.getByRole("button", { name: "確認預約", exact: true }).click();await page.getByRole("button", { name: "重新確認 LINE 連結", exact: true }).waitFor();
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,"link-pending-390.png"),fullPage:true});
+  await page.getByRole("button", { name: "重新確認 LINE 連結", exact: true }).click();await page.getByText("LINE 通知已連結", { exact: true }).waitFor();
+  tests.push("notification retry repairs the confirmed synthetic reservation without a second booking");
   await page.getByLabel("預覽情境").selectOption("multiple");
   await page.getByRole("button", { name: "＋新增同行者" }).click();
   const groups = page.locator('section[aria-label^="服務安排 "]');
