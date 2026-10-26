@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ customer: vi.fn(), requests: vi.fn(), grants: vi.fn(), account: vi.fn() }));
+const m = vi.hoisted(() => ({ customer: vi.fn(), requests: vi.fn(), grants: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
-  account: { findFirst: m.account }, customer: { findFirst: m.customer }, storeMemberConnection: { findMany: m.requests }, lineRebindRequest: { findMany: m.grants },
+  customer: { findFirst: m.customer }, storeMemberConnection: { findMany: m.requests }, lineRebindRequest: { findMany: m.grants },
 } }));
 import { readStoreMemberConnection } from "@/server/services/store-member-connection";
 beforeEach(() => {
@@ -34,20 +34,4 @@ it("does not let an older consumed grant mask a newer expired login request", as
   m.requests.mockResolvedValue([{ channelKey: "login:123", status: "PENDING", expiresAt: new Date(0) }]);
   m.grants.mockResolvedValue([{ status: "CONSUMED", consumedAt: new Date(0), expiresAt: new Date(0) }]);
   expect(await readStoreMemberConnection("s", "c")).toMatchObject({ login: "登入確認申請已過期，請顧客重新提交並核對" });
-});
-
-it("does not treat notification linkage as a usable Login credential", async () => {
-  m.customer.mockResolvedValue({ userId: null, identityLinks: [], lineLinkStatus: "LINKED" });
-  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ purchaseLoginState: "start" });
-  expect(m.account).not.toHaveBeenCalled();
-});
-it("requires the active member Account to match the store Login link before calling it ready", async () => {
-  m.customer.mockResolvedValue({ userId: "u", identityLinks: [{ userId: "u", provider: "line", lineUserId: "subject", providerAccountId: "subject" }], lineLinkStatus: "LINKED" });
-  m.account.mockResolvedValue(null);
-  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ purchaseLoginState: "start" });
-  m.account.mockResolvedValue({ id: "account" });
-  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ purchaseLoginState: "ready" });
-  expect(m.account).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "u", providerAccountId: "subject", user: { role: "CUSTOMER", status: "ACTIVE" } }) }));
-  m.requests.mockResolvedValue([{ id: "r", channelKey: "login:123", status: "PENDING", expiresAt: new Date(Date.now()+60000) }]);
-  expect(await readStoreMemberConnection("s", "c")).toMatchObject({ purchaseLoginState: "review" });
 });

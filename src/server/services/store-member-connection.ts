@@ -186,7 +186,7 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
 
 export async function readStoreMemberConnection(storeId: string, customerId: string) {
   const [customer, connections] = await Promise.all([
-    prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true, provider: true, providerAccountId: true, lineUserId: true } } } }),
+    prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true } } } }),
     prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { updatedAt: "desc" } }),
   ]);
   if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
@@ -203,18 +203,7 @@ export async function readStoreMemberConnection(storeId: string, customerId: str
     : grant?.status === "PENDING_CAPTURE" && grant.expiresAt > new Date() ? "已授權，等待顧客重新進入並完成登入"
     : connections.some(c => c.channelKey.startsWith("login:")) || grant ? "恢復申請已失效，請顧客重新提交並核對"
     : "尚未驗證本次登入";
-  // Notification linkage is not evidence of a usable Login credential.
-  const loginLinks = customer.identityLinks.filter(link => link.provider === "line" &&
-    link.userId === customer.userId && link.lineUserId === link.providerAccountId);
-  const loginAccount = owners.size === 1 && customer.userId && loginLinks.length === 1
-    ? await prisma.account.findFirst({ where: { userId: customer.userId, provider: "line",
-        providerAccountId: loginLinks[0].providerAccountId, user: { role: "CUSTOMER", status: "ACTIVE" } }, select: { id: true } })
-    : null;
-  const awaitingLogin = grant?.status === "PENDING_CAPTURE" && !grant.consumedAt &&
-    (isUntilUsedVerifiedLoginGrant(grant) || grant.expiresAt > new Date());
-  const purchaseLoginState = owners.size > 1 || latestLoginRequest?.status === "PENDING"
-    ? "review" as const : awaitingLogin ? "retry" as const : loginAccount ? "ready" as const : "start" as const;
-  return { membership: owners.size > 1 ? "需確認" : owners.size === 1 ? "已連結" : "尚未連結", login, purchaseLoginState,
+  return { membership: owners.size > 1 ? "需確認" : owners.size === 1 ? "已連結" : "尚未連結", login,
     notification: customer.lineLinkStatus === "BLOCKED" ? "已封鎖，無法通知" : connections.some(c => !c.channelKey.startsWith("login:") && c.status === "APPROVED") ? "本店已確認，發送前再檢查通道" : "本店通知尚未確認",
     pending: pending.map(c => ({ id: c.id, verificationCode: c.verificationCode, kind: c.channelKey.startsWith("login:") ? "login" as const : "notification" as const })), conflict: owners.size > 1 };
 }

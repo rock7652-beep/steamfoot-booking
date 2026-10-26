@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { PlanPurchaseLoginCheck } from "@/components/admin/plan-purchase-login-check";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import styles from "@/components/admin/commerce-layout.module.css";
 import { useRouter } from "next/navigation";
@@ -10,7 +9,6 @@ import { confirmTransactionPayment } from "@/server/actions/transaction";
 
 interface Props {
   transactionId: string;
-  customerId?: string;
   customerName: string;
   planName: string;
   amount: number;
@@ -26,7 +24,6 @@ interface Props {
 
 export function ConfirmPaymentButton({
   transactionId,
-  customerId,
   customerName,
   planName,
   amount,
@@ -34,10 +31,7 @@ export function ConfirmPaymentButton({
   transferCode = "",
 }: Props) {
   const titleId = useId();
-  const [loginBusy, setLoginBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  function finish() { setOpen(false); setCompleted(false); router.refresh(); }
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -46,8 +40,8 @@ export function ConfirmPaymentButton({
       const result = await confirmTransactionPayment(transactionId);
       if (result.success) {
         toast.success("已確認入帳，顧客方案已開通");
-        if (customerId) setCompleted(true);
-        else finish();
+        setOpen(false);
+        router.refresh();
       } else {
         toast.error(result.error ?? "確認失敗");
       }
@@ -63,9 +57,8 @@ export function ConfirmPaymentButton({
         確認已入帳
       </button>
 
-      <ModalPanel open={open} onClose={() => completed ? finish() : setOpen(false)} pending={pending || loginBusy} labelledById={titleId}>
+      <ModalPanel open={open} onClose={() => setOpen(false)} pending={pending} labelledById={titleId}>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-5">
-            {completed && customerId ? <><h3 id={titleId} className="mb-3 text-lg font-semibold">入帳與開卡完成</h3><PlanPurchaseLoginCheck onBusyChange={setLoginBusy} customerId={customerId} onDone={finish} /></> : <>
             <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">確認已收到款項？</h3>
 
             <div className={`${styles.summary} mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm`}>
@@ -97,7 +90,7 @@ export function ConfirmPaymentButton({
 
             <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
               {transferCode
-                ? "提醒：確認後會立即開通方案與堂數，再檢查會員登入狀態。"
+                ? "提醒：確認後會立即開通顧客方案與堂數，顧客前台會看得到。"
                 : "顧客未提供轉帳末碼，請先核對銀行帳戶確實入帳。確認後會立即開通方案與堂數。"}
             </p>
 
@@ -117,7 +110,6 @@ export function ConfirmPaymentButton({
                 {pending ? "處理中..." : "確認已入帳並開通"}
               </button>
             </div>
-            </>}
           </div>
       </ModalPanel>
     </>

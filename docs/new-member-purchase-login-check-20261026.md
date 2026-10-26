@@ -1,21 +1,27 @@
-# 蒸足開卡後會員登入確認
+# 新客首次會員登入修正（2026-10-26）
 
-## 行為
+## 問題與證據
 
-體驗建檔或 LINE 通知綁定不表示會員登入就緒。蒸足顧客詳情、預約逐人購買、單次轉購方案及待確認付款入帳完成後，保留開卡結果，在原容器檢查登入。尚待入帳不顯示開卡完成，入帳後才提供確認。
+目前公開體驗 LIFF 與會員 LIFF 都隸屬 Login channel 2010761154；舊文件中的 2011147985 不代表現行程式設定。Messaging API 與 Login 的實際 Provider 對應，不能僅憑 channel 不同推定。公開表單可來自 LIFF、店家聊天一次性連結或一般瀏覽器，各入口證據不同。
 
-沿用 StoreMemberConnectionPanel、loadMemberConnectionAction、approveLoginRecoveryAction，沒有另造核准機制。沒有申請時請顧客開啟本店會員中心提交資料，店長按重新檢查；有申請時核對本人及同一組確認碼，權限與交易檢查沿用既有後端。核准後仍等待顧客登入，不宣稱 session 成功。完成或關閉結果後才執行原成功回呼，避免收合吞掉待辦；不再次送出購買。
+正式資料唯讀盤點：近 30 天三店共有 13 筆登入確認申請（竹北 7、新竹 3、台中 3），不是 13 次全部登入失敗率。兩筆新竹簽名體驗入口建檔的顧客，保存的通知身分與申請的已驗證登入身分完全相同，但沒有 User、Account 或 IdentityLink，仍停在人工確認。現有 exchange 對此回傳 onboarding，首次啟用還依賴再次輸入姓名與手機。不能由現存申請還原當時輸入的姓名，故不將姓名拼字宣稱為已證實的個別失敗原因。
 
-登入摘要只有在唯一 owner、同店 Login link 與 ACTIVE CUSTOMER Account 的 subject 一致時顯示連結就緒。通知已綁定不能推論登入。待核對與未使用授權優先呈現，回傳不包含原始 LINE subject。
+田小姐的通知與登入 subject 不同，是另一類：已依使用者確認本人之授權完成單筆恢復；本次不自動覆寫這類身分，不以此個案代表所有新客。
 
-## 隔離與驗證
+## 修正行為
 
-- 分支 fix/new-member-purchase-login-check-20261026，沿用既有 module-roster-preview gate，DATABASE_URL 和 DIRECT_URL 都必須指向 steamfoot-preview；正式或其他資料庫拒絕。
-- 相關 11 組 Vitest：193 項通過（登入服務、申請核准、狀態、權限、UI、隔離與購買欄位規則）。
-- TypeScript noEmit 通過（本機需 6GB Node heap）；變更 TS/TSX ESLint 無錯誤，collect-single-modal 原有 4 個未使用參數警告。
-- Chromium 真實 React 元件合成操作：購買一次 → 保留開卡結果 → 新申請出現 → 核准既有 action 的 request/customer/code → 等待登入 → 重讀連結就緒。檢查 1366×768、1920×1080、1024×768、768×1024、390×844、360×800、320×740，無整頁水平溢出，重新檢查控制至少 44px。
-- 重跑：node scripts/qa/new-member-purchase-login-browser.mjs；QA_CHROME_EXECUTABLE、QA_FONT_FILE、PLAYWRIGHT_PATH 可指定本機 browser/font/runtime。僅合成服務回應，所有其他網路請求封鎖。
+蒸足會員入口先驗證新鮮 LINE token、門市與 channel。若尚未找到會員登入，使用同店完全相同且 LINKED 的通知 subject 尋找唯一未持有帳號的顧客；不接受瀏覽器輸入姓名或手機作為這條路徑的身分證據。原顧客沿用，於 Serializable 交易中建立 User、LINE Account、同店 IdentityLink 及稽核。保留原通知 subject、預約、收款與方案；不新增 Customer，也不修改錢包。
 
-## 尚未完成的發布條件
+成功後重讀已提交的會員歸屬，再由原 Credentials provider 二次驗證 token 建立 session。已開啟的 onboarding 表單亦可使用同一條已驗證身分路徑。交易或歸屬重讀失敗不宣稱登入成功。
 
-本機合成 UI 及 mock 單元測試不能代替真正的「公開體驗建檔 → 開卡 → 門市本人核對 → 真實 LINE token 登入 → 顯示正確方案」業務驗收。隔離 Preview 建置、桌機／iPad 真正後台操作及實際 LINE 最後一段需另記證據；通過前保持 draft、不合併正式站。田小姐正式單筆核准不作本 PR 的測試資料。
+以下維持原核對流程：不同 subject、既有帳號或電話歸屬衝突、已合併或多筆資料、已核准解除會員連結、有效恢復授權、尚未綁定通知。跨店既有中央帳號的加入亦沿用原流程，本次不移轉既有登入憑證。課程與美業不啟用本服務。
+
+已移除本 PR 原先新增的普遍開卡後人工核准 UI。只以必要的例外核對處理衝突。
+
+## 驗證與發布條件
+
+服務交易、exchange、onboarding、既有首次啟用、身分歸屬、Credentials、登入恢復及 Preview 隔離等 10 組測試：217 項通過；新增測試涵蓋原 Customer ID、自動 session 路由、LINE 不符、模組隔離、既有帳號、解除連結、有效授權、競爭更新與寫入失敗。TypeScript noEmit 與變更檔案 ESLint 通過。這些是 mock 自動測試，不能證明真實 LINE／收款／方案顯示。
+
+分支沿用 fix/new-member-purchase-login-check-20261026 的隔離 Preview 規則，兩個資料庫連線均須指向 steamfoot-preview；不得送出正式通知或執行正式 migration。先前手動確認 UI 的 Preview 不代表新版驗收。
+
+尚待：新版 Preview 建置、真實「公開體驗送出 → 到店收款／開卡 → 同一 LINE 登入 → 顯示原方案」，以及身分衝突例外驗收。Preview 後台受到 Vercel 驗證保護；使用者先前未完成安全登入表單，未繞過或關閉保護。保持 draft，完整流程未通過前不合併、不部署正式站。

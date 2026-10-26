@@ -11,7 +11,6 @@ vi.mock("@/server/actions/slots", () => ({ fetchDaySlots: async () => ({slots:[]
 vi.mock("@/server/actions/single-booking", () => ({ collectSinglePayment: m.save }));
 vi.mock("@/server/actions/booking-plan-purchase", () => ({ getSingleBookingPurchasePlans: vi.fn(), purchasePlanForSingleBooking: m.save }));
 vi.mock("@/server/actions/spa-checkout-compat", () => ({ settleSpaBookingWithPackage: m.save, settleSpaBookingWithPayment: m.save, settleSpaBookingWithStoredValue: m.save }));
-vi.mock("@/components/admin/plan-purchase-login-check", () => ({ PlanPurchaseLoginCheck: () => null }));
 vi.mock("@/components/admin/payment-split-fields", () => ({ PaymentSplitFields: () => null }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: ({customerId, displayOnly}: {customerId:string;displayOnly?:boolean}) => React.createElement("span", {"data-read-only-labels": String(displayOnly)}, `${customerId} VIP`) }));
