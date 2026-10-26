@@ -1,0 +1,43 @@
+import type { OperationGuide } from "./operation-guide-types";
+
+export const dailyOperationGuides20261026: OperationGuide[] = [
+  {
+    id: "C178", category: "plans", title: "單次收費、體驗與多次方案如何分開設定？",
+    summary: "運動與音樂共用收費編輯器，分開價格與分帳、體驗及授課人員；單次與多次方案用途不同。",
+    answer: "在收費方式新增或編輯，先選單次或多次方案，再核對一般價格、時間及合格授課人員；只有單次收費設定專屬體驗。",
+    path: "店務管理 → 收費方式 → 新增收費方式／編輯",
+    keywords: "單次收費 多次方案 體驗價 體驗時間 店家固定費用 體驗店家費用 價格與分帳 授課人員 音樂 運動",
+    steps: ["先選單次收費或多次方案，核對對應教學項目與已上架授課人員。", "在價格與分帳填售價及選填店家固定費用；單次另設體驗價、體驗時間與體驗店家費用，多次方案填總額度及效期。", "核對一般／體驗分配試算與授課人員後儲存，重新開啟確認；需要實際購買時另走結帳，不把設定儲存當收款。"],
+    important: "體驗價留白不提供體驗，填 0 是免費；體驗時間留白沿用一般時間。多次方案不設定這組專屬體驗，既有購買與課次快照不回算。",
+    success: "重開後收費類型、一般／體驗價格、時間及授課人員一致，原交易未改動。",
+    details: ["店家固定費用留白不計分配，0 表示店家不分配；體驗店家費用留白沿用一般費用，0 是明確覆寫。價格低於費用時核對畫面警示，不把試算當實收。", "授課人員仍需具備原教學項目資格；這筆收費的名單不會賦予後台權限。", "運動的指定學員與開放選課仍分流；開放選課體驗沿用店家預設體驗費與課程時間。模式關閉時欄位依設定收合，不能用舊頁面繞過。", "音樂仍使用原課型、堂數、期數與教師計酬；共用的是編輯器，不把運動點數規則套入音樂。"],
+    modules: ["course"], permission: "plans.edit", feature: null, kind: "howto", verification: "source-reviewed",
+    sources: ["src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx", "src/app/(dashboard)/dashboard/courses/course-charge-pricing-fields.tsx", "src/lib/course-charge-settings.ts", "src/server/actions/course-charge.ts"],
+  },
+  {
+    id: "BEAUTY05", category: "plans", title: "美業方案如何調整期限或註銷？",
+    summary: "從原持有人的方案管理調整，需填原因；註銷收回剩餘次數但不退款。",
+    answer: "在顧客方案詳情選調整期限或註銷方案，先核對剩餘、占用及原期限，再依畫面確認。",
+    path: "顧客管理 → 顧客概況 → 持有方案 → 方案管理",
+    keywords: "美業 調整期限 新到期日 註銷方案 原持有人 剩餘次數 預約占用 不等於退款 重試確認結果",
+    steps: ["開啟原持有人的正確方案，核對餘額、到期日與預約占用。", "調整期限時填新到期日與原因；註銷前先處理全部預約占用，再填原因並確認收回剩餘。", "看到成功提示後重開原方案核對；結果待確認時只用原內容重試確認結果，不另作一筆補點或退款。"],
+    important: "註銷保留歷史與收款，不能取代退款；已註銷方案不能再從此處修改。",
+    success: "期限正確更新，或方案已註銷且剩餘歸零；原收款與歷史保留。",
+    details: ["需 wallet.adjust、顧客查看及本店方案／顧客功能，且只能處理本人有權管理的原持有人。", "新期限不得早於建立日、不得超過未來十年；早於既有預約結束時會阻擋。仍有預約占用時不能註銷。", "處理中或結果待確認會鎖住其他操作；門市、餘額或期限被更新時須重開核對，不覆蓋新資料。"],
+    modules: ["beauty"], permission: "wallet.adjust", additionalPermissions: ["customer.read"], feature: null, kind: "howto", verification: "source-reviewed",
+    sources: ["src/components/beauty/card-management.tsx", "src/server/actions/beauty-card-management.ts", "src/server/beauty/card-management.ts"],
+  },
+  {
+    id: "BEAUTY06", category: "money", title: "美業店家固定費用、店長分配與技師拆帳有何不同？",
+    summary: "收費編輯器可設定一般與體驗店家費用；營運分配與技師服務拆帳分開核對。",
+    answer: "店家固定費用用於分配實收，剩餘列所屬店長或未歸屬；技師拆帳另依服務及其計酬規則計算。",
+    path: "收費方式 → 新增／編輯 → 價格與分帳；營運 → 收款明細",
+    keywords: "美業 店家固定費用 體驗店家費用 店長分配 未歸屬 未知分配 分期補收 累計退款 技師拆帳",
+    steps: ["在原收費方式核對價格與店家固定費用；留白不計分配、0 表示店家不分配，單次體驗費用留白沿用一般費用。", "核對一般／體驗價格與分配試算，儲存後重開確認；新設定不回算舊收款。", "從營運收款明細核對實收、店家、所屬店長／未歸屬及退款；技師服務拆帳另到技師拆帳明細核對。"],
+    important: "畫面試算不等於付款、匯款或技師薪資；不能把未歸屬或未知分配當成店長已領款。",
+    success: "各筆實收與分配可對應，分期補收不重扣固定費用，退款依原快照核對。",
+    details: ["分期補收先扣除前次已分配的店家金額，再分配本次實收；不得每筆補收都重算完整固定費用。", "實收低於固定費用時店家分配以實收為上限，顯示不足提示，不產生負數店長分配。", "方案退款以原收款凍結分配及累計退款核對；未知舊資料保留未知，不依現行費用猜算。", "技師固定鐘點、每次固定及百分比依 BEAUTY04 處理；設定店家費用不改技師規則。"],
+    modules: ["beauty"], permission: "transaction.read", feature: null, kind: "explanation", verification: "source-reviewed",
+    sources: ["src/components/beauty/charge-editor.tsx", "src/app/(dashboard)/dashboard/courses/course-charge-pricing-fields.tsx", "src/server/beauty/commerce.ts", "src/lib/beauty/receipt-allocation.ts", "src/lib/course-sale-allocation.ts"],
+  },
+];

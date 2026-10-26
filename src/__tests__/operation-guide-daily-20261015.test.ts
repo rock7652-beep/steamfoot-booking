@@ -11,7 +11,7 @@ const guide = (id: string) => operationGuides.find(g => g.id === id)!;
 
 describe("2026-10-15 backend guide review", () => {
   it("archives SPA verbatim without presenting retirement as acceptance", () => {
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(205);
     expect(guideCategories).toHaveLength(15);
     expect(retiredSpaOperationGuides).toHaveLength(18);
     expect(availableGuides(access("spa"))).toEqual([]);
@@ -19,7 +19,7 @@ describe("2026-10-15 backend guide review", () => {
     expect(operationGuides.every(g => !g.modules.includes("spa"))).toBe(true);
     expect(guideCategories.some(g => g.id === "spa")).toBe(false);
     expect(retiredSpaOperationGuides.find(g => g.id === "J01")).toEqual(additionalGuides.find(g => g.id === "J01"));
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(state.spaGuideRetirement.status).toBe("retired-not-verified");
     expect(state.spaGuideRetirement.guideIds.sort()).toEqual(retiredSpaOperationGuides.map(g => g.id).sort());
     expect(state.interactionPendingGuideIds).not.toContain("J24");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import state from "../../docs/operation-guide-audit-state.json";
+import state from "../../docs/operation-guide-audit-state-20261025.json";
 import { findOperationGuides, operationGuides } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
 
@@ -31,7 +31,7 @@ describe("2026-10-21 backend guide audit", () => {
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toHaveLength(9);
     expect(state.totalInteractionPendingCount).toBe(93);
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(205);
   });
 
   it("finds the two new backend articles", () => {
