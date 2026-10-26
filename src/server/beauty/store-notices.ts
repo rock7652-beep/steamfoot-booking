@@ -2,7 +2,7 @@ import 'server-only';
 import type {Prisma,BeautyAppointment} from '../../../generated/beauty-client';
 import type {BeautyActor} from './access';
 import type {StoreNoticeItem} from '@/lib/store-notices';
-import {queueTechnicianChange} from './technician-notifications';
+import {queueTechnicianChange} from './technician-notification-outbox';
 /** Same notice table and presentation as courses. Never queues LINE delivery. */
 export async function recordBeautyStoreNotice(tx:Prisma.TransactionClient,a:BeautyActor,enabled:boolean|undefined,b:Pick<BeautyAppointment,'id'|'personName'|'serviceName'|'technicianId'|'startsAt'>,kind:StoreNoticeItem['kind'],previous?:{startsAt:Date;technicianId:string}){
  await queueTechnicianChange(tx,a,b,kind,previous);

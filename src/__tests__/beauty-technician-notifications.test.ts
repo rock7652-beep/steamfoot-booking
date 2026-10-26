@@ -11,7 +11,8 @@ vi.mock('@/lib/beauty/notification-policy',()=>({beautyNotificationDeliveryBlock
 vi.mock('@/server/services/central-line-recipient-loader',()=>({resolveCentralLineRecipientForCustomer:m.central}));
 vi.mock('@/server/services/verified-reminder-line-route',()=>({resolveVerifiedReminderLineRoute:m.route}));
 vi.mock('@/server/services/course-card-notification-delivery',()=>({deliverCourseCardNotification:m.deliver}));
-import {queueTechnicianDigest,queueTechnicianChange,deliverTechnicianEvent} from '@/server/beauty/technician-notifications';
+import {queueTechnicianDigest,deliverTechnicianEvent} from '@/server/beauty/technician-notifications';
+import {queueTechnicianChange} from '@/server/beauty/technician-notification-outbox';
 const tx={$queryRaw:m.query,$executeRaw:m.execute,customer:{findMany:m.customers},store:{findFirst:m.store},messageLog:{upsert:m.message},beautyTechnician:{findMany:m.techs},beautyEvent:{create:m.create}};
 const now=new Date('2026-10-26T13:00:00Z'),startsAt=new Date('2026-10-27T02:00:00Z');
 const event={id:'event',kind:'TECH_DIGEST',body:JSON.stringify({technicianId:'tech',date:'2026-10-27'}),userId:'user',appointmentId:null,createdAt:now};
