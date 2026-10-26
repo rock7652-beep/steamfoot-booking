@@ -138,7 +138,8 @@
       "fix/beauty-workflow-followups-20261026": false,
       "fix/beauty-single-purchase-20261026": false,
       "fix/beauty-revenue-breakdown-20261026": false,
-      "fix/beauty-read-request-speed-20261026": false
+      "fix/beauty-read-request-speed-20261026": false,
+      "fix/course-reminder-active-scope-20261026": false
     }
   }
 }
