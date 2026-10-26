@@ -6,7 +6,7 @@ it("uses each store's own name/contact and address-derived Google navigation", (
   expect(messages).toHaveLength(1);
   expect(messages[0]).toMatchObject({ type: "text", text: expect.stringContaining("歡迎加入音樂教室") });
   expect(JSON.stringify(messages)).toContain(encodeURIComponent("本店地址"));
-  expect(JSON.stringify(messages)).toContain("首次連結");
+  expect(JSON.stringify(messages)).toContain("先驗證 LINE 身分");
   expect(JSON.stringify(messages)).toContain("已完成本店連結者可直接沿用");
 });
 it("omits missing contact fields and never falls back to another store", () => {
@@ -20,6 +20,6 @@ it.each(["javascript:alert(1)", "https://google.com.evil.example/maps", "https:/
 });
 it("keeps shared-account branches explicit and does not expose member data", () => {
   const text = JSON.stringify(buildStoreLineWelcome([store, { name: "運動教室", slug: "fitness" }], "https://booking.example"));
-  expect(text).toContain("member-connect?store=music"); expect(text).toContain("member-connect?store=fitness");
+  expect(text).toContain("booking-line?store=music"); expect(text).toContain("booking-line?store=fitness");
   expect(text).not.toContain("綁定成功"); expect(text).not.toContain("預約成功");
 });

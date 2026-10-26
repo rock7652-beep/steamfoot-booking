@@ -24,8 +24,8 @@ it("welcomes a shared-account follower once with explicit store entries and neve
   await handleConfiguredCourseLineWebhook(input);
   expect(m.reply).toHaveBeenCalledOnce();
   const text = m.reply.mock.calls[0][2][0].text;
-  expect(text).toContain("https://booking.example/member-connect?store=a");
-  expect(text).toContain("https://booking.example/member-connect?store=b");
+  expect(text).toContain("https://booking.example/booking-line?store=a");
+  expect(text).toContain("https://booking.example/booking-line?store=b");
   expect(text).toContain("請選擇本次預約的門市");
   expect(m.update).not.toHaveBeenCalled();
 });

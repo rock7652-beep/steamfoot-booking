@@ -54,6 +54,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/shared-verified-booking-entry-20261026": false,
       "fix/beauty-money-consistency-20261026": false,
       "fix/beauty-daily-flow-20261026": false,
       "feat/beauty-trial-cost-flex-20261026": false,

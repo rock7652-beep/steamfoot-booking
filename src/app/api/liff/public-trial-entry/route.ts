@@ -4,15 +4,16 @@ import {
   LiffIdTokenError,
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
-import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
+import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  idToken: z.string().min(1),
-  storeSlug: z.enum(["zhubei", "hsinchu", "taichung"]),
+  idToken: z.string().min(1).max(8192),
+  storeSlug: z.string().regex(/^[a-z0-9-]{1,100}$/),
 });
 
 type ResponseBody =
@@ -31,7 +32,7 @@ type ResponseBody =
     };
 
 function json(body: ResponseBody, status: number): Response {
-  return Response.json(body, { status });
+  return Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 }
 
 /**
@@ -44,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json({ status: "error", code: "INVALID_BODY" }, 400);
 
-  const config = resolvePublicTrialLiffConfig(parsed.data.storeSlug);
+  const config = resolveBookingLineEntry(parsed.data.storeSlug);
   if (!config) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
 
   let verified;
@@ -68,6 +69,11 @@ export async function POST(request: Request): Promise<Response> {
 
   const store = await resolveStoreBySlug(parsed.data.storeSlug);
   if (!store) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+  // Course membership uses its existing verified session/onboarding flow.
+  // Never mint a beauty/Steamfoot booking capability for another module.
+  if (config.configured && (config.storeId !== store.id || await getStoreIndustryModule(store.id) !== "beauty")) {
+    return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+  }
 
   const recipientProbe = await probeStoreLineRecipient(store.id, verified.lineUserId);
   if (recipientProbe.status === "INCOMPATIBLE") {

@@ -57,6 +57,7 @@ import {
   settlement,
 } from "@/server/beauty/commerce";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { finalizeBeautyBookingLine } from "@/server/services/beauty-booking-line-finalization";
 import type { Prisma } from "../../../generated/beauty-client";
 async function result<T>(work: () => Promise<T>) {
   try {
@@ -207,7 +208,8 @@ export async function submitBeautyTrial(
         previous.intent !== JSON.stringify(d)
       )
         throw new AppError("CONFLICT", "預約請求已使用");
-      return previous.result as { groupId: string; ids: string[] };
+      const booked = previous.result as { groupId: string; ids: string[] };
+      return { ...booked, notificationSetup: await finalizeBeautyBookingLine({ storeId: store.id, groupId: booked.groupId, requestKey: d.requestKey, entryToken }) };
     }
     const entry = entryToken
       ? await resolveTrialBookingChatLink(entryToken)
@@ -244,7 +246,7 @@ export async function submitBeautyTrial(
       reserveParty(tx, a, d, entry ? { ...entry, customerId } : undefined),
     );
     await notifyBeautyBookingManagers(a.storeId,booked.groupId);
-    return booked;
+    return { ...booked, notificationSetup: await finalizeBeautyBookingLine({ storeId: store.id, groupId: booked.groupId, requestKey: d.requestKey, entryToken }) };
   });
 }
 async function readBeautySlotsCore(

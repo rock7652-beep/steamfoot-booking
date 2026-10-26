@@ -12,7 +12,8 @@ import {
 import type { SlotAvailability } from "@/types";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import type { TrialNotificationSetup } from "@/server/services/trial-notification-binding";
-import { ZHUBEI_PUBLIC_TRIAL_LIFF_URL } from "@/lib/liff/public-trial-config";
+import { ZHUBEI_PUBLIC_TRIAL_LIFF_URL, resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
+import { BookingLineEntry } from "@/components/booking-line-entry";
 
 function DirectTrialLiffEntry() {
   useEffect(() => {
@@ -262,6 +263,7 @@ export function ZhubeiTrialBookingForm({
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+      {!entry && <BookingLineEntry href={resolvePublicTrialLiffConfig(storeSlug) ? `https://liff.line.me/${resolvePublicTrialLiffConfig(storeSlug)!.liffId}` : undefined} friendHref={contactUrl}/>}
       <p className="text-sm font-medium text-earth-800">1. 選擇日期</p>
       <div className="mt-3 rounded-2xl border border-earth-100 p-3">
         <div className="flex items-center justify-between">
