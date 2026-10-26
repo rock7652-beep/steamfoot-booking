@@ -38,7 +38,7 @@ function request(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.verify.mockResolvedValue({
-    lineUserId: "U-store-messaging",
+    lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     channelId: "2010761154",
     displayName: "王小美",
     pictureUrl: null,
@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/liff/public-trial-entry", () => {
-  it("creates an opaque public entry only after the store channel recognizes the LIFF subject", async () => {
+  it("preserves verified Login proof and independently verified notification reachability", async () => {
     const response = await POST(request({
       idToken: "verified-liff-token",
       storeSlug: "zhubei",
@@ -70,45 +70,26 @@ describe("POST /api/liff/public-trial-entry", () => {
     );
     expect(mocks.probe).toHaveBeenCalledWith(
       "store-zhubei",
-      "U-store-messaging",
+      "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
     expect(mocks.createLink).toHaveBeenCalledWith({
       storeId: "store-zhubei",
       channel: "LINE",
-      chatIdentity: "U-store-messaging",
+      chatIdentity: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      verifiedLogin: { channelId: "2010761154", lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      notificationVerified: true,
     });
   });
 
-  it("rejects a LIFF subject from a different LINE provider", async () => {
-    mocks.probe.mockResolvedValue({ status: "INCOMPATIBLE", httpStatus: 404 });
-
-    const response = await POST(request({
-      idToken: "verified-but-wrong-provider",
-      storeSlug: "zhubei",
+  it.each(["INCOMPATIBLE", "UNAVAILABLE"])("preserves Login when notification reachability is %s", async status => {
+    mocks.probe.mockResolvedValue({ status });
+    const response = await POST(request({ idToken: "verified-liff-token", storeSlug: "zhubei" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok", entry: "link-id.secret" });
+    expect(mocks.createLink).toHaveBeenCalledWith(expect.objectContaining({
+      verifiedLogin: { channelId: "2010761154", lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      notificationVerified: false,
     }));
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      status: "error",
-      code: "IDENTITY_SCOPE_MISMATCH",
-    });
-    expect(mocks.createLink).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when recipient verification is unavailable", async () => {
-    mocks.probe.mockResolvedValue({ status: "UNAVAILABLE", httpStatus: 401 });
-
-    const response = await POST(request({
-      idToken: "verified-liff-token",
-      storeSlug: "zhubei",
-    }));
-
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
-      status: "error",
-      code: "IDENTITY_VERIFICATION_UNAVAILABLE",
-    });
-    expect(mocks.createLink).not.toHaveBeenCalled();
   });
 
   it.each(["hsinchu", "taichung"])(

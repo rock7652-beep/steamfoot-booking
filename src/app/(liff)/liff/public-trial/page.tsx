@@ -5,6 +5,7 @@ import {
 } from "@/lib/store-resolver";
 import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { PublicTrialLiffBridge } from "./public-trial-liff-bridge";
+import { resolveLoginAcceptanceLiffId } from "@/lib/liff/member-login-acceptance-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function PublicTrialLiffPage() {
 
   return (
     <PublicTrialLiffBridge
-      liffId={config.liffId}
+      liffId={resolveLoginAcceptanceLiffId(storeSlug, "trial") ?? config.liffId}
       storeSlug={presentation.slug}
       storeName={presentation.name}
       contactUrl={presentation.contactUrl}

@@ -1,7 +1,7 @@
 /**
  * Public LINE identifiers are scoped to the public-trial bridges created in
  * the shared member-login channel. Each store still verifies that the LINE
- * subject is recognized by its own Messaging API before issuing an entry.
+ * subject is recognized by its own Messaging API before using it for notifications.
  *
  * Do not replace the shared member-login channel with these values: existing
  * member LIFF and NextAuth flows continue to use their current configuration.
