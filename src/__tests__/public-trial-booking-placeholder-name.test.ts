@@ -4,6 +4,8 @@ const STORE_ID = "store-zhubei";
 const LINE_USER_ID = "U-line-customer";
 const CUSTOMER_ID = "customer-gaoqiao";
 const BOOKING_ID = "booking-gaoqiao";
+const loginCustomer = vi.hoisted(() => vi.fn());
+vi.mock("@/server/services/public-trial-login-customer", () => ({ resolvePublicTrialLoginCustomer: loginCustomer }));
 
 const state = vi.hoisted(() => ({
   customerName: "顧客",
@@ -129,6 +131,30 @@ beforeEach(() => {
 });
 
 describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
+  it("preserves the verified Login owner when the OA subject belongs to another Provider", async () => {
+    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
+    const { resolvePublicTrialLineCustomer } = await import("@/server/services/public-trial-line-customer");
+    const setup = vi.spyOn(await import("@/server/services/trial-notification-binding"), "prepareTrialNotificationSetup").mockResolvedValueOnce({ status: "needs_help" });
+    state.customerName = input.name;
+    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce({ linkId: "trial-link", storeId: STORE_ID, channel: "LINE", chatIdentity: "U" + "a".repeat(32),
+      verifiedLogin: { channelId: "2010761154", lineUserId: "U" + "a".repeat(32) }, notificationVerified: false });
+    loginCustomer.mockResolvedValueOnce({ status: "resolved", customer: { ...customer(), lineUserId: null, lineLinkStatus: "UNLINKED" }, ownerId: "verified-owner", customerCreated: true });
+    const result = await submitPublicTrialBooking(input);
+    expect(result).toMatchObject({ status: "ok", bookingId: BOOKING_ID, notificationSetup: { status: "needs_help" } });
+    expect(resolvePublicTrialLineCustomer).not.toHaveBeenCalled();
+    expect(state.customerCreate).not.toHaveBeenCalled();
+    expect(state.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ customerId: CUSTOMER_ID, trialBookingChannel: "LINE" }) }));
+    expect(setup).toHaveBeenCalledWith(expect.objectContaining({ customerId: CUSTOMER_ID, customerCreated: true, linked: false, loginOwnerId: "verified-owner" }));
+    setup.mockRestore();
+  });
+  it("does not create a booking after verified Login ownership conflicts", async () => {
+    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
+    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce({ linkId: "trial-link", storeId: STORE_ID, channel: "LINE", chatIdentity: "U" + "a".repeat(32),
+      verifiedLogin: { channelId: "2010761154", lineUserId: "U" + "a".repeat(32) }, notificationVerified: false });
+    loginCustomer.mockResolvedValueOnce({ status: "conflict" });
+    expect((await submitPublicTrialBooking(input)).status).toBe("invalid_input");
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
   it.each(["zhubei", "hsinchu", "taichung"])("reports verified LINE linkage without a pilot flag for %s", async storeSlug => {
     const { prisma } = await import("@/lib/db");
     vi.mocked(prisma.store.findUnique).mockResolvedValueOnce({ id: STORE_ID, slug: storeSlug } as never);

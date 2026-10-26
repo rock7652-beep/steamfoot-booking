@@ -28,6 +28,7 @@ import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagno
 import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
+import { activateVerifiedNotificationMember } from "@/server/services/verified-notification-first-login";
 import {
   LiffIdTokenError,
   verifyLiffIdToken,
@@ -162,6 +163,17 @@ export async function POST(req: Request): Promise<Response> {
   let customer;
   try {
     customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
+    if (!customer && !context.config && context.identityProvider === "line" &&
+        await getStoreIndustryModule(store.id) === "steamfoot") {
+      const activation = await activateVerifiedNotificationMember({ storeId: store.id, lineUserId: verified.lineUserId });
+      if (activation === "unavailable") throw new Error("FIRST_LOGIN_ACTIVATION_UNAVAILABLE");
+      if (activation === "activated") {
+        // Re-resolve the committed ownership before Credentials verifies the
+        // token again. Activation alone never counts as a created session.
+        customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
+        if (!customer) throw new Error("FIRST_LOGIN_OWNERSHIP_UNAVAILABLE");
+      }
+    }
   } catch (error) {
     if (error instanceof LineIdentityReviewError) {
       if (error.reason === "store_membership_unconfirmed") {

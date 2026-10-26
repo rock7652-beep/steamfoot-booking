@@ -18,6 +18,8 @@ import { LineIdentityReviewError } from "@/server/services/line-identity-review"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockModule = vi.fn();
+const mockNotificationActivation = vi.hoisted(() => vi.fn(async () => "not_applicable"));
+vi.mock("@/server/services/verified-notification-first-login", () => ({ activateVerifiedNotificationMember: mockNotificationActivation }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockModule(...args) }));
 const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
@@ -74,6 +76,36 @@ function verifiedOk(overrides: Partial<{ displayName: string | null; pictureUrl:
 }
 
 describe("POST /api/liff/exchange", () => {
+  it("creates a session for the verified new trial member without onboarding or staff approval", async () => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "original-trial", userId: "new-user", name: "顧客" });
+    mockNotificationActivation.mockResolvedValueOnce("activated");
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(await response.json()).toMatchObject({ status: "session_created", customerId: "original-trial" });
+    expect(mockNotificationActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID });
+    expect(mockSignIn).toHaveBeenCalledWith("liff-token", { idToken: "tok", storeSlug: "zhubei", redirect: false });
+  });
+  it.each(["unavailable", "activated"])("does not mint a session when first-login persistence cannot be confirmed: %s", async activation => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValue(null);
+    mockNotificationActivation.mockResolvedValueOnce(activation);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(response.status).toBe(503);
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it("retains onboarding when the verified LINE subject does not match the notification recipient", async () => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValue(null);
+    mockNotificationActivation.mockResolvedValueOnce("not_applicable");
+    expect(await (await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }))).json()).toMatchObject({ status: "need_onboarding" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
   it("allows a steamfoot membership review form without minting a session", async () => {
     mockModule.mockResolvedValue("steamfoot");
     mockVerify.mockResolvedValueOnce(verifiedOk());
@@ -85,6 +117,7 @@ describe("POST /api/liff/exchange", () => {
     expect(mockSignIn).not.toHaveBeenCalled();
   });
   beforeEach(() => {
+    mockNotificationActivation.mockReset().mockResolvedValue("not_applicable");
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockSignIn.mockReset();
     mockModule.mockReset().mockResolvedValue("course");

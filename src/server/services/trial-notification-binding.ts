@@ -18,6 +18,8 @@ const digest = (token: string) => `trial:${createHash("sha256").update(token).di
 export async function prepareTrialNotificationSetup(input: {
   storeId: string; customerId: string; bookingId: string;
   customerCreated: boolean; linked: boolean;
+  /** Internal owner obtained from the verified booking Login capture. */
+  loginOwnerId?: string;
 }): Promise<TrialNotificationSetup> {
   if (input.linked) return { status: "linked" };
   if (!input.customerCreated) return { status: "needs_help" };
@@ -27,11 +29,15 @@ export async function prepareTrialNotificationSetup(input: {
     const token = randomBytes(32).toString("hex");
     const issued = await prisma.customer.updateMany({
       where: {
-        id: input.customerId, storeId: input.storeId, userId: null,
+        id: input.customerId, storeId: input.storeId,
+        ...(input.loginOwnerId ? {
+          OR: [{ userId: null }, { userId: input.loginOwnerId }],
+          identityLinks: { some: { userId: input.loginOwnerId, provider: "line" } },
+        } : { userId: null }),
         lineUserId: null, lineBindingCode: null, mergedIntoCustomerId: null,
         bookings: { some: { id: input.bookingId, storeId: input.storeId, bookingType: "FIRST_TRIAL", bookingStatus: { in: ["PENDING", "CONFIRMED"] } } },
       },
-      data: { lineBindingCode: digest(token), lineBindingCodeCreatedAt: new Date() },
+      data: { lineBindingCode: input.loginOwnerId ? ownerDigest(token, input.loginOwnerId) : digest(token), lineBindingCodeCreatedAt: new Date() },
     });
     if (issued.count !== 1) return { status: "needs_help" };
     return { status: "pending", url: `https://line.me/R/oaMessage/${encodeURIComponent(bot.data.basicId)}/?${encodeURIComponent(`體驗通知 ${token}`)}` };
@@ -52,7 +58,7 @@ export async function claimTrialNotificationSetup(storeId: string, lineUserId: s
         where: { storeId, lineBindingCode: digest(token), lineBindingCodeCreatedAt: { gt: new Date(now.getTime() - TTL_MS), lte: now }, lineUserId: null, userId: null, mergedIntoCustomerId: null },
         select: { id: true },
       });
-      if (!customer) return "invalid" as const;
+      if (!customer) return claimLoginNotification(tx, storeId, lineUserId, token, now);
       const owner = await tx.customer.findFirst({ where: { storeId, lineUserId, mergedIntoCustomerId: null }, select: { id: true } });
       if (owner) return "conflict" as const;
       const updated = await tx.customer.updateMany({
@@ -70,4 +76,31 @@ export async function claimTrialNotificationSetup(storeId: string, lineUserId: s
   } catch (error) {
     return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" ? "conflict" : "unavailable";
   }
+}
+
+const tokenPrefix = (token: string) => `trial-login:${createHash("sha256").update(token).digest("hex")}:`;
+const ownerDigest = (token: string, ownerId: string) => tokenPrefix(token) + createHash("sha256").update(ownerId).digest("hex");
+
+/** A private new-customer booking capability may connect its independent OA
+ * subject only while the verified Login owner remains exactly the same. */
+async function claimLoginNotification(tx: Prisma.TransactionClient, storeId: string, lineUserId: string, token: string, now: Date) {
+  const row = await tx.customer.findFirst({ where: { storeId, lineBindingCode: { startsWith: tokenPrefix(token) },
+    lineBindingCodeCreatedAt: { gt: new Date(now.getTime() - TTL_MS), lte: now },
+    lineUserId: null, mergedIntoCustomerId: null },
+    select: { id: true, userId: true, lineBindingCode: true,
+      identityLinks: { where: { provider: "line" }, select: { userId: true, user: { select: { status: true } } } } },
+  });
+  const link = row?.identityLinks[0];
+  if (!row || row.identityLinks.length !== 1 || !link || link.user.status !== "ACTIVE" ||
+      (row.userId && row.userId !== link.userId) || row.lineBindingCode !== ownerDigest(token, link.userId)) return "invalid" as const;
+  if (await tx.customer.findFirst({ where: { storeId, lineUserId, mergedIntoCustomerId: null }, select: { id: true } })) return "conflict" as const;
+  const updated = await tx.customer.updateMany({ where: { id: row.id, storeId,
+    userId: row.userId, lineBindingCode: row.lineBindingCode, lineUserId: null, mergedIntoCustomerId: null,
+    identityLinks: { some: { provider: "line", userId: link.userId } } },
+    data: { lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: now, lineBindingCode: null, lineBindingCodeCreatedAt: null },
+  });
+  if (updated.count !== 1) return "invalid" as const;
+  await tx.booking.updateMany({ where: { storeId, customerId: row.id, bookingType: "FIRST_TRIAL",
+    bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED"] }, trialBookingChannel: null }, data: { trialBookingChannel: "LINE" } });
+  return "linked" as const;
 }

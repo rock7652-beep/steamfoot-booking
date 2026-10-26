@@ -25,6 +25,7 @@ import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { resolvePublicTrialLoginCustomer } from "@/server/services/public-trial-login-customer";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
 import { normalizeTrialBookingSource } from "@/lib/trial-booking-source";
 import { prepareTrialNotificationSetup, type TrialNotificationSetup } from "@/server/services/trial-notification-binding";
@@ -337,7 +338,12 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
-    const lineCustomerResult = chatLink?.channel === "LINE"
+    const verifiedLoginCustomer = chatLink?.verifiedLogin
+      ? await resolvePublicTrialLoginCustomer({ entry: chatLink, name: data.name, phone: data.phone }) : null;
+    if (verifiedLoginCustomer?.status === "conflict") return { status: "invalid_input", message: "此手機或 LINE 身分已有其他會員資料，請聯繫門市協助確認。" };
+    if (verifiedLoginCustomer?.status === "unavailable") return { status: "service_unavailable" };
+    const hasMessagingEntry = chatLink?.channel === "LINE" && chatLink.notificationVerified !== false;
+    const lineCustomerResult = hasMessagingEntry && !verifiedLoginCustomer
       ? await resolvePublicTrialLineCustomer({
           storeId: store.id,
           phone: data.phone,
@@ -351,8 +357,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       return { status: "invalid_input", message: "LINE 身分驗證暫時無法完成，請稍後再試。" };
     }
 
-    let customerCreated = false;
-    let customer = lineCustomerResult && "customer" in lineCustomerResult
+    let customerCreated = verifiedLoginCustomer?.status === "resolved" && verifiedLoginCustomer.customerCreated;
+    let customer = verifiedLoginCustomer?.status === "resolved" ? verifiedLoginCustomer.customer : lineCustomerResult && "customer" in lineCustomerResult
       ? lineCustomerResult.customer
       : chatLink?.channel === "LINE"
         ? null
@@ -563,10 +569,11 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     const linkedToEntry = chatLink?.channel === "LINE"
       && customer.lineLinkStatus === "LINKED"
       && customer.lineUserId === chatLink.chatIdentity;
-    const notificationSetup: TrialNotificationSetup | undefined = pilot ? await prepareTrialNotificationSetup({
+    const notificationSetup: TrialNotificationSetup | undefined = pilot || verifiedLoginCustomer?.status === "resolved" ? await prepareTrialNotificationSetup({
       storeId: store.id, customerId: customer.id, bookingId: booking.id,
       customerCreated,
       linked: customer.lineLinkStatus === "LINKED" && Boolean(customer.lineUserId),
+      ...(verifiedLoginCustomer?.status === "resolved" ? { loginOwnerId: verifiedLoginCustomer.ownerId } : {}),
     }) : chatLink?.channel === "LINE"
       // All stores share the same verified LINE entry flow. Do not ask a
       // successfully linked customer to send their phone again in the chat.

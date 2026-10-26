@@ -22,6 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRecovery = vi.fn();
 vi.mock("@/server/services/liff-login-recovery", () => ({ requestLiffLoginRecovery: (...args: unknown[]) => mockRecovery(...args) }));
 const mockFirstActivation = vi.fn();
+const mockNotificationActivation = vi.hoisted(() => vi.fn(async () => "not_applicable"));
+vi.mock("@/server/services/verified-notification-first-login", () => ({ activateVerifiedNotificationMember: mockNotificationActivation }));
 vi.mock("@/server/services/precreated-first-line-login", () => ({ activateUnlinkedStoreMember: (...args: unknown[]) => mockFirstActivation(...args) }));
 const mockMember = vi.fn();
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: (...args: unknown[]) => mockMember(...args) }));
@@ -94,6 +96,15 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("uses exact LINE identity on a form opened earlier, without requiring the entered name again", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockNotificationActivation.mockResolvedValueOnce("activated");
+    expect(await submitOnboarding({ ...VALID_INPUT, name: "不同輸入拼法" })).toEqual({ status: "ok" });
+    expect(mockNotificationActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID });
+    expect(mockRecovery).not.toHaveBeenCalled();
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("queues an exact verified login for staff confirmation without reporting success", async () => {
     const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());
@@ -176,6 +187,7 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockNotificationActivation.mockReset().mockResolvedValue("not_applicable");
     mockFirstActivation.mockReset().mockResolvedValue("review");
     mockRecovery.mockReset().mockResolvedValue({ status: "review" });
     mockIndustry.mockReset().mockResolvedValue("steamfoot");

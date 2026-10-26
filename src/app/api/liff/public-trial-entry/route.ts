@@ -38,8 +38,8 @@ function json(body: ResponseBody, status: number): Response {
 /**
  * Turns one verified LIFF visit into the same opaque, one-time entry used by
  * the store webhook. No Customer or login Account is written here. The LINE
- * Login subject must first be recognized by this store's Messaging API, so a
- * provider-scoped login id can never be persisted as a notification target.
+ * Login proof and notification reachability are independent. A different OA
+ * Provider must never discard a valid Login proof or become a notification id.
  */
 export async function POST(request: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
@@ -76,14 +76,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const recipientProbe = await probeStoreLineRecipient(store.id, verified.lineUserId);
-  if (recipientProbe.status === "INCOMPATIBLE") {
-    return json({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }, 409);
-  }
-  if (recipientProbe.status === "UNAVAILABLE") {
-    return json(
-      { status: "error", code: "IDENTITY_VERIFICATION_UNAVAILABLE" },
-      503,
-    );
+  // Configured beauty stores retain their existing notification-backed entry.
+  // The versioned Login proof is currently supported only by Steamfoot.
+  if (config.configured && recipientProbe.status !== "COMPATIBLE") {
+    return recipientProbe.status === "INCOMPATIBLE"
+      ? json({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }, 409)
+      : json({ status: "error", code: "IDENTITY_VERIFICATION_UNAVAILABLE" }, 503);
   }
 
   try {
@@ -91,6 +89,10 @@ export async function POST(request: Request): Promise<Response> {
       storeId: store.id,
       channel: "LINE",
       chatIdentity: verified.lineUserId,
+      ...(!config.configured ? {
+        verifiedLogin: { channelId: verified.channelId, lineUserId: verified.lineUserId },
+        notificationVerified: recipientProbe.status === "COMPATIBLE",
+      } : {}),
     });
     const entry = new URL(link.url).searchParams.get("entry");
     if (!entry) throw new Error("TRIAL_BOOKING_ENTRY_MISSING");

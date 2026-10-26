@@ -43,7 +43,7 @@ beforeEach(() => {
   vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
   mocks.module.mockResolvedValue("beauty");
   mocks.verify.mockResolvedValue({
-    lineUserId: "U-store-messaging",
+    lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     channelId: "2010761154",
     displayName: "王小美",
     pictureUrl: null,
@@ -67,7 +67,17 @@ it("uses the configured beauty audience and issues only its own store entry", as
   expect(response.status).toBe(200);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   expect(mocks.verify).toHaveBeenCalledWith("token", "902");
-  expect(mocks.probe).toHaveBeenCalledWith("store-soulife", "U-store-messaging");
+  expect(mocks.probe).toHaveBeenCalledWith("store-soulife", "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  expect(mocks.createLink).toHaveBeenCalledWith({
+    storeId: "store-soulife", channel: "LINE", chatIdentity: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  });
+});
+it.each([["INCOMPATIBLE", 409], ["UNAVAILABLE", 503]])("retains beauty verification failure %s", async (status, code) => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
+  mocks.resolveStore.mockResolvedValue({ id: "store-soulife", slug: "soulife" });
+  mocks.probe.mockResolvedValue({ status });
+  expect((await POST(request({ idToken: "token", storeSlug: "soulife" }))).status).toBe(code);
+  expect(mocks.createLink).not.toHaveBeenCalled();
 });
 it.each(["wrong-store", "course"])("rejects configured %s before probing or minting", async kind => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
@@ -78,7 +88,7 @@ it.each(["wrong-store", "course"])("rejects configured %s before probing or mint
 });
 
 describe("POST /api/liff/public-trial-entry", () => {
-  it("creates an opaque public entry only after the store channel recognizes the LIFF subject", async () => {
+  it("preserves verified Login proof and independently verified notification reachability", async () => {
     const response = await POST(request({
       idToken: "verified-liff-token",
       storeSlug: "zhubei",
@@ -95,45 +105,26 @@ describe("POST /api/liff/public-trial-entry", () => {
     );
     expect(mocks.probe).toHaveBeenCalledWith(
       "store-zhubei",
-      "U-store-messaging",
+      "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
     expect(mocks.createLink).toHaveBeenCalledWith({
       storeId: "store-zhubei",
       channel: "LINE",
-      chatIdentity: "U-store-messaging",
+      chatIdentity: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      verifiedLogin: { channelId: "2010761154", lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      notificationVerified: true,
     });
   });
 
-  it("rejects a LIFF subject from a different LINE provider", async () => {
-    mocks.probe.mockResolvedValue({ status: "INCOMPATIBLE", httpStatus: 404 });
-
-    const response = await POST(request({
-      idToken: "verified-but-wrong-provider",
-      storeSlug: "zhubei",
+  it.each(["INCOMPATIBLE", "UNAVAILABLE"])("preserves Login when notification reachability is %s", async status => {
+    mocks.probe.mockResolvedValue({ status });
+    const response = await POST(request({ idToken: "verified-liff-token", storeSlug: "zhubei" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok", entry: "link-id.secret" });
+    expect(mocks.createLink).toHaveBeenCalledWith(expect.objectContaining({
+      verifiedLogin: { channelId: "2010761154", lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      notificationVerified: false,
     }));
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      status: "error",
-      code: "IDENTITY_SCOPE_MISMATCH",
-    });
-    expect(mocks.createLink).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when recipient verification is unavailable", async () => {
-    mocks.probe.mockResolvedValue({ status: "UNAVAILABLE", httpStatus: 401 });
-
-    const response = await POST(request({
-      idToken: "verified-liff-token",
-      storeSlug: "zhubei",
-    }));
-
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
-      status: "error",
-      code: "IDENTITY_VERIFICATION_UNAVAILABLE",
-    });
-    expect(mocks.createLink).not.toHaveBeenCalled();
   });
 
   it.each(["hsinchu", "taichung"])(
