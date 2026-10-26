@@ -140,5 +140,5 @@ it("課程使用既有課程模板與本店分享入口，不連到蒸足體驗"
   hasStoreFeature.mockResolvedValue(true);
   customerFindFirst.mockResolvedValue({ id: "course-person", referralCode: "ABC234", store: { name: "課程測試", slug: "course-test", industryModule: "COURSE", operatingStatus: "ACTIVE", shopConfig: { lineOfficialUrl: null, referralShareTemplate: null } } });
   const context = await getReferralShareContext({ customerId: "course-person", storeId: "course", storeSlug: "course-test" });
-  expect(context).toMatchObject({ available: true, referralUrl: "/s/course-test/line-entry?ref=ABC234", publicTrialReferralUrl: "/s/course-test/line-entry?ref=ABC234", shareTemplate: expect.stringContaining("一堂課") });
+  expect(context).toMatchObject({ available: true, referralUrl: "/s/course-test/line-entry?ref=ABC234", publicTrialReferralUrl: "/s/course-test/line-entry?ref=ABC234&destination=public-trial&source=liff-store-share", shareTemplate: expect.stringContaining("一堂課") });
 });

@@ -1,4 +1,5 @@
 "use client";
+import {PublicBookingLinkRow} from "@/components/settings/public-booking-link-row";
 import {useCoursePersonnelText,useCoursePersonnelLabel} from "@/components/course-personnel-label";
 
 import type {CourseSettingsSource} from "./settings-source";
@@ -38,6 +39,7 @@ import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@
 const SettingsHrefContext=createContext<(href:string)=>string>(courseSettingsPanelHref);
 export type CourseSettingsWorkspaceProps = {
   source?:CourseSettingsSource;
+  publicTrialHref?:string|null;
   moduleContent?: { label:string; storeSavePath:string; sections:Partial<Record<CourseSettingsSection,ReactNode>> };
   native?:boolean; music?:boolean; shopPhone?:string; lineOfficialId?:string;
   today?: string; trialSettings?: TrialSettings;
@@ -242,7 +244,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
           {editor({ section: "payment", bankName: props.bankName, bankCode: props.bankCode, bankAccountNumber: props.bankAccountNumber }, true)}
           <p className="mt-2 text-sm text-earth-500">付款聯繫：{props.lineOfficialUrl ? "沿用店家官方 LINE" : "尚未設定官方 LINE"} <button type="button" className="min-h-10 px-2 text-primary-700 underline" onClick={() => select("store")}>前往店家資料</button></p>
         </Row> : <p className="py-5 text-sm text-earth-500">目前帳號沒有付款設定權限。</p>}
-        {props.source?.publicTrialHref&&<Row title="公開體驗表單" summary="每人每項服務限體驗一次" href={props.source.publicTrialHref} action="查看"/>}
+        {(props.source?.publicTrialHref!==undefined||props.publicTrialHref!==undefined)&&<PublicBookingLinkRow href={props.source?.publicTrialHref??props.publicTrialHref??null}/>}
         {props.canTrial && props.trialSettings ? <Row
           title="體驗設定"
           summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}

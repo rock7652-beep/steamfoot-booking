@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { resolveLineReferralEntry } from "@/server/queries/line-referral-entry";
-import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
+import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 
 const REFERRAL_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 const COOKIE_OPTIONS = {
@@ -25,6 +25,12 @@ export async function GET(request: NextRequest) {
 
   if (result.status !== "READY") {
     return invalidEntryResponse(result.status);
+  }
+
+  const publicTrialRequested = request.nextUrl.searchParams.get("destination") === "public-trial";
+  const publicTrialEntry = publicTrialRequested && storeSlug ? resolveBookingLineEntry(storeSlug) : null;
+  if (publicTrialRequested && (!publicTrialEntry || (publicTrialEntry.storeId && publicTrialEntry.storeId !== result.storeId))) {
+    return invalidEntryResponse("LINE_NOT_CONFIGURED");
   }
 
   const source =
@@ -55,17 +61,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const publicTrialConfig =
-    request.nextUrl.searchParams.get("destination") === "public-trial" &&
-    storeSlug
-      ? resolvePublicTrialLiffConfig(storeSlug)
-      : null;
-  const destination = result.coursePath
+  const destination = publicTrialEntry?.url ?? (result.coursePath
     ? new URL(result.coursePath, request.nextUrl.origin).toString()
-    : publicTrialConfig
-    ? `https://liff.line.me/${publicTrialConfig.liffId}`
-    : result.lineOfficialUrl;
+    : result.lineOfficialUrl);
   const response = NextResponse.redirect(destination, 307);
+  response.headers.set("cache-control", "private, no-store");
   response.cookies.set("pending-ref", result.referrerId, COOKIE_OPTIONS);
   response.cookies.set(
     "referral-visitor-token",

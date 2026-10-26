@@ -6,7 +6,7 @@ import { handleMemberConnectionWebhook } from "./store-member-connection-webhook
 import { captureStoreMemberConnection, connectionReplyText } from "./store-member-connection";
 import { normalizePhone } from "@/lib/normalize";
 import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
-import { deriveBaseUrl } from "@/lib/base-url";
+import { resolveBookingLineEntry } from "./booking-line-entry";
 
 /** OA events describe friendship, not a booking's store. Never choose the
  * first store or run legacy phone binding for a configured course account. */
@@ -50,7 +50,7 @@ export async function handleConfiguredCourseLineWebhook(input: {
       try {
         // Reply once per physical account. A shared OA must offer explicit
         // store entries, never select the first store for a phone claim.
-        const messages = buildStoreLineWelcome(stores.filter((store): store is NonNullable<typeof store> => store !== null), deriveBaseUrl());
+        const messages = buildStoreLineWelcome(stores.filter((store): store is NonNullable<typeof store> => store !== null).map(store => ({ ...store, bookingHref: resolveBookingLineEntry(store.slug)?.url })));
         await replyMessage(configs[0].storeId, event.replyToken, messages);
       } catch {
         console.error("[Store LINE] Welcome reply failed", { shared: configs.length > 1 });

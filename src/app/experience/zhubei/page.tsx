@@ -1,3 +1,4 @@
+import { ZHUBEI_PUBLIC_TRIAL_LIFF_URL } from "@/lib/liff/public-trial-config";
 import Link from "next/link";
 import { ExperienceAttributionCapture } from "@/components/experience-attribution-capture";
 
@@ -7,7 +8,7 @@ export const metadata = {
 };
 
 const lineUrl = "https://lin.ee/Nki2OjA";
-const bookingUrl = "/pricing/experience/zhubei/book";
+const bookingUrl = ZHUBEI_PUBLIC_TRIAL_LIFF_URL;
 const mapUrl = "https://www.google.com/maps/search/?api=1&query=" +
   encodeURIComponent("新竹縣竹北市科大一路80號");
 
