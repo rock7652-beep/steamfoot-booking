@@ -48,12 +48,14 @@ export async function deliverTechnicianEvent(tx:Prisma.TransactionClient,store:{
  if(kind==='TECH_CHANGE'&&body.startsAt&&rows[0].startsAt.toISOString()!==body.startsAt)return skip('預約已再次改期');
  if(kind==='TECH_CHANGE'&&body.action!=='CANCEL'&&rows[0].status!=='RESERVED')return skip('預約狀態已變更');
  if(body.action==='CANCEL'&&rows[0].status!=='CANCELLED')return skip('取消預約已恢復');
+ const snapshot=createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+ if(body.snapshot&&body.snapshot!==snapshot)return skip('班表已更新，停止重送舊通知');
  const targetStore=await tx.store.findFirst({where:{id:store.id,industryModule:'BEAUTY'},select:{slug:true}});if(!targetStore)return skip('本店入口已停用');
  const date=body.date??toLocalDateStr(rows[0].startsAt);
  const url=new URL(`/s/${encodeURIComponent(targetStore.slug)}/beauty`,deriveBaseUrl());url.searchParams.set('work','1');url.searchParams.set('view','schedule');url.searchParams.set('date',date);url.searchParams.set('month',date.slice(0,7));
  const action=body.action==='CANCEL'?'預約已取消':rows[0].technicianId!==technician.id?'已改由其他技師服務':body.action==='MOVE'?'預約已改期':body.action==='BOOKING'?'新增預約':body.action==='RESTORE'?'預約已恢復':undefined;
  const message=body.message??technicianNoticeMessage(store.name,kind,rows,url.toString(),action);
- const frozen=JSON.stringify({...body,recipient,message});
+ const frozen=JSON.stringify({...body,recipient,snapshot,message});
  await tx.$executeRaw`UPDATE "BeautyEvent" SET body=${frozen},"customerId"=${person.id} WHERE id=${event.id} AND "storeId"=${store.id}`;
  const id=`beauty:${event.id}`,hash=createHash('sha256').update(id).digest('hex');
  await tx.messageLog.upsert({where:{id},create:{id,storeId:store.id,customerId:person.id,renderedBody:message.altText,status:'PENDING',channel:'LINE'},update:{status:'PENDING',errorMessage:null}});
