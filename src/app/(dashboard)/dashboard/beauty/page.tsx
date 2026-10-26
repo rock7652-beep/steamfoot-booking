@@ -33,6 +33,7 @@ import { checkPermission } from "@/lib/permissions";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { prisma } from "@/lib/db";
 import { beautyManager } from "@/server/beauty/access";
+import { beautyPageManager } from "@/server/beauty/page-access";
 import { beautyDashboard } from "@/server/beauty/queries";
 import { tabs } from "@/lib/beauty/contracts";
 import { FEATURES } from "@/lib/feature-flags";
@@ -60,7 +61,7 @@ export default async function BeautyPage({
     return <PageShell><PageHeader title="美業" /><BeautyClosedNotice /></PageShell>;
   const q = await searchParams,
     tab = tabs.find((t) => t === q.tab) ?? "首頁",
-    a = await beautyManager("booking.read");
+    a = await beautyPageManager(u);
   if(tab==="人員管理")redirect("/dashboard/staff");
   if(tab==="圖片公告")redirect("/dashboard/image-announcements");
   const permission =
