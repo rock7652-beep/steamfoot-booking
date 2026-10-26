@@ -60,9 +60,10 @@ interface OnboardingFormProps {
   liffId: string;
   /** PR-E：per-store LINE OA 連結（server resolveStorePresentation 注入）。 */
   contactUrl: string;
+  firstRegistration?: boolean;
 }
 
-export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: OnboardingFormProps) {
+export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, firstRegistration = false }: OnboardingFormProps) {
   const router = useRouter();
   const [state, setState] = useState<FormState>({ kind: "initializing" });
   const [nameValue, setNameValue] = useState("");
@@ -216,9 +217,9 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p>
         <h1 className="mt-2 text-2xl font-semibold text-earth-900">
-          {liffMessages.onboarding.title}
+          {firstRegistration ? "加入本店會員" : liffMessages.onboarding.title}
         </h1>
-        <p className="mt-2 text-sm text-earth-600">{liffMessages.onboarding.body}</p>
+        <p className="mt-2 text-sm text-earth-600">{firstRegistration ? "填寫姓名與手機，完成會員登記。" : liffMessages.onboarding.body}</p>
       </header>
 
       {state.kind === "initializing" && (
@@ -270,7 +271,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       )}
 
       {state.kind === "completing" && (
-        <CompletingBlock />
+        <CompletingBlock firstRegistration={firstRegistration} />
       )}
 
       {(state.kind === "ready" ||
@@ -333,7 +334,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
                 className="rounded-lg border border-earth-300 px-3 py-2.5 text-base text-earth-900 focus:border-earth-500 focus:outline-none focus:ring-1 focus:ring-earth-500 disabled:bg-earth-50"
               />
               <span className="text-[11px] text-earth-500">
-                {liffMessages.onboarding.phoneHelp}
+                {firstRegistration ? "手機用於預約聯繫" : liffMessages.onboarding.phoneHelp}
               </span>
             </label>
 
@@ -354,11 +355,11 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             >
               {state.kind === "submitting"
                 ? liffMessages.onboarding.submitting
-                : liffMessages.onboarding.submit}
+                : firstRegistration ? "完成登記" : liffMessages.onboarding.submit}
             </button>
 
             <p className="text-center text-[11px] text-earth-500">
-              {liffMessages.onboarding.privacyNote}
+              {firstRegistration ? "資料僅供本店會員服務與聯繫使用。" : liffMessages.onboarding.privacyNote}
             </p>
           </form>
         </>
@@ -383,7 +384,7 @@ function Loading({ text }: { text: string }) {
   );
 }
 
-function CompletingBlock() {
+function CompletingBlock({ firstRegistration = false }: { firstRegistration?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-8 text-center">
       <div
@@ -391,9 +392,9 @@ function CompletingBlock() {
         aria-hidden
       />
       <p className="text-sm font-medium text-green-900">
-        {liffMessages.onboarding.successTitle}
+        {firstRegistration ? "登記完成" : liffMessages.onboarding.successTitle}
       </p>
-      <p className="text-xs text-green-700">{liffMessages.onboarding.successBody}</p>
+      <p className="text-xs text-green-700">{firstRegistration ? "正在開啟會員中心…" : liffMessages.onboarding.successBody}</p>
     </div>
   );
 }

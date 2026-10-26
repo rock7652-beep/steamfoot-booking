@@ -26,6 +26,7 @@ import { signIn } from "@/lib/auth";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagnostic";
 import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
+import { canOnboardVerifiedBeautyMember } from "@/server/services/beauty-line-onboarding";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import { activateVerifiedNotificationMember } from "@/server/services/verified-notification-first-login";
@@ -180,9 +181,10 @@ export async function POST(req: Request): Promise<Response> {
         // No session or membership is granted here. The legacy store form may
         // collect a staff-reviewed recovery request for the verified subject.
         try {
-          if (!context.config && await getStoreIndustryModule(store.id) === "steamfoot") return json({ status: "need_onboarding", storeSlug: store.slug,
+          const industry = await getStoreIndustryModule(store.id);
+          if (!context.config && industry === "steamfoot") return json({ status: "need_onboarding", storeSlug: store.slug,
             lineUserId: verified.lineUserId, displayName: verified.displayName ?? null }, 200);
-          if (await canOnboardCentralLineAccountToCourse({
+          if (industry === "course" && await canOnboardCentralLineAccountToCourse({
             storeId: store.id, lineUserId: verified.lineUserId,
             identityProvider: context.identityProvider,
           })) {
@@ -190,6 +192,11 @@ export async function POST(req: Request): Promise<Response> {
               lineUserId: verified.lineUserId,
               displayName: verified.displayName ?? null }, 200);
           }
+          if (industry === "beauty" && context.config && await canOnboardVerifiedBeautyMember({
+            storeId: store.id, lineUserId: verified.lineUserId,
+            identityProvider: context.identityProvider,
+          })) return json({ status: "need_onboarding", storeSlug: store.slug,
+            lineUserId: verified.lineUserId, displayName: verified.displayName ?? null }, 200);
         } catch {
           // A lookup outage must not turn a real membership conflict into onboarding.
           return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);

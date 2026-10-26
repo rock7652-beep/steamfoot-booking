@@ -1,0 +1,144 @@
+{
+  "synthetic": true,
+  "actualLINE": false,
+  "actualBackend": false,
+  "errors": [],
+  "unexpectedRequests": [],
+  "checks": [
+    {
+      "width": 390,
+      "scenario": "member",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff",
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "scenario": "booking",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff/public-trial?bookingStore=synthetic",
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "scenario": "conflict",
+      "calls": [
+        "verify-session",
+        "submit"
+      ],
+      "destination": null,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "scenario": "session-failure",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session"
+      ],
+      "destination": null,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "scenario": "member",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff",
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "scenario": "booking",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff/public-trial?bookingStore=synthetic",
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "scenario": "conflict",
+      "calls": [
+        "verify-session",
+        "submit"
+      ],
+      "destination": null,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "scenario": "session-failure",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session"
+      ],
+      "destination": null,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "scenario": "member",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff",
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "scenario": "booking",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session",
+        "navigate"
+      ],
+      "destination": "/s/synthetic/liff/public-trial?bookingStore=synthetic",
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "scenario": "conflict",
+      "calls": [
+        "verify-session",
+        "submit"
+      ],
+      "destination": null,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "scenario": "session-failure",
+      "calls": [
+        "verify-session",
+        "submit",
+        "verify-session"
+      ],
+      "destination": null,
+      "overflow": false
+    }
+  ]
+}
