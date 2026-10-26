@@ -84,6 +84,9 @@ try {
   await page.getByRole("region", { name: "LINE 身分驗證" }).getByText("LINE 身分已驗證", { exact: true }).waitFor();
   for (const [width,height] of [[390,844],[768,1024],[1366,900]]) {
     await page.setViewportSize({width,height});
+    const brand = page.locator('[aria-label="預約店家"]');
+    const storeFont = await brand.locator("strong").evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    if(storeFont<18)throw Error("Store name is too small to identify the booking store");
     const status = page.getByRole("region", {name:"LINE 身分驗證"});
     const rect = await status.boundingBox();
     if (!rect || rect.height > 40) throw Error(`Verified LINE status is no longer compact at ${width}`);

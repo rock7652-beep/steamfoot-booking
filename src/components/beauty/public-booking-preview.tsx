@@ -30,7 +30,7 @@ export function BeautyPublicBookingPreview() {
     <div className="cp-main"><p>隔離預覽：使用範例資料，不會建立預約或發送通知。</p>
       <label>預覽情境 <select aria-label="預覽情境" value={scenario} onChange={e => { attempts.current = 0; setScenario(e.target.value); }}><option value="single">單一服務</option><option value="verified">已驗證 LINE 身分</option><option value="link-pending">模擬連結待確認</option><option value="multiple">多項服務／長名稱</option><option value="retry">模擬送出結果未確認</option><option value="empty">尚無體驗服務</option><option value="closed">店家未開放</option></select></label>
     </div>
-    <header className="cp-top"><CoursePortalBrand storeName="舒生活｜公開預約範例"/></header>
+    <header className="cp-top"><CoursePortalBrand storeFirst storeName="舒生活｜公開預約範例"/></header>
     <main className="cp-main"><div className="cp-title"><h1>體驗預約</h1></div>
       <BeautyPublicBookingForm key={scenario} slug="synthetic" catalog={catalog} entry={verifiedIdentity ? "synthetic-verified-entry" : undefined} readSlots={read} submitTrial={submit} publicInfo={{ address: "範例地址（非實際營業地點）", contactUrl:"https://line.me/R/ti/p/@synthetic", mapUrl:"https://www.google.com/maps/dir/?api=1&destination=example", massageReminder: true, lineEntryHref:"https://liff.line.me/902-synthetic", lineIdentityVerified:verifiedIdentity }}/>
     </main>

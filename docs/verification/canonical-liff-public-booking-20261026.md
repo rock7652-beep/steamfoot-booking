@@ -51,3 +51,10 @@ https://liff.line.me/2010761154-CmcQZ9Db/public-trial?bookingStore=soulife
 - `scripts/qa/beauty-public-booking-browser.mjs` 實際元件隔離驗收通過：360／390／768／1024／1366，輸入 16px、送出按鈕 44px、草稿與時段保留、第二頁回頂端、確認及連結待確認重試。
 - 已驗證狀態列於 390／768／1366 均小於等於 40px，沒有重複驗證按鈕；截圖 `evidence/20261026-canonical-liff/compact-verified-*.png`。
 - 均為封鎖外部請求、使用範例資料的隔離 Preview，不代表正式站或真人 LINE 驗收。
+
+
+## 追加：右上角店名與發布授權
+
+使用者已同意發布 PR #1433，並要求店名置於右上角明顯處。美業公開體驗頂列改用右側 18px 粗體完整店名、左側小型品牌標誌；長名稱允許換行。其他使用共用品牌元件的頁面保留原樣。
+
+3 個美業表單／預覽測試檔 28 項通過；實際元件隔離預覽於 390／768／1366 核對店名字級至少 18px、無水平溢出，原有預約流程亦通過。更新截圖已覆蓋 `compact-verified-*.png`。此為隔離 Preview，真人 LINE 流程仍待實測。

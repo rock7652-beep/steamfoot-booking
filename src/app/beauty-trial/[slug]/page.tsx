@@ -22,7 +22,7 @@ export default async function Page({
   const identity = typeof q.entry === "string" && q.entry.length <= 512 ? await resolveTrialBookingChatLink(q.entry) : null;
   const verified = identity?.storeId === data.store.id && identity.channel === "LINE";
   return (
-    <div className={`course-portal ${styles.page}`}><header className="cp-top"><CoursePortalBrand storeName={data.store.name}/></header><main className="cp-main"><div className="cp-title">
+    <div className={`course-portal ${styles.page}`}><header className="cp-top"><CoursePortalBrand storeFirst storeName={data.store.name}/></header><main className="cp-main"><div className="cp-title">
       <h1>體驗預約</h1>
       </div><BeautyBookingForm
         catalog={data}
