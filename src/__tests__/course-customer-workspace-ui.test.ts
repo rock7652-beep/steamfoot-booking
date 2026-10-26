@@ -143,3 +143,10 @@ it("uses scheduling flags without fee-editor data when deciding whether staff ca
  await click("顧客持有方案");
  expect([...host.querySelectorAll("button")].find(b=>b.textContent==="購買方案")!.disabled).toBe(true);
 });
+it('offers a service purchase slot without changing the original plan form for other modules',async()=>{
+ const source={purchaseService:({customerId}:{customerId?:string})=>createElement('p',null,'單次服務顧客 '+customerId),browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty',canManageMembers:true} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,initialCustomerId:'person',initialAction:'assign'})));
+ const select=host.querySelector<HTMLSelectElement>('[aria-label="消費類型"]')!;expect(select).toBeTruthy();expect(select.textContent).toContain('多次方案');expect(select.textContent).toContain('單次／體驗');
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,'service');select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(host.textContent).toContain('單次服務顧客 person');expect(host.querySelector('form#course-member-form')).toBeNull();expect([...host.querySelectorAll('button')].some(b=>b.textContent==='確認結帳')).toBe(false);
+});

@@ -52,7 +52,7 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback,useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -244,6 +244,7 @@ export function CourseMemberWorkspace({
     if (!canLeave()) return false;
     setDirty(false);
     if(value === "assign" || value === "card")setPersonTab(music ? "courses" : "plans");
+    if(value === "assign")setServicePurchase(false);
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
     if (value === "assign" && music) { setRenewal(false); setPurchaseCustomerId(""); setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
@@ -258,6 +259,8 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
+  const [servicePurchase,setServicePurchase]=useState(false);
+  const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
@@ -644,7 +647,9 @@ export function CourseMemberWorkspace({
               <CoursePlanDraftForm catalog={catalogSource?.form} subjectLabel={subjectLabel} sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
-            {panel === "assign" && (
+            {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}
+            {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab("info");}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
+            {panel === "assign" && !servicePurchase && (
               <form
                 id="course-member-form"
                 onChange={e=>{if(!music||(e.target as HTMLElement).closest("[data-purchase-details]"))setDirty(true);}}
@@ -753,7 +758,7 @@ export function CourseMemberWorkspace({
               </>
             )}
           </div>
-          {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || ((source?.canManageMembers??canAssign) && sharingVisible && card?.allowShared)) && (
+          {panel !== "health" && !(panel === "assign" && servicePurchase) && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || ((source?.canManageMembers??canAssign) && sharingVisible && card?.allowShared)) && (
             <footer className={panel === "plan" && !music ? fitnessEditorFooter : `shrink-0 border-t border-earth-100 bg-white px-4 py-3 ${music && panel === "assign" ? "flex flex-wrap items-center gap-3" : ""}`}>
               {panel === "assign" && <p className={`${music ? "min-w-0 flex-1" : "mb-2"} flex flex-wrap justify-between gap-2 text-sm`}><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <div className={`flex gap-2 ${music || (panel === "plan" && !music) ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending || formUncertain} onClick={close}>取消</button>}<button

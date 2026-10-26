@@ -134,7 +134,8 @@
       "fix/remove-legacy-spa": false,
       "review/beauty-spa-integration-20261024": false,
       "codex/course-line-setup-20261026": false,
-      "fix/beauty-workflow-followups-20261026": false
+      "fix/beauty-workflow-followups-20261026": false,
+      "fix/beauty-single-purchase-20261026": false
     }
   }
 }

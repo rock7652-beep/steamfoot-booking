@@ -1,0 +1,206 @@
+{
+  "synthetic": true,
+  "databaseWrites": false,
+  "lineSends": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "view": "plan",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "plan",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "plan",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "plan",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "existing",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "existing",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "existing",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "existing",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "trial",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "trial",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "trial",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "trial",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "collection",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "collection",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "collection",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "collection",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    }
+  ],
+  "reads": [
+    {
+      "store": "synthetic",
+      "operation": "services",
+      "input": "customer",
+      "offset": 0
+    },
+    {
+      "store": "synthetic",
+      "operation": "services",
+      "input": "customer",
+      "offset": 0
+    }
+  ],
+  "calls": [
+    {
+      "name": "readBeautyCollection",
+      "args": [
+        [
+          "existing"
+        ]
+      ]
+    },
+    {
+      "name": "readBeautySlots",
+      "args": [
+        "manager",
+        "",
+        {
+          "requestKey": "61e01327-6b19-490f-9f8e-e2598160e5d3",
+          "policyRevision": 1,
+          "date": "2026-10-26",
+          "time": "09:00",
+          "contactName": "合成顧客",
+          "phone": "0900000001",
+          "isTrial": false,
+          "people": [
+            {
+              "customerId": "customer",
+              "name": "合成顧客",
+              "phone": "0900000001",
+              "pendingIdentity": false,
+              "isTrial": true,
+              "serviceId": "service",
+              "serviceRevision": 1,
+              "preference": "ANY",
+              "specifiedTechnicianId": null,
+              "specifiedLocationId": "room",
+              "cardId": null,
+              "notes": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bookBeautyParty",
+      "args": [
+        "manager",
+        {
+          "requestKey": "61e01327-6b19-490f-9f8e-e2598160e5d3",
+          "policyRevision": 1,
+          "date": "2026-10-26",
+          "time": "09:00",
+          "contactName": "合成顧客",
+          "phone": "0900000001",
+          "isTrial": false,
+          "people": [
+            {
+              "customerId": "customer",
+              "name": "合成顧客",
+              "phone": "0900000001",
+              "pendingIdentity": false,
+              "isTrial": true,
+              "serviceId": "service",
+              "serviceRevision": 1,
+              "preference": "ANY",
+              "specifiedTechnicianId": null,
+              "specifiedLocationId": "room",
+              "cardId": null,
+              "notes": ""
+            }
+          ],
+          "expectedArrangement": [
+            {
+              "technicianId": "tech",
+              "locationId": "room"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "readBeautyCollection",
+      "args": [
+        [
+          "new-service"
+        ]
+      ]
+    }
+  ],
+  "errors": []
+}

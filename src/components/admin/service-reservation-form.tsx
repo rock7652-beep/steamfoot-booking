@@ -15,8 +15,9 @@ export type ServiceReservationSource={
  technicians:{id:string;name:string;serviceIds:string[]}[];
  locations:{id:string;name:string}[];customers:ReservationCustomer[];cards:ReservationCard[];policyRevision:number;
  readAvailability:(intent:PartyInput)=>Promise<{success:true;data:Availability}|{success:false;error:string}>;
- submit:(intent:PartyInput)=>Promise<{success:boolean;error?:string}>;
+ submit:(intent:PartyInput)=>Promise<{success:boolean;error?:string;data?:{ids:string[]}}>;
  createCustomer?: (input:{name:string;phone:string})=>Promise<{success:true;customer:ReservationCustomer}|{success:false;error:string}>;
+ maxPeople?:number;
 };
 type Person={key:string;customerId:string;serviceId:string;cardId?:string;query?:string;notes:string;technicianId:string;locationId:string};
 const field='min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 py-2 text-base';
@@ -123,7 +124,7 @@ export function ServiceReservationForm({source,date:initialDate,seed={},onGuard,
     <div className="flex flex-wrap items-center gap-x-4 text-earth-700"><strong className="text-primary-900" aria-label={`服務時段 ${index+1}`}>{time}–{end(service?.duration??0)} · {service?.duration??0} 分鐘</strong>{!!service?.buffer&&<span>整理至 {end(service.duration+service.buffer)}</span>}<details className="min-w-0"><summary className="min-h-11 cursor-pointer py-3 text-primary-800">備註{p.notes?'（已填寫）':''}</summary><input aria-label={`本次備註 ${index+1}`} className={field} maxLength={1000} value={p.notes} onChange={e=>update(p.key,{notes:e.target.value})}/></details></div>
     {issues[index]&&(p.customerId||index>0)&&<p role="alert" className="text-red-700">第 {index+1} 位：{issues[index]}</p>}
    </section>)}
-   <button type="button" className={button} disabled={people.length>=12} onClick={()=>change(()=>setPeople(rows=>[...rows,{key:crypto.randomUUID(),customerId:'',serviceId:rows[0]?.serviceId??initialService,notes:'',technicianId:'',locationId:''}]))}>＋新增同行者</button>
+   {source.maxPeople!==1&&<button type="button" className={button} disabled={people.length>=Math.min(12,source.maxPeople??12)} onClick={()=>change(()=>setPeople(rows=>[...rows,{key:crypto.randomUUID(),customerId:'',serviceId:rows[0]?.serviceId??initialService,notes:'',technicianId:'',locationId:''}]))}>＋新增同行者</button>}
   </fieldset>
   <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-earth-200 bg-white py-2" aria-label="預約確認摘要">
    <div className="min-w-0"><p>{people.length} 位 · 方案使用 {uses} 次 · 應收 NT$ {due.toLocaleString()}</p><p role="status" className="text-sm text-earth-600">{dateIssue||issues.find(Boolean)||(checking?'正在核對時段…':checked?availability.error??(available?'目前時段可安排':availability.arrangementError??'此時段無法安排全部顧客，請調整時間、技師或位置'):'請選定顧客及服務')}</p>{checked&&!available&&availability.slots.length>0&&<div className="flex flex-wrap gap-2 py-1">可用時段：{availability.slots.filter(s=>s!==time).sort((a,b)=>Math.abs(+parseTaipeiDateTime(date,a)!-+at!)-Math.abs(+parseTaipeiDateTime(date,b)!-+at!)).slice(0,3).sort().map(s=><button key={s} type="button" className={button} disabled={pending||creating} onClick={()=>change(()=>setTime(s))}>{s}</button>)}</div>}{checked&&availability.error&&<button type="button" className={button} onClick={()=>{setAvailability(null);setRetry(v=>v+1);}}>重新核對時段</button>}{error&&<p role="alert" className="text-red-700">{error}</p>}</div>

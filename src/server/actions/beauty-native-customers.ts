@@ -15,6 +15,8 @@ import {courseBalanceTotals} from '@/lib/course-balance-summary';
 import {courseHistoryRange} from '@/lib/course-history-range';
 import {toLocalDateStr} from '@/lib/date-utils';
 import {courseCheckoutSchema,calculateCourseCheckout} from '@/lib/course-checkout';
+import {serviceCharges} from '@/server/beauty/service-charges';
+import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
 import {issueCard} from '@/server/beauty/commerce';
 import {cardInput,planInput} from '@/lib/beauty/contracts';
 import {saveCourseCustomer} from './course-members';
@@ -131,4 +133,21 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour}));
   committed=true;let syncWarning=false;try{revalidatePath('/dashboard/beauty');}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning};
  }catch(error){return {...failure(error),uncertain:committed||settingsSaveUncertain(error)};}
+}
+
+/** Only the chosen visible customer's existing service receipts; never a prepaid card sale. */
+export async function readBeautyNativeSingleServices(input:unknown,offset=0){
+ try{
+  const customerId=id.parse(input),skip=z.number().int().min(0).max(1000000).parse(offset);
+  const s=await scope('booking.read',{customerIds:[customerId]});customerExists(s,customerId);
+  await beautyManager('transaction.create');await requireStoreFeature(s.storeId,FEATURES.TRANSACTION_MANAGEMENT);
+  return await beautyTransaction(s,async tx=>{
+   const [items,catalog]=await Promise.all([
+    tx.beautyAppointment.findMany({where:{storeId:s.storeId,customerId,cardId:null,status:{not:'CANCELLED'}},orderBy:[{startsAt:'desc'},{id:'desc'}],skip,take:21}),
+    beautyChargeRulesEnabled(s.storeId)?tx.$queryRaw<Array<{id:string;name:string|null;configured:boolean|null}>>`SELECT id,"singleChargeName" AS name,"singlePriceConfigured" AS configured FROM "BeautyService" WHERE "storeId"=${s.storeId} AND active=true`:Promise.resolve(null),
+   ]);
+   const page=items.slice(0,20),charges=await serviceCharges(tx,s.storeId,page);
+   return {success:true as const,storeId:s.storeId,customerId,catalog,hasMore:items.length>20,rows:page.flatMap(b=>{const charge=charges.find(c=>c.id===b.id);return charge&&charge.due>0?[{id:b.id,serviceId:b.serviceId,name:b.serviceName,isTrial:b.isTrial,startsAt:b.startsAt.toISOString(),price:charge.netPrice,collected:charge.collected,due:charge.due}]:[]})};
+  });
+ }catch(error){return failure(error);}
 }

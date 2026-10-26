@@ -14,3 +14,5 @@ export function beautyCustomerReaders(store:string):Pick<CourseCustomerSource,'b
   }return result;
  }};
 }
+
+export function readBeautySingleServices(store:string,customerId:string,offset=0){return read<Awaited<ReturnType<typeof import('@/server/actions/beauty-native-customers').readBeautyNativeSingleServices>>>(store,'services',customerId,offset);}
