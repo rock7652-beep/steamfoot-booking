@@ -1,5 +1,6 @@
 "use server";
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
+import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {traceBeautyRead,beautyReadStep} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
 import {persistBeautyCatalog} from '@/server/beauty/catalog';
@@ -268,7 +269,7 @@ async function readBeautySlotsCore(
     return beautySlotsForActor(mode,input,a);
   });
 }
-export async function readBeautySlots(mode:'manager'|'member'|'public',slug:string,input:unknown){return (await traceBeautyRead('booking.availability',()=>readBeautySlotsCore(mode,slug,input))).value;}
+export async function readBeautySlots(mode:'manager'|'member'|'public',slug:string,input:unknown){return (await traceBeautyRead('booking.availability',()=>withReadRequestMemo(()=>readBeautySlotsCore(mode,slug,input)))).value;}
 export async function changeBeautyStatus(
   mode: "manager" | "member" | "work",
   input: unknown,
