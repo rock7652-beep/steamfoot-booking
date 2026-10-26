@@ -18,7 +18,7 @@ export function LiffStoreSwitcher({
 
   if (stores.length < 2) {
     return (
-      <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">
+      <p className="break-words text-lg font-semibold text-primary-900">
         {currentStoreName}
       </p>
     );
@@ -55,7 +55,7 @@ export function LiffStoreSwitcher({
       {open && (
         <div
           role="menu"
-          className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-earth-200 bg-white p-2 shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-64 max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-earth-200 bg-white p-2 shadow-xl"
         >
           <p className="px-3 pb-2 pt-1 text-xs font-medium text-earth-500">
             切換會員門市

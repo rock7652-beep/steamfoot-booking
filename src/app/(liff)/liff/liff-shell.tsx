@@ -297,9 +297,10 @@ export function LiffShell({
   }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug, bookingIntent]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-3">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-2">
+      <header aria-label="LINE 門市識別" className="flex items-center justify-between gap-3">
+        <SteamButlerLogo className="w-20" />
+        <div className="min-w-0 flex-1 text-right">
           {state.kind === "signed_in" ? (
             <LiffStoreSwitcher
               currentStoreSlug={storeSlug}
@@ -307,11 +308,10 @@ export function LiffShell({
               stores={memberStores}
             />
           ) : (
-            <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+            <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>
           )}
           <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
         </div>
-        <SteamButlerLogo compact />
       </header>
 
       {state.kind === "initializing" && (
