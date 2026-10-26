@@ -8,7 +8,7 @@ export function BookingLineEntry({ href, verified = false, friendHref }: { href?
     <p className="mt-2 text-sm leading-6">{verified
       ? "完成預約後會顯示本店的連結結果，不必再到聊天輸入電話。"
       : "電話在表單填一次。完成驗證後，可在預約時連結本店通知。"}</p>
-    {!verified && href && <a href={href} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#06C755] px-4 py-2 text-base font-semibold text-white">使用 LINE 驗證並預約</a>}
+    {!verified && href && <a href={href} data-line-booking-entry className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#06C755] px-4 py-2 text-base font-semibold text-white">使用 LINE 驗證並預約</a>}
     {!verified && friendUrl && <p className="mt-2 text-sm leading-6">尚未加入好友？<a href={friendUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-primary-700 underline">加入本店官方 LINE</a></p>}
   </section>;
 }
