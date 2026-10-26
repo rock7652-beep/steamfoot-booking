@@ -47,10 +47,13 @@ it("rejects existing Steam bookings outside hours or exceeding reduced capacity,
  await db.exec(`INSERT INTO "Booking" VALUES ('s','2030-10-10','10:00',2,'CONFIRMED');`);expect(await saveServiceHours(await input())).toMatchObject({success:false});expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay"')).rows[0].count).toBe(0);
  expect(await saveServiceHours(await input({periods:[{openTime:"10:00",closeTime:"18:00",slotInterval:60,defaultCapacity:1}]}))).toMatchObject({success:false});
 });
-it("uses only SPA bookings and schedule lock, rejecting appointments extending past closing",async()=>{
- m.module.mockResolvedValue("spa");await db.exec(`INSERT INTO "SpaBooking" VALUES ('s','2030-10-10','16:30','17:30',1,'CONFIRMED');INSERT INTO "Booking" VALUES ('s','2030-10-10','11:00',999,'CONFIRMED');`);
- expect(await saveServiceHours(await input({periods:[{openTime:"11:00",closeTime:"17:00",slotInterval:30,defaultCapacity:6}]}))).toMatchObject({success:false});expect(m.steam).not.toHaveBeenCalled();expect(raw.mock.calls.some(([s])=>s.join("").includes('FROM "Booking"'))).toBe(false);expect(write.mock.calls.some(c=>c[1]==="spa-schedule:s")).toBe(true);
- expect(await saveServiceHours(await input({periods:[{openTime:"11:00",closeTime:"18:00",slotInterval:30,defaultCapacity:6}]}))).toMatchObject({success:true});
+it("rejects retired SPA hours before a transaction or schedule write",async()=>{
+ m.module.mockResolvedValue("spa");
+ const receipt=await input();raw.mockClear();write.mockClear();
+ expect(await saveServiceHours(receipt)).toMatchObject({success:false});
+ expect(m.steam).not.toHaveBeenCalled();expect(m.spa).not.toHaveBeenCalled();
+ expect(raw).not.toHaveBeenCalled();expect(write).not.toHaveBeenCalled();
+ expect((await db.query('SELECT id FROM "SpecialBusinessDay"')).rows).toEqual([]);
 });
 it("copies arbitrary dates with skip, retains source overrides, and undoes from database snapshots",async()=>{
  await db.exec(`INSERT INTO "SpecialBusinessDay" VALUES ('existing','s','2030-10-12','closed','原公休',NULL,NULL,NULL,NULL,NULL,now());INSERT INTO "SlotOverride" VALUES ('override','s','2030-10-10','12:00','capacity_change',4,NULL,now());`);

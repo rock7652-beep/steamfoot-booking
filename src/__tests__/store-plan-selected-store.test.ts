@@ -32,15 +32,13 @@ describe("selected concrete store plan", () => {
     });
   });
 
-  it("always gives the isolated SPA Demo store the full-access plan", async () => {
+  it("reads the stored plan for a former Demo store without a full-access shortcut", async () => {
     mocks.getActiveStoreForRead.mockResolvedValue("demo-store");
+    mocks.findUnique.mockResolvedValue({id:"demo-store",plan:"BASIC"});
     const { getCurrentStorePlan, getStoreForPlanByStoreId } = await import("@/lib/store-plan");
-
-    await expect(getCurrentStorePlan()).resolves.toBe("ALLIANCE");
-    await expect(getStoreForPlanByStoreId("demo-store")).resolves.toMatchObject({
-      id: "demo-store",
-      plan: "ALLIANCE",
-    });
-    expect(mocks.findUnique).not.toHaveBeenCalled();
+    await expect(getCurrentStorePlan()).resolves.toBe("BASIC");
+    await expect(getStoreForPlanByStoreId("demo-store")).resolves.toMatchObject({id:"demo-store",plan:"BASIC"});
+    expect(mocks.findUnique).toHaveBeenCalledTimes(2);
+    expect(mocks.findUnique.mock.calls.every(([args])=>args.where.id==="demo-store")).toBe(true);
   });
 });

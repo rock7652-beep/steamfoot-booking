@@ -86,17 +86,16 @@ describe("hasStoreFeature", () => {
     expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(true);
     expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
-  it("opens every registered feature for the isolated SPA Demo store", async () => {
+  it("applies normal feature entitlements to a former Demo store", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
-
-    await expect(
-      hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER),
-    ).resolves.toBe(true);
-    await expect(
-      hasStoreFeature("demo-store", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(true);
-    expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
-    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+    mockStore("BASIC");
+    expect(await hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER)).toBe(true);
+    mockEntitlement("DISABLED");
+    expect(await hasStoreFeature("demo-store", FEATURES.BASIC_REPORTS)).toBe(false);
+    expect(mockGetStoreForPlanByStoreId).toHaveBeenCalledWith("demo-store");
+    expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
 
   it.each([

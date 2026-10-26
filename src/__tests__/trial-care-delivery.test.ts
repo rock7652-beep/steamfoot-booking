@@ -79,11 +79,11 @@ describe("trial care delivery", () => {
   });
   it("fails closed on an unverified LINE identity", async () => { m.probe.mockResolvedValue({ status: "INCOMPATIBLE" }); await runTrialCare(now); expect(m.push).not.toHaveBeenCalled(); });
   it("never falls back to another store or central account", async () => { m.customer.mockResolvedValue({ name: "顧客", lineUserId: null }); await runTrialCare(now); expect(m.push).not.toHaveBeenCalled(); });
-  it("SPA requires an explicit trial and does not read Steamfoot bookings", async () => {
+  it("retired SPA stores trigger neither booking reads nor messages", async () => {
     const spa = { ...setting, store: { ...setting.store, industryModule: "SPA" } }; m.settings.mockResolvedValue([spa]); m.setting.mockResolvedValue(spa);
     m.spaBookings.mockResolvedValue([{ id: "s", customerId: "c", completedAt: new Date("2026-09-16T03:00:00Z") }]);
     m.spaBooking.mockResolvedValue({ id: "s" }); m.spaSale.mockResolvedValue(0); m.spaFuture.mockResolvedValue(0); m.spaEntitlement.mockResolvedValue(0); m.spaValue.mockResolvedValue(0);
-    await runTrialCare(now); expect(m.bookings).not.toHaveBeenCalled(); expect(m.booking).not.toHaveBeenCalled(); expect(m.spaBookings.mock.calls[0][0].where).toMatchObject({ storeId: "A", isTrial: true, guestIndex: 1 });
+    await runTrialCare(now); expect(m.bookings).not.toHaveBeenCalled(); expect(m.booking).not.toHaveBeenCalled(); expect(m.spaBookings).not.toHaveBeenCalled(); expect(m.spaBooking).not.toHaveBeenCalled(); expect(m.push).not.toHaveBeenCalled();
   });
   it("unknown modules never guess their data source", async () => { m.settings.mockResolvedValue([{ ...setting, store: { ...setting.store, industryModule: "COURSE" } }]); await runTrialCare(now); expect(m.push).not.toHaveBeenCalled(); expect(m.bookings).not.toHaveBeenCalled(); });
   it("offers direct plan viewing in all three stages", () => {

@@ -92,8 +92,10 @@ describe("central-member LIFF routing contract", () => {
 
     expect(page).toContain("getStoreIndustryModule(presentation.id)");
     expect(page).toContain("industryModule.features.healthAssessment");
-    expect(page).toContain('industryModule.id === "spa"');
-    expect(page).toContain("/book/new");
+    expect(page).not.toContain("/liff/spa-work");
+    expect(page).toContain("getIndustryModule");
+    expect(page).toContain("memberDataSource={industryModule.id}");
+    expect(page).not.toContain("/book/new");
     expect(shell).toContain("terminology={terminology}");
     expect(shell).toContain("bookingHref={bookingHref}");
   });

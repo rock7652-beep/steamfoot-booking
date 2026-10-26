@@ -26,12 +26,17 @@ it('uses the native sports fee interface and sends its service relation to the s
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({sportsMode:'ASSIGNED',subjectId:'s',templateIds:['s'],unit:'SESSION',points:6,price:5400}),null);
  expect(m.course).not.toHaveBeenCalled();
 });
-it('keeps the complete native sports fee markup unchanged when a Beauty writer is supplied',async()=>{
+it('keeps the shared fee fields while isolating native sports and supplied catalog controls',async()=>{
  const props={storeId:'store',plan:null,templates:[{id:'s',name:'項目',category:'分類',isActive:true}],subjects:[{id:'s',name:'項目',category:'分類',isActive:true}],sportsData:{storeId:'store',subjects:[{id:'s',name:'項目',category:'分類',active:true,updatedAt:'1'}],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[],date:'2026-10-23'},termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}};
+ const fields=()=>['name','price','days'].map(name=>{const field=host.querySelector<HTMLInputElement>(`[name="${name}"]`)!;expect(field).toBeTruthy();return {name:field.name,value:field.value,required:field.required};});
  await act(async()=>root.render(React.createElement(OperationScope,{scope:'parity:sports'},React.createElement(CoursePlanDraftForm,props))));
- const sports=host.innerHTML;
+ const sports=fields();
+ expect(host.querySelector('[data-fee-section="trial"]')).toBeTruthy();
  await act(async()=>root.render(React.createElement(OperationScope,{scope:'parity:beauty'},React.createElement(CoursePlanDraftForm,{...props,catalog:{save:m.save}}))));
- expect(host.innerHTML).toBe(sports);expect(m.course).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();
+ expect(fields()).toEqual(sports);
+ expect(host.querySelector('[data-fee-section="trial"]')).toBeNull();
+ expect(host.querySelector('[aria-label="方案適用方式"]')).toBeTruthy();
+ expect(m.course).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();
 });
 it('keeps the original form and retries an uncertain native save with the same payload and receipt key',async()=>{
  const {nativeBeautyPlan,savedBeautyFee}=await import('@/lib/beauty/native-plan');

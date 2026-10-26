@@ -18,13 +18,14 @@ describe("web LINE store handoff", () => {
     expect(result.headers.getSetCookie()[1]).toContain("SameSite=None; Secure");
     expect(await result.text()).toBe("oauth");
   });
-  it("accepts the exact store-scoped SPA work callback", async () => {
+  it("rejects the retired store-scoped SPA work callback before OAuth", async () => {
     const handler = vi.fn(async () => new Response("oauth"));
     const resolve = vi.fn(async (value: string) => ({ slug: value }));
     const result = await withWebLineStoreContext(request("/s/spa-module-qa-20260903/liff/spa-work"), handler, resolve);
-    expect(result.status).toBe(200);
-    expect(resolve).toHaveBeenCalledWith("spa-module-qa-20260903");
-    expect(result.headers.getSetCookie()[0]).toContain("oauth-store-slug=spa-module-qa-20260903;");
+    expect(result.status).toBe(400);
+    expect(resolve).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+    expect(result.headers.getSetCookie()).toEqual([]);
   });
   it("clones immutable Auth.js responses before adding the store cookie", async () => {
     const upstream = Response.redirect("https://access.line.me/oauth2/v2.1/authorize", 302);
@@ -32,13 +33,13 @@ describe("web LINE store handoff", () => {
     expect(() => upstream.headers.append("Set-Cookie", "test=1")).toThrow();
     const handler = vi.fn(async () => upstream);
     const result = await withWebLineStoreContext(
-      request("/s/spa-module-qa-20260903/liff/spa-work"),
+      request("/s/music-test/book"),
       handler,
       async value => ({ slug: value }),
     );
     expect(result.status).toBe(302);
     expect(result.headers.get("location")).toBe("https://access.line.me/oauth2/v2.1/authorize");
-    expect(result.headers.getSetCookie()[0]).toContain("oauth-store-slug=spa-module-qa-20260903");
+    expect(result.headers.getSetCookie()[0]).toContain("oauth-store-slug=music-test");
   });
   it.each([
     "/s/spa-module-qa-20260903/liff",

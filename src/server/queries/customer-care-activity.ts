@@ -5,10 +5,12 @@ import { coursePrisma } from "@/lib/course-db";
 
 import { CARE_REASONS, careDisposition, type CareActivity, type CareReason } from "@/lib/customer-care-lifecycle";
 import { bookingDateToday, formatTWTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { AppError } from "@/lib/errors";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
 /** All reads are bounded to the viewed store and its authorized customer scope. */
 export async function getCustomerCareActivity(storeId: string, module: IndustryModuleId, staffScope: string | null, year: number, now = new Date(), dataScope?:string) {
+  if (module === "spa") throw new AppError("FORBIDDEN", "SPA 模組已移除");
   const customers = await prisma.customer.findMany({
     where: { storeId, ...musicCustomerWhere(storeId,dataScope), ...(staffScope ? { assignedStaffId: staffScope } : {}), mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
     select: { id: true, name: true, phone: true, assignedStaff: { select: { displayName: true, storeId: true } } },

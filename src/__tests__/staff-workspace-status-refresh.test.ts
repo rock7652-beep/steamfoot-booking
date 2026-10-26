@@ -21,31 +21,23 @@ const person: StaffWorkspacePerson = {
 afterEach(() => { document.body.innerHTML = ""; vi.unstubAllGlobals(); });
 
 describe("staff workspace authoritative refresh", () => {
-  it("updates the open drawer and card after activation and deactivation without remounting", async () => {
-    const host = document.createElement("div");
-    document.body.append(host);
+  it("updates an open editor from authoritative activation and deactivation props without remounting", async () => {
+    const host = document.createElement("div"); document.body.append(host);
     const root = createRoot(host);
     const render = (status: string) => root.render(createElement(StaffWorkspace, {
       people: [{ ...person, status }], today: "2026-10-05", canManage: true,
       showSpaCompensation: false, createAction: vi.fn(),
     }));
     await act(async () => render("INACTIVE"));
-    const open = Array.from(host.querySelectorAll("button")).find(b => b.textContent?.includes("QA 門市"));
-    expect(open).toBeDefined();
-    await act(async () => open!.click());
-    expect(document.body.textContent).toContain("已停用");
-
-    await act(async () => render("ACTIVE"));
-    expect(document.body.textContent).toContain("人員基本資料");
-    expect(document.body.textContent).toContain("啟用中");
-    expect(document.body.textContent).not.toContain("已停用");
-    expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "停用")).toBe(true);
-    expect(host.querySelector("article")?.textContent).toContain("啟用");
-
-    await act(async () => render("INACTIVE"));
-    expect(document.body.textContent).toContain("人員基本資料");
-    expect(document.body.textContent).toContain("已停用");
-    expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "啟用")).toBe(true);
+    await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="QA 門市操作"]')!.click());
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === "編輯")!.click());
+    expect(document.body.textContent).toContain("編輯人員");
+    for (const status of ["ACTIVE", "INACTIVE"]) {
+      await act(async () => render(status));
+      expect(document.body.textContent).toContain("編輯人員");
+      expect(host.querySelector("tbody")?.textContent).toContain(status === "ACTIVE" ? "啟用" : "停用");
+      expect(document.body.querySelector<HTMLInputElement>('input[name="displayName"]')?.value).toBe("QA 門市");
+    }
     await act(async () => root.unmount());
   });
   it("keeps the account list and editing free of SPA scheduling controls", async () => {

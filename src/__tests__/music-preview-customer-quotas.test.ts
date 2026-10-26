@@ -73,7 +73,7 @@ describe("music Preview student quotas through the actual customer creation acti
     expect(getPlanLimits(plan).maxCustomers).toBeNull();
     expect((await getStoreLimitsByStoreId(MUSIC_OPENING_STORE)).maxCustomers).toBeNull();
 
-    expect(await saveCourseCustomer(input)).toEqual({ success: true, data: { id: "synthetic-customer" } });
+    expect(await saveCourseCustomer(input)).toEqual({ success: true, data: { id: "synthetic-customer" }, syncWarning: false });
 
     expect(m.manager).toHaveBeenCalledExactlyOnceWith("customer.create");
     expect(m.plan).toHaveBeenCalledTimes(2);
@@ -82,7 +82,7 @@ describe("music Preview student quotas through the actual customer creation acti
     expect(m.raw.mock.calls[0][0].join("?")).toBe('SELECT id FROM "Store" WHERE id = ? FOR UPDATE');
     expect(m.count).toHaveBeenCalledExactlyOnceWith({ where: { storeId: MUSIC_OPENING_STORE, mergedIntoCustomerId: null } });
     expect(m.create).toHaveBeenCalledExactlyOnceWith({
-      data: { storeId: MUSIC_OPENING_STORE, ...input, email: null, gender: null, birthday: null, height: null },
+      data: { storeId: MUSIC_OPENING_STORE, ...input, email: null, gender: null, birthday: null },
       select: { id: true },
     });
     expect(m.raw.mock.invocationCallOrder[0]).toBeLessThan(m.count.mock.invocationCallOrder[0]);
@@ -104,11 +104,11 @@ describe("music Preview student quotas through the actual customer creation acti
 
     for (const count of [100, 10000]) {
       m.count.mockResolvedValue(count);
-      expect(await saveCourseCustomer(input)).toEqual({ success: true, data: {id:"synthetic-customer"} });
+      expect(await saveCourseCustomer(input)).toEqual({ success: true, data: {id:"synthetic-customer"}, syncWarning: false });
       expect(m.create).toHaveBeenCalled();
     }
     m.count.mockResolvedValue(99);
-    expect(await saveCourseCustomer(input)).toEqual({ success: true, data: { id: "synthetic-customer" } });
+    expect(await saveCourseCustomer(input)).toEqual({ success: true, data: { id: "synthetic-customer" }, syncWarning: false });
     expect(m.create).toHaveBeenCalledTimes(3);
     expect(m.count).toHaveBeenCalledWith({ where: { storeId, mergedIntoCustomerId: null } });
   });

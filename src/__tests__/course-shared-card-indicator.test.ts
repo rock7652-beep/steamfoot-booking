@@ -33,6 +33,6 @@ it("keeps six sports table columns with one inline detail indicator and no hidde
   expect(source).toContain('colSpan={6}');
   expect(source).toContain('overflow-x-auto rounded-lg');
   expect(source).toContain('if (!sharingEnabled) { e.preventDefault(); return; }');
-  expect(source).toContain('<CourseCardSummary card={card} />');
-  expect(source).toContain('<CourseCardEntries card={card} />');
+  expect(source).toContain('<CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>' );
+  expect(source).toContain('<CourseCardEntries card={card} sessionUnitLabel={source?.sessionUnitLabel} entryLabels={source?.entryLabels}/>');
 });

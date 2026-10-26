@@ -27,10 +27,9 @@ describe("module-isolated care activity", () => {
     expect(m.customers.mock.calls[0][0].where.assignedStaffId).toBe("manager-a");
     expect(m.steam).not.toHaveBeenCalled(); expect(m.course).not.toHaveBeenCalled(); expect(m.spa).not.toHaveBeenCalled();
   });
-  it("never queries Steamfoot bookings for SPA", async () => {
-    m.spa.mockResolvedValue([{ customerId: "a", bookingDate: new Date("2026-10-15T00:00:00Z"), startTime: "10:00" }]);
-    const result = await getCustomerCareActivity("store-a", "spa", null, 2026, new Date("2026-10-06T02:00:00Z"));
-    expect(result.nextBookings.get("a")).toContain("10/15"); expect(m.steam).not.toHaveBeenCalled(); expect(m.course).not.toHaveBeenCalled();
+  it("rejects a retired SPA care request before reading any module's customer or booking data", async () => {
+    await expect(getCustomerCareActivity("store-a","spa",null,2026)).rejects.toMatchObject({code:"FORBIDDEN",message:"SPA 模組已移除"});
+    for(const query of Object.values(m))expect(query).not.toHaveBeenCalled();
   });
   it("keeps birthday and renewal contacts independent and ignores other birthday years", async () => {
     const common = { customerId: "a", result: "CONTACTED", note: null, createdAt: new Date("2026-10-06T02:00:00Z"), nextFollowUpDate: null, createdBy: { name: "店長" } };

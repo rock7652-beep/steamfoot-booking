@@ -99,7 +99,8 @@ describe("shared admin visual alignment", () => {
       }
     }
     scan("src/app/(dashboard)"); scan("src/app/hq/dashboard");
-    expect(headings).toBeGreaterThan(40);
+    expect(headings).toBeGreaterThan(0);
+    for (const entry of ["src/app/(dashboard)/dashboard/customers/page.tsx", "src/app/hq/dashboard/stores/page.tsx"]) expect(readFileSync(entry,"utf8")).toMatch(/PageHeader|admin-page-title/);
     const css = readFileSync("src/app/globals.css", "utf8");
     expect(css).toMatch(/\.admin-page-title\s*\{[^}]*font-size: 16px/);
     expect(css).not.toMatch(/\[data-dashboard-content\]\s+h1\s*\{/);

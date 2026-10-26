@@ -16,11 +16,11 @@ describe("Steamfoot and SPA booking route isolation", () => {
     },
   );
 
-  it("routes SPA to its own schedule entry", () => {
-    expect(bookingDashboardPath("spa")).toBe("/dashboard/spa-schedule");
-    expect(bookingDashboardPathForStoreModule("spa")).toBe(
-      "/dashboard/spa-schedule",
-    );
+  it("refuses to route a retired module into an active booking runtime", () => {
+    expect(()=>bookingDashboardPath("spa")).toThrow("SPA 模組已移除");
+    expect(()=>bookingDashboardPathForStoreModule("spa")).toThrow("SPA 模組已移除");
+    expect(bookingDashboardPath("course")).toBe("/dashboard/courses");
+    expect(bookingDashboardPath("beauty")).toBe("/dashboard/beauty");
   });
 
   it("keeps the Steamfoot booking page free of SPA UI and queries", () => {
@@ -35,37 +35,13 @@ describe("Steamfoot and SPA booking route isolation", () => {
     expect(steamfootPage).not.toContain("prisma.staff.findMany");
   });
 
-  it("scopes every SPA schedule query to the authorized current SPA store", () => {
-    const spaPage = readFileSync(
-      "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
-      "utf8",
-    );
-    expect(spaPage).toContain("await requireSpaStore(storeId)");
-    expect(spaPage).toContain("getSpaScheduleForDay(storeId, date)");
-    expect(spaPage).toContain("where: { storeId }");
-    expect(spaPage).not.toContain("SPA_DEMO_STORE");
-
-    const spaSchedule = readFileSync(
-      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
-      "utf8",
-    );
-    expect(spaSchedule).not.toContain("/dashboard/bookings");
-  });
-
-  it("keeps the authorized SPA home separate from its schedule and legacy dashboard queries", () => {
-    const dashboard = readFileSync(
-      "src/app/(dashboard)/dashboard/page.tsx",
-      "utf8",
-    );
-    expect(dashboard).toContain('getStoreIndustryModule(activeStoreId)');
-    expect(dashboard).not.toContain('redirect("/dashboard/spa-schedule")');
-    const spaReturn = dashboard.indexOf("return <SpaHome");
-    expect(spaReturn).toBeGreaterThan(dashboard.indexOf("await getActiveStoreForRead(user)"));
-    expect(spaReturn).toBeLessThan(dashboard.indexOf("const dashboardStoreId"));
-    const boundary = dashboard.slice(dashboard.indexOf("if (activeStoreId &&"), spaReturn);
-    for (const permission of ["booking.read", "customer.read", "transaction.read"]) {
-      expect(boundary).toContain(`checkPermission(user.role, user.staffId, "${permission}")`);
-    }
-    expect(dashboard).toContain("storeId={activeStoreId}");
+  it("blocks old SPA schedule and home store access before active dashboard queries", async () => {
+    const {isRetiredModuleRoute}=await import("@/lib/retired-module-routes");
+    expect(isRetiredModuleRoute("/s/old/admin/dashboard/spa-schedule",new URLSearchParams())).toBe(true);
+    const proxy=readFileSync("src/proxy.ts","utf8");
+    expect(proxy).toContain("retiredStoreBoundary");
+    const dashboard=readFileSync("src/app/(dashboard)/dashboard/page.tsx","utf8");
+    expect(dashboard).not.toContain("SpaHome");
+    expect(dashboard).not.toContain("spa-db");
   });
 });

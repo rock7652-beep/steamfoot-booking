@@ -25,10 +25,16 @@ it("retries a committed save without another account write; rejects foreign rece
  m.receipt.mockResolvedValue({actorUserId:"owner",targetId:"p"});expect(await saveStaffConfirmed(update)).toMatchObject({success:true});expect(m.update).not.toHaveBeenCalled();
  m.receipt.mockResolvedValue({actorUserId:"foreign",targetId:"p"});expect(await saveStaffConfirmed(update)).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();
 });
-it("creates a deterministic account and all initial SPA setup within the same transaction before recording success",async()=>{
- const result=await saveStaffConfirmed({...receipt,expectedVersion:null,values:{name:"小美",displayName:"小美",phone:"0912345678",password:"test-only-password",spaSkillKeys:["body"],spaWeeklyAvailability:[{dayOfWeek:1,startTime:"10:00",endTime:"18:00"}],spaCompensation:{mode:"PERCENTAGE",value:30}}});
- expect(result).toMatchObject({success:true});expect(m.limit).toHaveBeenCalledWith(expect.any(Number),"s",expect.objectContaining({staff:expect.anything(),$queryRaw:expect.any(Function)}));expect(m.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({id:`staff-user:s:${requestKey}`,staff:{create:expect.objectContaining({id:`staff-person:s:${requestKey}`})}})}));
- expect(m.spaWrite).toHaveBeenCalledWith(expect.anything(),"s",`staff-person:s:${requestKey}`,expect.objectContaining({spaSkillKeys:["body"]}));expect(m.spaWrite.mock.invocationCallOrder[0]).toBeLessThan(m.record.mock.invocationCallOrder[0]);
+it("creates a deterministic account within the transaction before recording success",async()=>{
+ expect(await saveStaffConfirmed({...receipt,expectedVersion:null,values:{name:"小美",displayName:"小美",phone:"0912345678",password:"test-only-password"}})).toMatchObject({success:true});
+ expect(m.limit).toHaveBeenCalledWith(expect.any(Number),"s",expect.objectContaining({staff:expect.anything(),$queryRaw:expect.any(Function)}));
+ expect(m.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({id:`staff-user:s:${requestKey}`,staff:{create:expect.objectContaining({id:`staff-person:s:${requestKey}`})}})}));
+ expect(m.create.mock.invocationCallOrder[0]).toBeLessThan(m.record.mock.invocationCallOrder[0]);
+ expect(m.spaWrite).not.toHaveBeenCalled();
+});
+it("rejects retired SPA setup without creating an account or success receipt",async()=>{
+ expect(await saveStaffConfirmed({...receipt,expectedVersion:null,values:{name:"小美",displayName:"小美",phone:"0912345678",password:"test-only-password",spaSkillKeys:["body"]}})).toMatchObject({success:false,error:"SPA 模組已移除"});
+ expect(m.create).not.toHaveBeenCalled();expect(m.spaWrite).not.toHaveBeenCalled();expect(m.record).not.toHaveBeenCalled();
 });
 it("a committed create retry succeeds despite occupied email, without recreating setup or account",async()=>{
  m.receipt.mockResolvedValue({actorUserId:"owner",targetId:`staff-person:s:${requestKey}`});
