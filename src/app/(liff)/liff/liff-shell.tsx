@@ -130,6 +130,7 @@ interface LiffShellProps {
   terminology: MemberHomeTerminology;
   memberDataSource: IndustryModuleId;
   bookingHref?: string;
+  bookingIntent?: boolean;
 }
 
 /**
@@ -155,6 +156,7 @@ export function LiffShell({
   terminology,
   memberDataSource,
   bookingHref,
+  bookingIntent = false,
 }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
@@ -167,7 +169,12 @@ export function LiffShell({
     (async () => {
       // ── 1. Init LIFF ──
       try {
-        await initLiff(liffId);
+        const sdk = await initLiff(liffId);
+        if (cancelled) return;
+        if (!isInLineClient() && bookingIntent && !sdk.isLoggedIn()) {
+          sdk.login({ redirectUri: window.location.href });
+          return;
+        }
       } catch (err) {
         if (cancelled) return;
         console.warn("[liff-shell] liff.init failed", err);
@@ -177,7 +184,7 @@ export function LiffShell({
       if (cancelled) return;
 
       // ── 2. 環境檢查 ──
-      if (!isInLineClient()) {
+      if (!isInLineClient() && !bookingIntent) {
         setState({ kind: "not_in_line_app" });
         return;
       }
@@ -233,7 +240,7 @@ export function LiffShell({
           // Course uses the same authenticated mobile portal in LINE and browsers.
           // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
           if (memberDataSource === "course") {
-            window.location.replace(courseMemberReturnPath(storeSlug, window.location.search));
+            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search));
             return;
           }
           const [memberContext, workAccess] = await Promise.all([
@@ -287,7 +294,7 @@ export function LiffShell({
     return () => {
       cancelled = true;
     };
-  }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug]);
+  }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug, bookingIntent]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-3">
@@ -359,6 +366,7 @@ export function LiffShell({
           storeName={storeName}
           memberDataSource={memberDataSource}
           displayName={state.displayName}
+          bookingIntent={bookingIntent}
         />
       )}
 
@@ -456,11 +464,13 @@ function WelcomeCta({
   storeName,
   memberDataSource,
   displayName,
+  bookingIntent = false,
 }: {
   storeSlug: string;
   storeName: string;
   memberDataSource: IndustryModuleId;
   displayName: string | null;
+  bookingIntent?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -476,7 +486,7 @@ function WelcomeCta({
         </p>
       </div>
       <Link
-        href={`/s/${storeSlug}/liff/onboarding`}
+        href={`/s/${storeSlug}/liff/onboarding${bookingIntent ? "?booking=1" : ""}`}
         className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.22)] transition hover:bg-primary-700 active:scale-[0.98]"
       >
         {liffMessages.shell.welcomeCta}

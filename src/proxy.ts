@@ -488,6 +488,7 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
   }
 
   // Beauty public trial is narrowly scoped; its page and actions validate module/store.
+  if (pathname === "/booking-line") return withDomainCookie(routePassThrough(req), domainStoreId);
   if (/^\/beauty-trial\/[a-z0-9-]+\/?$/.test(pathname)) return withDomainCookie(routePassThrough(req), domainStoreId);
 
   // /pricing → keep as-is (public)

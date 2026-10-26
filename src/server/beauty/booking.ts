@@ -301,8 +301,13 @@ export async function reserveParty(
     let groupCustomerId = a.customerId ?? (a.manager?d.people[0]?.customerId??null:null);
     if (entry?.channel === "LINE") {
       groupCustomerId = entry.customerId ?? crypto.randomUUID();
-      if (!entry.customerId)
+      if (!entry.customerId) {
+        // Recheck under the Store lock; a concurrent booking cannot make a
+        // supplied phone authorize an existing customer.
+        const matches = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Customer" WHERE "storeId"=${a.storeId} AND phone=${d.phone} AND "mergedIntoCustomerId" IS NULL LIMIT 1`;
+        if (matches.length) throw new AppError("CONFLICT", "此手機已有資料，請先由店家核對 LINE 身分");
         await tx.$executeRaw`INSERT INTO "Customer" (id,"storeId",name,phone,"authSource","customerStage","selfBookingEnabled","lineUserId","lineLinkStatus","lineLinkedAt","createdAt","updatedAt") VALUES (${groupCustomerId},${a.storeId},${d.contactName},${d.phone},'MANUAL','LEAD',false,${entry.chatIdentity},'LINKED',NOW(),NOW(),NOW())`;
+      }
       const contact = d.people.find((p) => p.phone === d.phone);
       if (contact) contact.customerId = groupCustomerId;
     }

@@ -150,6 +150,32 @@ it("shows safe follow-up links and the full receipt without claiming a LINE deli
   expect([...host.querySelectorAll("a")].map(a => a.textContent)).toEqual(["聯絡店家", "查看地圖", "會員專區（需登入）"]);
   expect(host.textContent).not.toContain("已送達");
 });
+it("reports a verified notification link only from the successful backend result", async () => {
+  m.submit.mockResolvedValueOnce({ success: true, data: { groupId: "g", ids: ["b"], notificationSetup: { status: "linked" } } });
+  const host = mount({ entry: "verified-entry" }); await chooseTime(host); set(field(host, "姓名"), "預約人");
+  await act(async () => button(host, "確認預約").click());
+  expect(m.submit.mock.calls[0][2]).toBe("verified-entry");
+  expect(host.textContent).toContain("LINE 通知已連結"); expect(host.textContent).toContain("不必再輸入電話");
+  expect(host.textContent).not.toContain("已送達");
+});
+it("does not claim a link merely because an entry query was supplied", async () => {
+  const host=mount({entry:"unconfirmed-entry"}); await chooseTime(host); set(field(host,"姓名"),"預約人");
+  await act(async()=>button(host,"確認預約").click());
+  expect(host.textContent).toContain("LINE 通知尚未連結");expect(host.textContent).not.toContain("LINE 通知已連結");
+});
+it("retries notification finalization with the identical committed booking request", async () => {
+  const host=mount({entry:"verified-entry"});await chooseTime(host);set(field(host,"姓名"),"預約人");
+  await act(async()=>button(host,"確認預約").click());const original=m.submit.mock.calls[0][1];
+  m.submit.mockResolvedValueOnce({success:true,data:{groupId:"group",ids:["booking"],notificationSetup:{status:"linked"}}});
+  await act(async()=>button(host,"重新確認 LINE 連結").click());
+  expect(m.submit.mock.calls[1]).toEqual(["soulife",original,"verified-entry"]);
+  expect(host.textContent).toContain("LINE 通知已連結");expect(host.textContent).toContain("預約成功");
+});
+it("starts another verified booking through a fresh identity entry instead of reusing the consumed token", async () => {
+  const host=mount({entry:"used-after-success",publicInfo:{lineEntryHref:"https://liff.line.me/902-synthetic/public-trial"}});
+  await chooseTime(host);set(field(host,"姓名"),"預約人");await act(async()=>button(host,"確認預約").click());
+  expect([...host.querySelectorAll("a")].find(a=>a.textContent==="再預約一筆")?.href).toBe("https://liff.line.me/902-synthetic/public-trial");
+});
 it("does not collect personal data when no trial service is available", () => {
   const host = mount({ catalog: { ...catalog, services: [] } }); expect(host.querySelector("input")).toBeNull(); expect(host.textContent).toContain("目前尚無可預約的體驗服務");
 });

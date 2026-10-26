@@ -53,4 +53,17 @@ describe("store identity is independent of platform OA friendship", () => {
     await vi.waitFor(() => expect(m.state).toHaveBeenCalledWith("unavailable"));
     expect(m.replace).not.toHaveBeenCalled();
   });
+  it("routes a verified beauty entry back to that beauty form", async () => {
+    m.fetch.mockResolvedValue({ json: async () => ({ status: "ok", entry: "verified-entry" }) });
+    renderToStaticMarkup(createElement(PublicTrialLiffBridge, { liffId: "902-beauty", storeSlug: "soulife", storeName: "舒生活", contactUrl: "https://line.me/test", bookingPath: "/beauty-trial/soulife" }));
+    m.effect?.();
+    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith("https://preview.example/beauty-trial/soulife?entry=verified-entry#booking-form"));
+  });
+  it("starts official external LINE Login without minting an entry first", async () => {
+    m.inLine.mockReturnValue(false);
+    const login = vi.fn(); m.init.mockResolvedValue({ isLoggedIn: () => false, login });
+    start();
+    await vi.waitFor(() => expect(login).toHaveBeenCalledOnce());
+    expect(m.fetch).not.toHaveBeenCalled(); expect(m.replace).not.toHaveBeenCalled();
+  });
 });
