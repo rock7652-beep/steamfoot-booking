@@ -8,6 +8,7 @@ import {
   isConsultationMockedUnitTest,
   isIsolatedConsultationDatabaseUrl,
   PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
+  NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH,
 } from "../../scripts/consultation-preview-scope.mjs";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
@@ -233,3 +234,11 @@ describe("composed consultation and shared-card release modes", () => {
     expect(() => assertReviewedReleaseEnvironment({ ...preview, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
   });
  });
+
+it("allows the exact new-member checkout review branch only with both isolated connections", () => {
+  const env = { ...valid, VERCEL_GIT_COMMIT_REF: NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH };
+  expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview");
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DATABASE_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DIRECT_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+  expect(() => assertReviewedReleaseEnvironment({ ...env, VERCEL_ENV: "production" })).toThrow();
+});

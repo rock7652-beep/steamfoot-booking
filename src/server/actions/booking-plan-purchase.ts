@@ -46,7 +46,7 @@ export async function getSingleBookingPurchasePlans(bookingId: string): Promise<
 
 export async function purchasePlanForSingleBooking(
   input: z.infer<typeof purchasePlanForSingleBookingSchema>,
-): Promise<ActionResult<{ transactionId: string; walletId: string | null; pendingPayment: boolean }>> {
+): Promise<ActionResult<{ transactionId: string; walletId: string | null; pendingPayment: boolean; customerId: string }>> {
   // Fixed action label only; no arguments, customer data, or identifiers.
   console.info("[BOOKING_ACTION]", "purchasePlanForSingleBooking");
   try {
@@ -108,7 +108,7 @@ export async function purchasePlanForSingleBooking(
     });
     kickPlanActivationNotifications(storeId);
     revalidateBookings(booking.customerId);
-    return { success: true, data: { ...result, pendingPayment: isPending } };
+    return { success: true, data: { ...result, pendingPayment: isPending, customerId: booking.customerId } };
   } catch (e) {
     return handleActionError(e);
   }

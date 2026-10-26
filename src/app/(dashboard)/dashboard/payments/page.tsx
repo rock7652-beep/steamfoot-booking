@@ -244,6 +244,7 @@ export default async function PendingPaymentsPage({
                           status={tx.rowStatus}
                           customerId={tx.customer?.id ?? null}
                           confirmProps={{
+                      customerId: tx.customer?.id,
                             transactionId: tx.id,
                             customerName: tx.customer?.name ?? "—",
                             planName,
@@ -351,6 +352,7 @@ export default async function PendingPaymentsPage({
                     status={tx.rowStatus}
                     customerId={tx.customer?.id ?? null}
                     confirmProps={{
+                      customerId: tx.customer?.id,
                       transactionId: tx.id,
                       customerName: tx.customer?.name ?? "—",
                       planName,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { PlanPurchaseLoginCheck } from "@/components/admin/plan-purchase-login-check";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { toast } from "sonner";
 import { collectSinglePayment } from "@/server/actions/single-booking";
@@ -72,6 +73,9 @@ export function CollectSingleModal({
   onCollected,
 }: Props) {
   const titleId = useId();
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [purchasedCustomer, setPurchasedCustomer] = useState<string | null>(null);
+  useEffect(() => { if (!open) setPurchasedCustomer(null); }, [open, bookingId]);
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
   const [paymentSplits, setPaymentSplits] = useState<
@@ -166,7 +170,8 @@ export function CollectSingleModal({
               ? "已建立，待確認轉帳後發放堂數"
               : "已轉購方案並保留本次扣堂",
           );
-          onCollected(false);
+          if (r.data.pendingPayment) onCollected(false);
+          else setPurchasedCustomer(r.data.customerId);
         } else toast.error(r.error ?? "轉購方案失敗");
       });
       return;
@@ -209,7 +214,7 @@ export function CollectSingleModal({
     });
   }
 
-  const content = (
+  const content = purchasedCustomer ? <div className="min-h-0 overflow-y-auto p-4"><h3 id={titleId} className="mb-3 text-lg font-semibold">轉購方案完成</h3><PlanPurchaseLoginCheck onBusyChange={setLoginBusy} customerId={purchasedCustomer} onDone={() => { setPurchasedCustomer(null); onCollected(false); }} /></div> : (
       <div
         className={
           embedded
@@ -462,7 +467,7 @@ export function CollectSingleModal({
       </div>
   );
   return embedded ? content : (
-    <ModalPanel open={open} onClose={onClose} pending={pending} labelledById={titleId}>
+    <ModalPanel open={open} onClose={onClose} pending={pending || loginBusy} labelledById={titleId}>
       {content}
     </ModalPanel>
   );

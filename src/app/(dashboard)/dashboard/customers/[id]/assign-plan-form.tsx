@@ -3,6 +3,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 
 import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
+import { PlanPurchaseLoginCheck } from "@/components/admin/plan-purchase-login-check";
 import { toast } from "sonner";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
 import type { PaymentSplitInput } from "@/lib/payment-splits";
@@ -43,6 +44,7 @@ type StaffPaymentStatus = "CONFIRMED" | "PENDING";
 
 export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, onPendingChange, defaultPlanId }: Props) {
   const submitting = useRef(false);
+  const [completed, setCompleted] = useState(false);
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
@@ -160,7 +162,8 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           setCustomExpiryUnit("DAY");
           setCustomExpiryDate(todayTW);
           window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId, pendingPayment: isPending } }));
-          onSuccess?.();
+          if (isPending) onSuccess?.();
+          else setCompleted(true);
           return { error: null };
         }
         toast.error(result.error ?? "指派失敗");
@@ -173,6 +176,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   useEffect(() => { onPendingChange?.(pending); }, [pending, onPendingChange]);
 
   useSettingsPanelGuard(open && (selectedPlanId !== (defaultPlanId ?? "") || paymentMethod !== "CASH" || !!referenceNo || !!bankLast5 || hasDiscount || expiryMode !== "PLAN_DEFAULT"), pending);
+  if (completed) return <PlanPurchaseLoginCheck customerId={customerId} onBusyChange={onPendingChange} onDone={() => { setCompleted(false); onSuccess?.(); }} />;
   if (!open && !alwaysOpen) {
     return (
       <button
