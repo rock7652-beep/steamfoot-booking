@@ -49,7 +49,7 @@ function SportsLessonFields({source,schedulingModes,initial,date,seed={},request
  useEffect(()=>{if(trial&&selectedCharge?.trialPrice!=null)setPrice(selectedCharge.trialPrice);},[selectedCharge,trial]);
  const trialStudents=trialCustomerMode==="existing"&&trialCustomerId?[trialCustomerId]:[];
  const trialValid=trialCustomerMode==="new"?!!trialName.trim()&&/^09\d{8}$/.test(normalizedTrialPhone):!!trialCustomerId;
- const filteredCustomers=customers.filter(c=>((!fixed&&!trial||!!query.trim())&&(trial||fixed||live.students.some(s=>s.id===c.id&&s.subject===subject&&s.sportsMode==="ASSIGNED")))&&(!query.trim()||c.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())||c.phone.replace(/\D/g,"").includes(query.replace(/\D/g,""))&&/\d/.test(query)));
+ const filteredCustomers=customers.filter(c=>((!fixed&&!trial||!!query.trim())&&(trial||fixed||live.students.some(s=>s.id===c.id&&s.subject===subject&&(s.sportsMode==="ASSIGNED"||s.assignedEligible===true))))&&(!query.trim()||c.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())||c.phone.replace(/\D/g,"").includes(query.replace(/\D/g,""))&&/\d/.test(query)));
 
  useEffect(()=>{onGuard(dirty,pending);return()=>onGuard(false,false);},[dirty,pending,onGuard]);
  return <form data-course-entry className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3" onChange={()=>{setDirty(true);setError("");}} onSubmit={e=>{

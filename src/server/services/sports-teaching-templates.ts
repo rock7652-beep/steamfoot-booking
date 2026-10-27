@@ -7,3 +7,10 @@ export async function readSportsTeachingTemplates(tx:Pick<Prisma.TransactionClie
  const templates=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId},select:{id:true}});
  return templates.map(t=>t.id);
 }
+
+/** Existing purchased rights projected for the native scheduling picker only. */
+export function sportsAssignedStudentSubjects(storeId:string,card:{sportsMode?:string;unit:string;templateIds:string[];sportsSubjectId:string|null;requestKey:string},templates:Array<{id:string;storeId:string;musicSubjectId:string|null}>){
+ if(card.sportsMode==='ASSIGNED')return card.sportsSubjectId?[card.sportsSubjectId]:[];
+ if(card.sportsMode!=='LEGACY'||card.unit!=='SESSION'||card.requestKey.startsWith('no-show-makeup:'))return [];
+ return [...new Set(templates.filter(t=>t.storeId===storeId&&card.templateIds.includes(t.id)&&t.musicSubjectId).map(t=>t.musicSubjectId!))];
+}

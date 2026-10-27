@@ -8,14 +8,15 @@ vi.mock('@/components/operations/panel-read-cache',()=>({usePanelReader:()=>m}))
 vi.mock('@/server/actions/course-rental',()=>({createRentalCustomer:vi.fn()}));
 vi.mock('@/server/actions/sports-staging',()=>({sportsStagingCommand:m.command}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:()=>null}));
+import type {SportsSnapshot} from '@/lib/sports-staging-types';
 import {SportsScheduleFields} from '@/app/(dashboard)/dashboard/courses/sports-schedule-fields';
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 const settings={kind:'single',durationMinutes:90,trialPrice:480,trialDuration:null,providerIds:['coach']};
 beforeEach(()=>{vi.clearAllMocks();m.read.mockResolvedValue({success:true,enabled:true,defaultTrialPrice:499,rows:[{id:'single',name:'舞蹈單次',open:false,price:700,settings}]});m.command.mockResolvedValue({success:false,error:'隔離失敗，保留草稿'});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function mount(){await act(async()=>root.render(createElement(SportsScheduleFields,{initial:{storeId:'s',date:'2026-10-27',subjects:[{id:'subject',templateId:'t',name:'舞蹈',category:'',active:true,updatedAt:'v1'}],fees:[],lessons:[],students:[],customers:[{id:'existing',name:'既有學員',phone:'0900000000'}],coaches:[{id:'coach',name:'老師',templates:['t']}],rooms:[{id:'room',name:'A',capacity:8,rental:true}]},date:'2026-10-27',seed:{coachId:'coach'},schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},requestKey:'00000000-0000-4000-8000-000000000001',onGuard:()=>{},onCreated:()=>{}})));
- await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='體驗')!.click());}
+async function mount(mode="體驗",students:SportsSnapshot["students"]=[]){await act(async()=>root.render(createElement(SportsScheduleFields,{initial:{storeId:'s',date:'2026-10-27',subjects:[{id:'subject',templateId:'t',name:'舞蹈',category:'',active:true,updatedAt:'v1'}],fees:[],lessons:[],students,customers:[{id:'existing',name:'既有學員',phone:'0900000000'}],coaches:[{id:'coach',name:'老師',templates:['t']}],rooms:[{id:'room',name:'A',capacity:8,rental:true}]},date:'2026-10-27',seed:{coachId:'coach'},schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},requestKey:'00000000-0000-4000-8000-000000000001',onGuard:()=>{},onCreated:()=>{}})));
+ await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent===mode)!.click());}
 async function fill(label:string,value:string){const input=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});}
 it('loads the selected single charge trial price/duration and creates a guest intent with stable retries',async()=>{
  await mount();expect(host.querySelector('[aria-label="搜尋學員"]')).toBeNull();
@@ -36,4 +37,9 @@ it('blocks an invalid phone before sending a schedule request',async()=>{await m
 it('uses an explicit free trial price and trial duration instead of store defaults',async()=>{
  m.read.mockResolvedValue({success:true,enabled:true,defaultTrialPrice:499,rows:[{id:'free',name:'免費體驗',price:700,open:false,settings:{...settings,trialPrice:0,trialDuration:30}}]});await mount();
  expect(host.querySelector<HTMLInputElement>('[aria-label="排課費用"]')!.value).toBe('0');expect(host.querySelector<HTMLInputElement>('[aria-label="排課時長"]')!.value).toBe('30');
+});
+
+it.each([true,false])('single assigned picker respects server-verified legacy teaching-item eligibility (%s)',async matching=>{
+ await mount('單次',[{id:'existing',name:'既有學員',fee:'ten-lessons',sportsMode:'LEGACY',assignedEligible:matching,subject:'subject',cardId:'legacy-ten',available:10}]);
+ expect(host.textContent?.includes('既有學員')).toBe(matching);
 });

@@ -1,4 +1,5 @@
 "use server";
+import {sportsAssignedStudentSubjects} from "@/server/services/sports-teaching-templates";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {courseChargeSettings} from "@/lib/course-charge-settings";
 import { z } from "zod";
@@ -251,25 +252,16 @@ export async function loadSportsStaging(formOnly = false): Promise<
         })),
         fees,
         lessons,
-        students: cards
-          .filter((c) => {
-            const f = fees.find((f) => f.id === c.planId);
-            return (
-              f && (c.sportsMode!=="LEGACY" || !c.templateIds.length || c.templateIds.includes(f.templateId))
-            );
-          })
-          .flatMap((c) =>
-            c.members.map((m) => ({
-              id: m.customerId,
-              name: customers.find((p) => p.id === m.customerId)?.name ?? "",
-              fee: c.planId,
-              subject:c.sportsSubjectId??fees.find(f=>f.id===c.planId)?.subject,
-              sportsMode:c.sportsMode,
-              cardId: c.id,
-              available:
-                c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0),
-            })),
-          ),
+        students: cards.flatMap(c=>{
+          const assignedSubjects=sportsAssignedStudentSubjects(storeId,c,templates);
+          const fallback=c.sportsSubjectId??fees.find(f=>f.id===c.planId)?.subject;
+          const subjects=assignedSubjects.length?assignedSubjects:fallback?[fallback]:[];
+          return subjects.flatMap(subject=>c.members.map(m=>({
+            id:m.customerId,name:customers.find(p=>p.id===m.customerId)?.name??"",
+            fee:c.planId,subject,sportsMode:c.sportsMode,assignedEligible:assignedSubjects.includes(subject),
+            cardId:c.id,available:c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0),
+          })));
+        }),
         customers,
         coaches: coaches.map((c) => ({
           id: c.id,
