@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   probe: vi.fn(),
   createLink: vi.fn(),
   module: vi.fn(),
+  sports: vi.fn(),
 }));
 
 vi.mock("@/lib/liff/verify-id-token", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/lib/line", () => ({
   probeStoreLineRecipient: (...args: unknown[]) => mocks.probe(...args),
 }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.module }));
+vi.mock("@/server/services/sports-public-trial-store", () => ({ requireSportsPublicTrialStore: mocks.sports }));
 vi.mock("@/server/services/trial-booking-chat-link", () => ({
   createTrialBookingChatLink: (...args: unknown[]) => mocks.createLink(...args),
 }));
@@ -42,6 +44,7 @@ beforeEach(() => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", "");
   vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
   mocks.module.mockResolvedValue("beauty");
+  mocks.sports.mockRejectedValue(new Error("not a fitness store"));
   mocks.verify.mockResolvedValue({
     lineUserId: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     channelId: "2010761154",
@@ -59,6 +62,15 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 const configured = { storeId: "store-soulife", slug: "soulife", providerId: "901", loginChannelId: "902", messagingProviderId: "901", messagingChannelId: "903", liffId: "902-beauty", basicId: "@beauty", destination: "U" + "a".repeat(32), accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET" };
+
+it("issues a store-scoped sports entry only after fitness and LINE checks pass", async () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{ ...configured, storeId: "store-silverlily", slug: "silverlily" }]));
+  mocks.resolveStore.mockResolvedValue({ id: "store-silverlily", slug: "silverlily" });
+  mocks.module.mockResolvedValue("course"); mocks.sports.mockResolvedValue({ id: "store-silverlily" });
+  expect((await POST(request({ idToken: "token", storeSlug: "silverlily" }))).status).toBe(200);
+  expect(mocks.sports).toHaveBeenCalledWith("silverlily");
+  expect(mocks.createLink).toHaveBeenCalledWith({ storeId: "store-silverlily", channel: "LINE", chatIdentity: "Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" });
+});
 
 it("uses the configured beauty audience and issues only its own store entry", async () => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([configured]));
