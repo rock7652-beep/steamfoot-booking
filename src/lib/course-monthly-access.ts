@@ -1,8 +1,5 @@
-/** HQ access requires the server-validated native music capability; per-operation permissions remain mandatory. */
-export function canViewCourseMonthly(role: string, nativeMusicEnabled: boolean) {
-  return role === "OWNER" || (role === "ADMIN" && nativeMusicEnabled);
+/** Role eligibility only; callers must still authorize the selected store and operation. */
+export function canViewCourseMonthly(role: string) {
+  return role === "OWNER" || role === "ADMIN";
 }
-/** Apply alongside the existing permission, store and subscription checks. */
-export function canOperateCourseMonthly(role: string, nativeMusicEnabled: boolean) {
-  return role === "OWNER" || (role === "ADMIN" && nativeMusicEnabled);
-}
+export const canOperateCourseMonthly = canViewCourseMonthly;

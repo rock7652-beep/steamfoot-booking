@@ -11,11 +11,26 @@ export function operationsArea(value?: string): OperationsArea {
   if (value === "fees") return "monthly";
   return OPERATIONS_AREAS.find(area => area.id === value)?.id ?? "ledger";
 }
+const AREA_FILTERS = {
+  ledger: [["status","ledgerStatus"],["staff","ledgerStaff"],["kind","ledgerKind"],["transactionType","ledgerTransactionType"],["method","ledgerMethod"],["search","ledgerSearch"]],
+  cashbook: [["type","cashbookType"],["kind","cashbookKind"],["q","cashbookQ"]],
+  monthly: [["teacherId","monthlyTeacherId"],["salaryData","monthlySalaryData"],["settlementTeacher","monthlySettlementTeacher"],["settlementCategory","monthlySettlementCategory"],["settlementPerson","monthlySettlementPerson"]],
+} as const;
+export const OPERATIONS_SAVED_FILTERS = ["month", "dataScope", "reportView", "exportType", "exportStatus", "reportPlanType", "reportPaymentMethod", "reportKeyword", ...Object.values(AREA_FILTERS).flatMap(fields=>fields.map(([,saved])=>saved))];
+export function operationsSavedQuery(query:OperationsQuery) {
+  return Object.fromEntries(OPERATIONS_SAVED_FILTERS.filter(key=>query[key]).map(key=>[key,query[key]!])) as Record<string,string>;
+}
 /** Share dates and scope, never leak one table's status/page into another tab. */
 export function operationsHref(area: OperationsArea, query: OperationsQuery = {}, beautyLedger = false) {
   const next = new URLSearchParams();
-  for (const key of ["dateFrom", "dateTo", "month", "dataScope"])
+  for (const key of ["dateFrom", "dateTo", ...OPERATIONS_SAVED_FILTERS])
     if (query[key]) next.set(key, query[key]!);
+  const source=operationsArea(query.area);
+  for(const [owner,fields] of Object.entries(AREA_FILTERS))for(const [key,saved] of fields) {
+    if(source===owner) { if(query[key])next.set(saved,query[key]!);else next.delete(saved); }
+    const value=source===owner?query[key]:query[saved];
+    if(area===owner&&value)next.set(key,value);
+  }
   if (area !== "ledger") next.set("area", area);
   if ((area === "monthly" || area === "cashbook") && !next.has("month") && /^\d{4}-\d{2}-\d{2}$/.test(query.dateTo ?? ""))
     next.set("month", query.dateTo!.slice(0, 7));

@@ -9,7 +9,7 @@ export const dailyOperationGuides20260925: OperationGuide[] = [
     path: "月結管理 → 每月收入結算", keywords: "課程月結 每月收入結算 店長利潤 教練授課費 搜尋人員 應領合計 確認月結 重新確認 修正版",
     steps: ["選月份，再選「全部／店長利潤／教練授課費」；多人時可搜尋人員。", "展開人員「明細」，核對原方案或課次、日期及金額；待核對項目先查原因。", "點「確認月結」，核對月份後再按「確認」；有異動時點「重新確認」並填調整原因。"],
     important: "確認只保存本次收入金額，不會付款或自動發 LINE；舊資料缺少快照不能當作零元略過。",
-    details: ["利潤按方案核帳月份、授課費按上課月份且只納入已結束課次；新排課未設定費率沿用 0 元規則。", "收入類別會改變合計及人員範圍；人員搜尋只篩清單，不把合計改成單一人的金額。新版不再提供待處理／已結清篩選。", "「結算紀錄」保留確認版本；退款或作廢影響舊月份時，依提示回原月份重新核對。", "僅店長且具報表權限、月結功能可操作；跨店檢視不能確認。"],
+    details: ["利潤按方案核帳月份、授課費按上課月份且只納入已結束課次；新排課未設定費率沿用 0 元規則。", "收入類別會改變合計及人員範圍；人員搜尋只篩清單，不把合計改成單一人的金額。新版不再提供待處理／已結清篩選。", "「結算紀錄」保留確認版本；退款或作廢影響舊月份時，依提示回原月份重新核對。", "總部或店長具報表權限、月結功能可操作；總部須選定門市，分店唯讀檢視不能確認。"],
     success: "顯示已確認，結算紀錄保留版本；實際收付款另行核對。",
     modules: ["course"], permission: "report.read", feature: "service_fee_calculator", kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/service-fee-calculator/course-monthly.tsx", "src/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client.tsx", "src/server/actions/course-monthly-settlement.ts", "src/server/services/course-monthly-settlement.ts"],

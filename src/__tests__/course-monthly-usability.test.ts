@@ -69,3 +69,10 @@ it("switches income totals, people and details without changing confirmation or 
  const actions=await import("@/server/actions/course-monthly-settlement");
  expect(actions.saveCourseSettlementSettings).not.toHaveBeenCalled();expect(actions.confirmCourseMonthlySettlement).not.toHaveBeenCalled();
 });
+
+it("separates unpaid and overpaid amounts from confirmation",async()=>{
+ const base={kind:"FEE" as const,date:"2026-09-01",issue:null,payments:[],label:"課堂"};
+ await act(async()=>root.render(createElement(CourseMonthlyReport,{showPaymentStatus:true,status:createElement("span",null,"月結已確認"),lines:[{...base,id:"a",staffId:"a",name:"甲",amount:500,paid:0},{...base,id:"b",staffId:"b",name:"乙",amount:500,paid:600}]})));
+ const summary=host.querySelector('[aria-label="付款登錄狀態"]')!.textContent;
+ expect(summary).toContain("已登錄付款 NT$ 600");expect(summary).toContain("未付 NT$ 500");expect(summary).toContain("溢付 NT$ 100");expect(host.textContent).toContain("月結已確認");
+});

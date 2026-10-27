@@ -97,7 +97,7 @@ export default async function StoreRevenuePage({searchParams}: {searchParams:Pro
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="admin-page-title">店營收報表</h1>
-          <p className="text-sm text-earth-500">查看各分店營收數據、交易明細，並匯出 Excel</p>
+
         </div>
       </div>
 

@@ -1,6 +1,10 @@
-import {createElement as h,type ReactNode} from 'react';
+// @vitest-environment jsdom
+import {act,createElement as h,type ReactNode} from 'react';
+import {createRoot} from "react-dom/client";
 import {renderToStaticMarkup} from 'react-dom/server';
 import {expect,it,vi} from 'vitest';
+const navigation=vi.hoisted(()=>({push:vi.fn()}));
+vi.mock('next/navigation',()=>({useSearchParams:()=>null,usePathname:()=>'/hq/dashboard/revenue',useRouter:()=>({push:navigation.push})}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:({children,...props}:{children:ReactNode})=>h('a',props,children)}));
 import {RevenueTabs} from '@/app/(dashboard)/dashboard/revenue/_components/revenue-tabs';
 it('uses the same ordered operations areas for every industry',()=>{
@@ -18,4 +22,15 @@ it('preserves the beauty ledger while all financial tools stay inside operations
 it('does not render an unauthorized tab',()=>{
  const html=renderToStaticMarkup(h(RevenueTabs,{active:'exports',available:['exports']}));
  expect(html).toContain('報表匯出');expect(html).not.toContain('營收明細');expect(html).not.toContain('月結管理');
+});
+
+it('reads the latest history date when a tab is clicked before navigation props update',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});navigation.push.mockClear();
+ const host=document.createElement('div'),root=createRoot(host);document.body.append(host);
+ try {
+  await act(async()=>root.render(h(RevenueTabs,{active:'exports',query:{area:'exports',dateFrom:'2026-09-01',dateTo:'2026-09-30'}})));
+  window.history.replaceState(null,'','/hq/dashboard/revenue?area=exports&dateFrom=2026-09-02&dateTo=2026-09-30');
+  await act(async()=>host.querySelector('a')!.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})));
+  expect(navigation.push).toHaveBeenCalledWith('/hq/dashboard/revenue?dateFrom=2026-09-02&dateTo=2026-09-30',{scroll:false});
+ } finally {await act(async()=>root.unmount());host.remove();}
 });

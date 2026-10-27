@@ -32,3 +32,19 @@ it('moves legacy tools before rendering while preserving their parameters',()=>{
 it('does not intercept current tabs, editing pages or unrelated routes',()=>{
  for(const path of ['/s/child/admin/dashboard/revenue','/hq/dashboard/cashbook/new','/dashboard/cashbook/entry/edit','/api/data-export'])expect(legacyOperationsDestination(path,new URLSearchParams())).toBeNull();
 });
+
+it('retains ledger and export context without applying ledger status to another table',()=>{
+ const exports=new URL(operationsHref('exports',{dateFrom:'2026-09-01',dateTo:'2026-09-30',status:'PENDING',staff:'owner',kind:'plans',page:'3',exportType:'purchases',reportView:'data'}),'https://example.test');
+ expect(exports.searchParams.has('status')).toBe(false);expect(exports.searchParams.has('page')).toBe(false);
+ const restored=new URL(operationsHref('ledger',Object.fromEntries(exports.searchParams)),'https://example.test');
+ expect(restored.searchParams.get('status')).toBe('PENDING');expect(restored.searchParams.get('staff')).toBe('owner');expect(restored.searchParams.get('kind')).toBe('plans');expect(restored.searchParams.get('exportType')).toBe('purchases');
+});
+
+it('keeps cashbook kind separate and does not revive a cleared ledger filter',()=>{
+ const href=new URL(operationsHref('ledger',{area:'cashbook',kind:'expense',q:'房租',ledgerKind:'plans',ledgerStatus:'PENDING'}),'https://example.test');
+ expect(href.searchParams.get('kind')).toBe('plans');expect(href.searchParams.get('cashbookKind')).toBe('expense');
+ const cash=new URL(operationsHref('cashbook',Object.fromEntries(href.searchParams)),'https://example.test');
+ expect(cash.searchParams.get('kind')).toBe('expense');expect(cash.searchParams.get('q')).toBe('房租');
+ const cleared=new URL(operationsHref('exports',{ledgerStatus:'PENDING'}),'https://example.test');
+ expect(cleared.searchParams.has('ledgerStatus')).toBe(false);
+});

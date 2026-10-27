@@ -1,4 +1,6 @@
 "use server";
+import {canOperateCourseMonthly} from "@/lib/course-monthly-access";
+import {assertMonthlyStore} from "@/lib/monthly-store-guard";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { z } from "zod";
 import { courseManager } from "@/server/services/course-access";
@@ -11,7 +13,7 @@ import { courseMonthlyNoticeSummary,sendCourseMonthlyNotice } from "@/server/ser
 const input=z.object({month:settlementMonth,revision:z.number().int().positive()});
 async function actor(staffId?:string){
  const a=await courseManager('report.read');
- if(a.user.role!=='OWNER')throw new AppError('FORBIDDEN','僅店長可通知人員');
+ if(!canOperateCourseMonthly(a.user.role))throw new AppError('FORBIDDEN','僅總部或店長可通知人員');
  await requireMusicFinance(a.user,a.storeId,"teacher.settlement.read",staffId);
  await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  await requireStoreFeature(a.storeId,FEATURES.LINE_REMINDER);
@@ -20,9 +22,11 @@ async function actor(staffId?:string){
 }
 export async function previewCourseMonthlyNotifications(raw:unknown){try{
  const d=input.parse(raw),a=await actor();
+ assertMonthlyStore(raw,a.storeId,a.user.role);
  return {success:true as const,data:await courseMonthlyNoticeSummary(a.storeId,d.month,d.revision)};
 }catch(e){return handleActionError(e);}}
 export async function notifyCourseMonthlyPerson(raw:unknown){try{
  const d=input.extend({staffId:z.string().min(1).max(180)}).parse(raw),a=await actor(d.staffId);
+ assertMonthlyStore(raw,a.storeId,a.user.role);
  return {success:true as const,data:await sendCourseMonthlyNotice({storeId:a.storeId,userId:a.user.id},d.month,d.revision,d.staffId)};
 }catch(e){return handleActionError(e);}}

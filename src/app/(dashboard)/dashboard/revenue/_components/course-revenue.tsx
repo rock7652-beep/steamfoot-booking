@@ -1,3 +1,5 @@
+import {operationsSavedQuery} from "@/lib/operations-navigation";
+import toolbar from "@/components/operations/filter-toolbar.module.css";
 import {OperationsReceiptSummary} from "@/components/operations/receipt-summary";
 import {musicPurchaseWhere} from "@/server/services/music-finance-scope";
 import type {CourseRevenueSource} from "./course-revenue-source";
@@ -31,7 +33,7 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
   canDataExport?: boolean;
 }) {
   const legacy=musicDataScope(storeId,params.dataScope)==="legacy";
-  const scopeQuery:Record<string,string>={...(legacy?{dataScope:"legacy"}:{}),...(params.kind?{kind:params.kind}:{})};
+  const scopeQuery:Record<string,string>={...operationsSavedQuery(params),...(legacy?{dataScope:"legacy"}:{}),...(params.kind?{kind:params.kind}:{})};
   if(legacy){readOnly=true;canRefund=false;canConfirm=false;canEdit=false;canVoid=false;}
   const today = toLocalDateStr();
   const validDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).valueOf()) && new Date(s).toISOString().slice(0, 10) === s;
@@ -95,17 +97,17 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
     <PageHeader compact title={basePath==="/dashboard/transactions"?"交易明細":"營運"} actions={<RevenueLink resolveHref={source?.href} className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({...scopeQuery,dateFrom:from,dateTo:to,status:"PENDING"})}`}>待核帳</RevenueLink>}/>
     {source?.tabs??<OperationsTabs query={{...params,dateFrom:from,dateTo:to}}/>}
     {source?<OperationsReceiptSummary gross={receiptTotals.gross} refunds={receiptTotals.refunds} net={receiptTotals.net} pendingCount={pendingCount}><p>核帳／收款及退款按發生日；清單依購買日期，皆為台灣時間。</p><p>方案收款 {money(income)}・體驗收款 {money(receiptTotals.trial)}・體驗沖銷 {money(receiptTotals.voids)}</p></OperationsReceiptSummary>:<MusicRevenueMetrics initial={receiptTotals} from={from} to={to} dataScope={params.dataScope} compact pendingCount={pendingCount}/>}
-    <div className="grid grid-cols-12 gap-3 items-start"><section className="col-span-12 min-w-0 rounded-xl border border-earth-200 bg-white">
-      <div className="border-b p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">交易工作台</h2><nav aria-label="營運期間" className="flex rounded-lg bg-earth-100 p-1 text-sm"><RevenueLink resolveHref={source?.href} className={`rounded-md px-3 py-1.5 ${isToday?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today,today)}>本日</RevenueLink><RevenueLink resolveHref={source?.href} className={`rounded-md px-3 py-1.5 ${isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today.slice(0,7)+"-01",today)}>本月</RevenueLink><span className={`rounded-md px-3 py-1.5 ${!isToday&&!isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`}>任意區間</span></nav></div>
-        <InstantFilterForm className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-12 gap-3 items-start"><section className={`${toolbar.container} col-span-12 min-w-0 rounded-xl border border-earth-200 bg-white`}>
+      <div className="border-b p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">交易工作台</h2><nav aria-label="營運期間" className="flex rounded-lg bg-earth-100 p-1 text-sm"><RevenueLink resolveHref={source?.href} className={`inline-flex min-h-11 items-center rounded-md px-3 py-1.5 ${isToday?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today,today)}>本日</RevenueLink><RevenueLink resolveHref={source?.href} className={`inline-flex min-h-11 items-center rounded-md px-3 py-1.5 ${isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today.slice(0,7)+"-01",today)}>本月</RevenueLink><span className={`inline-flex min-h-11 items-center rounded-md px-3 py-1.5 ${!isToday&&!isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`}>任意區間</span></nav></div>
+        <InstantFilterForm className={`${toolbar.toolbar} mt-2`}>
           {Object.entries({...Object.fromEntries(Object.entries(scopeQuery).filter(([key])=>key!=="kind")),...source?.queryFields}).map(([name,value])=><input key={name} type="hidden" name={name} value={value}/>)}
-          <label className="text-xs">開始日期<input className={dateField} type="date" name="dateFrom" defaultValue={from} /></label>
-          <label className="text-xs">結束日期<input className={dateField} type="date" name="dateTo" defaultValue={to} /></label>
+          <label className="text-xs">開始<input aria-label="開始日期" className={dateField} type="date" name="dateFrom" defaultValue={from} /></label>
+          <label className="text-xs">結束<input aria-label="結束日期" className={dateField} type="date" name="dateTo" defaultValue={to} /></label>
           {!source&&<label className="text-xs">交易類型<select className={selectField} style={selectStyle} name="kind" defaultValue={kind}><option value="all">全部交易</option><option value="plans">方案購買</option><option value="trial">體驗交易</option></select></label>}
           <label className="text-xs">狀態<select className={selectField} style={selectStyle} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label className="text-xs">核帳人員<select className={selectField} style={selectStyle} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId && (s.user?.role === "OWNER" || s.user?.role === "ADMIN" || rows.some(order => order.confirmedBy === s.userId))).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
           <RevenueLink resolveHref={source?.href} href={basePath} className="flex h-11 items-center justify-center self-end rounded-lg border border-earth-200 px-3 text-sm text-earth-600">清除</RevenueLink>
-        </InstantFilterForm><p className="mt-3 text-sm text-earth-600">共 {count} 筆購買紀錄；查看明細可處理核帳、退款與更正。</p>
+        </InstantFilterForm>{source&&<p className="mt-2 text-sm text-earth-600">共 {count} 筆購買紀錄</p>}
       </div>
       {showPlans&&<>{!source?<CourseRevenueTransactions initial={detail} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope}} live={musicNativeWorkflowEnabled(storeId)} basePath={basePath} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffRows={staffRows}/>:rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {source && pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <RevenueLink resolveHref={source?.href} href={href(page - 1)}>上一頁</RevenueLink>}{page < pages && <RevenueLink resolveHref={source?.href} href={href(page + 1)}>下一頁</RevenueLink>}</div></div>}
