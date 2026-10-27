@@ -1,19 +1,19 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn()}));
+const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn(),room:vi.fn(),template:vi.fn(),coaches:vi.fn(),plan:vi.fn(),schedule:vi.fn()}));
 vi.mock("@/lib/sports-staging",()=>({requireSportsStaging:()=>{}}));
-vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({})},customer:{findMany:async()=>[]},staff:{findMany:async()=>[]}}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans},courseTemplate:{findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({})},customer:{findMany:async()=>[]},staff:{findMany:m.coaches}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans,findFirst:m.plan},courseTemplate:{findFirst:m.template,findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findFirst:m.room,findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseMember:vi.fn(),courseTransaction:vi.fn()}));
 vi.mock("@/server/services/sports-production-readiness",()=>({assertSportsProductionReady:async()=>{}}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCoursePointPlan:m.savePlan}));
-vi.mock("@/server/actions/course",()=>({}));
+vi.mock("@/server/actions/course",()=>({createCourseSchedule:m.schedule}));
 vi.mock("@/server/actions/course-rental",()=>({}));
 vi.mock("@/server/actions/course-trial",()=>({}));
 vi.mock("@/server/actions/course-refund",()=>({}));
 import {loadSportsStaging} from "@/server/actions/sports-staging";
 beforeEach(()=>{
- vi.clearAllMocks();m.finance=false;m.denied="";
+ vi.clearAllMocks();m.room.mockResolvedValue({id:"room",capacity:8});m.template.mockResolvedValue({id:"t"});m.coaches.mockResolvedValue([]);m.finance=false;m.denied="";
  m.manager.mockImplementation(async(permission:string)=>{if(permission===m.denied||permission==="teacher.compensation.read"&&!m.finance)throw new Error("FORBIDDEN");return {storeId:"sports-live-flow-store",user:{id:"staff",role:"STAFF"}};});
  m.compensation.mockResolvedValue([{templateId:"t",rules:[{mode:"HOUR",value:700}]}]);m.plans.mockResolvedValue([{id:"plan",name:"十堂",points:10,price:2000,validDays:90,unit:"SESSION",templateIds:["t"],isActive:true}]);
 });
@@ -47,4 +47,33 @@ it("儲存一般與體驗成本不再將店家成本改成零",async()=>{
  expect(await saveSportsFee(data)).toMatchObject({success:true});
  expect(m.savePlan).toHaveBeenCalledWith(expect.objectContaining({storeCost:350,chargeSettings:expect.objectContaining({trialStoreCost:120})}));
  m.savePlan.mockClear();expect(await saveSportsFee({...data,storeCost:-1})).toMatchObject({success:false});expect(m.savePlan).not.toHaveBeenCalled();
+});
+
+it.each([true,false])('保留舊方案資格與空收費設定，單獨更新顧客可購買=%s',async customerPurchasable=>{
+ const {saveSportsFee}=await import('@/server/actions/sports-staging');
+ const {coursePlanValues}=await import('@/lib/course-plan-save');
+ const base=coursePlanValues.parse({name:'舞蹈(常態)-10堂',points:10,price:5800,validDays:90,unit:'SESSION',templateIds:['old-rule'],customerPurchasable:!customerPurchasable});
+ m.savePlan.mockResolvedValue({success:true,data:{...base,customerPurchasable}});
+ const snapshot=JSON.stringify(base);
+ expect(await saveSportsFee({id:'legacy',sportsMode:'LEGACY',chargeSettings:null,name:base.name,unit:'堂數',amount:10,price:5800,days:90,cost:1,shared:false,coachIds:[],customerPurchasable,requestKey:'00000000-0000-4000-8000-000000000001',snapshot})).toMatchObject({success:true,data:{customerPurchasable}});
+ expect(m.savePlan).toHaveBeenCalledWith(expect.objectContaining({id:'legacy',chargeSettings:null,templateIds:['old-rule'],sportsSetup:undefined,customerPurchasable,expectedSnapshot:snapshot,receipt:{expectedStoreId:'sports-live-flow-store',requestKey:'00000000-0000-4000-8000-000000000001'}}));
+ expect(m.manager.mock.calls.map(c=>c[0])).toEqual(['plans.edit']);
+});
+it('空收費設定不讓新建或缺少快照的舊流程略過資格設定',async()=>{
+ const {saveSportsFee}=await import('@/server/actions/sports-staging');
+ m.denied='staff.manage';
+ const input={sportsMode:'LEGACY',chargeSettings:null,name:'舞蹈',unit:'堂數',amount:10,price:5800,days:90,cost:1,shared:false,coachIds:[],customerPurchasable:true,requestKey:'00000000-0000-4000-8000-000000000001'};
+ expect((await saveSportsFee(input)).success).toBe(false);
+ expect((await saveSportsFee({...input,id:'legacy'})).success).toBe(false);
+ expect(m.savePlan).not.toHaveBeenCalled();
+});
+
+it('體驗新客由共用排課交易建立並預約，保留方案選擇且不重複加入舊學員規則',async()=>{
+ const {sportsStagingCommand}=await import('@/server/actions/sports-staging');
+ m.plan.mockResolvedValue({id:'single',templateIds:['t'],chargeSettings:{kind:'single',durationMinutes:90,trialPrice:480,trialDuration:null,providerIds:['coach']}});m.coaches.mockResolvedValue([{id:'coach'}]);m.schedule.mockResolvedValue({success:true});
+ const trialLearner={participantKey:'00000000-0000-4000-8000-000000000002',name:'體驗學員',phone:'0912345678'};
+ const payload={subject:'subject',fee:'single',kind:'體驗',mode:'指定學員',date:'2026-10-27',time:'10:00',duration:90,count:1,coach:'老師',coachId:'coach',room:'A',capacity:1,students:[],price:480,trialLearner,requestKey:'00000000-0000-4000-8000-000000000001'};
+ expect(await sportsStagingCommand({operation:'schedule',payload})).toMatchObject({success:true});
+ expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({chargePlanId:'single',isTrial:true,learners:[{customerId:null,cardId:null,participantKey:trialLearner.participantKey,customerName:trialLearner.name,customerPhone:trialLearner.phone}],sportsStaging:expect.objectContaining({students:[],enrollment:'ASSIGNED',frequency:'SINGLE'})}));
+ m.schedule.mockClear();m.plan.mockResolvedValue({id:'single',templateIds:['t'],chargeSettings:null});expect((await sportsStagingCommand({operation:'schedule',payload})).success).toBe(false);expect(m.schedule).not.toHaveBeenCalled();
 });

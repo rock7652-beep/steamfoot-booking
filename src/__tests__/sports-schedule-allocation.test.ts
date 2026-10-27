@@ -125,3 +125,11 @@ it.each(["OPEN","ASSIGNED"] as const)("%s 新課次優先保存個別教練費�
  expect(m.snapshot.mock.calls[0][0].create).toMatchObject({staffId:"coach",rule:{mode:"HOUR",value:800,source:"SPORTS_COACH_FEE",calculationVersion:3,durationMinutes:90}});
  expect(m.reserve).not.toHaveBeenCalled();
 });
+
+it('allows the shared transaction to enroll new trial learners while retaining the empty assigned-class guard',async()=>{
+ const trial={...sessions[0],isTrial:true,capacity:1};m.sessions.mockResolvedValue([trial]);
+ const input={...rule,frequency:'SINGLE' as const,planId:null,students:[]};
+ await expect(attachSportsSessionRules(tx,actor,'request',input)).rejects.toThrow('至少指定');
+ await attachSportsSessionRules(tx,actor,'request',input,undefined,1);expect(m.reserve).not.toHaveBeenCalled();expect(m.execute).toHaveBeenCalledOnce();
+ m.sessions.mockResolvedValue([{...trial,isTrial:false}]);await expect(attachSportsSessionRules(tx,actor,'request',input,undefined,1)).rejects.toThrow('體驗學員');
+});

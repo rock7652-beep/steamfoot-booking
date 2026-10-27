@@ -543,7 +543,8 @@ export async function createCourseSchedule(input: unknown) {
     if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
     if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
     if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
-    const enrollmentFingerprint=musicScheduling?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice,customerName:row.customerName,customerPhone:row.customerPhone})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
+    const sportsTrialLearners=!!data.sportsStaging&&data.isTrial&&data.learners.length>0;
+    const enrollmentFingerprint=musicScheduling||sportsTrialLearners?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode??data.sportsStaging?.enrollment,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice,customerName:row.customerName,customerPhone:row.customerPhone})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
@@ -586,7 +587,7 @@ export async function createCourseSchedule(input: unknown) {
                 session.bookingAudience !== data.bookingAudience ||
                 (session.scheduleType ?? "LEGACY") !== data.scheduleType ||
                 (session.enrollmentMode ?? "OPEN") !== (data.enrollmentMode ?? "OPEN") ||
-                (musicScheduling && session.enrollmentFingerprint !== enrollmentFingerprint) ||
+                ((musicScheduling||sportsTrialLearners) && session.enrollmentFingerprint !== enrollmentFingerprint) ||
                 (session.scheduleFrequency ?? "NONE") !== data.scheduleFrequency ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
@@ -601,7 +602,7 @@ export async function createCourseSchedule(input: unknown) {
           if(data.sportsStaging){const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");const rule=await readSportsSessionRule(tx,storeId,existing[0].id);if(!rule||!sameSportsScheduleRule(rule.payload,data.sportsStaging))throw new AppError("CONFLICT","排課請求已使用且參加方式不同");}
           const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,customerName:true,cardId:true,trialPrice:true,requestKey:true,bookingKind:true}});
           const expected=existing.flatMap((session,index)=>data.learners.filter(learner=>index===0||learner.cardId!==null||musicScheduling&&!data.isTrial&&learner.trialPrice===undefined).map(learner=>({session,learner})));
-          if(!musicScheduling&&(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&(booking.cardId===learner.cardId||musicScheduling&&booking.bookingKind==="UNPAID")&&(learner.cardId!==null||booking.trialPrice===(learner.trialPrice??null))&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
+          if(!musicScheduling&&(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&(booking.customerId===learner.customerId||sportsTrialLearners&&learner.customerId===null&&!!learner.participantKey&&booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)&&(booking.cardId===learner.cardId||musicScheduling&&booking.bookingKind==="UNPAID")&&(learner.cardId!==null||booking.trialPrice===(learner.trialPrice??null))&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
         const schedulingRule = await tx.courseBookingRule.findUnique({where:{storeId}});
@@ -761,7 +762,7 @@ export async function createCourseSchedule(input: unknown) {
             createdById: user.id,
           })),
         });
-        if(data.sportsStaging){const {attachSportsSessionRules}=await import("@/server/services/sports-staging-schedule");await attachSportsSessionRules(tx,{storeId,userId:user.id,name:user.name??"店長"},data.requestKey,data.sportsStaging);}
+        if(data.sportsStaging){const {attachSportsSessionRules}=await import("@/server/services/sports-staging-schedule");await attachSportsSessionRules(tx,{storeId,userId:user.id,name:user.name??"店長"},data.requestKey,data.sportsStaging,undefined,sportsTrialLearners?data.learners.length:0);}
         if (data.scheduleType === "FIXED" && (data.scheduleFrequency === "WEEKLY" || data.scheduleFrequency === "BIWEEKLY")) {
           await tx.courseScheduleSeries.create({
             data: {
@@ -793,6 +794,7 @@ export async function createCourseSchedule(input: unknown) {
             const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
             const visibility=getManagerCustomerWhere(user.role,user.staffId,storeId);
             const existing=await tx.$queryRaw<Array<{id:string;assignedStaffId:string|null}>>`SELECT id,"assignedStaffId" FROM "Customer" WHERE "storeId"=${storeId} AND phone=${learner.customerPhone!} AND "mergedIntoCustomerId" IS NULL`;
+            if(existing.length>1)throw new AppError("CONFLICT","此手機有多筆學員資料，請先核對後選擇既有學員");
             if(existing.length){if(visibility.assignedStaffId&&existing[0].assignedStaffId!==visibility.assignedStaffId)throw new AppError("FORBIDDEN","此手機已有學員，請由有權限人員核對");trialCustomerIds.set(learner.participantKey!,existing[0].id);continue;}
             if(limits!.maxCustomers!==null){const counts=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "Customer" WHERE "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;if(Number(counts[0].count)>=limits!.maxCustomers)throw new AppError("FORBIDDEN","已達顧客額度上限");}
             const customerId=`trial:${learner.participantKey}`;

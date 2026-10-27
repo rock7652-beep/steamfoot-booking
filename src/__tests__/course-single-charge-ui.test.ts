@@ -40,10 +40,11 @@ it('hides disabled open-selection offers and keeps one qualified-provider picker
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(1);
 });
-it('legacy fee editing does not duplicate or edit teaching-item qualifications',()=>{
- mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},{id:'legacy',name:'既有方案',points:10,price:5800,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'LEGACY',sportsSubjectId:'subject'});
+it.each([false,true])('legacy fee editing preserves existing provider settings=%s without forcing new setup',configured=>{
+ mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},{id:'legacy',name:'既有方案',points:10,price:5800,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'LEGACY',sportsSubjectId:null,chargeSettings:configured?{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['teacher']}:null});
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('可授課教練'))).toHaveLength(0);
- expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(1);
+ expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(configured?1:0);
+ if(!configured)expect(document.body.textContent).toContain('保留既有授課規則');
  expect(document.body.textContent).not.toMatch(/開放選課|通用卡/);
 });
 

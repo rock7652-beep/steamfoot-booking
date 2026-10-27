@@ -90,3 +90,20 @@ it("universal-card setup removes subject, course cost and coach requirements",as
  await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
  await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"OPEN",subject:undefined});
 });
+
+it.each([false,true])('native sports purchase choice survives saving from backend=%s',async(initial)=>{
+ m.sportsSave.mockResolvedValue({success:false,error:'保留輸入'});
+ const plan={...sharedPlan,id:'native-plan',sportsMode:'ASSIGNED',sportsSubjectId:'subject',sportsCost:1,unit:'SESSION',templateIds:['t'],customerPurchasable:initial,chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']}};
+ await mount({plan,sportsData,subjects:[{id:'subject',name:'瑜珈',category:'',isActive:true}]});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.click());
+ expect(host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.checked).toBe(true);
+ await submit();expect(m.sportsSave).toHaveBeenCalled();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({customerPurchasable:true});
+});
+it('edits legacy purchase visibility without requiring new provider settings or replacing its teaching rule',async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:'保留輸入'});
+ const legacy={...sharedPlan,id:'legacy-plan',name:'舞蹈(常態)-10堂',points:10,price:5800,unit:'SESSION',sportsMode:'LEGACY',sportsSubjectId:null,sportsCost:null,templateIds:['old-rule'],customerPurchasable:false,chargeSettings:null};
+ const data={...sportsData,fees:[{id:'legacy-plan',subject:'subject',name:legacy.name,unit:'堂數',amount:10,price:5800,days:90,cost:1,shared:true,templateId:'old-rule',snapshot:JSON.stringify(legacy)}]};
+ await mount({plan:legacy,sportsData:data,templates:[{id:'old-rule',name:'舊舞蹈',category:'',isActive:true,musicSubjectId:'subject'}],subjects:[{id:'subject',name:'舞蹈（常態課程）',category:'',isActive:true}]});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.click());
+ await submit();expect(m.sportsSave).toHaveBeenCalled();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({id:'legacy-plan',customerPurchasable:true,chargeSettings:null});
+});
