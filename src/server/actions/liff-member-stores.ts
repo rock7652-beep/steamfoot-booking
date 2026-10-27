@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { getCurrentUser, requireSession } from "@/lib/session";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
@@ -21,6 +22,23 @@ export type LiffMemberStoreContext =
   | { status: "not_signed_in" };
 
 const SELECTABLE_STORE_STATUSES = new Set(["ACTIVE", "TRIAL"]);
+
+async function getSelectableMemberships(
+  memberships: Awaited<ReturnType<typeof resolveCentralMembershipsForUser>>["memberships"],
+) {
+  const active = memberships.filter((membership) =>
+    SELECTABLE_STORE_STATUSES.has(membership.storeOperatingStatus),
+  );
+  if (active.length === 0) return [];
+
+  // Archiving hides a store from selection without revoking existing access.
+  const stores = await prisma.store.findMany({
+    where: { id: { in: active.map((membership) => membership.storeId) }, archivedAt: null },
+    select: { id: true },
+  });
+  const visibleStoreIds = new Set(stores.map((store) => store.id));
+  return active.filter((membership) => visibleStoreIds.has(membership.storeId));
+}
 
 /**
  * Returns only server-verified memberships. Customer/store identifiers never
@@ -53,14 +71,10 @@ export async function fetchLiffMemberStoreContext(): Promise<LiffMemberStoreCont
     status: "signed_in",
     currentStoreSlug: current.storeSlug,
     displayName: current.customerName || null,
-    stores: resolved.memberships
-      .filter((membership) =>
-        SELECTABLE_STORE_STATUSES.has(membership.storeOperatingStatus),
-      )
-      .map((membership) => ({
-        storeName: membership.storeName,
-        storeSlug: membership.storeSlug,
-      })),
+    stores: (await getSelectableMemberships(resolved.memberships)).map((membership) => ({
+      storeName: membership.storeName,
+      storeSlug: membership.storeSlug,
+    })),
   };
 }
 
@@ -76,9 +90,7 @@ export async function selectLiffMemberStoreAction(
 
   const requestedSlug = String(formData.get("storeSlug") ?? "").trim();
   const resolved = await resolveCentralMembershipsForUser(user.id);
-  const selectable = resolved.memberships.filter((membership) =>
-    SELECTABLE_STORE_STATUSES.has(membership.storeOperatingStatus),
-  );
+  const selectable = await getSelectableMemberships(resolved.memberships);
   const membership = selectable.find(
     (candidate) => candidate.storeSlug === requestedSlug,
   );

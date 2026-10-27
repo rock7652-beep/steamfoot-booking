@@ -36,7 +36,6 @@ export default async function NewLiffHealthRecordPage() {
         <div>
           <p className="text-xs uppercase tracking-widest text-earth-500">{presentation.name}</p>
           <h1 className="text-2xl font-bold text-earth-900">新增健康量測</h1>
-          <p className="mt-1 text-sm text-earth-600">填寫順序與網頁版相同</p>
         </div>
       </div>
       <HealthRecordForm
