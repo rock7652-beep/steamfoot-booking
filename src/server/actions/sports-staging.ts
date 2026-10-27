@@ -491,9 +491,9 @@ export async function sportsStagingCommand(input: unknown) {
           }),
         );
       const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.fee??"", storeId, isActive: true },
+        where: { id: d.kind==="體驗"?d.fee??"":"", storeId, isActive: true },
       });
-      if (d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
+      if (d.kind==="體驗" && d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
       if(d.kind==="體驗"&&d.mode==="指定學員"){
         const settings=courseChargeSettings.safeParse(plan?.chargeSettings);
         if(!settings.success||settings.data.kind!=="single"||settings.data.trialPrice===null)throw new AppError("VALIDATION","請選擇已設定體驗價的單次收費");
@@ -556,7 +556,7 @@ export async function sportsStagingCommand(input: unknown) {
             frequency,
             ...((await sportsNativePreview(storeId))&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
-            planId: d.kind === "體驗" ? null : plan?.id??null,
+            planId: null,
             students:d.kind==="體驗"?[]:students,
             trialPrice: d.price,
           },

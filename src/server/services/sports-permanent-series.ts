@@ -118,7 +118,7 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
 }
 export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId:string){
  const b=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true}});
- if(!b||b.cardId||!(b.bookingKind==="UNPAID"&&(b.requestKey.startsWith("sports-fixed:")||b.requestKey.startsWith("sports-makeup:"))))return;
+ if(!b||b.cardId||b.bookingKind!=="UNPAID")return;
  if(!(await sportsNativePreview(actor.storeId))||actor.customerId)throw new AppError("FORBIDDEN","固定課點名僅限本店授權人員");
  const [rule]=await tx.$queryRaw<Array<{planId:string|null;enrollment:string}>>`SELECT "planId",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
  if(!rule)throw new AppError("VALIDATION","找不到固定課權益規則，尚未扣抵");

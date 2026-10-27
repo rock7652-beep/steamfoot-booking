@@ -298,7 +298,7 @@ it("preselects pending makeup on the original card and allows removing the link"
  await act(async()=>host.querySelector<HTMLElement>('[role="option"]')!.click());
  const select=host.querySelector('select[aria-label="補課紀錄"]') as HTMLSelectElement;
  expect(select.value).toBe("leave");expect(host.textContent).toContain("待補課 1 堂");
- expect([...host.querySelectorAll("select")][1].value).toBe("original");
+ expect(host.textContent).toContain("原四堂");
  const confirm=vi.spyOn(window,"confirm").mockReturnValue(true);
  const submit=()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
  await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({cardId:"original",makeupForBookingId:"leave"}));
@@ -640,21 +640,22 @@ it("separates the attended circle corrections from the four learner actions",asy
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
-it("finds a cardless existing learner and offers purchase without allowing an unentitled booking",async()=>{
+it("allows a cardless learner to be arranged while keeping payment in the original roster",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-28T04:00:00Z",pointCost:1},roster:[],cards:[],customers:[{id:"cardless",name:"無方案學員",phone:"0972000000"}],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"cardless-search",capacity:8,canCreate:true,canEdit:true,view:"member-booking"})));
-  const input=host.querySelector<HTMLInputElement>('#course-member-search')!;
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>m.load.mock.results.at(-1)!.value}));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"cardless-search",capacity:8,canCreate:true,canEdit:true,musicLayout:true,view:"member-booking"})));
+  const input=host.querySelector<HTMLInputElement>('[aria-label="搜尋學員"]')!;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"0972");input.dispatchEvent(new Event("input",{bubbles:true}));});
   expect(host.textContent).toContain("無方案學員");
-  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('[data-search-results] button')].find(b=>b.textContent?.includes("無方案學員"))!.click());
-  expect(host.textContent).toContain("沒有可用方案，請先購買方案／儲值，再加入本堂");
-  expect(host.querySelector<HTMLAnchorElement>('a[href*="action=assign"]')?.href).toContain("customerId=cardless");
+  await act(async()=>host.querySelector<HTMLElement>('[role="option"]')!.click());
+  expect(host.textContent).toContain("沒有可用方案，仍可先加入");
+  expect(host.querySelector('a[href*="action=assign"]')).toBeNull();
   m.create.mockClear();
   await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
-  expect(m.create).not.toHaveBeenCalled();
+  expect(m.create).toHaveBeenCalledWith(expect.objectContaining({customerId:"cardless",autoCard:true}));
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -678,7 +679,7 @@ it('native roster shows current remaining and separates attendance from learner 
   expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['恢復狀態','未出席不扣堂','未出席扣堂']);
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員 更多操作"]')!.click());
   expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['學員資料','學員繳費','取消本堂','取消後續課程']);
-  expect(document.querySelector<HTMLAnchorElement>('a[role="menuitem"][href*="action=assign"]')?.href).toContain('customerId=native-person');
+  expect(document.querySelector('a[role="menuitem"][href*="action=assign"]')).toBeNull();
   expect([...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent==='學員資料')?.className).toContain('justify-center');
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });

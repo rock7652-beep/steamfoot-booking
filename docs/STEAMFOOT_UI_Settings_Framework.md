@@ -482,6 +482,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 # 34. 共用骨架與程式對應
 
+- 2026-10-28 項目權益核心預覽：運動／音樂一般排課選授課項目，方案在名單內購買；`CourseMultiOptionSelect` 沿用既有搜尋下拉，`ItemBalanceSummary` 顯示同項目、分單位的本期剩餘。名單購課沿用 `ModalPanel` 與既有收款元件，購買成功更新名單，不自動點名、不導航原頁。美業保留服務、已付單次與專用帳務規則。本項為支線實作紀錄，不代表已發布或正式站驗收。
+
 - 2026-10-27：會員前台的 Logo／門市／帳號位置共用 `src/components/member-portal-header.tsx`；門市切換呈現共用 `src/components/member-store-switcher.tsx` 與 CSS Modules，依原生 LIFF 的無框線清單及目前門市標示統一。課程／原生入口仍保留各自的會員資格、server action 與返回路徑，不由呈現元件決定授權。
 
 本文件是產品規範，實作應盡量對應到共用元件，而不是只靠視覺模仿。

@@ -6,7 +6,7 @@ type Context = { target: CourseSettlementTarget; hasCard: boolean; classType?: s
 const fitnessDebitPolicy = (context: Context) => ({
   groupLeaveForfeited: false,
   shouldDebit: context.target === "ATTENDED" || (context.target === "NO_SHOW" && context.hasCard),
-  allowsNoShowMakeup: true,
+  allowsNoShowMakeup: false,
 });
 const musicDebitPolicy = (context: Context) => {
   const groupLeaveForfeited = context.target === "STUDENT_LEAVE" && context.hasCard && context.classType === "GROUP";

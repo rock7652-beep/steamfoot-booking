@@ -79,14 +79,14 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     const sessions = [await f.session(0), await f.session(1)];
     await f.run(tx => attachSportsSessionRules(tx, f.actor, "schedule", { ...f.rule, students: [...f.rule.students, { customerId: f.other, cardId: null }] }));
     const bookings = await database().courseBooking.findMany({ where: { storeId: f.storeId }, orderBy: { pointCost: "asc" } });
-    expect(bookings.map(b => b.pointCost)).toEqual([2, 2, 4, 4]);
+    expect(bookings.map(b => b.pointCost)).toEqual([0, 0, 0, 0]);
     await database().coursePointPlan.update({ where: { id: a.planId }, data: { sportsCost: 9 } });
     expect(await database().coursePointCard.findUnique({ where: { id: a.id } })).toMatchObject({ sportsCost: 2, remaining: 10 });
     for (const card of [a, b]) {
-      const booking = bookings.find(row => row.cardId === card.id && row.sessionId === sessions[0].id)!;
+      const booking = bookings.find(row => row.customerId === (card.id===a.id?f.learner:f.other) && row.sessionId === sessions[0].id)!;
       await f.run(tx => settleCourseBooking(tx, f.actor, booking.id, "ATTENDED"));
       await f.run(tx => settleCourseBooking(tx, f.actor, booking.id, "ATTENDED"));
-      expect(await database().coursePointCard.findUnique({ where: { id: card.id } })).toMatchObject({ remaining: 10 - booking.pointCost });
+      expect(await database().coursePointCard.findUnique({ where: { id: card.id } })).toMatchObject({ remaining: 10 - (card.id===a.id?2:4) });
       expect(await database().coursePointEntry.count({ where: { bookingId: booking.id, kind: "DEBIT" } })).toBe(1);
       await f.run(tx=>correctCourseAttendance(tx,f.actor,booking.id,"RESERVED","ATTENDED",{suppressNotice:true}));
       await f.run(tx=>correctCourseAttendance(tx,f.actor,booking.id,"RESERVED","ATTENDED",{suppressNotice:true}));
@@ -130,14 +130,18 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     expect(await database().coursePointEntry.count({ where: { bookingId: booking.id, kind: "DEBIT" } })).toBe(1);
   });
 
-  it("insufficient finite batches roll back rules, reservations and entries together", async () => {
+  it("finite batches may be arranged before payment; insufficient attendance never succeeds", async () => {
     const f = await fixture();
     await f.card(f.learner, "ASSIGNED", 4, 5);
     await f.session(0); await f.session(1);
-    await expect(f.run(tx => attachSportsSessionRules(tx, f.actor, "schedule", f.rule))).rejects.toThrow("足夠");
-    expect(await database().courseBooking.count({ where: { storeId: f.storeId } })).toBe(0);
+    await f.run(tx => attachSportsSessionRules(tx, f.actor, "schedule", f.rule));
+    const rows=await database().courseBooking.findMany({where:{storeId:f.storeId},orderBy:{createdAt:"asc"}});
+    expect(rows).toHaveLength(2);
+    expect(rows.every(b=>b.cardId===null&&b.pointCost===0)).toBe(true);
     expect(await database().coursePointEntry.count({ where: { storeId: f.storeId } })).toBe(0);
-    expect(await database().$queryRaw`SELECT "sessionId" FROM "SportsStagingSessionRule" WHERE "storeId"=${f.storeId}`).toEqual([]);
+    await f.run(tx=>settleCourseBooking(tx,f.actor,rows[0].id,"ATTENDED"));
+    await expect(f.run(tx=>settleCourseBooking(tx,f.actor,rows[1].id,"ATTENDED"))).rejects.toThrow("足額");
+    expect(await database().courseBooking.findUnique({where:{id:rows[1].id}})).toMatchObject({status:"RESERVED",cardId:null});
   });
 
   it("store locking prevents two automatic selections from overselling the final place", async () => {
@@ -159,11 +163,11 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${s.id},${f.storeId},'SINGLE','ASSIGNED',NULL,0,'{}')`;
     const input={sessionId:s.id,customerId:f.learner,autoCard:true,requestKey:randomUUID()};
     const booked=await reserveCourse(f.actor,input);
-    expect(booked.cardId).toBe(first.id);
+    expect(booked.cardId).toBeNull();
     await database().coursePointCard.update({where:{id:first.id},data:{remaining:0,expiresAt:new Date("2020-01-01")}});
-    expect(await reserveCourse(f.actor,input)).toMatchObject({id:booked.id,cardId:first.id,pointCost:2});
+    expect(await reserveCourse(f.actor,input)).toMatchObject({id:booked.id,cardId:null,pointCost:0});
     expect(await database().courseBooking.count({where:{storeId:f.storeId}})).toBe(1);
-    expect(await database().coursePointEntry.count({where:{storeId:f.storeId,kind:"RESERVE"}})).toBe(1);
+    expect(await database().coursePointEntry.count({where:{storeId:f.storeId,kind:"RESERVE"}})).toBe(0);
   });
 
   it("teaching-item rules share staff qualifications and reject stale changes or removing an occupied coach", async () => {
@@ -191,11 +195,11 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     const session=await f.session(0);
     await f.run(tx=>attachSportsSessionRules(tx,f.actor,"schedule",{...f.rule,students:[{customerId:f.learner,cardId:null},{customerId:f.other,cardId:null}]}));
     const bookings=await database().courseBooking.findMany({where:{storeId:f.storeId,sessionId:session.id}});
-    expect(bookings.map(b=>b.pointCost)).toEqual([1,1]);
+    expect(bookings.map(b=>b.pointCost)).toEqual([0,0]);
     for(const b of bookings)await f.run(tx=>settleCourseBooking(tx,f.actor,b.id,"ATTENDED"));
     expect((await database().coursePointCard.findUnique({where:{id:ten.id}}))?.remaining).toBe(9);
     expect((await database().coursePointCard.findUnique({where:{id:twenty.id}}))?.remaining).toBe(19);
-    const a=bookings.find(b=>b.cardId===ten.id)!,b=bookings.find(b=>b.cardId===twenty.id)!;
+    const a=bookings.find(b=>b.customerId===f.learner)!,b=bookings.find(b=>b.customerId===f.other)!;
     await f.run(tx=>correctCourseAttendance(tx,f.actor,a.id,"CANCELLED","ATTENDED",{waiveAbsence:true}));
     expect((await database().coursePointCard.findUnique({where:{id:ten.id}}))?.remaining).toBe(10);
     expect(await database().courseBooking.findUnique({where:{id:a.id}})).toMatchObject({status:"CANCELLED",absenceKind:"STUDENT_LEAVE"});
@@ -204,4 +208,28 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     expect(await database().coursePointCard.findUnique({where:{id:ten.id}})).toMatchObject({sportsMode:"LEGACY",templateIds:[old.id]});
   });
 
+  it("purchase FIFO survives opposite expiry order and two concurrent attendance commands; correction returns the original card",async()=>{
+    const f=await fixture();
+    const first=await f.card(f.learner,"ASSIGNED",1,1,new Date("2099-12-31"));
+    const second=await f.card(f.learner,"ASSIGNED",1,10,new Date("2099-06-01"));
+    for(const [card,date] of [[first,"2025-01-01"],[second,"2026-01-01"]] as const){
+      await database().coursePointCard.update({where:{id:card.id},data:{unit:"SESSION",createdAt:new Date(card.id===first.id?"2026-10-01":"2024-01-01")}});
+      await database().coursePurchase.create({data:{storeId:f.storeId,customerId:f.learner,planId:card.planId,cardId:card.id,name:"A",unit:"SESSION",points:card.remaining,price:100,validDays:365,templateIds:[f.template.id],status:"CONFIRMED",transferLastFive:"",requestKey:randomUUID(),createdAt:new Date(date),confirmedAt:new Date(date)}});
+    }
+    await f.session(0);await f.session(1);
+    await f.run(tx=>attachSportsSessionRules(tx,f.actor,"schedule",f.rule));
+    const rows=await database().courseBooking.findMany({where:{storeId:f.storeId}});
+    await Promise.all(rows.map(row=>f.run(tx=>settleCourseBooking(tx,f.actor,row.id,"ATTENDED"))));
+    const used=await database().courseBooking.findMany({where:{storeId:f.storeId}});
+    expect(used.filter(row=>row.cardId===first.id)).toHaveLength(1);
+    expect(used.filter(row=>row.cardId===second.id)).toHaveLength(1);
+    expect((await database().coursePointCard.findUnique({where:{id:first.id}}))?.remaining).toBe(0);
+    expect((await database().coursePointCard.findUnique({where:{id:second.id}}))?.remaining).toBe(9);
+    const original=used.find(row=>row.cardId===first.id)!;
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,original.id,"RESERVED","ATTENDED",{suppressNotice:true}));
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,original.id,"RESERVED","ATTENDED",{suppressNotice:true}));
+    expect((await database().coursePointCard.findUnique({where:{id:first.id}}))?.remaining).toBe(1);
+    expect((await database().coursePointCard.findUnique({where:{id:second.id}}))?.remaining).toBe(9);
+    expect(await database().coursePointEntry.count({where:{storeId:f.storeId,kind:"DEBIT"}})).toBe(2);
+  });
 });

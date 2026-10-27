@@ -11,9 +11,11 @@ it('batches learners in the same store and displays remaining separately from sh
  const result=await readSportsRosterBalances('store','session',['a','b','a']);
  expect(m.cards).toHaveBeenCalledTimes(1);
  expect(m.cards.mock.calls[0][0].where).toMatchObject({storeId:'store',closedAt:null,members:{some:{customerId:{in:['a','b']}}},expiresAt:{gte:new Date('2099-10-28')}});
- expect(result.get('a')).toEqual({remaining:10,available:7,cost:1,unit:'SESSION',planName:'十堂舞蹈'});expect(result.get('b')).toEqual(result.get('a'));
+ expect(result.get('a')).toMatchObject({remaining:10,available:7,cost:1,unit:'SESSION',planName:'同項目方案合計'});expect(result.get('b')).toEqual(result.get('a'));
 });
-it('selects the first sufficient eligible card rather than an exhausted earlier card',async()=>{m.cards.mockResolvedValue([card('empty',2,2),card('usable',8,1)]);expect((await readSportsRosterBalances('store','session',['a'])).get('a')?.remaining).toBe(8);});
+it('sums all eligible cards including an exhausted A1 and remaining A2',async()=>{m.cards.mockResolvedValue([card('empty',2,2),card('usable',8,1)]);expect((await readSportsRosterBalances('store','session',['a'])).get('a')?.remaining).toBe(10);});
 it('never treats another subject or restricted term as usable rights',async()=>{m.cards.mockResolvedValue([{...card('wrong',10),sportsSubjectId:'yoga'},{...card('term',10),termSessionIds:['other']}]);expect((await readSportsRosterBalances('store','session',['a'])).size).toBe(0);});
 it('shows insufficient remaining without pretending a booking or debit occurred',async()=>{m.cards.mockResolvedValue([card('empty',0)]);expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({remaining:0,available:0});});
 it('does no queries for an empty list and returns no inferred rights without a rule',async()=>{expect((await readSportsRosterBalances('store','session',[])).size).toBe(0);expect(m.session).not.toHaveBeenCalled();m.rule.mockResolvedValue(null);m.cards.mockResolvedValue([card('card',10)]);expect((await readSportsRosterBalances('store','session',['a'])).size).toBe(0);});
+
+it('A1兩堂加A2十堂顯示12；其他項目及共用關聯不重複',async()=>{m.cards.mockResolvedValue([card('a1',2),card('a2',10),{...card('b',20),sportsSubjectId:'other'}]);const result=await readSportsRosterBalances('store','session',['a']);expect(result.get('a')).toMatchObject({remaining:12,available:12});});

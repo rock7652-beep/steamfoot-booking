@@ -343,11 +343,9 @@ export async function assignCoursePointCard(input: unknown) {
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
-      if(music&&data.bookingId&&purchase.cardId){
-        await courseManager("booking.update");
-        const {attachUnpaidMusicBookings}=await import("@/server/services/music-schedule-enrollment");
-        await attachUnpaidMusicBookings(tx,{storeId,userId:user.id,name:user.name??"店長"},purchase.cardId,data.customerId,data.bookingId);
-      }
+      // Purchasing grants rights only. Staff confirms attendance separately;
+      // selecting a new purchase here would bypass first-purchased-first-used.
+
       return purchase;
     });
     // The transaction is committed. Cache invalidation must not delay the
@@ -373,22 +371,23 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     await courseManager("transaction.create");
     const booking = await coursePrisma.courseBooking.findFirst({
       where: { id: bookingId, storeId },
-      select: { customerId: true, customerName: true, session: { select: { templateId: true } } },
+      select: { customerId: true, customerName: true, session: { select: { templateId: true,template:{select:{musicSubjectId:true}} } } },
     });
     if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
     const { checkPermission } = await import("@/lib/permissions");
+    const music=await isMusicCourseStore(coursePrisma,storeId);
     const itemTemplates = await musicItemTemplateIds(coursePrisma,storeId,booking.session.templateId);
     const [plans, customer, canDiscount] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
-        where: { storeId, isActive: true, unit: "SESSION", templateIds: { hasSome: itemTemplates } },
-        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
+        where: { storeId, isActive: true, unit:music?"SESSION":{in:["SESSION","POINT"]}, OR:[{templateIds:{hasSome:itemTemplates}},...(!music&&booking.session.template.musicSubjectId?[{sportsMode:"ASSIGNED",sportsSubjectId:booking.session.template.musicSubjectId}]:[])] },
+        select: { id: true, name: true, unit:true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
       prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount, music } };
   } catch (error) {
     return handleActionError(error);
   }

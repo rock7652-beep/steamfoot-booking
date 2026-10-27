@@ -1,4 +1,3 @@
-import { findSportsCard } from "./sports-card-selection";
 import { sportsTeachingTemplateId } from "./sports-teaching-rule";
 import "server-only";
 import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
@@ -114,19 +113,14 @@ export async function attachSportsSessionRules(
     // This caller already holds the Store lock. Allocate once per learner,
     // reserve the full batch, then choose for the next learner (shared cards).
     for (const student of rule.students) {
-      let cardId = student.cardId;
-      if (!sessions[0].isTrial) {
-        const picked=await findSportsCard(tx,actor.storeId,student.customerId,sessions,rule,cardId);
-        if(!picked)throw new AppError("VALIDATION","學員沒有額度與效期足夠的適用方案");
-        cardId=picked.card.id;
-      }
       for (const session of sessions)
         await reserveCourseInTransaction(
           tx,
           actor,
           {
             sessionId: session.id,
-            cardId: session.isTrial ? null : cardId,
+            cardId: null,
+            deferredPayment: !session.isTrial,
             customerId: student.customerId,
             trialPrice: session.isTrial ? rule.trialPrice : undefined,
             requestKey: `${requestKey}:${session.requestIndex}:${student.customerId}`,
