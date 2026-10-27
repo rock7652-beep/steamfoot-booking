@@ -11,7 +11,7 @@ let root: Root, host: HTMLDivElement;
 beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.clearAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 async function render(extra: Partial<Parameters<typeof CentralMemberStoreSwitcher>[0]>={}) {
-  await act(async()=>root.render(createElement(CentralMemberStoreSwitcher,{currentStoreName:"課程門市",currentStoreSlug:"a",stores,compact:true,align:"start",...extra})));
+  await act(async()=>root.render(createElement(CentralMemberStoreSwitcher,{currentStoreName:"課程門市",currentStoreSlug:"a",stores,compact:true,...extra})));
 }
 it("does not offer switching without another verified membership",async()=>{
   await render({stores:stores.slice(0,1)});expect(host.querySelector("button")).toBeNull();

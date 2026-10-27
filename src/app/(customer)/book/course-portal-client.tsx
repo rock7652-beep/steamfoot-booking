@@ -4,7 +4,7 @@ import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {CoursePortalSheet as Sheet} from "@/components/course-portal-sheet";
 import {CoursePortalCalendar} from "@/components/course-portal-calendar";
-import {CoursePortalBrand,CoursePortalNavigation,type PortalIconName} from "@/components/course-portal-navigation";
+import {CoursePortalNavigation,type PortalIconName} from "@/components/course-portal-navigation";
 
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
@@ -29,6 +29,7 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { MemberPortalHeader } from "@/components/member-portal-header";
 import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import { CentralMemberStoreSwitcher } from "../central-member-store-switcher";
 import { useCustomerMembershipStores } from "../customer-membership-context";
@@ -872,20 +873,14 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
   return (
     <div className="course-portal">
       <div inert={modal}>
-        <header className="cp-top">
-          <CoursePortalBrand storeName={p.storeName}>
-            {canSwitchStores ? <CentralMemberStoreSwitcher currentStoreName={p.storeName} currentStoreSlug={currentStoreSlug} stores={membershipStores} compact align="start" returnToLiff={params.get("memberEntry") === "liff"} disabled={pending || healthSaving} onBeforeSwitch={leaveNote} /> : undefined}
-          </CoursePortalBrand>
-          {p.hasWork && p.memberEnabled ? (
-            <div className="cp-role-switch" role="group" aria-label="身分切換">
-              <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
-              <button aria-pressed={role === "coach"} onClick={() => switchRole("coach")}>我的工作</button>
-            </div>
-          ) : (
-            <span>{coach ? "我的工作" : "會員專區"}</span>
-          )}
-          <FrontendAccountMenu storeSlug={p.prefix.split("/")[2] ?? ""} name={p.customerName} readOnly={!!p.readOnly} onBeforeLogout={leaveNote}>{coach && <>{p.incomeAvailable && <a href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}</>}</FrontendAccountMenu>
-        </header>
+        <MemberPortalHeader className="cp-top" padded
+          store={canSwitchStores ? <CentralMemberStoreSwitcher currentStoreName={p.storeName} currentStoreSlug={currentStoreSlug} stores={membershipStores} compact returnToLiff={params.get("memberEntry") === "liff"} disabled={pending || healthSaving} onBeforeSwitch={leaveNote} /> : <p className="cp-store-name">{p.storeName}</p>}
+          caption={p.hasWork && p.memberEnabled ? <div className="cp-role-switch" role="group" aria-label="身分切換">
+            <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
+            <button aria-pressed={role === "coach"} onClick={() => switchRole("coach")}>我的工作</button>
+          </div> : coach ? "我的工作" : "會員中心"}
+          account={<FrontendAccountMenu storeSlug={currentStoreSlug} name={p.customerName} readOnly={!!p.readOnly} onBeforeLogout={leaveNote}>{coach && <>{p.incomeAvailable && <a href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}</>}</FrontendAccountMenu>}
+        />
         <CoursePortalNavigation items={nav.map(([id,label,icon])=>({id,label,icon:icon as PortalIconName}))} current={!coach&&["plans","shop","orders","shared","health","store"].includes(page)?"account":page} onSelect={id=>go(id as Page)}/>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           {p.incomeAvailable && !coach && !p.hasWork && page === "account" && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}

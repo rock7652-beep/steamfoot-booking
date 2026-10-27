@@ -118,6 +118,7 @@ export function MobileNav({
             currentStoreSlug={storeSlug}
             stores={stores}
             compact
+            align="center"
           />
           <FrontendAccountMenu storeSlug={storeSlug} name={userName} />
         </div>
