@@ -151,7 +151,8 @@
       "fix/beauty-read-request-speed-20261026": false,
       "fix/beauty-return-hq-20261027": false,
       "feat/public-trial-sports-beauty-20261027": false,
-      "fix/silverlily-trial-entry-scheduling-20261027": false
+      "fix/silverlily-trial-entry-scheduling-20261027": false,
+      "fix/public-trial-readability-navigation-20261027": false
     }
   }
 }
