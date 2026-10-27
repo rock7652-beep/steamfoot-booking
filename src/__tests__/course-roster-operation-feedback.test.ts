@@ -183,7 +183,8 @@ it("native background reads pause during an unconfirmed write and cannot paint a
  try {
   const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
   await render(false,"session-a","sports",true,true);await clickAttendance();
-  // Native sports attendance now requires the explicit circle-menu action.
+  // Let the menu animation frame run before selecting its explicit action.
+  await act(async()=>vi.advanceTimersByTimeAsync(20));
   expect(m.status).not.toHaveBeenCalled();
   await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="打勾")!.click());
   await act(async()=>{await vi.advanceTimersByTimeAsync(9000);});
