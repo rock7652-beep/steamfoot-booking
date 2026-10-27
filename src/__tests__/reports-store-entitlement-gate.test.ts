@@ -554,7 +554,7 @@ describe("reports basic_reports source audit", () => {
 
   it("keeps related revenue report pages store-aware for advanced_reports", () => {
     for (const filePath of [
-      "src/app/(dashboard)/dashboard/store-revenue/page.tsx",
+      "src/app/(dashboard)/dashboard/store-revenue/workspace.tsx",
       "src/app/(dashboard)/dashboard/coach-revenue/page.tsx",
     ]) {
       const source = fs.readFileSync(path.join(repoRoot, filePath), "utf8");

@@ -1,0 +1,186 @@
+{
+  "complete": true,
+  "scope": "real local login, actual Next routes, disposable PostgreSQL; no production data",
+  "realDatabase": true,
+  "physicalIPad": false,
+  "results": [
+    {
+      "store": "sports",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "ledger",
+      "pass": true,
+      "urlPath": "/s/sports-live-flow/admin/dashboard/revenue"
+    },
+    {
+      "store": "sports",
+      "step": "income",
+      "pass": true,
+      "urlPath": "/s/sports-live-flow/admin/dashboard/revenue"
+    },
+    {
+      "store": "sports",
+      "step": "cashbook",
+      "pass": true,
+      "urlPath": "/s/sports-live-flow/admin/dashboard/revenue"
+    },
+    {
+      "store": "sports",
+      "step": "monthly",
+      "pass": true,
+      "urlPath": "/s/sports-live-flow/admin/dashboard/revenue"
+    },
+    {
+      "store": "sports",
+      "step": "exports",
+      "pass": true,
+      "urlPath": "/s/sports-live-flow/admin/dashboard/revenue"
+    },
+    {
+      "store": "music",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "ledger",
+      "pass": true,
+      "urlPath": "/s/ops-music/admin/dashboard/revenue"
+    },
+    {
+      "store": "music",
+      "step": "income",
+      "pass": true,
+      "urlPath": "/s/ops-music/admin/dashboard/revenue"
+    },
+    {
+      "store": "music",
+      "step": "cashbook",
+      "pass": true,
+      "urlPath": "/s/ops-music/admin/dashboard/revenue"
+    },
+    {
+      "store": "music",
+      "step": "monthly",
+      "pass": true,
+      "urlPath": "/s/ops-music/admin/dashboard/revenue"
+    },
+    {
+      "store": "music",
+      "step": "exports",
+      "pass": true,
+      "urlPath": "/s/ops-music/admin/dashboard/revenue"
+    },
+    {
+      "store": "dance",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "dance",
+      "step": "ledger",
+      "pass": true,
+      "urlPath": "/s/ops-dance/admin/dashboard/revenue"
+    },
+    {
+      "store": "dance",
+      "step": "income",
+      "pass": true,
+      "urlPath": "/s/ops-dance/admin/dashboard/revenue"
+    },
+    {
+      "store": "dance",
+      "step": "cashbook",
+      "pass": true,
+      "urlPath": "/s/ops-dance/admin/dashboard/revenue"
+    },
+    {
+      "store": "dance",
+      "step": "monthly",
+      "pass": true,
+      "urlPath": "/s/ops-dance/admin/dashboard/revenue"
+    },
+    {
+      "store": "dance",
+      "step": "exports",
+      "pass": true,
+      "urlPath": "/s/ops-dance/admin/dashboard/revenue"
+    },
+    {
+      "store": "beauty",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "ledger",
+      "pass": true,
+      "urlPath": "/s/ops-beauty/admin/dashboard/beauty"
+    },
+    {
+      "store": "beauty",
+      "step": "income",
+      "pass": true,
+      "urlPath": "/s/ops-beauty/admin/dashboard/revenue"
+    },
+    {
+      "store": "beauty",
+      "step": "cashbook",
+      "pass": true,
+      "urlPath": "/s/ops-beauty/admin/dashboard/revenue"
+    },
+    {
+      "store": "beauty",
+      "step": "monthly",
+      "pass": true,
+      "urlPath": "/s/ops-beauty/admin/dashboard/revenue"
+    },
+    {
+      "store": "beauty",
+      "step": "exports",
+      "pass": true,
+      "urlPath": "/s/ops-beauty/admin/dashboard/revenue"
+    },
+    {
+      "store": "steam",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "ledger",
+      "pass": true,
+      "urlPath": "/s/ops-steam/admin/dashboard/revenue"
+    },
+    {
+      "store": "steam",
+      "step": "income",
+      "pass": true,
+      "urlPath": "/s/ops-steam/admin/dashboard/revenue"
+    },
+    {
+      "store": "steam",
+      "step": "cashbook",
+      "pass": true,
+      "urlPath": "/s/ops-steam/admin/dashboard/revenue"
+    },
+    {
+      "store": "steam",
+      "step": "monthly",
+      "pass": true,
+      "urlPath": "/s/ops-steam/admin/dashboard/revenue"
+    },
+    {
+      "store": "steam",
+      "step": "exports",
+      "pass": true,
+      "urlPath": "/s/ops-steam/admin/dashboard/revenue"
+    }
+  ],
+  "errors": [],
+  "externalRequestsBlocked": 0,
+  "integrationBase": "5025db445c353807e6493e21383eb900df975f8b"
+}
