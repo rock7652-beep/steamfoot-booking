@@ -657,3 +657,22 @@ it("finds a cardless existing learner and offers purchase without allowing an un
   expect(m.create).not.toHaveBeenCalled();
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it('native roster shows current remaining and separates attendance from learner operations',async()=>{
+ m.status.mockClear();
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const row={id:'native',customerId:'native-person',customerName:'舞蹈學員',customerPhone:'0972000000',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'UNPAID',checkedInAt:null,trialPayments:[],planName:'固定學員',termCount:0,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:0,unit:'SESSION',notes:'',pointCost:0,cardRemaining:null,sportsFixed:true,sportsBalance:{remaining:8,available:6,cost:1,unit:'SESSION',planName:'舞蹈十堂'}};
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data:{session:{startsAt:'2026-10-28T04:00:00Z',pointCost:1},roster:[row],cards:[],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}})}));
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'native-menus',capacity:8,canCreate:true,canEdit:true,sportsNative:true})));
+  expect(host.textContent).toContain('本期剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：待點名"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['打勾','恢復原狀態','缺席扣堂','缺席不扣堂']);
+  expect(m.status).not.toHaveBeenCalled();
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員 更多操作"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['學員資料','學員繳費','取消本堂','取消後續課程']);
+  expect(document.querySelector<HTMLAnchorElement>('a[role="menuitem"][href*="action=assign"]')?.href).toContain('customerId=native-person');
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
