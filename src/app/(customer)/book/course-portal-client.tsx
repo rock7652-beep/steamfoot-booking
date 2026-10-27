@@ -901,7 +901,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
             <>
               {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {heading(coach ? "今日工作" : "會員首頁")}
-              {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {!coach && <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
