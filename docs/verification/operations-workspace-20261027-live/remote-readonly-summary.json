@@ -1,0 +1,19 @@
+{
+  "scope": "Read-only relation checks; raw production financial aggregates retained locally and excluded from public PR",
+  "production": {
+    "musicTuitionAgreements": 0,
+    "musicReceipts": 0,
+    "courseTrialPayments": 2,
+    "brokenLinks": 0
+  },
+  "preview": {
+    "musicTuitionAgreements": 17,
+    "musicReceipts": 17,
+    "courseRefunds": 12,
+    "courseTrialPayments": 8,
+    "negativeBeautyPayments": 24,
+    "brokenLinks": 0,
+    "overpaidAgreements": 0,
+    "mismatchedMusicReceiptCashbookEntries": 0
+  }
+}

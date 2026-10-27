@@ -13,12 +13,15 @@ vi.mock('@/components/beauty/native-transaction-source',()=>({BeautyNativeTransa
 vi.mock('@/components/beauty/native-fee-source',()=>({BeautyNativeFeeReport:()=>null}));
 vi.mock('@/components/instant-filter-form',()=>({InstantFilterForm:({children}:{children:ReactNode})=>h('form',null,children)}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:({children,...props}:{children:ReactNode})=>h('a',props,children)}));
-vi.mock('@/app/(dashboard)/dashboard/revenue/_components/revenue-tabs',()=>({RevenueTabs:({extra}:{extra:ReactNode})=>h('nav',null,extra)}));
+vi.mock('@/app/(dashboard)/dashboard/revenue/_components/operations-tabs',()=>({OperationsTabs:()=>h('nav',null,'營收明細 收入分類 現金帳 月結管理 報表匯出')}));
 vi.mock('@/app/(dashboard)/dashboard/revenue/_components/course-revenue',()=>({CourseRevenue:m.course}));
 import {BeautyNativeOperations} from '@/components/beauty/native-operations-source';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const data={storeId:'store',access:{financeAccess:true,feeAccess:false},manage:{},assignmentStaff:[],techs:[]} as unknown as BeautyDashboardData;
 beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue(true);m.has.mockResolvedValue(true);m.course.mockReturnValue(h('p',null,'原交易清單'));m.read.mockResolvedValue({storeId:'store',from:'2026-10-01',to:'2026-10-31',totals:{gross:0,refunds:0,net:0,storeAmount:0,managerAmount:0,unassignedAmount:0,unknownAmount:0,difference:0},managers:[],hasDifferences:false,technicians:null});});
 it('does not read the period-wide classification while opening the regular ledger',async()=>{const view=await BeautyNativeOperations({data,query:{},readOnly:true});expect(m.read).not.toHaveBeenCalled();const source=(view.props as {source:{tabs:ReactNode}}).source;expect(renderToStaticMarkup(source.tabs)).toContain('收入分類');});
-it('opens the independent classification for the selected dates without loading the paginated ledger',async()=>{const view=await BeautyNativeOperations({data,query:{area:'income',dateFrom:'2026-10-01',dateTo:'2026-10-31'},readOnly:true});expect(m.read).toHaveBeenCalledWith('store',{from:'2026-10-01',to:'2026-10-31'});expect(renderToStaticMarkup(view)).toContain('收入分類');expect(m.course).not.toHaveBeenCalled();});
-it('denies a direct classification URL when report permission is absent',async()=>{m.permission.mockImplementation(async(_role,_staff,p)=>p!=='report.read');const view=await BeautyNativeOperations({data,query:{area:'income'},readOnly:true});expect(renderToStaticMarkup(view)).toContain('目前沒有收入分類報表權限');expect(m.read).not.toHaveBeenCalled();});
+it('does not append technician monthly fees beneath the ledger',async()=>{
+ const view=await BeautyNativeOperations({data:{...data,access:{...data.access,feeAccess:true}},query:{},readOnly:true});
+ expect((view.props as {source:{fees?:ReactNode}}).source.fees).toBeUndefined();
+ expect(m.read).not.toHaveBeenCalled();
+});

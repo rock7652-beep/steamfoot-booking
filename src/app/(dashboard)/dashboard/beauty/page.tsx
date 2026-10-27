@@ -1,3 +1,5 @@
+import {redirectOperations} from "@/lib/operations-navigation-server";
+import {operationsArea,legacyOperationsHref} from "@/lib/operations-navigation";
 import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
 import {customerLabelSnapshot} from "@/server/services/customer-label-snapshot";
 import {CustomerLabelsSeed} from "@/components/customer-labels";
@@ -55,12 +57,13 @@ export default async function BeautyPage({
 }) {
   const u = await getCurrentUser();
   if (!u) redirect("/dashboard");
+  const q = await searchParams;
+  if(q.tab==="營運" && operationsArea(q.area)!=="ledger")return redirectOperations(legacyOperationsHref(operationsArea(q.area),q));
   if (!(await checkPermission(u.role, u.staffId, "booking.read")))
     return <PageShell><PageHeader title="美業" /><p role="alert">目前帳號尚未取得美業預約檢視權限，請聯絡店長調整。</p></PageShell>;
   if (process.env.BEAUTY_MODULE_ENABLED !== "1")
     return <PageShell><PageHeader title="美業" /><BeautyClosedNotice /></PageShell>;
-  const q = await searchParams,
-    tab = tabs.find((t) => t === q.tab) ?? "首頁",
+  const tab = tabs.find((t) => t === q.tab) ?? "首頁",
     a = await beautyPageManager(u);
   if(tab==="人員管理")redirect("/dashboard/staff");
   if(tab==="圖片公告")redirect("/dashboard/image-announcements");

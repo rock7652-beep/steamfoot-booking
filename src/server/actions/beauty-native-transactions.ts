@@ -20,7 +20,7 @@ export async function refundBeautyNativeTransaction(input:unknown){
    if(p.cardId){await beautyManager('wallet.read');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);}
    return refund(tx,a,refundInput.parse({...d,paymentId:d.purchaseId}),{remaining:d.expectedRemaining,refundedAmount:d.expectedRefundedAmount});
   });
-  let syncWarning=false;try{revalidatePath('/dashboard/beauty');}catch{syncWarning=true;}return {success:true as const,syncWarning};
+  let syncWarning=false;try{revalidatePath('/dashboard/beauty');revalidatePath('/dashboard/revenue');}catch{syncWarning=true;}return {success:true as const,syncWarning};
  }catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'退款尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
 }
 export async function confirmBeautyNativeTransaction(input:unknown){
@@ -46,7 +46,7 @@ async function correct(input:unknown,operation:'edit'|'void'){
    if(sale?.cardId){await beautyManager('wallet.read');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);}
    return (await import('@/server/beauty/transaction-correction')).correctBeautyTransaction(tx,a,{...d,operation});
   });
-  let syncWarning=false;try{for(const path of ['/dashboard/beauty','/dashboard/store-revenue','/dashboard/coach-revenue','/dashboard/cashbook'])revalidatePath(path);}catch{syncWarning=true;}return {success:true as const,syncWarning};
+  let syncWarning=false;try{for(const path of ['/dashboard/beauty','/dashboard/revenue','/dashboard/store-revenue','/dashboard/coach-revenue','/dashboard/cashbook'])revalidatePath(path);}catch{syncWarning=true;}return {success:true as const,syncWarning};
  }catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'操作尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
 }
 export async function editBeautyNativeTransaction(input:unknown){return correct(input,'edit');}

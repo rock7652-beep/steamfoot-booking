@@ -113,6 +113,8 @@ jobs:
           tests+=(src/__tests__/customer-care-lifecycle.test.ts src/__tests__/customer-care-activity.test.ts src/__tests__/customer-follow-up-action.test.ts  )
           tests+=(src/__tests__/customer-consumption.test.ts src/__tests__/customer-consumption-sql.test.ts src/__tests__/customer-consumption-access.test.ts)
           tests+=(src/__tests__/cash-day.test.ts src/__tests__/finance-reconciliation.test.ts src/__tests__/cashbook-closed-guard.test.ts src/__tests__/cash-drawer-service.test.ts)
+          tests+=(src/__tests__/operations-area.test.ts src/__tests__/operations-income.test.ts src/__tests__/operations-export-period.test.ts src/__tests__/operations-proxy.test.ts src/__tests__/cash-drawer-differences.test.ts)
+          tests+=(src/__tests__/revenue-tabs-extension.test.ts src/__tests__/revenue-view-mode-pages.test.ts src/__tests__/steamfoot-monthly-entry.test.ts src/__tests__/data-export-entry.test.ts src/__tests__/beauty-revenue-breakdown-entry.test.ts src/__tests__/reports-store-entitlement-gate.test.ts)
           tests+=(src/__tests__/industry-revenue-mix.test.ts src/__tests__/revenue-mix.test.ts src/server/services/inventory.test.ts)
           tests+=(src/__tests__/reminder-send-result.test.ts)
           tests+=(src/__tests__/verified-reminder-line-route.test.ts)

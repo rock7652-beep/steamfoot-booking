@@ -820,6 +820,8 @@ export default function DashboardShell({
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqPlatformView || (isAdmin && !isStoreAdminRoute && !isHqStoreView)) return NAV_GROUPS;
     const entry = (href: string) => STORE_ADMIN_NAV.find(item => item.href === href)!;
+    const operationsPermission = permissions.includes("transaction.read") ? "transaction.read" : permissions.includes("report.read") ? "report.read" : permissions.includes("cashbook.read") ? "cashbook.read" : permissions.includes("report.export") ? "report.export" : permissions.includes("customer.export") ? "customer.export" : "transaction.read";
+    const operationsItem:NavItem={...entry("/dashboard/revenue"),permission:operationsPermission,href:operationsPermission==="transaction.read"?"/dashboard/revenue":operationsPermission==="cashbook.read"?"/dashboard/revenue?area=cashbook":"/dashboard/revenue?area=exports",requiredFeature:operationsPermission==="transaction.read"?FEATURES.TRANSACTION_MANAGEMENT:undefined};
     if (industryModuleId === "beauty") {
       const icons = {
         "首頁": entry("/dashboard").icon,
@@ -836,7 +838,7 @@ export default function DashboardShell({
       };
       const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label,icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
       return [
-        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),beautyItem("營運","transaction.read",FEATURES.TRANSACTION_MANAGEMENT),beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
+        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
         {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
       ];
     }
@@ -854,7 +856,7 @@ export default function DashboardShell({
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), label: "營運", requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
+      operationsItem,
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
@@ -894,7 +896,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, permissions]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

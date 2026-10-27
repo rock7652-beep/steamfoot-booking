@@ -1,10 +1,12 @@
+import {redirectOperations} from "@/lib/operations-navigation-server";
+import {OperationsReceiptSummary} from "@/components/operations/receipt-summary";
+import { operationsArea, type OperationsQuery } from "@/lib/operations-navigation";
+import { OperationsAreaContent } from "./_components/operations-area";
+import { OperationsTabs } from "./_components/operations-tabs";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { InstantFilterForm } from "@/components/instant-filter-form";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { hasStoreFeature } from "@/lib/feature-gate";
-import { FEATURES } from "@/lib/feature-flags";
 
-import { RevenueTabs } from "./_components/revenue-tabs";
 import { CourseRevenue } from "./_components/course-revenue";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -18,7 +20,7 @@ import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-d
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { TransactionType } from "@prisma/client";
-import { PageShell, PageHeader, KpiStrip, SideCard, DataTable, EmptyRow, type Column } from "@/components/desktop";
+import { PageShell, PageHeader, DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { TransactionRowActions } from "../transactions/_components/TransactionRowActions";
 
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -57,7 +59,7 @@ type TxRow = Awaited<
 >["transactions"][number];
 
 interface PageProps {
-  searchParams: Promise<{
+  searchParams: Promise<OperationsQuery & {
     method?: string;
     search?: string;
     kind?: string;
@@ -73,6 +75,9 @@ interface PageProps {
 }
 
 export default async function RevenuePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const area = operationsArea(params.area);
+  if (area !== "ledger") return <OperationsAreaContent area={area} query={params}/>;
   const user = await getCurrentUser();
   if (!user) return null;
   const allowed = await checkPermission(
@@ -80,9 +85,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
     user.staffId,
     "transaction.read",
   );
-  if (!allowed) redirect("/dashboard");
+  if (!allowed) {
+    if(await checkPermission(user.role,user.staffId,"cashbook.read"))return <OperationsAreaContent area="cashbook" query={params}/>;
+    if(await checkPermission(user.role,user.staffId,"report.read")||await checkPermission(user.role,user.staffId,"report.export")||await checkPermission(user.role,user.staffId,"customer.export"))return <OperationsAreaContent area="exports" query={params}/>;
+    redirect("/dashboard");
+  }
 
-  const params = await searchParams;
   const requestedPage = Number(params.page ?? 1);
   const page =
     Number.isFinite(requestedPage) && requestedPage > 0
@@ -101,6 +109,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
 
+  if(revenueStoreId && await getStoreIndustryModule(revenueStoreId)==="beauty") {
+    const query=new URLSearchParams(Object.entries(params).filter((entry):entry is [string,string]=>entry[1]!==undefined));
+    query.set("tab","營運"); return redirectOperations(`/dashboard/beauty?${query}`);
+  }
   if (revenueStoreId && (await getStoreIndustryModule(revenueStoreId)) === "course")
     return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode} canDataExport={canDataExport}
       canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}
@@ -108,23 +120,17 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
       canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
   if(!await canReadInventoryFinance(revenueStoreId,user)) return <div className="p-4 text-sm">完整財務資料需有查看進貨成本的權限。一般商品收款請使用進銷存的收款單。</div>;
-  const showMonthly = Boolean(
-    revenueStoreId &&
-    (user.role === "OWNER" || user.role === "ADMIN") &&
-    await getStoreIndustryModule(revenueStoreId) === "steamfoot" &&
-    await checkPermission(user.role, user.staffId, "report.read") &&
-    await hasStoreFeature(revenueStoreId, FEATURES.SERVICE_FEE_CALCULATOR)
-  );
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
   const dateFrom = params.dateFrom ?? firstDayOfMonth;
   const dateTo = params.dateTo ?? today;
 
+  const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  if(!validDate(dateFrom)||!validDate(dateTo)||dateFrom>dateTo)return <PageShell compact><PageHeader compact title="營運"/><OperationsTabs query={params}/><p role="alert">請選擇有效的日期區間。</p></PageShell>;
   const [
     transactionResult,
-    todaySummary,
-    monthSummary,
+    periodSummary,
     staffOptions,
     canVoid,
     canEdit,
@@ -141,11 +147,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       activeStoreId: revenueStoreId,
     }),
     monthlyStoreSummary(month, {
-      startDate: today,
-      endDate: today,
+      startDate: dateFrom,
+      endDate: dateTo,
       activeStoreId: revenueStoreId,
     }),
-    monthlyStoreSummary(month, { activeStoreId: revenueStoreId }),
     revenueStoreId
       ? listStaffSelectOptions(revenueStoreId)
       : Promise.resolve([]),
@@ -162,40 +167,6 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
   const { transactions, total, pageSize, periodRevenue } = transactionResult;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const monthOrderCount = monthSummary.staffBreakdown.reduce(
-    (sum, row) => sum + row.transactionCount,
-    0,
-  );
-  const monthAvgOrder =
-    monthOrderCount > 0
-      ? Math.round(monthSummary.netCourseRevenue / monthOrderCount)
-      : 0;
-  const todayNet = todaySummary.netCourseRevenue + todaySummary.cashbookIncome;
-  const monthNet = monthSummary.netCourseRevenue + monthSummary.cashbookIncome;
-
-  const kpis = [
-    {
-      label: "今日營收",
-      value: `NT$ ${todayNet.toLocaleString()}`,
-      tone: "primary" as const,
-    },
-    {
-      label: "本月營收",
-      value: `NT$ ${monthNet.toLocaleString()}`,
-      tone: "green" as const,
-    },
-    {
-      label: "本月訂單",
-      value: `${monthOrderCount} 筆`,
-      tone: "blue" as const,
-    },
-    {
-      label: "平均客單價",
-      value: `NT$ ${monthAvgOrder.toLocaleString()}`,
-      tone: "earth" as const,
-    },
-  ];
-
   const columns: Column<TxRow>[] = [
     {
       key: "date",
@@ -304,28 +275,6 @@ export default async function RevenuePage({ searchParams }: PageProps) {
     },
   ];
 
-  const quickLinks: Array<{ href: string; label: string; hint: string }> = [
-    {
-      href: "/dashboard/store-revenue",
-      label: "收入總覽",
-      hint: "月 / 季 / 年報表",
-    },
-    {
-      href: "/dashboard/cashbook",
-      label: "現金帳",
-      hint: "零售、其他收支與現金管理",
-    },
-    ...(!isViewMode
-      ? [
-          {
-            href: "/dashboard/reconciliation",
-            label: "對帳中心",
-            hint: "系統對帳差異",
-          },
-        ]
-      : []),
-  ];
-
   const buildPageHref = (targetPage: number) => {
     const query = new URLSearchParams({ dateFrom, dateTo });
     if (params.transactionType)
@@ -337,31 +286,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
   return (
     <PageShell compact>
-      <PageHeader compact
-        title="營運"
-        subtitle="營收指標、交易查詢與修正都在這一頁完成"
-        actions={
-          canDataExport ? (
-            <Link
-              href="/dashboard/data-export"
-              className="hidden rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 md:inline-flex"
-            >
-              匯出資料
-            </Link>
-          ) : null
-        }
-      />
-
-      <RevenueTabs readOnly={isViewMode} showMonthly={showMonthly} />
-
-      {canDataExport ? (
-        <Link
-          href="/dashboard/data-export"
-          className="flex min-h-11 items-center justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 md:hidden"
-        >
-          匯出資料
-        </Link>
-      ) : null}
+      <PageHeader compact title="營運"/>
+      <OperationsTabs query={params}/>
 
       {isViewMode && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
@@ -369,10 +295,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <KpiStrip items={kpis} />
+      <OperationsReceiptSummary gross={periodSummary.totalCourseRevenue+periodSummary.cashbookIncome} refunds={Math.abs(periodSummary.totalRefund)} net={periodSummary.netCourseRevenue+periodSummary.cashbookIncome}>
+        <p>{dateFrom} 至 {dateTo}，含系統交易與手動收入 NT$ {periodSummary.cashbookIncome.toLocaleString()}，皆為台灣時間。交易表與收入分類列系統交易，手動收支明細於現金帳查看。</p>
+      </OperationsReceiptSummary>
 
       <div className="grid grid-cols-12 gap-2.5 sm:gap-3">
-        <div className="col-span-12 lg:col-span-9">
+        <div className="col-span-12">
           <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
             <div className="border-b border-earth-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
               <div>
@@ -458,7 +386,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 cta={
                   isViewMode
                     ? undefined
-                    : { label: "記一筆收支", href: "/dashboard/cashbook" }
+                    : { label: "記一筆收支", href: "/dashboard/revenue?area=cashbook" }
                 }
               />
             ) : (
@@ -511,85 +439,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
           </section>
         </div>
 
-        <aside className="col-span-12 space-y-3 lg:col-span-3">
-          <SideCard
-            title="相關工具"
-            subtitle={isViewMode ? "唯讀營運工具" : "需要時再進入"}
-          >
-            <div className="flex flex-col gap-1">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-earth-800">
-                      {link.label}
-                    </p>
-                    <p className="truncate text-[10px] text-earth-400">
-                      {link.hint}
-                    </p>
-                  </div>
-                  <span className="text-[11px] text-earth-400">→</span>
-                </Link>
-              ))}
-            </div>
-          </SideCard>
-
-          <SideCard title="本月概況" subtitle={`${month} 累積`}>
-            <div className="flex flex-col gap-2 text-[12px]">
-              <SummaryRow
-                label="系統收入"
-                value={`NT$ ${monthSummary.totalCourseRevenue.toLocaleString()}`}
-              />
-              {monthSummary.cashbookIncome > 0 && (
-                <SummaryRow
-                  label="手動收入"
-                  value={`NT$ ${monthSummary.cashbookIncome.toLocaleString()}`}
-                />
-              )}
-              <SummaryRow
-                label="退款"
-                value={`${monthSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(monthSummary.totalRefund).toLocaleString()}`}
-                tone="red"
-              />
-              <SummaryRow
-                label="本月營收"
-                value={`NT$ ${monthNet.toLocaleString()}`}
-                tone="primary"
-              />
-              <SummaryRow
-                label="完成服務"
-                value={`${monthSummary.completedBookings} 筆`}
-              />
-            </div>
-          </SideCard>
-        </aside>
       </div>
     </PageShell>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  tone = "earth",
-}: {
-  label: string;
-  value: string;
-  tone?: "earth" | "red" | "primary";
-}) {
-  const toneClass =
-    tone === "red"
-      ? "text-red-600"
-      : tone === "primary"
-        ? "text-primary-700 font-semibold"
-        : "text-earth-800";
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] text-earth-500">{label}</span>
-      <span className={`tabular-nums ${toneClass}`}>{value}</span>
-    </div>
   );
 }

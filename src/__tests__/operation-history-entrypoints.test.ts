@@ -5,7 +5,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 
 describe("operation history entrypoints", () => {
   it("shows history beside every cashbook record", () => {
-    const cashbook = read("src/app/(dashboard)/dashboard/cashbook/page.tsx");
+    const cashbook = read("src/app/(dashboard)/dashboard/cashbook/workspace.tsx");
     expect(cashbook).toMatch(/<OperationHistoryButton\b[^>]*targetType="CashbookEntry"[^>]*targetId=\{e\.id\}/);
   });
 
