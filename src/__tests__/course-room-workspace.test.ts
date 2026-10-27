@@ -9,10 +9,10 @@ vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: 
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: (props: unknown) => { m.schedule(props); return null; } }));
 vi.mock("@/components/admin/course-customer-picker", () => ({ CourseCustomerPicker: () => null }));
-const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn(), schedule: vi.fn(), search: "view=rooms&action=create" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams(m.search) }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
@@ -82,3 +82,15 @@ vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: 
 vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
 vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));
+
+it("native sports schedule dialog receives the current store scheduling modes", async () => {
+ m.search="view=schedule&action=schedule";m.schedule.mockClear();
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,view:"schedule",businessProfile:"FITNESS",sportsNative:true,
+   schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},
+   sportsData:{storeId:"store-a",date:"2026-10-10",subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}})));
+  expect(m.schedule).toHaveBeenCalled();
+  expect(m.schedule.mock.calls.at(-1)![0]).toMatchObject({schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true}});
+ } finally {await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
+});

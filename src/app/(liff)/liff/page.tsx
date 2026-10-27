@@ -3,6 +3,8 @@ import { resolveCentralMemberLiffId, resolveStoreSlugForLiff } from "@/lib/store
 import { liffMessages } from "@/lib/liff/messages";
 import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 import { LiffShell } from "./liff-shell";
+import { publicTrialPrimaryIntent } from "@/lib/liff/public-trial-intent";
+import PublicTrialLiffPage from "./public-trial/page";
 
 /**
  * /s/[storeSlug]/liff — LIFF MVP shell（PR-A）。
@@ -23,7 +25,14 @@ import { LiffShell } from "./liff-shell";
 
 export const dynamic = "force-dynamic";
 
-export default async function LiffEntryPage() {
+export default async function LiffEntryPage({ searchParams }: {
+  searchParams: Promise<{ "liff.state"?: string | string[] }>;
+}) {
+  const intent = publicTrialPrimaryIntent((await searchParams)["liff.state"]);
+  if (intent.kind === "invalid") notFound();
+  if (intent.kind === "trial") {
+    return PublicTrialLiffPage({ searchParams: Promise.resolve({ bookingStore: intent.bookingStore }) });
+  }
   const storeSlug = await resolveStoreSlugForLiff();
   if (!storeSlug) {
     return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
