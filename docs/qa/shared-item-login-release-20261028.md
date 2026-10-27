@@ -8,7 +8,13 @@
 - 程式整合提交：`3a88788e28e966b5053f89f6dfae2544872609d9`，整合本次核心修正`3f33619`及最新正式main `979c95681a66734dfa4913ad429a1148821b6025`；無衝突，保留營運工具列與HQ月結更新。
 - Vercel：team `team_IAPnhzLHM4x540wiXg3lTyS9`／project `prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR`（steamfoot-booking）。
 - 已查證正式版本：`dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5`，READY／production，commit `979c956`；實際alias包含`www.steamfoot.com`及`steamfoot.com`。此版本是本次發布前的回復參考點，發布當下仍須再核對。
-- 上述兩條修正／驗收支線已關閉Git自動部署。沒有推送、變更遠端分支、合併main或部署正式站。
+- 上述兩條修正／驗收支線已關閉Git自動部署；測試站更新走下方既有Preview支線。沒有推送或合併main，也未部署正式站。
+
+後續測試站更新：使用者指定可使用運動／美業既有測試站後，已核對美業支線專屬`BEAUTY_HOSTED_PREVIEW=1`、模組開啟、通知關閉、legacy資料庫模式及LINE憑證空值（未讀取或解密AUTH_SECRET）。以保留歷史的merge整合原測試站`03752d87`；美業頁面的既有HQ導向修正已包含在新版main，解衝突後候選程式與已驗收`46a4f68`完全一致。未丟棄舊測試站修正或強制推送。
+
+已快轉更新遠端`preview/beauty-ui-alignment-20261021`至`d92a4fa8f546f30678eb2052481cf5f3a3322c88`，觸發Preview建置`dpl_EoFv1FBUZHQTU5DFuZWU4SPDp7gU`，target=null，未推送或合併main。測試網址：`https://steamfoot-booking-5kolc37cz-rock7652-2111s-projects.vercel.app`。建置／登入結果於完成後補記，不能把BUILDING視為可驗收或正式發布。
+
+第一版遠端編譯與靜態頁產生完成，但部署階段因`api/image-announcements`未壓縮函式252.31MB超過250MB上限而ERROR，該網址不作交付入口。依Next.js文件與執行程式搜尋結果，在`next.config.ts`僅新增`outputFileTracingExcludes`排除`artifacts`驗收資料夾；未排除執行程式、Prisma用戶端或憑證，也未開啟大函式beta或變更方案。型別、lint與圖片公告相關回歸補驗後重建Preview；原始完整14,134項結果對應封裝調整前的相同業務程式，不冒稱已重跑整套。
 
 ## 真實登入檢查
 
@@ -30,9 +36,9 @@
 
 ## 線上驗收前置
 
-使用者同意運動／美業測試站皆可使用。已查到美業既有Preview支線`preview/beauty-ui-alignment-20261021`，最新查得READY部署`dpl_DfK6WWTMavHZz3HBqgc4A9b2Fi1F`，commit `03752d87ca2692958e95064ebd11aac80e715a25`。這不是本次候選，不可拿舊站的登入成功宣稱新程式驗收。
+使用者同意運動／美業測試站皆可使用。美業既有Preview支線`preview/beauty-ui-alignment-20261021`更新前的READY部署為`dpl_DfK6WWTMavHZz3HBqgc4A9b2Fi1F`，commit `03752d87ca2692958e95064ebd11aac80e715a25`。這不是本次候選，不可拿舊站的登入成功宣稱新程式驗收。
 
-目前可用的瀏覽器profile未列出測試站登入；已請使用者選擇開啟安全登入頁或確認既有profile已登入，不索取明文密碼。候選仍須部署至確認隔離資料庫、通知停用的測試環境，並以候選確切commit驗收。
+目前可用的瀏覽器profile未列出測試站登入；已請使用者選擇開啟安全登入頁或確認既有profile已登入，不索取明文密碼。候選須達到READY、確認隔離資料庫與通知停用，再以候選確切commit驗收。
 
 線上驗收須依序核對：候選commit／資料庫隔離→OWNER／受限STAFF登入→項目A排課→有無方案皆可安排→無方案點○阻擋→原地購課→同項目10+20合計→先買先扣→恢復原來源一次→重送不重複收入→其他店家與B/C項目拒絕。期初與來源補課沿用原規則，只有音樂保留其既定補課流程。
 

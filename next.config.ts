@@ -62,6 +62,11 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./generated/course-client/**", "./generated/beauty-client/**", "./scripts/certs/supabase-root-2021.crt"],
   },
+  // QA evidence is never read by application routes. Keep screenshots and
+  // fixture captures out of serverless bundles traced through native loaders.
+  outputFileTracingExcludes: {
+    "/*": ["./artifacts/**/*"],
+  },
   ...(process.env.BEAUTY_RELEASE_QA === '1' ? {
     distDir: '.next-beauty-release-qa',
     output: 'standalone' as const,
