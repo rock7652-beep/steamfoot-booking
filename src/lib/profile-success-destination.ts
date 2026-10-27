@@ -14,6 +14,21 @@ export function resolveProfileSuccessDestination({
   onboardingMode,
   prefix,
 }: ProfileSuccessDestinationInput): string | null {
-  if (nextPath) return nextPath;
-  return onboardingMode ? `${prefix}/my-plans` : null;
+  const fallback = onboardingMode ? `${prefix}/my-plans` : null;
+  if (!nextPath) return fallback;
+
+  // A stale completion link must not send a saved profile back to itself.
+  // Return destinations remain inside the currently selected store.
+  try {
+    const destination = new URL(nextPath, "https://profile.invalid");
+    const path = decodeURIComponent(destination.pathname);
+    if (destination.origin !== "https://profile.invalid" ||
+        !path.startsWith(`${prefix}/`) ||
+        path === `${prefix}/profile` || path.startsWith(`${prefix}/profile/`)) {
+      return fallback;
+    }
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return fallback;
+  }
 }

@@ -58,6 +58,8 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/silverlily-profile-onboarding-20261027": false,
+      "fix/course-announcement-duplicate-20261027": false,
       "feat/shared-verified-booking-entry-20261026": false,
       "fix/beauty-money-consistency-20261026": false,
       "fix/beauty-daily-flow-20261026": false,
