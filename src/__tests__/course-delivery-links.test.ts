@@ -1,5 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { courseMemberReturnPath, courseLineOnboardingReturnPath } from "@/lib/course-delivery-links";
+
+it("preserves explicit LINE entry for switching back from course to other modules",()=>{
+  expect(courseMemberReturnPath("fitness","",true)).toBe("/s/fitness/book?memberEntry=liff");
+  expect(courseMemberReturnPath("fitness","?memberEntry=https://evil.example")).toBe("/s/fitness/book");
+});
 import { deriveCourseBaseUrl, courseMemberNotificationUrl } from "@/server/services/course-delivery-links";
 afterEach(() => vi.unstubAllEnvs());
 it("returns a newly registered booking visitor to the same verified store entry",()=>{

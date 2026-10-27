@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
+import { useFormStatus } from "react-dom";
 
 export interface CustomerStoreOption {
   storeId: string;
@@ -14,6 +15,10 @@ interface CentralMemberStoreSwitcherProps {
   currentStoreSlug: string;
   stores: CustomerStoreOption[];
   compact?: boolean;
+  align?: "center" | "start";
+  disabled?: boolean;
+  onBeforeSwitch?: () => boolean;
+  returnToLiff?: boolean;
 }
 
 export function CentralMemberStoreSwitcher({
@@ -21,6 +26,10 @@ export function CentralMemberStoreSwitcher({
   currentStoreSlug,
   stores,
   compact = false,
+  align = "center",
+  disabled = false,
+  onBeforeSwitch,
+  returnToLiff = false,
 }: CentralMemberStoreSwitcherProps) {
   const [open, setOpen] = useState(false);
 
@@ -29,14 +38,15 @@ export function CentralMemberStoreSwitcher({
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((value) => !value)}
         aria-label={`目前門市：${currentStoreName}，切換門市`}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`inline-flex min-h-11 touch-manipulation select-none items-center rounded-xl font-semibold text-earth-900 hover:bg-earth-100 active:bg-earth-100 ${compact ? "max-w-[190px] gap-2 px-2" : "w-full justify-between gap-3 px-2 text-sm"}`}
+        className={`inline-flex w-full min-h-11 touch-manipulation select-none items-center rounded-xl font-semibold text-earth-900 hover:bg-earth-100 active:bg-earth-100 ${compact ? "max-w-[190px] gap-2 px-2" : "justify-between gap-3 px-2 text-sm"}`}
       >
         <span className={`min-w-0 ${compact ? "flex flex-col items-start leading-tight" : "truncate"}`}>
           {compact && <span className="text-[10px] font-medium text-earth-500">目前門市</span>}
@@ -52,23 +62,28 @@ export function CentralMemberStoreSwitcher({
         )}
       </button>
       {open && (
-        <div role="menu" className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-earth-200 bg-white p-2 shadow-xl ${compact ? "left-1/2 w-72 -translate-x-1/2" : "left-0 w-full"}`}>
+        <div role="menu" className={`absolute z-50 mt-2 max-h-[60dvh] max-w-[calc(100vw-32px)] overflow-y-auto rounded-2xl border border-earth-200 bg-white p-2 shadow-xl ${compact ? `${align === "start" ? "left-0" : "left-1/2 -translate-x-1/2"} w-72` : "left-0 w-full"}`}>
           <p className="px-3 pb-2 pt-1 text-xs font-medium text-earth-500">切換目前門市</p>
           {stores.map((store) => (
-            <form key={store.storeId} action={selectCentralMemberStoreAction}>
+            <form key={store.storeId} action={selectCentralMemberStoreAction} onSubmit={event => {
+              if (disabled || store.storeSlug === currentStoreSlug || onBeforeSwitch?.() === false) event.preventDefault();
+            }}>
               <input type="hidden" name="storeSlug" value={store.storeSlug} />
-              <button
-                type="submit"
-                role="menuitem"
-                className={`flex min-h-12 w-full touch-manipulation select-none items-center justify-between rounded-xl px-3 text-left text-sm hover:bg-earth-50 active:bg-earth-100 ${store.storeSlug === currentStoreSlug ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-800"}`}
-              >
-                <span>{store.storeName}</span>
-                {store.storeSlug === currentStoreSlug && <span className="text-xs text-primary-700">目前門市</span>}
-              </button>
+              {returnToLiff && <input type="hidden" name="memberEntry" value="liff" />}
+              <StoreOptionButton store={store} isCurrent={store.storeSlug === currentStoreSlug} disabled={disabled} />
             </form>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function StoreOptionButton({ store, isCurrent, disabled }: { store: CustomerStoreOption; isCurrent: boolean; disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return <button type="submit" role="menuitem" disabled={disabled || isCurrent || pending} aria-busy={pending}
+    className={`flex min-h-12 w-full touch-manipulation select-none items-center justify-between gap-2 rounded-xl px-3 text-left text-sm hover:bg-earth-50 active:bg-earth-100 ${isCurrent ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-800"}`}>
+    <span className="min-w-0 break-words">{store.storeName}</span>
+    {isCurrent ? <span className="shrink-0 text-xs text-primary-700">目前門市</span> : pending ? <span className="shrink-0 text-xs text-earth-500">切換中…</span> : null}
+  </button>;
 }

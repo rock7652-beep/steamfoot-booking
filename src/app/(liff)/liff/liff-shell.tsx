@@ -241,7 +241,7 @@ export function LiffShell({
           // Course uses the same authenticated mobile portal in LINE and browsers.
           // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
           if (memberDataSource === "course") {
-            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search));
+            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search, true));
             return;
           }
           const [memberContext, workAccess] = await Promise.all([
