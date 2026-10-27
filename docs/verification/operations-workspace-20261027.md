@@ -146,7 +146,7 @@ Vercel 唯讀部署盤點找到既有音樂預覽 `release/music-production-2026
 
 使用獨立工作目錄 `/workspace/operations-release`，基底 `5025db445c353807e6493e21383eb900df975f8b`（main，PR #1456）。本次營運異動與該基底新增變更沒有重疊檔案；原工作目錄保留。候選分支 `feat/operations-workspace-20261027` 在 vercel.json 明確關閉自動部署，未合併或部署正式站。
 
-- TypeScript 通過；55 個變更 JS／TS／TSX／MJS 檔案 ESLint 無錯誤或警告。
+- TypeScript 通過；59 個變更 JS／TS／TSX／MJS 檔案 ESLint 無錯誤或警告。
 - 122 個相關回歸測試檔、819 項測試通過。初次有 2 個檔案共 9 項失敗，原因為沙箱拒絕 Node 子程序（EPERM）；原程式不改，在允許子程序的環境重跑這 2 檔、45 項全部通過。
 - 使用既有專用本機 PostgreSQL 資料重新登入運動、音樂、舞蹈、美業、蒸足：30 項登入／分頁讀取檢查通過；五店畫面與 Excel 金額重驗通過，舊現金帳直開與頁面連結均正常。證據為 `candidate-reads.json`、`candidate-amounts.json`、`candidate-legacy.json`。
 - 新增營運、收入分類、匯出日期、Proxy、現金差異與入口測試納入既有 CI targeted-tests。
