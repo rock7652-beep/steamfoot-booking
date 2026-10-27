@@ -1,5 +1,6 @@
 "use client";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
@@ -312,6 +313,7 @@ export function LiffShell({
           )}
           <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
         </div>
+        <FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />
       </header>
 
       {state.kind === "initializing" && (
@@ -498,19 +500,7 @@ function WelcomeCta({
   );
 }
 
-export function WelcomeBack({
-  storeSlug,
-  displayName,
-  memberSummary,
-  healthAssessmentEnabled,
-  terminology,
-  memberDataSource = "steamfoot",
-  bookingHref,
-  memberLinks,
-  hasWorkAccess = false,
-  compactHome = false,
-  previewAnnouncements = false,
-}: {
+type WelcomeBackProps = {
   storeSlug: string;
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
@@ -527,7 +517,28 @@ export function WelcomeBack({
   hasWorkAccess?: boolean;
   compactHome?: boolean;
   previewAnnouncements?: boolean;
-}) {
+};
+
+export function WelcomeBack(props: WelcomeBackProps) {
+  // Public announcements do not depend on private membership summaries.
+  // Keep one stable mount while those summaries load or fail.
+  return <>
+    <StoreImageAnnouncements storeSlug={props.storeSlug} preview={props.previewAnnouncements ?? false} />
+    <MemberHomeContent {...props} />
+  </>;
+}
+
+function MemberHomeContent({
+  storeSlug,
+  displayName,
+  memberSummary,
+  healthAssessmentEnabled,
+  terminology,
+  memberDataSource = "steamfoot",
+  bookingHref,
+  memberLinks,
+  compactHome = false,
+}: WelcomeBackProps) {
   if (!memberSummary) {
     return (
       <div className="flex flex-col gap-3">
@@ -588,8 +599,6 @@ export function WelcomeBack({
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
-
-      <StoreImageAnnouncements storeSlug={storeSlug} preview={previewAnnouncements} />
 
       <section className="rounded-2xl bg-primary-800 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>

@@ -70,10 +70,11 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); if
 describe("coach daily work interactions", () => {
   it("refreshes from the work account menu without submitting logout", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,props())));
-    const form=host.querySelector('.cp-coach-options form') as HTMLFormElement;
+    const menu=host.querySelector('[aria-label="帳號操作"]')!;
+    const form=menu.querySelector('form') as HTMLFormElement;
     const submitted=vi.fn();form.addEventListener('submit',submitted);
-    await act(async()=>(host.querySelector('.cp-coach-options summary') as HTMLElement).click());
-    await act(async()=>(form.querySelector('.cp-refresh button') as HTMLButtonElement).click());
+    await act(async()=>(host.querySelector('summary[aria-label="帳號選單"]') as HTMLElement).click());
+    await act(async()=>(menu.querySelector('.cp-refresh button') as HTMLButtonElement).click());
     expect(m.refresh).toHaveBeenCalledTimes(1);
     expect(submitted).not.toHaveBeenCalled();
     expect(host.querySelector('.cp-main .cp-refresh')).toBeNull();
@@ -85,7 +86,7 @@ describe("coach daily work interactions", () => {
       await click(label);
       const links = host.querySelectorAll('a[href^="/s/a/book/income"]');
       expect(links).toHaveLength(1);
-      expect(links[0].closest(".cp-coach-options")).not.toBeNull();
+      expect(links[0].closest('[aria-label="帳號操作"]')).not.toBeNull();
     }
   });
   it("shows the music lesson unit when expanding a work roster", async () => {
