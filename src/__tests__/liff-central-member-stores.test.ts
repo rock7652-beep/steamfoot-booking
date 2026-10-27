@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { LiffStoreSwitcher } from "@/app/(liff)/liff/liff-store-switcher";
 
 const h = vi.hoisted(() => ({
+  findStores: vi.fn(),
   currentUser: vi.fn(),
   requireSession: vi.fn(),
   resolveMemberships: vi.fn(),
@@ -9,6 +13,8 @@ const h = vi.hoisted(() => ({
     throw new Error(`REDIRECT:${url}`);
   }),
 }));
+
+vi.mock("@/lib/db", () => ({ prisma: { store: { findMany: h.findStores } } }));
 
 vi.mock("@/lib/session", () => ({
   getCurrentUser: h.currentUser,
@@ -49,6 +55,7 @@ function membership(
 describe("LIFF central-member store context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.findStores.mockResolvedValue([{ id: "store-zhubei" }, { id: "store-hsinchu" }]);
     h.resolveMemberships.mockResolvedValue({ memberships: [], conflicts: [] });
   });
 
@@ -74,6 +81,8 @@ describe("LIFF central-member store context", () => {
         membership("zhubei"),
         membership("hsinchu", "TRIAL"),
         membership("closed", "INACTIVE"),
+        membership("archived"),
+        membership("archived-trial", "TRIAL"),
       ],
       conflicts: [],
     });
@@ -89,8 +98,26 @@ describe("LIFF central-member store context", () => {
         { storeName: "門市 hsinchu", storeSlug: "hsinchu" },
       ],
     });
+    expect(h.findStores).toHaveBeenCalledWith({
+      where: { id: { in: ["store-zhubei", "store-hsinchu", "store-archived", "store-archived-trial"] }, archivedAt: null },
+      select: { id: true },
+    });
     expect(JSON.stringify(result)).not.toContain("customer-");
     expect(JSON.stringify(result)).not.toContain("store-zhubei");
+  });
+
+  it("keeps an existing archived-store session but hides it from selection", async () => {
+    h.currentUser.mockResolvedValue({
+      id: "user-1", role: "CUSTOMER", customerId: "customer-archived",
+      storeId: "store-archived", storeSlug: "archived",
+    });
+    h.resolveMemberships.mockResolvedValue({
+      memberships: [membership("archived"), membership("zhubei")], conflicts: [],
+    });
+    await expect(fetchLiffMemberStoreContext()).resolves.toEqual({
+      status: "signed_in", currentStoreSlug: "archived", displayName: "會員 archived",
+      stores: [{ storeName: "門市 zhubei", storeSlug: "zhubei" }],
+    });
   });
 
   it("fails closed when the URL store is not the canonical membership", async () => {
@@ -115,6 +142,7 @@ describe("LIFF central-member store context", () => {
 describe("LIFF central-member store selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.findStores.mockResolvedValue([{ id: "store-zhubei" }, { id: "store-hsinchu" }]);
     h.requireSession.mockResolvedValue({
       id: "user-1",
       role: "CUSTOMER",
@@ -140,6 +168,37 @@ describe("LIFF central-member store selection", () => {
     );
   });
 
+  it("rejects a submitted archived store even when its membership is active", async () => {
+    h.resolveMemberships.mockResolvedValue({
+      memberships: [membership("zhubei"), membership("archived")], conflicts: [],
+    });
+    const formData = new FormData();
+    formData.set("storeSlug", "archived");
+    await expect(selectLiffMemberStoreAction(formData)).rejects.toThrow(
+      "REDIRECT:/s/zhubei/liff?storeSwitchError=1",
+    );
+    expect(h.cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a visible store when the current store has been archived", async () => {
+    h.findStores.mockResolvedValue([{ id: "store-hsinchu" }]);
+    const formData = new FormData();
+    formData.set("storeSlug", "zhubei");
+    await expect(selectLiffMemberStoreAction(formData)).rejects.toThrow(
+      "REDIRECT:/s/hsinchu/liff?storeSwitchError=1",
+    );
+    expect(h.cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("returns home when all memberships are archived", async () => {
+    h.findStores.mockResolvedValue([]);
+    const formData = new FormData();
+    formData.set("storeSlug", "zhubei");
+    await expect(selectLiffMemberStoreAction(formData)).rejects.toThrow("REDIRECT:/");
+    expect(h.redirect).toHaveBeenCalledWith("/");
+    expect(h.cookieSet).not.toHaveBeenCalled();
+  });
+
   it("rejects a forged slug and returns to a verified membership", async () => {
     const formData = new FormData();
     formData.set("storeSlug", "forged");
@@ -149,4 +208,27 @@ describe("LIFF central-member store selection", () => {
     );
     expect(h.cookieSet).not.toHaveBeenCalled();
   });
+});
+
+
+describe("LIFF switcher after store archiving", () => {
+  it("allows leaving an archived store when only one visible store remains", () => {
+    const html = renderToStaticMarkup(createElement(LiffStoreSwitcher, {
+      currentStoreSlug: "archived", currentStoreName: "封存門市",
+      stores: [{ storeSlug: "active", storeName: "營運門市" }],
+    }));
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain("切換門市");
+  });
+
+  it.each([{ stores: [] }, { stores: [{ storeSlug: "active", storeName: "營運門市" }] }])(
+    "shows only the current name when there is no other selectable store: %j",
+    ({ stores }) => {
+      const html = renderToStaticMarkup(createElement(LiffStoreSwitcher, {
+        currentStoreSlug: "active", currentStoreName: "營運門市", stores,
+      }));
+      expect(html).toContain("營運門市");
+      expect(html).not.toContain('aria-haspopup="menu"');
+    },
+  );
 });

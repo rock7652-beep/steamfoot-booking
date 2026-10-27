@@ -16,7 +16,8 @@ export function LiffStoreSwitcher({
 }) {
   const [open, setOpen] = useState(false);
 
-  if (stores.length < 2) {
+  const canSwitch = stores.some((store) => store.storeSlug !== currentStoreSlug);
+  if (!canSwitch) {
     return (
       <p className="break-words text-lg font-semibold text-primary-900">
         {currentStoreName}
