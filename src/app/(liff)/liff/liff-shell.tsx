@@ -4,7 +4,7 @@ import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { MemberPortalHeader } from "@/components/member-portal-header";
 
 /**
  * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
@@ -299,22 +299,11 @@ export function LiffShell({
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-2">
-      <header aria-label="LINE 門市識別" className="flex items-center justify-between gap-3">
-        <SteamButlerLogo className="w-20" />
-        <div className="min-w-0 flex-1 text-right">
-          {state.kind === "signed_in" ? (
-            <LiffStoreSwitcher
-              currentStoreSlug={storeSlug}
-              currentStoreName={storeName}
-              stores={memberStores}
-            />
-          ) : (
-            <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>
-          )}
-          <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
-        </div>
-        <FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />
-      </header>
+      <MemberPortalHeader label="LINE 門市識別"
+        store={state.kind === "signed_in" ? <LiffStoreSwitcher currentStoreSlug={storeSlug} currentStoreName={storeName} stores={memberStores} /> : <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>}
+        caption={liffMessages.shell.memberHomeLabel}
+        account={<FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />}
+      />
 
       {state.kind === "initializing" && (
         <Loading text={liffMessages.shell.initializing} />
