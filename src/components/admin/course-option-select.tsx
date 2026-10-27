@@ -31,3 +31,11 @@ export function CourseOptionSelect({options,value,onChange,name,placeholder="請
     </div>}
   </div>;
 }
+
+/** Multiple selections use the same bounded, searchable option popup. */
+export function CourseMultiOptionSelect({options,value,onChange,label}:{options:{id:string;label:string}[];value:string[];onChange:(value:string[])=>void;label:string}){
+ return <div className="min-w-0 space-y-1">
+  <CourseOptionSelect searchable label={label} placeholder="搜尋姓名／電話後加入" value="" onChange={id=>{if(id&&!value.includes(id))onChange([...value,id]);}} options={options.map(o=>({...o,disabled:value.includes(o.id)}))}/>
+  <div className="flex flex-wrap gap-1" aria-label="已選學員">{value.map(id=>{const option=options.find(o=>o.id===id);return <button key={id} type="button" className="min-h-11 max-w-full break-words rounded-lg border border-primary-200 bg-primary-50 px-3 text-left" aria-label={`移除 ${option?.label??id}`} onClick={()=>onChange(value.filter(v=>v!==id))}>{option?.label??id} ×</button>;})}</div>
+ </div>;
+}

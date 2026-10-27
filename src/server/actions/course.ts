@@ -484,10 +484,11 @@ export async function createCourseSchedule(input: unknown) {
     const data = courseScheduleInput
       .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    if(!data.isTrial)data.chargePlanId=undefined;
     const chargeDefaults=data.chargePlanId?await (await import('@/lib/shop-config')).getTrialSettings(storeId):null;
     const receiptSession=data.chargePlanId?await coursePrisma.courseSession.findFirst({where:{storeId,requestKey:data.requestKey,createdById:user.id},orderBy:{requestIndex:'asc'}}):null;
     const captured=courseChargeSnapshot.safeParse(receiptSession?.chargeSnapshot);
-    const chargeQuote=captured.success&&captured.data.planId===data.chargePlanId?{snapshot:captured.data,duration:Math.round((+receiptSession!.endsAt-+receiptSession!.startsAt)/60000),trialPrice:captured.data.isTrial?captured.data.trialPrice:null}:await resolveScheduleCharge(coursePrisma,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+    const chargeQuote=!data.isTrial?null:captured.success&&captured.data.planId===data.chargePlanId?{snapshot:captured.data,duration:Math.round((+receiptSession!.endsAt-+receiptSession!.startsAt)/60000),trialPrice:captured.data.isTrial?captured.data.trialPrice:null}:await resolveScheduleCharge(coursePrisma,storeId,{...data,sports:!!data.sportsStaging,requireSelection:true,open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
     if(chargeQuote){
       data.durationMinutes=chargeQuote.duration;
       if(data.isTrial){

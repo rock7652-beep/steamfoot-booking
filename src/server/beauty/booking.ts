@@ -521,9 +521,30 @@ export async function transition(
       throw new AppError("FORBIDDEN", "此預約請聯絡店家處理");
   }
   if(input.noShowDeduct!==undefined&&(!a.manager||input.target!=='NO_SHOW'))throw new AppError('FORBIDDEN','只有後台可選擇未出席扣次方式');
-  if(input.noShowDeduct===true&&!b.cardId)throw new AppError('VALIDATION','此服務未使用方案，無法扣次');
   const debit=input.target==='COMPLETED'||(input.target==='CANCELLED'&&b.cancelDeduct)||(input.target==='NO_SHOW'&&(input.noShowDeduct??b.noShowDeduct));
+  const hadCardBinding=!!b.cardId;
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
+  // Completion may use existing paid single-service rights, or an eligible
+  // item card selected under this transaction. Never silently complete unpaid.
+  if(!b.cardId&&!b.isTrial&&(input.target==='COMPLETED'||input.target==='NO_SHOW'&&debit)){
+    const {serviceCharges}=await import('./service-charges');
+    const [charge]=await serviceCharges(tx,a.storeId,[b]);
+    if(charge.due>0){
+      if(charge.collected>0)throw new AppError('VALIDATION','此服務尚有未收款，請先完成繳費，再確認出席');
+      const {findBeautyItemCard}=await import('./item-entitlement');
+      const card=b.customerId?await findBeautyItemCard(tx,a.storeId,b.customerId,b.serviceId,b.startsAt,b.id,b.group.customerId):null;
+      if(!card)throw new AppError('VALIDATION','請先繳費／購買適用方案，再確認出席；尚未扣次');
+      if(beautyChargeRulesEnabled(a.storeId)){
+        const chargeRule=await readCardCharge(tx,a.storeId,card);
+        if(chargeAllowedIds(chargeRule,a.storeId,b.serviceId)?.includes(b.technicianId)===false)throw new AppError('VALIDATION','方案授權需核對目前技師，尚未扣次');
+        await writeAppointmentCharge(tx,a.storeId,b.id,chargeRule);
+      }
+      await tx.beautyAppointment.update({where:{id:b.id},data:{cardId:card.id}});
+      await tx.beautyLedger.create({data:{storeId:a.storeId,cardId:card.id,appointmentId:b.id,kind:'RESERVE',delta:0,actorUserId:a.userId}});
+      b.cardId=card.id;
+    }
+  }
+  if(input.noShowDeduct===true&&!b.cardId)throw new AppError('VALIDATION','此服務未使用方案，無法扣次');
   if(b.isTrial&&b.status==='CANCELLED'&&input.target!=='CANCELLED')await assertBeautyTrialEligibility(tx,a.storeId,{serviceId:b.serviceId,customerId:b.customerId,phone:b.personPhone},b.id);
   if (input.target === "RESERVED") {
     await assertCustomerAvailable(tx, a.storeId, b.customerId, b.startsAt,
@@ -556,6 +577,25 @@ export async function transition(
     );
   }
   let card: null | Awaited<ReturnType<typeof assertCard>> = null;
+  if(hadCardBinding&&b.status==='RESERVED'&&!b.debit&&b.cardId&&!b.isTrial&&debit&&(input.target==='COMPLETED'||input.target==='NO_SHOW')){
+    const {findBeautyItemCard}=await import('./item-entitlement');
+    const selected=b.customerId?await findBeautyItemCard(tx,a.storeId,b.customerId,b.serviceId,b.startsAt,b.id,b.group.customerId):null;
+    if(!selected)throw new AppError('VALIDATION','請先繳費／購買本服務項目的有效方案，尚未完成服務或扣次');
+    if(selected.id!==b.cardId){
+      const previousCardId=b.cardId;
+      let previousCharge:unknown=null,nextCharge:unknown=null;
+      if(beautyChargeRulesEnabled(a.storeId)){
+        previousCharge=(await readAppointmentCharge(tx,a.storeId,b.id)).snapshot;
+        nextCharge=await readCardCharge(tx,a.storeId,selected);
+        if(chargeAllowedIds(nextCharge,a.storeId,b.serviceId)?.includes(b.technicianId)===false)throw new AppError('VALIDATION','方案授課資格需核對，尚未改卡或扣次');
+        await writeAppointmentCharge(tx,a.storeId,b.id,nextCharge);
+      }
+      await tx.beautyAppointment.update({where:{id:b.id},data:{cardId:selected.id}});
+      for(const [cardId,kind] of [[previousCardId,'RELEASE'],[selected.id,'RESERVE']] as const)await tx.beautyLedger.create({data:{storeId:a.storeId,cardId,appointmentId:b.id,kind,delta:0,actorUserId:a.userId}});
+      await audit(tx,a,'RECONCILE_ITEM_CARD',JSON.stringify({before:{cardId:previousCardId,charge:previousCharge},after:{cardId:selected.id,charge:nextCharge},reason:'同服務項目先買先扣；保留原預約、購買與扣次歷程'}),b.id);
+      b.cardId=selected.id;
+    }
+  }
   if (b.cardId) {
     if (debit && !b.debit)
       card = await assertCard(

@@ -78,6 +78,7 @@ beforeEach(() => {
     },
     beautySetting: { findUnique: vi.fn().mockResolvedValue(null) },
     beautyCard: {
+      findMany: vi.fn().mockResolvedValue([{...card,createdAt:new Date('2026-01-01')}]),
       findFirst: vi.fn().mockResolvedValue({ ...card }),
       update: vi.fn(),
       findFirstOrThrow: vi.fn().mockResolvedValue({ ...card }),
@@ -408,6 +409,35 @@ it('does not require recording technician payment recovery for a service correct
 });
 
 
+describe('item-level completion payment gate',()=>{
+ it('a replay of completed historical single service never binds or reserves a new card',async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'COMPLETED',cardId:null,isTrial:false,debit:true} as never);
+  await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
+  expect(tx.beautyCard.findMany).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
+ });
+ it('keeps unpaid attendance unchanged when no suitable item card exists',async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,isTrial:false} as never);
+  Object.assign(tx.beautyCard,{findMany:vi.fn().mockResolvedValue([])});
+  await expect(transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''})).rejects.toThrow('請先繳費');
+  expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+ });
+ it('preserves an already paid single service without requiring an unrelated package',async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,isTrial:false} as never);
+  vi.mocked(tx.beautyPayment.findMany).mockResolvedValue([{id:'receipt',appointmentId:'b',amount:1000}] as never);
+  await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
+  expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'COMPLETED'})}));
+  expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+ });
+ it('uses the oldest eligible item card and leaves source-linked correction bookkeeping intact',async()=>{
+  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,isTrial:false} as never);
+  Object.assign(tx.beautyCard,{findMany:vi.fn().mockResolvedValue([{...card,id:'later',createdAt:new Date('2026-02-01')},{...card,createdAt:new Date('2026-01-01')}])});
+  await transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''});
+  expect(tx.beautyAppointment.update).toHaveBeenCalledWith({where:{id:'b'},data:{cardId:'card'}});
+  expect(tx.beautyCard.update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:{increment:-1}}});
+  expect(tx.beautyLedger.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:'card',appointmentId:'b',delta:-1})});
+ });
+});
+
 describe("Beauty trial care enrollment boundaries",()=>{
  it("adds a stable first-completion marker for an identified trial without changing debit rules",async()=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,isTrial:true} as never);
@@ -471,7 +501,8 @@ describe('explicit back-office attendance correction',()=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'NO_SHOW',debit:true,noShowDeduct:false} as never);await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'重送'});expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
  });
  it('rejects stale revisions and deduction without a plan before ledger writes',async()=>{
-  await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('未使用方案');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+  vi.mocked(tx.beautyCard.findMany).mockResolvedValue([]);
+  await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('請先繳費');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
  });
 });
 it('does not append another receipt or revision for a zero payment with unchanged discount',async()=>{
