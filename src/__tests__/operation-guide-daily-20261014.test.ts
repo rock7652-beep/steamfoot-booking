@@ -9,7 +9,7 @@ const guide = (id: string) => operationGuides.find(g => g.id === id)!;
 
 describe("2026-10-14 backend operation guide audit", () => {
   it("adds one guide while preserving backend-only scope and actual access", () => {
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(208);
     expect(guide("I22").modules).toEqual(["steamfoot", "course"]);
     expect(guide("I22").permission).toBe("plans.edit");
     expect(guide("I22").verification).toBe("source-reviewed");
