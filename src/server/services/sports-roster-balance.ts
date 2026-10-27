@@ -1,4 +1,5 @@
 import 'server-only';
+import {readSportsTeachingTemplates} from './sports-teaching-templates';
 import {coursePrisma} from '@/lib/course-db';
 import {resolveSportsEntitlement} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
@@ -11,14 +12,15 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  if(!ids.length)return balances;
  const session=await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
  if(!session)return balances;
- const [rule,cards]=await Promise.all([
+ const [rule,cards,compatibleTemplateIds]=await Promise.all([
   readSportsSessionRule(coursePrisma,storeId,sessionId),
   coursePrisma.coursePointCard.findMany({where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
+  readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId),
  ]);
  if(!rule)return balances;
  for(const card of cards){
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
-  const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment:rule.enrollment==='ASSIGNED'?'ASSIGNED':rule.enrollment==='OPEN'?'OPEN':null,legacyPlanId:rule.planId});
+  const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment:rule.enrollment==='ASSIGNED'?'ASSIGNED':rule.enrollment==='OPEN'?'OPEN':null,legacyPlanId:rule.planId,compatibleTemplateIds});
   if(!rights.eligible)continue;
   const available=Math.max(0,card.remaining-card.bookings.reduce((n,b)=>n+b.pointCost,0));
   const balance={remaining:card.remaining,available,cost:rights.cost,unit:card.unit,planName:card.nameSnapshot};

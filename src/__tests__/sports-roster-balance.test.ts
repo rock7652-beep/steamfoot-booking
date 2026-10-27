@@ -1,11 +1,11 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn()}));
-vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session},coursePointCard:{findMany:m.cards}}}));
+const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn(),templates:vi.fn()}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session},coursePointCard:{findMany:m.cards},courseTemplate:{findMany:m.templates}}}));
 vi.mock('@/server/services/sports-staging-schedule',()=>({readSportsSessionRule:m.rule}));
 import {readSportsRosterBalances} from '@/server/services/sports-roster-balance';
 const card=(id:string,remaining:number,held=0)=>({id,remaining,storeId:'store',sportsMode:'ASSIGNED',sportsSubjectId:'dance',sportsCost:1,unit:'SESSION',planId:'plan',templateIds:['old'],nameSnapshot:'十堂舞蹈',requestKey:'normal',termSessionIds:[],members:[{customerId:'a'},{customerId:'b'}],bookings:[{pointCost:held}]});
-beforeEach(()=>{vi.clearAllMocks();m.session.mockResolvedValue({id:'session',templateId:'current',startsAt:new Date('2099-10-28'),pointCost:1,template:{musicSubjectId:'dance'}});m.rule.mockResolvedValue({enrollment:'ASSIGNED',planId:null});m.cards.mockResolvedValue([]);});
+beforeEach(()=>{vi.clearAllMocks();m.session.mockResolvedValue({id:'session',templateId:'current',startsAt:new Date('2099-10-28'),pointCost:1,template:{musicSubjectId:'dance'}});m.rule.mockResolvedValue({enrollment:'ASSIGNED',planId:null});m.cards.mockResolvedValue([]);m.templates.mockResolvedValue([{id:'current'},{id:'old'}]);});
 it('batches learners in the same store and displays remaining separately from shared holds',async()=>{
  m.cards.mockResolvedValue([card('card',10,3)]);
  const result=await readSportsRosterBalances('store','session',['a','b','a']);

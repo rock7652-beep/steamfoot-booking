@@ -548,6 +548,13 @@ export async function updateCourseBookingStatus(input: unknown) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
+      if (!data.member && data.expectedStatus && data.expectedStatus !== "RESERVED" &&
+          (data.status === "NO_SHOW" || data.status === "STUDENT_LEAVE") && await sportsNativePreview(actor.storeId)) {
+        const corrected=await correctCourseAttendance(tx,actor,data.bookingId,
+          data.status === "STUDENT_LEAVE" ? "CANCELLED" : "NO_SHOW",data.expectedStatus,
+          data.status === "STUDENT_LEAVE" ? {waiveAbsence:true} : {});
+        return corrected.sessionId;
+      }
       if (!data.member && data.status === "CANCELLED" && data.expectedStatus) {
         const current = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{status:true,absenceKind:true}});
         if (!current || current.status !== data.expectedStatus) throw new AppError("CONFLICT", "名單已更新，請重新確認");
@@ -791,12 +798,13 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     const {resolveSportsEntitlement}=await import("@/lib/sports-entitlement");
     const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
     const sportsRule=(await sportsNativePreview(storeId))?await readSportsSessionRule(coursePrisma,storeId,sessionId):null;
-    const cardRights=(card:{planId?:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean})=>resolveSportsEntitlement({...card,planId:card.planId??""},{templateId:session.templateId,subjectId:session.template.musicSubjectId??null,pointCost:session.pointCost,enrollment:sportsRule?.enrollment==="ASSIGNED"?"ASSIGNED":sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
+    const teachingTemplates=sportsRule?.enrollment==="ASSIGNED"?await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId):[];
+    const cardRights=(card:{planId?:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean})=>resolveSportsEntitlement({...card,planId:card.planId??""},{templateId:session.templateId,subjectId:session.template.musicSubjectId??null,pointCost:session.pointCost,enrollment:sportsRule?.enrollment==="ASSIGNED"?"ASSIGNED":sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null,compatibleTemplateIds:teachingTemplates});
     const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
     const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
     const [roster, cards, pendingMakeups, waitlistRows,compatibleTemplateIds,trialCustomers] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,(await sportsNativePreview(storeId))?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,(await sportsNativePreview(storeId))?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(teachingTemplates.length?[{sportsMode:"LEGACY" as const,unit:"SESSION",templateIds:{hasSome:teachingTemplates}}]:[]),...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
       canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,absenceKind:"STUDENT_LEAVE",cardId:{not:null},NOT:[{card:{is:{requestKey:{startsWith:"music-leave-makeup:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-card:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-makeup:"}}}}],session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
@@ -844,7 +852,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           canCorrect: canCorrectTrial,
           customers: trialCustomers,
         },
-        session: { templateId:session.templateId,compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
+        session: { templateId:session.templateId,compatibleTemplateIds:sportsRule?.enrollment==="ASSIGNED"?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => (!musicStore || card.unit === "SESSION")&&(!sportsRule||cardRights(card).eligible)).map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],

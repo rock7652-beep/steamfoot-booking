@@ -1,4 +1,5 @@
 import "server-only";
+import {readSportsTeachingTemplates} from "./sports-teaching-templates";
 import type { Prisma } from "../../../generated/course-client";
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 
@@ -7,6 +8,7 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
   sessions: Array<{ id?:string; templateId: string; startsAt: Date; pointCost: number }>,
   rule: { enrollment: string; planId: string | null }, explicitCardId?: string | null) {
   const template = await tx.courseTemplate.findFirst({ where: { id: sessions[0].templateId, storeId }, select: { musicSubjectId: true } });
+  const compatibleTemplateIds=rule.enrollment==="ASSIGNED"?await readSportsTeachingTemplates(tx,storeId,template?.musicSubjectId):[];
   const now = new Date();
   const last = new Date(Math.max(now.getTime(), ...sessions.map(s => s.startsAt.getTime())));
   const cards = await tx.coursePointCard.findMany({
@@ -21,7 +23,7 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
     const costs = sessions.map(s => resolveSportsEntitlement({ ...card, templateRestricted: card.requestKey.startsWith("no-show-makeup:") }, {
       templateId: s.templateId, subjectId: template?.musicSubjectId ?? null, pointCost: s.pointCost,
       enrollment: rule.enrollment === "ASSIGNED" ? "ASSIGNED" : rule.enrollment === "OPEN" ? "OPEN" : null,
-      legacyPlanId: rule.planId,
+      legacyPlanId: rule.planId,compatibleTemplateIds,
     }));
     if (costs.some(c => !c.eligible)) continue;
     const total = costs.reduce((n, c) => n + (c.eligible ? c.cost : 0), 0);
