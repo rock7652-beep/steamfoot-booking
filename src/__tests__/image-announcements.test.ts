@@ -31,7 +31,7 @@ describe("圖片公告排程", () => {
     expect(activeAnnouncements([], "2026-10-20")).toEqual([]);
   });
   it("舊資料的模組欄位會被忽略，無須店長選擇模組", () => {
-    expect(announcementListSchema.parse([{ ...image, modules: ["music"] }])).toEqual([image]);
+    expect(announcementListSchema.parse([{ ...image, modules: ["music"] }])).toEqual([{ ...image, displayMode: "original" }]);
   });
   it("拒絕超過五張、重複 ID、無效日期與反向期間", () => {
     expect(announcementListSchema.safeParse(Array(6).fill(image)).success).toBe(false);

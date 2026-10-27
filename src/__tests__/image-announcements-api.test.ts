@@ -45,7 +45,7 @@ describe("圖片公告寫入邊界", () => {
   });
   it("鎖門市後儲存排序並只刪除本店未使用圖片", async () => {
     expect((await write()).status).toBe(200); expect(mock.permission).toHaveBeenCalledWith("business_hours.manage"); expect(mock.lock).toHaveBeenCalled();
-    expect(mock.save).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store-a" }, update: { revision: { increment: 1 }, items: [item] } }));
+    expect(mock.save).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store-a" }, update: { revision: { increment: 1 }, items: [{ ...item, displayMode: "original" }] } }));
     expect(mock.remove).toHaveBeenCalledWith({ where: { storeId: "store-a", id: { notIn: [item.id] } } });
   });
   it("新增圖片先完整解碼，再保存於本店", async () => {
