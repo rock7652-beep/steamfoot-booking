@@ -1,23 +1,28 @@
 .page:global(.course-portal) { max-width: 760px; font-size: 16px; }
 .page :global(.cp-main) { max-width: 760px; padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
 .page :global(.cp-title) { margin-bottom: 8px; }
-.form { min-width: 0; display: grid; gap: 12px; }
-.form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 16px; }
-.steps { display: flex; gap: 12px; padding: 0; margin: 0; list-style: none; flex-wrap: wrap; }
-.steps li { color: #61715c; }
-.steps li[aria-current="step"] { color: #244437; font-weight: 700; }
-.card { border: 1px solid #d4ddd0; background: #fff; border-radius: 12px; padding: 12px; min-width: 0; }
+.form { min-width: 0; display: grid; gap: 18px; scroll-margin-top: 20px; }
+.form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 24px; }
+.steps { display: flex; gap: 4px; padding: 4px; margin: 0; list-style: none; border-radius: 12px; background: var(--trial-soft, #edf2eb); }
+.steps li { flex: 1; padding: 8px; font-size: 14px; text-align: center; color: var(--trial-muted, #61715c); border-radius: 9px; }
+.steps li[aria-current="step"] { color: var(--trial-ink, #244437); font-weight: 500; background: #fff; box-shadow: 0 2px 8px #243d3110; }
+.card { border: 1px solid #e0e3d9; background: #fff; border-radius: 16px; padding: 18px; min-width: 0; }
+.form h2,.success h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+.form h2[tabindex="-1"]:focus,.success h2[tabindex="-1"]:focus { outline: none; }
+.form label { font-size: 14px; }
 .grid { display: grid; gap: 12px; min-width: 0; }
 .field { display: grid; gap: 6px; min-width: 0; align-content: start; }
-.field input, .field select, .field textarea { width: 100%; min-width: 0; font-size: 16px; }
+.field input, .field select, .field textarea { width: 100%; min-width: 0; font-size: 16px; min-height: 48px; padding: 11px 13px; border-radius: 10px; }
 .field [aria-invalid="true"] { border-color: #b42318; }
 .form p, .success p { font-size: 14px; line-height: 1.6; }
 .form .error { color: #b42318; margin: 0; }
-.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding-top: 4px; }
 .massageReminder { padding: 16px; border: 1px solid #d8e5d9; border-radius: 12px; background: #edf4ee; color: #365340; }
 .massageReminder h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
 .massageReminder ul { display: grid; gap: 6px; margin: 0; padding-inline-start: 20px; list-style: disc; font-size: 14px; line-height: 1.75; }
-.actions > * { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.actions > * { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; }
+.actions > button[type="submit"] { flex: 1; min-width: 130px; background: var(--trial-accent, #315b49); border-color: var(--trial-accent, #315b49); color: white; font-weight: 600; }
+.form :global(button.primary) { min-height: 50px; background: var(--trial-accent, #315b49); border-color: var(--trial-accent, #315b49); }
 .heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .heading h3 { margin: 0; font-size: 16px; }
 .addCompanion { margin-top: 12px; }
@@ -30,7 +35,7 @@
 .summary dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 0; }
 .summary dt { color: #61715c; }
 .summary dd { margin: 0; overflow-wrap: anywhere; }
-.total { font-size: 18px; font-weight: 700; color: #244437; }
+.total { font-size: 22px; font-weight: 600; color: var(--trial-ink, #244437); border-top: 1px solid #e0e3d9; padding-top: 14px; }
 .success { display: grid; gap: 16px; }
 .form a, .success a { color: #315b49; text-decoration: underline; text-underline-offset: 3px; }
 .form a[data-line-booking-entry] { color: #fff; text-decoration: none; }
@@ -39,3 +44,5 @@
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .slots { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
+
+.serviceHeading { position: absolute; width: 1px; height: 1px; margin: -1px !important; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

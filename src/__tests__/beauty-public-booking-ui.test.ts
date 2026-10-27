@@ -24,12 +24,16 @@ function button(host: HTMLElement, label: string) {
   if (!found) throw new Error(`Missing button: ${label}`); return found;
 }
 function field(host: HTMLElement, label: string) {
+  if (label === "服務項目") return host.querySelector<HTMLInputElement>('input[type="radio"]:checked')!;
+  if (label === "日期") return host.querySelector('[aria-label="選擇日期"]') as HTMLInputElement;
   const found = [...host.querySelectorAll("label")].find(l => l.textContent?.trim() === label);
   if (!found) throw new Error(`Missing field: ${label}`);
   return (found.htmlFor ? document.getElementById(found.htmlFor) : found.querySelector("input,select,textarea")) as HTMLInputElement;
 }
 function set(el: HTMLInputElement, value: string) {
   act(() => {
+    if (el.type === "radio") { el.closest('[role="group"]')!.querySelector<HTMLInputElement>(`input[value="${value}"]`)!.click(); return; }
+    if (el.tagName === "DIV") { el.querySelector<HTMLButtonElement>(`button[aria-label^="${value} "]`)!.click(); return; }
     const proto = el.tagName === "SELECT" ? HTMLSelectElement.prototype : el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(el, value);
     el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
@@ -69,12 +73,10 @@ it("lists every configured trial including free trials, and uses the chosen pric
     { id: "free", name: "免費體驗", duration: 15, trialPrice: 0, price: 500, revision: 1 },
     { id: "regular", name: "尚未開放體驗", duration: 90, trialPrice: null, price: 1800, revision: 1 },
   ] } });
-  const select = field(host, "服務項目") as unknown as HTMLSelectElement;
-  expect([...select.options].filter(o => o.value).map(o => [o.value, o.textContent])).toEqual([
-    ["massage", "全身按摩 · 30 分鐘 · NT$750"],
-    ["neck", "肩頸按摩 · 20 分鐘 · NT$350"],
-    ["free", "免費體驗 · 15 分鐘 · NT$0"],
+  expect([...host.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map(input => [input.value, input.getAttribute("aria-label")])).toEqual([
+    ["massage", "全身按摩"], ["neck", "肩頸按摩"], ["free", "免費體驗"],
   ]);
+  expect(host.textContent).toContain("30 分鐘"); expect(host.textContent).toContain("NT$750");
   await chooseTime(host); act(() => button(host, "返回修改服務與時段").click());
   set(field(host, "服務項目"), "neck");
   expect(button(host, "下一步：填寫聯絡資料").disabled).toBe(true);

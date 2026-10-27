@@ -39,8 +39,12 @@ export async function createTrialBookingChatLink(input: {
     where: { id: input.storeId },
     select: { slug: true, industryModule:true },
   });
-  if (!store || (!SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug) && store.industryModule!=="BEAUTY")) {
+  if (!store || (!SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug) && store.industryModule!=="BEAUTY" && store.industryModule!=="COURSE")) {
     throw new Error("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
+  }
+  if (store.industryModule === "COURSE") {
+    const { requireSportsPublicTrialStore } = await import("./sports-public-trial-store");
+    await requireSportsPublicTrialStore(store.slug);
   }
 
   const now = input.now ?? new Date();
@@ -69,7 +73,7 @@ export async function createTrialBookingChatLink(input: {
     },
     select: { id: true, expiresAt: true },
   });
-  const url = new URL(store.industryModule==="BEAUTY"?`/beauty-trial/${store.slug}`:`/pricing/experience/${store.slug}/book`, deriveBaseUrl());
+  const url = new URL(store.industryModule==="COURSE"?`/sports-trial/${store.slug}`:store.industryModule==="BEAUTY"?`/beauty-trial/${store.slug}`:`/pricing/experience/${store.slug}/book`, deriveBaseUrl());
   url.searchParams.set("entry", `${link.id}.${tokenSecret}`);
   return { url: url.toString(), expiresAt: link.expiresAt };
 }

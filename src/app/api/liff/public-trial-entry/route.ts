@@ -8,6 +8,7 @@ import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { requireSportsPublicTrialStore } from "@/server/services/sports-public-trial-store";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const store = await resolveStoreBySlug(parsed.data.storeSlug);
   if (!store) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
-  // Course membership uses its existing verified session/onboarding flow.
-  // Never mint a beauty/Steamfoot booking capability for another module.
-  if (config.configured && (config.storeId !== store.id || await getStoreIndustryModule(store.id) !== "beauty")) {
-    return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+  if (config.configured) {
+    const industry = await getStoreIndustryModule(store.id);
+    if (config.storeId !== store.id || (industry !== "beauty" && industry !== "course"))
+      return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+    if (industry === "course") {
+      try { await requireSportsPublicTrialStore(parsed.data.storeSlug); }
+      catch { return json({ status: "error", code: "STORE_NOT_FOUND" }, 404); }
+    }
   }
 
   const recipientProbe = await probeStoreLineRecipient(store.id, verified.lineUserId);

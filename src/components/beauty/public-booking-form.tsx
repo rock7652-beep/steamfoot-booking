@@ -11,6 +11,8 @@ import { serviceDuration } from "@/lib/beauty/service-duration";
 import type { PartyInput } from "@/lib/beauty/contracts";
 import type { BeautyBookingCatalog } from "./booking-form";
 import styles from "./public-booking-form.module.css";
+import { PublicBookingCalendar } from "@/components/public-trial/public-booking-calendar";
+import ui from "@/components/public-trial/public-trial.module.css";
 import { BookingLineEntry } from "@/components/booking-line-entry";
 
 export type PublicBookingInfo = { address?: string; mapUrl?: string; contactUrl?: string; massageReminder?: boolean; lineEntryHref?: string; lineIdentityVerified?: boolean };
@@ -68,8 +70,8 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
       // Focus alone only brings the heading into view; it does not reset the
       // scroll offset retained when a mobile browser replaces the step.
       stageHeading.current?.focus({ preventScroll: true });
-      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-      scrollFrame = window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+      stageHeading.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
+      scrollFrame = window.requestAnimationFrame(() => stageHeading.current?.scrollIntoView?.({ block: "start", behavior: "instant" }));
     }
     previousStage.current = stage;
     return () => { if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame); };
@@ -159,11 +161,11 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
     } catch { setError("預約已保留，暫時無法確認 LINE 連結；請稍後再試。"); }
     finally { lock.current = false; setPending(false); }
   }
-  if (catalog.policy?.selfBooking === false) return <p>店家暫未開放自行預約，請聯絡店家安排。</p>;
-  if (!services.length) return <section className={styles.card}><h2>目前尚無可預約的體驗服務</h2><p>請聯絡店家確認可預約的項目。</p>{contactUrl && <a href={contactUrl} target="_blank" rel="noopener noreferrer">聯絡店家</a>}</section>;
+  if (catalog.policy?.selfBooking === false) return <section className={ui.empty}><h2>店家暫未開放自行預約</h2><p>請聯絡店家安排適合的體驗時間。</p>{contactUrl && <a href={contactUrl}>聯絡店家</a>}</section>;
+  if (!services.length) return <section className={ui.empty}><h2>目前尚無可預約的體驗服務</h2><p>請聯絡店家確認可預約的項目。</p>{contactUrl && <a href={contactUrl} target="_blank" rel="noopener noreferrer">聯絡店家</a>}</section>;
   if (stage === "success") return <section className={styles.success} aria-label="預約成功" role="status">
-    <h2 ref={stageHeading} tabIndex={-1}>預約成功</h2><Summary catalog={catalog} date={date} time={time} people={people} showNames/>
-    <div className={styles.card}><p>聯絡人：{separateContact ? contactName.trim() : people[0].name.trim()} · {normalizePhone(separateContact ? contactPhone : people[0].phone)}</p>
+    <span className={ui.successMark} aria-hidden="true">✓</span><h2 ref={stageHeading} tabIndex={-1}>預約成功</h2><p className={ui.note}>已為你保留這段時間，期待到店見面。</p><Summary catalog={catalog} date={date} time={time} people={people} showNames/>
+    <div className={styles.card}><h3>到店前再確認</h3><p>請依預約時間到店，付款方式與服務注意事項請向門市確認。</p><p>聯絡人：{separateContact ? contactName.trim() : people[0].name.trim()} · {normalizePhone(separateContact ? contactPhone : people[0].phone)}</p>
       <p className="font-semibold">{notificationLinked ? "LINE 通知已連結" : "預約已成功，LINE 通知尚未連結"}</p>
       <p>{notificationLinked ? "不必再輸入電話。請加入本店官方 LINE 並保持未封鎖，提醒依店家設定發送。" : "您的預約已保留。請透過官方 LINE 聯繫店家核對通知身分，無須重複預約。"}</p>
       {!notificationLinked && entry && <button type="button" disabled={pending} onClick={() => void retryNotification()}>{pending ? "確認連結中…" : "重新確認 LINE 連結"}</button>}
@@ -177,16 +179,24 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
       ? <a href={publicInfo?.lineEntryHref ?? `/beauty-trial/${encodeURIComponent(slug)}`} aria-disabled={pending} onClick={event => { if (lock.current) event.preventDefault(); }} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-earth-200 bg-white px-4 py-2">再預約一筆</a>
       : <button type="button" disabled={pending} onClick={() => { if (lock.current) return; requestKey.current = crypto.randomUUID(); setPeople([blank(sequence.current++)]); setTime(""); setSlots([]); setQueried(false); setSeparateContact(false); setContactName(""); setContactPhone(""); setStage("service"); setErrors({}); setError(""); }}>再預約一筆</button>}
   </section>;
-  return <form noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
+  return <form id="booking-form" noValidate className={styles.form} onSubmit={event => { event.preventDefault(); if (stage === "service") void query(); else void submit(); }}>
     {stage === "service" && <BookingLineEntry href={publicInfo?.lineEntryHref} verified={publicInfo?.lineIdentityVerified} friendHref={contactUrl ?? undefined}/>}
     <ol className={styles.steps} aria-label="預約步驟"><li aria-current={stage === "service" ? "step" : undefined}>1 服務與時段</li><li aria-current={stage === "contact" ? "step" : undefined}>2 聯絡與確認</li></ol>
     <fieldset disabled={pending || uncertain}>
       {stage === "service" ? <>
-        <section aria-label="服務安排"><h2 ref={stageHeading} tabIndex={-1}>服務安排 · {people.length} 位</h2>
+        <section aria-label="服務安排"><h2 ref={stageHeading} tabIndex={-1}>選擇體驗服務 · {people.length} 位</h2><p className={ui.note}>先選擇服務與技師安排；手機用於核對首次體驗資格。</p>
           <div className={styles.form}>{people.map((p, index) => <section className={styles.card} key={p.key} aria-label={`服務安排 ${index + 1}`}>
             {people.length > 1 && <div className={styles.heading}><h3>第 {index + 1} 位</h3>{index > 0 && <button type="button" aria-label={`移除第 ${index + 1} 位`} onClick={() => { if (edit(true)) setPeople(previous => previous.filter(item => item.key !== p.key)); }}>移除</button>}</div>}
             <div className={styles.grid}>
-              <div className={styles.field}><label htmlFor={fieldId(`${p.key}-service`)}>服務項目</label><select {...fieldProps(`${p.key}-service`)} value={services.some(s => s.id === p.serviceId) ? p.serviceId : ""} onChange={e => change(p.key, { serviceId: e.target.value, technicianId: "" }, true)}><option value="" disabled>請選擇服務項目</option>{services.map(s => <option value={s.id} key={s.id}>{s.name} · {serviceDuration(s, true)} 分鐘 · {cash(s.trialPrice!)}</option>)}</select>{hint(`${p.key}-service`)}</div>
+              <div className={styles.field} style={{ gridColumn: "1 / -1" }}><span id={fieldId(`${p.key}-service-label`)}>服務項目</span>
+                <div id={fieldId(`${p.key}-service`)} className={ui.choices} role="group" aria-labelledby={fieldId(`${p.key}-service-label`)} tabIndex={-1} data-invalid={!!errors[`${p.key}-service`]}>
+                  {services.map(service => <label className={ui.choice} key={service.id}>
+                    <input type="radio" name={fieldId(`${p.key}-service-choice`)} value={service.id} aria-label={service.name} aria-describedby={errors[`${p.key}-service`] ? fieldId(`${p.key}-service-error`) : undefined} checked={p.serviceId === service.id}
+                      onChange={() => change(p.key, { serviceId: service.id, technicianId: "" }, true)} />
+                    <span className={ui.choiceTitle}>{service.name}</span><span className={ui.choiceMeta}>{serviceDuration(service, true)} 分鐘</span><span className={ui.choicePrice}>{cash(service.trialPrice!)}</span>
+                    {p.serviceId === service.id && <span className={ui.choiceCheck} aria-hidden="true">✓</span>}
+                  </label>)}
+                </div>{hint(`${p.key}-service`)}</div>
               <div className={styles.field}><label htmlFor={fieldId(`${p.key}-phone`)}>手機</label><input {...fieldProps(`${p.key}-phone`)} autoComplete={index === 0 ? "tel-national" : "off"} inputMode="tel" type="tel" maxLength={30} placeholder="09xxxxxxxx" value={p.phone} onChange={e => change(p.key, { phone: e.target.value })}/>{hint(`${p.key}-phone`)}</div>
               <div className={styles.field}><label htmlFor={fieldId(`${p.key}-arrangement`)}>技師安排</label><select {...fieldProps(`${p.key}-arrangement`)} value={p.arrangement} onChange={e => change(p.key, { arrangement: e.target.value, technicianId: "" }, true)}><option value="" disabled>請選擇</option><option value="ANY">男女皆可</option><option value="FEMALE">女性技師</option><option value="MALE">男性技師</option><option value="SPECIFIC">指定技師</option></select>{hint(`${p.key}-arrangement`)}</div>
               {p.arrangement === "SPECIFIC" && <div className={styles.field}><label htmlFor={fieldId(`${p.key}-technician`)}>選擇技師</label><select {...fieldProps(`${p.key}-technician`)} value={p.technicianId} onChange={e => change(p.key, { technicianId: e.target.value }, true)}><option value="" disabled>請選擇技師</option>{catalog.techs.filter(t => t.serviceIds.includes(p.serviceId)).map(t => <option key={t.id} value={t.id}>{t.name}（{t.gender === "FEMALE" ? "女" : "男"}）</option>)}</select>{hint(`${p.key}-technician`)}</div>}
@@ -194,7 +204,8 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
           </section>)}</div>
           <button type="button" className={styles.addCompanion} disabled={people.length >= 12} onClick={() => { if (edit(true)) setPeople(previous => [...previous, blank(sequence.current++, previous[0].serviceId)]); }}>＋新增同行者</button>
         </section>
-        <section className={styles.form} aria-label="日期與時段"><h2>日期與時段</h2><div className={styles.field}><label htmlFor={fieldId("date")}>日期</label><input {...fieldProps("date")} type="date" min={toLocalDateStr()} value={date} onChange={e => { if (edit(true)) setDate(e.target.value); }}/>{hint("date")}</div>
+        <section className={styles.form} aria-label="日期與時段"><h2>選擇日期與時段</h2><div className={styles.field}>
+          <PublicBookingCalendar id={fieldId("date")} value={date} onChange={value => { if (edit(true)) setDate(value); }} invalid={!!errors.date} describedBy={errors.date ? fieldId("date-error") : undefined}/>{hint("date")}</div>
           <button type="button" disabled={loading} onClick={() => void query()}>{loading ? "查詢時段中…" : queried ? "重新查詢時段" : "查詢可用時段"}</button>
           {loading && <p role="status">正在確認可用時段…</p>}
           {queried && !loading && !slots.length && !error && <p role="status">當日沒有可安排全部同行者的時段，請換日期或調整技師安排。</p>}
