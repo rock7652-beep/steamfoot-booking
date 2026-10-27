@@ -10,6 +10,8 @@ import { resolveCentralMembershipsForUser } from "@/server/services/central-memb
 import { getCustomerLoginMethods } from "@/server/queries/customer-login-methods";
 import { LoginMethodsCard } from "./login-methods-card";
 import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
+import { redirect } from "next/navigation";
+import { resolveProfileSuccessDestination } from "@/lib/profile-success-destination";
 
 interface PageProps {
   searchParams: Promise<{
@@ -170,6 +172,12 @@ export default async function ProfilePage({ searchParams }: PageProps) {
     gender: customerForForm.gender,
   });
   const needsCompletion = missing.length > 0;
+  // The action re-renders this page after saving. Use persisted completion
+  // instead of leaving ?complete=1 sticky while client session sync runs.
+  if (onboardingMode && !needsCompletion) {
+    const destination = resolveProfileSuccessDestination({ nextPath, onboardingMode, prefix });
+    if (destination) redirect(destination);
+  }
   const showOnboardingBanner = onboardingMode || needsCompletion;
   const hasExternalLogin =
     loginMethods.line.linked || loginMethods.google.linked;
