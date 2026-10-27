@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn(), reply: vi.fn() }));
+const m = vi.hoisted(() => ({ bind:vi.fn(),store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn(), reply: vi.fn() }));
+vi.mock("@/server/services/store-line-notification-binding",()=>({bindStoreLineNotificationRecipient:m.bind}));
 vi.mock("@/lib/db", () => ({ prisma: {
   store: { findFirst: m.store }, customerIdentityLink: { findMany: m.links }, customer: { updateMany: m.update },
 } }));
@@ -99,4 +100,11 @@ it("routes an additional official account only to its own verified memberships",
   expect(m.store).toHaveBeenCalledOnce();
   expect(m.update).toHaveBeenCalledOnce();
   expect(m.update.mock.calls[0][0].where.storeId).toBe("store-soulife");
+});
+
+it('dispatches a notification code before member handling and uses its matched store',async()=>{
+ m.bind.mockResolvedValue({storeId:'b',reply:'綁定成功'});
+ const input={...request(),events:[{type:'message',source:{userId:'verified-subject'},message:{type:'text',text:'綁定通知 ABCDEF1234'},replyToken:'reply'}]};
+ expect(await handleConfiguredCourseLineWebhook(input)).toBe('handled');expect(m.bind).toHaveBeenCalledWith({storeIds:['a','b'],lineUserId:'verified-subject',bindingCode:'ABCDEF1234'});expect(m.reply).toHaveBeenCalledWith('b','reply',[{type:'text',text:'綁定成功'}]);expect(m.links).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();
+ m.bind.mockClear();m.verify.mockReturnValue(false);await handleConfiguredCourseLineWebhook(input);expect(m.bind).not.toHaveBeenCalled();
 });

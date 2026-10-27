@@ -8,6 +8,7 @@ import { useState, useTransition, useOptimistic } from "react";
 import { toast } from "sonner";
 import {
   createStoreLineNotificationRecipient,
+  resumeStoreLineNotificationRecipient,
   removeStoreLineNotificationRecipient,
 } from "@/server/actions/store-line-notification-recipients";
 import {
@@ -26,7 +27,8 @@ type Recipient = {
 };
 function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course = false, beauty = false, readOnly = false }: { item: Recipient; storeId: string; onConfirmed: (id: string, key: string, enabled: boolean) => void; expanded: boolean; onExpand: () => void; course?: boolean; beauty?:boolean;readOnly?:boolean }) {
   const mutation = useKeyedReminderMutation();
-  const pending = mutation.pending;
+  const [bindingPending,startBinding]=useTransition();
+  const pending = mutation.pending||bindingPending;
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
   const [group, setGroup] = useState("預約通知");
@@ -68,6 +70,7 @@ function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course 
           <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="min-h-11 rounded-lg px-2 text-sm font-medium text-primary-700">
             {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
           </button>
+          {!item.linkedAt&&!readOnly&&<button type="button" disabled={pending} className="min-h-11 rounded-lg border border-primary-200 px-3 text-sm text-primary-800 disabled:opacity-50" onClick={()=>startBinding(async()=>{try{const result=await resumeStoreLineNotificationRecipient(item.id,storeId);if(result.success)window.location.href=result.data.bindUrl;else toast.error(result.error);}catch{toast.error("連線未完成，請稍後重試。");}})}>{bindingPending?"開啟中…":"繼續綁定"}</button>}
           {!readOnly&&<details className="relative">
             <summary className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-sm" aria-label={`${item.displayName} 更多操作`}>⋯</summary>
             <button disabled={pending} className="absolute right-0 top-full z-30 min-h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-red-700 shadow-md"
@@ -75,6 +78,7 @@ function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course 
           </details>}
         </div>
       </div>
+      {!item.linkedAt&&<p className="py-2 text-sm text-earth-600">請從「繼續綁定」開啟官方 LINE，送出預填訊息；收到綁定成功回覆後，重新整理此頁。</p>}
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
           className={`space-y-3 ${!display.isActive ? "opacity-50" : ""}`}

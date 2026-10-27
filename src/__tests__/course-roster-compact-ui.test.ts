@@ -639,3 +639,40 @@ it("separates the attended circle corrections from the four learner actions",asy
   expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["恢復原狀態","請假","曠課"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("finds a cardless existing learner and offers purchase without allowing an unentitled booking",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-28T04:00:00Z",pointCost:1},roster:[],cards:[],customers:[{id:"cardless",name:"無方案學員",phone:"0972000000"}],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"cardless-search",capacity:8,canCreate:true,canEdit:true,view:"member-booking"})));
+  const input=host.querySelector<HTMLInputElement>('#course-member-search')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"0972");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  expect(host.textContent).toContain("無方案學員");
+  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('[data-search-results] button')].find(b=>b.textContent?.includes("無方案學員"))!.click());
+  expect(host.textContent).toContain("沒有可用方案，請先購買方案／儲值，再加入本堂");
+  expect(host.querySelector<HTMLAnchorElement>('a[href*="action=assign"]')?.href).toContain("customerId=cardless");
+  m.create.mockClear();
+  await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(m.create).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it('native roster shows current remaining and separates attendance from learner operations',async()=>{
+ m.status.mockClear();
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const row={id:'native',customerId:'native-person',customerName:'舞蹈學員',customerPhone:'0972000000',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'UNPAID',checkedInAt:null,trialPayments:[],planName:'固定學員',termCount:0,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:0,unit:'SESSION',notes:'',pointCost:0,cardRemaining:null,sportsFixed:true,sportsBalance:{remaining:8,available:6,cost:1,unit:'SESSION',planName:'舞蹈十堂'}};
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data:{session:{startsAt:'2026-10-28T04:00:00Z',pointCost:1},roster:[row],cards:[],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}})}));
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'native-menus',capacity:8,canCreate:true,canEdit:true,sportsNative:true})));
+  expect(host.textContent).toContain('本期剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：待點名"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['打勾','恢復原狀態','缺席扣堂','缺席不扣堂']);
+  expect(m.status).not.toHaveBeenCalled();
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員 更多操作"]')!.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(['學員資料','學員繳費','取消本堂','取消後續課程']);
+  expect(document.querySelector<HTMLAnchorElement>('a[role="menuitem"][href*="action=assign"]')?.href).toContain('customerId=native-person');
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});

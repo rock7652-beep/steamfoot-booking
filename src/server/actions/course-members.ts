@@ -1,4 +1,5 @@
 "use server";
+import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
@@ -316,6 +317,8 @@ export async function setCoursePointPlanStatus(input: unknown) {
 }
 
 export async function assignCoursePointCard(input: unknown) {
+  return withCourseCheckoutRequest(async timings=>{
+  const started=performance.now();
   try {
     if (input && typeof input === "object" && ["musicOpeningState","musicOpeningStateRequired","sourceKey","openingBalance"].some(key=>key in input))
       throw new AppError("VALIDATION","期初資料不可經新增購買或收款流程建立");
@@ -334,7 +337,7 @@ export async function assignCoursePointCard(input: unknown) {
     await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
-    await courseTransaction(storeId, async tx => {
+    const purchase=await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
       const music = await isMusicCourseStore(tx, storeId);
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
@@ -355,10 +358,11 @@ export async function assignCoursePointCard(input: unknown) {
       refresh();
     } catch { console.error("[course-checkout] committed; refresh invalidation failed"); }
     });
-    return { success: true as const };
+    return { success: true as const,checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
   } catch (error) {
     return handleActionError(error);
-  }
+  }finally{console.info("[course-checkout-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
+  });
 }
 
 /** Checkout options for the learner currently selected in the schedule dialog. */
@@ -772,15 +776,15 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       await import("@/server/queries/course-members");
     const { checkPermission } = await import("@/lib/permissions");
     const trialSettingsPromise=import("@/lib/shop-config").then(m=>m.getTrialSettings(storeId));
-    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,session,musicStore,waitlistSetting] = await Promise.all([
-      ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
+    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,canReadCustomers,session,musicStore,waitlistSetting] = await Promise.all([
+      ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void","customer.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
     ]).then(async permissions=>{
       const [session,music,setting]=await Promise.all([
        coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { chargeSnapshot:true, startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
        isMusicCourseStoreFromEntitlements(prisma,storeId),
        coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
       ]);
-      return [...permissions,session,music,setting] as [boolean,boolean,boolean,boolean,boolean,boolean,boolean,typeof session,boolean,typeof setting];
+      return [...permissions,session,music,setting] as [boolean,boolean,boolean,boolean,boolean,boolean,boolean,boolean,typeof session,boolean,typeof setting];
     });
     const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
@@ -792,7 +796,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
     const [roster, cards, pendingMakeups, waitlistRows,compatibleTemplateIds,trialCustomers] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,(await sportsNativePreview(storeId))?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}}]},entries:false}:undefined) : [],
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,(await sportsNativePreview(storeId))?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
       canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,absenceKind:"STUDENT_LEAVE",cardId:{not:null},NOT:[{card:{is:{requestKey:{startsWith:"music-leave-makeup:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-card:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-makeup:"}}}}],session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
@@ -808,12 +812,13 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         select: { id: true, customerId: true, customerName: true, groupKey: true, createdAt: true },
       }),
       musicItemTemplateIds(coursePrisma, storeId, session.templateId),
-      !rosterOnly && canCreate && canTrial && (!(await sportsNativePreview(storeId))||trialOnly) ? prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
+      !rosterOnly && canCreate && canReadCustomers ? prisma.customer.findMany({where:{...(await import("@/lib/manager-visibility")).getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
     ]);
     return {
       success: true as const,
       data: {
         roster,
+        customers:trialCustomers,
         sharedCardState: musicStore ? "ENABLED" as const : await getCourseSharedCardState(storeId),
         canPurchase,
         pendingMakeups,

@@ -94,3 +94,20 @@ it("native sports schedule dialog receives the current store scheduling modes", 
   expect(m.schedule.mock.calls.at(-1)![0]).toMatchObject({schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true}});
  } finally {await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
 });
+
+it("shows confirmed scheduled sessions before the slow calendar read completes",async()=>{
+ const {syncSportsPermanentCalendar}=await import("@/server/actions/sports-series");
+ vi.mocked(syncSportsPermanentCalendar).mockImplementation(()=>new Promise(()=>{}));
+ m.search="view=schedule&action=schedule";m.schedule.mockClear();
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const session={id:"confirmed-session",templateId:"template",nameSnapshot:"已確認舞蹈課",startsAt:"2026-10-10T04:00:00.000Z",endsAt:"2026-10-10T05:00:00.000Z",coachId:"",roomId:"",capacity:8,pointCost:1,bookings:[],sportsPalette:true};
+ const render=()=>createElement(CourseWorkspace,{...props,view:"schedule" as const,businessProfile:"FITNESS" as const,sportsNative:true,sportsData:{storeId:"store-a",date:"2026-10-10",subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}});
+ try{
+  await act(async()=>root.render(render()));
+  await act(async()=>m.schedule.mock.calls.at(-1)![0].onCreated("2026-10-10",[session]));
+  expect(host.textContent).toContain("新增成功，正在同步課表");
+  expect(host.textContent).toContain("已確認舞蹈課");
+  await act(async()=>root.render(render()));
+  expect(host.textContent).toContain("已確認舞蹈課");
+ }finally{await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
+});

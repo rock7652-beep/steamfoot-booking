@@ -1,3 +1,4 @@
+import { bindStoreLineNotificationRecipient } from "./store-line-notification-binding";
 import { prisma } from "@/lib/db";
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { readStoreLineConfigs } from "@/lib/store-line-config";
@@ -29,6 +30,14 @@ export async function handleConfiguredCourseLineWebhook(input: {
   })));
   if (stores.some(store => !store)) return "handled";
   for (const event of input.events) {
+    const notificationCode=event.type==="message"&&event.message?.type==="text"?event.message.text?.trim().match(/^綁定通知\s*([A-F0-9]{10})$/i):null;
+    if(notificationCode&&event.source?.userId){
+      const result=await bindStoreLineNotificationRecipient({storeIds:configs.map(c=>c.storeId),lineUserId:event.source.userId,bindingCode:notificationCode[1]});
+      // A fallback here selects only the already-verified physical reply channel,
+      // never a membership or notification store.
+      if(event.replyToken)await replyMessage(result.storeId??configs[0].storeId,event.replyToken,[{type:"text",text:result.reply}]);
+      continue;
+    }
     if (await handleMemberConnectionWebhook({ destination: input.destination!, storeIds: configs.map(c => c.storeId), event })) continue;
     const phone = normalizePhone(event.message?.text ?? "");
     if (event.type === "message" && event.message?.type === "text" && /^09\d{8}$/.test(phone) && event.source?.userId) {

@@ -1,6 +1,6 @@
 import {capturePurchaseSnapshotReceiver} from "./music-purchase-snapshot";
 import { isMusicPreviewPage, publishMusicFinanceChange, publishMusicRevenueCommit } from "./music-finance-sync";
-export type MusicMutationResult = { success: boolean; error?: string };
+export type MusicMutationResult = { success: boolean; error?: string; checkoutReceipt?:unknown };
 /** Fixed URL and versioned JSON contract avoid deployment-pinned Server Action IDs.
  * Never retry a payment automatically: callers retain their original idempotency key.
  */

@@ -183,6 +183,10 @@ it("native background reads pause during an unconfirmed write and cannot paint a
  try {
   const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
   await render(false,"session-a","sports",true,true);await clickAttendance();
+  // Let the menu animation frame run before selecting its explicit action.
+  await act(async()=>vi.advanceTimersByTimeAsync(20));
+  expect(m.status).not.toHaveBeenCalled();
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="打勾")!.click());
   await act(async()=>{await vi.advanceTimersByTimeAsync(9000);});
   expect(m.native).toHaveBeenCalledOnce();expect(attendance().getAttribute("aria-label")).not.toContain("已出席");expect(m.status).toHaveBeenCalledOnce();
   await act(async()=>write.resolve({success:true}));expect(attendance().getAttribute("aria-label")).toBe("甲同學：已出席");

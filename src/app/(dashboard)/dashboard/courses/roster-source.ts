@@ -5,7 +5,7 @@ import type {CourseRosterDisplayRow} from './roster-list';
 export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string;occupiedEndsAt:string;serviceName:string;technicianName:string;locationName:string;price:number;debit:boolean;available:number|null;payment?:{reduction:number;netPrice:number;collected:number;due:number;status:string}};
 export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
-export type CourseRosterData=Omit<Detail,'roster'|'trial'>&{roster:NativeRosterBooking[];trial:null;readVersion?:string};
+export type CourseRosterData=Omit<Detail,'roster'|'trial'|'customers'>&{customers?:Detail['customers'];roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={
  confirmDiscard?:boolean;
  sync?:(id:string,version?:string)=>Promise<{success:true;version:string;unchanged:boolean;data?:CourseRosterData}|{success:false;error:string}>;

@@ -132,7 +132,7 @@ export async function CourseMemberPage({
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "收費方式" : "方案管理"} />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      <CourseMemberWorkspace initialAction={query.action==="assign"&&canAssign?"assign":undefined} initialCustomerId={query.customerId} dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
         canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}

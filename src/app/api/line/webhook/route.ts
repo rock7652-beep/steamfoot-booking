@@ -1,3 +1,4 @@
+import { bindStoreLineNotificationRecipient } from "@/server/services/store-line-notification-binding";
 import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
@@ -519,35 +520,8 @@ async function handleNotificationRecipientBinding(
   storeId: string,
   replyToken?: string,
 ) {
-  const recipient = await prisma.storeLineNotificationRecipient.findFirst({
-    where: { storeId, bindingCode },
-    select: { id: true, displayName: true, bindingCodeExpiresAt: true },
-  });
-  let reply = "綁定連結無效，請回到店家後台重新新增通知人員。";
-  if (recipient && recipient.bindingCodeExpiresAt && recipient.bindingCodeExpiresAt > new Date()) {
-    const occupied = await prisma.storeLineNotificationRecipient.findFirst({
-      where: { storeId, lineUserId, NOT: { id: recipient.id } },
-      select: { id: true },
-    });
-    if (occupied) {
-      reply = "這個 LINE 已是本店通知人員；如需調整姓名或身分，請先在後台解除原綁定。";
-    } else {
-      await prisma.storeLineNotificationRecipient.update({
-        where: { id: recipient.id },
-        data: {
-          lineUserId,
-          bindingCode: null,
-          bindingCodeExpiresAt: null,
-          linkedAt: new Date(),
-          isActive: true,
-        },
-      });
-      reply = `${recipient.displayName}，店家重要通知已綁定成功 ✓\n\n之後顧客有 VIP 續購、新體驗預約或留下聯絡資料時，系統會主動通知您。`;
-    }
-  } else if (recipient) {
-    reply = "這個綁定連結已超過 24 小時，請回到店家後台重新新增。";
-  }
-  if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: reply }]);
+  const result=await bindStoreLineNotificationRecipient({storeIds:[storeId],lineUserId,bindingCode});
+  if(replyToken)await replyMessage(storeId,replyToken,[{type:"text",text:result.reply}]);
 }
 
 async function replyDigitalButlerMessages(
