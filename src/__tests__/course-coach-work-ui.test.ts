@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
@@ -7,8 +8,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), usage: vi.fn(), loadUsage: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
+const m = vi.hoisted(() => ({ search: "", refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), usage: vi.fn(), loadUsage: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams(m.search) }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabelsProvider: ({children}: {children: unknown}) => children, CustomerLabels: () => null }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
@@ -26,6 +27,8 @@ vi.mock("@/server/actions/course-booking-notification", () => ({
   confirmMemberCourseTrial: vi.fn(),
   rescheduleMemberCourseBooking: vi.fn(),
 }));
+import { CustomerMembershipProvider } from "@/app/(customer)/customer-membership-context";
+import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, cardId: "card-a", companionIndex: null, reserverName: null, canAddCompanion: false, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
@@ -58,6 +61,7 @@ const click = async (text: string) => {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  m.search = "";
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.scrollTo = vi.fn();
   HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -68,6 +72,32 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); if (vi.isFakeTimers()) { vi.clearAllTimers(); vi.useRealTimers(); } });
 describe("coach daily work interactions", () => {
+  it.each([false, true])("keeps verified store switching on course member and work pages (music=%s)", async musicStore => {
+    m.search = "?memberEntry=liff";
+    const stores = [{storeId:"store-a",storeSlug:"a",storeName:"目前課程店"},{storeId:"store-b",storeSlug:"b",storeName:"另一個已加入的會員門市"}];
+    const data={...props(),memberEnabled:true,musicStore,storeName:"目前課程店"};
+    await act(async()=>root.render(createElement(CustomerMembershipProvider, {stores},createElement(CoursePortalClient,data))));
+    const open=()=>host.querySelector<HTMLButtonElement>('button[aria-label="目前門市：目前課程店，切換門市"]')!;
+    expect(open()).not.toBeNull();
+    await act(async()=>open().click());
+    const options=host.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    expect(options).toHaveLength(2);expect(options[0].disabled).toBe(true);
+    expect(options[1].textContent).toContain("另一個已加入的會員門市");
+    await act(async()=>options[1].closest("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+    expect(vi.mocked(selectCentralMemberStoreAction).mock.calls[0][0].get("storeSlug")).toBe("b");
+    expect(vi.mocked(selectCentralMemberStoreAction).mock.calls[0][0].get("memberEntry")).toBe("liff");
+    await act(async()=>open().click());
+    for(const label of ["課表","今日工作","會員","我的","首頁"]) {
+      const button=[...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent===label);
+      expect(button,label).toBeTruthy();await act(async()=>button!.click());expect(open(),label).not.toBeNull();
+    }
+  });
+  it("does not expose real membership switching in a read-only preview", async()=>{
+    const stores=[{storeId:"store-a",storeSlug:"a",storeName:"A"},{storeId:"store-b",storeSlug:"b",storeName:"B"}];
+    await act(async()=>root.render(createElement(CustomerMembershipProvider,{stores},createElement(CoursePortalClient,{...props(),readOnly:true}))));
+    expect(host.querySelector('button[aria-haspopup="menu"]')).toBeNull();
+    expect(selectCentralMemberStoreAction).not.toHaveBeenCalled();
+  });
   it("refreshes from the work account menu without submitting logout", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,props())));
     const menu=host.querySelector('[aria-label="帳號操作"]')!;

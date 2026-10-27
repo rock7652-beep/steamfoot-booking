@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 import { act, createElement as el } from "react";
 import { createRoot, type Root } from "react-dom/client";

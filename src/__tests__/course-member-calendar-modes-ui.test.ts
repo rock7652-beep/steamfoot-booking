@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), usage: vi.fn(), loadUsage: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));

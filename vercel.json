@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/course-member-store-switch-20261027": false,
       "fix/liff-profile-logout-announcement-start-20261027": false,
       "fix/silverlily-profile-onboarding-20261027": false,
       "fix/course-announcement-duplicate-20261027": false,

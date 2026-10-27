@@ -30,6 +30,8 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FrontendAccountMenu } from "@/components/frontend-account-menu";
+import { CentralMemberStoreSwitcher } from "../central-member-store-switcher";
+import { useCustomerMembershipStores } from "../customer-membership-context";
 import {
   courseDate,
   courseMonthDays,
@@ -91,6 +93,9 @@ const time = (s: string) =>
   formatTWDateTime(new Date(s)).split(" ").slice(-1)[0];
 
 function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop" | "health"; initialCoach?: boolean }) {
+  const membershipStores = useCustomerMembershipStores();
+  const currentStoreSlug = serverData.prefix.split("/")[2] ?? "";
+  const canSwitchStores = !serverData.readOnly && membershipStores.length > 1 && membershipStores.some(store => store.storeSlug === currentStoreSlug);
   const personnelText = useCoursePersonnelText();
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
@@ -868,7 +873,9 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     <div className="course-portal">
       <div inert={modal}>
         <header className="cp-top">
-          <CoursePortalBrand storeName={p.storeName}/>
+          <CoursePortalBrand storeName={p.storeName}>
+            {canSwitchStores ? <CentralMemberStoreSwitcher currentStoreName={p.storeName} currentStoreSlug={currentStoreSlug} stores={membershipStores} compact align="start" returnToLiff={params.get("memberEntry") === "liff"} disabled={pending || healthSaving} onBeforeSwitch={leaveNote} /> : undefined}
+          </CoursePortalBrand>
           {p.hasWork && p.memberEnabled ? (
             <div className="cp-role-switch" role="group" aria-label="身分切換">
               <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>

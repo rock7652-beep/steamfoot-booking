@@ -14,6 +14,7 @@ import { resolveCustomerCompletionStatus } from "@/server/queries/customer-compl
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
+import { CustomerMembershipProvider } from "./customer-membership-context";
 import { decideCustomerStoreAccess } from "@/lib/customer-store-onboarding";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -223,7 +224,7 @@ export default async function CustomerLayout({
     // Income has its own server-side staff/feature/opt-in checks. Let the page
     // enforce them instead of redirecting every signed-in person to the portal.
     if (!["/book", "/book/reminders", "/book/income"].includes(pathname)) redirect(`/s/${storeCtx.storeSlug}/book`);
-    return <div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div>;
+    return <CustomerMembershipProvider key={`${user.id}:${storeCtx.storeId}`} stores={membershipStores}><div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div></CustomerMembershipProvider>;
   }
   if (industryModule === "beauty") {
     if (!["/beauty", "/profile", "/member-stores", "/member-link"].some(p=>pathname.startsWith(p))) redirect(`/s/${storeCtx.storeSlug}/beauty`);
