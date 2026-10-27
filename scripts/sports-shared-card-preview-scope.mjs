@@ -16,6 +16,7 @@ const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
+  "codex-announcement-image-layouts",
 ];
 
 /**
