@@ -1,6 +1,6 @@
 # 項目核心：登入驗收與發布準備
 
-狀態：已整合最新正式程式並完成隔離真實登入檢查；線上候選部署／登入驗收尚待完成，不可宣告正式上線。
+狀態：已整合最新正式程式、完成隔離真實登入檢查，並成功部署美業Preview候選。線上OWNER完整流程仍待登入驗收，不可宣告正式上線。
 
 ## 候選與正式基準
 
@@ -15,6 +15,12 @@
 已快轉更新遠端`preview/beauty-ui-alignment-20261021`至`d92a4fa8f546f30678eb2052481cf5f3a3322c88`，觸發Preview建置`dpl_EoFv1FBUZHQTU5DFuZWU4SPDp7gU`，target=null，未推送或合併main。測試網址：`https://steamfoot-booking-5kolc37cz-rock7652-2111s-projects.vercel.app`。建置／登入結果於完成後補記，不能把BUILDING視為可驗收或正式發布。
 
 第一版遠端編譯與靜態頁產生完成，但部署階段因`api/image-announcements`未壓縮函式252.31MB超過250MB上限而ERROR，該網址不作交付入口。依Next.js文件與執行程式搜尋結果，在`next.config.ts`僅新增`outputFileTracingExcludes`排除`artifacts`驗收資料夾；未排除執行程式、Prisma用戶端或憑證，也未開啟大函式beta或變更方案。型別、lint與圖片公告相關回歸補驗後重建Preview；原始完整14,134項結果對應封裝調整前的相同業務程式，不冒稱已重跑整套。
+
+最終候選：**`a54afcff1da472b18948f1f1799ef47419d7abd6`**，部署 **`dpl_6ae6JkCrBphnVVFjTn72hypwTipB`**，**READY／Preview（target=null）**。遠端完整編譯與部署成功；封裝調整後另通過5檔26項圖片公告回歸、TypeScript及lint。
+
+交付登入入口：[美業測試站](https://steamfoot-booking-6qmkv3gmm-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021)。線上唯讀確認登入頁200，HTML部署識別與本候選一致；session回應200且無登入使用者；未登入名單API回403及success=false；圖片公告API GET回405，沒有原生依賴載入500錯誤。詳見[唯讀證據](../../../artifacts/item-core-login/hosted-read-results.json)。沒有將這些未登入檢查算成線上OWNER購課／點名驗收。
+
+部署後再核對正式版本仍為`dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5`／`979c956`，`www.steamfoot.com` alias未變。沒有正式發布、遠端DDL或正式交易。
 
 ## 真實登入檢查
 
