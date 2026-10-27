@@ -1,3 +1,4 @@
+import { OperationTiming } from "@/lib/operation-timing";
 import { coursePersonnelText } from "@/lib/course-personnel-label";
 import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import { sportsCourseName } from "@/lib/course-template-presentation";
@@ -27,6 +28,12 @@ import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
 import { personalIncomeAccess } from "@/server/services/course-personal-income";
 export async function loadCoursePortal(requestedMonth?: string, preview?: FrontendPreviewSelection) {
+  const timing = new OperationTiming("course.member.portal");
+  try { return await readCoursePortal(requestedMonth, preview, timing); }
+  finally { timing.finish(); }
+}
+
+async function readCoursePortal(requestedMonth: string | undefined, preview: FrontendPreviewSelection | undefined, timing: OperationTiming) {
   const month =
     requestedMonth && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
       ? requestedMonth
@@ -38,7 +45,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const previewIdentity = access ? await resolveCoursePreviewIdentity(access) : null;
   const { user, storeId, customer } = access
     ? { user: { id: access.personUserId ?? "" }, storeId: access.storeId, customer: { id: previewIdentity!.customerId, name: access.name } }
-    : await courseAccount();
+    : await timing.measure("account", () => courseAccount());
   const [
     identity,
     link,
@@ -50,7 +57,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     healthEnabled,
     emergencyContact,
     incomeAccess,
-  ] = await Promise.all([
+  ] = await timing.measure("metadata", async () => Promise.all([
     prisma.staffMemberLink.findUnique({
       where: { uq_staff_member_link_user_store: { userId: user.id, storeId } },
       select: { courseMemberEnabled: true },
@@ -92,7 +99,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
     access ? Promise.resolve(null) : personalIncomeAccess(user.id, storeId),
-  ]);
+  ]));
   const memberEnabled = access ? previewIdentity!.memberEnabled : identity?.courseMemberEnabled !== false;
   const workLink = access ? (previewIdentity!.workStaffId ? { staffId: previewIdentity!.workStaffId } : null) : link;
   const personnelLabel = await readCoursePersonnelLabel(storeId);
@@ -103,9 +110,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
-  const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  const cards = memberEnabled ? (await timing.measure("cards", () => getCourseCards(storeId, customer.id))).filter(card => !musicStore || card.unit === "SESSION") : [];
   const memberRecordsPromise = memberEnabled ? getCourseMemberRecords(storeId,customer.id,musicStore) : Promise.resolve([]);
-  const planHistory = await getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now);
+  const planHistory = await timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now));
   // Independent opening rights are visible only to their own learner. Shared
   // cards/reserver identity never grant access to another learner's entitlement.
   const memberBookingAccess = {
@@ -161,7 +168,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     nextBooking,
     nextWork,
     bookingRule,
-  ] = await Promise.all([
+  ] = await timing.measure("member_reads", async () => Promise.all([
     memberEnabled
       ? coursePrisma.courseSession.findMany({
           where: {
@@ -290,7 +297,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           select: { cancellationLeadMinutes: true, assignedSchedulingEnabled:true, selfBookingEnabled: true, selfLeaveEnabled:true, selfRescheduleEnabled:true },
         })
       : null,
-  ]);
+  ]));
   const waitlistRows = waitlistEnabled && sessions.length
     ? await coursePrisma.courseWaitlistEntry.findMany({
         where: { storeId, sessionId: { in: sessions.map(session => session.id) }, status: "WAITING" },

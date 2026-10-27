@@ -1,10 +1,7 @@
 import { LiffMemberFrame } from "@/components/liff-member-frame";
 import { LiffBottomNav } from "./liff-bottom-nav";
-import { resolveStoreSlugForLiff, resolveStorePresentation } from "@/lib/store-resolver";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { getIndustryModule } from "@/lib/industry-modules";
-import { hasStoreFeature } from "@/lib/feature-gate";
-import { FEATURES } from "@/lib/feature-flags";
+import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
+import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 import { LiffBrandHeader } from "./liff-brand-header";
 import BuildFooter from "@/components/build-footer";
 
@@ -17,11 +14,9 @@ import BuildFooter from "@/components/build-footer";
  */
 export default async function LiffLayout({ children }: { children: React.ReactNode }) {
   const slug = await resolveStoreSlugForLiff();
-  const store = slug ? await resolveStorePresentation(slug) : null;
-  const industry = store ? getIndustryModule(await getStoreIndustryModule(store.id)) : null;
-  const healthEnabled = store && industry?.features.healthAssessment
-    ? await hasStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY).catch(() => false)
-    : false;
+  const context = slug ? await readLiffPublicContext(slug) : null;
+  const store = context?.store;
+  const healthEnabled = context?.healthEnabled ?? false;
   return (
     <LiffMemberFrame>
       <LiffBrandHeader storeSlug={store?.slug} />
