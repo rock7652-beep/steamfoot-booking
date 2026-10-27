@@ -240,6 +240,9 @@ describe("POST /api/liff/exchange", () => {
 
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
     expect(res.status).toBe(200);
+    expect(res.headers.get("Server-Timing")).toMatch(/line_verify;dur=\d+/);
+    expect(res.headers.get("Server-Timing")).toMatch(/session_mint;dur=\d+/);
+    expect(res.headers.get("Server-Timing")).not.toMatch(/cust-1|user-1|Alice|tok/);
     const body = await res.json();
     expect(body).toMatchObject({
       status: "session_created",

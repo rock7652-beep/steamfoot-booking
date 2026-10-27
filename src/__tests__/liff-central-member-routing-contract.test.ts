@@ -90,10 +90,12 @@ describe("central-member LIFF routing contract", () => {
     const page = source("src/app/(liff)/liff/page.tsx");
     const shell = source("src/app/(liff)/liff/liff-shell.tsx");
 
-    expect(page).toContain("getStoreIndustryModule(presentation.id)");
-    expect(page).toContain("industryModule.features.healthAssessment");
+    const context = source("src/server/queries/liff-public-context.ts");
+    expect(page).toContain("readLiffPublicContext(storeSlug)");
+    expect(context).toContain("getStoreIndustryModule(store.id)");
+    expect(context).toContain("industry.features.healthAssessment");
     expect(page).not.toContain("/liff/spa-work");
-    expect(page).toContain("getIndustryModule");
+    expect(context).toContain("getIndustryModule");
     expect(page).toContain("memberDataSource={industryModule.id}");
     expect(page).not.toContain("/book/new");
     expect(shell).toContain("terminology={terminology}");

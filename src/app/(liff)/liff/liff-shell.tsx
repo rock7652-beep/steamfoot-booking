@@ -95,18 +95,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getIDToken, initLiff, isInLineClient } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import { fetchLiffWallets, type LiffWalletRow, type LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
-import { fetchLiffBookings, type LiffBookingRow } from "@/server/actions/liff-my-bookings";
-import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
-import { fetchLiffMemberStoreContext, type LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
+import type { LiffWalletRow, LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
+import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
+import { fetchLiffHomeAccess, fetchLiffHomeSummary } from "@/server/actions/liff-member-home";
+import { measureLiffClientPhase } from "@/lib/liff/client-timing";
+import type { LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
 import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
-import { fetchLiffReferralShareContext, type LiffReferralShareContext } from "@/server/actions/liff-referral-share";
+import type { LiffReferralShareContext } from "@/server/actions/liff-referral-share";
 import { LiffBottomNav } from "./liff-bottom-nav";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
 import { STEAMFOOT_INDUSTRY_MODULE, type MemberHomeTerminology } from "@/lib/industry-modules";
-import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
 
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { STATUS_LABEL } from "@/lib/booking-constants";
@@ -170,7 +170,7 @@ export function LiffShell({
     (async () => {
       // ── 1. Init LIFF ──
       try {
-        const sdk = await initLiff(liffId);
+        const sdk = await measureLiffClientPhase("sdk_init", () => initLiff(liffId));
         if (cancelled) return;
         if (!isInLineClient() && bookingIntent && !sdk.isLoggedIn()) {
           sdk.login({ redirectUri: window.location.href });
@@ -192,14 +192,7 @@ export function LiffShell({
 
       const loadMemberHome = async () => {
         try {
-          const [wallets, bookings, health, referralShare] = await Promise.all([
-            fetchLiffWallets(),
-            fetchLiffBookings(),
-            healthAssessmentEnabled
-              ? fetchLiffHealthSummary()
-              : Promise.resolve(null),
-            fetchLiffReferralShareContext(),
-          ]);
+          const { wallets, bookings, health, referralShare } = await measureLiffClientPhase("home_summary", () => fetchLiffHomeSummary(healthAssessmentEnabled));
           if (cancelled) return;
           setMemberSummary({
             walletsStatus: wallets?.status === "ok" ? "ok" : "error",
@@ -234,7 +227,7 @@ export function LiffShell({
       // ── 3. /api/liff/exchange ──
       setState({ kind: "exchanging" });
       try {
-        const body = await refreshLiffSession({ idToken, storeSlug });
+        const body = await measureLiffClientPhase("session_exchange", () => refreshLiffSession({ idToken, storeSlug }));
         if (cancelled) return;
 
         if (body.status === "session_created") {
@@ -244,10 +237,7 @@ export function LiffShell({
             window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search, true));
             return;
           }
-          const [memberContext, workAccess] = await Promise.all([
-            fetchLiffMemberStoreContext().catch(() => null),
-            fetchLiffStaffAccess().catch(() => ({ status: "no_access" as const })),
-          ]);
+          const { memberContext, workAccess } = await measureLiffClientPhase("home_access", () => fetchLiffHomeAccess());
           if (cancelled) return;
           if (memberContext?.status === "signed_in") {
             setMemberStores(memberContext.stores);

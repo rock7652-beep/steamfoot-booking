@@ -1,3 +1,4 @@
+import { OperationTiming } from "@/lib/operation-timing";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 /**
  * POST /api/liff/exchange — LIFF idToken → NextAuth session bootstrap (PR-B)
@@ -80,6 +81,15 @@ function json(body: ResponseBody, status: number): Response {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  const timing = new OperationTiming("liff.exchange");
+  try {
+    const response = await exchange(req, timing);
+    response.headers.set("Server-Timing", timing.serverTiming());
+    return response;
+  } finally { timing.finish(); }
+}
+
+async function exchange(req: Request, timing: OperationTiming): Promise<Response> {
   // ── 1. Parse + validate body ──
   let parsed: z.infer<typeof BodySchema>;
   try {
@@ -106,7 +116,7 @@ export async function POST(req: Request): Promise<Response> {
   // ── 3. Verify idToken ──
   let verified;
   try {
-    verified = await verifyLiffIdToken(idToken, expectedChannelId);
+    verified = await timing.measure("line_verify", () => verifyLiffIdToken(idToken, expectedChannelId));
   } catch (err) {
     if (err instanceof LiffIdTokenError) {
       const code =
@@ -139,7 +149,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── 4. Resolve store ──
-  const store = await resolveStoreBySlug(storeSlug);
+  const store = await timing.measure("store", () => resolveStoreBySlug(storeSlug));
   if (!store || (context.config && (store.id !== context.config.storeId || store.slug !== context.config.slug))) {
     logLineBindEvent({
       path: "liff-exchange",
@@ -157,13 +167,13 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  try { await assertStoreLiffContext(store, context); }
+  try { await timing.measure("store_config", () => assertStoreLiffContext(store, context)); }
   catch { return json({ status: "error", code: "MISSING_CHANNEL_CONFIG", message: "本店 LINE 設定尚未確認" }, 503); }
 
   // ── 5. Customer lookup ──
   let customer;
   try {
-    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
+    customer = await timing.measure("membership", () => resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider }));
     if (!customer && !context.config && context.identityProvider === "line" &&
         await getStoreIndustryModule(store.id) === "steamfoot") {
       const activation = await activateVerifiedNotificationMember({ storeId: store.id, lineUserId: verified.lineUserId });
@@ -171,7 +181,7 @@ export async function POST(req: Request): Promise<Response> {
       if (activation === "activated") {
         // Re-resolve the committed ownership before Credentials verifies the
         // token again. Activation alone never counts as a created session.
-        customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
+        customer = await timing.measure("membership", () => resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider }));
         if (!customer) throw new Error("FIRST_LOGIN_OWNERSHIP_UNAVAILABLE");
       }
     }
@@ -246,11 +256,11 @@ export async function POST(req: Request): Promise<Response> {
   // ── 6. Mint session via Credentials provider ──
   // authorize() 會 *再做一次* verify + Customer 查詢，這是 NextAuth 端的安全邊界。
   try {
-    await signIn("liff-token", {
+    await timing.measure("session_mint", () => signIn("liff-token", {
       idToken,
       storeSlug: store.slug,
       redirect: false,
-    });
+    }));
   } catch (err) {
     // authorize() 返回 null 會被 NextAuth 包成 CredentialsSignin AuthError
     logLineBindEvent({
