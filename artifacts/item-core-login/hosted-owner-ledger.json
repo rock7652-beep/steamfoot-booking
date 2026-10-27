@@ -1,0 +1,60 @@
+{
+  "scope": "isolated-preview-only",
+  "deployment": "dpl_6ae6JkCrBphnVVFjTn72hypwTipB",
+  "proof": {
+    "cards": [
+      {
+        "id": "cmvrbq4r00006i908lzk1zk7q",
+        "plan": "qa-item-core-20261028-plan-10",
+        "createdAt": "2026-10-27T23:35:44.269+00:00",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrbtpsh0000jv082q3tvvou",
+        "plan": "qa-item-core-20261028-plan-20",
+        "createdAt": "2026-10-27T23:38:31.506+00:00",
+        "remaining": 20
+      }
+    ],
+    "ledger": [
+      {
+        "kind": "RESERVE",
+        "delta": 0,
+        "cardId": "cmvrbq4r00006i908lzk1zk7q",
+        "createdAt": "2026-10-27T23:40:06.617+00:00"
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": -1,
+        "cardId": "cmvrbq4r00006i908lzk1zk7q",
+        "createdAt": "2026-10-27T23:40:06.66+00:00"
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": 1,
+        "cardId": "cmvrbq4r00006i908lzk1zk7q",
+        "createdAt": "2026-10-27T23:40:09.786+00:00"
+      }
+    ],
+    "booking": [
+      {
+        "debit": false,
+        "cardId": "cmvrbq4r00006i908lzk1zk7q",
+        "status": "RESERVED",
+        "revision": 2
+      }
+    ],
+    "payments": [
+      {
+        "kind": "SALE",
+        "amount": 10000,
+        "cardId": "cmvrbq4r00006i908lzk1zk7q"
+      },
+      {
+        "kind": "SALE",
+        "amount": 20000,
+        "cardId": "cmvrbtpsh0000jv082q3tvvou"
+      }
+    ]
+  }
+}
