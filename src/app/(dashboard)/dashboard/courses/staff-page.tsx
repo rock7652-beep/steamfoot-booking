@@ -1,4 +1,5 @@
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
+import {sportsTeachingTemplateId} from "@/server/services/sports-teaching-rule";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
 import { canViewCourseMonthly } from "@/lib/course-monthly-access";
@@ -57,7 +58,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
       orderBy: { displayName: "asc" },
     }),
     isChildStoreView ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "staff.manage"),
-    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,isActive:true,musicTrialMode:true,musicSubjectId:true,musicTeacherShare:true,musicPricePerLesson:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
+    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,isActive:true,musicTrialMode:true,musicSubjectId:true,musicTeacherShare:true,musicPricePerLesson:true,musicSubject:{select:{name:true,isActive:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,endsAt:true,capacity:true,_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
@@ -67,7 +68,10 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const nativeSports=(await sportsNativePreview(storeId));
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
   const sportsDefaultFees=nativeSports&&canReadFees?await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""},select:{templateId:true,rules:true}}):[];
-  const presentedTemplates=presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);
+  const presentedTemplates=nativeSports ? templates.map(t=>{
+    const name=t.musicSubject?.name??courseDisplayName(t.name);
+    return {...t,name,displayName:name,currentTeaching:!!t.musicSubjectId&&t.musicSubject?.isActive===true&&t.isActive&&t.id===sportsTeachingTemplateId(storeId,t.musicSubjectId)};
+  }) : presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
   const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");

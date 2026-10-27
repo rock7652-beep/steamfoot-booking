@@ -393,10 +393,13 @@ export async function saveSportsFee(input: unknown) {
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
-    if(d.sportsMode==="LEGACY"&&!(d.id&&d.chargeSettings)){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
       : {};
+    // Explicit null preserves an existing legacy charge; omitted settings retain the old setup workflow.
+    const preserveLegacyCharge=!!d.id&&d.chargeSettings===null&&!!d.snapshot&&base.sportsMode==="LEGACY"&&base.chargeSettings===null;
+    const preservesTeaching=!!d.id&&!!d.chargeSettings||preserveLegacyCharge;
+    if(d.sportsMode==="LEGACY"&&!preservesTeaching){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
     return await saveCoursePointPlan({
       ...base,
       id: d.id,
@@ -410,11 +413,11 @@ export async function saveSportsFee(input: unknown) {
       allowShared: d.shared,
       isActive: d.active ?? base.isActive ?? true,
       customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
-      templateIds: d.sportsMode==="LEGACY"&&d.id&&d.chargeSettings?base.templateIds??[]:[],
+      templateIds: d.sportsMode==="LEGACY"&&preservesTeaching?base.templateIds??[]:[],
       sportsMode:d.sportsMode,
       sportsSubjectId:d.sportsMode==="ASSIGNED"?d.subject??null:null,
       sportsCost:d.sportsMode==="ASSIGNED"?(d.unit==="堂數"?1:d.cost):null,
-      sportsSetup: d.sportsMode==="LEGACY"&&!(d.id&&d.chargeSettings)?{
+      sportsSetup: d.sportsMode==="LEGACY"&&!preservesTeaching?{
         compensation: d.compensation,
         expectedCompensation: d.expectedCompensation,
         subject: d.subject,
@@ -469,12 +472,14 @@ export async function sportsStagingCommand(input: unknown) {
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
           price: z.number().int().min(0).max(1000000),
+          trialLearner:z.object({participantKey:z.string().uuid(),name:z.string().trim().min(1).max(80),phone:z.string().regex(/^09\d{8}$/)}).optional(),
           customerId: z.string().min(1).nullable().optional(),
           customer: z.string().default(""),
           phone: z.string().default(""),
           requestKey: z.string().uuid(),
         })
         .parse(p);
+      if(d.trialLearner&&(d.kind!=="體驗"||d.students.length))throw new AppError("VALIDATION","新體驗學員不可與既有名單混用");
       const room = await coursePrisma.courseRoom.findFirst({
         where: { storeId, name: d.room, isActive: true },
       });
@@ -497,6 +502,10 @@ export async function sportsStagingCommand(input: unknown) {
         where: { id: d.fee??"", storeId, isActive: true },
       });
       if (d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
+      if(d.kind==="體驗"&&d.mode==="指定學員"){
+        const settings=courseChargeSettings.safeParse(plan?.chargeSettings);
+        if(!settings.success||settings.data.kind!=="single"||settings.data.trialPrice===null)throw new AppError("VALIDATION","請選擇已設定體驗價的單次收費");
+      }
       const template = await coursePrisma.courseTemplate.findFirst({
         where: {
           id: plan?.templateIds[0]??sportsTeachingTemplateId(storeId,d.subject),
@@ -532,6 +541,7 @@ export async function sportsStagingCommand(input: unknown) {
       if (d.kind === "體驗") await courseManager("trial.create");
       return await result(
         createCourseSchedule({
+          ...(d.kind==="體驗"?{learners:d.trialLearner?[{customerId:null,cardId:null,participantKey:d.trialLearner.participantKey,customerName:d.trialLearner.name,customerPhone:d.trialLearner.phone}]:d.students.map(customerId=>({customerId,cardId:null})),bookingAudience:d.mode==="指定學員"?"ASSIGNED":"OPEN"}:{}),
           chargePlanId:plan?.chargeSettings?plan.id:undefined,
           templateId: template.id,
           roomId: room.id,
@@ -555,7 +565,7 @@ export async function sportsStagingCommand(input: unknown) {
             ...((await sportsNativePreview(storeId))&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
             planId: d.kind === "體驗" ? null : plan?.id??null,
-            students,
+            students:d.kind==="體驗"?[]:students,
             trialPrice: d.price,
           },
         }),
