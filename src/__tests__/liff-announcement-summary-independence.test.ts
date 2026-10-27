@@ -13,6 +13,7 @@ vi.mock("@/server/actions/liff-health", () => ({ fetchLiffHealthSummary: vi.fn()
 vi.mock("@/server/actions/liff-member-stores", () => ({ fetchLiffMemberStoreContext: vi.fn() }));
 vi.mock("@/server/actions/liff-referral-share", () => ({ fetchLiffReferralShareContext: vi.fn() }));
 vi.mock("@/server/actions/liff-staff-access", () => ({ fetchLiffStaffAccess: vi.fn() }));
+vi.mock("@/server/actions/auth", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/app/(liff)/liff/liff-store-share-card", () => ({ LiffStoreShareCard: () => null }));
 vi.mock("@/app/(liff)/liff/liff-store-switcher", () => ({ LiffStoreSwitcher: () => null }));
 vi.mock("@/app/(liff)/liff/liff-bottom-nav", () => ({ LiffBottomNav: () => null }));

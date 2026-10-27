@@ -29,8 +29,7 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { logoutAction } from "@/server/actions/auth";
-import { LogoutButton } from "@/components/logout-button";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import {
   courseDate,
   courseMonthDays,
@@ -878,7 +877,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{p.incomeAvailable && <a className="cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
+          <FrontendAccountMenu storeSlug={p.prefix.split("/")[2] ?? ""} name={p.customerName} readOnly={!!p.readOnly} onBeforeLogout={leaveNote}>{coach && <>{p.incomeAvailable && <a href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}</>}</FrontendAccountMenu>
         </header>
         <CoursePortalNavigation items={nav.map(([id,label,icon])=>({id,label,icon:icon as PortalIconName}))} current={!coach&&["plans","shop","orders","shared","health","store"].includes(page)?"account":page} onSelect={id=>go(id as Page)}/>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
@@ -1207,12 +1206,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                   </section>
                 ))}
             </>
-          )}
-          {(page === "account") && (
-            <form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction} className="cp-logout">
-              <input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""} />
-              <LogoutButton className="cp-menu" />
-            </form>
           )}
           {!coach && page === "account" && refreshControl}
         </main>

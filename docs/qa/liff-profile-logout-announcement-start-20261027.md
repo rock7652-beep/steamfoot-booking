@@ -1,4 +1,4 @@
-# Native LIFF profile logout and announcement start
+# Shared frontend account menu and independent LIFF announcements
 
 ## Evidence and scope
 
@@ -21,15 +21,15 @@ Raw measurements are in `/workspace/reports/liff-logout-announcement-20261027/`.
 
 ## Change
 
-- Add the existing store-scoped `logoutAction` form and shared pending-aware `LogoutButton` to the native LIFF profile's ready state. This clears the application session through the established action; it does not sign the user out of the LINE app or unlink the member.
+- Use one shared `FrontendAccountMenu` in the top-right of native LIFF, course/music/fitness member and work portals, Beauty member and technician portals, and the general web member shell. Logout is the final menu item. Remove regular bottom/sidebar logout duplicates, retaining error-recovery escape controls. Existing income/refresh actions remain available. The read-only frontend preview uses the same menu with logout disabled, including native LIFF preview home and deep pages. This clears the application session through the existing `logoutAction`; it does not sign out of the LINE app or unlink the member.
 - Keep one stable announcement reader outside the private-summary content. It starts while the summary is pending and remains usable if that summary fails. Current-store, preview authorization, publication timing, image order, horizontal carousel and no-store behavior stay unchanged.
 
 ## Acceptance limits
 
-Seven targeted test files pass (67 tests), including announcement reader availability while private summaries are pending or failed, no duplicated reader when summaries are ready, profile/session-refresh behavior, store-specific logout destinations and existing announcement API boundaries. Changed-file ESLint and diff checks pass. React review kept the announcement reader as one stable mount, reused the pending-aware logout control, and retained store/preview boundaries.
+Thirteen targeted test files pass (113 tests). Targeted regression covers the shared menu, member/work role routing, Beauty data boundaries, native profile/session refresh, logout destinations, public announcement boundaries and independence from pending/error summaries. Interactive DOM tests verify menu order, current-store form scope, Escape/focus return, outside dismissal, preview blocking, and preservation of draft state when an existing leave guard cancels logout. TypeScript, changed-file ESLint and diff checks pass. React review retains a stable announcement reader and reuses the pending-aware logout control. No form is nested inside another form.
 
 No database/schema, account linkage, publication data, role permissions or notification changes. This is not a claim that image API latency or bytes were reduced. The change removes the prerequisite wait before those requests start.
 
-Affected UI: native LIFF profile and native LIFF member home. Logout uses a 48px minimum touch target and the existing page spacing. 360px/390px phone, actual logout/cookie behavior, post-change cold/warm login timing and carousel swipes still require connected-browser/real-device acceptance. Unit/component tests do not substitute for that acceptance.
+Affected UI: native LIFF home and deep pages, music/fitness/course member and teacher/coach pages, Beauty member/technician pages, and general web member desktop/mobile shell. Mobile uses a compact three-dot trigger; available account names are shown in full in the expanded panel. Native deep headers use a generic account label rather than expose a name from a potentially stale application session before LINE identity verification. Trigger targets are at least 44px, logout at least 48px, and the panel is bounded to the viewport. Existing draft/pending guards remain active; preview logout is disabled. 360px/390px phone, desktop/iPad visual layout, actual logout/cookie behavior, post-change cold/warm login timing and carousel swipes remain unverified without a connected browser/real device. DOM/source tests do not substitute for that acceptance.
 
 Automatic branch deployment is disabled. No production release has been performed for this PR.

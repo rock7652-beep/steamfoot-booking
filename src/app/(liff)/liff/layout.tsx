@@ -24,7 +24,7 @@ export default async function LiffLayout({ children }: { children: React.ReactNo
     : false;
   return (
     <LiffMemberFrame>
-      <LiffBrandHeader />
+      <LiffBrandHeader storeSlug={store?.slug} />
       <main className="flex-1">{children}</main>
       <BuildFooter />
       {store && <LiffBottomNav storeSlug={store.slug} healthAssessmentEnabled={healthEnabled} />}

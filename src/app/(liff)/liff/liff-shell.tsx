@@ -1,5 +1,6 @@
 "use client";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
@@ -312,6 +313,7 @@ export function LiffShell({
           )}
           <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
         </div>
+        <FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />
       </header>
 
       {state.kind === "initializing" && (

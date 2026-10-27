@@ -6,7 +6,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { AppLink as Link } from "@/components/app-link";
 import { MobileNav } from "./mobile-nav";
 import BuildFooter from "@/components/build-footer";
-import { LogoutButton } from "@/components/logout-button";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import { getStoreContext } from "@/lib/store-context";
 import { getCustomerFacingStoreName, resolveStoreBySlug } from "@/lib/store-resolver";
 import { getStoreOperatingStatus, getStoreUnavailableMessage, isStoreCustomerPortalBlocked } from "@/lib/store-operating-status";
@@ -324,22 +324,12 @@ export default async function CustomerLayout({
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="border-t border-earth-100 px-2.5 py-3">
-            <form action={logoutAction}>
-              <input type="hidden" name="storeSlug" value={storeCtx.storeSlug} />
-              <LogoutButton
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
-                iconClassName="text-earth-600"
-                iconSize={18}
-              />
-            </form>
-          </div>
         </aside>}
 
         {/* Main content */}
         <main className={`flex-1 px-4 pt-4 pb-20 ${"lg:px-8 lg:py-8"}`}>
           <div className={`mx-auto ${"max-w-2xl"}`}>
+            <div className="mb-2 hidden justify-end lg:flex"><FrontendAccountMenu storeSlug={storeCtx.storeSlug} name={user.name} /></div>
             {children}
           </div>
         </main>
