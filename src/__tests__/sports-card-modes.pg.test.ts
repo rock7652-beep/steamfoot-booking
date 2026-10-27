@@ -208,6 +208,29 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     expect(await database().coursePointCard.findUnique({where:{id:ten.id}})).toMatchObject({sportsMode:"LEGACY",templateIds:[old.id]});
   });
 
+  it("legacy booking bound to twenty lessons reconciles to older ten-lesson rights without replacing its original ledger",async()=>{
+    const f=await fixture(),session=await f.session(0);
+    const old=await database().courseTemplate.create({data:{storeId:f.storeId,musicSubjectId:f.subject.id,name:'A legacy version',durationMinutes:60,pointCost:1,capacity:8}});
+    const ten=await f.card(f.learner,'LEGACY',1,10),twenty=await f.card(f.learner,'ASSIGNED',1,20);
+    await database().coursePointCard.update({where:{id:ten.id},data:{unit:'SESSION',templateIds:[old.id],createdAt:new Date('2025-01-01')}});
+    await database().coursePointCard.update({where:{id:twenty.id},data:{unit:'SESSION',createdAt:new Date('2026-01-01')}});
+    await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${session.id},${f.storeId},'SINGLE','ASSIGNED',${twenty.planId},0,'{}')`;
+    const booking=await f.run(tx=>reserveCourseInTransaction(tx,f.actor,{sessionId:session.id,cardId:twenty.id,customerId:f.learner,requestKey:randomUUID()},null));
+    const original=await database().coursePointEntry.findMany({where:{bookingId:booking.id}});
+    await f.run(tx=>settleCourseBooking(tx,f.actor,booking.id,'ATTENDED'));
+    expect(await database().courseBooking.findUnique({where:{id:booking.id}})).toMatchObject({cardId:ten.id,status:'ATTENDED',pointCost:1});
+    expect((await database().coursePointCard.findUnique({where:{id:ten.id}}))?.remaining).toBe(9);
+    expect((await database().coursePointCard.findUnique({where:{id:twenty.id}}))?.remaining).toBe(20);
+    for(const entry of original)expect(await database().coursePointEntry.findUnique({where:{id:entry.id}})).toEqual(entry);
+    expect(await database().coursePointEntry.findMany({where:{bookingId:booking.id,kind:{startsWith:'RELEASE:USAGE:'}}})).toHaveLength(1);
+    const audit=await database().$queryRaw<Array<{payload:{beforeJson:{cardId:string};afterJson:{cardId:string}}}>>`SELECT payload FROM public."OperationAuditOutbox" WHERE payload->>'targetId'=${booking.id} AND payload->>'action'='RECONCILE_ITEM_CARD'`;
+    expect(audit).toHaveLength(1);expect(audit[0].payload.beforeJson.cardId).toBe(twenty.id);expect(audit[0].payload.afterJson.cardId).toBe(ten.id);
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,booking.id,'RESERVED','ATTENDED',{suppressNotice:true}));
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,booking.id,'RESERVED','ATTENDED',{suppressNotice:true}));
+    expect((await database().coursePointCard.findUnique({where:{id:ten.id}}))?.remaining).toBe(10);
+    expect((await database().coursePointCard.findUnique({where:{id:twenty.id}}))?.remaining).toBe(20);
+  });
+
   it("purchase FIFO survives opposite expiry order and two concurrent attendance commands; correction returns the original card",async()=>{
     const f=await fixture();
     const first=await f.card(f.learner,"ASSIGNED",1,1,new Date("2099-12-31"));

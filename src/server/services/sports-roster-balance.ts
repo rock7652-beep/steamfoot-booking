@@ -4,20 +4,21 @@ import {readSportsTeachingTemplates} from './sports-teaching-templates';
 import {coursePrisma} from '@/lib/course-db';
 import {resolveSportsEntitlement} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
+import type {Prisma} from '../../../generated/course-client';
 
 /** Read-only preview; check-in still selects and debits under the store lock.
  * One batch for every unlinked learner, including shared-card reservations. */
-export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[]){
+export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[],reader:Prisma.TransactionClient=coursePrisma){
  const ids=[...new Set(customerIds)];
  const balances=new Map<string,ItemBalance & {byUnit:ItemBalance[]}>();
  const entries=new Map<string,Array<ItemBalance & {id:string}>>();
  if(!ids.length)return balances;
- const session=await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
+ const session=await reader.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
  if(!session)return balances;
  const [rule,cards,compatibleTemplateIds]=await Promise.all([
-  readSportsSessionRule(coursePrisma,storeId,sessionId),
-  coursePrisma.coursePointCard.findMany({where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
-  readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId),
+  readSportsSessionRule(reader,storeId,sessionId),
+  reader.coursePointCard.findMany({where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
+  readSportsTeachingTemplates(reader,storeId,session.template.musicSubjectId),
  ]);
  if(!rule)return balances;
  for(const card of cards){

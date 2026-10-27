@@ -1,0 +1,50 @@
+[
+  {
+    "profile": "sports",
+    "width": 1366,
+    "height": 900,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  },
+  {
+    "profile": "sports",
+    "width": 1024,
+    "height": 768,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  },
+  {
+    "profile": "sports",
+    "width": 768,
+    "height": 1024,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  },
+  {
+    "profile": "music",
+    "width": 1366,
+    "height": 900,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  },
+  {
+    "profile": "music",
+    "width": 1024,
+    "height": 768,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  },
+  {
+    "profile": "music",
+    "width": 768,
+    "height": 1024,
+    "result": "PASS",
+    "transport": "real loopback HTTP + real isolated PostgreSQL",
+    "authorization": "fixed synthetic test identity"
+  }
+]

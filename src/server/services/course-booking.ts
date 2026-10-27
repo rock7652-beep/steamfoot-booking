@@ -486,6 +486,7 @@ export async function settleCourseBooking(
   });
   if (!booking) return fail("找不到本店預約");
   const opening = assertOpeningBooking(actor.storeId, booking);
+  const hadCardBinding=booking.bookingKind==='CARD'&&!!booking.cardId;
   if((nativeSports)&&booking.bookingKind==="UNPAID"&&(target==="ATTENDED"||target==="NO_SHOW")){
     const {bindSportsAttendanceCard}=await import("./sports-permanent-series");
     await bindSportsAttendanceCard(tx,actor,bookingId);
@@ -535,6 +536,15 @@ export async function settleCourseBooking(
         where: { id: booking.id },
         data: { checkedInAt: new Date() },
       });
+    }
+  }
+  if(hadCardBinding&&!actor.customerId&&booking.cardId&&booking.bookingKind==='CARD'&&opening.kind==='NATIVE'&&(target==='ATTENDED'||target==='NO_SHOW')){
+    const itemModule=nativeSports?'SPORTS':await isMusicCourseStore(tx,actor.storeId)?'MUSIC':null;
+    if(itemModule){
+      const {reconcileCourseItemCard}=await import('./course-item-attendance');
+      await reconcileCourseItemCard(tx,actor,booking.id,itemModule);
+      booking=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true,card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});
+      if(!booking)return fail('找不到本店預約');
     }
   }
   const profile = target === "STUDENT_LEAVE" && booking.cardId ? await readCourseBusinessProfile(tx,actor.storeId) : "FITNESS";

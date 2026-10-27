@@ -78,7 +78,7 @@ beforeEach(() => {
     },
     beautySetting: { findUnique: vi.fn().mockResolvedValue(null) },
     beautyCard: {
-      findMany: vi.fn().mockResolvedValue([]),
+      findMany: vi.fn().mockResolvedValue([{...card,createdAt:new Date('2026-01-01')}]),
       findFirst: vi.fn().mockResolvedValue({ ...card }),
       update: vi.fn(),
       findFirstOrThrow: vi.fn().mockResolvedValue({ ...card }),
@@ -501,6 +501,7 @@ describe('explicit back-office attendance correction',()=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'NO_SHOW',debit:true,noShowDeduct:false} as never);await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'重送'});expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
  });
  it('rejects stale revisions and deduction without a plan before ledger writes',async()=>{
+  vi.mocked(tx.beautyCard.findMany).mockResolvedValue([]);
   await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('請先繳費');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
  });
 });

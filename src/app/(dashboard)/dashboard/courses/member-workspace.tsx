@@ -267,7 +267,7 @@ export function CourseMemberWorkspace({
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, personTab);
+  useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   const studentScroll=useRef<HTMLDivElement>(null);
@@ -311,7 +311,9 @@ export function CourseMemberWorkspace({
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        if(!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
+        // Native source panels refresh their own readers and publish the scoped
+        // customer event; keep the underlying reservation list mounted.
+        if(!source&&!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
