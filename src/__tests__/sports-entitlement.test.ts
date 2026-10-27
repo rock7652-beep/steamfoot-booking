@@ -55,3 +55,14 @@ describe("sports entitlement purchase snapshots and deduction", () => {
     expect(resolveSportsEntitlement(makeup, { ...lesson, templateId: "another-yoga-course" }).eligible).toBe(false);
   });
 });
+
+it('assigned legacy lesson-count packages follow verified teaching item rather than selected 10/20/trial plan',()=>{
+ const lesson={templateId:'current',subjectId:'dance',pointCost:1,enrollment:'ASSIGNED' as const,legacyPlanId:'trial-plan',compatibleTemplateIds:['old-10','old-20','current']};
+ for(const [planId,templateId] of [['ten','old-10'],['twenty','old-20']])
+  expect(resolveSportsEntitlement({planId,unit:'SESSION',sportsMode:'LEGACY',templateIds:[templateId]},lesson)).toEqual({eligible:true,cost:1});
+ expect(resolveSportsEntitlement({planId:'yoga',unit:'SESSION',sportsMode:'LEGACY',templateIds:['yoga']},lesson).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'unknown',unit:'SESSION',sportsMode:'LEGACY',templateIds:[]},lesson).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'points',unit:'POINT',sportsMode:'LEGACY',templateIds:['old-10']},lesson).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'makeup',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10'],templateRestricted:true},lesson).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'ten',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10']},{...lesson,enrollment:'OPEN'}).eligible).toBe(false);
+});

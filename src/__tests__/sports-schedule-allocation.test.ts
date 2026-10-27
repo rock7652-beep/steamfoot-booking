@@ -36,7 +36,7 @@ const sessions = Array.from({ length: 8 }, (_, i) => ({
 const tx = {
   $executeRaw: m.execute,
   courseSession: { findMany: m.sessions },
-  courseTemplate:{findFirst:async()=>({musicSubjectId:"subject"})},
+  courseTemplate:{findFirst:async()=>({musicSubjectId:"subject"}),findMany:async()=>[{id:"template"}]},
   courseCompensation:{findUnique:m.compensation},
   courseCompensationSnapshot:{upsert:m.snapshot},
   coursePointPlan: {

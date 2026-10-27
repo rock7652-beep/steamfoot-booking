@@ -33,6 +33,7 @@ type Lesson = {
   pointCost: number;
   enrollment: "ASSIGNED" | "OPEN" | null;
   legacyPlanId: string | null;
+  compatibleTemplateIds?: string[];
 };
 
 /** Pure policy shared by transaction entry points and eligibility displays.
@@ -53,6 +54,11 @@ export function resolveSportsEntitlement(card: Card, lesson: Lesson):
   const rights = parsed.data;
   let cost: number;
   if (rights.sportsMode === "LEGACY") {
+    // Assigned lesson rights follow its teaching item, not the fee package
+    // selected when scheduling. Aliases are verified in the same store by DB.
+    if(card.unit === "SESSION" && lesson.enrollment === "ASSIGNED" && lesson.subjectId &&
+       card.templateIds.some(id=>lesson.compatibleTemplateIds?.includes(id)))
+      return {eligible:true,cost:1};
     if (lesson.enrollment && !lesson.legacyPlanId)
       return { eligible: false, reason: "既有方案尚未設定新選課模式權益，請由店家核對" };
     if (lesson.legacyPlanId && card.planId !== lesson.legacyPlanId)
