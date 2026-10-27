@@ -93,6 +93,30 @@ export async function createStoreLineNotificationRecipient(
   }
 }
 
+/** Resume the same pending recipient; never turn an unverified identity on. */
+export async function resumeStoreLineNotificationRecipient(id:string,expectedStoreId:string):Promise<ActionResult<{bindUrl:string}>>{
+  try {
+    z.string().min(1).max(100).parse(id);
+    const storeId=await requireStore(expectedStoreId);
+    if(await getStoreIndustryModule(storeId)==="beauty"){
+      const {beautyNotificationDeliveryBlocked}=await import("@/lib/beauty/notification-policy");
+      if(beautyNotificationDeliveryBlocked())throw new AppError("BUSINESS_RULE","LINE 維持關閉，暫不建立綁定");
+    }
+    const basicId=getLineConfigForStore(storeId).expectedBasicId;
+    if(!basicId)throw new AppError("BUSINESS_RULE","此分店尚未完成 LINE 官方帳號設定");
+    const recipient=await prisma.storeLineNotificationRecipient.findFirst({where:{id,storeId}});
+    if(!recipient)throw new AppError("NOT_FOUND","找不到本店通知人員");
+    if(recipient.lineUserId||recipient.linkedAt)throw new AppError("CONFLICT","已完成綁定，請重新整理提醒管理");
+    let bindingCode=recipient.bindingCode;
+    if(!bindingCode||!recipient.bindingCodeExpiresAt||recipient.bindingCodeExpiresAt<=new Date()){
+      bindingCode=randomBytes(5).toString("hex").toUpperCase();
+      const updated=await prisma.storeLineNotificationRecipient.updateMany({where:{id,storeId,lineUserId:null,linkedAt:null,bindingCode:recipient.bindingCode},data:{bindingCode,bindingCodeExpiresAt:new Date(Date.now()+24*60*60*1000)}});
+      if(updated.count!==1)throw new AppError("CONFLICT","綁定狀態已有更新，請重新整理後再試");
+    }
+    return {success:true,data:{bindUrl:`https://line.me/R/oaMessage/${encodeURIComponent(basicId)}/?${encodeURIComponent(`綁定通知 ${bindingCode}`)}`}};
+  }catch(error){return handleActionError(error);}
+}
+
 export async function setStoreLineNotificationRecipientActive(
   id: string,
   isActive: boolean,

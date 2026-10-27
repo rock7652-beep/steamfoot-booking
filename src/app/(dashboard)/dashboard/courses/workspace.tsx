@@ -54,7 +54,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -356,7 +356,9 @@ export function CourseWorkspace({
   const [calendarReading,setCalendarReading]=useState(false);
   const nativeDateRef=useRef(nativeDate);nativeDateRef.current=nativeDate;
   const activeSchedulingModes=nativeCalendar?.schedulingModes??schedulingModes;
-  const sessions:Session[]=nativeCalendar?.sessions??sourceSessions;
+  const confirmedSessionSource=useMemo(()=>(nativeCalendar?.sessions??sourceSessions).map(row=>({...row,receiptStoreId:storeId})),[nativeCalendar?.sessions,sourceSessions,storeId]);
+  const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
+  const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
@@ -586,6 +588,14 @@ export function CourseWorkspace({
   const [copyTemplate,setCopyTemplate]=useState(false);
   const [editTemplateId,setEditTemplateId]=useState("");
   const [notice, setNotice] = useState("");
+  function finishSportsSchedule(date:string,created?:Session[]){
+    for(const row of created??[])confirmedScheduleSessions.confirm({...row,receiptStoreId:storeId});
+    setDirty(false);setPanel(null);setNativeDate(date);nativeDateRef.current=date;calendarSource?.onDateChange?.(date);
+    setNotice("新增成功，正在同步課表…");
+    sportsCalendarReader.clear();
+    void refreshNativeCalendar(date,true,true).then(ok=>setNotice(ok?"新增成功。":"新增成功，但課表同步未完成，請重新整理；請勿重複新增。"));
+  }
+
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
@@ -928,6 +938,7 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
+      {sportsNative&&view==="schedule"&&notice&&<p role="status" aria-live="polite" className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900">{notice}</p>}
       {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
@@ -1472,7 +1483,7 @@ export function CourseWorkspace({
       {panel === "schedule" && sportsNative && <SportsScheduleDialog fitContent={!!calendarSource} title={calendarSource?"新增預約":copySource?"複製排課":"新增排課"} busy={pending||sportsScheduleBusy} onClose={closePanel} onDraft={()=>setDirty(true)}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice&&<p role="status" className="text-sm text-primary-700">{notice}</p>}
-        {sportsData?<SportsScheduleFields source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);calendarSource?.onDateChange?.(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>}
+        {sportsData?<SportsScheduleFields source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>}
       </SportsScheduleDialog>}
       {panel && !(panel === "schedule" && sportsNative) && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
@@ -2142,7 +2153,7 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && !calendarSource && sportsNative && (sportsData?<SportsScheduleFields schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={date=>{setDirty(false);setPanel(null);setNativeDate(date);void refreshNativeCalendar(date,true);}}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && !calendarSource && sportsNative && (sportsData?<SportsScheduleFields schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard

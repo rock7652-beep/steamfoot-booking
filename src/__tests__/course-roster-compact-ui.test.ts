@@ -639,3 +639,21 @@ it("separates the attended circle corrections from the four learner actions",asy
   expect([...document.querySelectorAll('[role="menuitem"]')].map(e=>e.textContent)).toEqual(["恢復原狀態","請假","曠課"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("finds a cardless existing learner and offers purchase without allowing an unentitled booking",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-28T04:00:00Z",pointCost:1},roster:[],cards:[],customers:[{id:"cardless",name:"無方案學員",phone:"0972000000"}],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"cardless-search",capacity:8,canCreate:true,canEdit:true,view:"member-booking"})));
+  const input=host.querySelector<HTMLInputElement>('#course-member-search')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"0972");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  expect(host.textContent).toContain("無方案學員");
+  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('[data-search-results] button')].find(b=>b.textContent?.includes("無方案學員"))!.click());
+  expect(host.textContent).toContain("沒有可用方案，請先購買方案／儲值，再加入本堂");
+  expect(host.querySelector<HTMLAnchorElement>('a[href*="action=assign"]')?.href).toContain("customerId=cardless");
+  m.create.mockClear();
+  await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(m.create).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

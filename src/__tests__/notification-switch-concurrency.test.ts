@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ coach: vi.fn(), preference: vi.fn(), active: vi.fn(), balance: vi.fn(), error: vi.fn(), success: vi.fn() }));
 vi.mock("@/lib/manager-notification-save", () => ({ saveManagerNotification: (_store: string, id: string, key: string, enabled: boolean) => m.preference(id, key, enabled) }));
 vi.mock("@/server/actions/course-coach-notifications", () => ({ setCoachNotification: m.coach }));
-vi.mock("@/server/actions/store-line-notification-recipients", () => ({ setManagerNotificationPreference: m.preference, setStoreLineNotificationRecipientActive: m.active, createStoreLineNotificationRecipient: vi.fn(), removeStoreLineNotificationRecipient: vi.fn() }));
+vi.mock("@/server/actions/store-line-notification-recipients", () => ({ setManagerNotificationPreference: m.preference, setStoreLineNotificationRecipientActive: m.active, createStoreLineNotificationRecipient: vi.fn(),resumeStoreLineNotificationRecipient:vi.fn(), removeStoreLineNotificationRecipient: vi.fn() }));
 vi.mock("@/server/actions/session-balance-notification-toggle", () => ({ setSessionBalanceNotificationToggle: m.balance }));
 vi.mock("@/server/actions/reminder", () => ({ saveSessionBalanceTemplateSetting: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: m.error, success: m.success } }));

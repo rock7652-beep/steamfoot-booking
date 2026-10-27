@@ -212,6 +212,8 @@ export function CourseRoster({
   const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string | null;customerName:string;groupKey:string;position:number;createdAt:string}>>([]);
   const [makeupForBookingId, setMakeupForBookingId] = useState("");
   const [cards, setCards] = useState<CourseCardView[]>([]);
+  const [learnerCustomers,setLearnerCustomers]=useState<Array<{id:string;name:string;phone:string}>>([]);
+  useEffect(()=>setLearnerCustomers([]),[sessionId]);
   const [session, setSession] = useState<{
     startsAt: string;
     pointCost: number;
@@ -406,6 +408,7 @@ export function CourseRoster({
             setRoster(result.data.roster);
             setSharedCardState(result.data.sharedCardState ?? "ENABLED");
             setCards(result.data.cards);
+            setLearnerCustomers("customers" in result.data&&Array.isArray(result.data.customers)?result.data.customers:[]);
             setPendingMakeups(result.data.pendingMakeups ?? []);
             setWaitlist(result.data.waitlist ?? []);
             setCanPurchase(result.data.canPurchase);
@@ -752,12 +755,11 @@ export function CourseRoster({
     () =>
       Array.from(
         new Map(
-          cards
-            .flatMap((item) => item.members)
+          [...cards.flatMap((item) => item.members),...learnerCustomers]
             .map((member) => [member.id, member] as const),
         ).values(),
       ),
-    [cards],
+    [cards,learnerCustomers],
   );
   const normalizedMemberQuery = memberQuery.trim().toLocaleLowerCase();
   const normalizedMemberPhoneQuery = memberQuery.replace(/\D/g, "");
@@ -999,9 +1001,9 @@ export function CourseRoster({
               </select>}
             </label>}
             {!eligibleCards.length && (
-              <p className="text-sm text-earth-600">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3"><p role="status" className="font-medium text-amber-900">沒有可用方案，請先購買方案／儲值，再加入本堂。</p>{canPurchase&&<DashboardLink className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-primary-300 bg-white px-3 font-medium text-primary-800" href={`/dashboard/courses?${new URLSearchParams({view:"customers",customerId,action:"assign",returnCourseSession:sessionId,returnCourseDate:rosterParams.get("date")??toLocalDateStr()})}`}>購買方案／儲值</DashboardLink>}<p className="mt-1 text-sm text-earth-600">
                 {cards.some(item=>item.openingImported && item.members.some(member=>member.id===customerId)) ? "期初方案須先連結來源堂次，暫不能在此新增預約。" : `${noCardReason(customerId)}，請先核對學員方案。`}
-              </p>
+              </p></div>
             )}
             <label className="block text-sm font-medium">
               本次備註
@@ -1428,7 +1430,7 @@ export function CourseRoster({
         const after=booking.cardRemaining==null?null:booking.cardRemaining-classCost;
         return {id:booking.id,name:booking.customerName,phone:booking.customerPhone,owner:booking.assignedCoachName||"",status:label,mark:booking.status==="ATTENDED"?'attended':deducted?'deducted':leave?'leave':booking.status==="CANCELLED"?'cancelled':'pending',statusTitle:booking.status==="RESERVED"?"標記出席":"更正點名",statusDisabled:!canEdit||rowPending(booking.id)||teacherAbsent||(booking.status==="CANCELLED"&&!leave),onStatus:event=>booking.status==="RESERVED"?run(()=>updateCourseBookingStatus({bookingId:booking.id,status:"ATTENDED"}),`已將 ${booking.customerName} 標記出席`,{bookingId:booking.id,status:"ATTENDED"}):toggleRosterMenu(event.currentTarget,booking.id),onOpen:()=>source?.onOpen?source.onOpen(booking):setInfoBookingId(booking.id),
           ...(batchMode&&(source?!!source.batchAction:canEdit)&&booking.status!=="CANCELLED"?{selected:selected.includes(booking.id),selectionDisabled:bulkPending||!selectableRows.some(row=>row.id===booking.id),onSelect:(checked:boolean)=>setSelected(old=>checked?[...old,booking.id]:old.filter(id=>id!==booking.id))}:{}),
-          context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:trialBadge(booking),feedback:rowFeedback(booking.id),cost:booking.bookingKind==="TRIAL"?"":booking.bookingKind==="UNPAID"?"點名時扣":booking.bookingKind==="TEACHER_MAKEUP"?"免費券":<>{booking.pointCost}{booking.unit==="SESSION"&&<span className="ml-1 text-xs">堂</span>}</>,balance:after==null?"":after<0?"不足":after,balanceWarning:after!=null&&after<=0,
+          context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:booking.bookingKind==="UNPAID"&&sportsNative?<span className="text-xs text-amber-800">點名前核對方案</span>:trialBadge(booking),feedback:rowFeedback(booking.id),cost:booking.bookingKind==="TRIAL"?"":booking.bookingKind==="UNPAID"?"點名時扣":booking.bookingKind==="TEACHER_MAKEUP"?"免費券":<>{booking.pointCost}{booking.unit==="SESSION"&&<span className="ml-1 text-xs">堂</span>}</>,balance:booking.bookingKind==="UNPAID"&&sportsNative?<span className="text-xs text-amber-800">需確認方案／儲值</span>:after==null?"":after<0?"不足":after,balanceWarning:after!=null&&after<=0,
           reminders:<SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit&&booking.status!=="CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)}/>,...((source?source.actions(booking).length>0:canEdit)?{onMore:(event)=>toggleRosterMenu(event.currentTarget,booking.id),moreOpen:openActionMenu?.bookingId===booking.id}:{}),...(source?.row?.(booking)??{}),...(source?{statusDisabled:!canEdit||rowPending(booking.id)||source.row?.(booking).statusDisabled||(!source.statusMenu&&booking.status!=="RESERVED"),...(source.statusMenu?{onStatus:(event)=>source.statusActions&&booking.status==="RESERVED"?source.row?.(booking).onStatus?.(event):toggleRosterMenu(event.currentTarget,booking.id,"status")}:{})}: {})};
       })}/>}
 

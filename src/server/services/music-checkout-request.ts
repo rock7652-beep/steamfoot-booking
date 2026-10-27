@@ -10,6 +10,13 @@ export function withMusicCheckoutRequest<T>(work: (timings: Record<string, numbe
   return requests.run(state, () => work(state.timings));
 }
 
+/** Native course actions share the same request-local optimizations. Keep an
+ * existing dedicated checkout scope instead of resetting its timing/checks. */
+export function withCourseCheckoutRequest<T>(work:(timings:Record<string,number>)=>Promise<T>){
+  const current=requests.getStore();
+  return current?work(current.timings):withMusicCheckoutRequest(work);
+}
+
 /** Exact authenticated actor object, this checkout only. Permissions remain separate.
  * The callback retains route authorization, writable-store and subscription checks.
  */

@@ -67,3 +67,15 @@ it("retains all calls outside the dedicated handler and records failed work",asy
     expect(timings["transaction.work"]).toBeGreaterThanOrEqual(0);
   });
 });
+
+it("native checkout reuses an existing scope and never shares validation across requests",async()=>{
+ const {withCourseCheckoutRequest}=await import("@/server/services/music-checkout-request");
+ const actor={},resolve=vi.fn().mockResolvedValue("store-a");
+ await withCourseCheckoutRequest(async()=>{
+  await musicCheckoutWriteStore(actor,resolve);
+  await withCourseCheckoutRequest(()=>musicCheckoutWriteStore(actor,resolve));
+  expect(resolve).toHaveBeenCalledTimes(1);
+ });
+ await withCourseCheckoutRequest(()=>musicCheckoutWriteStore(actor,resolve));
+ expect(resolve).toHaveBeenCalledTimes(2);
+});
