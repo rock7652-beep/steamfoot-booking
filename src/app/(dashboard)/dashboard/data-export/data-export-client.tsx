@@ -24,15 +24,15 @@ function previousMonth(month: string): string {
   return monthNumber === 1 ? `${year - 1}-12` : `${year}-${String(monthNumber - 1).padStart(2, "0")}`;
 }
 
-export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport, courseMode = false, serviceMode = false }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean; courseMode?: boolean; serviceMode?: boolean }) {
+export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport, courseMode = false, serviceMode = false, initialStartDate, initialEndDate }: { initialStartDate?:string;initialEndDate?:string; isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean; courseMode?: boolean; serviceMode?: boolean }) {
   const today = toLocalDateStr();
   const thisMonth = today.slice(0, 7);
   const currentMonthDates = { startDate: `${thisMonth}-01`, endDate: today };
   const availableTypes = dataExportTypes.filter((value) => value === "customers" ? canCustomerExport : canReportExport);
   const [type, setType] = useState<DataExportType>(availableTypes[0] ?? "customers");
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("thisMonth");
-  const [startDate, setStartDate] = useState(currentMonthDates.startDate);
-  const [endDate, setEndDate] = useState(currentMonthDates.endDate);
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>(initialStartDate&&initialEndDate?"custom":"thisMonth");
+  const [startDate, setStartDate] = useState(initialStartDate??currentMonthDates.startDate);
+  const [endDate, setEndDate] = useState(initialEndDate??currentMonthDates.endDate);
   const [status, setStatus] = useState("");
   const initialStoreId = stores.some((store) => store.id === activeStoreId) ? activeStoreId ?? "" : stores[0]?.id ?? "";
   const [storeId, setStoreId] = useState(initialStoreId);

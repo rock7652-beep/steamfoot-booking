@@ -1,0 +1,485 @@
+{
+  "complete": true,
+  "scope": "real local login, actual Next routes, disposable PostgreSQL; no production data",
+  "realDatabase": true,
+  "physicalIPad": false,
+  "results": [
+    {
+      "store": "sports",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "drawer-initialization",
+      "pass": true,
+      "sessionId": "cmvqpwh6c0009pb9g7l5nli2h"
+    },
+    {
+      "store": "sports",
+      "step": "manual-income-once",
+      "pass": true,
+      "amount": 100
+    },
+    {
+      "store": "sports",
+      "step": "purchase-confirmed-once",
+      "pass": true,
+      "amount": 5000
+    },
+    {
+      "store": "sports",
+      "step": "trial-collected-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "sports",
+      "step": "refund-and-card-retirement-once",
+      "pass": true,
+      "amount": 400
+    },
+    {
+      "store": "sports",
+      "step": "monthly-version-created",
+      "pass": true,
+      "revision": 1
+    },
+    {
+      "store": "sports",
+      "step": "fee-payment-linked-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "sports",
+      "step": "drawer-count-difference",
+      "pass": true,
+      "difference": -50
+    },
+    {
+      "store": "sports",
+      "step": "drawer-difference-visible",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "actual-excel-download",
+      "pass": true,
+      "worksheets": [
+        "體驗收款",
+        "購買登錄",
+        "退款發生"
+      ]
+    },
+    {
+      "store": "sports",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "sports",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "sports",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "sports",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "sports",
+      "step": "legacy-link-keeps-store",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "drawer-initialization",
+      "pass": true,
+      "sessionId": "cmvqq2u2o000ipb9glhdd8e9h"
+    },
+    {
+      "store": "music",
+      "step": "manual-income-once",
+      "pass": true,
+      "amount": 100
+    },
+    {
+      "store": "music",
+      "step": "purchase-confirmed-once",
+      "pass": true,
+      "amount": 5000
+    },
+    {
+      "store": "music",
+      "step": "trial-collected-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "music",
+      "step": "refund-and-card-retirement-once",
+      "pass": true,
+      "amount": 400
+    },
+    {
+      "store": "music",
+      "step": "monthly-version-created",
+      "pass": true,
+      "revision": 1
+    },
+    {
+      "store": "music",
+      "step": "fee-payment-linked-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "music",
+      "step": "drawer-count-difference",
+      "pass": true,
+      "difference": -50
+    },
+    {
+      "store": "music",
+      "step": "drawer-difference-visible",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "actual-excel-download",
+      "pass": true,
+      "worksheets": [
+        "體驗收款",
+        "購買登錄",
+        "退款發生"
+      ]
+    },
+    {
+      "store": "music",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "music",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "music",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "music",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "music",
+      "step": "legacy-link-keeps-store",
+      "pass": true
+    },
+    {
+      "store": "dance",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "dance",
+      "step": "drawer-initialization",
+      "pass": true,
+      "sessionId": "cmvqq3pry000ppb9gfask6rmd"
+    },
+    {
+      "store": "dance",
+      "step": "manual-income-once",
+      "pass": true,
+      "amount": 100
+    },
+    {
+      "store": "dance",
+      "step": "purchase-confirmed-once",
+      "pass": true,
+      "amount": 5000
+    },
+    {
+      "store": "dance",
+      "step": "trial-collected-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "dance",
+      "step": "refund-and-card-retirement-once",
+      "pass": true,
+      "amount": 400
+    },
+    {
+      "store": "dance",
+      "step": "monthly-version-created",
+      "pass": true,
+      "revision": 1
+    },
+    {
+      "store": "dance",
+      "step": "fee-payment-linked-once",
+      "pass": true,
+      "amount": 500
+    },
+    {
+      "store": "dance",
+      "step": "drawer-count-difference",
+      "pass": true,
+      "difference": -50
+    },
+    {
+      "store": "dance",
+      "step": "drawer-difference-visible",
+      "pass": true
+    },
+    {
+      "store": "dance",
+      "step": "actual-excel-download",
+      "pass": true,
+      "worksheets": [
+        "體驗收款",
+        "購買登錄",
+        "退款發生"
+      ]
+    },
+    {
+      "store": "dance",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "dance",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "dance",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "dance",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "dance",
+      "step": "legacy-link-keeps-store",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "drawer-initialization",
+      "pass": true,
+      "sessionId": "cmvqq4met000wpb9ga2uf2zcb"
+    },
+    {
+      "store": "beauty",
+      "step": "manual-income-once",
+      "pass": true,
+      "amount": 100
+    },
+    {
+      "store": "beauty",
+      "step": "completed-service-refund-guard",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "beauty-cancelled-service-refund-once",
+      "pass": true,
+      "amount": 400
+    },
+    {
+      "store": "beauty",
+      "step": "income-no-duplicate-fees",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "beauty-monthly-confirmed",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "drawer-count-difference",
+      "pass": true,
+      "difference": -50
+    },
+    {
+      "store": "beauty",
+      "step": "drawer-difference-visible",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "actual-excel-download",
+      "pass": true,
+      "worksheets": [
+        "收退款發生",
+        "購買申請",
+        "作廢誤建"
+      ]
+    },
+    {
+      "store": "beauty",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "beauty",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "beauty",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "beauty",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "beauty",
+      "step": "legacy-link-keeps-store",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "drawer-initialization",
+      "pass": true,
+      "sessionId": "cmvqqf9rk001ppb9gbk92mp3s"
+    },
+    {
+      "store": "steam",
+      "step": "manual-income-once",
+      "pass": true,
+      "amount": 100
+    },
+    {
+      "store": "steam",
+      "step": "steam-package-refund-once",
+      "pass": true,
+      "amount": 5000
+    },
+    {
+      "store": "steam",
+      "step": "steam-monthly-without-personnel-fees",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "drawer-count-difference",
+      "pass": true,
+      "difference": -50
+    },
+    {
+      "store": "steam",
+      "step": "drawer-difference-visible",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "actual-excel-download",
+      "pass": true,
+      "worksheets": [
+        "營收與交易明細"
+      ]
+    },
+    {
+      "store": "steam",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "steam",
+      "step": "responsive-ledger",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "steam",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "store": "steam",
+      "step": "responsive-monthly",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "store": "steam",
+      "step": "legacy-link-keeps-store",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "externalRequestsBlocked": 0
+}

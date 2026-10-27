@@ -3,7 +3,7 @@ import {PageShell,PageHeader,DataTable,type Column} from '@/components/desktop';
 import {InstantFilterForm} from '@/components/instant-filter-form';
 import type {BeautyRevenueBreakdownData} from '@/server/beauty/revenue-breakdown';
 const money=(value:number)=>`NT$ ${value.toLocaleString()}`;
-export function BeautyRevenueBreakdownView({data,tabs}:{data:BeautyRevenueBreakdownData;tabs?:ReactNode}){
+export function BeautyRevenueBreakdownView({data,tabs,beautyRoute=false}:{data:BeautyRevenueBreakdownData;tabs?:ReactNode;beautyRoute?:boolean}){
  const total=data.totals;
  const fees=data.technicians?.reduce((n,r)=>({fee:n.fee+r.fee,paid:n.paid+r.paid,unpaid:n.unpaid+r.unpaid,overpaid:n.overpaid+r.overpaid}),{fee:0,paid:0,unpaid:0,overpaid:0});
  type Manager=typeof data.managers[number];
@@ -20,7 +20,7 @@ export function BeautyRevenueBreakdownView({data,tabs}:{data:BeautyRevenueBreakd
  const techs:Column<Technician>[]=[{key:'name',header:'技師',accessor:r=>r.name},{key:'count',header:'完成服務',accessor:r=>`${r.services} 次`},{key:'fee',header:'應付服務費',accessor:r=>money(r.fee)},{key:'paid',header:'累計已付',accessor:r=>money(r.paid)},{key:'unpaid',header:'尚未支付',accessor:r=>money(r.unpaid)},{key:'overpaid',header:'超付待核對',accessor:r=>money(r.overpaid)}];
  return <PageShell compact>
   <PageHeader compact title="收入分類"/>{tabs}
-  <InstantFilterForm className="flex min-w-0 flex-wrap items-end gap-3"><input type="hidden" name="tab" value="營運"/><input type="hidden" name="area" value="income"/>
+  <InstantFilterForm className="flex min-w-0 flex-wrap items-end gap-3">{beautyRoute&&<input type="hidden" name="tab" value="營運"/>}<input type="hidden" name="area" value="income"/>
    <label>開始日期<input aria-label="分類開始日期" name="dateFrom" type="date" defaultValue={data.from} className="mt-1 block min-h-11 min-w-0 rounded-lg border border-earth-200 px-3"/></label>
    <label>結束日期<input aria-label="分類結束日期" name="dateTo" type="date" defaultValue={data.to} className="mt-1 block min-h-11 min-w-0 rounded-lg border border-earth-200 px-3"/></label>
   </InstantFilterForm>

@@ -16,10 +16,9 @@ describe("revenue child-store view mode pages", () => {
     expect(source).toContain(
       "const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext)",
     );
-    expect(source.match(/activeStoreId: revenueStoreId/g)?.length).toBe(3);
+    expect(source.match(/activeStoreId: revenueStoreId/g)?.length).toBe(2);
     expect(source).toContain("目前正在檢視分店營運資料。可以查看交易詳情，但無法修改、作廢或退款。");
-    expect(source).toContain("...(!isViewMode");
-    expect(source).toContain('href: "/dashboard/reconciliation"');
+    expect(source).not.toContain('href: "/dashboard/reconciliation"');
   });
 
   it("scopes transaction records and disables write actions in view mode", () => {
@@ -37,7 +36,7 @@ describe("revenue child-store view mode pages", () => {
   });
 
   it("locks reconciliation before loading mother-store reconciliation data", () => {
-    const source = readSource("src/app/(dashboard)/dashboard/reconciliation/page.tsx");
+    const source = readSource("src/app/(dashboard)/dashboard/reconciliation/workspace.tsx");
     const viewModeGuard = source.indexOf("if (storeViewContext?.isViewMode)");
     const reconciliationRead = source.indexOf("listReconciliationRuns(20)");
 

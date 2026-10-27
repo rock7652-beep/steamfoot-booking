@@ -2235,9 +2235,9 @@ export const additionalGuides: OperationGuide[] = [
     "category": "analysis",
     "title": "營運資料如何匯出 Excel？",
     "summary": "選擇資料類型、期間與狀態，下載 Excel。",
-    "path": "營運 → 匯出資料",
+    "path": "營運 → 報表匯出 → 資料匯出",
     "steps": [
-      "點「匯出資料」，選要下載的資料類型。",
+      "切換「報表匯出 → 資料匯出」，選要下載的資料類型。",
       "選本月、上月或自訂期間，需要時再選狀態。",
       "核對門市與期間，點「匯出 Excel」，開啟下載檔確認範圍。"
     ],

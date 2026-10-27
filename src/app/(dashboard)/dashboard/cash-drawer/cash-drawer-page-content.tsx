@@ -1,3 +1,4 @@
+import { CashDrawerReconciliation } from "./cash-drawer-reconciliation";
 import { isPreviewHqStoreManager } from "@/server/cashbook-management-access";
 import { musicDataSeparationEnabled } from "@/server/services/music-data-scope";
 import { MusicCashDrawerSync } from "@/components/admin/music-cash-drawer-sync";
@@ -119,6 +120,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const canReopen = canInit && canClose;
   const canAssignStaff = !isViewMode && getEffectiveActorRole(user) === "ADMIN";
 
+  const reconciliation=await CashDrawerReconciliation({storeId,today:todayStr});
   const panelPrefix = /^(?:\/hq|\/s\/[^/?#]+\/admin)$/.test(params.panelPrefix ?? "") ? params.panelPrefix! : "";
   const panelReturnPath = `${panelPrefix}/dashboard/cash-drawer?${new URLSearchParams({cashDrawerPanel: "1", panelStoreId: storeId, panelPrefix})}`;
   return (
@@ -161,6 +163,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         returnPath={panel ? panelReturnPath : courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
       </section>
+      {reconciliation}
     </PageShell>
   );
 }

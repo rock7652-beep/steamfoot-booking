@@ -1,14 +1,14 @@
-import type {ReactNode} from "react";
-import { FeatureEntry } from "@/components/feature-presentation";
-import { FEATURES } from "@/lib/feature-flags";
-import { CashbookShortcut } from "../../cashbook/_components/cashbook-shortcut";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-/** Shared mature operations navigation; each module supplies its own ledger. */
-export function RevenueTabs({ readOnly, showMonthly = false,ledgerHref,extra }: { readOnly: boolean; showMonthly?: boolean;ledgerHref?:string;extra?:ReactNode }) {
-  return <div aria-label="營運頁籤" className="grid grid-cols-2 items-center gap-2 border-b border-earth-200 pb-3 md:flex md:flex-wrap md:gap-3">
-    {ledgerHref?<Link href={ledgerHref} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm text-primary-700">營收明細</Link>:<span className="flex min-h-11 items-center justify-center rounded-lg border-b-2 border-primary-600 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 md:min-h-0 md:bg-transparent md:py-1.5">營收明細</span>}{extra}
-    <CashbookShortcut readOnly={readOnly} triggerClassName="w-full justify-center md:min-h-0 md:w-auto md:px-3 md:py-1.5" />
-    <Link href="/dashboard/cashbook" className={`${showMonthly ? "" : "col-span-2"} flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 md:col-span-1 md:min-h-0 md:border-0 md:bg-transparent md:py-1.5`}>完整現金管理 →</Link>
-    <FeatureEntry feature={FEATURES.SERVICE_FEE_CALCULATOR} label="月結管理">{showMonthly && <Link href="/dashboard/service-fee-calculator" className="flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 md:min-h-0 md:border-0 md:bg-transparent md:py-1.5">月結管理 →</Link>}</FeatureEntry>
-  </div>;
+import { OPERATIONS_AREAS, operationsHref, type OperationsArea, type OperationsQuery } from "@/lib/operations-navigation";
+export function RevenueTabs({ active = "ledger", query = {}, beautyLedger = false, available = OPERATIONS_AREAS.map(area => area.id) }: {
+  active?: OperationsArea; query?: OperationsQuery; beautyLedger?: boolean; available?: readonly OperationsArea[];
+  readOnly?: boolean; showMonthly?: boolean;
+}) {
+  return <nav aria-label="營運頁籤" className="flex min-w-0 flex-wrap gap-1 border-b border-earth-200 pb-2">
+    {OPERATIONS_AREAS.filter(area => available.includes(area.id)).map(area => <Link key={area.id}
+      href={operationsHref(area.id, query, beautyLedger)} aria-current={area.id === active ? "page" : undefined}
+      className={`flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm ${area.id === active ? "border-b-2 border-primary-600 bg-primary-50 font-medium text-primary-800" : "text-earth-600 hover:bg-earth-50"}`}>
+      {area.label}
+    </Link>)}
+  </nav>;
 }
