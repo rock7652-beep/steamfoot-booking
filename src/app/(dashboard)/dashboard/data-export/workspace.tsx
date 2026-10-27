@@ -20,5 +20,6 @@ export default async function DataExportPage({query={}}:{query?:OperationsQuery}
   const from=query.dateFrom??query.startDate,to=query.dateTo??query.endDate;
   const valid=(value:string|undefined)=>!!value&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
   const range=valid(from)&&valid(to)&&from!<=to!;
-  return <DataExportClient key={`${activeStoreId}:${range?from:""}:${range?to:""}`} initialStartDate={range?from:undefined} initialEndDate={range?to:undefined} serviceMode={serviceMode} courseMode={courseMode || serviceMode} isAdmin={getEffectiveActorRole(user) === "ADMIN"} stores={stores} activeStoreId={activeStoreId} canCustomerExport={canCustomerExport} canReportExport={canReportExport} />;
+  const selectedStore=activeStoreId?await prisma.store.findUnique({where:{id:activeStoreId},select:{name:true}}):null;
+  return <DataExportClient storeName={selectedStore?.name} initialType={query.exportType} initialStatus={query.exportStatus} key={activeStoreId} initialStartDate={range?from:undefined} initialEndDate={range?to:undefined} serviceMode={serviceMode} courseMode={courseMode || serviceMode} isAdmin={getEffectiveActorRole(user) === "ADMIN"} stores={stores} activeStoreId={activeStoreId} canCustomerExport={canCustomerExport} canReportExport={canReportExport} />;
 }

@@ -1,6 +1,8 @@
 "use client";
+import {useSearchParams} from "next/navigation";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
+import toolbar from "@/components/operations/filter-toolbar.module.css";
 import { useState, useCallback, useEffect } from "react";
 import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -161,6 +163,7 @@ export function RevenueReportClient({
   defaultEndDate,
 }: Props) {
   const personnelText = useCoursePersonnelText();
+  const searchParams=useSearchParams();
   // Filters
   const [periodType, setPeriodType] = useState<"today" | "month" | "custom">("month");
   const [startDate, setStartDate] = useState(defaultStartDate);
@@ -168,9 +171,9 @@ export function RevenueReportClient({
   const [storeId, setStoreId] = useState("");
   const [coachId, setCoachId] = useState("");
   const [coachRole, setCoachRole] = useState("");
-  const [planType, setPlanType] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [keyword, setKeyword] = useState("");
+  const [planType, setPlanType] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportPlanType")??"":"");
+  const [paymentMethod, setPaymentMethod] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportPaymentMethod")??"":"");
+  const [keyword, setKeyword] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportKeyword")??"":"");
 
   // Data
   const [kpi, setKpi] = useState<KpiData | null>(null);
@@ -217,6 +220,13 @@ export function RevenueReportClient({
         : "/api/reports/coach-revenue";
 
       const params = buildParams();
+      const url=new URL(window.location.href);
+      if(url.searchParams.get("area")==="exports") {
+        for(const [key,value] of Object.entries({dateFrom:startDate,dateTo:endDate,reportPlanType:planType,reportPaymentMethod:paymentMethod,reportKeyword:keyword})) {
+          if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);
+        }
+        window.history.replaceState(null,"",url);
+      }
 
       // Fetch summary + KPI
       params.set("level", "summary");
@@ -258,7 +268,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, courseMode, canReadDetails, buildParams, startDate, endDate]);
+  }, [mode, courseMode, canReadDetails, buildParams, startDate, endDate, planType, paymentMethod, keyword]);
 
   // Fetch details page
   const fetchDetailsPage = useCallback(async (page: number) => {
@@ -269,6 +279,13 @@ export function RevenueReportClient({
         : "/api/reports/coach-revenue";
 
       const params = buildParams();
+      const url=new URL(window.location.href);
+      if(url.searchParams.get("area")==="exports") {
+        for(const [key,value] of Object.entries({dateFrom:startDate,dateTo:endDate,reportPlanType:planType,reportPaymentMethod:paymentMethod,reportKeyword:keyword})) {
+          if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);
+        }
+        window.history.replaceState(null,"",url);
+      }
       params.set("level", "details");
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
@@ -285,7 +302,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, buildParams]);
+  }, [mode, buildParams, startDate, endDate, planType, paymentMethod, keyword]);
 
   // Period type handlers
   function handlePeriodChange(type: "today" | "month" | "custom") {
@@ -315,7 +332,6 @@ export function RevenueReportClient({
   // Auto-fetch on mount
   useEffect(() => {
     // Initialize the existing request loader once; later filter changes wait for Search.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -338,7 +354,7 @@ export function RevenueReportClient({
   return (
     <div className="space-y-6">
       {/* ===== Filters ===== */}
-      <div className="rounded-xl bg-white p-4 shadow-sm border border-earth-200 space-y-3">
+      <div className={`${toolbar.container} rounded-xl bg-white p-3 border border-earth-200 space-y-2`}>
         {/* Period pills */}
         <div className="flex flex-wrap items-center gap-2">
           {(["today", "month", "custom"] as const).map((t) => (
@@ -346,7 +362,7 @@ export function RevenueReportClient({
               key={t}
               type="button"
               onClick={() => handlePeriodChange(t)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
                 periodType === t
                   ? "bg-primary-600 text-white shadow-sm"
                   : "bg-earth-100 text-earth-700 hover:bg-earth-200"
@@ -358,12 +374,12 @@ export function RevenueReportClient({
         </div>
 
         {/* Date + Filters */}
-        <div className="flex flex-wrap items-end gap-2">
+        <div className={toolbar.toolbar}>
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">開始日期</label>
             <input
               type="date"
-              value={startDate}
+              aria-label="開始日期" value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setPeriodType("custom"); setDateError(null); }}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
@@ -372,7 +388,7 @@ export function RevenueReportClient({
             <label className="block text-xs text-earth-500 mb-0.5">結束日期</label>
             <input
               type="date"
-              value={endDate}
+              aria-label="結束日期" value={endDate}
               onChange={(e) => { setEndDate(e.target.value); setPeriodType("custom"); setDateError(null); }}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
@@ -382,7 +398,7 @@ export function RevenueReportClient({
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">分店</label>
               <select
-                value={storeId}
+                aria-label="分店" value={storeId}
                 onChange={(e) => setStoreId(e.target.value)}
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
@@ -397,7 +413,7 @@ export function RevenueReportClient({
               <div>
                 <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"所屬店長":personnelText("教練")}</label>
                 <select
-                  value={coachId}
+                  aria-label="人員" value={coachId}
                   onChange={(e) => setCoachId(e.target.value)}
                   className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 >
@@ -408,7 +424,7 @@ export function RevenueReportClient({
               <div>
                 <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"角色":personnelText("教練角色")}</label>
                 <select
-                  value={coachRole}
+                  aria-label="人員角色" value={coachRole}
                   onChange={(e) => setCoachRole(e.target.value)}
                   className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 >
@@ -423,7 +439,7 @@ export function RevenueReportClient({
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">方案類型</label>
             <select
-              value={planType}
+              aria-label="方案類型" value={planType}
               onChange={(e) => setPlanType(e.target.value)}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
@@ -436,7 +452,7 @@ export function RevenueReportClient({
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">收款方式</label>
               <select
-                value={paymentMethod}
+                aria-label="收款方式" value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
@@ -454,7 +470,7 @@ export function RevenueReportClient({
             <label className="block text-xs text-earth-500 mb-0.5">關鍵字</label>
             <input
               type="text"
-              value={keyword}
+              aria-label="關鍵字" value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="客戶/方案/單號"
               className="block w-32 rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"

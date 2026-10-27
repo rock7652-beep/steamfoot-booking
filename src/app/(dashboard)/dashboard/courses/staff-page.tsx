@@ -3,7 +3,6 @@ import {sportsTeachingTemplateId} from "@/server/services/sports-teaching-rule";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
 import { canViewCourseMonthly } from "@/lib/course-monthly-access";
-import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import {readCourseOrders} from "@/server/services/course-display-order";
@@ -75,7 +74,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
   const canReadSalary = !!musicEntitlement && await canMusicFinance(user, storeId, "teacher.settlement.read");
-  const salaryHref = canReadSalary && canViewCourseMonthly(user.role,musicNativeWorkflowEnabled(storeId)) && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
+  const salaryHref = canReadSalary && canViewCourseMonthly(user.role) && await checkPermission(user.role, user.staffId, "report.read") && await hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR)
     ? "/dashboard/service-fee-calculator"
     : null;
   const salaryLabel = "月結／發薪紀錄";

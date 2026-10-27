@@ -56,3 +56,17 @@ it("stale settings and non-owner actors cannot enable personal income",async()=>
  expect((await saveCourseSettlementSettings({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:true,revision:3})).success).toBe(false);
  expect(exec).not.toHaveBeenCalled();
 });
+
+it("HQ can confirm non-music monthly settlement in its selected store",async()=>{
+ m.manager.mockResolvedValue({storeId:"A",user:{id:"hq",role:"ADMIN"}});
+ expect((await confirmCourseMonthlySettlement({expectedStoreId:"A",month:"2026-09",fingerprint:"x".repeat(64),revision:1,reason:"確認"})).success).toBe(true);
+ expect(m.feature).toHaveBeenCalled();expect(m.writable).toHaveBeenCalled();expect(m.transaction).toHaveBeenCalled();
+});
+it.each([undefined,"B"])("HQ stale/missing store binding %s never enters a transaction",async expectedStoreId=>{
+ m.manager.mockResolvedValue({storeId:"A",user:{id:"hq",role:"ADMIN"}});
+ for(const action of [confirmCourseMonthlySettlement,payCourseProfit,saveCourseSettlementSettings]){
+  const result=await action({...input,expectedStoreId,fingerprint:"x".repeat(64),revision:1,reason:"確認",profitEnabled:true,feeEnabled:true});
+  expect(result.success).toBe(false);if(!result.success)expect(result.error).toContain("門市已切換");
+ }
+ expect(m.transaction).not.toHaveBeenCalled();expect(exec).not.toHaveBeenCalled();
+});

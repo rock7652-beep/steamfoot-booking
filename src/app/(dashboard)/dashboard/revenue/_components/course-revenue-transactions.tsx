@@ -1,4 +1,6 @@
 "use client";
+import {useSearchParams} from "next/navigation";
+import {operationsSavedQuery} from "@/lib/operations-navigation";
 import {useMusicRevenueLive} from "@/components/admin/music-revenue-live";
 import {useEffect,useRef,useState} from "react";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
@@ -15,6 +17,7 @@ const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 export function CourseRevenueTransactions({initial,input,staffRows,basePath,live,canRefund,canConfirm,canEdit,canVoid}:{
  initial:RevenueTransactions;input:RevenueTransactionsInput;staffRows:{id:string;userId:string|null;displayName:string;status:string}[];basePath:string;live:boolean;canRefund:boolean;canConfirm:boolean;canEdit:boolean;canVoid:boolean;
 }){
+ const params=useSearchParams();
  const coordinated=useMusicRevenueLive();
  const hasCoordinator=!!coordinated;
  const [current,setCurrent]=useState<RevenueTransactions|null>(null),[sync,setSync]=useState("");
@@ -37,7 +40,8 @@ export function CourseRevenueTransactions({initial,input,staffRows,basePath,live
   return()=>{active=false;++sequence.current;dispose();};
  },[live,from,to,status,staff,requestedPage,dataScope,reader,hasCoordinator]);
  const {rows,count,pages,page}=coordinated?.data.transactions??current??initial;
- const scopeQuery:Record<string,string>=dataScope==="legacy"?{dataScope:"legacy"}:{};
+ const kind=params?.get("kind");
+ const scopeQuery:Record<string,string>={...operationsSavedQuery(Object.fromEntries(params??[])),...(kind?{kind}:{}),...(dataScope==="legacy"?{dataScope:"legacy"}:{})};
  const labels:Record<string,string>={PENDING:"待核帳",CONFIRMED:"已核帳並發卡",REFUNDED:"已登錄退款",VOIDED:"已作廢"};
   const columns: Column<(typeof rows)[number]>[] = [
     { key: "date", header: "購買日期", accessor: (r) => r.date },

@@ -1,4 +1,5 @@
 "use client";
+import {useMonthlyStore,MonthlyStoreLabel} from "@/components/operations/monthly-store-context";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {DashboardLink} from "@/components/dashboard-link";
 import {useSearchParams} from "next/navigation";
@@ -43,6 +44,9 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  const people=summarizeSettlement(filtered);
  const issues=filtered.some(line=>line.issue||line.amount===null);
  const total=people.reduce((sum,person)=>sum+person.profit+person.fee,0);
+ const paid=filtered.reduce((sum,line)=>sum+line.paid,0);
+ const unpaid=filtered.reduce((sum,line)=>sum+(line.amount===null?0:Math.max(0,line.amount-line.paid)),0);
+ const overpaid=filtered.reduce((sum,line)=>sum+(line.amount===null?0:Math.max(0,line.paid-line.amount)),0);
  return <>
  <div className="flex flex-wrap items-center gap-2">
  {music && <div className="flex flex-wrap items-center gap-2 text-sm"><label>教師<select aria-label={personnelText("薪資教師")} className="min-h-11 rounded-lg border px-3" value={teacherId} onChange={e=>setTeacherId(e.target.value)}><option value="">全部人員</option>{[...new Map(lines.filter(l=>l.staffId).map(l=>[l.staffId!,l.name])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}{teacherId && !lines.some(l=>l.staffId===teacherId) && <option value={teacherId}>所選教師（本月無紀錄）</option>}</select></label>{teacherId && <button type="button" className={button} onClick={()=>setTeacherId("")}>查看全店月結</button>}</div>}
@@ -52,6 +56,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,m
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
  {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?`${feeLabel}合計`:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{!teacherId && confirm}
  </div>
+ {showPaymentStatus&&<p className="flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="付款登錄狀態"><span>已登錄付款 {money(paid)}</span><span>未付 {issues?"待核對":money(unpaid)}</span>{overpaid>0&&<span className="text-amber-800">溢付 {money(overpaid)}</span>}</p>}
  <CourseMonthlyPeople feeLabel={detailsOnly?feeLabel:undefined} music={music} category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId ? undefined : actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
  {people.map(person=><details open={params.get("settlementPerson")===person.id||undefined} key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
@@ -83,18 +88,20 @@ function useSubmit(){
  return {pending,message,run:(action:()=>Promise<{success:boolean;error?:string}>)=>{if(lock.current)return;lock.current=true;setMessage("");start(async()=>{try{const result=await action();if(!result.success)setMessage(result.error??"操作失敗");else{setMessage("已儲存");publishMusicFinanceChange();router.refresh();}}catch{setMessage("連線未完成，內容已保留，請重試。");}finally{lock.current=false;}});}};
 }
 export function CourseMonthlySettings({settings,canEdit}:{settings:SettlementSettings;canEdit:boolean}){
+ const monthlyStore=useMonthlyStore();
  const [personalIncomeEnabled,setIncome]=useState(settings.personalIncomeEnabled);const submit=useSubmit();
- return <details className="group/settings rounded-lg border border-earth-200 bg-white px-3 open:w-full open:max-w-xl"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm"><span>查看權限</span><span aria-hidden="true" className="group-open/settings:hidden">＋</span><span aria-hidden="true" className="hidden group-open/settings:inline">－</span></summary><form className="space-y-3 pb-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({profitEnabled:settings.profitEnabled,feeEnabled:settings.feeEnabled,personalIncomeEnabled,revision:settings.revision}));}}>
+ return <details className="group/settings rounded-lg border border-earth-200 bg-white px-3 open:w-full open:max-w-xl"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm"><span>查看權限</span><span aria-hidden="true" className="group-open/settings:hidden">＋</span><span aria-hidden="true" className="hidden group-open/settings:inline">－</span></summary><form className="space-y-3 pb-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({expectedStoreId:monthlyStore?.storeId,profitEnabled:settings.profitEnabled,feeEnabled:settings.feeEnabled,personalIncomeEnabled,revision:settings.revision}));}}>
  <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={personalIncomeEnabled} disabled={!canEdit||submit.pending} onChange={e=>setIncome(e.target.checked)}/>開放人員查看本人收入</label>
  <p className="text-sm text-earth-600">人員只能查看本人已確認的金額與明細。</p>
  {canEdit&&<button className={button} disabled={submit.pending||(personalIncomeEnabled===settings.personalIncomeEnabled)}>儲存設定</button>}
  {submit.message&&<p role="status">{submit.message}</p>}</form></details>;
 }
 export function CourseMonthlyConfirm({month,fingerprint,revision=0,disabled,blockedReason,source}:{month:string;fingerprint:string;revision?:number;disabled:boolean;blockedReason?:string;source?:{confirmed:boolean;save:(input:{month:string;fingerprint:string})=>Promise<{success:boolean;error?:string}>}}){
+ const monthlyStore=useMonthlyStore();
  const [open,setOpen]=useState(false),[reason,setReason]=useState(revision?"":"首次月結確認");const submit=useSubmit();
  return <div className="space-y-2">
- {!open?<button type="button" className={`${button} bg-primary-700 text-white`} disabled={disabled} onClick={()=>setOpen(true)}>{(source?.confirmed??!!revision)?"重新確認":"確認月結"}</button>:<form className="space-y-3 rounded-lg border border-earth-200 bg-white p-4" onSubmit={e=>{e.preventDefault();submit.run(()=>source?source.save({month,fingerprint}):confirmCourseMonthlySettlement({month,fingerprint,revision,reason}));}}>
- <p className="text-sm">確認 {month} 的收入金額？</p>
+ {!open?<button type="button" className={`${button} bg-primary-700 text-white`} disabled={disabled} onClick={()=>setOpen(true)}>{(source?.confirmed??!!revision)?"重新確認":"確認月結"}</button>:<form className="space-y-3 rounded-lg border border-earth-200 bg-white p-4" onSubmit={e=>{e.preventDefault();submit.run(()=>source?source.save({month,fingerprint}):confirmCourseMonthlySettlement({expectedStoreId:monthlyStore?.storeId,month,fingerprint,revision,reason}));}}>
+ <MonthlyStoreLabel/><p className="text-sm">確認 {month} 的收入金額？</p>
  {!source&&revision>0&&<label className="block text-sm">調整原因<input className={field} value={reason} maxLength={500} required disabled={disabled||submit.pending} onChange={e=>setReason(e.target.value)}/></label>}
  <div className="flex gap-2"><button className={`${button} bg-primary-700 text-white`} disabled={disabled||submit.pending||(!source&&!reason.trim())}>{submit.pending?"處理中…":"確認"}</button><button type="button" className={button} disabled={submit.pending} onClick={()=>setOpen(false)}>取消</button></div>
  </form>}
@@ -103,12 +110,14 @@ export function CourseMonthlyConfirm({month,fingerprint,revision=0,disabled,bloc
 }
 
 export function CourseProfitPay({month,line}:{month:string;line:SettlementLine}){
+ const monthlyStore=useMonthlyStore();
  const remaining=(line.amount??0)-line.paid;const [open,setOpen]=useState(false),[amount,setAmount]=useState(String(remaining)),[method,setMethod]=useState<"OTHER"|"CASH">("OTHER"),[note,setNote]=useState(""),[key,setKey]=useState("");const submit=useSubmit();
  if(!open)return <button className={button} onClick={()=>{setKey(crypto.randomUUID());setOpen(true);}}>登錄利潤已付</button>;
- return <form className="max-w-md space-y-2 rounded-lg bg-earth-50 p-3" onSubmit={e=>{e.preventDefault();submit.run(()=>payCourseProfit({month,purchaseId:line.id,amount:Number(amount),expectedRemaining:remaining,method,note,requestKey:key}));}}><p>僅登錄已支付款項，不會自動匯款。可分次付款。</p><label className="block">本次已付金額<input className={field} type="number" min={1} max={Math.min(remaining,1000000)} step={1} required value={amount} disabled={submit.pending} onChange={e=>setAmount(e.target.value)}/></label><label className="block">付款方式<select className={field} value={method} disabled={submit.pending} onChange={e=>setMethod(e.target.value as "OTHER"|"CASH")}><option value="OTHER">轉帳／其他非現金</option><option value="CASH">現金</option></select></label><label className="block">付款備註<input className={field} required maxLength={500} disabled={submit.pending} value={note} onChange={e=>setNote(e.target.value)}/></label><button className={button} disabled={submit.pending||!note.trim()}>確認登錄</button><button className={button} type="button" disabled={submit.pending} onClick={()=>setOpen(false)}>收合</button>{submit.message&&<p role="status">{submit.message}</p>}</form>;
+ return <form className="max-w-md space-y-2 rounded-lg bg-earth-50 p-3" onSubmit={e=>{e.preventDefault();submit.run(()=>payCourseProfit({expectedStoreId:monthlyStore?.storeId,month,purchaseId:line.id,amount:Number(amount),expectedRemaining:remaining,method,note,requestKey:key}));}}><MonthlyStoreLabel/><p>僅登錄已支付款項，不會自動匯款。可分次付款。</p><label className="block">本次已付金額<input className={field} type="number" min={1} max={Math.min(remaining,1000000)} step={1} required value={amount} disabled={submit.pending} onChange={e=>setAmount(e.target.value)}/></label><label className="block">付款方式<select className={field} value={method} disabled={submit.pending} onChange={e=>setMethod(e.target.value as "OTHER"|"CASH")}><option value="OTHER">轉帳／其他非現金</option><option value="CASH">現金</option></select></label><label className="block">付款備註<input className={field} required maxLength={500} disabled={submit.pending} value={note} onChange={e=>setNote(e.target.value)}/></label><button className={button} disabled={submit.pending||!note.trim()}>確認登錄</button><button className={button} type="button" disabled={submit.pending} onClick={()=>setOpen(false)}>收合</button>{submit.message&&<p role="status">{submit.message}</p>}</form>;
 }
 export function CourseProfitCorrect({paymentId}:{paymentId:string}){
+ const monthlyStore=useMonthlyStore();
  const [open,setOpen]=useState(false),[reason,setReason]=useState("");const submit=useSubmit();
  if(!open)return <button className={button} onClick={()=>setOpen(true)}>更正誤登</button>;
- return <form className="space-y-2" onSubmit={e=>{e.preventDefault();submit.run(()=>correctCourseProfit({paymentId,reason}));}}><p>確認後會保留原付款紀錄，並同步沖回對應支出。僅適用於記錯的付款，不代表已收回款項；真實溢付不可用更正誤登代替收回。</p><label>更正原因<input className={field} required maxLength={500} value={reason} disabled={submit.pending} onChange={e=>setReason(e.target.value)}/></label><button className={button} disabled={submit.pending||!reason.trim()}>確認更正</button><button className={button} type="button" disabled={submit.pending} onClick={()=>setOpen(false)}>收合</button>{submit.message&&<p role="status">{submit.message}</p>}</form>;
+ return <form className="space-y-2" onSubmit={e=>{e.preventDefault();submit.run(()=>correctCourseProfit({expectedStoreId:monthlyStore?.storeId,paymentId,reason}));}}><MonthlyStoreLabel/><p>確認後會保留原付款紀錄，並同步沖回對應支出。僅適用於記錯的付款，不代表已收回款項；真實溢付不可用更正誤登代替收回。</p><label>更正原因<input className={field} required maxLength={500} value={reason} disabled={submit.pending} onChange={e=>setReason(e.target.value)}/></label><button className={button} disabled={submit.pending||!reason.trim()}>確認更正</button><button className={button} type="button" disabled={submit.pending} onClick={()=>setOpen(false)}>收合</button>{submit.message&&<p role="status">{submit.message}</p>}</form>;
 }

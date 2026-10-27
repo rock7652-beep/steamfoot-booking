@@ -1,0 +1,492 @@
+{
+  "results": [
+    {
+      "step": "actual-hq-login",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-requires-concrete-store",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-module-access",
+      "storeId": "sports-live-flow-store",
+      "pass": true
+    },
+    {
+      "step": "hq-confirms-course-monthly",
+      "storeId": "sports-live-flow-store",
+      "pass": true
+    },
+    {
+      "step": "hq-fee-payment-linked-once",
+      "storeId": "sports-live-flow-store",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-module-access",
+      "storeId": "ops-music",
+      "pass": true
+    },
+    {
+      "step": "hq-confirms-course-monthly",
+      "storeId": "ops-music",
+      "pass": true
+    },
+    {
+      "step": "hq-fee-payment-linked-once",
+      "storeId": "ops-music",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-module-access",
+      "storeId": "ops-dance",
+      "pass": true
+    },
+    {
+      "step": "hq-confirms-course-monthly",
+      "storeId": "ops-dance",
+      "pass": true
+    },
+    {
+      "step": "hq-fee-payment-linked-once",
+      "storeId": "ops-dance",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-module-access",
+      "storeId": "ops-beauty",
+      "pass": true
+    },
+    {
+      "step": "hq-monthly-module-access",
+      "storeId": "ops-steam",
+      "pass": true
+    },
+    {
+      "step": "ledger-export-filter-roundtrip",
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "report",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "data",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "actual-export-download",
+      "storeId": "sports-live-flow-store",
+      "exportType": "transactions",
+      "worksheets": 3,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "report",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "data",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "report",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "data",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "report",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "data",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "actual-export-download",
+      "storeId": "ops-music",
+      "exportType": "transactions",
+      "worksheets": 3,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "report",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "data",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "report",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "data",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "report",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "data",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "actual-export-download",
+      "storeId": "ops-dance",
+      "exportType": "transactions",
+      "worksheets": 3,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "report",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "data",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "report",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "data",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "report",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "data",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "actual-export-download",
+      "storeId": "ops-beauty",
+      "exportType": "transactions",
+      "worksheets": 3,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "report",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "data",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "report",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "data",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "report",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "data",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "actual-export-download",
+      "storeId": "ops-steam",
+      "exportType": "transactions",
+      "worksheets": 1,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "report",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "data",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "report",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "data",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "complete",
+      "checks": 64,
+      "browserErrors": 0,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "realLocalDatabase": true,
+  "physicalIPad": false,
+  "storeSwitchWriteGuards": [
+    {
+      "step": "hq-stale-store-payment-blocked",
+      "storeId": "sports-live-flow-store",
+      "pass": true
+    },
+    {
+      "step": "hq-stale-store-payment-blocked",
+      "storeId": "ops-music",
+      "pass": true
+    },
+    {
+      "step": "hq-stale-store-payment-blocked",
+      "storeId": "ops-dance",
+      "pass": true
+    }
+  ]
+}

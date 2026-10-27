@@ -1,4 +1,6 @@
+import {operationsSavedQuery} from "@/lib/operations-navigation";
 import {redirectOperations} from "@/lib/operations-navigation-server";
+import toolbar from "@/components/operations/filter-toolbar.module.css";
 import {OperationsReceiptSummary} from "@/components/operations/receipt-summary";
 import { operationsArea, type OperationsQuery } from "@/lib/operations-navigation";
 import { OperationsAreaContent } from "./_components/operations-area";
@@ -299,7 +301,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         <p>{dateFrom} 至 {dateTo}，含系統交易與手動收入 NT$ {periodSummary.cashbookIncome.toLocaleString()}，皆為台灣時間。交易表與收入分類列系統交易，手動收支明細於現金帳查看。</p>
       </OperationsReceiptSummary>
 
-      <div className="grid grid-cols-12 gap-2.5 sm:gap-3">
+      <div className={`${toolbar.container} grid grid-cols-12 gap-2.5 sm:gap-3`}>
         <div className="col-span-12">
           <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
             <div className="border-b border-earth-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
@@ -307,12 +309,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 <h2 className="text-sm font-semibold text-earth-800">
                   交易工作台
                 </h2>
-                <p className="mt-0.5 text-[11px] text-earth-400">
-                  直接篩選完整交易；點最右側「⋯」即可在右側修改、作廢或退款，不需跳頁。
-                </p>
+
               </div>
 
-              <InstantFilterForm className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
+              <InstantFilterForm className={`${toolbar.toolbar} mt-2`}>{Object.entries(operationsSavedQuery(params)).map(([name,value])=><input type="hidden" key={name} name={name} value={value}/>)}
                 <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
