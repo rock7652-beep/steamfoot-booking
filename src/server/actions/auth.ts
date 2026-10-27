@@ -161,8 +161,12 @@ export async function loginAction(
 // ============================================================
 
 export async function logoutAction(formData?: FormData) {
-  const storeSlug = formData?.get("storeSlug") as string | null;
-  const redirectTo = logoutRedirectForStore(storeSlug);
+  const rawSlug = formData?.get("storeSlug");
+  const rawEntry = formData?.get("logoutEntry");
+  const redirectTo = logoutRedirectForStore(
+    typeof rawSlug === "string" ? rawSlug : null,
+    typeof rawEntry === "string" ? rawEntry : null,
+  );
   // 清除 store context cookie，避免登出後殘留的 store-slug / active-store-id
   // 污染下一次 HQ 登入流程。signOut() 僅清 NextAuth session cookie。
   await clearStoreContextCookies();

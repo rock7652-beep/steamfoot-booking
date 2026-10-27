@@ -28,6 +28,8 @@ import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
 import { type LiffCustomerProfile } from "@/server/actions/liff-customer-profile";
 import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
+import { logoutAction } from "@/server/actions/auth";
+import { LogoutButton } from "@/components/logout-button";
 
 type State =
   | { kind: "initializing" }
@@ -175,6 +177,11 @@ export function ProfileView({
       {state.kind === "ready" && (
         <ProfileReadyView profile={state.profile} />
       )}
+      {state.kind !== "initializing" && <form action={logoutAction}>
+        <input type="hidden" name="storeSlug" value={storeSlug} />
+        <input type="hidden" name="logoutEntry" value="liff" />
+        <LogoutButton className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-4 py-3 text-base font-semibold text-earth-700 hover:bg-earth-50" />
+      </form>}
     </div>
   );
 }
