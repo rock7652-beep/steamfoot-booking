@@ -1,0 +1,191 @@
+{
+  "module": "sports",
+  "phase": "after",
+  "deployment": "dpl_GcDdMrC1aDLscjGD6bjSkoNJxkfH",
+  "complete": true,
+  "samples": [
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 1,
+      "clickAtEpochMs": 1793180279854,
+      "elapsedMs": 6420,
+      "remaining": 10
+    },
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 2,
+      "clickAtEpochMs": 1793180286274,
+      "elapsedMs": 4700,
+      "remaining": 10
+    },
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 3,
+      "clickAtEpochMs": 1793180290974,
+      "elapsedMs": 4140,
+      "remaining": 10
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 768,
+      "height": 1024
+    }
+  ],
+  "requests": [
+    {
+      "path": "/",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180276786.9438,
+      "durationMs": 138,
+      "action": null
+    },
+    {
+      "path": "/",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180276917.3809,
+      "durationMs": 335,
+      "action": null
+    },
+    {
+      "path": "/api/auth/session",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180277720.53,
+      "durationMs": 720,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180279865.165,
+      "durationMs": 5026,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793180285127.269,
+      "durationMs": 1140,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180286281.478,
+      "durationMs": 2867,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793180289670.362,
+      "durationMs": 754,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793180289672.083,
+      "durationMs": 1055,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793180290981.8162,
+      "durationMs": 1811,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793180293729.409,
+      "durationMs": 801,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793180293733.1462,
+      "durationMs": 1163,
+      "action": null
+    }
+  ],
+  "responses": [
+    {
+      "path": "/",
+      "requestId": "sfo1::dsv98-1793180276896-fce5173993f3",
+      "status": 307
+    },
+    {
+      "path": "/",
+      "requestId": "sfo1::g25ht-1793180276951-e94346b79376",
+      "status": 200
+    },
+    {
+      "path": "/api/auth/session",
+      "requestId": "sfo1::hnd1::fmbvj-1793180277948-e17200456123",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::bf6ph-1793180280089-7b9c860a29c4",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::ll6kp-1793180285369-efc5f6555376",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::nk8b8-1793180286456-e0646db05653",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::kwcnn-1793180289733-a501698f2b23",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::bf6ph-1793180289741-1085c4d913b0",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::pbkg4-1793180291010-39ae98dab104",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::jnn87-1793180293778-e3017cac74d9",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::5qdkc-1793180293797-a40aab521659",
+      "status": 200
+    }
+  ]
+}

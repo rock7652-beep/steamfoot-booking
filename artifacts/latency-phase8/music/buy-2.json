@@ -1,0 +1,74 @@
+{
+  "module": "music",
+  "phase": "buy",
+  "sample": "2",
+  "deployment": "dpl_GcDdMrC1aDLscjGD6bjSkoNJxkfH",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login-and-own-1000-plan-form-ready",
+      "pass": true
+    },
+    {
+      "step": "purchase-confirmed-and-current-panel-updated-without-navigation",
+      "pass": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793179730067.454,
+      "durationMs": 893,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793179734099.052,
+      "durationMs": 1035,
+      "action": "401e8d956d3965edf36841af0502286129c3856210"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "startedAtEpochMs": 1793179734352.926,
+      "durationMs": 1642,
+      "action": null
+    }
+  ],
+  "responses": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::h929h-1793179730115-37e4c36276dc",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::k2mvw-1793179734129-7b413d06a8af",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::jcv9h-1793179734377-70d2b992d54c",
+      "serverTiming": "checkout-commit;dur=1025"
+    }
+  ],
+  "clickAtEpochMs": 1793179734243,
+  "pendingVisible": true,
+  "responseMs": 1742,
+  "receipt": {
+    "purchaseId": "cmvrwwz040007ku07cmgvsga8",
+    "cardId": "cmvrwwyz40005ku07fepxqob2",
+    "customerId": "qa-profile8-811c8347-music-customer",
+    "name": "計時驗收music811c8347方案",
+    "quantity": 10,
+    "unit": "SESSION",
+    "paid": 1000
+  },
+  "acknowledgementMs": 1807,
+  "balanceVisibleMs": 1813
+}
