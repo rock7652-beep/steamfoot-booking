@@ -17,3 +17,31 @@ it('retains current data for transient failures and hides it on access denial un
 it('does not apply a late response after the identity changes',async()=>{let release!:(value:unknown)=>void;m.reader.read.mockReturnValueOnce(new Promise(resolve=>release=resolve));m.reader.read.mockResolvedValueOnce({success:true,data:{...snapshot,customerId:'other',cards:[]}});await act(async()=>root.render(h(Harness,scope)));await act(async()=>root.render(h(Harness,{...scope,customerId:'other'})));await act(async()=>release({success:true,data:snapshot}));expect(host.querySelector('#cards')?.textContent).toBe('0');expect(m.reader.read).toHaveBeenLastCalledWith('shop','store','other','user');});
 it('does not poll hidden tabs and checks once when the tab becomes visible',async()=>{let hidden=true;vi.spyOn(document,'visibilityState','get').mockImplementation(()=>hidden?'hidden':'visible');await act(async()=>root.render(h(Harness,scope)));await act(async()=>vi.advanceTimersByTimeAsync(30000));expect(m.reader.read).not.toHaveBeenCalled();hidden=false;await act(async()=>document.dispatchEvent(new Event('visibilitychange')));expect(m.reader.read).toHaveBeenCalledTimes(1);});
 it('ignores an in-flight update when a modal disables synchronization',async()=>{let release!:(value:unknown)=>void;m.reader.read.mockReturnValueOnce(new Promise(resolve=>release=resolve));await act(async()=>root.render(h(Harness,scope)));await act(async()=>root.render(h(Harness,{...scope,enabled:false})));await act(async()=>release({success:true,data:snapshot}));expect(host.querySelector('#cards')?.textContent).toBe('0');});
+it('temporarily accelerates only while a newly observed application is pending, then returns to the normal cadence',async()=>{
+ const pending={...snapshot,purchases:[{id:'order-1',status:'PENDING',createdAt:'2090-01-01T00:00:00Z'}]};m.reader.read.mockResolvedValue({success:true,data:pending});
+ await act(async()=>root.render(h(Harness,scope)));await act(async()=>vi.advanceTimersByTimeAsync(59_999));expect(m.reader.read).toHaveBeenCalledTimes(30);
+ await act(async()=>vi.advanceTimersByTimeAsync(1));expect(m.reader.read).toHaveBeenCalledTimes(31);
+ await act(async()=>vi.advanceTimersByTimeAsync(9_999));expect(m.reader.read).toHaveBeenCalledTimes(31);await act(async()=>vi.advanceTimersByTimeAsync(1));expect(m.reader.read).toHaveBeenCalledTimes(32);
+ // Closing/reopening a modal does not restart the short window for an old order.
+ await act(async()=>root.render(h(Harness,{...scope,enabled:false})));await act(async()=>root.render(h(Harness,scope)));expect(m.reader.read).toHaveBeenCalledTimes(33);
+ await act(async()=>vi.advanceTimersByTimeAsync(2_000));expect(m.reader.read).toHaveBeenCalledTimes(33);
+});
+it('backs off failures even while pending and never overlaps an in-flight read',async()=>{
+ const pending={...snapshot,purchases:[{id:'order-2',status:'PENDING',createdAt:'2090-01-01T00:00:00Z'}]};m.reader.read.mockResolvedValueOnce({success:true,data:pending}).mockResolvedValueOnce({success:false,denied:false}).mockRejectedValueOnce(Error('offline'));
+ await act(async()=>root.render(h(Harness,scope)));await act(async()=>vi.advanceTimersByTimeAsync(2_000));expect(m.reader.read).toHaveBeenCalledTimes(2);
+ await act(async()=>vi.advanceTimersByTimeAsync(9_999));expect(m.reader.read).toHaveBeenCalledTimes(2);await act(async()=>vi.advanceTimersByTimeAsync(1));expect(m.reader.read).toHaveBeenCalledTimes(3);
+ await act(async()=>vi.advanceTimersByTimeAsync(19_999));expect(m.reader.read).toHaveBeenCalledTimes(3);
+ let release!:(value:unknown)=>void;m.reader.read.mockReturnValueOnce(new Promise(resolve=>release=resolve));await act(async()=>vi.advanceTimersByTimeAsync(1));expect(m.reader.read).toHaveBeenCalledTimes(4);
+ await act(async()=>vi.advanceTimersByTimeAsync(60_000));expect(m.reader.read).toHaveBeenCalledTimes(4);await act(async()=>release({success:true,data:pending}));
+});
+it('stops the short cadence when the application is no longer pending',async()=>{
+ const pending={...snapshot,purchases:[{id:'order-3',status:'PENDING',createdAt:'2090-01-01T00:00:00Z'}]};m.reader.read.mockResolvedValueOnce({success:true,data:pending}).mockResolvedValue({success:true,data:{...snapshot,purchases:[{id:'order-3',status:'CONFIRMED',createdAt:'2090-01-01T00:00:00Z'}]}});
+ await act(async()=>root.render(h(Harness,scope)));await act(async()=>vi.advanceTimersByTimeAsync(2_000));expect(m.reader.read).toHaveBeenCalledTimes(2);
+ await act(async()=>vi.advanceTimersByTimeAsync(9_999));expect(m.reader.read).toHaveBeenCalledTimes(2);await act(async()=>vi.advanceTimersByTimeAsync(1));expect(m.reader.read).toHaveBeenCalledTimes(3);
+});
+it('starts a new short window when a distinct pending order is observed later',async()=>{
+ const pending=(id:string)=>({...snapshot,purchases:[{id,status:'PENDING',createdAt:'2090-01-01T00:00:00Z'}]});
+ m.reader.read.mockResolvedValue({success:true,data:pending('first')});await act(async()=>root.render(h(Harness,scope)));await act(async()=>vi.advanceTimersByTimeAsync(60_000));expect(m.reader.read).toHaveBeenCalledTimes(31);
+ m.reader.read.mockResolvedValue({success:true,data:pending('second')});await act(async()=>vi.advanceTimersByTimeAsync(10_000));expect(m.reader.read).toHaveBeenCalledTimes(32);
+ await act(async()=>vi.advanceTimersByTimeAsync(2_000));expect(m.reader.read).toHaveBeenCalledTimes(33);
+});

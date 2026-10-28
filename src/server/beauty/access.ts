@@ -1,5 +1,6 @@
 import {beautyReadStep} from './read-timing';
 import {beautyRequestCheck,beautyRequestStore} from './request-scope';
+import {assertBeautyIsolatedPurchaseStore} from '@/lib/beauty/isolated-purchase-scope';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -25,6 +26,9 @@ export type BeautyActor = {
   verifiedStore?: {id:string;name:string;slug:string};
 };
 export async function requireBeauty(storeId: string, write = false) {
+  // The special hosted acceptance environment is restricted at runtime as
+  // well as at build time. Ordinary environments do not enable this marker.
+  assertBeautyIsolatedPurchaseStore(storeId);
   if (process.env.BEAUTY_MODULE_ENABLED !== "1")
     throw new AppError("FORBIDDEN", "美業模組尚未開放");
   const store = await prisma.store.findFirst({
