@@ -26,7 +26,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
   useEffect(() => {
     if (!isMusicSyncRoute(pathname)) return;
-    let active = true, epoch = 0;
+    let active = true, epoch = 0, deferredRosterRefresh=false;
     let incoming: MusicPurchaseSnapshot | null = null;
     const beginPurchase = (event: Event) => {
       const capturedEpoch = ++epoch;
@@ -47,6 +47,9 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         if(kind === "receipt" && studentPage) return;
         for (const cache of registry.values()) cache.clear();
         registry.clear();
+        // Keep the open roster's authoritative write response mounted. Other
+        // tabs still invalidate normally; this page refreshes once on close.
+        if(document.querySelector('[data-live-music-roster="true"]')){deferredRosterRefresh=true;return;}
         if (snapshot) purchaseSeeds.install(snapshot);
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));
@@ -55,6 +58,12 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         startTransition(() => router.refresh());
     };
     const applyProjection=()=>applyFinanceChange('purchase');
+    const rosterClosed=()=>queueMicrotask(()=>{
+      if(active&&deferredRosterRefresh&&!document.querySelector('[data-live-music-roster="true"]')){
+        deferredRosterRefresh=false;setRevision(value=>value+1);startTransition(()=>router.refresh());
+      }
+    });
+    window.addEventListener('music-roster-closed',rosterClosed);
     window.addEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
     const unsubscribe=isMusicPreviewPage()?subscribeMusicFinanceChange(applyFinanceChange):()=>{};
     return () => {
@@ -63,6 +72,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
       purchaseSeeds.clear();
       window.removeEventListener(MUSIC_PURCHASE_START, beginPurchase);
       window.removeEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
+      window.removeEventListener('music-roster-closed',rosterClosed);
       unsubscribe();
     };
   }, [pathname, studentPage, registry, router, purchaseSeeds]);

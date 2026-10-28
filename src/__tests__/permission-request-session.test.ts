@@ -12,10 +12,26 @@ vi.mock("next/headers",()=>({cookies:async()=>({get:()=>undefined}),headers:asyn
 vi.mock("@/lib/hq-store-view",()=>({isHqStoreView:async()=>false}));
 vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:async()=>{}}));
 import {requirePermission} from "@/lib/permissions";
-import {withPermissionRequestSession,permissionRequestSession} from "@/lib/permission-request-session";
+import {withPermissionRequestSession,permissionRequestSession,permissionRequestFeature,withCheckoutPermissionSession} from "@/lib/permission-request-session";
 import {withCourseCheckoutRequest,musicCheckoutWriteStore} from "@/server/services/music-checkout-request";
 beforeEach(async()=>{await import("@/lib/session");await import("@/lib/store");await import("@/lib/feature-gate");await import("@/lib/errors");vi.resetAllMocks();m.session.mockResolvedValue({id:"a",role:"STAFF",staffId:"staff-a",storeId:"store-a"});m.grant.mockResolvedValue([{permission:"customer.read"},{permission:"transaction.read"}]);m.feature.mockResolvedValue(undefined);});
 const check=(p:"customer.read"|"transaction.read")=>requirePermission(p,undefined,{deferSubscriptionGuard:true});
+it('shares identical feature policy during checkout while checking distinct booking grants',async()=>{
+ m.grant.mockResolvedValue([{permission:'booking.read'},{permission:'booking.update'}]);
+ await withCourseCheckoutRequest(async()=>{await requirePermission('booking.update',undefined,{deferSubscriptionGuard:true});await requirePermission('booking.read',undefined,{deferSubscriptionGuard:true});});
+ expect(m.grant).toHaveBeenCalledTimes(2);expect(m.feature).toHaveBeenCalledOnce();
+});
+it('isolates checkout feature decisions by store and request, retaining rejections',async()=>{
+ const policy=vi.fn().mockResolvedValue(undefined);
+ await withCheckoutPermissionSession(async()=>{
+  await permissionRequestSession(async()=>({id:'a'}));
+  await Promise.all([permissionRequestFeature('a','feature',policy),permissionRequestFeature('a','feature',policy),permissionRequestFeature('b','feature',policy)]);
+ });expect(policy).toHaveBeenCalledTimes(2);
+ policy.mockRejectedValueOnce(Error('disabled'));
+ await withCheckoutPermissionSession(async()=>{await permissionRequestSession(async()=>({id:'a'}));await expect(permissionRequestFeature('a','feature',policy)).rejects.toThrow('disabled');await expect(permissionRequestFeature('a','feature',policy)).rejects.toThrow('disabled');});
+ expect(policy).toHaveBeenCalledTimes(3);
+ await withCheckoutPermissionSession(async()=>{await permissionRequestSession(async()=>({id:'a'}));await permissionRequestFeature('a','feature',policy);});expect(policy).toHaveBeenCalledTimes(4);
+});
 it("authenticates once but evaluates each permission and feature",async()=>{
  await withPermissionRequestSession(async()=>{await check("customer.read");await check("transaction.read");});
  expect(m.session).toHaveBeenCalledOnce();expect(m.grant).toHaveBeenCalledTimes(2);expect(m.feature).toHaveBeenCalledWith("store-a","customer_management");

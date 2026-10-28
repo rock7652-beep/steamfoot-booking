@@ -82,7 +82,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED","NO_SHOW"]);
   await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="點名這 2 人")!.click());
-  expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"},{id:"music-second",status:"RESERVED"}]});
+  expect(m.batch).toHaveBeenLastCalledWith({returnRoster:true,sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"},{id:"music-second",status:"RESERVED"}]});
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 備註"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="＋新增")!.click());
   const save=[...document.querySelectorAll('button[type="button"]')].find(button=>button.textContent==="儲存")!;
@@ -163,11 +163,11 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.textContent).toContain("未到扣堂＋發補課券");
   const grant=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("未到扣堂＋發補課券"));expect(grant).toBeTruthy();
   await act(async()=>grant!.click());
-  expect(m.status).toHaveBeenCalledWith({bookingId:"b0",status:"NO_SHOW",noShowChoice:"DEDUCTED_WITH_MAKEUP"});
+  expect(m.status).toHaveBeenCalledWith({returnRoster:true,bookingId:"b0",status:"NO_SHOW",noShowChoice:"DEDUCTED_WITH_MAKEUP"});
   await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
   const apply=[...host.querySelectorAll("button")].find(b=>b.textContent==="點名這 20 人");expect(apply).toBeTruthy();
   await act(async()=>apply!.click());
-  expect(m.batch).toHaveBeenCalledWith({sessionId:"session",target:"ATTENDED",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
+  expect(m.batch).toHaveBeenCalledWith({returnRoster:true,sessionId:"session",target:"ATTENDED",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -672,7 +672,7 @@ it('native roster shows current remaining and separates attendance from learner 
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:'native-menus',capacity:8,canCreate:true,canEdit:true,sportsNative:true})));
   expect(host.textContent).toContain('本期剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：待點名"]')!.click());
-  expect(m.status).toHaveBeenCalledExactlyOnceWith({bookingId:'native',status:'ATTENDED'});
+  expect(m.status).toHaveBeenCalledExactlyOnceWith({returnRoster:true,bookingId:'native',status:'ATTENDED'});
   expect(document.querySelector('[role="menu"]')).toBeNull();
   expect([...host.querySelectorAll('button')].map(b=>b.getAttribute('aria-label'))).toContain('舞蹈學員：已出席');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：已出席"]')!.click());

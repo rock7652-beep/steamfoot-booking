@@ -168,6 +168,10 @@ export function CourseRoster({
   const canEdit=canEditProp&&!sourceReadFailed;
   const router = useRouter();
   const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
+  useEffect(()=>{
+    if(!musicLayout)return;
+    return()=>{window.dispatchEvent(new Event('music-roster-closed'));};
+  },[musicLayout]);
   const purchaseOptionsReader=usePanelReader("course-purchase-options",readCoursePurchaseOptions,"",0);
   const noteEditorTitleId = useId();
   const rosterParams = useSearchParams();
@@ -1232,7 +1236,7 @@ export function CourseRoster({
 
   return (
 
-    <section className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+    <section data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? personnelText("教師") : personnelText("授課教練")}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}

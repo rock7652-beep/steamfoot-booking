@@ -555,7 +555,7 @@ export async function requirePermission(
   }
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
-  const { permissionRequestSession } = await import("./permission-request-session");
+  const { permissionRequestSession,permissionRequestFeature } = await import("./permission-request-session");
   const user = await measurePermission(timing, "permission.session", () => permissionRequestSession(() => requireStaffSession()));
   const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
@@ -566,7 +566,7 @@ export async function requirePermission(
   if (feature) {
     const { getActiveStoreForRead } = await import("@/lib/store");
     const storeId = explicitStoreId ?? await measurePermission(timing, "permission.featureStore", () => getActiveStoreForRead(user));
-    if (storeId) await measurePermission(timing, "permission.feature", async () => (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature));
+    if (storeId) await measurePermission(timing, "permission.feature", () => permissionRequestFeature(storeId,feature,async () => (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature)));
   }
   if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission)) {
     const { isHqStoreView } = await import("@/lib/hq-store-view");
