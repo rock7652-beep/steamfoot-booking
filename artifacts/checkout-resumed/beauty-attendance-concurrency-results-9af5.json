@@ -1,0 +1,106 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_HM4J8PkgajidfbqY8YM5iqoRBxyf",
+  "browser": "154.0.8037.57",
+  "phase": "attendance-concurrency",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    },
+    {
+      "step": "same-revision-concurrent-completion",
+      "pass": true,
+      "replies": [
+        {
+          "status": 200,
+          "confirmed": true,
+          "conflict": false
+        },
+        {
+          "status": 200,
+          "confirmed": true,
+          "conflict": false
+        }
+      ]
+    },
+    {
+      "step": "sum-30-attendance-debit-to-29",
+      "pass": true
+    },
+    {
+      "step": "same-revision-concurrent-restoration",
+      "pass": true,
+      "replies": [
+        {
+          "status": 200,
+          "confirmed": true,
+          "conflict": false
+        },
+        {
+          "status": 200,
+          "confirmed": true,
+          "conflict": false
+        }
+      ]
+    },
+    {
+      "step": "restore-to-30-original-url",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793168744971.5728,
+      "durationMs": 761
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793168753330.63,
+      "durationMs": 857
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793168757735.43,
+      "durationMs": 846
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793168758951.665,
+      "durationMs": 2981
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793168763731.599,
+      "durationMs": 767
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793168766352.104,
+      "durationMs": 1918
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793168770501.5369,
+      "durationMs": 656
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793168775400.362,
+      "durationMs": 827
+    }
+  ]
+}

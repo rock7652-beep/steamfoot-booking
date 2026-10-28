@@ -1,0 +1,92 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_EMZzGtjU2GqZfKutQeNGJHM2u5Vc",
+  "browser": "154.0.8037.57",
+  "phase": "payment-one",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169541681.959,
+      "durationMs": 1006
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793169542837.389,
+      "durationMs": 2326
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169547680.176,
+      "durationMs": 662
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169551341.7969,
+      "durationMs": 652
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169554995.589,
+      "durationMs": 668
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169558666.682,
+      "durationMs": 759
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169562427.673,
+      "durationMs": 700
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169566130.403,
+      "durationMs": 644
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169569777.06,
+      "durationMs": 775
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169573555.312,
+      "durationMs": 773
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169577330.68,
+      "durationMs": 570
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169580903.2268,
+      "durationMs": 672
+    },
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169584576.7,
+      "durationMs": 704
+    }
+  ],
+  "error": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '確認結帳', exact: true }) to be visible\u001b[22m\n"
+}

@@ -1,0 +1,40 @@
+{
+  "module": "music",
+  "phase": "smoke",
+  "deployment": "dpl_DejnxwQ8wMkWKDnHee38LEYi5Jtq",
+  "started": "2026-10-28T06:40:27.481Z",
+  "complete": true,
+  "samples": [
+    {
+      "step": "FIFO attend/restore",
+      "balance": 30
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169635929.934,
+      "durationMs": 2075,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169638606.198,
+      "durationMs": 1264,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169641877.0618,
+      "durationMs": 1874,
+      "action": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169644155.198,
+      "durationMs": 1479,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    }
+  ],
+  "errors": []
+}

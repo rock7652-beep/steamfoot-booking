@@ -1,0 +1,51 @@
+{
+  "module": "sports",
+  "phase": "buy",
+  "deployment": "dpl_EQgCZPzL5vixMWGyuQxAmjEjmbax",
+  "started": "2026-10-28T06:20:28.151Z",
+  "complete": true,
+  "samples": [
+    {
+      "sample": 1,
+      "optionsMs": 1442,
+      "checkoutMs": 1877,
+      "balance": 30,
+      "clickAtEpochMs": 1793168436790,
+      "visibleBalanceMs": 1890,
+      "backgroundNetworkIdleMs": 5842
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "startedAtEpochMs": 1793168433558.021,
+      "durationMs": 1003,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "startedAtEpochMs": 1793168433558.1282,
+      "durationMs": 1273,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "startedAtEpochMs": 1793168436550.731,
+      "durationMs": 1323,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "startedAtEpochMs": 1793168436849.3489,
+      "durationMs": 1535,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "startedAtEpochMs": 1793168440875.8262,
+      "durationMs": 1241,
+      "action": null
+    }
+  ],
+  "errors": []
+}
