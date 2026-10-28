@@ -1,0 +1,108 @@
+{
+  "scope": "isolated-preview-only",
+  "shareRevoked": true,
+  "proof": {
+    "staff": [
+      {
+        "id": "qa-core-next-20261028-sports-owner-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-core-next-20261028-sports-staff-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-core-next-20261028-music-owner-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-core-next-20261028-music-staff-staff",
+        "status": "INACTIVE"
+      }
+    ],
+    "users": [
+      {
+        "id": "qa-core-next-20261028-sports-owner",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-core-next-20261028-sports-staff",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-core-next-20261028-music-owner",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-core-next-20261028-music-staff",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      }
+    ],
+    "balances": [
+      {
+        "storeId": "sports-live-flow-store",
+        "remaining": 30
+      },
+      {
+        "storeId": "store-lubymusic",
+        "remaining": 30
+      }
+    ],
+    "sessions": [
+      {
+        "id": "cmvrcmpul0000l808mcqmhz68",
+        "name": "QA-指定A-堂數-API1020",
+        "storeId": "sports-live-flow-store",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvrdkm840008l208pnsssoag",
+        "name": "QA-課程B-1020",
+        "storeId": "sports-live-flow-store",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvrdvfet0000jk083x7y7pkk",
+        "name": "QA-課程A-1020",
+        "storeId": "sports-live-flow-store",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvre9jd2000bjk08yau1gnkx",
+        "name": "QA-課程B-1020",
+        "storeId": "sports-live-flow-store",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvrcq5kq0000go08cr2qrzph",
+        "name": "吉他團體班",
+        "storeId": "store-lubymusic",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvrdezr90008jk07nm5kqjy2",
+        "name": "吉他個別課",
+        "storeId": "store-lubymusic",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "cmvrdvs0w0003jk08pvi3o9fr",
+        "name": "吉他團體班",
+        "storeId": "store-lubymusic",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      }
+    ],
+    "activePlans": 0
+  }
+}

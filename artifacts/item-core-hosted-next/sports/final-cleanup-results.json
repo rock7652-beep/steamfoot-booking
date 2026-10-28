@@ -1,0 +1,26 @@
+{
+  "profile": "sports",
+  "phase": "cleanup",
+  "role": "owner",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "sports-live-flow-store",
+      "role": "OWNER"
+    },
+    {
+      "step": "normal-ui-cancel-owned-test-session",
+      "sessionId": "cmvrdvfet0000jk083x7y7pkk",
+      "pass": true
+    },
+    {
+      "step": "normal-ui-cancel-owned-test-session",
+      "sessionId": "cmvre9jd2000bjk08yau1gnkx",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,17 @@
+{
+  "profile": "music",
+  "phase": "continue",
+  "role": "owner",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "store-lubymusic",
+      "role": "OWNER"
+    }
+  ],
+  "errors": [],
+  "error": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '核心音樂驗收1028：已出席', exact: true }) to be visible\u001b[22m\n"
+}

@@ -1,0 +1,21 @@
+{
+  "profile": "music",
+  "phase": "arrange-b",
+  "role": "owner",
+  "deployment": "dpl_CRn64BLUNBMVGT8kvpKcyaaoR4fJ",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "store-lubymusic",
+      "role": "OWNER"
+    },
+    {
+      "step": "item-only-no-card-arrangement-created",
+      "pass": true,
+      "date": "2026-11-04"
+    }
+  ],
+  "errors": []
+}

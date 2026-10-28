@@ -1,0 +1,31 @@
+{
+  "profile": "sports",
+  "phase": "flow",
+  "role": "owner",
+  "deployment": "dpl_CRn64BLUNBMVGT8kvpKcyaaoR4fJ",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "sports-live-flow-store",
+      "role": "OWNER"
+    },
+    {
+      "step": "no-card-attendance-blocked-in-place-purchase-opens",
+      "pass": true
+    },
+    {
+      "step": "purchase-ui-response",
+      "count": 10,
+      "elapsedMs": 20517,
+      "pass": true
+    },
+    {
+      "step": "purchase-10-original-roster-no-auto-attendance",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "error": "locator.selectOption: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog', { name: '學員繳費 · 核心運動驗收1028', exact: true }).locator('#course-roster-purchase-form select').first()\u001b[22m\n"
+}

@@ -1,0 +1,21 @@
+{
+  "profile": "music",
+  "phase": "authorization",
+  "role": "staff",
+  "deployment": "dpl_CRn64BLUNBMVGT8kvpKcyaaoR4fJ",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "store-lubymusic",
+      "role": "STAFF"
+    },
+    {
+      "step": "restricted-staff-customer-read-denied",
+      "pass": true,
+      "status": 403
+    }
+  ],
+  "errors": []
+}
