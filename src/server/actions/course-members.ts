@@ -29,6 +29,7 @@ import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { courseCheckoutSchema } from "@/lib/course-checkout";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
+import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import { after } from "next/server";
 import { z } from "zod";
 import { updateCustomerSchema } from "@/lib/validators/customer";
@@ -377,17 +378,19 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     const { checkPermission } = await import("@/lib/permissions");
     const music=await isMusicCourseStore(coursePrisma,storeId);
     const itemTemplates = await musicItemTemplateIds(coursePrisma,storeId,booking.session.templateId);
-    const [plans, customer, canDiscount] = await Promise.all([
+    const [plans, customer, canDiscount, settlement, revenueStaffOptions] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
         where: { storeId, isActive: true, unit:music?"SESSION":{in:["SESSION","POINT"]}, OR:[{templateIds:{hasSome:itemTemplates}},...(!music&&booking.session.template.musicSubjectId?[{sportsMode:"ASSIGNED",sportsSubjectId:booking.session.template.musicSubjectId}]:[])] },
         select: { id: true, name: true, unit:true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
-      prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true } }),
+      prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true, assignedStaffId:true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
+      music?Promise.resolve({profitEnabled:false}):readSettlementSettings(coursePrisma,storeId),
+      music?Promise.resolve([]):prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",role:"OWNER"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount, music } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount, music, profitEnabled:settlement.profitEnabled, revenueStaffOptions:settlement.profitEnabled?revenueStaffOptions:[], defaultRevenueStaffId:settlement.profitEnabled?revenueStaffOptions.find(staff=>staff.id===customer.assignedStaffId)?.id??"":"" } };
   } catch (error) {
     return handleActionError(error);
   }

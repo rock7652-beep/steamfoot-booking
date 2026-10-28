@@ -16,7 +16,7 @@ window.qaCalls=[];
 window.qaAction=async(name,...args)=>{
  window.qaCalls.push({name,args});
  if(name==='loadCourseSessionDetail'||name==='loadCourseRosterQuick')return detail();
- if(name==='loadCourseStudentPurchase')return {success:true,data:{customerId:'person-0',customerName:'驗收學員',canDiscount:false,music,plans:[{id:'a2',name:'A2十堂',unit:'SESSION',points:10,price:1000,storeCost:0,validDays:90,musicTerms:1,musicTermSizes:[10],musicBonusLessons:0}]}};
+ if(name==='loadCourseStudentPurchase')return {success:true,data:{customerId:'person-0',customerName:'驗收學員',canDiscount:false,music,profitEnabled:!music,revenueStaffOptions:music?[]:[{id:'owner',displayName:'合成店長'}],defaultRevenueStaffId:'',plans:[{id:'a2',name:'A2十堂',unit:'SESSION',points:10,price:1000,storeCost:0,validDays:90,musicTerms:1,musicTermSizes:[10],musicBonusLessons:0}]}};
  if(name==='assignCoursePointCard'){await new Promise(resolve=>setTimeout(resolve,300));remaining=12;return {success:true};}
  if(name==='updateCourseBookingStatus'){if(remaining<1)return {success:false,error:'請先完成繳費／購買適用方案，再點名；尚未記錄出席或扣堂'};remaining--;status='ATTENDED';return {success:true};}
  if(name==='readCustomerLabels')return {success:true,labels:[]};

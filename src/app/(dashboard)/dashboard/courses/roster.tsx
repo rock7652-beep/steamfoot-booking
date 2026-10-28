@@ -236,6 +236,7 @@ export function CourseRoster({
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");
+  const [purchaseRevenueStaffId,setPurchaseRevenueStaffId]=useState("");
   const [purchaseKey, setPurchaseKey] = useState("");
   const [purchaseError, setPurchaseError] = useState("");
   const [purchasePending, setPurchasePending] = useState(false);
@@ -672,11 +673,13 @@ export function CourseRoster({
     setPurchaseFor(bookingId);
     setPurchaseOptions(null);
     setPurchaseError("");
+    setPurchaseRevenueStaffId("");
     let result:Awaited<ReturnType<typeof loadCourseStudentPurchase>>;
     try{result=await loadCourseStudentPurchase(bookingId);}catch{if(generation===purchaseRead.current&&purchaseScope===operationScope.current&&rosterMounted.current)setPurchaseError("方案讀取失敗，請關閉後重試");return;}
     if(generation!==purchaseRead.current||purchaseScope!==operationScope.current||!rosterMounted.current)return;
     if (result.success) {
       setPurchaseOptions(result.data);
+      setPurchaseRevenueStaffId(result.data.defaultRevenueStaffId??"");
       setPurchasePlanId(result.data.plans[0]?.id ?? "");
       setPurchaseKey(crypto.randomUUID());
       setPurchaseSummary({paid:null,valid:false});
@@ -1704,7 +1707,7 @@ export function CourseRoster({
                 musicJoinSessionId:String(fields.get("musicJoinSessionId")??"")||undefined,
                 expectedListPrice: Number(fields.get("expectedListPrice")),
                 expectedStoreCost: Number(fields.get("expectedStoreCost")),
-                revenueStaffId: "",
+                revenueStaffId: purchaseOptions.music?"":purchaseRevenueStaffId,
                 discountKind: fields.get("discountKind"),
                 discountValue: Number(fields.get("discountValue")),
                 paymentMethod: fields.get("paymentMethod"),
@@ -1723,7 +1726,8 @@ export function CourseRoster({
             }}>
               {purchaseOptions.plans.length ? <>
               <label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={event=>{setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map(option=><option key={option.id} value={option.id}>{option.name} · {option.points} {option.unit==="POINT"?"點":"堂"}</option>)}</select></label>
-              {purchaseOptions.plans.filter(plan=>plan.id===purchasePlanId).map(plan=>purchaseOptions.music?<MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>:<div key={plan.id} className="min-w-0 space-y-3"><label>有效期限<input name="expiresDate" required type="date" className={field} defaultValue={addTaiwanDuration(toLocalDateStr(),plan.validDays,"DAY")}/></label><CourseAssignmentPayment price={plan.price} storeCost={plan.storeCost??0} profitEnabled={false} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/></div>)}
+              {purchaseOptions.profitEnabled&&!purchaseOptions.music&&<label className="block text-sm font-medium">所屬店長<CourseOptionSelect label="所屬店長" name="revenueStaffId" required={purchaseSummary.paid!==null&&purchaseSummary.paid>(purchaseOptions.plans.find(plan=>plan.id===purchasePlanId)?.storeCost??0)} placeholder="請選擇所屬店長" value={purchaseRevenueStaffId} onChange={setPurchaseRevenueStaffId} options={(purchaseOptions.revenueStaffOptions??[]).map(staff=>({id:staff.id,label:staff.displayName}))}/></label>}
+              {purchaseOptions.plans.filter(plan=>plan.id===purchasePlanId).map(plan=>purchaseOptions.music?<MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>:<div key={plan.id} className="min-w-0 space-y-3"><label>有效期限<input name="expiresDate" required type="date" className={field} defaultValue={addTaiwanDuration(toLocalDateStr(),plan.validDays,"DAY")}/></label><CourseAssignmentPayment price={plan.price} storeCost={plan.storeCost??0} profitEnabled={purchaseOptions.profitEnabled??false} showAllocation={purchaseOptions.profitEnabled} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/></div>)}
               </>:<p className="text-sm text-earth-600">此項目尚未建立可購買方案。</p>}
             </form>}
           </div>

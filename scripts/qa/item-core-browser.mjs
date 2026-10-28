@@ -38,10 +38,12 @@ try{
   await roster.getByRole('button',{name:'驗收學員 更多操作',exact:true}).click();
   await page.getByRole('menuitem',{name:'學員繳費',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'學員繳費 · 驗收學員'});await dialog.waitFor();
+  if(moduleName==='sports')await dialog.getByLabel('所屬店長',{exact:true}).selectOption('owner');
   await dialog.locator('select[name="paymentMethod"]').selectOption('CARD');
   await page.screenshot({path:path.join(out,`${moduleName}-${width}-purchase.png`)});
+  if(moduleName==='sports')assert.equal(await dialog.locator('select[name="revenueStaffId"]').inputValue(),'owner');
   const submit=dialog.getByRole('button',{name:'確認購課與本次收款',exact:true});await submit.click();
-  await dialog.waitFor({state:'hidden'});
+  await dialog.waitFor({state:'hidden'});if(moduleName==='sports')assert.equal((await page.evaluate(()=>window.qaCalls)).find(c=>c.name==='assignCoursePointCard').args[0].revenueStaffId,'owner');
   assert.equal(page.url(),original);assert.equal(await page.evaluate(()=>window.qaCalls.filter(c=>c.name==='assignCoursePointCard').length),1);
   // Purchase grants rights; only the second explicit attendance click consumes them.
   assert.equal(await roster.getByRole('button',{name:'驗收學員：已出席',exact:true}).count(),0);
