@@ -37,11 +37,12 @@ async function writeActor() {
   if (!coursePurchaseIntentsEnabled(wallet.storeId)) throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
   return wallet;
 }
-async function readActor() {
+async function readActor(timer?: ReturnType<typeof intentTimer>) {
   // A staff member who can make this purchase must also be able to recover it,
   // even if they cannot browse the store's transaction history. Return only
   // the minimal outcome after rechecking both purchase grants and visibility.
-  const [wallet, financial, customer] = await Promise.all([courseManagerRead("wallet.create"), courseManagerRead("transaction.create"), courseManagerRead("customer.read")]);
+  const options = (permission: string) => timer ? { timing: { measure: <T>(name: string, work: () => Promise<T>) => timer.measure(`${permission}.${name}`, work) } } : undefined;
+  const [wallet, financial, customer] = await Promise.all([courseManagerRead("wallet.create", options("wallet")), courseManagerRead("transaction.create", options("transaction")), courseManagerRead("customer.read", options("customerRead"))]);
   if ([financial,customer].some(a => a.storeId !== wallet.storeId || a.user.id !== wallet.user.id)) throw new AppError("FORBIDDEN", "店家範圍不一致");
   if (!coursePurchaseIntentsEnabled(customer.storeId)) throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
   return customer;
@@ -122,7 +123,7 @@ export async function acknowledgeCoursePurchaseIntent(input: unknown) {
 export async function getPendingCoursePurchaseIntent(input: unknown) {
   const timer = intentTimer("pending");
   try {
-    assertEnabled(); const data = customerInput.parse(input), actor = await timer.measure("authorization", readActor);
+    assertEnabled(); const data = customerInput.parse(input), actor = await timer.measure("authorization", () => readActor(timer));
     await timer.measure("customer", () => requireVisibleCustomer(actor,data.customerId));
     return {success:true as const,data:await timer.measure("pendingLookup", () => readPendingCourseIntent(coursePrisma,actor.storeId,data.customerId))};
   } catch (error) { return handleActionError(error); } finally { timer.finish(); }
