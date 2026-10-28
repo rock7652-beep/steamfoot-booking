@@ -6,6 +6,7 @@ import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useState, useTransition, useOptimistic } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   createStoreLineNotificationRecipient,
   resumeStoreLineNotificationRecipient,
@@ -25,9 +26,21 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
+function BindingInstructions({ url }: { url: string }) {
+  const parsed = new URL(url);
+  const basicId = decodeURIComponent(parsed.pathname.split("/")[3] || "");
+  const message = decodeURIComponent(parsed.search.slice(1));
+  return <div className="my-3 space-y-2 rounded-lg bg-earth-50 p-4 text-sm" role="status">
+    <p>請使用要接收通知的 LINE 帳號，搜尋並加入本店官方帳號 <strong>{basicId}</strong>，再傳送下方訊息。</p>
+    <p className="break-all font-medium" tabIndex={0}>{message}</p>
+    <button type="button" className="rounded-lg border border-primary-200 px-3 py-2 text-primary-800" onClick={async () => { try { await navigator.clipboard.writeText(message); toast.success("已複製綁定訊息"); } catch { toast.error("無法自動複製，請手動選取上方訊息。"); } }}>複製綁定訊息</button>
+    <p>收到綁定成功回覆後，回到此頁重新整理。此訊息只能由本人使用，請勿轉傳。</p>
+  </div>;
+}
 function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course = false, beauty = false, readOnly = false }: { item: Recipient; storeId: string; onConfirmed: (id: string, key: string, enabled: boolean) => void; expanded: boolean; onExpand: () => void; course?: boolean; beauty?:boolean;readOnly?:boolean }) {
   const mutation = useKeyedReminderMutation();
   const [bindingPending,startBinding]=useTransition();
+  const [bindingUrl,setBindingUrl]=useState<string | null>(null);
   const pending = mutation.pending||bindingPending;
   useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
@@ -70,7 +83,7 @@ function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course 
           <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="min-h-11 rounded-lg px-2 text-sm font-medium text-primary-700">
             {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
           </button>
-          {!item.linkedAt&&!readOnly&&<button type="button" disabled={pending} className="min-h-11 rounded-lg border border-primary-200 px-3 text-sm text-primary-800 disabled:opacity-50" onClick={()=>startBinding(async()=>{try{const result=await resumeStoreLineNotificationRecipient(item.id,storeId);if(result.success)window.location.href=result.data.bindUrl;else toast.error(result.error);}catch{toast.error("連線未完成，請稍後重試。");}})}>{bindingPending?"開啟中…":"繼續綁定"}</button>}
+          {!item.linkedAt&&!readOnly&&<button type="button" disabled={pending} className="min-h-11 rounded-lg border border-primary-200 px-3 text-sm text-primary-800 disabled:opacity-50" onClick={()=>startBinding(async()=>{try{const result=await resumeStoreLineNotificationRecipient(item.id,storeId);if(result.success)setBindingUrl(result.data.bindUrl);else toast.error(result.error);}catch{toast.error("連線未完成，請稍後重試。");}})}>{bindingPending?"開啟中…":"繼續綁定"}</button>}
           {!readOnly&&<details className="relative">
             <summary className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-sm" aria-label={`${item.displayName} 更多操作`}>⋯</summary>
             <button disabled={pending} className="absolute right-0 top-full z-30 min-h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-red-700 shadow-md"
@@ -78,7 +91,8 @@ function RecipientCard({ item, storeId, onConfirmed, expanded, onExpand, course 
           </details>}
         </div>
       </div>
-      {!item.linkedAt&&<p className="py-2 text-sm text-earth-600">請從「繼續綁定」開啟官方 LINE，送出預填訊息；收到綁定成功回覆後，重新整理此頁。</p>}
+      {!item.linkedAt&&<p className="py-2 text-sm text-earth-600">點選「繼續綁定」取得步驟與綁定訊息；收到綁定成功回覆後，重新整理此頁。</p>}
+      {bindingUrl && !item.linkedAt && <BindingInstructions url={bindingUrl}/>}
       {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
           className={`space-y-3 ${!display.isActive ? "opacity-50" : ""}`}
@@ -141,6 +155,8 @@ export function LineNotificationRecipientsCard({
   showHeading?: boolean;
   readOnly?: boolean;
 }) {
+  const router = useRouter();
+  const [newBindingUrl, setNewBindingUrl] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState(initialRecipients);
   const [recipients, setRecipients] = useState(initialRecipients);
   if (snapshot !== initialRecipients) { setSnapshot(initialRecipients); setRecipients(initialRecipients); }
@@ -205,6 +221,7 @@ export function LineNotificationRecipientsCard({
         <p className="mt-3 text-sm text-earth-500">
           填寫姓名後，前往本店官方 LINE 傳送綁定訊息。通知身分不會變更後台權限。
         </p>
+        {newBindingUrl && <BindingInstructions url={newBindingUrl}/>}
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
           <input
             aria-label="通知人員姓名"
@@ -232,7 +249,7 @@ export function LineNotificationRecipientsCard({
                   displayName: name,
                   roleLabel: role,
                 });
-                if (r.success) window.location.href = r.data.bindUrl;
+                if (r.success) { setNewBindingUrl(r.data.bindUrl); setName(""); router.refresh(); }
                 else toast.error(r.error);
                 } catch { toast.error("連線未完成，請稍後重試；姓名已保留。"); }
               })

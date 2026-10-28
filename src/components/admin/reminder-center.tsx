@@ -5,9 +5,9 @@ import { ReminderTabs } from "@/app/(dashboard)/dashboard/reminders/reminder-tab
 import { ReminderScheduleNote } from './reminder-schedule-note';
 
 /** One center; each module supplies its authorized content and delivery state. */
-export function ReminderCenter({ storeId, active, explicit, baseHref, returnHref, subtitle, enabled, blockedMessage, coach, music, before, children, timingNote }: {
+export function ReminderCenter({ storeId, active, explicit, baseHref, returnHref, subtitle, enabled, blockedMessage, coach, music, beauty, before, children, timingNote }: {
   storeId: string; active: string; explicit: boolean; baseHref: string; returnHref: string;
-  subtitle: string; enabled: boolean; blockedMessage?: string; coach?: boolean; music?: boolean;
+  subtitle: string; enabled: boolean; blockedMessage?: string; coach?: boolean; music?: boolean; beauty?: boolean;
   before?: ReactNode; children: ReactNode;
   timingNote?: string;
 }) {
@@ -16,7 +16,7 @@ export function ReminderCenter({ storeId, active, explicit, baseHref, returnHref
     {before}
     {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="min-w-0 space-y-2">
       <ReminderScheduleNote note={timingNote}/>
-      <ReminderTabs active={active} explicit={explicit} storeId={storeId} baseHref={baseHref} coach={coach} music={music} />
+      <ReminderTabs active={active} explicit={explicit} storeId={storeId} baseHref={baseHref} coach={coach} music={music} beauty={beauty} />
       {blockedMessage && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{blockedMessage}</p>}
       {children}
     </div>}
