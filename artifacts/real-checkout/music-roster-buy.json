@@ -1,0 +1,45 @@
+{
+  "module": "music",
+  "phase": "buy",
+  "deployment": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb",
+  "started": "2026-10-28T04:01:29.010Z",
+  "complete": true,
+  "samples": [
+    {
+      "sample": 1,
+      "optionsMs": 921,
+      "checkoutMs": 1366,
+      "balance": 20,
+      "visibleBalanceMs": 3191,
+      "backgroundNetworkIdleMs": 13032
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 964,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1306,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "durationMs": 1159,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2966,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 3102,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "errors": []
+}

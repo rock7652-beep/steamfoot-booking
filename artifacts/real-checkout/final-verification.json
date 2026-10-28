@@ -1,0 +1,25 @@
+{
+  "source": "8b7d81dcdd5ca5640da0bb4c04b76c31874cbfcc",
+  "aliases": [
+    {
+      "alias": "steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb",
+      "shareCount": 0
+    },
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    }
+  ],
+  "financialChecksPassed": true,
+  "workflowChecksPassed": true,
+  "privateCredentialsAndProfilesRemoved": true,
+  "qaScriptsSyntaxPassed": true,
+  "productionChanged": false
+}
