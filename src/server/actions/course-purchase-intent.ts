@@ -15,11 +15,12 @@ import type { Prisma } from "../../../generated/course-client";
 const customerInput = z.object({ customerId: z.string().min(1).max(100) });
 const keyInput = customerInput.extend({ requestKey: z.string().uuid() });
 function assertEnabled() {
-  if (!coursePurchaseIntentsEnabled()) throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
+  if (process.env.COURSE_PURCHASE_INTENTS_ENABLED !== "1") throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
 }
 async function writeActor() {
   const [wallet, financial, customer] = await Promise.all([courseManager("wallet.create"), courseManager("transaction.create"), courseManager("customer.read")]);
   if ([financial, customer].some(a => a.storeId !== wallet.storeId || a.user.id !== wallet.user.id)) throw new AppError("FORBIDDEN", "店家範圍不一致");
+  if (!coursePurchaseIntentsEnabled(wallet.storeId)) throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
   return wallet;
 }
 async function readActor() {
@@ -28,6 +29,7 @@ async function readActor() {
   // the minimal outcome after rechecking both purchase grants and visibility.
   const [wallet, financial, customer] = await Promise.all([courseManagerRead("wallet.create"), courseManagerRead("transaction.create"), courseManagerRead("customer.read")]);
   if ([financial,customer].some(a => a.storeId !== wallet.storeId || a.user.id !== wallet.user.id)) throw new AppError("FORBIDDEN", "店家範圍不一致");
+  if (!coursePurchaseIntentsEnabled(customer.storeId)) throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
   return customer;
 }
 async function requireVisibleCustomer(actor: { user: Awaited<ReturnType<typeof courseManager>>["user"]; storeId: string }, customerId: string) {

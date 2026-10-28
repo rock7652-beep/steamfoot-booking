@@ -12,5 +12,5 @@ export default async function SportsStagingPage() {
     return <p>無權限</p>;
   const result = await loadSportsStaging();
   if (!result.success) return <p role="alert">{result.error}</p>;
-  return <SportsStagingWorkspace initial={result.data} purchaseRecoveryEnabled={coursePurchaseIntentsEnabled()} />;
+  return <SportsStagingWorkspace initial={result.data} purchaseRecoveryEnabled={coursePurchaseIntentsEnabled(result.data.storeId)} />;
 }

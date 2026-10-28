@@ -343,7 +343,7 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
-    const intentInput = coursePurchaseIntentsEnabled() ? parseCoursePurchaseIntentInput(input) : null;
+    const intentInput = coursePurchaseIntentsEnabled(storeId) ? parseCoursePurchaseIntentInput(input) : null;
     let musicCheckout=false;
     const purchase=await courseTransaction(storeId, async tx => {
       if (intentInput) await assertCourseIntentForCheckout(tx,storeId,intentInput);

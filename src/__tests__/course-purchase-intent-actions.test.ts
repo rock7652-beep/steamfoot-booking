@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
 const mocks=vi.hoisted(()=>({manager:vi.fn(),managerRead:vi.fn(),customer:vi.fn(),plan:vi.fn(),transaction:vi.fn(),prepare:vi.fn(),cancel:vi.fn(),ack:vi.fn(),read:vi.fn(),pending:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:mocks.manager,courseManagerRead:mocks.managerRead}));
@@ -14,6 +14,12 @@ const base={planId:"plan",customerId:"customer",expiresDate:"2099-12-31",request
 const success={status:"PREPARED",requestKey:key,purchaseId:null};
 describe("course intent actions authorization",()=>{
  beforeEach(()=>{vi.stubEnv("COURSE_PURCHASE_INTENTS_ENABLED","1");for(const f of Object.values(mocks))f.mockReset();mocks.manager.mockResolvedValue(actor);mocks.managerRead.mockResolvedValue(actor);mocks.customer.mockResolvedValue({id:"customer"});mocks.plan.mockResolvedValue({termSessionIds:[]});mocks.transaction.mockImplementation((f:(tx:unknown)=>unknown)=>f({$queryRaw:vi.fn().mockResolvedValue([{id:"customer"}])}));mocks.prepare.mockResolvedValue(success);mocks.read.mockResolvedValue(success);});
+ afterEach(()=>vi.unstubAllEnvs());
+ it("blocks other stores on the shared music preview before any transaction or intent read",async()=>{
+  vi.stubEnv('COURSE_PURCHASE_QA_STORE_SCOPE','1');vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('VERCEL_GIT_COMMIT_REF','release/music-production-20261023');
+  expect((await prepareCoursePurchaseIntent(base)).success).toBe(false);expect((await getCoursePurchaseIntent({customerId:'customer',requestKey:key})).success).toBe(false);
+  expect(mocks.transaction).not.toHaveBeenCalled();expect(mocks.read).not.toHaveBeenCalled();
+ });
  it("lets purchase-authorized staff recover without transaction.read",async()=>{
   const result=await getCoursePurchaseIntent({customerId:"customer",requestKey:key});expect(result.success).toBe(true);
   expect(mocks.managerRead.mock.calls.map(c=>c[0]).sort()).toEqual(["customer.read","transaction.create","wallet.create"]);

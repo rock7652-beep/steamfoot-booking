@@ -360,7 +360,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
-      <CoursePurchaseIntentProvider enabled={coursePurchaseIntentsEnabled()} storeId={storeId}>
+      <CoursePurchaseIntentProvider enabled={coursePurchaseIntentsEnabled(storeId)} storeId={storeId}>
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&writableStore}
         storeId={storeId}
         key={`${storeId}:${view}`}
