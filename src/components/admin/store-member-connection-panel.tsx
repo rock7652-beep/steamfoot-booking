@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadMemberConnectionAction, approveMemberConnectionAction, approveLoginRecoveryAction } from "@/server/actions/store-member-connection";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
+import { readMemberConnection } from "@/lib/customer-support-read-client";
 
 type Result = Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>, { success: true; canConfirm: boolean }>;
 export function StoreMemberConnectionPanel({ customerId, compact=false,initial }: { customerId: string;compact?:boolean;initial?:{customerId:string;value:Result} }) {
@@ -12,7 +13,7 @@ export function StoreMemberConnectionPanel({ customerId, compact=false,initial }
   useSettingsPanelGuard(false, busy);
   const sequence = useRef(0);
   const submitting = useRef(false);
-  const reader = usePanelReader("store-member-connection", loadMemberConnectionAction, "", 0);
+  const reader = usePanelReader("store-member-connection", readMemberConnection, "", 0);
   useEffect(() => {
     const key = ++sequence.current;
     if(initial?.customerId===customerId){setResult(initial.value);setError(null);return;}
