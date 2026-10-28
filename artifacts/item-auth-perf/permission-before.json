@@ -1,0 +1,23 @@
+{
+  "phase": "before",
+  "deployment": "dpl_ERxzmTumQso8PaRqmoGqhBZB4ha8",
+  "complete": true,
+  "checks": [
+    {
+      "step": "allowed-customer-grant-in-own-store",
+      "pass": true,
+      "result": {
+        "status": 200,
+        "success": true
+      }
+    },
+    {
+      "step": "other-store-read-denied",
+      "pass": true,
+      "result": {
+        "status": 403,
+        "success": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "module": "music",
+  "phase": "cleanup",
+  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
+  "started": "2026-10-28T01:44:00.924Z",
+  "complete": true,
+  "samples": [
+    {
+      "step": "normal cancellation"
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2906,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 4717,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "errors": []
+}

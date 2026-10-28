@@ -1,0 +1,428 @@
+{
+  "scope": "isolated-preview-only",
+  "proof": {
+    "cards": [
+      {
+        "id": "cmvrf73mn0001jp08y51a4t75",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:12:54.815",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrf8z2k0001l307bl4x5sap",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:14:22.221",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrf9coi0005l3076v7fthhn",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:14:39.858",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrf9lbz0009l307kvo3uz25",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:14:51.071",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfay0u0001l807m4av1ua3",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:15:54.174",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfex7x0005l807fi5zdcdg",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:18:59.757",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfmepq0001jq088w8mjaqz",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:24:49.023",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfmj4x0001l70780na8pej",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:24:54.753",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfmsqn0001l508v15rlpgh",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:25:07.199",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfn48w0005l707v9kcaaqn",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:25:22.112",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrfnkrv0009l707zsbpm5rf",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T01:25:43.531",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrg4cwe0001l3078atruv5h",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T01:38:46.478",
+        "remaining": 10
+      }
+    ],
+    "orders": [
+      {
+        "id": "cmvrf73nl0003jp08dsrp2jkl",
+        "price": 1000,
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "543f72d5-0aa9-4523-a1f8-eb4bde02b6cf"
+      },
+      {
+        "id": "cmvrf9ld6000bl307ry4879et",
+        "price": 1000,
+        "cardId": "cmvrf9lbz0009l307kvo3uz25",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "d6f72e7e-2128-4369-9d1a-b62d3848b49c"
+      },
+      {
+        "id": "cmvrfmeqs0003jq08bs2i2gy2",
+        "price": 1000,
+        "cardId": "cmvrfmepq0001jq088w8mjaqz",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "2f2a1037-06d9-4d20-9283-7a8fb0314f1e"
+      },
+      {
+        "id": "cmvrg4cwy0003l307jp8m9rxw",
+        "price": 1000,
+        "cardId": "cmvrg4cwe0001l3078atruv5h",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "a121d4e3-a8f6-4223-84bc-51a2588e5f97"
+      },
+      {
+        "id": "cmvrf8z3x0003l307hij6a69r",
+        "price": 1000,
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "3a60d436-d0f4-4184-bdcc-d3885e091a8d"
+      },
+      {
+        "id": "cmvrf9cpp0007l3079qdgn70w",
+        "price": 1000,
+        "cardId": "cmvrf9coi0005l3076v7fthhn",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "6d055e56-f773-4915-a3b7-b22e8fe7fdb2"
+      },
+      {
+        "id": "cmvrfmj5m0003l707shly41uk",
+        "price": 1000,
+        "cardId": "cmvrfmj4x0001l70780na8pej",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "1fe1076d-0d70-440c-8506-2205a95f603a"
+      },
+      {
+        "id": "cmvrfmsr60003l508duo35yzd",
+        "price": 1000,
+        "cardId": "cmvrfmsqn0001l508v15rlpgh",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "841b1451-0f7e-4a33-bb4e-e41e9d91a1b6"
+      },
+      {
+        "id": "cmvrfay1d0003l8071ljiemkf",
+        "price": 1000,
+        "cardId": "cmvrfay0u0001l807m4av1ua3",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "830f371c-1880-43c1-808b-c81b7c72bcc3"
+      },
+      {
+        "id": "cmvrfn49k0007l707n62z6yxz",
+        "price": 1000,
+        "cardId": "cmvrfn48w0005l707v9kcaaqn",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "f439b77b-f813-43d0-a8f9-1febbab2f317"
+      },
+      {
+        "id": "cmvrfex8g0007l807abgz5i0l",
+        "price": 1000,
+        "cardId": "cmvrfex7x0005l807fi5zdcdg",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "customerId": "qa-auth-perf-20261028-24e72f-sports-customer",
+        "requestKey": "b0baa8bc-35e5-42a1-8e40-7e2198f7dd4a"
+      },
+      {
+        "id": "cmvrfnksk000bl707pe7v460u",
+        "price": 1000,
+        "cardId": "cmvrfnkrv0009l707zsbpm5rf",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "customerId": "qa-auth-perf-20261028-24e72f-music-customer",
+        "requestKey": "69f2e36a-3286-4a4d-834b-7408a5125087"
+      }
+    ],
+    "entries": [
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:12:54.815"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:14:22.221"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrf9coi0005l3076v7fthhn",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:14:39.858"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrf9lbz0009l307kvo3uz25",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:14:51.071"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfay0u0001l807m4av1ua3",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:15:54.174"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfex7x0005l807fi5zdcdg",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:18:59.757"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfmepq0001jq088w8mjaqz",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:24:49.023"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfmj4x0001l70780na8pej",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:24:54.753"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfmsqn0001l508v15rlpgh",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:25:07.199"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfn48w0005l707v9kcaaqn",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:25:22.112"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrfnkrv0009l707zsbpm5rf",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:25:43.531"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvrg4cwe0001l3078atruv5h",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T01:38:46.478"
+      },
+      {
+        "kind": "RESERVE",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-music-booking",
+        "createdAt": "2026-10-28T01:39:10.558"
+      },
+      {
+        "kind": "DEBIT",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-music-booking",
+        "createdAt": "2026-10-28T01:39:10.604"
+      },
+      {
+        "kind": "CORRECT:ATTENDED:RESERVED:2226fc31-9500-4df0-985f-238403596dac",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-music-booking",
+        "createdAt": "2026-10-28T01:39:37.057"
+      },
+      {
+        "kind": "DEBIT",
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-sports-booking",
+        "createdAt": "2026-10-28T01:41:20.094"
+      },
+      {
+        "kind": "CORRECT:ATTENDED:RESERVED:188fa7b2-ee67-4acc-b398-5a4528723ff2",
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-sports-booking",
+        "createdAt": "2026-10-28T01:41:26.265"
+      },
+      {
+        "kind": "RELEASE",
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-sports-booking",
+        "createdAt": "2026-10-28T01:44:27.773"
+      },
+      {
+        "kind": "RELEASE",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "points": 1,
+        "bookingId": "qa-auth-perf-20261028-24e72f-music-booking",
+        "createdAt": "2026-10-28T01:44:36.668"
+      }
+    ],
+    "cashbook": [
+      {
+        "id": "course-purchase:cmvrf73nl0003jp08dsrp2jkl",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "music-receipt:e7f61185-f38e-450a-9878-78e67a67a51c",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "music-receipt:0a5447f1-917b-47fa-b278-cbf533a8c93f",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "music-receipt:e1903068-03c5-43bd-8108-ae326375c626",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "course-purchase:cmvrfay1d0003l8071ljiemkf",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "course-purchase:cmvrfex8g0007l807abgz5i0l",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "course-purchase:cmvrfmeqs0003jq08bs2i2gy2",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "music-receipt:7d5b93eb-3f9e-45ba-896c-11d9aed4d47f",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "course-purchase:cmvrfmsr60003l508duo35yzd",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "music-receipt:3e67dbba-c4ef-4244-a53a-606b4c96912f",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "music-receipt:c69e6fe0-d48f-4c14-a0e8-f7c8344bf131",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "course-purchase:cmvrg4cwy0003l307jp8m9rxw",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "qa-auth-perf-20261028-24e72f-music-session",
+        "cardId": "cmvrf8z2k0001l307bl4x5sap",
+        "status": "CANCELLED",
+        "bookingId": "qa-auth-perf-20261028-24e72f-music-booking",
+        "cancelled": true,
+        "bookingKind": "CARD"
+      },
+      {
+        "id": "qa-auth-perf-20261028-24e72f-sports-session",
+        "cardId": "cmvrf73mn0001jp08y51a4t75",
+        "status": "CANCELLED",
+        "bookingId": "qa-auth-perf-20261028-24e72f-sports-booking",
+        "cancelled": true,
+        "bookingKind": "CARD"
+      }
+    ]
+  }
+}

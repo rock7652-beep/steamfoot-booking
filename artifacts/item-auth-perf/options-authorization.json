@@ -1,0 +1,33 @@
+{
+  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
+  "complete": true,
+  "checks": [
+    {
+      "step": "owner-own-booking-options",
+      "pass": true,
+      "result": {
+        "status": 200,
+        "success": true,
+        "plans": 3
+      }
+    },
+    {
+      "step": "owner-foreign-booking-denied",
+      "pass": true,
+      "result": {
+        "status": 200,
+        "success": false,
+        "plans": null
+      }
+    },
+    {
+      "step": "wallet-only-staff-options-denied",
+      "pass": true,
+      "result": {
+        "status": 200,
+        "success": false,
+        "plans": null
+      }
+    }
+  ]
+}

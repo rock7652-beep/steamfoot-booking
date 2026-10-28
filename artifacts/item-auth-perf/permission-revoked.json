@@ -1,0 +1,17 @@
+{
+  "phase": "revoked",
+  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
+  "complete": true,
+  "checks": [
+    {
+      "step": "revoked-user-new-request-denied",
+      "pass": true,
+      "result": {
+        "status": 200,
+        "success": false,
+        "loginRedirect": true,
+        "path": "/hq/login"
+      }
+    }
+  ]
+}

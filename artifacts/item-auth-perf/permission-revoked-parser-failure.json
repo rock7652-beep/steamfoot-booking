@@ -1,0 +1,7 @@
+{
+  "phase": "revoked",
+  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
+  "complete": false,
+  "checks": [],
+  "failure": "Error: page.evaluate: SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+}
