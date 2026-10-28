@@ -1,7 +1,7 @@
 import {capturePurchaseSnapshotReceiver} from "./music-purchase-snapshot";
 import {parseMusicPeriods} from './music-period-read-client';
 import { isMusicPreviewPage, publishMusicFinanceChange, publishMusicRevenueCommit } from "./music-finance-sync";
-export type MusicMutationResult = { success: boolean; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
+export type MusicMutationResult = { success: boolean;financePublished?:boolean; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
 /** Fixed URL and versioned JSON contract avoid deployment-pinned Server Action IDs.
  * Never retry a payment automatically: callers retain their original idempotency key.
  */
@@ -36,10 +36,10 @@ export async function musicCheckoutTransport(
       }
       publishMusicFinanceChange(operation, token);
     }
-    return result;
+    return result.success?{...result,financePublished:true}:result;
   } catch {
     // The server has already confirmed the write. A disconnected projection must not invite a second payment.
-    if (committed) { publishMusicFinanceChange(operation, token); return {success:true}; }
+    if (committed) { publishMusicFinanceChange(operation, token); return {success:true,financePublished:true}; }
     return { success: false, error: "尚未確認收款結果，輸入已保留；請用相同資料重試，系統會防止重複收款。" };
   }
 }

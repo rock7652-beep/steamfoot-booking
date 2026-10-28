@@ -286,7 +286,7 @@ export function CourseMemberWorkspace({
 
   async function submit(
     event: FormEvent<HTMLFormElement>,
-    action: (data: FormData) => Promise<{ success: boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown;checkoutCards?:import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot }>,
+    action: (data: FormData) => Promise<{ success: boolean;financePublished?:boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown;checkoutCards?:import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot }>,
   ) {
     event.preventDefault();
     if (submitting.current) return;
@@ -307,7 +307,7 @@ export function CourseMemberWorkspace({
         }
         if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
         if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
-        publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
+        if(!result.financePublished)publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
         if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
         else setPanel(null);

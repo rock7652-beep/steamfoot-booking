@@ -8,7 +8,7 @@ describe("deployment independent music checkout",()=>{
  it("posts the exact idempotency key to a stable route and notifies only after success",async()=>{
   const fetcher=vi.fn().mockResolvedValue(Response.json({success:true}));vi.stubGlobal("fetch",fetcher);
   const fallback=vi.fn();const input={requestKey:"same-key",amount:200};
-  expect(await musicCheckoutTransport("receipt",input,fallback)).toEqual({success:true});
+  expect(await musicCheckoutTransport("receipt",input,fallback)).toEqual({success:true,financePublished:true});
   expect(fallback).not.toHaveBeenCalled();
   expect(fetcher).toHaveBeenCalledWith("/s/lubymusic/admin/dashboard/music-checkout",expect.objectContaining({cache:"no-store",body:JSON.stringify({operation:"receipt",input})}));
   expect(notify).toHaveBeenCalledOnce();
@@ -39,6 +39,6 @@ it("starts revenue after committed headers, before projection, with the same ded
 });
 it("retains confirmed success when the projection stream disconnects",async()=>{
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,status:200,headers:new Headers({"x-music-committed":"1"}),json:vi.fn().mockRejectedValue(new Error("disconnected"))}));
- expect(await musicCheckoutTransport("purchase",{},vi.fn())).toEqual({success:true});
+ expect(await musicCheckoutTransport("purchase",{},vi.fn())).toEqual({success:true,financePublished:true});
  expect(early).toHaveBeenCalledOnce();expect(notify).toHaveBeenCalledOnce();
 });
