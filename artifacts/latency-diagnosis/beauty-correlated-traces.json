@@ -1,0 +1,377 @@
+{
+  "productCommit": "8b7d81dcdd5ca5640da0bb4c04b76c31874cbfcc",
+  "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C",
+  "scope": "read-only analysis of previously completed isolated purchases; no new transactions",
+  "traces": [
+    {
+      "event": "2026-10-28T04:29:25.887Z GET /api/beauty/roster [info/function]",
+      "requestId": "gf84p-1793161764535-775a3c503dbb",
+      "operation": "roster.full",
+      "traceId": "a018968b-6ff5-4865-af2a-eda0ee52cf07",
+      "ok": true,
+      "totalMs": 1021.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 439.1,
+          "ok": true
+        },
+        {
+          "name": "permissions",
+          "durationMs": 102.1,
+          "ok": true
+        },
+        {
+          "name": "version",
+          "durationMs": 27.1,
+          "ok": true
+        },
+        {
+          "name": "bookings",
+          "durationMs": 57.6,
+          "ok": true
+        },
+        {
+          "name": "metadata",
+          "durationMs": 74.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:29:23.192Z POST /api/beauty/customer-read [info/function]",
+      "requestId": "gnckg-1793161761541-f4b35034d6f2",
+      "operation": "customer.cards",
+      "traceId": "9dc71514-6e09-4e83-aae4-5e0fb75e4eea",
+      "ok": true,
+      "totalMs": 1025.8,
+      "spans": [
+        {
+          "name": "scope_authorization",
+          "durationMs": 334.4,
+          "ok": true
+        },
+        {
+          "name": "authorization",
+          "durationMs": 233.5,
+          "ok": true
+        },
+        {
+          "name": "customer_permission",
+          "durationMs": 225.2,
+          "ok": true
+        },
+        {
+          "name": "customer_scope",
+          "durationMs": 26.2,
+          "ok": true
+        },
+        {
+          "name": "cards",
+          "durationMs": 50.9,
+          "ok": true
+        },
+        {
+          "name": "holds_ledger",
+          "durationMs": 25.5,
+          "ok": true
+        },
+        {
+          "name": "data",
+          "durationMs": 691.2,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:29:22.272Z POST /s/beauty-hosted-20261021/admin/dashboard/beauty [info/function]",
+      "requestId": "sjr6f-1793161760059-d750c98ec119",
+      "operation": "layout",
+      "traceId": "48363f78-9a1e-4ad9-97b4-3cc2da62a3a2",
+      "ok": true,
+      "totalMs": 878.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 33.4,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 38.5,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 110.7,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 155.4,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 29.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 62,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 60.1,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 44.5,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 33.5,
+          "ok": true
+        },
+        {
+          "name": "feature",
+          "durationMs": 64.7,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 33.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 228.2,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:29:21.361Z POST /s/beauty-hosted-20261021/admin/dashboard/beauty [info/function]",
+      "requestId": "sjr6f-1793161760059-d750c98ec119",
+      "operation": "customer.purchase.write",
+      "traceId": "3849c2e4-6030-4d48-91d8-785183f69460",
+      "ok": true,
+      "totalMs": 815.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 165.2,
+          "ok": true
+        },
+        {
+          "name": "customer_scope",
+          "durationMs": 16,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 6.7,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 121.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:28:28.368Z GET /api/beauty/roster [info/function]",
+      "requestId": "c9j4g-1793161707281-709f303418fd",
+      "operation": "roster.full",
+      "traceId": "0118b609-4583-474a-a67c-8f8997a2e740",
+      "ok": true,
+      "totalMs": 619.9,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 212.2,
+          "ok": true
+        },
+        {
+          "name": "permissions",
+          "durationMs": 61.8,
+          "ok": true
+        },
+        {
+          "name": "version",
+          "durationMs": 29.3,
+          "ok": true
+        },
+        {
+          "name": "bookings",
+          "durationMs": 37.3,
+          "ok": true
+        },
+        {
+          "name": "metadata",
+          "durationMs": 74.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:28:25.733Z POST /api/beauty/customer-read [info/function]",
+      "requestId": "f7xkn-1793161704284-471fe07badd9",
+      "operation": "customer.cards",
+      "traceId": "d13de93e-7e87-4915-bbc0-112519be5ddd",
+      "ok": true,
+      "totalMs": 791.1,
+      "spans": [
+        {
+          "name": "scope_authorization",
+          "durationMs": 293.1,
+          "ok": true
+        },
+        {
+          "name": "authorization",
+          "durationMs": 169.2,
+          "ok": true
+        },
+        {
+          "name": "customer_permission",
+          "durationMs": 161.8,
+          "ok": true
+        },
+        {
+          "name": "customer_scope",
+          "durationMs": 18,
+          "ok": true
+        },
+        {
+          "name": "cards",
+          "durationMs": 39,
+          "ok": true
+        },
+        {
+          "name": "holds_ledger",
+          "durationMs": 19,
+          "ok": true
+        },
+        {
+          "name": "data",
+          "durationMs": 497.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:28:25.041Z POST /s/beauty-hosted-20261021/admin/dashboard/beauty [info/function]",
+      "requestId": "vlhgp-1793161702685-a6f6b87861c9",
+      "operation": "layout",
+      "traceId": "9eb35f1e-1a6e-43c9-a378-3d24801e6a51",
+      "ok": true,
+      "totalMs": 911.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 37.6,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 34.6,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 118.1,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 167.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 31.2,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 67.2,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 63.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 49.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 32.7,
+          "ok": true
+        },
+        {
+          "name": "feature",
+          "durationMs": 66.4,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 34.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 223.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "event": "2026-10-28T04:28:24.089Z POST /s/beauty-hosted-20261021/admin/dashboard/beauty [info/function]",
+      "requestId": "vlhgp-1793161702685-a6f6b87861c9",
+      "operation": "customer.purchase.write",
+      "traceId": "f0c17ffa-b40c-4f11-acac-260b215c45eb",
+      "ok": true,
+      "totalMs": 889.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 174.2,
+          "ok": true
+        },
+        {
+          "name": "customer_scope",
+          "durationMs": 17.3,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 7.7,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 140.3,
+          "ok": true
+        }
+      ]
+    }
+  ]
+}
