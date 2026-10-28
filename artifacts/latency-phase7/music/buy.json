@@ -1,0 +1,80 @@
+{
+  "module": "music",
+  "phase": "buy",
+  "deployment": "dpl_GcDdMrC1aDLscjGD6bjSkoNJxkfH",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login-and-own-1000-plan-form-ready",
+      "pass": true
+    },
+    {
+      "step": "purchase-confirmed-and-current-panel-updated-without-navigation",
+      "pass": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793178819054.604,
+      "durationMs": 1029,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793178823600.168,
+      "durationMs": 886,
+      "action": "401e8d956d3965edf36841af0502286129c3856210"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "startedAtEpochMs": 1793178823884.1392,
+      "durationMs": 2195,
+      "action": null
+    }
+  ],
+  "responses": [
+    {
+      "path": "/hq/login",
+      "method": "POST",
+      "status": 303,
+      "requestId": "sfo1:sfo1:hnd1::hnd1::hnd1::hs9pj-1793178811700-a8dd76440f28",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::f99qs-1793178819100-17ab78cef4b7",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::78fqb-1793178823633-4dc91cb2b7af",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::r4ft7-1793178823913-58e4fa64378a",
+      "serverTiming": "checkout-commit;dur=1476"
+    }
+  ],
+  "clickAtEpochMs": 1793178823753,
+  "pendingVisible": true,
+  "responseMs": 2402,
+  "receipt": {
+    "purchaseId": "cmvrwdgsq0003ld08ob1vj5y9",
+    "cardId": "cmvrwdgrw0001ld08a9ebbm04",
+    "customerId": "qa-timing7-3b6f13ea-music-customer",
+    "name": "計時驗收music3b6f13ea方案",
+    "quantity": 10,
+    "unit": "SESSION",
+    "paid": 1000
+  },
+  "acknowledgementMs": 2446,
+  "balanceVisibleMs": 2463
+}
