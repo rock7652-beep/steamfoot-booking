@@ -1,6 +1,8 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn()}));
-vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
+const m=vi.hoisted(()=>({after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn()}));
+vi.mock('next/cache',()=>({revalidatePath:m.invalidate}));
+vi.mock('next/server',()=>({after:m.after}));
+vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyNativeRoster:m.roster}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people}}}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyCard:{findMany:m.cards,findFirst:m.card},beautyAppointment:{groupBy:m.holds,findMany:m.bookings},beautyLedger:{findMany:m.entries},beautyTechnician:{findMany:m.techs},beautyPayment:{findMany:m.payments}}}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
@@ -35,3 +37,16 @@ it('preserves member CAS and request replay identity through the existing member
 it('uses the original profile writer with explicit Beauty authorization',async()=>{await saveBeautyNativeCustomerProfile({id:'c',name:'更新'});expect(m.profile).toHaveBeenCalledWith({id:'c',name:'更新'},'beauty');});
 it('limits a single customer card browse to that customer and related visible members',async()=>{await browseBeautyNativeCards({customerId:'c'});expect(m.people.mock.calls[0][0].where).toMatchObject({storeId:'a',assignedStaffId:'staff',id:{in:['c']}});expect(m.people.mock.calls[1][0].where.id.in).toEqual(['c']);});
 it('limits card detail visibility to authorized members of the requested card',async()=>{await browseBeautyNativeCards({cardId:'card'});expect(m.card).toHaveBeenCalledWith({where:{id:'card',storeId:'a'},select:{memberIds:true}});expect(m.people.mock.calls[0][0].where.id.in).toEqual(['c']);});
+
+it('returns the committed authorized roster without invalidating the active layout before response',async()=>{
+ m.roster.mockResolvedValue({success:true,data:{roster:[{customerId:'c',status:'RESERVED',sportsBalance:{remaining:10}}]}});
+ const result=await assignBeautyNativeCard({...input,beautyRosterSessionId:'booking:b'});
+ expect(result).toMatchObject({success:true,rosterSnapshot:{sessionId:'booking:b',data:{roster:[{status:'RESERVED'}]}}});
+ expect(m.roster).toHaveBeenCalledWith('booking:b');expect(m.invalidate).not.toHaveBeenCalled();
+ expect(m.after).toHaveBeenCalledTimes(1);m.after.mock.calls[0][0]();expect(m.invalidate).toHaveBeenCalledWith('/dashboard/beauty');
+});
+it('keeps a purchase successful if the projection is denied or belongs to another learner',async()=>{
+ m.roster.mockResolvedValueOnce({success:false,error:'denied'}).mockResolvedValueOnce({success:true,data:{roster:[{customerId:'foreign'}]}});
+ for(let n=0;n<2;n++)expect(await assignBeautyNativeCard({...input,beautyRosterSessionId:'booking:b'})).toMatchObject({success:true});
+ expect(m.issue).toHaveBeenCalledTimes(2);expect(m.roster).toHaveBeenCalledTimes(2);
+});

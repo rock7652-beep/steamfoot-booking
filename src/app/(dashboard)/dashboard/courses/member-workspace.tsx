@@ -213,6 +213,7 @@ export function CourseMemberWorkspace({
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
+  const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(params.get("studentRecords")==="bookings"&&canReadBookings?"bookings":canReadTransactions?"purchases":"bookings");
@@ -285,7 +286,7 @@ export function CourseMemberWorkspace({
 
   async function submit(
     event: FormEvent<HTMLFormElement>,
-    action: (data: FormData) => Promise<{ success: boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown }>,
+    action: (data: FormData) => Promise<{ success: boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown;checkoutCards?:import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot }>,
   ) {
     event.preventDefault();
     if (submitting.current) return;
@@ -304,6 +305,8 @@ export function CourseMemberWorkspace({
           if(receipt.success)setCheckoutReceipt(receipt.data);
           toast.success("購買成功，方案已加入");
         }
+        if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
+        if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
         publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
         if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
@@ -581,7 +584,7 @@ export function CourseMemberWorkspace({
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
-                <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
 
@@ -640,7 +643,7 @@ export function CourseMemberWorkspace({
               {!sportsNative&&attribution}
               {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
-                <CourseCardBrowser load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
               {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
               <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />

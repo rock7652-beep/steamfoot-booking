@@ -1,4 +1,5 @@
 import {beautyReadStep} from './read-timing';
+import {beautyRequestCheck,beautyRequestStore} from './request-scope';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -43,9 +44,11 @@ export async function beautyManager(
   permission: PermissionCode,
   write = false,
 ): Promise<BeautyActor> {
+ return beautyRequestCheck(`manager:${permission}:${write}`,async()=>{
   const user = await requirePermission(permission, undefined, {
     deferSubscriptionGuard: true,
   });
+  const storeId = await beautyRequestStore(user,write,async()=>{
   const storeId = write
     ? await resolveWriteStoreId(user)
     : await getActiveStoreForRead(user);
@@ -66,7 +69,10 @@ export async function beautyManager(
     }))
   )
     throw new AppError("FORBIDDEN", "本店工作權限已停用");
+  return storeId;
+  });
   return { storeId, userId: user.id, name:user.name, manager: true };
+ });
 }
 export async function beautyMember(write = false): Promise<BeautyActor> {
   const [user,ctx]=await Promise.all([requireSession(),getStoreContext()]);

@@ -95,7 +95,8 @@ export function usePanelReader<Args extends unknown[], T>(
   const seeds = useContext(PurchaseSeeds);
   const decode = useCallback((key: string) => {
     const args=JSON.parse(key) as Args;
-    const supplied = !scopeVersion && ttlMs === 0 ? seeds?.take(namespace,args) : undefined;
+    const seedScope=!scopeVersion||(namespace==='course-card-browse'&&/^\d+$/.test(scopeVersion));
+    const supplied = seedScope && ttlMs === 0 ? seeds?.take(namespace,args) : undefined;
     if (supplied !== undefined) {
       console.info("[music-purchase-snapshot]", namespace);
       return Promise.resolve(supplied as T);

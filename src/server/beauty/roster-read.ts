@@ -12,10 +12,15 @@ import {FEATURES} from '@/lib/feature-flags';
 import {dayRange,parseTaipeiDateTime} from '@/lib/date-utils';
 import {AppError} from '@/lib/errors';
 import {beautyReadStep} from './read-timing';
+import {verifiedPermissionRequestSession} from '@/lib/permission-request-session';
 import {serviceCharges,servicePaymentLabel} from './service-charges';
 import type {NativeRosterBooking} from '@/app/(dashboard)/dashboard/courses/roster-source';
 export async function beautyRosterContext(){
- const [a,u]=await beautyReadStep('authorization',()=>Promise.all([beautyManager('booking.read'),getCurrentUser()]));
+ const {a,u}=await beautyReadStep('authorization',async()=>{
+  const a=await beautyManager('booking.read');
+  const u=(verifiedPermissionRequestSession() as Awaited<ReturnType<typeof getCurrentUser>>|undefined)??await getCurrentUser();
+  return {a,u};
+ });
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
  const [customerAccess,cardAccess]=await beautyReadStep('permissions',()=>Promise.all([can('customer.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT)),can('wallet.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT))]));
  const financeAccess=(await can('transaction.read')||await can('transaction.create'))&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);

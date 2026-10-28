@@ -1,5 +1,6 @@
 "use server";
 import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {readPurchasedCourseRoster,readPurchasedCourseCards} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
@@ -339,9 +340,10 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
+    let musicCheckout=false;
     const purchase=await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
-      const music = await isMusicCourseStore(tx, storeId);
+      const music = await isMusicCourseStore(tx, storeId);musicCheckout=music;
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
@@ -358,7 +360,9 @@ export async function assignCoursePointCard(input: unknown) {
       refresh();
     } catch { console.error("[course-checkout] committed; refresh invalidation failed"); }
     });
-    return { success: true as const,checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
+    const rosterSnapshot=await readPurchasedCourseRoster(storeId,data.customerId,data.bookingId);
+    const checkoutCards=!data.bookingId&&!musicCheckout?await readPurchasedCourseCards(data.customerId):null;
+    return { success: true as const,...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{}),checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
   } catch (error) {
     return handleActionError(error);
   }finally{console.info("[course-checkout-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}

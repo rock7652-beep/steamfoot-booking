@@ -1,6 +1,7 @@
 import {capturePurchaseSnapshotReceiver} from "./music-purchase-snapshot";
+import {parseMusicPeriods} from './music-period-read-client';
 import { isMusicPreviewPage, publishMusicFinanceChange, publishMusicRevenueCommit } from "./music-finance-sync";
-export type MusicMutationResult = { success: boolean; error?: string; checkoutReceipt?:unknown };
+export type MusicMutationResult = { success: boolean; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
 /** Fixed URL and versioned JSON contract avoid deployment-pinned Server Action IDs.
  * Never retry a payment automatically: callers retain their original idempotency key.
  */
@@ -31,7 +32,7 @@ export async function musicCheckoutTransport(
     if (result.success) {
       const snapshot = result.snapshot;
       if (operation === "purchase" && snapshot?.overview?.success === true && snapshot?.cards?.success === true && typeof snapshot.customerId === "string") {
-        try { acceptSnapshot?.(snapshot); } catch { /* Normal authoritative refresh remains available. */ }
+        try { if(snapshot.periods)snapshot.periods=parseMusicPeriods(JSON.stringify(snapshot.periods));acceptSnapshot?.(snapshot); } catch { /* Normal authoritative refresh remains available. */ }
       }
       publishMusicFinanceChange(operation, token);
     }

@@ -1722,6 +1722,14 @@ export function CourseRoster({
                 setPurchaseFor(null);
                 setPurchaseOptions(null);
                 setMessage(`${purchaseOptions.customerName} 的購買及收款已登記`);
+                if(result.rosterSnapshot?.sessionId===sessionId){
+                  ++readVersion.current;
+                  const current=result.rosterSnapshot.data;
+                  setRoster(current.roster);setWaitlist(current.waitlist??[]);
+                  setSharedCardState(current.sharedCardState??"ENABLED");setLoaded(true);
+                  setSession(old=>old?{...old,teacherNote:current.teacherNote,teacherAttendance:current.teacherAttendance,teacherAttendanceReason:current.teacherAttendanceReason,waitlistStopMinutes:current.waitlistStopMinutes}:old);
+                  return;
+                }
                 const refreshed=await load(false);
                 if(refreshed==="failed")setMessage("購買及收款已完成，名單同步失敗；請重新讀取名單，勿再次付款。");
               }).catch(() => {if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchaseError("結果待確認，請核對購買紀錄後再操作。");}).finally(() => {purchaseLock.current=false;if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchasePending(false);});

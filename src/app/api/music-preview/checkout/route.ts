@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             controller.enqueue(encoder.encode(" "));
             const snapshotStart = performance.now();
             let snapshot = null;
-            try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
+            try { if(!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
             timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
             console.info("[music-checkout-write]", JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
             try { controller.enqueue(encoder.encode(JSON.stringify({...result,...(snapshot?{snapshot}:{}),readTiming:detail}))); controller.close(); }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       }
       const snapshotStart = performance.now();
       let snapshot = null;
-      try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
+      try { if(!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
       timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
       return reply(snapshot ? {...result, snapshot} : result);
     }

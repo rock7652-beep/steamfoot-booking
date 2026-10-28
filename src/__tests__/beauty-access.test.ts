@@ -109,3 +109,11 @@ describe("beauty authorization boundary", () => {
     });
   });
 });
+
+import {withBeautyReadScope} from '@/server/beauty/request-scope';
+it('keeps distinct grants while sharing one verified store/membership per request',async()=>{
+ await withBeautyReadScope(async()=>{await Promise.all([beautyManager('customer.read'),beautyManager('wallet.read')]);await beautyManager('customer.read');});
+ expect(m.permission.mock.calls.map(c=>c[0]).sort()).toEqual(['customer.read','wallet.read']);
+ expect(m.readStore).toHaveBeenCalledTimes(1);expect(m.staff.findFirst).toHaveBeenCalledTimes(1);expect(m.store.findFirst).toHaveBeenCalledTimes(1);
+ m.staff.findFirst.mockResolvedValue(null);await expect(withBeautyReadScope(()=>beautyManager('customer.read'))).rejects.toThrow('停用');
+});

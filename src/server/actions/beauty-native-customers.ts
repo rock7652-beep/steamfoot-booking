@@ -1,5 +1,8 @@
 "use server";
 import {beautyReadStep,traceBeautyRead} from "@/server/beauty/read-timing";
+import {withBeautyReadScope,withBeautyCheckoutScope} from '@/server/beauty/request-scope';
+import {permissionRequestSession} from '@/lib/permission-request-session';
+import {after} from 'next/server';
 import {beautyTransactionRevisions} from "@/server/beauty/transaction-revisions";
 
 import {z} from 'zod';
@@ -32,7 +35,7 @@ async function scope(permission:'wallet.read'|'booking.read'|'transaction.read'|
  if(permission!=='customer.read')await beautyReadStep('customer_permission',()=>beautyManager('customer.read'));
  await requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT);
  if(permission==='wallet.read')await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
- const user=await requireSession();
+ const user=await permissionRequestSession(()=>requireSession());
  const customerWhere={...getManagerCustomerWhere(user.role,user.staffId,a.storeId),storeId:a.storeId,mergedIntoCustomerId:null};
  const selected=target?.cardId?(await beautyPrisma.beautyCard.findFirst({where:{id:target.cardId,storeId:a.storeId},select:{memberIds:true}}))?.memberIds??[]:target?.customerIds;
  const people=await beautyReadStep('customer_scope',()=>prisma.customer.findMany({where:{...customerWhere,...(selected?{id:{in:selected}}:{})},select:{id:true,name:true,phone:true}}));
@@ -40,6 +43,9 @@ async function scope(permission:'wallet.read'|'booking.read'|'transaction.read'|
 }
 function customerExists(s:{ids:string[]},customerId:string){if(!s.ids.includes(customerId))throw new AppError('NOT_FOUND','找不到本店可查看的顧客');}
 export async function browseBeautyNativeCards(input:unknown){
+ return withBeautyReadScope(()=>browseBeautyNativeCardsCore(input));
+}
+async function browseBeautyNativeCardsCore(input:unknown){
  try{
   const d=z.object({customerId:id.optional(),cardId:id.optional(),search:z.string().trim().max(200).default(''),history:z.boolean().default(false),page:z.number().int().min(0).max(50000).default(0)}).parse(input);
   const s=await scope('wallet.read',d.cardId?{cardId:d.cardId}:d.customerId?{customerIds:[d.customerId]}:undefined);if(d.customerId)customerExists(s,d.customerId);
@@ -118,12 +124,12 @@ export async function saveBeautyNativeCardMembers(input:Record<string,unknown>){
  const d=z.object({cardId:id,expected:z.array(id),customerIds:z.array(id),requestKey:z.string().uuid()}).safeParse(input);if(!d.success)return failure(new AppError('VALIDATION','請重新核對方案成員'));
  return updateBeautyCardMembers({id:d.data.cardId,expected:d.data.expected,memberIds:d.data.customerIds,requestKey:d.data.requestKey});
 }
-export async function assignBeautyNativeCard(input:Record<string,unknown>){return (await traceBeautyRead('customer.purchase.write',()=>assignBeautyNativeCardCore(input))).value;}
+export async function assignBeautyNativeCard(input:Record<string,unknown>){return withBeautyCheckoutScope(async()=>(await traceBeautyRead('customer.purchase.write',()=>assignBeautyNativeCardCore(input))).value);}
 async function assignBeautyNativeCardCore(input:Record<string,unknown>){
  let committed=false;
  try{
-  const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id,beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional()}).parse(input);
-  const a=await beautyManager('wallet.create',true);await beautyManager('transaction.create',true);await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
+  const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id,beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional(),beautyRosterSessionId:z.string().min(1).max(200).optional()}).parse(input);
+  const [a,financial]=await Promise.all([beautyManager('wallet.create',true),beautyManager('transaction.create',true)]);if(a.storeId!==financial.storeId||a.userId!==financial.userId)throw new AppError('FORBIDDEN','店家範圍不一致');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
   if(d.expectedStoreId!==a.storeId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟結帳');
   const s=await scope('customer.read',{customerIds:[d.customerId]});if(s.storeId!==a.storeId)throw new AppError('CONFLICT','店家已切換');customerExists(s,d.customerId);
   if(d.revenueStaffId||d.expectedStoreCost||d.musicPurchaseTerms||d.musicValidityDays||d.musicManualBonus||d.musicJoinSessionId)throw new AppError('VALIDATION','此服務方案不使用課程期數或成本欄位');
@@ -131,7 +137,14 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   if(d.paymentMethod==='BANK_TRANSFER'&&!/^\d{4}$/.test(d.transferLastFour))throw new AppError('VALIDATION','請填寫轉帳末四碼');
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
   const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour}));
-  committed=true;let syncWarning=false;try{revalidatePath('/dashboard/beauty');}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning};
+  committed=true;
+  let rosterSnapshot: {sessionId:string;data:import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterData}|undefined;
+  if(d.beautyRosterSessionId){try{
+   const {readBeautyNativeRoster}=await import('./beauty-native-roster');
+   const current=await beautyReadStep('purchase.roster',()=>readBeautyNativeRoster(d.beautyRosterSessionId!));
+   if(current.success&&current.data.roster.some(row=>row.customerId===d.customerId))rosterSnapshot={sessionId:d.beautyRosterSessionId,data:current.data};
+  }catch{/* Keep committed purchase successful; the scoped roster reader is the fallback. */}}
+  let syncWarning=false;try{after(()=>{try{revalidatePath('/dashboard/beauty');}catch{console.error('[beauty-checkout] committed; invalidation failed');}});}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning,...(rosterSnapshot?{rosterSnapshot}:{})};
  }catch(error){return {...failure(error),uncertain:committed||settingsSaveUncertain(error)};}
 }
 
