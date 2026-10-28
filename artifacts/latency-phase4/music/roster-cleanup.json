@@ -1,0 +1,97 @@
+{
+  "module": "music",
+  "phase": "cleanup",
+  "deployment": "dpl_4hX39kwLK2KaDK1sehEJkkerrsUw",
+  "started": "2026-10-28T08:22:48.099Z",
+  "complete": true,
+  "samples": [
+    {
+      "step": "valid-other-store-learner-denied",
+      "status": 200,
+      "success": false,
+      "hasRows": false
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "roster-responsive",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "step": "normal cancellation"
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793175774486.9338,
+      "durationMs": 760,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "startedAtEpochMs": 1793175774484.345,
+      "durationMs": 1585,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/card-read",
+      "startedAtEpochMs": 1793175776357.074,
+      "durationMs": 816,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793175775869.7278,
+      "durationMs": 2125,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "errors": [],
+  "responses": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::78fqb-1793175774540-d50c04a99c99",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "method": "GET",
+      "status": 200,
+      "requestId": "sfo1::hnd1::5vjw9-1793175774537-1f2913fb5394",
+      "serverTiming": "musicread;dur=936"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::f6zsz-1793175775914-32fb070a6b7c",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::qdj9j-1793175778480-5e647aca3312",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::6d8nr-1793175780404-431bf918ee45",
+      "serverTiming": null
+    }
+  ]
+}
