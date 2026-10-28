@@ -1,0 +1,5 @@
+{
+  "complete": false,
+  "error": "The expression evaluated to a falsy value:\n\n  assert.ok(responseText.includes('此申請已取消'))\n",
+  "results": []
+}

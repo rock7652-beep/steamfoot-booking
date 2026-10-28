@@ -1,0 +1,34 @@
+{
+  "complete": true,
+  "snapshotResponses": [
+    {
+      "status": 200,
+      "relativeMs": -8496
+    },
+    {
+      "status": 200,
+      "relativeMs": -6483
+    },
+    {
+      "status": 200,
+      "relativeMs": -6113
+    },
+    {
+      "status": 200,
+      "relativeMs": 3974
+    }
+  ],
+  "memberBefore": "目前持有 0 個方案",
+  "visibilityBefore": "visible",
+  "confirmNoticeMs": 418,
+  "visibilityAfter": "visible",
+  "memberAutoUpdatedMs": 4443,
+  "memberAfter": "目前持有 1 個方案",
+  "memberRemaining": "剩餘 5 次",
+  "documentUnchanged": true,
+  "pollCount": 4,
+  "bookingPageVisible": true,
+  "bookingDocumentUnchanged": true,
+  "bookingOption": "合成五次方案 · 可用 5 次 · 2027-01-26 到期",
+  "bookingSelected": true
+}
