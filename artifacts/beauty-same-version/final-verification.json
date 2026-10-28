@@ -1,0 +1,33 @@
+{
+  "productCommit": "8b7d81dcdd5ca5640da0bb4c04b76c31874cbfcc",
+  "aliases": [
+    {
+      "alias": "steamfoot.com",
+      "deployment": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5"
+    },
+    {
+      "alias": "steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app",
+      "deployment": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb"
+    },
+    {
+      "alias": "steamfoot-booking-git-preview-be-a99dad-rock7652-2111s-projects.vercel.app",
+      "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C"
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deployment": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5"
+    }
+  ],
+  "beautyHostedAcceptance": "passed",
+  "beautyRegression": {
+    "files": 3,
+    "tests": 65,
+    "passed": true
+  },
+  "qaScriptSyntaxPassed": true,
+  "qaScriptLintPassed": true,
+  "shareCountAfterCleanup": 0,
+  "privateCredentialsAndBrowserProfileRemoved": true,
+  "productionReleased": false,
+  "performanceLimitation": "Two beauty confirmation-to-roster-balance samples: 6255/6267 ms; not a success-acknowledgement or p95 measurement."
+}

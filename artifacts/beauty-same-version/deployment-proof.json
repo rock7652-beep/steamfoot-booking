@@ -1,0 +1,53 @@
+{
+  "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C",
+  "source": "8b7d81dcdd5ca5640da0bb4c04b76c31874cbfcc",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "readyState": "READY",
+  "target": null,
+  "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+  "environmentFlags": [
+    {
+      "key": "BEAUTY_CHARGE_RULES_ENABLED",
+      "value": "1",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_CHARGE_EDITING_ENABLED",
+      "value": "1",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_CHARGE_RULES_STORE_IDS",
+      "value": "beauty-hosted-20261021",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_HOSTED_PREVIEW",
+      "value": "1",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_MODULE_ENABLED",
+      "value": "1",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+      "value": "0",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "BEAUTY_DATABASE_MODE",
+      "value": "legacy",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    },
+    {
+      "key": "AUTH_TRUST_HOST",
+      "value": "true",
+      "branch": "preview/beauty-ui-alignment-20261021"
+    }
+  ],
+  "databaseProject": "ttworfzgwejdeolegkxl",
+  "migrationsAdded": false,
+  "productionChanged": false
+}

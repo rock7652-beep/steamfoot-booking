@@ -1,0 +1,25 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C",
+  "browser": "154.0.8037.57",
+  "phase": "arrange",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    }
+  ],
+  "errors": [],
+  "error": "locator.click: Error: strict mode violation: getByRole('option').filter({ hasText: '美業同版驗收1028' }) resolved to 2 elements:\n    1) <option value=\"qa-beauty-same-20261028-c754fa-staff\">美業同版驗收1028店長</option> aka getByLabel('課表所屬店長篩選')\n    2) <div id=\"_r_7_-0\" role=\"option\" aria-selected=\"false\" class=\"min-h-11 break-words px-3 py-2 text-sm cursor-pointer bg-primary-50\">美業同版驗收1028 · 0998928103</div> aka getByRole('option', { name: '美業同版驗收1028 ·' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('option').filter({ hasText: '美業同版驗收1028' })\u001b[22m\n"
+}
