@@ -1,0 +1,205 @@
+{
+  "source": "d3a4f64a90f0312dc160d2423d90bc29969a5787",
+  "scope": "isolated Preview; genuine application login; no auth or transport mocks",
+  "regression": {
+    "filesPassed": 1468,
+    "filesSkipped": 22,
+    "testsPassed": 14199,
+    "testsSkipped": 191
+  },
+  "metricsFromObservedToolOutputs": {
+    "sportsPurchaseBalanceMs": 2904,
+    "musicPurchaseBalanceMs": 1841,
+    "musicOptions": [
+      {
+        "menuMs": 65,
+        "clickMs": 111,
+        "optionsVisibleMs": 1422
+      },
+      {
+        "menuMs": 52,
+        "clickMs": 113,
+        "optionsVisibleMs": 1423
+      },
+      {
+        "menuMs": 46,
+        "clickMs": 128,
+        "optionsVisibleMs": 1437
+      }
+    ],
+    "sportsAttendance": [
+      {
+        "sample": 1,
+        "statusMs": 3461,
+        "debitMs": 5777,
+        "restoreMs": 7217
+      },
+      {
+        "sample": 2,
+        "statusMs": 2868,
+        "debitMs": 2872,
+        "restoreMs": 5401
+      },
+      {
+        "sample": 3,
+        "statusMs": 6393,
+        "debitMs": 6398,
+        "restoreMs": 5406
+      }
+    ],
+    "beautyServerTotalMs": 980.6,
+    "beautyClientBalanceMs": null
+  },
+  "proof": {
+    "cards": [
+      {
+        "id": "cmvrrx4ux0001ia07qk0rovyg",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrryscb0001l807feoucwru",
+        "remaining": 10
+      }
+    ],
+    "income": [
+      {
+        "id": "course-purchase:cmvrrx4vu0003ia0750gsfong",
+        "type": "INCOME",
+        "amount": 1000
+      },
+      {
+        "id": "music-receipt:3b130278-63ca-470b-b899-6e6dbdae0b0f",
+        "type": "INCOME",
+        "amount": 1000
+      },
+      {
+        "id": "beauty:cmvrs0nh10002jt072q0wjx06",
+        "type": "INCOME",
+        "amount": 1000
+      }
+    ],
+    "orders": [
+      {
+        "id": "cmvrrx4vu0003ia0750gsfong",
+        "price": 1000,
+        "cardId": "cmvrrx4ux0001ia07qk0rovyg",
+        "status": "CONFIRMED",
+        "customerId": "qa-latency-phase2-9997e4-sports-customer",
+        "requestKey": "dbb49cc4-aa2c-45f0-8861-d5ea7720d4c9"
+      },
+      {
+        "id": "cmvrrysd90003l807g995dplw",
+        "price": 1000,
+        "cardId": "cmvrryscb0001l807feoucwru",
+        "status": "CONFIRMED",
+        "customerId": "qa-latency-phase2-9997e4-music-customer",
+        "requestKey": "b3193b1f-d382-44bb-a647-3c124104b5ab"
+      }
+    ],
+    "bookings": [
+      {
+        "id": "qa-latency-phase2-9997e4-music-booking",
+        "cardId": null,
+        "status": "RESERVED",
+        "pointCost": 0,
+        "sessionId": "qa-latency-phase2-9997e4-music-session",
+        "checkedInAt": null
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-sports-booking",
+        "cardId": "cmvrrx4ux0001ia07qk0rovyg",
+        "status": "RESERVED",
+        "pointCost": 1,
+        "sessionId": "qa-latency-phase2-9997e4-sports-session",
+        "checkedInAt": null
+      }
+    ],
+    "beautyCards": [
+      {
+        "id": "cmvrs0ng10000jt072cu4b52f",
+        "paid": 1000,
+        "planId": "qa-latency-phase2-9997e4-beauty-plan-10",
+        "remaining": 10,
+        "customerId": "qa-latency-phase2-9997e4-beauty-customer-profile-1"
+      }
+    ],
+    "beautyPayments": [
+      {
+        "id": "cmvrs0nh10002jt072q0wjx06",
+        "kind": "SALE",
+        "amount": 1000,
+        "cardId": "cmvrs0ng10000jt072cu4b52f"
+      }
+    ]
+  },
+  "cleanup": {
+    "staff": [
+      {
+        "id": "qa-latency-phase2-9997e4-beauty-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-sports-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-music-staff",
+        "status": "INACTIVE"
+      }
+    ],
+    "users": [
+      {
+        "id": "qa-latency-phase2-9997e4-sports",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-music",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-beauty",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      }
+    ],
+    "activeBeautyPlans": 0,
+    "activeCoursePlans": 0
+  },
+  "aliases": [
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_D57fAEXF9QZeBRT4wkt3NKP5gtvz",
+      "shareCount": 0
+    },
+    {
+      "alias": "steamfoot-booking-git-preview-be-a99dad-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_41Q31AefajwxVYTZCNnu9gSiZ8JR",
+      "shareCount": 0
+    }
+  ],
+  "interruption": {
+    "environmentUnavailable": true,
+    "privateFilesDeletionConfirmed": false,
+    "nativeCourseCancellationCompleted": false,
+    "pendingCourseBookings": [
+      "qa-latency-phase2-9997e4-music-booking",
+      "qa-latency-phase2-9997e4-sports-booking"
+    ],
+    "musicAttendanceLoopCompleted": false,
+    "beautyThreeSampleLoopCompleted": false
+  },
+  "performancePassed": false,
+  "productionReleased": false
+}
