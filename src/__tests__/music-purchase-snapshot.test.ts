@@ -22,3 +22,10 @@ it('seeds only exact current period and first-page history reads and keeps denie
  expect(seeds.take('music-periods',['foreign'])).toBeUndefined();expect(seeds.take('purchases',['learner',20])).toBeUndefined();expect(seeds.take('purchases',['learner',0,{from:'2026-01-01'}])).toBeUndefined();
  expect(seeds.take('music-periods',['learner'])).toMatchObject({data:[{id:'period'}]});expect(seeds.take('purchases',['learner',0])).toMatchObject({data:[{id:'sale'}]});expect(seeds.take('course-card-browse',[{customerId:'learner'}])).toEqual(snapshot.cards);
 });
+
+it('reads only the visible period/history sections for the native student courses view',async()=>{
+ m.periods.mockResolvedValue({success:true,data:[]});m.purchases.mockResolvedValue({success:true,data:[],hasMore:false});
+ expect(await readMusicPurchaseSnapshot({customerId:'learner',musicSnapshotView:'periods'})).toMatchObject({customerId:'learner',periods:{success:true},purchases:{success:true}});
+ expect(m.overview).not.toHaveBeenCalled();expect(m.cards).not.toHaveBeenCalled();
+ m.periods.mockResolvedValue({success:false});m.purchases.mockResolvedValue({success:false});expect(await readMusicPurchaseSnapshot({customerId:'learner',musicSnapshotView:'periods'})).toBeNull();
+});

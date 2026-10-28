@@ -12,6 +12,10 @@ export async function readMusicPurchaseSnapshot(input: unknown): Promise<MusicPu
   if (!input || typeof input !== "object" || !("customerId" in input) || typeof input.customerId !== "string") return null;
   const customerId = input.customerId;
   try {
+    if('musicSnapshotView' in input&&input.musicSnapshotView==='periods'){
+      const [periods,purchases]=await Promise.all([loadMusicPeriods(customerId).catch(()=>null),loadCourseCustomerPurchases(customerId,0).catch(()=>null)]);
+      return periods?.success||purchases?.success?{customerId,...(periods?.success?{periods}:{}),...(purchases?.success?{purchases}:{})}:null;
+    }
     const [overview, cards,periods,purchases] = await Promise.all([
       musicReadTimingScope("overview",()=>measureMusicRead("total",()=>readMusicStudentWorkspace(customerId, true, undefined, false))),
       musicReadTimingScope("cards",()=>measureMusicRead("total",()=>readCourseCards({customerId}, true, undefined, true))),

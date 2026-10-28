@@ -3,8 +3,8 @@ import type { readCourseCards } from "@/server/queries/course-card-browser";
 
 export type MusicPurchaseSnapshot = {
   customerId: string;
-  overview: Extract<Awaited<ReturnType<typeof readMusicStudentWorkspace>>, {success: true}>;
-  cards: Extract<Awaited<ReturnType<typeof readCourseCards>>, {success: true}>;
+  overview?: Extract<Awaited<ReturnType<typeof readMusicStudentWorkspace>>, {success: true}>;
+  cards?: Extract<Awaited<ReturnType<typeof readCourseCards>>, {success: true}>;
   periods?:Extract<Awaited<ReturnType<typeof import('@/server/actions/music-periods').loadMusicPeriods>>,{success:true}>;
   purchases?:Extract<Awaited<ReturnType<typeof import('@/server/actions/course-customer-history').loadCourseCustomerPurchases>>,{success:true}>;
 };
@@ -42,8 +42,8 @@ export function createPurchaseSnapshotSeeds() {
     install(snapshot: MusicPurchaseSnapshot) {
       entries.clear();
       const expires = Date.now() + 1500;
-      entries.set(`overview:${snapshot.customerId}`, {value: snapshot.overview, expires});
-      entries.set(`cards:${snapshot.customerId}`, {value: snapshot.cards, expires});
+      if(snapshot.overview)entries.set(`overview:${snapshot.customerId}`, {value: snapshot.overview, expires});
+      if(snapshot.cards)entries.set(`cards:${snapshot.customerId}`, {value: snapshot.cards, expires});
       if(snapshot.periods)entries.set(`periods:${snapshot.customerId}`,{value:snapshot.periods,expires});
       if(snapshot.purchases)entries.set(`purchases:${snapshot.customerId}`,{value:snapshot.purchases,expires});
     },

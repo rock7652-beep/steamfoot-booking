@@ -31,7 +31,7 @@ export async function musicCheckoutTransport(
     if (typeof result?.success !== "boolean") throw new Error("Unexpected checkout response");
     if (result.success) {
       const snapshot = result.snapshot;
-      if (operation === "purchase" && snapshot?.overview?.success === true && snapshot?.cards?.success === true && typeof snapshot.customerId === "string") {
+      if (operation === "purchase" && typeof snapshot?.customerId === "string" && (snapshot?.overview?.success===true||snapshot?.cards?.success===true||snapshot?.periods?.success===true||snapshot?.purchases?.success===true)) {
         try { if(snapshot.periods)snapshot.periods=parseMusicPeriods(JSON.stringify(snapshot.periods));acceptSnapshot?.(snapshot); } catch { /* Normal authoritative refresh remains available. */ }
       }
       publishMusicFinanceChange(operation, token);

@@ -679,6 +679,7 @@ export function CourseMemberWorkspace({
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
                       ...(source?.automaticAllocation?{beautyExpectedStoreCost:(plans.find(p=>p.id===planId)?.catalogSnapshot?.storeCost??null)}:{}),
+                      musicSnapshotView:music?"periods":undefined,
                       musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:d.get("musicReceivedResolved")!==null?Number(d.get("musicReceivedResolved")):undefined,
                       musicPaymentDate:d.get("musicPaymentDate")?String(d.get("musicPaymentDate")):undefined,
