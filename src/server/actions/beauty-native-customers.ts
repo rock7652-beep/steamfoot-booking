@@ -138,13 +138,20 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
   const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour}));
   committed=true;
+  // Profile checkout uses the same independently authorized card reader as the
+  // panel. A failed read must not turn a committed payment into a retry.
+  let checkoutCards: {customerId:string;result:Extract<Awaited<ReturnType<typeof browseBeautyNativeCards>>,{success:true}>}|undefined;
+  if(!d.beautyRosterSessionId){try{
+   const current=await beautyReadStep('purchase.cards',()=>browseBeautyNativeCards({customerId:d.customerId}));
+   if(current.success)checkoutCards={customerId:d.customerId,result:current};
+  }catch{/* Keep committed purchase successful; the panel retains its reader. */}}
   let rosterSnapshot: {sessionId:string;data:import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterData}|undefined;
   if(d.beautyRosterSessionId){try{
    const {readBeautyNativeRoster}=await import('./beauty-native-roster');
    const current=await beautyReadStep('purchase.roster',()=>readBeautyNativeRoster(d.beautyRosterSessionId!));
    if(current.success&&current.data.roster.some(row=>row.customerId===d.customerId))rosterSnapshot={sessionId:d.beautyRosterSessionId,data:current.data};
   }catch{/* Keep committed purchase successful; the scoped roster reader is the fallback. */}}
-  let syncWarning=false;try{after(()=>{try{revalidatePath('/dashboard/beauty');}catch{console.error('[beauty-checkout] committed; invalidation failed');}});}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning,...(rosterSnapshot?{rosterSnapshot}:{})};
+  let syncWarning=false;try{after(()=>{try{revalidatePath('/dashboard/beauty');}catch{console.error('[beauty-checkout] committed; invalidation failed');}});}catch{syncWarning=true;}return {success:true as const,data:result,syncWarning,...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{})};
  }catch(error){return {...failure(error),uncertain:committed||settingsSaveUncertain(error)};}
 }
 

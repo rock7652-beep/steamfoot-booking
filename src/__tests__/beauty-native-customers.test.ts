@@ -50,3 +50,15 @@ it('keeps a purchase successful if the projection is denied or belongs to anothe
  for(let n=0;n<2;n++)expect(await assignBeautyNativeCard({...input,beautyRosterSessionId:'booking:b'})).toMatchObject({success:true});
  expect(m.issue).toHaveBeenCalledTimes(2);expect(m.roster).toHaveBeenCalledTimes(2);
 });
+it('returns a scoped authoritative card projection for profile checkout without reading a roster',async()=>{
+ const result=await assignBeautyNativeCard(input);
+ expect(result).toMatchObject({success:true,checkoutCards:{customerId:'c',result:{success:true,rows:[{id:'card',remaining:4}],totals:[{remaining:4}]}}});
+ expect(m.manager.mock.calls.map(call=>call[0])).toContain('wallet.read');
+ expect(m.roster).not.toHaveBeenCalled();expect(m.issue).toHaveBeenCalledOnce();
+});
+it('does not fail or repeat a committed checkout when card visibility is denied',async()=>{
+ m.manager.mockImplementation(async permission=>{if(permission==='wallet.read')throw Error('denied');return a;});
+ const result=await assignBeautyNativeCard(input);
+ expect(result).toMatchObject({success:true});expect(result).not.toHaveProperty('checkoutCards');
+ expect(m.issue).toHaveBeenCalledOnce();expect(m.cards).not.toHaveBeenCalled();
+});
