@@ -13,6 +13,7 @@ const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "fix/reminder-optimistic-switches-20261022",
   "feat/line-quota-email-alerts-20261022",
   "fix/line-quota-manager-tab-20261022",
+  "fix/manager-line-binding-beauty-reminders",
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,

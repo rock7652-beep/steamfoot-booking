@@ -53,7 +53,7 @@ export async function notifyLineQuotaExhausted(storeId: string, source: QuotaSou
   await prisma.lineQuotaSetting.update({ where: { storeId }, data: { lastError: `${label} 已回報當月額度不足，請查看發送異常紀錄`, lastCheckedAt: new Date() } });
   await queueAlert(storeId, `${source}:${toLocalMonthStr()}:100`,
     `蒸管家｜${setting.store.name} LINE 訊息額度已用完`,
-    `${label} 已回報當月額度不足，通知可能無法送達。請確認方案或加購額度，並查看未成功送出的提醒。\n\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED\nLINE 管理後台：https://manager.line.biz/`);
+    `${label} 已回報當月額度不足，通知可能無法送達。請確認方案或加購額度，並查看未成功送出的提醒。\n\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : setting.store.industryModule === "BEAUTY" ? "/dashboard/beauty/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED\nLINE 管理後台：https://manager.line.biz/`);
 }
 
 export async function runLineQuotaMonitor(now = new Date()) {
@@ -85,7 +85,7 @@ export async function runLineQuotaMonitor(now = new Date()) {
           const message = threshold === 100 ? "額度已用完，通知可能無法送達" : `訊息額度已使用 ${threshold}% 以上`;
           await queueAlert(setting.storeId, `${source}:${toLocalMonthStr(now)}:${threshold}`,
             `蒸管家｜${setting.store.name} ${label} 額度提醒`,
-            `${label} ${message}。\n目前用量：${quota.used}／${quota.limit} 則。\n請確認方案與加購額度。共用 LINE 由蒸管家總部處理。\n\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED\nLINE 管理後台：https://manager.line.biz/`);
+            `${label} ${message}。\n目前用量：${quota.used}／${quota.limit} 則。\n請確認方案與加購額度。共用 LINE 由蒸管家總部處理。\n\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : setting.store.industryModule === "BEAUTY" ? "/dashboard/beauty/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED\nLINE 管理後台：https://manager.line.biz/`);
         }
       } catch { errors.push(`${source === "STORE" ? "分店" : "共用"} LINE 額度暫時無法查詢`); }
     }
@@ -100,7 +100,7 @@ export async function runLineQuotaMonitor(now = new Date()) {
     const count = bookingFailures + balanceFailures + managerFailures;
     if (count) await queueAlert(setting.storeId, `failures:${digestDate}`,
       `蒸管家｜${setting.store.name} LINE 發送異常摘要`,
-      `昨日（${digestDate}）有 ${count} 筆 LINE 發送失敗紀錄（可能含重試），請登入本店後台確認需要手動聯絡的客人。\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED&date=${digestDate}`);
+      `昨日（${digestDate}）有 ${count} 筆 LINE 發送失敗紀錄（可能含重試），請登入本店後台確認需要手動聯絡的客人。\n${deriveBaseUrl()}${setting.store.industryModule === "COURSE" ? "/dashboard/courses/reminders" : setting.store.industryModule === "BEAUTY" ? "/dashboard/beauty/reminders" : "/dashboard/reminders"}?tab=logs&status=FAILED&date=${digestDate}`);
     await prisma.lineQuotaSetting.update({ where: { storeId: setting.storeId }, data: { snapshot: snapshots, lastCheckedAt: now, lastError: errors.join("；") || null } });
     if (errors.length) failed++;
     // Retry only recent events: Resend idempotency is bounded to 24 hours.
