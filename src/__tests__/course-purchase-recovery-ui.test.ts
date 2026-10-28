@@ -20,13 +20,14 @@ const api = {
   prepare: vi.fn(), get: vi.fn(), getPending: vi.fn(), cancel: vi.fn(), acknowledge: vi.fn(),
 } satisfies PurchaseIntentTransport<{customerId:string;requestKey:string;amount:number}>;
 const send = vi.fn();
+const received = vi.fn();
 function Body({ customerId }: { customerId: string }) {
   const recovery = useCoursePurchaseRecovery(customerId, true);
   const [error, setError] = useState("");
   return createElement("div", null,
     createElement(CoursePurchaseRecoveryNotice, { recovery, disabled: false, onCommitted: () => {} }),
     createElement("p", { role: "alert" }, error),
-    createElement("button", { disabled: recovery.blocked, onClick: () => void recovery.submit({ customerId, requestKey: "unused", amount: 1000 }, send).then(result => setError(result.error ?? "")) }, "購買"),
+    createElement("button", { disabled: recovery.blocked, onClick: () => void recovery.submit({ customerId, requestKey: "unused", amount: 1000 }, send).then(result => { received(result); setError(result.error ?? ""); }) }, "購買"),
   );
 }
 function render(customerId: string) {
@@ -43,6 +44,19 @@ beforeEach(() => {
   api.cancel.mockResolvedValue({ success: true, data: cancelled });
   api.acknowledge.mockResolvedValue({ success: true, data: committed });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+});
+
+it("returns a confirmed purchase immediately while a slow status read continues to block another purchase", async () => {
+  let finish!: (result: {success:true;data:typeof committed}) => void;
+  send.mockImplementation(async () => { api.get.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })); return {success:true}; });
+  await act(async () => root.render(render("student-a")));
+  await act(async () => button("購買").click());
+  expect(received).toHaveBeenCalledWith(expect.objectContaining({success:true}));
+  expect(button("購買").disabled).toBe(true);
+  expect(host.textContent).toContain("購買已完成，狀態仍在核對中");
+  await act(async () => finish({success:true,data:committed}));
+  expect(host.textContent).toContain("這筆購買已完成");
+  expect(button("購買").disabled).toBe(true);
 });
 
 it("shows a business error while retaining the unconfirmed purchase warning", async () => {

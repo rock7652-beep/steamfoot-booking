@@ -144,7 +144,10 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
       // Keep the server blocker until the operator sees and acknowledges the
       // completed purchase. A lost response must never release another device.
       setConfirmedScope(scopeKey);
-      await inspect();
+      // The server has already confirmed the transaction. Show the receipt
+      // immediately while rechecking its durable state in the background; the
+      // confirmed scope keeps the form blocked until explicit acknowledgement.
+      void inspect().catch(() => {});
       return sameScope() ? result : { success: false, discarded: true };
     }
     const state = await inspect();
