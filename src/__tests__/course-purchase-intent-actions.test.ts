@@ -7,7 +7,8 @@ vi.mock("@/server/services/course-store-lock",()=>({lockCourseStore:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findFirst:mocks.customer}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{coursePointPlan:{findFirst:mocks.plan},$transaction:mocks.transaction}}));
 vi.mock("@/server/services/course-purchase-intent",()=>({prepareCourseIntent:mocks.prepare,cancelCourseIntent:mocks.cancel,acknowledgeCourseIntent:mocks.ack,readCourseIntent:mocks.read,readPendingCourseIntent:mocks.pending}));
-import {prepareCoursePurchaseIntent,getCoursePurchaseIntent,cancelCoursePurchaseIntent,acknowledgeCoursePurchaseIntent} from "@/server/actions/course-purchase-intent";
+import {prepareCoursePurchaseIntent,getCoursePurchaseIntent,getPendingCoursePurchaseIntent,cancelCoursePurchaseIntent,acknowledgeCoursePurchaseIntent} from "@/server/actions/course-purchase-intent";
+import {permissionRequestSession} from "@/lib/permission-request-session";
 const key="f49c86b2-967f-4b0e-8b90-9a4c63169398";
 const actor={storeId:"store-a",user:{id:"u",role:"OWNER",staffId:"staff-a",storeId:"store-a"}};
 const base={planId:"plan",customerId:"customer",expiresDate:"2099-12-31",requestKey:key,discountKind:"AMOUNT",discountValue:0,paymentMethod:"CARD",expectedListPrice:1000};
@@ -23,6 +24,17 @@ describe("course intent actions authorization",()=>{
  it("lets purchase-authorized staff recover without transaction.read",async()=>{
   const result=await getCoursePurchaseIntent({customerId:"customer",requestKey:key});expect(result.success).toBe(true);
   expect(mocks.managerRead.mock.calls.map(c=>c[0]).sort()).toEqual(["customer.read","transaction.create","wallet.create"]);
+ });
+ it("shares authentication only within one pending lookup while keeping all grants and customer visibility",async()=>{
+  const authenticate=vi.fn(async()=>actor.user);
+  mocks.managerRead.mockImplementation(async permission=>{await permissionRequestSession(authenticate);if(permission==="transaction.create"&&authenticate.mock.calls.length>1)throw new Error("revoked");return actor;});
+  mocks.pending.mockResolvedValue(null);
+  expect((await getPendingCoursePurchaseIntent({customerId:"customer"})).success).toBe(true);
+  expect(authenticate).toHaveBeenCalledTimes(1);
+  expect(mocks.managerRead.mock.calls.map(c=>c[0]).sort()).toEqual(["customer.read","transaction.create","wallet.create"]);
+  expect(mocks.customer).toHaveBeenCalledOnce();expect(mocks.pending).toHaveBeenCalledOnce();
+  expect((await getPendingCoursePurchaseIntent({customerId:"customer"})).success).toBe(false);
+  expect(authenticate).toHaveBeenCalledTimes(2);expect(mocks.pending).toHaveBeenCalledOnce();
  });
  it("rejects unauthorized or cross-store customer before reading an intent",async()=>{
   mocks.customer.mockResolvedValue(null);expect((await getCoursePurchaseIntent({customerId:"foreign",requestKey:key})).success).toBe(false);expect(mocks.read).not.toHaveBeenCalled();
