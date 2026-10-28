@@ -63,6 +63,24 @@ const attendance = (name = "甲同學") => row(name).querySelector<HTMLButtonEle
 async function clickAttendance(name = "甲同學") { await act(async () => attendance(name).click()); }
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; }
 
+it('applies a matching authoritative attendance projection without another request',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),status:'ATTENDED',customerName:'後端確認學員'},booking('b')],waitlist:[]}}});
+ await render(true);await clickAttendance();expect(m.quick).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="後端確認學員：已出席"]')).not.toBeNull();
+});
+it('does not use another class projection and falls back to its scoped reader',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'foreign',data:{roster:[{...booking(),planName:'不得套用'}]}}});
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[]}});
+ await render(true);await clickAttendance();expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('不得套用');
+});
+it('reconciles once instead of accepting an older response after concurrent row writes',async()=>{
+ const first=deferred<unknown>(),second=deferred<unknown>();m.status.mockImplementation(input=>input.bookingId==='a'?first.promise:second.promise);
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},{...booking('b'),status:'ATTENDED'}],waitlist:[]}});
+ await render(true);await clickAttendance();await clickAttendance('乙同學');
+ await act(async()=>second.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[booking(),{...booking('b'),status:'ATTENDED'}]}}}));
+ await act(async()=>first.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),planName:'過期回應',status:'ATTENDED'},booking('b')]}}}));
+ expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('過期回應');expect(attendance('乙同學').getAttribute('aria-label')).toBe('乙同學：已出席');
+});
+
 it('defers finance-triggered quick reads during attendance and reconciles exactly once after commit',async()=>{
  const oldPath=window.location.pathname;vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState({},'','/s/lubymusic/admin/dashboard/courses');
  try{

@@ -1,6 +1,6 @@
 "use server";
 import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
-import {readPurchasedCourseRoster,readPurchasedCourseCards} from '@/server/queries/course-purchase-roster';
+import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
@@ -531,10 +531,12 @@ export async function createMemberCourseBooking(input: unknown) {
 }
 
 export async function updateCourseBookingStatus(input: unknown) {
+ return withCourseCheckoutRequest(async()=>{
   try {
     const data = z
       .object({
         bookingId: id,
+        returnRoster:z.boolean().default(false),
         status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW", "STUDENT_LEAVE"]),
         noShowChoice: z
           .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
@@ -607,10 +609,12 @@ export async function updateCourseBookingStatus(input: unknown) {
       if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
       else refresh();
     }
-    return { success: true as const };
+    const rosterSnapshot=data.returnRoster&&!data.member?await readCommittedCourseRoster(actor.storeId,settledSessionId):null;
+    return { success: true as const,...(rosterSnapshot?{rosterSnapshot}:{}) };
   } catch (error) {
     return handleActionError(error);
   }
+ });
 }
 
 export async function cancelCourseSession(input: unknown) {
@@ -1032,7 +1036,7 @@ export async function updateCourseRosterBatch(input: unknown) {
   let target = "UNKNOWN";
   let count = 0;
   try {
-    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
+    const data=z.object({sessionId:id,returnRoster:z.boolean().default(false),target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
     target = data.target;
     count = data.bookings.length;
@@ -1072,7 +1076,8 @@ export async function updateCourseRosterBatch(input: unknown) {
     if (!(await musicLookup)) after(()=>refresh());
     const refreshMs = Date.now() - refreshStartedAt;
     console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, phases:timings, totalMs: Date.now() - startedAt });
-    return {success:true as const};
+    const rosterSnapshot=data.returnRoster?await readCommittedCourseRoster(storeId,data.sessionId):null;
+    return {success:true as const,...(rosterSnapshot?{rosterSnapshot}:{})};
   }catch(error){
     console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);
