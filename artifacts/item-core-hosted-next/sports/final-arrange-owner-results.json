@@ -1,0 +1,21 @@
+{
+  "profile": "sports",
+  "phase": "arrange",
+  "role": "owner",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "sports-live-flow-store",
+      "role": "OWNER"
+    },
+    {
+      "step": "item-only-no-card-arrangement-created",
+      "pass": true,
+      "date": "2026-11-03"
+    }
+  ],
+  "errors": []
+}

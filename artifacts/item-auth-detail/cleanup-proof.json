@@ -1,0 +1,42 @@
+{
+  "scope": "isolated-preview-only",
+  "proof": {
+    "staff": [
+      {
+        "id": "qa-auth-detail-20261028-bb9975-music-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-auth-detail-20261028-bb9975-sports-staff",
+        "status": "INACTIVE"
+      }
+    ],
+    "users": [
+      {
+        "id": "qa-auth-detail-20261028-bb9975-music",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-auth-detail-20261028-bb9975-sports",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      }
+    ],
+    "newIncome": 0,
+    "newPurchases": 0,
+    "existingBalances": [
+      {
+        "cards": 6,
+        "storeId": "sports-live-flow-store",
+        "remaining": 60
+      },
+      {
+        "cards": 6,
+        "storeId": "store-lubymusic",
+        "remaining": 60
+      }
+    ]
+  },
+  "shareRevoked": true
+}

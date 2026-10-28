@@ -1,0 +1,55 @@
+{
+  "scope": "3 synthetic Preview members; not real money",
+  "rows": [
+    {
+      "sample": 1,
+      "orders": 1,
+      "cards": 1,
+      "grants": 1,
+      "sales": 1,
+      "cash_entries": 1,
+      "remaining": 5,
+      "paid": 4500,
+      "statuses": [
+        "CONFIRMED"
+      ],
+      "notification_statuses": [
+        "SKIPPED"
+      ]
+    },
+    {
+      "sample": 2,
+      "orders": 1,
+      "cards": 1,
+      "grants": 1,
+      "sales": 1,
+      "cash_entries": 1,
+      "remaining": 5,
+      "paid": 4500,
+      "statuses": [
+        "CONFIRMED"
+      ],
+      "notification_statuses": [
+        "SKIPPED"
+      ]
+    },
+    {
+      "sample": 3,
+      "orders": 1,
+      "cards": 1,
+      "grants": 1,
+      "sales": 1,
+      "cash_entries": 1,
+      "remaining": 5,
+      "paid": 4500,
+      "statuses": [
+        "CONFIRMED"
+      ],
+      "notification_statuses": [
+        "SKIPPED"
+      ]
+    }
+  ],
+  "allAccountsDisabled": true,
+  "shareRevoked": true
+}

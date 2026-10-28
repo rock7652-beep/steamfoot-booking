@@ -1,0 +1,82 @@
+{
+  "deployment": "dpl_4x9GNXtKuznNYZHQ991XFhydk2Tp",
+  "complete": true,
+  "checks": [
+    {
+      "store": "sports",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "sports",
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "sports",
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "sports",
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "music",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "music",
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "music",
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "store": "music",
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    }
+  ],
+  "ui": [
+    {
+      "store": "sports",
+      "studentPlansVisible": true,
+      "pathname": "/hq/dashboard/courses"
+    },
+    {
+      "store": "music",
+      "studentPlansVisible": true,
+      "pathname": "/hq/dashboard/courses"
+    }
+  ]
+}

@@ -1,0 +1,2514 @@
+{
+  "module": "music",
+  "phase": "timing",
+  "deployment": "dpl_7dFqzD8hEAzttKP2b2kyjcmZ824Q",
+  "started": "2026-10-28T08:49:27.221Z",
+  "complete": true,
+  "samples": [
+    {
+      "sample": 1,
+      "clickAtEpochMs": 1793177374267,
+      "feedbackMs": 132,
+      "statusMs": 6055,
+      "debitMs": 6060,
+      "restoreMs": 4467
+    },
+    {
+      "sample": 2,
+      "clickAtEpochMs": 1793177384842,
+      "feedbackMs": 37,
+      "statusMs": 4921,
+      "debitMs": 4928,
+      "restoreMs": 3919
+    },
+    {
+      "sample": 3,
+      "clickAtEpochMs": 1793177393761,
+      "feedbackMs": 33,
+      "statusMs": 4934,
+      "debitMs": 4939,
+      "restoreMs": 4942
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177372583.4858,
+      "durationMs": 932,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "startedAtEpochMs": 1793177372579.324,
+      "durationMs": 1588,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177374042.6042,
+      "durationMs": 1450,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177377484.631,
+      "durationMs": 2472,
+      "action": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177382081.1482,
+      "durationMs": 2444,
+      "action": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177386759.732,
+      "durationMs": 2583,
+      "action": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177391228.687,
+      "durationMs": 2398,
+      "action": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177395785.438,
+      "durationMs": 2662,
+      "action": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177400650.156,
+      "durationMs": 2522,
+      "action": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe"
+    }
+  ],
+  "errors": [],
+  "initiators": [
+    {
+      "timestamp": 47484.555916,
+      "wallTime": 1793177372.563089,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "002330050c2902c0acf29f12aacc93c9cdcb902a06",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        },
+        {
+          "functionName": "iv",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47486.028917,
+      "wallTime": 1793177374.036273,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        },
+        {
+          "functionName": "iv",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47487.989042,
+      "wallTime": 1793177375.996383,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        },
+        {
+          "functionName": "iv",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47489.470978,
+      "wallTime": 1793177377.47829,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        },
+        {
+          "functionName": "iv",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47492.552701,
+      "wallTime": 1793177380.559939,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        },
+        {
+          "functionName": "iv",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        },
+        {
+          "functionName": "e",
+          "url": "/_next/static/chunks/10787q4ojjapa.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47494.068878,
+      "wallTime": 1793177382.076068,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "l",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "t",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0g3vhf.wmd2ap.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47497.156393,
+      "wallTime": 1793177385.163601,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "line": 0
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47498.748654,
+      "wallTime": 1793177386.755863,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "dispatch",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "o",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": 47501.831538,
+      "wallTime": 1793177389.838594,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47503.218023,
+      "wallTime": 1793177391.225065,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47506.242606,
+      "wallTime": 1793177394.249648,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47507.775105,
+      "wallTime": 1793177395.782257,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "405bb8c536b07a4f93a4f9e806a7630f88aab8a72b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47511.066096,
+      "wallTime": 1793177399.073424,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47512.639821,
+      "wallTime": 1793177400.646887,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "4075f95e477fb51f1b4edfd58dad78c22d62ca99fe",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "timestamp": 47515.781044,
+      "wallTime": 1793177403.788373,
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "actionId": "60f4d4c99900fcd38ed3ceb6e036c3f4bc9836012b",
+      "type": "script",
+      "frames": [
+        {
+          "functionName": "I",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 0
+        },
+        {
+          "functionName": "M",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "s",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "action",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "_",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "g",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        },
+        {
+          "functionName": "i",
+          "url": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "line": 1
+        }
+      ]
+    }
+  ],
+  "responses": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::xgfvl-1793177372660-c40f9822d8e9",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "method": "GET",
+      "status": 200,
+      "requestId": "sfo1::hnd1::6d8nr-1793177372632-cfb2e6f1131e",
+      "serverTiming": "musicread;dur=806"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::xcnpm-1793177374086-eaed8714f662",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::qtjn5-1793177376034-3ee3be5c5b1d",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::f6zsz-1793177377531-c0a03606d11a",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::78fqb-1793177380597-2b2e7187125d",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::shg4h-1793177382120-36c757417859",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::4lrfn-1793177385198-ab7f9b689bbe",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::89ppd-1793177386793-e45d343a9dc2",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::j9brh-1793177389875-08746608bb65",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::bkkbr-1793177391258-6575087c8714",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::bczfb-1793177394296-5c5eb9b165a9",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::h929h-1793177395816-f307190af77e",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::szjg6-1793177399109-b7909ae28611",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::2ljfg-1793177400691-51b304f3c218",
+      "serverTiming": null
+    }
+  ]
+}

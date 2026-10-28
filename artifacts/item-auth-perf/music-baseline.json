@@ -1,0 +1,93 @@
+{
+  "module": "music",
+  "phase": "baseline",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "started": "2026-10-28T01:14:06.230Z",
+  "complete": true,
+  "samples": [
+    {
+      "sample": 1,
+      "optionsMs": 8513,
+      "checkoutMs": 2364,
+      "balance": 10,
+      "visibleBalanceMs": 16438
+    },
+    {
+      "sample": 2,
+      "optionsMs": 1406,
+      "checkoutMs": 1864,
+      "balance": 20,
+      "visibleBalanceMs": 5218
+    },
+    {
+      "sample": 3,
+      "optionsMs": 5936,
+      "checkoutMs": 1857,
+      "balance": 30,
+      "visibleBalanceMs": 5704
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1341,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1868,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2732,
+      "action": "400e2dea8474a28d55d8070efe9b8864b6e1794a2c"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "durationMs": 2184,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2908,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1174,
+      "action": "400e2dea8474a28d55d8070efe9b8864b6e1794a2c"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "durationMs": 1695,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1721,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1399,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 3566,
+      "action": "400e2dea8474a28d55d8070efe9b8864b6e1794a2c"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "durationMs": 1770,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2270,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    }
+  ],
+  "errors": []
+}

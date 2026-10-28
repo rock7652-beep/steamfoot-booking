@@ -1,0 +1,47 @@
+{
+  "deployment": "dpl_4x9GNXtKuznNYZHQ991XFhydk2Tp",
+  "checks": [
+    {
+      "prefix": "store",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "prefix": "store",
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "prefix": "store",
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "prefix": "store",
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "prefix": "hq",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": null,
+      "cache": "private, no-cache, no-store, max-age=0, must-revalidate"
+    }
+  ],
+  "complete": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\nnull !== true\n"
+}

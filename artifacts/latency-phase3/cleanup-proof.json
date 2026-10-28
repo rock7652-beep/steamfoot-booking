@@ -1,0 +1,85 @@
+{
+  "cleanup": {
+    "staff": [
+      {
+        "id": "qa-latency-phase3-404947-beauty-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-latency-phase3-404947-music-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-latency-phase3-404947-sports-staff",
+        "status": "INACTIVE"
+      }
+    ],
+    "users": [
+      {
+        "id": "qa-latency-phase3-404947-sports",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      },
+      {
+        "id": "qa-latency-phase3-404947-music",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      },
+      {
+        "id": "qa-latency-phase3-404947-beauty",
+        "status": "SUSPENDED",
+        "passwordRemoved": true
+      }
+    ],
+    "activeBeautyPlans": 0,
+    "activeCoursePlans": 0
+  },
+  "aliases": [
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_G7UUvaqw46PJypsp4CGgDGzdXY9F",
+      "shareCount": 0
+    },
+    {
+      "alias": "steamfoot-booking-git-preview-be-a99dad-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_BCAcn9NBDxDz8jA46SsxvvR9XuB3",
+      "shareCount": 0
+    }
+  ],
+  "privateFilesRemoved": true,
+  "nativeCancellations": true,
+  "priorPhaseCancellations": {
+    "cards": [
+      {
+        "id": "cmvrrx4ux0001ia07qk0rovyg",
+        "remaining": 10
+      },
+      {
+        "id": "cmvrryscb0001l807feoucwru",
+        "remaining": 10
+      }
+    ],
+    "sessions": [
+      {
+        "id": "qa-latency-phase2-9997e4-music-session",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "qa-latency-phase2-9997e4-sports-session",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      }
+    ]
+  }
+}

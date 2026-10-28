@@ -1,0 +1,36 @@
+{
+  "complete": true,
+  "snapshotResponses": [
+    {
+      "status": 200,
+      "relativeMs": -12679
+    },
+    {
+      "status": 200,
+      "relativeMs": -11098
+    },
+    {
+      "status": 200,
+      "relativeMs": -10610
+    },
+    {
+      "status": 200,
+      "relativeMs": -514
+    },
+    {
+      "status": 200,
+      "relativeMs": 9542
+    }
+  ],
+  "memberBefore": "目前持有 0 個方案",
+  "visibilityBefore": "visible",
+  "confirmNoticeMs": 294,
+  "visibilityAfter": "visible",
+  "memberAutoUpdatedMs": 9941,
+  "memberAfter": "目前持有 1 個方案",
+  "memberRemaining": "剩餘 5 次",
+  "documentUnchanged": true,
+  "pollCount": 5,
+  "bookingPageVisible": true,
+  "bookingDocumentUnchanged": true
+}

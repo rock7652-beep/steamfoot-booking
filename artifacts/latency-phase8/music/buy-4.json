@@ -1,0 +1,74 @@
+{
+  "module": "music",
+  "phase": "buy",
+  "sample": "4",
+  "deployment": "dpl_GcDdMrC1aDLscjGD6bjSkoNJxkfH",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login-and-own-1000-plan-form-ready",
+      "pass": true
+    },
+    {
+      "step": "purchase-confirmed-and-current-panel-updated-without-navigation",
+      "pass": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793179757086.716,
+      "durationMs": 690,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793179761009.51,
+      "durationMs": 908,
+      "action": "401e8d956d3965edf36841af0502286129c3856210"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "startedAtEpochMs": 1793179761290.62,
+      "durationMs": 1419,
+      "action": null
+    }
+  ],
+  "responses": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::h929h-1793179757126-28ea371c5b8d",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::bc7xr-1793179761044-d20144d5d535",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-checkout",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::qkfqg-1793179761327-3ce8de32cc5b",
+      "serverTiming": "checkout-commit;dur=845"
+    }
+  ],
+  "clickAtEpochMs": 1793179761172,
+  "pendingVisible": true,
+  "responseMs": 1580,
+  "receipt": {
+    "purchaseId": "cmvrwxjnp0003jn070aj8iggc",
+    "cardId": "cmvrwxjn20001jn07wirdwg5l",
+    "customerId": "qa-profile8-811c8347-music-customer",
+    "name": "計時驗收music811c8347方案",
+    "quantity": 10,
+    "unit": "SESSION",
+    "paid": 1000
+  },
+  "acknowledgementMs": 1613,
+  "balanceVisibleMs": 1621
+}

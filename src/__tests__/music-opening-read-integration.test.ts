@@ -1,6 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({bookings:vi.fn(),absences:vi.fn(),people:vi.fn(),purchases:vi.fn(),cards:vi.fn(),leaveCounts:vi.fn(),sessionCount:vi.fn(),transaction:vi.fn(),query:vi.fn(),openingCards:vi.fn(),purchaseCount:vi.fn()}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBooking:{findMany:(q:{where:{sessionId?:string}})=>q.where.sessionId?m.bookings(q):m.absences(q),groupBy:m.leaveCounts},courseSession:{count:m.sessionCount},coursePurchase:{findMany:m.purchases},coursePointCard:{findMany:m.cards}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{findFirst:async()=>null},courseBooking:{findMany:(q:{where:{sessionId?:string}})=>q.where.sessionId?m.bookings(q):m.absences(q),groupBy:m.leaveCounts},courseSession:{count:m.sessionCount},coursePurchase:{findMany:m.purchases},coursePointCard:{findMany:m.cards}}}));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.people}}}));
 vi.mock("@/server/services/course-access",()=>({courseTransaction:m.transaction}));
 import {getCourseRoster,getCourseCards} from "@/server/queries/course-members";

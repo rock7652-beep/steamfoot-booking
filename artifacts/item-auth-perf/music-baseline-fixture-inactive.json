@@ -1,0 +1,32 @@
+{
+  "module": "music",
+  "phase": "baseline",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "started": "2026-10-28T01:11:29.875Z",
+  "complete": false,
+  "samples": [],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 837,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1204,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 2314,
+      "action": "400e2dea8474a28d55d8070efe9b8864b6e1794a2c"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "durationMs": 1436,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "errors": [],
+  "failure": "TimeoutError: locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog', { name: '學員繳費 · 效能音樂驗收1028', exact: true }).getByRole('button', { name: '確認購課與本次收款', exact: true }) to be visible\u001b[22m\n"
+}

@@ -143,10 +143,6 @@ async function readDashboardLayout({
       redirect("/dashboard/courses");
     }
   }
-  const trialStatus = hqPlatform ? undefined : industryModule === "course"
-    ? await settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
-    : await settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined));
-
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
   // 走 unstable_cache（60s TTL, tag: "store-plan"）— 之前直接呼叫
@@ -164,18 +160,26 @@ async function readDashboardLayout({
   }
   return false;
   })();
-  const pricingPlan = isAdmin && (hqPlatform || !activeStoreId)
-    ? ("ALLIANCE" as const)
-    : effectiveStoreId
-      ? await settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
-      : ("EXPERIENCE" as const);
-  const featureStates = effectiveStoreId
-    ? await settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
-    // HQ opens a store selector; page and iframe enforce the selected store's grant.
-    : {
-      [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-      [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-    };
+  // These reads depend on the already authorized store and module, but not on
+  // one another. Keep their existing gates and failure behavior while avoiding
+  // three consecutive round trips before the dashboard can render.
+  const [trialStatus, pricingPlan, featureStates] = await Promise.all([
+    hqPlatform ? undefined : industryModule === "course"
+      ? settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
+      : settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined)),
+    isAdmin && (hqPlatform || !activeStoreId)
+      ? ("ALLIANCE" as const)
+      : effectiveStoreId
+        ? settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
+        : ("EXPERIENCE" as const),
+    effectiveStoreId
+      ? settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
+      // HQ opens a store selector; page and iframe enforce the selected store's grant.
+      : {
+        [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+        [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+      },
+  ]);
   const effectiveFeatures = Object.fromEntries(Object.entries(featureStates).map(([feature, state]) => [feature, state === "ENABLED"]));
 
 

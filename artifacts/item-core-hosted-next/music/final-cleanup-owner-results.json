@@ -1,0 +1,21 @@
+{
+  "profile": "music",
+  "phase": "cleanup",
+  "role": "owner",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "store-lubymusic",
+      "role": "OWNER"
+    },
+    {
+      "step": "normal-ui-cancel-owned-test-session",
+      "sessionId": "cmvrdvs0w0003jk08pvi3o9fr",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

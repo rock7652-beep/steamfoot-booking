@@ -1,0 +1,115 @@
+{
+  "module": "music",
+  "phase": "before",
+  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
+  "complete": true,
+  "samples": [
+    {
+      "step": "student-profile-six-purchases-visible",
+      "sample": 1,
+      "elapsedMs": 5117,
+      "remaining": 60
+    },
+    {
+      "step": "student-profile-six-purchases-visible",
+      "sample": 2,
+      "elapsedMs": 6410,
+      "remaining": 60
+    },
+    {
+      "step": "student-profile-six-purchases-visible",
+      "sample": 3,
+      "elapsedMs": 5781,
+      "remaining": 60
+    },
+    {
+      "step": "authorization-then-invalid-checkout-no-financial-write",
+      "sample": 1,
+      "status": 200,
+      "elapsedMs": 1175,
+      "invalid": true
+    },
+    {
+      "step": "authorization-then-invalid-checkout-no-financial-write",
+      "sample": 2,
+      "status": 200,
+      "elapsedMs": 851,
+      "invalid": true
+    },
+    {
+      "step": "authorization-then-invalid-checkout-no-financial-write",
+      "sample": 3,
+      "status": 200,
+      "elapsedMs": 754,
+      "invalid": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 761,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "operation": "purchases",
+      "durationMs": 903,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 719,
+      "action": "401e8d956d3965edf36841af0502286129c3856210"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "operation": "purchases",
+      "durationMs": 950,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 969,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/music-read",
+      "operation": "purchases",
+      "durationMs": 867,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 930,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 1138,
+      "action": "401e8d956d3965edf36841af0502286129c3856210"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 1145,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 848,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 754,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    }
+  ]
+}

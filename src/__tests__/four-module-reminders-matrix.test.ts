@@ -17,6 +17,7 @@ import React, { act, createElement } from "react";
 import { jsx } from "react/jsx-runtime";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
 import type { LabelSnapshot } from "@/lib/customer-labels";
 const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), labels: vi.fn(), write: vi.fn(), open: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/s/synthetic/admin/dashboard/bookings", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));

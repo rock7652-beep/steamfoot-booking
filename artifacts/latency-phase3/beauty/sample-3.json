@@ -1,0 +1,120 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_BCAcn9NBDxDz8jA46SsxvvR9XuB3",
+  "browser": "154.0.8037.57",
+  "phase": "profile-buy",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    },
+    {
+      "step": "beauty-profile-purchase-authoritative-balance",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173573340.283,
+      "durationMs": 1033
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173577378.591,
+      "durationMs": 875
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173581262.819,
+      "durationMs": 930
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173585198.785,
+      "durationMs": 970
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173589180.103,
+      "durationMs": 1010
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173593196.4978,
+      "durationMs": 1069
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173597271.3079,
+      "durationMs": 717
+    },
+    {
+      "path": "/api/beauty/calendar",
+      "startedAtEpochMs": 1793173607088.6099,
+      "durationMs": 892
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "startedAtEpochMs": 1793173612294.226,
+      "durationMs": 835
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793173617541.861,
+      "durationMs": 1610
+    }
+  ],
+  "responses": [
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::4lrfn-1793173570658-da9e22f19042",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::h929h-1793173604416-a460a604b115",
+      "serverTiming": null
+    },
+    {
+      "path": "/api/beauty/customer-read",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::kxscx-1793173612331-00bdaa632c84",
+      "serverTiming": "handler;dur=331.2, scope_authorization;dur=168.1, authorization;dur=41.1, customer_permission;dur=0, customer_scope;dur=16.5, cards;dur=35.4, holds_ledger;dur=17.9, data;dur=163.1"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::h929h-1793173611967-6d39f2fefbde",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::szjg6-1793173617573-6f97a7b36258",
+      "serverTiming": null
+    }
+  ],
+  "clickAtEpochMs": 1793173617489,
+  "responseMs": 1709,
+  "purchaseAndBalanceMs": 1729
+}

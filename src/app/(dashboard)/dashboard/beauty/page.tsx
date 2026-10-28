@@ -37,6 +37,8 @@ import { prisma } from "@/lib/db";
 import { beautyManager } from "@/server/beauty/access";
 import { beautyPageManager } from "@/server/beauty/page-access";
 import { beautyDashboard } from "@/server/beauty/queries";
+import { beautyPlanPurchaseIntentsEnabled } from "@/server/beauty/plan-checkout-input";
+import { beautyCollectionIntentsEnabled } from "@/server/beauty/collection-intent";
 import { tabs } from "@/lib/beauty/contracts";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -137,6 +139,8 @@ export default async function BeautyPage({
       {tab==='顧客經營'&&<CustomerGrowthNavigation active="care"/>}
       {tab!=='首頁'&&tab!=='班表'&&tab!=='顧客管理'&&tab!=='營運'&&<PageHeader compact title={tab} />}
       <BeautyDashboard
+        planPurchaseRecoveryEnabled={beautyPlanPurchaseIntentsEnabled()}
+        collectionRecoveryEnabled={beautyCollectionIntentsEnabled()}
         homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
         data={data}

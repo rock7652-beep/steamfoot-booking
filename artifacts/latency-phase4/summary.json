@@ -1,0 +1,53 @@
+{
+  "source": "338bea76777fba02cc5871231d032f8fa5a762d3",
+  "productionReleased": false,
+  "performancePassed": false,
+  "samples": {
+    "sports": {
+      "purchaseMs": 2300,
+      "samples": [
+        {
+          "sample": 1,
+          "statusMs": 3943,
+          "debitMs": 3949,
+          "restoreMs": 4942
+        },
+        {
+          "sample": 2,
+          "statusMs": 3886,
+          "debitMs": 3892,
+          "restoreMs": 2374
+        },
+        {
+          "sample": 3,
+          "statusMs": 5406,
+          "debitMs": 5410,
+          "restoreMs": 4898
+        }
+      ]
+    },
+    "music": {
+      "purchaseMs": 2554,
+      "samples": [
+        {
+          "sample": 1,
+          "statusMs": 9547,
+          "debitMs": 9553,
+          "restoreMs": 7960
+        },
+        {
+          "sample": 2,
+          "statusMs": 8449,
+          "debitMs": 8454,
+          "restoreMs": 5429
+        },
+        {
+          "sample": 3,
+          "statusMs": 4376,
+          "debitMs": 4380,
+          "restoreMs": 4404
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_6ae6JkCrBphnVVFjTn72hypwTipB",
+  "browser": "154.0.8037.57",
+  "phase": "cleanup",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "authenticated-cross-store-read-denied",
+      "pass": true
+    },
+    {
+      "step": "cancel-only-owned-test-booking-through-normal-ui",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

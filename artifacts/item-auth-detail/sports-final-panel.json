@@ -1,0 +1,46 @@
+{
+  "module": "sports",
+  "phase": "panel",
+  "deployment": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb",
+  "complete": true,
+  "samples": [
+    {
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 1,
+      "elapsedMs": 1930,
+      "remaining": 60
+    },
+    {
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 2,
+      "elapsedMs": 1852,
+      "remaining": 60
+    },
+    {
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 3,
+      "elapsedMs": 1357,
+      "remaining": 60
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "durationMs": 1428,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "durationMs": 1487,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "durationMs": 1157,
+      "action": null
+    }
+  ]
+}

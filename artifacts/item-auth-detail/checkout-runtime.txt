@@ -1,0 +1,293 @@
+## Runtime Logs
+
+**Project:** prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR
+**Deployment:** dpl_46Lxe44YasdMKvWzeefubLLxjwhb
+**Time range:** 2026-10-28T03:13:34.783Z → 2026-10-28T03:43:34.783Z
+
+### 2026-10-28T03:39:24.078Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=spgr2-1793158762497-77db796bb146 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 1062,
+      phases: {
+        'wallet.create.permission.session': 411,
+        'transaction.create.permission.session': 411,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 412,
+        'wallet.create.permission.featureStore': 247,
+        'wallet.create.permission.feature': 126,
+        'permission.wallet.create': 784,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 491,
+        'wallet.create.module': 112,
+        'wallet.create.membership': 128,
+        'authorization.wallet.create': 1031,
+        'transaction.create.membership': 144,
+        'transaction.create.module': 159,
+        'authorization.transaction.create': 1061
+      }
+    }
+
+### 2026-10-28T03:39:22.395Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=c9j4g-1793158760884-7a508432e01f domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 1029,
+      phases: {
+        'wallet.create.permission.session': 359,
+        'transaction.create.permission.session': 358,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 359,
+        'wallet.create.permission.featureStore': 217,
+        'wallet.create.permission.feature': 145,
+        'permission.wallet.create': 721,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 499,
+        'transaction.create.module': 123,
+        'wallet.create.module': 138,
+        'wallet.create.membership': 155,
+        'authorization.wallet.create': 1013,
+        'transaction.create.membership': 171,
+        'authorization.transaction.create': 1029
+      }
+    }
+
+### 2026-10-28T03:39:20.680Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=zhk5l-1793158758455-cd0f1356d39f domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 1675,
+      phases: {
+        'wallet.create.permission.session': 716,
+        'transaction.create.permission.session': 716,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 716,
+        'wallet.create.permission.featureStore': 304,
+        'wallet.create.permission.feature': 330,
+        'permission.wallet.create': 1350,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 754,
+        'wallet.create.module': 159,
+        'wallet.create.membership': 175,
+        'authorization.wallet.create': 1645,
+        'transaction.create.membership': 191,
+        'transaction.create.module': 205,
+        'authorization.transaction.create': 1675
+      }
+    }
+
+### 2026-10-28T03:36:21.215Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=rmsf5-1793158576951-410d46f76d0d domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 3778,
+      phases: {
+        'wallet.create.permission.session': 1289,
+        'transaction.create.permission.session': 1289,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 1289,
+        'wallet.create.permission.featureStore': 1044,
+        'wallet.create.permission.feature': 982,
+        'permission.wallet.create': 3316,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 2042,
+        'transaction.create.module': 398,
+        'wallet.create.module': 412,
+        'wallet.create.membership': 429,
+        'authorization.wallet.create': 3761,
+        'transaction.create.membership': 446,
+        'authorization.transaction.create': 3777
+      }
+    }
+
+### 2026-10-28T03:36:16.852Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=kzb4m-1793158574006-f2b0c9c63d2e domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 2325,
+      phases: {
+        'wallet.create.permission.session': 633,
+        'transaction.create.permission.session': 633,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 633,
+        'wallet.create.permission.featureStore': 515,
+        'wallet.create.permission.feature': 717,
+        'permission.wallet.create': 1865,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 1247,
+        'transaction.create.module': 392,
+        'wallet.create.membership': 409,
+        'wallet.create.module': 424,
+        'authorization.wallet.create': 2305,
+        'transaction.create.membership': 444,
+        'authorization.transaction.create': 2325
+      }
+    }
+
+### 2026-10-28T03:36:13.678Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=2t749-1793158572724-3c5eeddf591f domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 584,
+      phases: {
+        'wallet.create.permission.session': 170,
+        'transaction.create.permission.session': 170,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 171,
+        'wallet.create.permission.featureStore': 108,
+        'wallet.create.permission.feature': 154,
+        'permission.wallet.create': 432,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 275,
+        'transaction.create.module': 89,
+        'wallet.create.module': 104,
+        'transaction.create.membership': 124,
+        'authorization.transaction.create': 570,
+        'wallet.create.membership': 135,
+        'authorization.wallet.create': 582
+      }
+    }
+
+### 2026-10-28T03:29:13.881Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=gwqdp-1793158153159-52f59ad55f43 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 322,
+      phases: {
+        'wallet.create.permission.session': 93,
+        'transaction.create.permission.session': 93,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 93,
+        'wallet.create.permission.featureStore': 47,
+        'wallet.create.permission.feature': 68,
+        'permission.wallet.create': 209,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 137,
+        'transaction.create.module': 23,
+        'wallet.create.module': 45,
+        'wallet.create.membership': 68,
+        'authorization.wallet.create': 299,
+        'transaction.create.membership': 91,
+        'authorization.transaction.create': 322
+      }
+    }
+
+### 2026-10-28T03:29:13.051Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=dzz8n-1793158152356-6c1a53cb0db2 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 300,
+      phases: {
+        'wallet.create.permission.session': 93,
+        'transaction.create.permission.session': 93,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 93,
+        'wallet.create.permission.featureStore': 48,
+        'wallet.create.permission.feature': 47,
+        'permission.wallet.create': 188,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 116,
+        'transaction.create.module': 23,
+        'wallet.create.module': 44,
+        'transaction.create.membership': 68,
+        'authorization.transaction.create': 277,
+        'wallet.create.membership': 90,
+        'authorization.wallet.create': 300
+      }
+    }
+
+### 2026-10-28T03:29:12.249Z POST /s/lubymusic/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=cfrzm-1793158151259-32f83efc802f domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 472,
+      phases: {
+        'wallet.create.permission.session': 126,
+        'transaction.create.permission.session': 126,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 126,
+        'wallet.create.permission.featureStore': 66,
+        'wallet.create.permission.feature': 111,
+        'permission.wallet.create': 303,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 198,
+        'transaction.create.module': 84,
+        'wallet.create.membership': 105,
+        'wallet.create.module': 125,
+        'authorization.wallet.create': 450,
+        'transaction.create.membership': 147,
+        'authorization.transaction.create': 471
+      }
+    }
+
+### 2026-10-28T03:29:05.296Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=vzhfb-1793158143262-00f58431fe95 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 1676,
+      phases: {
+        'wallet.create.permission.session': 508,
+        'transaction.create.permission.session': 508,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 508,
+        'wallet.create.permission.featureStore': 389,
+        'wallet.create.permission.feature': 458,
+        'permission.wallet.create': 1354,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 868,
+        'transaction.create.module': 230,
+        'wallet.create.module': 252,
+        'wallet.create.membership': 276,
+        'authorization.wallet.create': 1652,
+        'transaction.create.membership': 299,
+        'authorization.transaction.create': 1676
+      }
+    }
+
+### 2026-10-28T03:29:03.142Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=g86lx-1793158141641-341642f1a7e3 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 979,
+      phases: {
+        'wallet.create.permission.session': 297,
+        'transaction.create.permission.session': 297,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 297,
+        'wallet.create.permission.featureStore': 175,
+        'wallet.create.permission.feature': 241,
+        'permission.wallet.create': 713,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 438,
+        'transaction.create.module': 176,
+        'wallet.create.module': 196,
+        'wallet.create.membership': 219,
+        'authorization.wallet.create': 955,
+        'transaction.create.membership': 242,
+        'authorization.transaction.create': 977
+      }
+    }
+
+### 2026-10-28T03:29:01.531Z POST /s/sports-live-flow/admin/dashboard/courses [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=sjr6f-1793158140802-15485f4b5a1a domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [course-checkout-perf] {
+      durationMs: 251,
+      phases: {
+        'wallet.create.permission.session': 124,
+        'transaction.create.permission.session': 124,
+        'wallet.create.permission.grant': 0,
+        'transaction.create.permission.grant': 0,
+        'permission.transaction.create': 124,
+        'wallet.create.permission.featureStore': 45,
+        'wallet.create.permission.feature': 34,
+        'permission.wallet.create': 203,
+        'writeStore.reused': 1,
+        'writeStore.resolve': 88,
+        'wallet.create.module': 10,
+        'wallet.create.membership': 19,
+        'authorization.wallet.create': 232,
+        'transaction.create.membership': 28,
+        'transaction.create.module': 37,
+        'authorization.transaction.create': 249
+      }
+    }

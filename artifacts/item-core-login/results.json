@@ -1,0 +1,102 @@
+{
+  "complete": true,
+  "scope": "actual local login and authorization; no auth adapter; native module rollout not changed",
+  "hostedAcceptance": false,
+  "results": [
+    {
+      "step": "anonymous-protected-read-denied",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "owner-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "authenticated-module-route",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "owner-cross-store-request-denied",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "logout-session-cleared",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "staff-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "restricted-staff-request-denied",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "owner-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "authenticated-module-route",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "owner-cross-store-request-denied",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "logout-session-cleared",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "staff-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "restricted-staff-request-denied",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "owner-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "authenticated-module-route",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "owner-cross-store-request-denied",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "logout-session-cleared",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "staff-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "restricted-staff-request-denied",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

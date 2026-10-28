@@ -1,0 +1,61 @@
+{
+  "module": "sports",
+  "phase": "buy",
+  "deployment": "dpl_4hX39kwLK2KaDK1sehEJkkerrsUw",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login-and-own-1000-plan-form-ready",
+      "pass": true
+    },
+    {
+      "step": "purchase-confirmed-and-current-panel-updated-without-navigation",
+      "pass": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "startedAtEpochMs": 1793175677093.983,
+      "durationMs": 2125,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    }
+  ],
+  "responses": [
+    {
+      "path": "/hq/login",
+      "method": "POST",
+      "status": 303,
+      "requestId": "sfo1:sfo1:hnd1::hnd1::hnd1::2b29l-1793175664550-097c472096c4",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::bkkbr-1793175671223-3cc57925c81c",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::js86v-1793175677154-25142eb63e06",
+      "serverTiming": null
+    }
+  ],
+  "clickAtEpochMs": 1793175676993,
+  "pendingVisible": true,
+  "responseMs": 2277,
+  "receipt": {
+    "purchaseId": "cmvrui0tk0003lb081nfk3417",
+    "cardId": "cmvrui0sm0001lb08v1f502kc",
+    "customerId": "qa-final-6d7054dd-sports-customer",
+    "name": "æ•ˆèƒ½é©—æ”¶sports54ddA10",
+    "quantity": 10,
+    "unit": "SESSION",
+    "paid": 1000
+  },
+  "acknowledgementMs": 2292,
+  "balanceVisibleMs": 2300
+}

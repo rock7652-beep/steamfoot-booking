@@ -1,0 +1,16 @@
+{
+  "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C",
+  "proof": {
+    "cards": 0,
+    "appointments": [
+      {
+        "id": "cmvrm57mq0002jk07jyg9uqgw",
+        "debit": false,
+        "cardId": null,
+        "status": "RESERVED",
+        "startsAt": "2026-11-04T06:00:00+00:00",
+        "serviceId": "beauty-hosted-face"
+      }
+    ]
+  }
+}

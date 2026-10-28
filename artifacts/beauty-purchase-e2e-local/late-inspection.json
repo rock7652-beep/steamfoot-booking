@@ -1,0 +1,11 @@
+{
+  "responseReturned": true,
+  "responseReportedFailure": true,
+  "isolatedDatabaseRead": {
+    "orders": 2,
+    "cards": 1,
+    "cancelledIntentsWithoutPurchase": 3
+  },
+  "priorOrdersBeforeLateRequests": 2,
+  "limitation": "response.text decoded the streamed Chinese error with the wrong character encoding; the exact error-text assertion failed twice and is retained in late-confirmed.json"
+}

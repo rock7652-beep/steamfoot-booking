@@ -1,0 +1,142 @@
+{
+  "module": "sports",
+  "phase": "baseline",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "started": "2026-10-28T01:12:40.657Z",
+  "complete": false,
+  "samples": [],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "durationMs": 963,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1465,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "durationMs": 2304,
+      "action": "400e2dea8474a28d55d8070efe9b8864b6e1794a2c"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1532,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "durationMs": 2755,
+      "action": "40b0116a08da873a8c4abc0721d67aafe37b52e964"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1548,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1644,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1561,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1647,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1533,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1574,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1554,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1343,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1494,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1432,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1489,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1552,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "durationMs": 901,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1533,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1511,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1427,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1454,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1443,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1481,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1531,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+      "durationMs": 1978,
+      "action": null
+    }
+  ],
+  "errors": [],
+  "failure": "TimeoutError: locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText(/(^|\\s)10 堂/).first() to be visible\u001b[22m\n"
+}

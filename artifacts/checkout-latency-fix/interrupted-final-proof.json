@@ -1,0 +1,228 @@
+{
+  "productCommit": "9af5c0e7aecf8229c95a4d530f17cb3600fc7aea",
+  "scope": "isolated test DB only; final native UI acceptance interrupted",
+  "completeNativeAcceptance": false,
+  "unitTests": {
+    "filesPassed": 1467,
+    "testsPassed": 14191,
+    "filesSkipped": 22,
+    "testsSkipped": 191
+  },
+  "cleanupMethod": "guarded SQL for unbound, unpaid, unconsumed owned reservations; not UI acceptance",
+  "financial": {
+    "cards": [
+      {
+        "id": "cmvro4ged0001jp08lqz8qk5c",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T05:22:47.942",
+        "remaining": 10,
+        "customerId": "qa-checkout-fix-20261028-a1d16f-sports-customer"
+      },
+      {
+        "id": "cmvro5upy0001jq07kjkm1p41",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T05:23:53.159",
+        "remaining": 10,
+        "customerId": "qa-checkout-fix-20261028-a1d16f-music-customer"
+      },
+      {
+        "id": "cmvromyhe0001l308dotfkrkl",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T05:37:11.187",
+        "remaining": 10,
+        "customerId": "qa-checkout-fix-20261028-a1d16f-music-customer-profile2"
+      }
+    ],
+    "orders": [
+      {
+        "id": "cmvro4gfg0003jp08eybahx56",
+        "name": "修復運動A10",
+        "price": 1000,
+        "cardId": "cmvro4ged0001jp08lqz8qk5c",
+        "planId": "qa-checkout-fix-20261028-a1d16f-sports-plan",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "sports-live-flow-store",
+        "createdAt": "2026-10-28T05:22:47.98",
+        "customerId": "qa-checkout-fix-20261028-a1d16f-sports-customer",
+        "requestKey": "3fe9fb46-f977-4d99-852e-c5d92abb50a1",
+        "confirmedBy": "qa-checkout-fix-20261028-a1d16f-sports",
+        "paymentMethod": "CARD"
+      },
+      {
+        "id": "cmvro5uqo0003jq07lxr7ekcq",
+        "name": "修復音樂A10",
+        "price": 1000,
+        "cardId": "cmvro5upy0001jq07kjkm1p41",
+        "planId": "qa-checkout-fix-20261028-a1d16f-music-plan",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T05:23:53.184",
+        "customerId": "qa-checkout-fix-20261028-a1d16f-music-customer",
+        "requestKey": "bc5a8a90-ccec-4168-a8b5-bc9cc111f408",
+        "confirmedBy": "qa-checkout-fix-20261028-a1d16f-music",
+        "paymentMethod": "CARD"
+      },
+      {
+        "id": "cmvromyiq0003l308mfslnhea",
+        "name": "修復音樂A10",
+        "price": 1000,
+        "cardId": "cmvromyhe0001l308dotfkrkl",
+        "planId": "qa-checkout-fix-20261028-a1d16f-music-plan",
+        "points": 10,
+        "status": "CONFIRMED",
+        "storeId": "store-lubymusic",
+        "createdAt": "2026-10-28T05:37:11.234",
+        "customerId": "qa-checkout-fix-20261028-a1d16f-music-customer-profile2",
+        "requestKey": "d8d6a412-b373-4b74-b421-5bf08a196f9c",
+        "confirmedBy": "qa-checkout-fix-20261028-a1d16f-music",
+        "paymentMethod": "CARD"
+      }
+    ],
+    "entries": [
+      {
+        "kind": "GRANT",
+        "cardId": "cmvro4ged0001jp08lqz8qk5c",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T05:22:47.942"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvro5upy0001jq07kjkm1p41",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T05:23:53.159"
+      },
+      {
+        "kind": "GRANT",
+        "cardId": "cmvromyhe0001l308dotfkrkl",
+        "points": 10,
+        "bookingId": null,
+        "createdAt": "2026-10-28T05:37:11.187"
+      }
+    ],
+    "cashbook": [
+      {
+        "id": "course-purchase:cmvro4gfg0003jp08eybahx56",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "sports-live-flow-store"
+      },
+      {
+        "id": "music-receipt:f032ecab-1e2e-42c7-9d3d-0502c090d277",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      },
+      {
+        "id": "music-receipt:7be3478a-2dd8-4b36-b370-4863aafc740b",
+        "type": "INCOME",
+        "amount": 1000,
+        "storeId": "store-lubymusic"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-music-session",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-sports-session",
+        "cancelled": true,
+        "bookingStatus": "CANCELLED"
+      }
+    ],
+    "beautyCards": null,
+    "beautyLedger": null,
+    "beautyPayments": null,
+    "beautyAppointments": [
+      {
+        "id": "cmvrob4o60002l708obvop2n3",
+        "debit": false,
+        "cardId": null,
+        "status": "CANCELLED",
+        "revision": 1
+      }
+    ]
+  },
+  "accounts": {
+    "plans": [
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-music-plan",
+        "active": false
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-sports-plan",
+        "active": false
+      }
+    ],
+    "staff": [
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-sports-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-music-staff",
+        "status": "INACTIVE"
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-beauty-staff",
+        "status": "INACTIVE"
+      }
+    ],
+    "users": [
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-sports",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-music",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-beauty",
+        "status": "SUSPENDED",
+        "credentialRemoved": true
+      }
+    ],
+    "beautyPlans": [
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-beauty-plan-10",
+        "active": false
+      },
+      {
+        "id": "qa-checkout-fix-20261028-a1d16f-beauty-plan-20",
+        "active": false
+      }
+    ]
+  },
+  "aliases": [
+    {
+      "alias": "steamfoot-booking-git-preview-be-a99dad-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_HM4J8PkgajidfbqY8YM5iqoRBxyf",
+      "shareCount": 0
+    },
+    {
+      "alias": "steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app",
+      "deploymentId": "dpl_EQgCZPzL5vixMWGyuQxAmjEjmbax",
+      "shareCount": 0
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    },
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+      "shareCount": 1
+    }
+  ],
+  "privateFileDeletionConfirmed": false,
+  "temporaryAccessRevoked": true
+}

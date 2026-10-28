@@ -1,0 +1,54 @@
+{
+  "module": "music",
+  "phase": "cleanup",
+  "deployment": "dpl_DejnxwQ8wMkWKDnHee38LEYi5Jtq",
+  "started": "2026-10-28T06:43:22.645Z",
+  "complete": true,
+  "samples": [
+    {
+      "step": "valid-other-store-learner-denied",
+      "status": 200,
+      "success": false,
+      "hasRows": false
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "roster-responsive",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "roster-responsive",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "step": "normal cancellation"
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169808482.927,
+      "durationMs": 1405,
+      "action": "002330050c2902c0acf29f12aacc93c9cdcb902a06"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/card-read",
+      "startedAtEpochMs": 1793169810038.945,
+      "durationMs": 1034,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "startedAtEpochMs": 1793169810420.3547,
+      "durationMs": 1810,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "errors": []
+}

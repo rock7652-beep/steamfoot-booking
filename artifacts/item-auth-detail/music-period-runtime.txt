@@ -1,0 +1,53 @@
+## Runtime Logs
+
+**Project:** prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR
+**Deployment:** dpl_46Lxe44YasdMKvWzeefubLLxjwhb
+**Time range:** 2026-10-28T03:13:35.302Z → 2026-10-28T03:43:35.302Z
+
+### 2026-10-28T03:39:22.742Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=g9vgh-1793158761723-34be1f8798f2 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 609 }
+
+### 2026-10-28T03:39:21.887Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=vm4gq-1793158760484-f5475b8dfab0 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 864 }
+
+### 2026-10-28T03:39:20.944Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=sjr6f-1793158759963-3e53191c9292 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 468 }
+
+### 2026-10-28T03:39:19.560Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=c9j4g-1793158758382-b35952acd129 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 675 }
+
+### 2026-10-28T03:39:15.408Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=gwqdp-1793158754670-487e172258da domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 219 }
+
+### 2026-10-28T03:36:24.514Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=x6gzw-1793158583838-567fb09575b4 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 302 }
+
+### 2026-10-28T03:36:22.780Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=h5l47-1793158581900-f490de92087a domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 493 }
+
+### 2026-10-28T03:35:08.200Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=pg5kx-1793158507467-6bb2173434da domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 324 }
+
+### 2026-10-28T03:35:06.613Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=jmwlm-1793158505990-1b9dd465ba80 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 319 }
+
+### 2026-10-28T03:35:05.191Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=rnlgd-1793158504538-ca2d4517a2ec domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 265 }
+
+### 2026-10-28T03:34:54.439Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=cd268-1793158493907-5deb263adbd9 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 229 }
+
+### 2026-10-28T03:34:53.109Z GET /s/lubymusic/admin/dashboard/courses/music-period-read [info/function]
+dep=dpl_46Lxe44YasdMKvWzeefubLLxjwhb branch=release/music-production-20261023 request=k9smp-1793158492378-ecbf666839b9 domain=steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app environment=preview region=sfo1 runtime=nodejs24.x stream=stdout
+    [music-period-read-perf] { durationMs: 345 }

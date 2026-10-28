@@ -1,0 +1,18 @@
+{
+  "complete": false,
+  "results": [
+    {
+      "name": "response-dropped-server-committed",
+      "dropped": 1,
+      "orderDelta": 1
+    },
+    {
+      "name": "response-dropped-reload-recovered"
+    },
+    {
+      "name": "cancel-before-late-request",
+      "intercepted": 1,
+      "orderDelta": 0
+    }
+  ]
+}

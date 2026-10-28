@@ -2,16 +2,23 @@
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {musicBatchLabel,musicPeriodLabel} from "@/lib/music-purchase-periods";
 import { useEffect, useState, useTransition } from "react";
-import { loadMusicPeriods, confirmMusicLessonPeriod } from "@/server/actions/music-periods";
+import { confirmMusicLessonPeriod } from "@/server/actions/music-periods";
+import type {loadMusicPeriods} from "@/server/actions/music-periods";
+import {readMusicPeriods} from "@/lib/music-period-read-client";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
 import { formatTWDateTime } from "@/lib/date-utils";
 type Data = Extract<Awaited<ReturnType<typeof loadMusicPeriods>>, {success:true}>;
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";
 const status=(b:Data["data"][number]["bookings"][number])=> b.absenceKind==="STUDENT_LEAVE"?"請假／補課依原規則":b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假・扣堂":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":b.status==="ATTENDED"?"已出席":b.status==="NO_SHOW"?"曠課":b.status==="CANCELLED"?"已取消":b.status==="CHECKED_IN"?"已報到":"待上課";
 export function MusicPeriodOverview({customerId,initialCardId=""}:{customerId:string;initialCardId?:string}) {
   const personnelText = useCoursePersonnelText();
- const [data,setData]=useState<Data|null>(null),[error,setError]=useState(""),[cardId,setCardId]=useState(initialCardId),[period,setPeriod]=useState("all"),[edit,setEdit]=useState(""),[slot,setSlot]=useState(""),[reason,setReason]=useState("");
+ const [response,setResponse]=useState<{customerId:string;data:Data|null;error:string}|null>(null);
+ const data=response?.customerId===customerId?response.data:null,error=response?.customerId===customerId?response.error:'';
+ const setError=(error:string)=>setResponse(previous=>previous?.customerId===customerId?{...previous,error}:previous);
+ const [cardId,setCardId]=useState(initialCardId),[period,setPeriod]=useState("all"),[edit,setEdit]=useState(""),[slot,setSlot]=useState(""),[reason,setReason]=useState("");
  const [revision,setRevision]=useState(0),[pending,start]=useTransition();
- useEffect(()=>{let active=true;void loadMusicPeriods(customerId).then(result=>{if(!active)return;if(result.success){setData(result);setError("");}else setError(result.error);}).catch(()=>{if(active)setError("逐期資料讀取失敗，請重試");});return()=>{active=false;};},[customerId,revision]);
+ const reader=usePanelReader('music-periods',readMusicPeriods);
+ useEffect(()=>{let active=true;const fail=(error:string)=>{if(active)setResponse(previous=>({customerId,data:previous?.customerId===customerId?previous.data:null,error}));};reader.invalidate(customerId);void reader.read(customerId).then(result=>{if(!active)return;if(result.success)setResponse({customerId,data:result,error:''});else fail(result.error);}).catch(()=>fail("逐期資料讀取失敗，請重試"));return()=>{active=false;};},[customerId,revision,reader]);
  if(error&&!data)return <div role="alert" className="py-3"><p>{error}</p><button className={field} onClick={()=>setRevision(n=>n+1)}>重新讀取</button></div>;
  if(!data)return <p role="status" className="py-3">讀取逐期紀錄中…</p>;
  const card=data.data.find(c=>c.id===cardId)??data.data[0];

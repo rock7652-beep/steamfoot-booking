@@ -39,7 +39,9 @@ it('uses an explicit free trial price and trial duration instead of store defaul
  expect(host.querySelector<HTMLInputElement>('[aria-label="排課費用"]')!.value).toBe('0');expect(host.querySelector<HTMLInputElement>('[aria-label="排課時長"]')!.value).toBe('30');
 });
 
-it.each([true,false])('single assigned picker respects server-verified legacy teaching-item eligibility (%s)',async matching=>{
+it.each([true,false])('single assigned picker permits arranging learners before payment regardless of legacy plan eligibility (%s)',async matching=>{
  await mount('單次',[{id:'existing',name:'既有學員',fee:'ten-lessons',sportsMode:'LEGACY',assignedEligible:matching,subject:'subject',cardId:'legacy-ten',available:10}]);
- expect(host.textContent?.includes('既有學員')).toBe(matching);
+ await act(async()=>host.querySelector<HTMLInputElement>('[aria-label="搜尋學員"]')!.dispatchEvent(new FocusEvent('focusin',{bubbles:true})));
+ expect(host.textContent).toContain('既有學員');
+ expect(host.textContent).toContain('點名前須有適用方案');
 });

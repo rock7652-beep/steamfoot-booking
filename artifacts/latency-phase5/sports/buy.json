@@ -1,0 +1,47 @@
+{
+  "module": "sports",
+  "phase": "buy",
+  "deployment": "dpl_7dFqzD8hEAzttKP2b2kyjcmZ824Q",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-login-and-own-1000-plan-form-ready",
+      "pass": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "startedAtEpochMs": 1793177192441.803,
+      "durationMs": 988,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "responses": [
+    {
+      "path": "/hq/login",
+      "method": "POST",
+      "status": 303,
+      "requestId": "sfo1:sfo1:hnd1::hnd1::hnd1::hzkxf-1793177184983-66c121cb6c99",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::g25ht-1793177192490-8769d4d50792",
+      "serverTiming": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "method": "POST",
+      "status": 200,
+      "requestId": "sfo1::hnd1::9lld9-1793177196350-d34c396b7e5c",
+      "serverTiming": null
+    }
+  ],
+  "clickAtEpochMs": 1793177196229,
+  "pendingVisible": true,
+  "failure": "Error: response.text: Protocol error (Network.getResponseBody): No data found for resource with given identifier",
+  "visibleText": "體驗版\n我的店\n\n日常工作\n\n首頁\n課表排程\n顧客管理\n顧客經營\n工單\n進銷存\n營運\n分析\n\n店務管理\n\n空間管理\n教學項目\n收費方式\n教練管理\n人員管理\n圖片公告\n設定\nv2.9.0 · staging\n現金抽屜\n？操作指南\n預覽\n▾\n體驗版 · 剩 4 天\n11\n運動流程隔離驗收店\n後台\n計時驗收sports2f767163\n老闆\n繼續設定\n已完成 5/6\n下一步：確認營業時間與公休 →\n查看全部步驟 →\n稍後設定\n不再提醒\n顧客管理\n＋新增顧客\n結帳完成，方案已加入\n篩選\n⋯\n\t姓名\t電話\t所屬店長\t系統通知\t可用額度\t最近來店\t標籤／備註\t操作\n\t計時驗收sports2f767163\t☎ 0996-291-427\t\n計時驗收sports2f767163店長\n\t未開啟\t—\t—\t\n＋標籤\n\n—\n\n\t\n⋯\n計時驗收sports2f767163\n查看會員前台\n編輯顧客資料\n關閉\n顧客概況\n紀錄\n健康追蹤\n\n本次購買已完成\n\n計時驗收sports2f767163方案 · 10 堂 · 實收 NT$ 1,000\n\n已加入方案，持有方案資料正在同步，請勿重複購買。\n\n結帳完成，方案已加入\n安排課程\n☎ 0996-291-427\n＋標籤\n所屬店長：計時驗收sports2f767163店長\n推薦人：未設定\n修改歸屬\n\n店內備註\n\n＋新增\n持有方案\n購買方案\n\n有效方案合計 · 1 個\n\n總剩餘 10 堂 · 已預約 0 · 可用 10\n\n有效方案\n已到期／停用\n計時驗收sports2f767163方案\n還可預約 10 堂\n2027-10-27 到期\n\n本店會員與 LINE\n\n讀取中…\n\n讀取LINE狀態中…\n\n更多\nv2.9.0 • 2026/10/28 16:41 • staging\n購買成功，方案已加入"
+}

@@ -1,0 +1,22 @@
+{
+  "module": "music",
+  "phase": "panel",
+  "deployment": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb",
+  "complete": false,
+  "samples": [],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 5553,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses",
+      "operation": null,
+      "durationMs": 901,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    }
+  ],
+  "failure": "TimeoutError: locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText(/\u7b2c 6 \u6b21\u8cfc\u8ab2/).first() to be visible\u001b[22m\n"
+}

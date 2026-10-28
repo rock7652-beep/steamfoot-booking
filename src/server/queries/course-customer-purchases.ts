@@ -15,7 +15,7 @@ import { courseHistoryRange } from "@/lib/course-history-range";
 
 export async function readCourseCustomerPurchases(input: unknown, offset = 0, range: {from?:string;to?:string} = {}, previewOnly=false, timings?:Record<string,number>) {
   const work=()=>readPurchases(input,offset,range,previewOnly,timings);
-  return previewOnly?withPermissionRequestSession(work):work();
+  return withPermissionRequestSession(work);
 }
 
 async function readPurchases(input: unknown, offset: number, range: {from?:string;to?:string}, previewOnly:boolean, timings?:Record<string,number>) {

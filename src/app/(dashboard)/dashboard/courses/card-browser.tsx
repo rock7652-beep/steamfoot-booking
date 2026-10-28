@@ -7,29 +7,32 @@ import { CourseCardReservations } from "./card-reservations";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useRef, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
+import {readNativeCourseCards} from "@/lib/course-card-read-client";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0, canReadBookings=false, sharedCardState="ENABLED" }: {
+export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
   dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
-  onSelect:(card:CourseCardView)=>void;revision?:number;
+  onSelect:(card:CourseCardView)=>void;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
-  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??browseCourseCards, String(revision));
+  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??(native?readNativeCourseCards:browseCourseCards), String(revision));
   const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
   const previousSearch = useRef(state.search);
+  const consumedSnapshot=useRef<typeof snapshot>(undefined);
   const syncRevision = useMusicDataRevision();
   const key=JSON.stringify([syncRevision,dataScope,customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
+    if(snapshot&&snapshot!==consumedSnapshot.current&&snapshot.customerId===customerId&&snapshot.revision===revision&&(!dataScope||dataScope==="operational")&&!state.search&&!state.history&&state.page===0){consumedSnapshot.current=snapshot;queueMicrotask(()=>{if(active)setResult({key,customerId,rows:snapshot.result.rows,hasMore:snapshot.result.hasMore,totals:snapshot.result.totals});});return()=>{active=false;};}
     const delay=previousSearch.current===state.search?0:200;previousSearch.current=state.search;
     const timer=setTimeout(()=>{browseReader.read({customerId,dataScope,...state}).then(r=>{
       if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore,totals:r.totals} : {key,customerId,rows:[],hasMore:false,error:r.error});
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},delay);
     return ()=>{active=false;clearTimeout(timer);};
-  },[customerId,dataScope,state,key,browseReader]);
+  },[customerId,dataScope,state,key,browseReader,snapshot,revision]);
   const ready=result?.key===key;
   const visible=result?.customerId===customerId?result:null;
   const renderRows=()=>visible?.rows.map(c=>{

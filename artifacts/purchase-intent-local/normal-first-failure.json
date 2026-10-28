@@ -1,0 +1,14 @@
+{
+  "mode": "normal",
+  "login": true,
+  "attempts": 0,
+  "matchingRequests": 0,
+  "responseDropped": false,
+  "completed": false,
+  "reloadConfirmed": false,
+  "failure": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
+  "messages": [
+    "正在確認購買狀態…",
+    ""
+  ]
+}

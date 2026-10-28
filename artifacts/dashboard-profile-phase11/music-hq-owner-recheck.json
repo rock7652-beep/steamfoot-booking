@@ -1,0 +1,94 @@
+{
+  "deployment": "dpl_4x9GNXtKuznNYZHQ991XFhydk2Tp",
+  "checks": [
+    {
+      "prefix": "store",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store",
+      "redirected": false,
+      "finalPath": "/s/lubymusic/admin/dashboard/customer-support-read",
+      "contentType": "application/json"
+    },
+    {
+      "prefix": "store",
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store",
+      "redirected": false,
+      "finalPath": "/s/lubymusic/admin/dashboard/customer-support-read",
+      "contentType": "application/json"
+    },
+    {
+      "prefix": "store",
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store",
+      "redirected": false,
+      "finalPath": "/s/lubymusic/admin/dashboard/customer-support-read",
+      "contentType": "application/json"
+    },
+    {
+      "prefix": "store",
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store",
+      "redirected": false,
+      "finalPath": "/s/lubymusic/admin/dashboard/customer-support-read",
+      "contentType": "application/json"
+    },
+    {
+      "prefix": "hq",
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": null,
+      "cache": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "redirected": true,
+      "finalPath": "/s/lubymusic/admin/dashboard",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "prefix": "hq",
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": null,
+      "cache": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "redirected": true,
+      "finalPath": "/s/lubymusic/admin/dashboard",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "prefix": "hq",
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": null,
+      "cache": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "redirected": true,
+      "finalPath": "/s/lubymusic/admin/dashboard",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "prefix": "hq",
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": null,
+      "cache": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "redirected": true,
+      "finalPath": "/s/lubymusic/admin/dashboard",
+      "contentType": "text/html; charset=utf-8"
+    }
+  ],
+  "complete": true
+}

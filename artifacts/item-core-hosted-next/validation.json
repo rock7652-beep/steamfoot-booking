@@ -1,0 +1,11 @@
+{
+  "candidate": "cc4c96f4b3c7f06d28d79218a57f2563a75a2458",
+  "unitTestsPassed": 14141,
+  "unitTestsSkipped": 191,
+  "filesPassed": 1461,
+  "filesSkipped": 22,
+  "typeScript": "PASS",
+  "changedFilesLint": "no errors; existing ref cleanup/musicStore warnings retained",
+  "productionDeploymentUnchanged": "dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5",
+  "physicalDevicesTested": false
+}

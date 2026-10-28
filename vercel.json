@@ -58,6 +58,8 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "review/shared-item-login-20261028": false,
+      "fix/shared-item-entitlement-core": false,
       "perf/liff-member-entry-20261027": false,
       "fix/member-store-switcher-visual-20261027": false,
       "fix/course-member-store-switch-20261027": false,

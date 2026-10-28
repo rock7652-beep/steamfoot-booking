@@ -1,0 +1,100 @@
+[
+  {
+    "operation": "layout",
+    "ok": true,
+    "totalMs": 1702.2,
+    "spans": [
+      {
+        "name": "authorization",
+        "durationMs": 572.3,
+        "ok": true
+      },
+      {
+        "name": "store_scope",
+        "durationMs": 21.1,
+        "ok": true
+      },
+      {
+        "name": "read_permissions",
+        "durationMs": 4.8,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 26.8,
+        "ok": true
+      },
+      {
+        "name": "read_audit",
+        "durationMs": 154.7,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 37.8,
+        "ok": true
+      },
+      {
+        "name": "read_features",
+        "durationMs": 44,
+        "ok": true
+      },
+      {
+        "name": "read_plan",
+        "durationMs": 61.4,
+        "ok": true
+      },
+      {
+        "name": "read_trial",
+        "durationMs": 177.9,
+        "ok": true
+      },
+      {
+        "name": "module_check",
+        "durationMs": 49.1,
+        "ok": true
+      },
+      {
+        "name": "feature",
+        "durationMs": 72.7,
+        "ok": true
+      },
+      {
+        "name": "read_scope",
+        "durationMs": 82.9,
+        "ok": true
+      },
+      {
+        "name": "read_labels",
+        "durationMs": 126.7,
+        "ok": true
+      }
+    ]
+  },
+  {
+    "operation": "course-member-page",
+    "totalMs": 694,
+    "spans": [
+      {
+        "name": "customer_list",
+        "durationMs": 138,
+        "ok": true
+      },
+      {
+        "name": "people_and_permissions",
+        "durationMs": 45,
+        "ok": true
+      },
+      {
+        "name": "catalog_metadata",
+        "durationMs": 49,
+        "ok": true
+      },
+      {
+        "name": "workspace_finish",
+        "durationMs": 342,
+        "ok": true
+      }
+    ]
+  }
+]

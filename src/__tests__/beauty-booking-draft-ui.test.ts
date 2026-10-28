@@ -2,9 +2,10 @@
 import {act,createElement as h} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn()}));
+const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn(),intentRead:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,replace:vi.fn()}),usePathname:()=>'/s/test/beauty',useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
+vi.mock('@/server/actions/beauty-member-purchase-intent',()=>({prepareBeautyMemberPurchaseIntent:vi.fn(),readBeautyMemberPurchaseIntent:m.intentRead,cancelBeautyMemberPurchaseIntent:vi.fn(),acknowledgeBeautyMemberPurchaseIntent:vi.fn()}));
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
 vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
@@ -24,7 +25,7 @@ function set(el:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement,value:str
 const catalog={services:[{id:'service',name:'做臉',duration:60,price:1000,trialPrice:500}],techs:[]};
 const data={...catalog,store:{id:'store',slug:'test',name:'測試店'},canWork:true,work:false,customer:{id:'person',name:'顧客',phone:'0900000000'},cards:[],members:[],items:[],plans:[],purchases:[],grants:[],income:[],bank:null,policy:{selfBooking:true,selfCancel:true,selfReschedule:true}} as unknown as BeautyPortalData;
 beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
-afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.useRealTimers();});
+afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
  const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',customer:data.customer}));
  expect(field(host,'日期').value).toBe('2026-10-27');await act(async()=>button(host,'查詢時段').click());
@@ -43,6 +44,26 @@ it('asks before dropping a draft through an identity switch',()=>{
 it('uses a guarded bank transfer sheet instead of a browser prompt',async()=>{
  const withPlan={...data,bank:{bankName:'測試銀行',bankCode:'000',bankAccountNumber:'12345678'},plans:[{id:'plan',name:'五次方案',sessions:5,price:4500}]} as BeautyPortalData;
  const host=mount(h(BeautyPortal,{data:withPlan}));act(()=>button(host,'我的').click());act(()=>button(host,'我的方案 ›').click());act(()=>button(host,'購買方案').click());act(()=>button(host,'購買方案').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet).not.toBeNull();set(field(sheet,'轉出帳號後四碼'),'123');expect(button(sheet,'已匯款，送出核帳資料').disabled).toBe(true);set(field(sheet,'轉出帳號後四碼'),'1234');await act(async()=>button(sheet,'已匯款，送出核帳資料').click());expect(m.plan).toHaveBeenCalledOnce();expect(m.plan.mock.calls[0][0]).toMatchObject({planId:'plan',lastFour:'1234'});expect(host.textContent).toContain('核帳資料已送出');
+});
+it('exposes purchase recovery even when the store has no available plans',async()=>{
+ m.intentRead.mockResolvedValue({success:true,data:null});
+ const host=mount(h(BeautyPortal,{data:{...data,scopeKey:'user'} as BeautyPortalData,memberPurchaseRecoveryEnabled:true}));
+ act(()=>button(host,'我的').click());act(()=>button(host,'我的方案 ›').click());await act(async()=>button(host,'查看購買申請狀態 ›').click());
+ expect(host.textContent).toContain('目前沒有可查到的待確認申請');
+ expect(m.intentRead).toHaveBeenCalledWith({expectedStoreId:'store'});
+});
+it('does not present zero plans as fact after member authorization is denied',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:false,status:403}));
+ const host=mount(h(BeautyPortal,{data:{...data,scopeKey:'user',readVersion:'revision'} as BeautyPortalData}));
+ act(()=>button(host,'我的').click());await act(async()=>button(host,'我的方案 ›').click());
+ expect(host.textContent).toContain('會員或門市狀態已變更');expect(host.textContent).not.toContain('目前持有 0 個方案');expect(host.textContent).not.toContain('目前沒有方案');expect(host.textContent).not.toContain('尚無購買紀錄');
+});
+it('passes a freshly confirmed plan to booking without changing an existing draft',async()=>{
+ const card={id:'fresh',name:'新方案',remaining:5,held:0,expiresAt:'2090-01-01T00:00:00.000Z',closed:false,memberIds:['person'],serviceIds:['service'],allowShared:false};
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data:{storeId:'store',customerId:'person',scopeKey:'user',cards:[card],purchases:[]}})}));
+ const host=mount(h(BeautyPortal,{data:{...data,scopeKey:'user',readVersion:'revision'} as BeautyPortalData}));
+ act(()=>button(host,'立即預約').click());set(host.querySelector('[aria-label="備註 1"]') as HTMLTextAreaElement,'保留的草稿');act(()=>button(host,'我的').click());await act(async()=>button(host,'我的方案 ›').click());expect(host.textContent).toContain('新方案');act(()=>button(host,'預約').click());
+ expect((host.querySelector('[aria-label="備註 1"]') as HTMLTextAreaElement).value).toBe('保留的草稿');const selection=host.querySelector('[aria-label="方案 1"]') as HTMLSelectElement;expect(selection.textContent).toContain('新方案');expect(selection.value).toBe('');set(selection,'fresh');expect(selection.value).toBe('fresh');
 });
 it('groups companions but cancels only the selected service item through the confirmation sheet',async()=>{
  const item={startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,technicianId:'tech',cancelDeduct:false,noShowDeduct:false,notes:'',preference:'ANY',price:1000,isTrial:false,customerId:'person'};

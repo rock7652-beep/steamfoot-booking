@@ -1,0 +1,61 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_EMZzGtjU2GqZfKutQeNGJHM2u5Vc",
+  "browser": "154.0.8037.57",
+  "phase": "finish-flow",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    },
+    {
+      "step": "purchase-20-summed-30-original-roster-no-auto-attendance",
+      "pass": true
+    },
+    {
+      "step": "attendance-debit-to-29",
+      "pass": true
+    },
+    {
+      "step": "restore-to-30",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/beauty/roster",
+      "startedAtEpochMs": 1793169724301.8032,
+      "durationMs": 856
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793169726628.084,
+      "durationMs": 1387
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793169728499.1812,
+      "durationMs": 2071
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "startedAtEpochMs": 1793169731032.561,
+      "durationMs": 2101
+    }
+  ],
+  "clickAtEpochMs": 1793169726583,
+  "acknowledgementMs": 51,
+  "purchaseAndBalanceMs": 1862
+}

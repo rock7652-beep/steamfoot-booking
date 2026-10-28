@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef,useMemo } from "react";
 import { loadCourseCustomerSearchIndex, searchCourseCustomers } from "@/server/actions/course-browse";
+import { musicPanelRead } from "@/lib/music-panel-transport";
 import { matchCustomerSearch, type CustomerSearchOption } from "@/lib/customer-search-index";
 import { usePathname } from "next/navigation";
 type Choice = { id: string; name: string; phone?: string };
@@ -23,7 +24,7 @@ export function CourseCustomerPicker({ choices, name, initial = [], multiple = f
   useEffect(()=>{
     if(!enabled||choices)return;
     let active=true;
-    loadCourseCustomerSearchIndex().then(r=>{if(active&&r.success)setIndex({path:pathname,rows:r.rows,complete:r.complete});}).catch(()=>{});
+    musicPanelRead("course-customer-search-index",[],()=>loadCourseCustomerSearchIndex()).then(r=>{if(active&&r.success)setIndex({path:pathname,rows:r.rows,complete:r.complete});}).catch(()=>{});
     return()=>{active=false;};
   },[enabled,pathname,revision,choices]);
   const activeIndex=useMemo(()=>choices?{rows:choices,complete:true}:index?.path===pathname?index:null,[choices,index,pathname]);

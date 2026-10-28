@@ -1,4 +1,5 @@
 import {readBeautyServiceCost} from './charge-finance';
+import {assertOnlineConfirmationSettled} from './online-confirm-guard';
 import {beautySaleAllocation} from '@/lib/beauty/sale-allocation';
 import {beautyServiceCollectionAllocation} from '@/lib/beauty/receipt-allocation';
 import {beautyChargeRulesEnabled,readCatalogCharge,writeCardCharge} from './charge-runtime';
@@ -232,6 +233,7 @@ export async function refund(
       where: { id: d.paymentId, storeId: a.storeId, kind: "SALE",...(await beautyPaymentVisibility(tx,a.storeId)) },
     });
     if (!p) throw new AppError("NOT_FOUND", "找不到原收款");
+    await assertOnlineConfirmationSettled(tx,a.storeId,{cardId:p.cardId});
     const refunds = await tx.beautyPayment.aggregate({
       where: { storeId: a.storeId, originalPaymentId: p.id, kind: "REFUND" },
       _sum: { amount: true },

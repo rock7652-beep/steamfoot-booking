@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useTransition, type ReactNode } from "react";
-import {MUSIC_PURCHASE_START, createPurchaseSnapshotSeeds, type MusicPurchaseSnapshot, type PurchaseSnapshotReceiver} from "@/lib/music-purchase-snapshot";
+import {MUSIC_PURCHASE_START,MUSIC_PURCHASE_APPLY, createPurchaseSnapshotSeeds, type MusicPurchaseSnapshot, type PurchaseSnapshotReceiver} from "@/lib/music-purchase-snapshot";
 import {musicPanelRead} from "@/lib/music-panel-transport";
 import { createClientReadCache } from "@/lib/client-read-cache";
 
@@ -25,8 +25,8 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const searchParams = useSearchParams();
   const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
   useEffect(() => {
-    if (!isMusicPreviewPage() || !isMusicSyncRoute(pathname)) return;
-    let active = true, epoch = 0;
+    if (!isMusicSyncRoute(pathname)) return;
+    let active = true, epoch = 0, deferredRosterRefresh=false;
     let incoming: MusicPurchaseSnapshot | null = null;
     const beginPurchase = (event: Event) => {
       const capturedEpoch = ++epoch;
@@ -37,7 +37,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
       };
     };
     window.addEventListener(MUSIC_PURCHASE_START, beginPurchase);
-    const unsubscribe = subscribeMusicFinanceChange((kind) => {
+    const applyFinanceChange = (kind:import('@/lib/music-finance-sync').MusicFinanceChange) => {
         epoch++;
         const snapshot = kind === "purchase" ? incoming : null;
         incoming = null;
@@ -47,18 +47,32 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         if(kind === "receipt" && studentPage) return;
         for (const cache of registry.values()) cache.clear();
         registry.clear();
+        // Keep the open roster's authoritative write response mounted. Other
+        // tabs still invalidate normally; this page refreshes once on close.
+        if(document.querySelector('[data-live-music-roster="true"]')){deferredRosterRefresh=true;return;}
         if (snapshot) purchaseSeeds.install(snapshot);
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));
         // Purchase panels and the music customer list re-read their own authoritative data.
         if(kind === "purchase" && studentPage) return;
         startTransition(() => router.refresh());
+    };
+    const applyProjection=()=>applyFinanceChange('purchase');
+    const rosterClosed=()=>queueMicrotask(()=>{
+      if(active&&deferredRosterRefresh&&!document.querySelector('[data-live-music-roster="true"]')){
+        deferredRosterRefresh=false;setRevision(value=>value+1);startTransition(()=>router.refresh());
+      }
     });
+    window.addEventListener('music-roster-closed',rosterClosed);
+    window.addEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
+    const unsubscribe=isMusicPreviewPage()?subscribeMusicFinanceChange(applyFinanceChange):()=>{};
     return () => {
       active = false;
       incoming = null;
       purchaseSeeds.clear();
       window.removeEventListener(MUSIC_PURCHASE_START, beginPurchase);
+      window.removeEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
+      window.removeEventListener('music-roster-closed',rosterClosed);
       unsubscribe();
     };
   }, [pathname, studentPage, registry, router, purchaseSeeds]);
@@ -95,7 +109,8 @@ export function usePanelReader<Args extends unknown[], T>(
   const seeds = useContext(PurchaseSeeds);
   const decode = useCallback((key: string) => {
     const args=JSON.parse(key) as Args;
-    const supplied = !scopeVersion && ttlMs === 0 ? seeds?.take(namespace,args) : undefined;
+    const seedScope=!scopeVersion||(namespace==='course-card-browse'&&/^\d+$/.test(scopeVersion));
+    const supplied = seedScope && ttlMs === 0 ? seeds?.take(namespace,args) : undefined;
     if (supplied !== undefined) {
       console.info("[music-purchase-snapshot]", namespace);
       return Promise.resolve(supplied as T);

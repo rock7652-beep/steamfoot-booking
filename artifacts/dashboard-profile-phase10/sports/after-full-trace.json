@@ -1,0 +1,222 @@
+{
+  "module": "sports",
+  "phase": "after",
+  "deployment": "dpl_7bA1imsnvPvXf9xUDG5jopVT1nm8",
+  "complete": true,
+  "samples": [
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 1,
+      "clickAtEpochMs": 1793181989979,
+      "elapsedMs": 3166,
+      "remaining": 10
+    },
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 2,
+      "clickAtEpochMs": 1793181993145,
+      "elapsedMs": 4001,
+      "remaining": 10
+    },
+    {
+      "step": "student-profile-plan-balance-visible",
+      "sample": 3,
+      "clickAtEpochMs": 1793181997146,
+      "elapsedMs": 3772,
+      "remaining": 10
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "profile-responsive-no-overflow",
+      "width": 768,
+      "height": 1024
+    }
+  ],
+  "requests": [
+    {
+      "path": "/",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181985690.677,
+      "durationMs": 102,
+      "action": null
+    },
+    {
+      "path": "/",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181985785.44,
+      "durationMs": 213,
+      "action": null
+    },
+    {
+      "path": "/api/auth/session",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181986353.6912,
+      "durationMs": 356,
+      "action": null
+    },
+    {
+      "path": "/hq/login",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181987089.283,
+      "durationMs": 208,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181989986.289,
+      "durationMs": 1318,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181991659.897,
+      "durationMs": 1016,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181991726.844,
+      "durationMs": 1062,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181993151.829,
+      "durationMs": 2176,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181995790.404,
+      "durationMs": 702,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181995793.8372,
+      "durationMs": 882,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": true,
+      "operation": null,
+      "startedAtEpochMs": 1793181997155.3618,
+      "durationMs": 1431,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181999615.459,
+      "durationMs": 689,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "navigation": false,
+      "operation": null,
+      "startedAtEpochMs": 1793181999616.019,
+      "durationMs": 898,
+      "action": null
+    }
+  ],
+  "responses": [
+    {
+      "path": "/",
+      "requestId": "sfo1::m5854-1793181985763-4151be44408e",
+      "status": 307
+    },
+    {
+      "path": "/",
+      "requestId": "sfo1::5qdkc-1793181985830-fb7bdc1ed16d",
+      "status": 200
+    },
+    {
+      "path": "/api/auth/session",
+      "requestId": "sfo1::hnd1::7vz4b-1793181986388-6888c5256e2a",
+      "status": 200
+    },
+    {
+      "path": "/hq/login",
+      "requestId": "sfo1::7bdnc-1793181987122-cd03cb735ca2",
+      "status": 200
+    },
+    {
+      "path": "/hq/login",
+      "requestId": "sfo1:sfo1:hnd1::hnd1::hnd1::4sbdb-1793181988461-d5ca85d6ddf1",
+      "status": 303
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::lh6dr-1793181990028-f553da54556e",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::ksgtq-1793181991698-ff2fe758df99",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::dsv98-1793181991757-b2850d6fb474",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::5qdkc-1793181993178-e6bdbe35de42",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::4hkgc-1793181995842-e1514d8a5664",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::4hkgc-1793181995841-e75990e0c04d",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::ksgtq-1793181997190-4e4b0a8516dd",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "requestId": "sfo1::hnd1::fqnz5-1793181999654-d512c25553cc",
+      "status": 200
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "requestId": "sfo1::hnd1::fqnz5-1793181999660-36d26eaaf891",
+      "status": 200
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "complete": false,
+  "rows": [],
+  "errors": [
+    {
+      "step": "init",
+      "message": "headless browser did not hide member tab: visible"
+    }
+  ]
+}

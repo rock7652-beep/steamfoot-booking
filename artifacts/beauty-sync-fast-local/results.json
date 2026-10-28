@@ -1,0 +1,99 @@
+{
+  "complete": true,
+  "scope": "local synthetic auth; not LIFF/Safari or production",
+  "commit": "1e0ae2d629c1dc56606dbcbf1c1cec62b4ffeccd",
+  "hookSha256": "80d291f8dba06191ab732c4f614aa26cfa284d299717012da277ba99b1c16a8d",
+  "rows": [
+    {
+      "round": 1,
+      "confirmToVisibleMs": 794,
+      "snapshotResponses": [
+        {
+          "status": 200,
+          "latencyMs": 65,
+          "relativeToConfirmMs": -10070
+        },
+        {
+          "status": 200,
+          "latencyMs": 4682,
+          "relativeToConfirmMs": -3385
+        },
+        {
+          "status": 200,
+          "latencyMs": 59,
+          "relativeToConfirmMs": -1316
+        },
+        {
+          "status": 200,
+          "latencyMs": 52,
+          "relativeToConfirmMs": 738
+        }
+      ],
+      "documentUnchanged": true,
+      "orders": 1,
+      "cards": 1,
+      "sales": 1
+    },
+    {
+      "round": 2,
+      "confirmToVisibleMs": 797,
+      "snapshotResponses": [
+        {
+          "status": 200,
+          "latencyMs": 60,
+          "relativeToConfirmMs": -5791
+        },
+        {
+          "status": 200,
+          "latencyMs": 307,
+          "relativeToConfirmMs": -3480
+        },
+        {
+          "status": 200,
+          "latencyMs": 44,
+          "relativeToConfirmMs": -1430
+        },
+        {
+          "status": 200,
+          "latencyMs": 48,
+          "relativeToConfirmMs": 621
+        }
+      ],
+      "documentUnchanged": true,
+      "orders": 1,
+      "cards": 1,
+      "sales": 1
+    },
+    {
+      "round": 3,
+      "confirmToVisibleMs": 811,
+      "snapshotResponses": [
+        {
+          "status": 200,
+          "latencyMs": 52,
+          "relativeToConfirmMs": -6371
+        },
+        {
+          "status": 200,
+          "latencyMs": 412,
+          "relativeToConfirmMs": -3955
+        },
+        {
+          "status": 200,
+          "latencyMs": 99,
+          "relativeToConfirmMs": -1840
+        },
+        {
+          "status": 200,
+          "latencyMs": 152,
+          "relativeToConfirmMs": 316
+        }
+      ],
+      "documentUnchanged": true,
+      "orders": 1,
+      "cards": 1,
+      "sales": 1
+    }
+  ],
+  "errors": []
+}

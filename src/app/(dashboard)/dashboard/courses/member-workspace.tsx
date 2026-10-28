@@ -25,7 +25,8 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
 import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
-import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import { CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery } from "./purchase-recovery";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentCourses } from "./music-student-courses";
 import { MusicStudentOverview } from "./music-student-overview";
@@ -213,6 +214,7 @@ export function CourseMemberWorkspace({
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
+  const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(params.get("studentRecords")==="bookings"&&canReadBookings?"bookings":canReadTransactions?"purchases":"bookings");
@@ -263,11 +265,12 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   const [servicePurchase,setServicePurchase]=useState(false);
+  const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase);
   const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, personTab);
+  useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   const studentScroll=useRef<HTMLDivElement>(null);
@@ -285,7 +288,7 @@ export function CourseMemberWorkspace({
 
   async function submit(
     event: FormEvent<HTMLFormElement>,
-    action: (data: FormData) => Promise<{ success: boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown }>,
+    action: (data: FormData) => Promise<{ success: boolean;discarded?:boolean;financePublished?:boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown;checkoutCards?:import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot }>,
   ) {
     event.preventDefault();
     if (submitting.current) return;
@@ -294,6 +297,7 @@ export function CourseMemberWorkspace({
     setError("");
       try {
         const result = await action(data);
+        if (result.discarded) return;
         if (!result.success) {
           setError(result.error ?? "儲存失敗");
           return;
@@ -304,16 +308,26 @@ export function CourseMemberWorkspace({
           if(receipt.success)setCheckoutReceipt(receipt.data);
           toast.success("購買成功，方案已加入");
         }
-        publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
+        if(panel==="assign"&&purchaseRecovery.enabled){
+          if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+          if(!result.financePublished)publishMusicFinanceChange();
+          setCardRevision(n=>n+1);setDirty(false);setNotice("購買已完成，請確認後繼續購買");
+          return;
+        }
+        if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
+        if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+        if(!result.financePublished){publishMusicFinanceChange();setCardRevision(n=>n+1);}setDirty(false);
         if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        if(!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
+        // Native source panels refresh their own readers and publish the scoped
+        // customer event; keep the underlying reservation list mounted.
+        if(!source&&!isMusicPreviewPage()&&!result.financePublished&&!result.checkoutCards)setTimeout(() => router.refresh(), 0);
       } catch {
-        setError("連線中斷，請重試");
+        setError(panel === "assign" ? CHECKOUT_OUTCOME_UNCONFIRMED : "連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
   }
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
@@ -579,7 +593,7 @@ export function CourseMemberWorkspace({
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
-                <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
 
@@ -638,7 +652,7 @@ export function CourseMemberWorkspace({
               {!sportsNative&&attribution}
               {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
-                <CourseCardBrowser load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
               {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
               <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
@@ -662,6 +676,7 @@ export function CourseMemberWorkspace({
             )}
             {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}
             {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab("info");}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
+            {panel === "assign" && !servicePurchase && <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={pending||formPending} onCommitted={()=>{setCardRevision(n=>n+1);publishMusicFinanceChange();if(source?.purchaseCompleted){source.purchaseCompleted();return;}open("assign");setNotice("購買已完成，方案正在更新");}}/>}
             {panel === "assign" && !servicePurchase && (
               <form
                 id="course-member-form"
@@ -669,11 +684,12 @@ export function CourseMemberWorkspace({
                 className={music ? "grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" : "grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"}
                 onSubmit={(e) =>
                   submit(e, (d) =>
-                    musicCheckoutTransport("purchase", {
+                    purchaseRecovery.submit({
                       planId,
-                      customerId: d.get("customerId"),
+                      customerId: String(d.get("customerId") ?? ""),
                       expiresDate: d.get("expires"),
                       ...(source?.automaticAllocation?{beautyExpectedStoreCost:(plans.find(p=>p.id===planId)?.catalogSnapshot?.storeCost??null)}:{}),
+                      musicSnapshotView:music?"periods":undefined,
                       musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:d.get("musicReceivedResolved")!==null?Number(d.get("musicReceivedResolved")):undefined,
                       musicPaymentDate:d.get("musicPaymentDate")?String(d.get("musicPaymentDate")):undefined,
@@ -689,7 +705,7 @@ export function CourseMemberWorkspace({
                       paymentMethod: d.get("paymentMethod"),
                       transferLastFour: String(d.get("transferLastFour") ?? ""),
                       requestKey,
-                    }, input=>source?source.assign(input as Record<string,unknown>):assignCoursePointCard(input)),
+                    }, prepared => musicCheckoutTransport("purchase", prepared, input=>source?source.assign(input as Record<string,unknown>):assignCoursePointCard(input))),
                   )
                 }
               >
@@ -778,7 +794,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : music ? "min-w-28" : "w-full"} !bg-primary-700 !text-white`}
-                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
+                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : formUncertain ? "重試確認儲存結果" : "儲存"}
               </button></div>

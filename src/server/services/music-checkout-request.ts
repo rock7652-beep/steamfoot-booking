@@ -1,5 +1,6 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
+import {withCheckoutPermissionSession} from "@/lib/permission-request-session";
 
 type CheckoutRequest = { checks: Map<string, Promise<unknown>>; writeStores:WeakMap<object,Promise<string>>; timings: Record<string, number> };
 const requests = new AsyncLocalStorage<CheckoutRequest>();
@@ -7,7 +8,7 @@ const requests = new AsyncLocalStorage<CheckoutRequest>();
 /** Only the dedicated checkout handler creates this scope. No cross-request cache. */
 export function withMusicCheckoutRequest<T>(work: (timings: Record<string, number>) => Promise<T>) {
   const state: CheckoutRequest = { checks: new Map(), writeStores:new WeakMap(), timings: {} };
-  return requests.run(state, () => work(state.timings));
+  return requests.run(state, () => withCheckoutPermissionSession(() => work(state.timings)));
 }
 
 /** Native course actions share the same request-local optimizations. Keep an

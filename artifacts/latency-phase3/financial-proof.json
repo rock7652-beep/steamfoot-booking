@@ -1,0 +1,213 @@
+{
+  "cards": [
+    {
+      "id": "cmvrt55bf0001le08kfp7w6rc",
+      "remaining": 10
+    },
+    {
+      "id": "cmvrt56030001l607an8ughqy",
+      "remaining": 10
+    }
+  ],
+  "income": [
+    {
+      "id": "course-purchase:cmvrt55co0003le085zznnl1r",
+      "type": "INCOME",
+      "amount": 1000
+    },
+    {
+      "id": "music-receipt:8a79c97c-fd0a-4442-ada7-d65093299672",
+      "type": "INCOME",
+      "amount": 1000
+    },
+    {
+      "id": "beauty:cmvrt81700002jo08s54lzjpd",
+      "type": "INCOME",
+      "amount": 1000
+    },
+    {
+      "id": "beauty:cmvrt8n4f0006jo08zxijnldb",
+      "type": "INCOME",
+      "amount": 1000
+    },
+    {
+      "id": "beauty:cmvrt9vec000ajo08yu4iq7av",
+      "type": "INCOME",
+      "amount": 1000
+    }
+  ],
+  "orders": [
+    {
+      "id": "cmvrt55co0003le085zznnl1r",
+      "price": 1000,
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "status": "CONFIRMED",
+      "customerId": "qa-latency-phase3-404947-sports-customer",
+      "requestKey": "90822fb8-cb67-46d0-9cd1-5dcfaed86733"
+    },
+    {
+      "id": "cmvrt561f0003l607dtfd5af6",
+      "price": 1000,
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "status": "CONFIRMED",
+      "customerId": "qa-latency-phase3-404947-music-customer",
+      "requestKey": "8ce6f16e-e3d6-4300-989b-27b97b8ba159"
+    }
+  ],
+  "entries": [
+    {
+      "kind": "GRANT",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 10,
+      "bookingId": null
+    },
+    {
+      "kind": "DEBIT",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:9bccfb65-ac2d-475a-bda3-cb9d9ac1a7e2",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "DEBIT:07605eb5-c8c9-4863-859a-fe16d67fa8a2",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:8692f4e4-c12c-4a6c-9f46-913f47bfc4db",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "DEBIT:7faadb05-817e-4fec-a778-bbf7971c5e1d",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:ac726106-7d65-42c1-a215-80c980815b9c",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "RELEASE",
+      "cardId": "cmvrt55bf0001le08kfp7w6rc",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-sports-booking"
+    },
+    {
+      "kind": "GRANT",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 10,
+      "bookingId": null
+    },
+    {
+      "kind": "RESERVE",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "DEBIT",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:40e072f8-5e43-4a0e-a5b1-5a399249cebc",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "DEBIT:776fd0e0-5989-4ff7-8d46-535bced88165",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:70161f65-4d14-418e-adfc-3967eda2a58b",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "DEBIT:86759860-cf13-4f78-bfa5-edc93fd71ffb",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "CORRECT:ATTENDED:RESERVED:4269bf7c-39e6-4e77-a9fe-b68db5467427",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    },
+    {
+      "kind": "RELEASE",
+      "cardId": "cmvrt56030001l607an8ughqy",
+      "points": 1,
+      "bookingId": "qa-latency-phase3-404947-music-booking"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "qa-latency-phase3-404947-music-session",
+      "cancelled": true,
+      "bookingStatus": "CANCELLED"
+    },
+    {
+      "id": "qa-latency-phase3-404947-sports-session",
+      "cancelled": true,
+      "bookingStatus": "CANCELLED"
+    }
+  ],
+  "beautyCards": [
+    {
+      "id": "cmvrt81600000jo08kmdm0611",
+      "paid": 1000,
+      "remaining": 10,
+      "customerId": "qa-latency-phase3-404947-beauty-customer-profile-1"
+    },
+    {
+      "id": "cmvrt8n3j0004jo08i2lmk0mf",
+      "paid": 1000,
+      "remaining": 10,
+      "customerId": "qa-latency-phase3-404947-beauty-customer-profile-2"
+    },
+    {
+      "id": "cmvrt9vdd0008jo087z94nw1f",
+      "paid": 1000,
+      "remaining": 10,
+      "customerId": "qa-latency-phase3-404947-beauty-customer-profile-3"
+    }
+  ],
+  "beautyPayments": [
+    {
+      "id": "cmvrt81700002jo08s54lzjpd",
+      "kind": "SALE",
+      "amount": 1000,
+      "cardId": "cmvrt81600000jo08kmdm0611"
+    },
+    {
+      "id": "cmvrt8n4f0006jo08zxijnldb",
+      "kind": "SALE",
+      "amount": 1000,
+      "cardId": "cmvrt8n3j0004jo08i2lmk0mf"
+    },
+    {
+      "id": "cmvrt9vec000ajo08yu4iq7av",
+      "kind": "SALE",
+      "amount": 1000,
+      "cardId": "cmvrt9vdd0008jo087z94nw1f"
+    }
+  ]
+}

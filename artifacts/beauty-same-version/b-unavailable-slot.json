@@ -1,0 +1,25 @@
+{
+  "scope": "real hosted Preview, native Playwright UI, actual credentials and server; no auth or transport mocks",
+  "deployment": "dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C",
+  "browser": "154.0.8037.57",
+  "phase": "arrange-b",
+  "complete": false,
+  "checks": [
+    {
+      "step": "actual-owner-login-and-deployment",
+      "pass": true,
+      "storeId": "beauty-hosted-20261021",
+      "role": "OWNER"
+    },
+    {
+      "step": "authenticated-beauty-schedule",
+      "pass": true,
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "buttons": [
+        "新增預約"
+      ]
+    }
+  ],
+  "errors": [],
+  "error": "locator.click: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '確認預約', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button disabled class=\"min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50 bg-primary-700 text-white\">確認預約</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    87 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+}

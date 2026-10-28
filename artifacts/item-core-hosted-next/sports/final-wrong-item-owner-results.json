@@ -1,0 +1,20 @@
+{
+  "profile": "sports",
+  "phase": "wrong-item",
+  "role": "owner",
+  "deployment": "dpl_94hX5wfRkcvnosuMHQ4Yr4LYbsjc",
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "storeId": "sports-live-flow-store",
+      "role": "OWNER"
+    },
+    {
+      "step": "item-B-arranged-A-plans-not-used-attendance-blocked",
+      "pass": true
+    }
+  ],
+  "errors": []
+}
