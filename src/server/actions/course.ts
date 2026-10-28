@@ -737,9 +737,9 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
-        // Open classes are named for the teaching item, independently of the
-        // cards/pricing packages members use to attend them.
-        const sportsPlanName=data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
+        // Regular classes use the teaching item in every enrollment mode.
+        // A pricing name is relevant only to an explicitly priced trial.
+        const sportsPlanName=data.isTrial&&data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
         if(musicScheduling)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{not:null},OR:occurrences.map(range=>({rescheduledFromStartsAt:{lt:range.endsAt},rescheduledFromEndsAt:{gt:range.startsAt},OR:[{rescheduledFromRoomId:data.roomId},{rescheduledFromCoachId:data.coachId}]}))},data:{rescheduleShadowHidden:true}});
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
