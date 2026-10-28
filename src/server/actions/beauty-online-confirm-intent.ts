@@ -21,9 +21,10 @@ type Summary={orderId:string;customerName:string;planName:string;amount:number|n
 type View=BeautyPlanIntentView & Summary;
 async function result<T>(fn:()=>Promise<T>){try{return {success:true as const,data:await fn()};}catch(e){return handleActionError(e);}}
 async function auth(expectedStoreId:string,write:boolean){
-  if(!beautyPlanPurchaseIntentsEnabled())throw new AppError('FORBIDDEN','購買核對功能尚未開放');
+  if(process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED!=='1')throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   const [a,finance,viewer,u]=await Promise.all([beautyManager('wallet.create',write),beautyManager('transaction.create',write),beautyManager('customer.read'),requireSession()]);
   if(a.storeId!==expectedStoreId||finance.storeId!==a.storeId||viewer.storeId!==a.storeId||a.userId!==u.id||finance.userId!==a.userId||viewer.userId!==a.userId)throw new AppError('FORBIDDEN','目前門市或身分不一致，請重新開啟');
+  if(!beautyPlanPurchaseIntentsEnabled(a.storeId))throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   await Promise.all([requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT),requireStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT)]);
   return {a,u};
 }

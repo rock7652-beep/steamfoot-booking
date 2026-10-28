@@ -140,7 +140,7 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
   const result=await beautyReadStep('checkout_transaction',()=>beautyTransaction(a,tx=>{
    const issue=()=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour});
-   return beautyPlanPurchaseIntentsEnabled()?commitBeautyPlanIntent(tx,a,{requestKey:d.requestKey,customerId:d.customerId,fingerprint:beautyPlanIntentFingerprint(d)},issue):issue();
+   return beautyPlanPurchaseIntentsEnabled(a.storeId)?commitBeautyPlanIntent(tx,a,{requestKey:d.requestKey,customerId:d.customerId,fingerprint:beautyPlanIntentFingerprint(d)},issue):issue();
   }));
   committed=true;
   // Profile checkout uses the same independently authorized card reader as the

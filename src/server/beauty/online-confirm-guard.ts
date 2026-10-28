@@ -7,7 +7,7 @@ import type { Tx } from './booking';
  * refunding a receipt. Keeps a pending confirmation recoverable until a manager
  * explicitly acknowledges or cancels it. */
 export async function assertOnlineConfirmationSettled(tx:Tx,storeId:string,input:{orderId?:string;cardId?:string|null}){
-  if(!beautyPlanPurchaseIntentsEnabled())return;
+  if(!beautyPlanPurchaseIntentsEnabled(storeId))return;
   const orderId=input.orderId??null,cardId=input.cardId??null;
   if(!orderId&&!cardId)return;
   const rows=await tx.$queryRaw<Array<{requestKey:string}>>`

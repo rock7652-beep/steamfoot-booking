@@ -3,13 +3,14 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { AppError } from '@/lib/errors';
 import type { BeautyActor } from './access';
 import type { Tx } from './booking';
+import {beautyPurchaseIntentStoreAllowed} from './plan-checkout-input';
 
 // All mutations must run under beautyTransaction's Store row lock.
 type State = 'PREPARED' | 'COMMITTED' | 'ACKNOWLEDGED' | 'CANCELLED';
 type Row = { requestKey:string; customerId:string; actorUserId:string; status:State; fingerprint:string|null; purchaseId:string|null };
 export type MemberPurchaseView = { requestKey:string; status:'PREPARED'|'COMMITTED'|'CANCELLED'; purchaseId:string|null };
 const view = (row:Row):MemberPurchaseView => ({requestKey:row.requestKey,status:row.status==='ACKNOWLEDGED'?'COMMITTED':row.status,purchaseId:row.purchaseId});
-export function beautyMemberPurchaseIntentsEnabled() { return process.env.BEAUTY_MEMBER_PURCHASE_INTENTS_ENABLED === '1'; }
+export function beautyMemberPurchaseIntentsEnabled(storeId?:string) { return process.env.BEAUTY_MEMBER_PURCHASE_INTENTS_ENABLED === '1'&&beautyPurchaseIntentStoreAllowed(storeId); }
 export function beautyMemberPurchaseFingerprint(input:{requestKey:string;planId:string;lastFour:string;expectedName:string;expectedPrice:number;expectedSessions:number;expectedRevision:number}):string {
   const secret=process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if(!secret) throw new AppError('FORBIDDEN','購買核對功能尚未設定，請聯絡店家');

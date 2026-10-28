@@ -9,9 +9,10 @@ import { acknowledgeBeautyMemberIntent,beautyMemberPurchaseFingerprint,beautyMem
 
 const scope=z.object({expectedStoreId:key,requestKey:z.string().uuid().optional()});
 async function actorFor(expectedStoreId:string,write:boolean){
-  if(!beautyMemberPurchaseIntentsEnabled())throw new AppError('FORBIDDEN','購買核對功能尚未開放');
+  if(process.env.BEAUTY_MEMBER_PURCHASE_INTENTS_ENABLED!=='1')throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   const actor=await beautyMember(write);
   if(actor.storeId!==expectedStoreId||!actor.customerId||!actor.userId)throw new AppError('FORBIDDEN','會員或門市已變更，請重新開啟');
+  if(!beautyMemberPurchaseIntentsEnabled(actor.storeId))throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   await requireStoreFeature(actor.storeId,FEATURES.PLAN_MANAGEMENT);
   return actor;
 }

@@ -458,7 +458,7 @@ export async function purchaseBeautyPlan(input: unknown) {
     await requirePermission("transaction.create");
     // Legacy direct issuance has no durable intent contract. Never permit it
     // to bypass the staged guard when the new mode is deliberately enabled.
-    if (beautyPlanPurchaseIntentsEnabled()) throw new AppError('CONFLICT','請更新後台並從顧客資料重新開啟購買');
+    if (beautyPlanPurchaseIntentsEnabled(a.storeId)) throw new AppError('CONFLICT','請更新後台並從顧客資料重新開啟購買');
     const d = cardInput.parse(input);
     const p = await beautyPrisma.beautyPlan.findFirst({
       where: { id: d.planId, storeId: a.storeId },
@@ -547,7 +547,7 @@ export async function requestBeautyPlan(input: unknown) {
         })
         .parse(input);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
-    const guarded=beautyMemberPurchaseIntentsEnabled();
+    const guarded=beautyMemberPurchaseIntentsEnabled(a.storeId);
     if(guarded&&(d.expectedName===undefined||d.expectedPrice===undefined||d.expectedSessions===undefined||d.expectedRevision===undefined))
       throw new AppError('CONFLICT','方案內容尚未核對，請重新開啟並聯絡店家');
     const purchased=await beautyTransaction(a, (tx) => {
@@ -603,7 +603,7 @@ export async function confirmBeautyPurchase(input: unknown) {
     await requirePermission("transaction.create");
     // Pending online orders need a separate migration to the guarded
     // lifecycle. Do not silently issue a card outside that lifecycle.
-    if (beautyPlanPurchaseIntentsEnabled()) throw new AppError('CONFLICT','線上待確認訂單暫不可結帳，請聯絡管理員核對');
+    if (beautyPlanPurchaseIntentsEnabled(a.storeId)) throw new AppError('CONFLICT','線上待確認訂單暫不可結帳，請聯絡管理員核對');
     const d = z.object({ requestKey: z.string().uuid(), id: key }).parse(input);
     return beautyTransaction(a,tx=>confirmOnlineBeautyOrder(tx,a,d));
   });

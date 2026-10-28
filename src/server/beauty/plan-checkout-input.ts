@@ -11,6 +11,10 @@ export const beautyNativePlanCheckoutSchema=courseCheckoutSchema.extend({
   beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional(),
   beautyRosterSessionId:z.string().min(1).max(200).optional(),
 });
-export function beautyPlanPurchaseIntentsEnabled():boolean {
-  return process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED==='1';
+export function beautyPurchaseIntentStoreAllowed(storeId?:string):boolean {
+  if(process.env.BEAUTY_PURCHASE_QA_STORE_SCOPE!=='1')return process.env.VERCEL_GIT_COMMIT_REF!=='preview/beauty-ui-alignment-20261021';
+  return process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='preview/beauty-ui-alignment-20261021'&&storeId==='beauty-hosted-20261021';
+}
+export function beautyPlanPurchaseIntentsEnabled(storeId?:string):boolean {
+  return process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED==='1'&&beautyPurchaseIntentStoreAllowed(storeId);
 }

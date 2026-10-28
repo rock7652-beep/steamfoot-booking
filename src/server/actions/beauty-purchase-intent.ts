@@ -13,15 +13,15 @@ import { acknowledgeBeautyPlanIntent,beautyPlanIntentFingerprint,cancelBeautyPla
 
 const id=z.string().min(1).max(180);
 const lookup=z.object({customerId:id,expectedStoreId:id,requestKey:z.string().uuid().optional()});
-function requireEnabled(){if(!beautyPlanPurchaseIntentsEnabled())throw new AppError('FORBIDDEN','購買核對功能尚未開放');}
 async function authorized(input:{customerId:string;expectedStoreId:string},write:boolean){
-  requireEnabled();
+  if(process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED!=='1')throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   const [actor,finance,customerActor,user]=await Promise.all([
     beautyManager('wallet.create',write),beautyManager('transaction.create',write),
     beautyManager('customer.read'),requireSession(),
   ]);
   if(actor.storeId!==input.expectedStoreId||finance.storeId!==actor.storeId||customerActor.storeId!==actor.storeId||finance.userId!==actor.userId||customerActor.userId!==actor.userId||user.id!==actor.userId)
     throw new AppError('FORBIDDEN','目前門市或身分不一致，請重新開啟');
+  if(!beautyPlanPurchaseIntentsEnabled(actor.storeId))throw new AppError('FORBIDDEN','購買核對功能尚未開放');
   await Promise.all([requireStoreFeature(actor.storeId,FEATURES.PLAN_MANAGEMENT),requireStoreFeature(actor.storeId,FEATURES.CUSTOMER_MANAGEMENT)]);
   const customer=await prisma.customer.findFirst({where:{...getManagerCustomerWhere(user.role,user.staffId,actor.storeId),storeId:actor.storeId,id:input.customerId,mergedIntoCustomerId:null},select:{id:true}});
   if(!customer)throw new AppError('NOT_FOUND','找不到本店可查看的顧客');

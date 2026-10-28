@@ -25,5 +25,5 @@ export async function BeautyNativeOperations({data,query,readOnly}:{data:BeautyD
  {key:'technician',header:'服務技師',accessor:row=>row.technicianName??'—'},
  {key:'allocation',header:'店家／所屬店長',accessor:beautyAllocationSummary},
  ],statusLabels:{CONFIRMED:"已收款"},read:readBeautyRevenue,summary:readBeautyReceiptSummary,href:beautyRevenueHref,queryFields:{tab:'營運'},actions:order=><BeautyNativeTransaction allocationSummary={beautyAllocationSummary(order)} canEdit={canEdit} canVoid={canVoid} staffOptions={data.assignmentStaff.map(s=>({id:s.id,name:s.displayName}))} storeId={data.storeId} order={order} cardAccess={data.access.planAccess} canRefund={!readOnly&&data.manage.refund} canConfirm={!readOnly&&data.manage.card}/>}}/>;
- return beautyPlanPurchaseIntentsEnabled()&&!readOnly&&data.manage.card&&u?.id?<BeautyOnlineConfirmProvider key={JSON.stringify([data.storeId,u.id])} storeId={data.storeId} userId={u.id}>{ledger}</BeautyOnlineConfirmProvider>:ledger;
+ return beautyPlanPurchaseIntentsEnabled(data.storeId)&&!readOnly&&data.manage.card&&u?.id?<BeautyOnlineConfirmProvider key={JSON.stringify([data.storeId,u.id])} storeId={data.storeId} userId={u.id}>{ledger}</BeautyOnlineConfirmProvider>:ledger;
 }
