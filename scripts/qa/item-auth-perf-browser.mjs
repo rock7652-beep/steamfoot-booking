@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 const {chromium}=createRequire(import.meta.url)('/opt/codex/cua_node/lib/node_modules/playwright');
 const [module,phase]=process.argv.slice(2);
 assert.ok(['sports','music'].includes(module));
-assert.ok(['baseline','optimized','cleanup','smoke'].includes(phase));
+assert.ok(['baseline','optimized','options-before','options-after','cleanup','smoke'].includes(phase));
 const config=JSON.parse(readFileSync('/tmp/item-auth-perf-access.json','utf8'));
 const account=JSON.parse(readFileSync('/tmp/item-auth-perf-credentials.json','utf8')).accounts.find(x=>x.module===module);
 const base='https://steamfoot-booking-git-release-mu-6d7b97-rock7652-2111s-projects.vercel.app';
@@ -48,6 +48,15 @@ try{
    assert.equal(page.url(),url);assert.equal(await page.getByRole('button',{name:account.name+'：已出席',exact:true}).count(),0);
    result.visibleBalanceMs=Math.round(performance.now()-confirm);
    writeFileSync(out+'/'+phase+'.json',JSON.stringify(report,null,2),{mode:0o600});
+  }
+ }else if(phase.startsWith('options-')){
+  for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
+   await page.setViewportSize({width,height});const started=performance.now();
+   await page.getByRole('button',{name:account.name+' 更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'學員繳費',exact:true}).click();
+   const dialog=page.getByRole('dialog',{name:'學員繳費 · '+account.name,exact:true});await dialog.getByRole('button',{name:'確認購課與本次收款',exact:true}).waitFor();
+   const optionsMs=Math.round(performance.now()-started);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+   await page.screenshot({path:out+'/'+phase+'-'+width+'.png',fullPage:true});report.samples.push({width,height,optionsMs});
+   await dialog.getByRole('button',{name:'關閉',exact:true}).click();await dialog.waitFor({state:'hidden'});
   }
  }else if(phase==='smoke'){
   await page.getByText(/60 堂/).first().waitFor();await pending.click();const attended=page.getByRole('button',{name:account.name+'：已出席',exact:true});await attended.waitFor();await page.getByText(/59 堂/).first().waitFor();await attended.click();await page.getByRole('menuitem',{name:/^恢復/}).click();await pending.waitFor();await page.getByText(/60 堂/).first().waitFor();report.samples.push({step:'FIFO attend/restore',balance:60});
