@@ -1,0 +1,9 @@
+{
+  "complete": false,
+  "scope": "hosted Preview, real login, synthetic members and test plan, purchase intent flags off; not LIFF",
+  "deployment": "dpl_BZih9SduLsAfvND18RgYMLjjzj5V",
+  "commit": "26a2b66d99f769d6424c32bf6d333c59daa50b65",
+  "step": "owner-confirm-1",
+  "samples": [],
+  "error": "locator.click: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('row').filter({ hasText: '同步驗收測試會員 1' }).getByRole('button', { name: '查看／核帳' })\u001b[22m\n"
+}
