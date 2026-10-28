@@ -1,0 +1,41 @@
+
+ RUN  v4.1.4 /workspace/shared-item-login-qa
+
+Warning: A vi.mock("resend") call in "/workspace/shared-item-login-qa/src/__tests__/b7-4-5.test.ts" is not at the top level of the module. Although it appears nested, it will be hoisted and executed before any tests run. Move it to the top level to reflect its actual execution order. This will become an error in a future version.
+See: https://vitest.dev/guide/mocking/modules#how-it-works
+ ❯ src/__tests__/booking-permission-timing.test.ts (7 tests | 1 failed) 30ms
+   × times every guard while preserving the authorized result 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/booking-permission-timing.test.ts > times every guard while preserving the authorized result
+AssertionError: expected [ 'permission.session', …(6) ] to deeply equal [ 'permission.session', …(4) ]
+
+- Expected
++ Received
+
+  [
+    "permission.session",
+    "permission.grant",
++   "permission.featureStore",
++   "permission.feature",
+    "permission.subscription",
+    "permission.cookie",
+    "permission.store",
+  ]
+
+ ❯ src/__tests__/booking-permission-timing.test.ts:25:52
+     23|   const user = await requireWritablePermission("booking.update", undef…
+     24|   expect(user.storeId).toBe("store-a");
+     25|   expect(measure.mock.calls.map(([name]) => name)).toEqual([
+       |                                                    ^
+     26|     "permission.session", "permission.grant", "permission.subscription…
+     27|   ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1461 passed | 22 skipped (1484)
+      Tests  1 failed | 14160 passed | 191 skipped (14352)
+   Start at  02:53:58
+   Duration  230.83s (transform 40.10s, setup 0ms, import 122.65s, tests 297.55s, environment 69.42s)

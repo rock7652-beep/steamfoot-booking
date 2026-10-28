@@ -1,0 +1,71 @@
+{
+  "module": "music",
+  "phase": "boundary",
+  "deployment": "dpl_46Lxe44YasdMKvWzeefubLLxjwhb",
+  "complete": true,
+  "samples": [
+    {
+      "step": "existing-session-before-login",
+      "present": true,
+      "role": "OWNER"
+    },
+    {
+      "step": "card-read-own-scope",
+      "role": "OWNER",
+      "status": 200,
+      "success": true,
+      "count": 6,
+      "remaining": 60
+    },
+    {
+      "step": "music-period-read-own-scope",
+      "role": "OWNER",
+      "status": 200,
+      "success": true,
+      "count": 6,
+      "remaining": null
+    },
+    {
+      "step": "card-read-foreign-denied",
+      "role": "OWNER",
+      "status": 200,
+      "success": false,
+      "count": null,
+      "remaining": null
+    },
+    {
+      "step": "music-period-read-foreign-denied",
+      "role": "OWNER",
+      "status": 200,
+      "success": false,
+      "count": null,
+      "remaining": null
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/card-read",
+      "operation": null,
+      "durationMs": 1558,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/music-period-read",
+      "operation": null,
+      "durationMs": 1187,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/card-read",
+      "operation": null,
+      "durationMs": 946,
+      "action": null
+    },
+    {
+      "path": "/s/lubymusic/admin/dashboard/courses/music-period-read",
+      "operation": null,
+      "durationMs": 778,
+      "action": null
+    }
+  ]
+}

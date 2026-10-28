@@ -1,0 +1,10 @@
+
+ RUN  v4.1.4 /workspace/shared-item-login-qa
+
+Warning: A vi.mock("resend") call in "/workspace/shared-item-login-qa/src/__tests__/b7-4-5.test.ts" is not at the top level of the module. Although it appears nested, it will be hoisted and executed before any tests run. Move it to the top level to reflect its actual execution order. This will become an error in a future version.
+See: https://vitest.dev/guide/mocking/modules#how-it-works
+
+ Test Files  1463 passed | 22 skipped (1485)
+      Tests  14168 passed | 191 skipped (14359)
+   Start at  03:01:36
+   Duration  246.14s (transform 41.34s, setup 0ms, import 125.85s, tests 338.75s, environment 70.89s)
