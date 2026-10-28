@@ -21,7 +21,7 @@ export function useBeautyMemberPlanSync({enabled,slug,storeId,customerId,scopeKe
   useEffect(()=>{
     if(!enabled||!storeId||!customerId||!scopeKey)return;
     if(fast.current.identity!==identity)fast.current={identity,seen:new Set(),until:0};
-    let alive=true,running=false,pending=false,failures=0,timer:ReturnType<typeof setTimeout>|undefined;
+    let alive=true,running=false,rerun=false,visibilityEpoch=0,pending=false,failures=0,timer:ReturnType<typeof setTimeout>|undefined;
     const schedule=()=>{
       if(!alive||document.visibilityState!=='visible')return;
       const delay=failures?Math.min(MAX_BACKOFF_MS,NORMAL_POLL_MS*2**Math.min(failures-1,3)):
@@ -29,12 +29,14 @@ export function useBeautyMemberPlanSync({enabled,slug,storeId,customerId,scopeKe
       timer=setTimeout(()=>void run(),delay);
     };
     const run=async()=>{
-      if(!alive||running||document.visibilityState!=='visible')return;
+      if(!alive||document.visibilityState!=='visible')return;
+      if(running){rerun=true;return;}
       if(timer)clearTimeout(timer);
       running=true;
+      const startedAtEpoch=visibilityEpoch;
       try{
         const result=await reader.read(slug,storeId,customerId,scopeKey);
-        if(!alive||document.visibilityState!=='visible')return;
+        if(!alive||document.visibilityState!=='visible'||startedAtEpoch!==visibilityEpoch)return;
         if(!result.success){failures++;setState(previous=>{const denied=result.denied||(previous.scope===scope&&previous.issue==='denied');return {scope,data:denied?null:previous.scope===scope?previous.data:null,issue:denied?'denied':'network'};});return;}
         failures=0;
         const pendingIds=result.data.purchases.filter(p=>p.status==='PENDING').map(p=>p.id);
@@ -44,10 +46,10 @@ export function useBeautyMemberPlanSync({enabled,slug,storeId,customerId,scopeKe
           fast.current.until=Date.now()+FAST_WINDOW_MS;
         }
         setState(previous=>previous.scope===scope&&previous.issue==='none'&&JSON.stringify(previous.data)===JSON.stringify(result.data)?previous:{scope,data:result.data,issue:'none'});
-      }catch{if(alive&&document.visibilityState==='visible'){failures++;setState(previous=>{const denied=previous.scope===scope&&previous.issue==='denied';return {scope,data:denied?null:previous.scope===scope?previous.data:null,issue:denied?'denied':'network'};});}}
-      finally{running=false;schedule();}
+      }catch{if(alive&&document.visibilityState==='visible'&&startedAtEpoch===visibilityEpoch){failures++;setState(previous=>{const denied=previous.scope===scope&&previous.issue==='denied';return {scope,data:denied?null:previous.scope===scope?previous.data:null,issue:denied?'denied':'network'};});}}
+      finally{running=false;if(alive&&rerun&&document.visibilityState==='visible'){rerun=false;void run();}else schedule();}
     };
-    const visible=()=>{if(document.visibilityState==='visible')void run();else if(timer)clearTimeout(timer);};
+    const visible=()=>{if(document.visibilityState==='visible')void run();else{visibilityEpoch++;rerun=false;if(timer)clearTimeout(timer);}};
     retryRef.current=()=>void run();
     document.addEventListener('visibilitychange',visible);
     window.addEventListener('focus',visible);
