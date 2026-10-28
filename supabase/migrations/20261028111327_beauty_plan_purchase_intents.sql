@@ -31,3 +31,25 @@ DO $$ BEGIN
     REVOKE ALL ON public."BeautyPurchaseIntent" FROM authenticated;
   END IF;
 END $$;
+
+-- The fingerprint is intentionally one-way; persist the order association so
+-- an authorised manager can recover a pending confirmation on another device.
+CREATE TABLE public."BeautyOnlineConfirmIntent" (
+  "storeId" text NOT NULL,
+  "requestKey" text NOT NULL,
+  "orderId" text NOT NULL,
+  PRIMARY KEY ("storeId", "requestKey"),
+  FOREIGN KEY ("storeId", "requestKey") REFERENCES public."BeautyPurchaseIntent" ("storeId", "requestKey"),
+  FOREIGN KEY ("storeId", "orderId") REFERENCES public."BeautyPurchase" ("storeId", id)
+);
+CREATE INDEX "BeautyOnlineConfirmIntent_order" ON public."BeautyOnlineConfirmIntent" ("storeId", "orderId");
+ALTER TABLE public."BeautyOnlineConfirmIntent" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public."BeautyOnlineConfirmIntent" FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN
+    REVOKE ALL ON public."BeautyOnlineConfirmIntent" FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN
+    REVOKE ALL ON public."BeautyOnlineConfirmIntent" FROM authenticated;
+  END IF;
+END $$;

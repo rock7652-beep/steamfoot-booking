@@ -2,9 +2,10 @@
 import {act,createElement as h} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn()}));
+const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn(),intentRead:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,replace:vi.fn()}),usePathname:()=>'/s/test/beauty',useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
+vi.mock('@/server/actions/beauty-member-purchase-intent',()=>({prepareBeautyMemberPurchaseIntent:vi.fn(),readBeautyMemberPurchaseIntent:m.intentRead,cancelBeautyMemberPurchaseIntent:vi.fn(),acknowledgeBeautyMemberPurchaseIntent:vi.fn()}));
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
 vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
@@ -43,6 +44,13 @@ it('asks before dropping a draft through an identity switch',()=>{
 it('uses a guarded bank transfer sheet instead of a browser prompt',async()=>{
  const withPlan={...data,bank:{bankName:'測試銀行',bankCode:'000',bankAccountNumber:'12345678'},plans:[{id:'plan',name:'五次方案',sessions:5,price:4500}]} as BeautyPortalData;
  const host=mount(h(BeautyPortal,{data:withPlan}));act(()=>button(host,'我的').click());act(()=>button(host,'我的方案 ›').click());act(()=>button(host,'購買方案').click());act(()=>button(host,'購買方案').click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet).not.toBeNull();set(field(sheet,'轉出帳號後四碼'),'123');expect(button(sheet,'已匯款，送出核帳資料').disabled).toBe(true);set(field(sheet,'轉出帳號後四碼'),'1234');await act(async()=>button(sheet,'已匯款，送出核帳資料').click());expect(m.plan).toHaveBeenCalledOnce();expect(m.plan.mock.calls[0][0]).toMatchObject({planId:'plan',lastFour:'1234'});expect(host.textContent).toContain('核帳資料已送出');
+});
+it('exposes purchase recovery even when the store has no available plans',async()=>{
+ m.intentRead.mockResolvedValue({success:true,data:null});
+ const host=mount(h(BeautyPortal,{data:{...data,scopeKey:'user'} as BeautyPortalData,memberPurchaseRecoveryEnabled:true}));
+ act(()=>button(host,'我的').click());act(()=>button(host,'我的方案 ›').click());await act(async()=>button(host,'查看購買申請狀態 ›').click());
+ expect(host.textContent).toContain('目前沒有可查到的待確認申請');
+ expect(m.intentRead).toHaveBeenCalledWith({expectedStoreId:'store'});
 });
 it('groups companions but cancels only the selected service item through the confirmation sheet',async()=>{
  const item={startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,technicianId:'tech',cancelDeduct:false,noShowDeduct:false,notes:'',preference:'ANY',price:1000,isTrial:false,customerId:'person'};
