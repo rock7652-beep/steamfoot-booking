@@ -5,6 +5,7 @@ import {readMusicStudentWorkspace} from "@/server/queries/music-student-workspac
 import {readCourseCards} from "@/server/queries/course-card-browser";
 import {readCourseCustomerPurchases} from "@/server/queries/course-customer-purchases";
 import {loadCourseCustomerBookings,loadCourseSessionDetail,loadCourseRosterQuick} from "@/server/actions/course-members";
+import {loadMusicStudentMakeups} from "@/server/actions/music-student-makeups";
 import {courseManagerRead} from "@/server/services/course-access";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 export const dynamic="force-dynamic";
@@ -22,7 +23,7 @@ export async function GET(request:Request){
     if(operation==="purchases")return reply(await readCourseCustomerPurchases(args[0],args[1],args[2],true,timings));
     if(operation==="music-student-workspace")return reply(await readMusicStudentWorkspace(args[0],true,timings,args[1]));
     if(operation==="course-card")return reply(await readCourseCards(args[0],true,timings));
-    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"?"booking.read":(operation==="revenue-totals"||operation==="revenue-transactions")?"transaction.read":"customer.read");
+    const {storeId}=await courseManagerRead(operation==="session-detail"||operation==="roster-quick"||operation==="music-student-makeups"?"booking.read":(operation==="revenue-totals"||operation==="revenue-transactions")?"transaction.read":"customer.read");
     if(!musicNativeWorkflowEnabled(storeId))return reply({success:false,error:"音樂功能未開通"},403);
     // Existing readers retain their per-resource permissions and store scope.
     switch(operation){
@@ -40,6 +41,7 @@ export async function GET(request:Request){
       }
       case "session-detail":return reply(await loadCourseSessionDetail(args[0],args[1]));
       case "roster-quick":return reply(await loadCourseRosterQuick(args[0]));
+      case "music-student-makeups":return reply(await loadMusicStudentMakeups(args[0],args[1]));
       case "bookings":return reply(await loadCourseCustomerBookings(args[0],args[1],args[2]));
       default:return reply({success:false,error:"不支援的讀取"},400);
     }
