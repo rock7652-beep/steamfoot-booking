@@ -14,6 +14,20 @@ import type { Prisma } from "../../../generated/course-client";
 
 const customerInput = z.object({ customerId: z.string().min(1).max(100) });
 const keyInput = customerInput.extend({ requestKey: z.string().uuid() });
+// Preview diagnostics deliberately contain only phase durations, never input or identity.
+function intentTimer(operation: string) {
+  const enabled = process.env.VERCEL_ENV === "preview" && process.env.COURSE_PURCHASE_QA_STORE_SCOPE === "1";
+  const start = performance.now();
+  const phases: Record<string, number> = {};
+  return {
+    async measure<T>(name: string, work: () => Promise<T>): Promise<T> {
+      if (!enabled) return work();
+      const at = performance.now();
+      try { return await work(); } finally { phases[name] = Math.round(performance.now() - at); }
+    },
+    finish() { if (enabled) console.info("[course-intent-perf]", { operation, durationMs: Math.round(performance.now() - start), phases }); },
+  };
+}
 function assertEnabled() {
   if (process.env.COURSE_PURCHASE_INTENTS_ENABLED !== "1") throw new AppError("FORBIDDEN", "購買核對功能尚未啟用");
 }
@@ -45,28 +59,29 @@ async function requireVisibleCustomerLocked(tx: Prisma.TransactionClient, actor:
 
 export async function prepareCoursePurchaseIntent(input: unknown) {
   return withCourseCheckoutRequest(async () => {
+    const timer = intentTimer("prepare");
     try {
       assertEnabled();
       const data = parseCoursePurchaseIntentInput(input);
-      const actor = await writeActor();
+      const actor = await timer.measure("authorization", writeActor);
       if (data.discountValue > 0 || data.musicDiscountTeacherFee || (data.musicManualBonus ?? 0) > 0) {
         const extra = await courseManager("transaction.discount");
         if (extra.storeId !== actor.storeId || extra.user.id !== actor.user.id) throw new AppError("FORBIDDEN", "店家範圍不一致");
       }
-      await requireVisibleCustomer(actor, data.customerId);
-      const plan = await coursePrisma.coursePointPlan.findFirst({where:{id:data.planId,storeId:actor.storeId,isActive:true},select:{termSessionIds:true}});
+      await timer.measure("customer", () => requireVisibleCustomer(actor, data.customerId));
+      const plan = await timer.measure("plan", () => coursePrisma.coursePointPlan.findFirst({where:{id:data.planId,storeId:actor.storeId,isActive:true},select:{termSessionIds:true}}));
       if (!plan) throw new AppError("VALIDATION", "請選擇本店有效方案");
       if (plan.termSessionIds.length) {
         const extra = await courseManager("booking.create");
         if (extra.storeId !== actor.storeId || extra.user.id !== actor.user.id) throw new AppError("FORBIDDEN", "店家範圍不一致");
       }
-      const result = await coursePrisma.$transaction(async tx => {
-        await lockCourseStore(tx, actor.storeId);
-        await requireVisibleCustomerLocked(tx, actor, data.customerId);
-        return prepareCourseIntent(tx, {storeId:actor.storeId,userId:actor.user.id}, data);
-      }, {timeout:15000});
+      const result = await timer.measure("transaction", () => coursePrisma.$transaction(async tx => {
+        await timer.measure("storeLock", () => lockCourseStore(tx, actor.storeId));
+        await timer.measure("lockedCustomer", () => requireVisibleCustomerLocked(tx, actor, data.customerId));
+        return timer.measure("register", () => prepareCourseIntent(tx, {storeId:actor.storeId,userId:actor.user.id}, data));
+      }, {timeout:15000}));
       return {success:true as const,data:result};
-    } catch (error) { return handleActionError(error); }
+    } catch (error) { return handleActionError(error); } finally { timer.finish(); }
   });
 }
 export async function cancelCoursePurchaseIntent(input: unknown) {
@@ -105,9 +120,10 @@ export async function acknowledgeCoursePurchaseIntent(input: unknown) {
   });
 }
 export async function getPendingCoursePurchaseIntent(input: unknown) {
+  const timer = intentTimer("pending");
   try {
-    assertEnabled(); const data = customerInput.parse(input), actor = await readActor();
-    await requireVisibleCustomer(actor,data.customerId);
-    return {success:true as const,data:await readPendingCourseIntent(coursePrisma,actor.storeId,data.customerId)};
-  } catch (error) { return handleActionError(error); }
+    assertEnabled(); const data = customerInput.parse(input), actor = await timer.measure("authorization", readActor);
+    await timer.measure("customer", () => requireVisibleCustomer(actor,data.customerId));
+    return {success:true as const,data:await timer.measure("pendingLookup", () => readPendingCourseIntent(coursePrisma,actor.storeId,data.customerId))};
+  } catch (error) { return handleActionError(error); } finally { timer.finish(); }
 }
