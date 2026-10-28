@@ -6,6 +6,7 @@ import {readCourseCards} from "@/server/queries/course-card-browser";
 import {readCourseCustomerPurchases} from "@/server/queries/course-customer-purchases";
 import {loadCourseCustomerBookings,loadCourseSessionDetail,loadCourseRosterQuick} from "@/server/actions/course-members";
 import {loadMusicStudentMakeups} from "@/server/actions/music-student-makeups";
+import {loadCourseCustomerSearchIndex} from "@/server/actions/course-browse";
 import {courseManagerRead} from "@/server/services/course-access";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 export const dynamic="force-dynamic";
@@ -42,6 +43,7 @@ export async function GET(request:Request){
       case "session-detail":return reply(await loadCourseSessionDetail(args[0],args[1]));
       case "roster-quick":return reply(await loadCourseRosterQuick(args[0]));
       case "music-student-makeups":return reply(await loadMusicStudentMakeups(args[0],args[1]));
+      case "course-customer-search-index":return reply(await loadCourseCustomerSearchIndex());
       case "bookings":return reply(await loadCourseCustomerBookings(args[0],args[1],args[2]));
       default:return reply({success:false,error:"不支援的讀取"},400);
     }

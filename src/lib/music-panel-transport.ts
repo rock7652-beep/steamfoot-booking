@@ -1,5 +1,5 @@
 import {isMusicPreviewPage} from "./music-finance-sync";
-const operations=new Set(["music-student-workspace","music-student-makeups","course-card","purchases","bookings","session-detail","roster-quick","revenue-totals","revenue-transactions","revenue-snapshot"]);
+const operations=new Set(["music-student-workspace","music-student-makeups","course-customer-search-index","course-card","purchases","bookings","session-detail","roster-quick","revenue-totals","revenue-transactions","revenue-snapshot"]);
 /** Independent read-only requests avoid the client Server Action queue. */
 export async function musicPanelRead<T>(operation:string,args:unknown[],fallback:()=>Promise<T>):Promise<T>{
   if(!isMusicPreviewPage()||!operations.has(operation))return fallback();

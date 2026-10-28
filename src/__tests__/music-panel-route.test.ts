@@ -1,12 +1,13 @@
 vi.mock("@/server/queries/music-revenue-transactions",()=>({getMusicRevenueTransactions:m.transactions}));
 vi.mock("@/server/queries/course-home",()=>({getCourseReceiptTotals:m.totals}));
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),makeups:vi.fn(),totals:vi.fn(),transactions:vi.fn()}));
+const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),overview:vi.fn(),cards:vi.fn(),purchases:vi.fn(),bookings:vi.fn(),detail:vi.fn(),roster:vi.fn(),makeups:vi.fn(),index:vi.fn(),totals:vi.fn(),transactions:vi.fn()}));
 vi.mock('@/server/queries/music-student-workspace',()=>({readMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/queries/course-card-browser',()=>({readCourseCards:m.cards}));
 vi.mock('@/server/queries/course-customer-purchases',()=>({readCourseCustomerPurchases:m.purchases}));
 vi.mock('@/server/actions/course-members',()=>({loadCourseCustomerBookings:m.bookings,loadCourseSessionDetail:m.detail,loadCourseRosterQuick:m.roster}));
 vi.mock('@/server/actions/music-student-makeups',()=>({loadMusicStudentMakeups:m.makeups}));
+vi.mock('@/server/actions/course-browse',()=>({loadCourseCustomerSearchIndex:m.index}));
 vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.auth}));
 vi.mock('@/server/services/music-data-scope',()=>({musicDataSeparationEnabled:m.scope}));
 vi.mock('@/server/services/music-native-workflow',()=>({musicNativeWorkflowEnabled:m.scope}));
@@ -24,6 +25,12 @@ it('routes makeup reads through the existing authorized reader only for the enab
  m.makeups.mockResolvedValue({success:true,data:{rows:[]}});
  const response=await GET(req);expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('private, no-store');expect(m.auth).toHaveBeenCalledWith('booking.read');expect(m.makeups).toHaveBeenCalledWith('student','legacy');
  m.makeups.mockClear();m.scope.mockReturnValue(false);expect((await GET(req)).status).toBe(403);expect(m.makeups).not.toHaveBeenCalled();
+});
+
+it('uses the scoped customer reader for the index and blocks disabled music stores',async()=>{
+ m.index.mockResolvedValue({success:true,rows:[],complete:true});
+ const r=await GET(request('course-customer-search-index'));expect(r.status).toBe(200);expect(r.headers.get('cache-control')).toBe('private, no-store');expect(m.auth).toHaveBeenCalledWith('customer.read');expect(m.index).toHaveBeenCalledOnce();
+ m.index.mockClear();m.scope.mockReturnValue(false);expect((await GET(request('course-customer-search-index'))).status).toBe(403);expect(m.index).not.toHaveBeenCalled();
 });
 
 it("authorizes finance totals and rejects invalid dates before querying",async()=>{
