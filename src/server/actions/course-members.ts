@@ -1,5 +1,5 @@
 "use server";
-import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {measureMusicCheckout,withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
@@ -531,7 +531,8 @@ export async function createMemberCourseBooking(input: unknown) {
 }
 
 export async function updateCourseBookingStatus(input: unknown) {
- return withCourseCheckoutRequest(async()=>{
+ return withCourseCheckoutRequest(async(timings)=>{
+  const started = performance.now();
   try {
     const data = z
       .object({
@@ -609,10 +610,12 @@ export async function updateCourseBookingStatus(input: unknown) {
       if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
       else refresh();
     }
-    const rosterSnapshot=data.returnRoster&&!data.member?await readCommittedCourseRoster(actor.storeId,settledSessionId):null;
+    const rosterSnapshot=data.returnRoster&&!data.member?await measureMusicCheckout("attendance.rosterSnapshot",()=>readCommittedCourseRoster(actor.storeId,settledSessionId)):null;
     return { success: true as const,...(rosterSnapshot?{rosterSnapshot}:{}) };
   } catch (error) {
     return handleActionError(error);
+  } finally {
+    console.info("[course-attendance-perf]", {durationMs:Math.round(performance.now()-started),phases:timings});
   }
  });
 }

@@ -1,7 +1,7 @@
 "use server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {measureMusicCheckout,withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
 import {readCommittedCourseRoster} from "@/server/queries/course-purchase-roster";
 import { after } from "next/server";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -14,7 +14,8 @@ import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } fro
 const schema=z.object({returnRoster:z.boolean().default(false),bookingId:z.string().min(1).max(100),expectedStatus:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"]),target:z.enum(["RESERVED","WAIVED","NO_SHOW"])});
 /** Manager correction: the existing attendance ledger refunds or deducts once, in the store lock. */
 export async function correctMusicRosterAttendance(input:unknown){
- return withCourseCheckoutRequest(async()=>{
+ return withCourseCheckoutRequest(async(timings)=>{
+ const started=performance.now();
  try{
   const data=schema.parse(input);
   const {storeId,user}=await courseManager("booking.update");
@@ -36,8 +37,9 @@ export async function correctMusicRosterAttendance(input:unknown){
   // The active roster reconciles committed rows directly. Invalidation must not
   // attach an unrelated dashboard render to the financial correction response.
   after(()=>{revalidatePath("/dashboard/courses");revalidatePath("/book");});
-  const rosterSnapshot=data.returnRoster?await readCommittedCourseRoster(storeId,sessionId):null;
+  const rosterSnapshot=data.returnRoster?await measureMusicCheckout("attendance.rosterSnapshot",()=>readCommittedCourseRoster(storeId,sessionId)):null;
   return {success:true as const,...(rosterSnapshot?{rosterSnapshot}:{})};
  }catch(error){return handleActionError(error);}
+ finally{console.info("[music-attendance-correction-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
  });
 }
