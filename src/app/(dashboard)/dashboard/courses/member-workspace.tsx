@@ -316,7 +316,7 @@ export function CourseMemberWorkspace({
         window.dispatchEvent(new Event("customer-search-invalidated"));
         // Native source panels refresh their own readers and publish the scoped
         // customer event; keep the underlying reservation list mounted.
-        if(!source&&!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
+        if(!source&&!isMusicPreviewPage()&&!result.financePublished&&!result.checkoutCards)setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
