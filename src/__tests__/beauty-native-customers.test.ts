@@ -62,3 +62,16 @@ it('does not fail or repeat a committed checkout when card visibility is denied'
  expect(result).toMatchObject({success:true});expect(result).not.toHaveProperty('checkoutCards');
  expect(m.issue).toHaveBeenCalledOnce();expect(m.cards).not.toHaveBeenCalled();
 });
+it('checks customer visibility while independent purchase grants are pending, without writing early',async()=>{
+ let grant!:(value:typeof a)=>void;
+ m.manager.mockImplementation(permission=>permission==='wallet.create'?new Promise(resolve=>{grant=resolve;}):Promise.resolve(a));
+ const result=assignBeautyNativeCard(input);
+ await vi.waitFor(()=>expect(m.people).toHaveBeenCalled());
+ expect(m.issue).not.toHaveBeenCalled();grant(a);
+ expect(await result).toMatchObject({success:true});expect(m.issue).toHaveBeenCalledOnce();
+});
+it('rejects a different customer authorization store before issuing a card',async()=>{
+ m.manager.mockImplementation(async permission=>permission==='customer.read'?{...a,storeId:'foreign'}:a);
+ expect(await assignBeautyNativeCard(input)).toMatchObject({success:false});
+ expect(m.issue).not.toHaveBeenCalled();
+});

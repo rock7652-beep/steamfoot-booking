@@ -1022,6 +1022,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 }
 
 export async function updateCourseRosterBatch(input: unknown) {
+ return withCourseCheckoutRequest(async timings=>{
   const startedAt = Date.now();
   let authMs = 0;
   let lockWaitMs = 0;
@@ -1068,14 +1069,15 @@ export async function updateCourseRosterBatch(input: unknown) {
 
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     const refreshStartedAt = Date.now();
-    if (!(await musicLookup)) refresh();
+    if (!(await musicLookup)) after(()=>refresh());
     const refreshMs = Date.now() - refreshStartedAt;
-    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, totalMs: Date.now() - startedAt });
+    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, phases:timings, totalMs: Date.now() - startedAt });
     return {success:true as const};
   }catch(error){
     console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);
   }
+ });
 }
 
 /** One transaction for the manager's day-wide leave/attendance list. */

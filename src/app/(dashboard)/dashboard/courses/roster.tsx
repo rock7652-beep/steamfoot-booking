@@ -396,8 +396,8 @@ export function CourseRoster({
     sourceVersion.current=undefined;
     const refresh = (checkVersion=false) => {
       if(cancelledSession.current === sessionId)return Promise.resolve(null);
-      if(checkVersion && !sourceRead && musicLayout && isMusicPreviewPage() && view === "roster" && initialDetailLoaded)return quickLoad.current().then(()=>null).catch(()=>null);
       if (sourceReadBlocked.current || (sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
+      if(checkVersion && !sourceRead && musicLayout && isMusicPreviewPage() && view === "roster" && initialDetailLoaded)return quickLoad.current().then(()=>null).catch(()=>null);
       readInFlight = true;
       const version = ++readVersion.current;
       return (sourceSync&&checkVersion?sourceSync(sessionId,sourceVersion.current):sourceRead?sourceRead(sessionId):sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):musicLayout?musicPanelRead("session-detail",[sessionId,view === "roster",view === "trial-booking"],()=>loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking")):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))

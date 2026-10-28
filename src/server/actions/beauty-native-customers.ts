@@ -129,14 +129,14 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
  let committed=false;
  try{
   const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id,beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional(),beautyRosterSessionId:z.string().min(1).max(200).optional()}).parse(input);
-  const [a,financial]=await Promise.all([beautyManager('wallet.create',true),beautyManager('transaction.create',true)]);if(a.storeId!==financial.storeId||a.userId!==financial.userId)throw new AppError('FORBIDDEN','店家範圍不一致');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);
+  const [a,financial,s]=await beautyReadStep('checkout_access',()=>Promise.all([beautyManager('wallet.create',true),beautyManager('transaction.create',true),scope('customer.read',{customerIds:[d.customerId]})]));if(a.storeId!==financial.storeId||a.userId!==financial.userId||s.storeId!==a.storeId)throw new AppError('FORBIDDEN','店家範圍不一致');await beautyReadStep('checkout_feature',()=>requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT));
   if(d.expectedStoreId!==a.storeId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟結帳');
-  const s=await scope('customer.read',{customerIds:[d.customerId]});if(s.storeId!==a.storeId)throw new AppError('CONFLICT','店家已切換');customerExists(s,d.customerId);
+  customerExists(s,d.customerId);
   if(d.revenueStaffId||d.expectedStoreCost||d.musicPurchaseTerms||d.musicValidityDays||d.musicManualBonus||d.musicJoinSessionId)throw new AppError('VALIDATION','此服務方案不使用課程期數或成本欄位');
   if(d.discountValue)await beautyManager('wallet.adjust',true);
   if(d.paymentMethod==='BANK_TRANSFER'&&!/^\d{4}$/.test(d.transferLastFour))throw new AppError('VALIDATION','請填寫轉帳末四碼');
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
-  const result=await beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour}));
+  const result=await beautyReadStep('checkout_transaction',()=>beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour})));
   committed=true;
   // Profile checkout uses the same independently authorized card reader as the
   // panel. A failed read must not turn a committed payment into a retry.
