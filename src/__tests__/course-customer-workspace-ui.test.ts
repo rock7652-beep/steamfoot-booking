@@ -17,12 +17,13 @@ vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservat
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),loadCourseCustomerSearchIndex:vi.fn().mockResolvedValue({success:true,rows:[],complete:true})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
+const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:vi.fn()}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:vi.fn(),setCourseCardMembers:vi.fn(),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
+vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:m.courseAssign,setCourseCardMembers:vi.fn(),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
+vi.mock("@/server/actions/course-purchase-intent",()=>({prepareCoursePurchaseIntent:vi.fn(),getCoursePurchaseIntent:vi.fn(),getPendingCoursePurchaseIntent:vi.fn(),cancelCoursePurchaseIntent:vi.fn(),acknowledgeCoursePurchaseIntent:vi.fn()}));
 vi.mock("@/server/actions/course-staff",()=>({saveCourseStaff:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
@@ -30,6 +31,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/customer-list",()=>({CourseCustomer
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-health",()=>({CourseCustomerHealth:()=>null}));
 vi.mock("@/server/actions/sports-staging",()=>({saveSportsFee:vi.fn()}));
 import {CourseMemberWorkspace} from "@/app/(dashboard)/dashboard/courses/member-workspace";
+import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};
 const click=async(text:string)=>{const b=[...host.querySelectorAll("button")].find(b=>b.textContent===text);expect(b,text).toBeTruthy();await act(async()=>b!.click());};
@@ -149,4 +151,53 @@ it('offers a service purchase slot without changing the original plan form for o
  const select=host.querySelector<HTMLSelectElement>('[aria-label="消費類型"]')!;expect(select).toBeTruthy();expect(select.textContent).toContain('多次方案');expect(select.textContent).toContain('單次／體驗');
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,'service');select.dispatchEvent(new Event('change',{bubbles:true}));});
  expect(host.textContent).toContain('單次服務顧客 person');expect(host.querySelector('form#course-member-form')).toBeNull();expect([...host.querySelectorAll('button')].some(b=>b.textContent==='確認結帳')).toBe(false);
+});
+
+it('beauty-source checkout discovers a previously committed purchase and requires explicit acknowledgement',async()=>{
+ sessionStorage.clear();const key='11111111-1111-4111-8111-111111111111',done={status:'COMMITTED' as const,requestKey:key,purchaseId:'card-1'};
+ const transport={prepare:vi.fn(),get:vi.fn().mockResolvedValue({success:true,data:done}),getPending:vi.fn().mockResolvedValue({success:true,data:done}),cancel:vi.fn(),acknowledge:vi.fn().mockResolvedValue({success:true,data:done})};
+ const assign=vi.fn(),source={assign,browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'beauty-test',family:'beauty-plan',transport},createElement(CourseMemberWorkspace,{...props,source,initialCustomerId:'person',initialAction:'assign'}))));
+ expect(transport.getPending).toHaveBeenCalledWith('person');expect(host.textContent).toContain('這筆購買已完成');expect(transport.acknowledge).not.toHaveBeenCalled();expect(assign).not.toHaveBeenCalled();
+ await click('確認完成並繼續購買');expect(transport.acknowledge).toHaveBeenCalledWith('person',key);expect(assign).not.toHaveBeenCalled();expect(host.textContent).not.toContain('這筆購買已完成');
+});
+
+it('beauty-source checkout blocks an unknown prior outcome and does not submit a purchase',async()=>{
+ sessionStorage.clear();const transport={prepare:vi.fn(),get:vi.fn(),getPending:vi.fn().mockRejectedValue(new Error('offline')),cancel:vi.fn(),acknowledge:vi.fn()};
+ const assign=vi.fn(),source={assign,browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'beauty-test',family:'beauty-plan',transport},createElement(CourseMemberWorkspace,{...props,source,initialCustomerId:'person',initialAction:'assign'}))));
+ expect(host.textContent).toContain('購買結果尚未確認');expect(host.textContent).toContain('請勿再次收款');expect(assign).not.toHaveBeenCalled();expect(transport.prepare).not.toHaveBeenCalled();
+ const submit=host.querySelector<HTMLButtonElement>('button[form="course-member-form"]');expect(submit?.disabled).toBe(true);
+});
+
+it.each(['beauty','course'])('%s checkout submits once and requires acknowledgement before another purchase',async family=>{
+ sessionStorage.clear();const key='11111111-1111-4111-8111-111111111111',prepared={status:'PREPARED' as const,requestKey:key,purchaseId:null},done={status:'COMMITTED' as const,requestKey:key,purchaseId:'purchase-1'};
+ vi.spyOn(crypto,'randomUUID').mockReturnValue(key);const transport={prepare:vi.fn().mockResolvedValue({success:true,data:prepared}),get:vi.fn().mockResolvedValue({success:true,data:done}),getPending:vi.fn().mockResolvedValue({success:true,data:null}),cancel:vi.fn(),acknowledge:vi.fn().mockResolvedValue({success:true,data:done})};
+ const assign=vi.fn().mockResolvedValue({success:true}),purchaseCompleted=vi.fn();m.courseAssign.mockResolvedValue({success:true});
+ const source=family==='beauty'?{assign,purchaseCompleted,browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource:undefined;
+ const plan={id:'plan',name:'測試方案',points:10,price:1000,validDays:90,isActive:true,unit:'POINT',templateIds:[]};
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'test-store',family,transport},createElement(CourseMemberWorkspace,{...props,source,plans:[plan],initialCustomerId:'person',initialAction:'assign'}))));
+ const method=host.querySelector<HTMLSelectElement>('select[name="paymentMethod"]')!;expect(method).toBeTruthy();await act(async()=>{method.value='CARD';method.dispatchEvent(new Event('change',{bubbles:true}));});
+ const form=host.querySelector<HTMLFormElement>('#course-member-form')!;expect(form).toBeTruthy();await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(transport.prepare).toHaveBeenCalledOnce();expect((family==='beauty'?assign:m.courseAssign)).toHaveBeenCalledOnce();expect(host.textContent).toContain('這筆購買已完成');expect(transport.acknowledge).not.toHaveBeenCalled();expect(purchaseCompleted).not.toHaveBeenCalled();
+ await click('確認完成並繼續購買');expect(transport.acknowledge).toHaveBeenCalledWith('person',key);expect(host.textContent).not.toContain('這筆購買已完成');if(family==='beauty')expect(purchaseCompleted).toHaveBeenCalledOnce();else expect(host.querySelector('#course-member-form')).not.toBeNull();
+});
+
+it('does not enable beauty recovery when the server rollout flag is off',async()=>{
+ sessionStorage.clear();const transport={prepare:vi.fn(),get:vi.fn(),getPending:vi.fn(),cancel:vi.fn(),acknowledge:vi.fn()};
+ const source={assign:vi.fn(),browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:false,storeId:'beauty-test',family:'beauty-plan',transport},createElement(CourseMemberWorkspace,{...props,source,initialCustomerId:'person',initialAction:'assign'}))));
+ expect(transport.getPending).not.toHaveBeenCalled();expect(host.textContent).not.toContain('購買結果尚未確認');
+});
+
+it('beauty-source late status for a previous customer cannot appear in the next customer window',async()=>{
+ sessionStorage.clear();let release!:(v:{success:true;data:{status:'COMMITTED';requestKey:string;purchaseId:string}})=>void;
+ const prior=new Promise<{success:true;data:{status:'COMMITTED';requestKey:string;purchaseId:string}}>(resolve=>{release=resolve});
+ const transport={prepare:vi.fn(),get:vi.fn(),getPending:vi.fn((id:string)=>id==='person'?prior:Promise.resolve({success:true as const,data:null})),cancel:vi.fn(),acknowledge:vi.fn()};
+ const source={assign:vi.fn(),browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),cashStatus:vi.fn().mockResolvedValue({success:true,status:'OPEN'}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ const people=[...props.people,{...props.people[0],id:'other',name:'另一位顧客'}];
+ const view=(id:string)=>createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'beauty-test',family:'beauty-plan',transport},createElement(CourseMemberWorkspace,{...props,key:id,people,source,initialCustomerId:id,initialAction:'assign'}));
+ await act(async()=>root.render(view('person')));await act(async()=>root.render(view('other')));
+ await act(async()=>release({success:true,data:{status:'COMMITTED',requestKey:'11111111-1111-4111-8111-111111111111',purchaseId:'old-card'}}));
+ expect(transport.getPending).toHaveBeenCalledWith('other');expect(host.textContent).not.toContain('這筆購買已完成');expect(host.textContent).toContain('另一位顧客');expect(transport.acknowledge).not.toHaveBeenCalled();
 });

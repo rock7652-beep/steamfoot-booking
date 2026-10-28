@@ -7,12 +7,14 @@ vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollmen
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({correction:vi.fn(),load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),teacher:vi.fn(),create:vi.fn(),save:vi.fn(),cancel:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
+const m=vi.hoisted(()=>({correction:vi.fn(),load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),teacher:vi.fn(),create:vi.fn(),save:vi.fn(),cancel:vi.fn(),assign:vi.fn(),purchaseOptions:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
 
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>"/hq/dashboard/courses",useSearchParams:()=>new URLSearchParams("date=2026-10-23")}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,markCourseTeacherAttendance:m.teacher,cancelCourseSession:m.cancel}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,loadCourseStudentPurchase:m.purchaseOptions,assignCoursePointCard:m.assign,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,markCourseTeacherAttendance:m.teacher,cancelCourseSession:m.cancel}));
+vi.mock("@/lib/course-purchase-options-client",()=>({readCoursePurchaseOptions:m.purchaseOptions}));
+vi.mock("@/server/actions/course-purchase-intent",()=>({prepareCoursePurchaseIntent:vi.fn(),getCoursePurchaseIntent:vi.fn(),getPendingCoursePurchaseIntent:vi.fn(),cancelCoursePurchaseIntent:vi.fn(),acknowledgeCoursePurchaseIntent:vi.fn()}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
@@ -20,6 +22,7 @@ vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));
 vi.mock("@/components/operation-history-button",()=>({OperationHistoryButton:()=>null}));
 vi.mock("@/server/actions/course-waitlist",()=>({promoteCourseWaitlistManually:vi.fn()}));
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
+import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 it("shows each group learner's own term, dates and distinct leave/no-show counts", async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const date=(day:number)=>`2026-09-${String(day).padStart(2,"0")}T10:00:00.000Z`;
@@ -682,4 +685,32 @@ it('native roster shows current remaining and separates attendance from learner 
   expect(document.querySelector('a[role="menuitem"][href*="action=assign"]')).toBeNull();
   expect([...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent==='學員資料')?.className).toContain('justify-center');
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
+
+it('keeps the roster checkout in place until the completed purchase is acknowledged',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});sessionStorage.clear();
+ const row={id:'recovery-booking',customerId:'recovery-student',customerName:'測試學員',customerPhone:'0972000000',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'UNPAID',checkedInAt:null,trialPayments:[],planName:'固定學員',termCount:0,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:0,unit:'SESSION',notes:'',pointCost:0,cardRemaining:null,sportsFixed:true};
+ const data={session:{startsAt:'2026-10-28T04:00:00Z',pointCost:1},roster:[row],cards:[],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]};
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data})}));
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ m.purchaseOptions.mockResolvedValue({success:true,data:{customerId:'recovery-student',customerName:'測試學員',plans:[{id:'plan',name:'十堂',unit:'SESSION',points:10,price:1000,validDays:90,storeCost:0}],canDiscount:false,music:false,profitEnabled:false,revenueStaffOptions:[]}});
+ let key='', committed=false;
+ const intent=()=>({status:committed?'COMMITTED' as const:'PREPARED' as const,requestKey:key,purchaseId:committed?'purchase':null});
+ const api={getPending:vi.fn().mockResolvedValue({success:true,data:null}),get:vi.fn(async()=>({success:true,data:intent()})),prepare:vi.fn(async(_input:unknown,k:string)=>{key=k;return {success:true as const,data:intent()};}),cancel:vi.fn(),acknowledge:vi.fn(async()=>({success:true as const,data:intent()}))};
+ m.assign.mockImplementation(async()=>{committed=true;return {success:true};});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);const oldUrl=window.location.href;
+ try{
+  await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'test-store',transport:api},createElement(CourseRoster,{sessionId:'recovery-session',capacity:8,canCreate:true,canEdit:true,sportsNative:true}))));
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="測試學員 更多操作"]')!.click());
+  await act(async()=>[...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(e=>e.textContent==='學員繳費')!.click());
+  const method=document.querySelector<HTMLSelectElement>('select[name="paymentMethod"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(method,'CARD');method.dispatchEvent(new Event('change',{bubbles:true}));});
+  const form=document.querySelector<HTMLFormElement>('#course-roster-purchase-form')!;
+  await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(m.assign).toHaveBeenCalledOnce();expect(api.acknowledge).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain('這筆購買已完成');expect(document.querySelector('#course-roster-purchase-form')).not.toBeNull();
+  const next=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='確認完成並繼續購買')!;
+  await act(async()=>next.click());expect(api.acknowledge).toHaveBeenCalledWith('recovery-student',key);expect(window.location.href).toBe(oldUrl);
+  expect(document.querySelector('#course-roster-purchase-form')).not.toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();sessionStorage.clear();vi.unstubAllGlobals();}
 });

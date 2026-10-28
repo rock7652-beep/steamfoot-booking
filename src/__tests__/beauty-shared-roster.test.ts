@@ -2,6 +2,7 @@
 import {act,createElement as h} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+vi.mock("@/server/actions/beauty-collection-intent", () => ({ prepareBeautyCollectionPurchaseIntent: vi.fn(), readBeautyCollectionPurchaseIntent: vi.fn(), cancelBeautyCollectionPurchaseIntent: vi.fn(), acknowledgeBeautyCollectionPurchaseIntent: vi.fn() }));
 const m=vi.hoisted(()=>({refund:vi.fn(),status:vi.fn(),move:vi.fn(),collect:vi.fn(),collectionRead:vi.fn(),push:vi.fn(),refresh:vi.fn(),params:new URLSearchParams(),read:vi.fn(),rosterProps:null as Record<string,unknown>|null}));
 vi.mock('next/dynamic',async()=>{const React=await import('react');return {default:(loader:()=>Promise<{default:React.ComponentType<Record<string,unknown>>}>)=>{const C=React.lazy(async()=>{const loaded=await loader();return {default:typeof loaded==='function'?loaded:loaded.default};});return (props:Record<string,unknown>)=>h(React.Suspense,{fallback:null},h(C,props));}};});
 vi.mock('@/app/(dashboard)/dashboard/courses/sports-move-confirm',()=>({SportsMoveConfirm:()=>null}));

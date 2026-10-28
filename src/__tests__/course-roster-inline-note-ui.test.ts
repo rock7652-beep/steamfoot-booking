@@ -7,6 +7,7 @@ vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }))
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
 const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn() }));

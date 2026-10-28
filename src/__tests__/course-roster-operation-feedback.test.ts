@@ -7,6 +7,7 @@ vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }))
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
 const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
 vi.mock("@/lib/sports-session-detail-client",()=>({readSportsSessionDetail:m.native}));
 vi.mock('@/lib/music-panel-transport',()=>({musicPanelRead:(_operation:string,_args:unknown[],fallback:()=>unknown)=>fallback()}));

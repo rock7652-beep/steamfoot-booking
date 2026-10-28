@@ -1,0 +1,12 @@
+{
+  "mode": "lost",
+  "login": true,
+  "attempts": 1,
+  "matchingRequests": 2,
+  "responseDropped": true,
+  "completed": true,
+  "reloadConfirmed": true,
+  "serverResponseStatus": 200,
+  "acknowledgementClicked": true,
+  "acknowledgementVerifiedInDb": false
+}

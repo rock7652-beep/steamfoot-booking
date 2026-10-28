@@ -11,6 +11,7 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {musicPanelRead} from "@/lib/music-panel-transport";
 import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import { CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery } from "./purchase-recovery";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseOptionSelect } from "@/components/admin/course-option-select";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
@@ -247,6 +248,7 @@ export function CourseRoster({
   const [purchaseError, setPurchaseError] = useState("");
   const [purchasePending, setPurchasePending] = useState(false);
   const [purchaseSummary, setPurchaseSummary] = useState<AssignmentSummary>({paid:null,valid:false});
+  const purchaseRecovery = useCoursePurchaseRecovery(purchaseOptions?.customerId ?? undefined, !!purchaseFor && !source);
   const [paymentBooking, setPaymentBooking] = useState<string | null>(null);
   const [correctPayment, setCorrectPayment] = useState(false);
   const [noShowBooking, setNoShowBooking] = useState<{
@@ -1699,18 +1701,19 @@ export function CourseRoster({
           <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 id="course-roster-purchase-title" className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {++purchaseRead.current;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
           <div className="min-h-0 overflow-y-auto p-4">
             {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
+            <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={purchasePending} onCommitted={()=>{setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseKey(crypto.randomUUID());setMessage("購買已完成，正在更新名單");void load(false).then(status=>{if(status==="loaded")setMessage("購買已完成，名單已更新");else if(status==="failed")setMessage("購買已完成，名單同步失敗；請重新讀取名單，勿再次付款。");});}}/>
             {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
             {purchaseOptions && <form id="course-roster-purchase-form" className="grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" onSubmit={(event) => {
               event.preventDefault();
-              if (!purchaseSummary.valid || !purchasePlanId || purchasePending||purchaseLock.current) return;
+              if (!purchaseSummary.valid || !purchasePlanId || purchasePending||purchaseLock.current||purchaseRecovery.blocked) return;
               purchaseLock.current=true;
               const purchaseScope=operationScope.current;
               const fields = new FormData(event.currentTarget);
               setPurchasePending(true);
               setPurchaseError("");
-              void musicCheckoutTransport("purchase", {
+              void purchaseRecovery.submit({
                 planId: purchasePlanId,
-                customerId: purchaseOptions.customerId,
+                customerId: purchaseOptions.customerId ?? "",
                 expiresDate: purchaseOptions.music?"2099-12-31":String(fields.get("expiresDate")),
                 musicPurchaseTerms:purchaseOptions.music?Number(fields.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:fields.get("musicReceivedResolved")!==null?Number(fields.get("musicReceivedResolved")):undefined,
@@ -1728,11 +1731,10 @@ export function CourseRoster({
                 transferLastFour: String(fields.get("transferLastFour") ?? ""),
                 requestKey: purchaseKey,
                 bookingId:purchaseFor,
-              }, assignCoursePointCard).then(async (result) => {
-                if(purchaseScope!==operationScope.current||!rosterMounted.current)return;
+              }, prepared => musicCheckoutTransport("purchase", prepared, assignCoursePointCard)).then(async (result) => {
+                if(result.discarded||purchaseScope!==operationScope.current||!rosterMounted.current)return;
                 if (!result.success) { setPurchaseError(result.error??"購課未完成"); return; }
-                setPurchaseFor(null);
-                setPurchaseOptions(null);
+                if(!purchaseRecovery.enabled){setPurchaseFor(null);setPurchaseOptions(null);}
                 setMessage(`${purchaseOptions.customerName} 的購買及收款已登記`);
                 if(result.rosterSnapshot?.sessionId===sessionId){
                   ++readVersion.current;
@@ -1753,7 +1755,7 @@ export function CourseRoster({
               </>:<p className="text-sm text-earth-600">此項目尚未建立可購買方案。</p>}
             </form>}
           </div>
-          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認購課與本次收款"}</button></div> : null}
+          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || purchaseRecovery.blocked || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認購課與本次收款"}</button></div> : null}
         </div>
       </ModalPanel>}
       {payBooking && payBooking.id !== infoBookingId && paymentSettings && !correctPayment && (

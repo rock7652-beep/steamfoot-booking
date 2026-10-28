@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn()}));
+const m=vi.hoisted(()=>({after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn(),intentCommit:vi.fn(),intentFingerprint:vi.fn()}));
 vi.mock('next/cache',()=>({revalidatePath:m.invalidate}));
 vi.mock('next/server',()=>({after:m.after}));
 vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyNativeRoster:m.roster}));
@@ -10,6 +10,7 @@ vi.mock('@/lib/session',()=>({requireSession:m.session}));
 vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({assignedStaffId:'staff'})}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.tx}));
 vi.mock('@/server/beauty/commerce',()=>({issueCard:m.issue}));
+vi.mock('@/server/beauty/purchase-intent',()=>({commitBeautyPlanIntent:m.intentCommit,beautyPlanIntentFingerprint:m.intentFingerprint}));
 vi.mock('@/server/actions/beauty',()=>({updateBeautyCardMembers:m.members}));
 vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:m.profile}));
 vi.mock('@/server/actions/course-customer-note',()=>({saveCourseCustomerNote:m.note}));
@@ -23,6 +24,8 @@ it('loads actual ledger only for scoped detail and masks invisible member identi
 it.each(['manager','feature'] as const)('denies %s before reading module financial data',async key=>{m[key].mockRejectedValueOnce(Error('denied'));expect(await browseBeautyNativeCards({customerId:'c'})).toMatchObject({success:false});expect(m.cards).not.toHaveBeenCalled();});
 it('rejects cross-store and invisible customer histories before module queries',async()=>{expect(await readBeautyNativeCustomerBookings('foreign')).toMatchObject({success:false});expect(await readBeautyNativeCustomerPurchases('foreign')).toMatchObject({success:false});expect(m.bookings).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();});
 it('uses the original issue-card transaction with authoritative expected price and explicit expiry',async()=>{expect(await assignBeautyNativeCard(input)).toMatchObject({success:true});expect(m.issue).toHaveBeenCalledWith({local:true},a,expect.objectContaining({planId:'plan',customerId:'c',paid:4500,method:'BANK_TRANSFER',memberIds:[]}),undefined,{expiresDate:input.expiresDate,expectedListPrice:5000,transferLastFour:'1234'});expect(m.manager.mock.calls.map(c=>c[0])).toContain('wallet.adjust');});
+it('when the staged guard is enabled, missing or rejected intent cannot issue a card',async()=>{vi.stubEnv('BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED','1');m.intentFingerprint.mockReturnValue('digest');m.intentCommit.mockRejectedValueOnce(new Error('intent missing'));try{expect(await assignBeautyNativeCard(input)).toMatchObject({success:false});expect(m.intentCommit).toHaveBeenCalledOnce();expect(m.issue).not.toHaveBeenCalled();}finally{vi.unstubAllEnvs();}});
+it('when the staged guard is enabled, an authorized prepared intent wraps the card issuance',async()=>{vi.stubEnv('BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED','1');m.intentFingerprint.mockReturnValue('digest');m.intentCommit.mockImplementationOnce((_tx,_actor,_intent,work)=>work());try{expect(await assignBeautyNativeCard(input)).toMatchObject({success:true});expect(m.intentCommit).toHaveBeenCalledWith({local:true},a,{requestKey:input.requestKey,customerId:'c',fingerprint:'digest'},expect.any(Function));expect(m.issue).toHaveBeenCalledOnce();}finally{vi.unstubAllEnvs();}});
 it('cannot submit a discount without its extra permission',async()=>{m.manager.mockImplementation(async permission=>{if(permission==='wallet.adjust')throw Error('denied');return a;});expect(await assignBeautyNativeCard(input)).toMatchObject({success:false});expect(m.issue).not.toHaveBeenCalled();});
 it('forwards the Beauty fixed-fee quote to the authoritative issue-card check',async()=>{
  expect(await assignBeautyNativeCard({...input,beautyExpectedStoreCost:1500})).toMatchObject({success:true});

@@ -17,7 +17,9 @@ import {AppError,handleActionError} from '@/lib/errors';
 import {courseBalanceTotals} from '@/lib/course-balance-summary';
 import {courseHistoryRange} from '@/lib/course-history-range';
 import {toLocalDateStr} from '@/lib/date-utils';
-import {courseCheckoutSchema,calculateCourseCheckout} from '@/lib/course-checkout';
+import {calculateCourseCheckout} from '@/lib/course-checkout';
+import {beautyNativePlanCheckoutSchema,beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
+import {beautyPlanIntentFingerprint,commitBeautyPlanIntent} from '@/server/beauty/purchase-intent';
 import {serviceCharges} from '@/server/beauty/service-charges';
 import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
 import {issueCard} from '@/server/beauty/commerce';
@@ -128,7 +130,7 @@ export async function assignBeautyNativeCard(input:Record<string,unknown>){retur
 async function assignBeautyNativeCardCore(input:Record<string,unknown>){
  let committed=false;
  try{
-  const d=courseCheckoutSchema.extend({customerId:id,planId:id,expiresDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),requestKey:z.string().uuid(),expectedStoreId:id,beautyExpectedStoreCost:z.number().int().nonnegative().nullable().optional(),beautyRosterSessionId:z.string().min(1).max(200).optional()}).parse(input);
+  const d=beautyNativePlanCheckoutSchema.parse(input);
   const [a,financial,s]=await beautyReadStep('checkout_access',()=>Promise.all([beautyManager('wallet.create',true),beautyManager('transaction.create',true),scope('customer.read',{customerIds:[d.customerId]})]));if(a.storeId!==financial.storeId||a.userId!==financial.userId||s.storeId!==a.storeId)throw new AppError('FORBIDDEN','店家範圍不一致');await beautyReadStep('checkout_feature',()=>requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT));
   if(d.expectedStoreId!==a.storeId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟結帳');
   customerExists(s,d.customerId);
@@ -136,7 +138,10 @@ async function assignBeautyNativeCardCore(input:Record<string,unknown>){
   if(d.discountValue)await beautyManager('wallet.adjust',true);
   if(d.paymentMethod==='BANK_TRANSFER'&&!/^\d{4}$/.test(d.transferLastFour))throw new AppError('VALIDATION','請填寫轉帳末四碼');
   const paid=calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue).paid;
-  const result=await beautyReadStep('checkout_transaction',()=>beautyTransaction(a,tx=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour})));
+  const result=await beautyReadStep('checkout_transaction',()=>beautyTransaction(a,tx=>{
+   const issue=()=>issueCard(tx,a,cardInput.parse({planId:d.planId.replace(/^plan:/,''),customerId:d.customerId,memberIds:[],paid,method:d.paymentMethod,requestKey:d.requestKey}),undefined,{expiresDate:d.expiresDate,expectedListPrice:d.expectedListPrice,expectedStoreCost:d.beautyExpectedStoreCost,transferLastFour:d.transferLastFour});
+   return beautyPlanPurchaseIntentsEnabled()?commitBeautyPlanIntent(tx,a,{requestKey:d.requestKey,customerId:d.customerId,fingerprint:beautyPlanIntentFingerprint(d)},issue):issue();
+  }));
   committed=true;
   // Profile checkout uses the same independently authorized card reader as the
   // panel. A failed read must not turn a committed payment into a retry.

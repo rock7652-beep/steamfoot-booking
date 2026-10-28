@@ -1,0 +1,11 @@
+{
+  "mode": "normal",
+  "login": true,
+  "attempts": 1,
+  "matchingRequests": 0,
+  "responseDropped": false,
+  "completed": true,
+  "reloadConfirmed": true,
+  "acknowledgementClicked": true,
+  "acknowledgementVerifiedInDb": false
+}

@@ -30,6 +30,9 @@ import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { courseCheckoutSchema } from "@/lib/course-checkout";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
+import { coursePurchaseIntentsEnabled } from "@/lib/course-purchase-intent-flag";
+import { parseCoursePurchaseIntentInput } from "@/server/services/course-purchase-intent-input";
+import { assertCourseIntentForCheckout, commitCourseIntent } from "@/server/services/course-purchase-intent";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import { after } from "next/server";
 import { z } from "zod";
@@ -340,13 +343,16 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
+    const intentInput = coursePurchaseIntentsEnabled() ? parseCoursePurchaseIntentInput(input) : null;
     let musicCheckout=false;
     const purchase=await courseTransaction(storeId, async tx => {
+      if (intentInput) await assertCourseIntentForCheckout(tx,storeId,intentInput);
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
       const music = await isMusicCourseStore(tx, storeId);musicCheckout=music;
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
+      if (intentInput) await commitCourseIntent(tx,storeId,intentInput,purchase.id);
       // Purchasing grants rights only. Staff confirms attendance separately;
       // selecting a new purchase here would bypass first-purchased-first-used.
 

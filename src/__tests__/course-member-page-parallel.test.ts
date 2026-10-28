@@ -63,7 +63,7 @@ describe("course member page authorized reads", () => {
     m.view.mockResolvedValue({isViewMode:true});
     const page = await CourseMemberPage({view:"customers"});
     const shell = page.props.children;
-    const workspace = shell.props.children[2];
+    const workspace = shell.props.children[2].props.children;
     expect(workspace.props.canAssign).toBe(false);
     expect(workspace.props.canEdit).toBe(false);
     expect(workspace.props.canCreate).toBe(false);
@@ -75,7 +75,7 @@ describe("course member page authorized reads", () => {
   it("does not enable purchase when transaction permission is denied", async () => {
     m.allow.mockImplementation(async (_role: string,_staff: string,permission: string) => permission !== "transaction.create");
     const page = await CourseMemberPage({view:"customers"});
-    const workspace = page.props.children.props.children[2];
+    const workspace = page.props.children.props.children[2].props.children;
     expect(workspace.props.canAssign).toBe(false);
   });
   it("fails closed when a required permission read fails", async () => {

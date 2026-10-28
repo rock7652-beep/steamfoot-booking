@@ -1,5 +1,7 @@
 "use server";
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
+import {beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
+import {beautyCollectionIntentsEnabled,commitBeautyCollectionIntent} from '@/server/beauty/collection-intent';
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {traceBeautyRead,beautyReadStep} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
@@ -430,7 +432,10 @@ async function collectBeautyPaymentCore(input: unknown) {
     await requireStoreFeature(a.storeId, FEATURES.TRANSACTION_MANAGEMENT);
     const d=paymentInput.parse(input),canDiscount=!!d.quotes?.some(q=>q.discount);
     if(canDiscount)await requirePermission("transaction.discount");
-    return beautyTransaction(a, (tx) => collect(tx,a,d,{canDiscount}));
+    if(beautyCollectionIntentsEnabled())await requirePermission('booking.read');
+    return beautyTransaction(a, (tx) => beautyCollectionIntentsEnabled()
+      ? commitBeautyCollectionIntent(tx,a,d,()=>collect(tx,a,d,{canDiscount}))
+      : collect(tx,a,d,{canDiscount}));
   });
 }
 export async function readBeautyCollection(ids:unknown){return (await traceBeautyRead('collection.read',()=>readBeautyCollectionCore(ids))).value;}
@@ -450,6 +455,9 @@ export async function purchaseBeautyPlan(input: unknown) {
     const a = await beautyManager("wallet.create", true);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     await requirePermission("transaction.create");
+    // Legacy direct issuance has no durable intent contract. Never permit it
+    // to bypass the staged guard when the new mode is deliberately enabled.
+    if (beautyPlanPurchaseIntentsEnabled()) throw new AppError('CONFLICT','請更新後台並從顧客資料重新開啟購買');
     const d = cardInput.parse(input);
     const p = await beautyPrisma.beautyPlan.findFirst({
       where: { id: d.planId, storeId: a.storeId },
@@ -578,6 +586,9 @@ export async function confirmBeautyPurchase(input: unknown) {
     const a = await beautyManager("wallet.create", true);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     await requirePermission("transaction.create");
+    // Pending online orders need a separate migration to the guarded
+    // lifecycle. Do not silently issue a card outside that lifecycle.
+    if (beautyPlanPurchaseIntentsEnabled()) throw new AppError('CONFLICT','線上待確認訂單暫不可結帳，請聯絡管理員核對');
     const d = z.object({ requestKey: z.string().uuid(), id: key }).parse(input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
