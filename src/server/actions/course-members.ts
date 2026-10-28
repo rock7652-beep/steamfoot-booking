@@ -323,7 +323,9 @@ export async function assignCoursePointCard(input: unknown) {
   try {
     if (input && typeof input === "object" && ["musicOpeningState","musicOpeningStateRequired","sourceKey","openingBalance"].some(key=>key in input))
       throw new AppError("VALIDATION","期初資料不可經新增購買或收款流程建立");
-    const { user, storeId } = await courseManager("wallet.create");
+    const [actor,financialActor] = await Promise.all([courseManager("wallet.create"),courseManager("transaction.create")]);
+    const {user,storeId}=actor;
+    if(financialActor.storeId!==storeId||financialActor.user.id!==user.id)throw new AppError("FORBIDDEN","店家範圍不一致");
     const data = z
       .object({
         planId: id,
@@ -335,7 +337,6 @@ export async function assignCoursePointCard(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
     const purchase=await courseTransaction(storeId, async tx => {
@@ -366,10 +367,13 @@ export async function assignCoursePointCard(input: unknown) {
 
 /** Checkout options for the learner currently selected in the schedule dialog. */
 export async function loadCourseStudentPurchase(bookingId: string) {
+  return withCourseCheckoutRequest(async timings=>{
+  const started=performance.now();
   try {
     id.parse(bookingId);
-    const { user, storeId } = await courseManager("wallet.create");
-    await courseManager("transaction.create");
+    const [actor,financialActor]=await Promise.all([courseManager("wallet.create"),courseManager("transaction.create")]);
+    const {user,storeId}=actor;
+    if(financialActor.storeId!==storeId||financialActor.user.id!==user.id)throw new AppError("FORBIDDEN","店家範圍不一致");
     const booking = await coursePrisma.courseBooking.findFirst({
       where: { id: bookingId, storeId },
       select: { customerId: true, customerName: true, session: { select: { templateId: true,template:{select:{musicSubjectId:true}} } } },
@@ -393,7 +397,8 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount, music, profitEnabled:settlement.profitEnabled, revenueStaffOptions:settlement.profitEnabled?revenueStaffOptions:[], defaultRevenueStaffId:settlement.profitEnabled?revenueStaffOptions.find(staff=>staff.id===customer.assignedStaffId)?.id??"":"" } };
   } catch (error) {
     return handleActionError(error);
-  }
+  }finally{console.info("[course-purchase-options-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
+  });
 }
 
 export async function setCourseCardMembers(input: unknown) {

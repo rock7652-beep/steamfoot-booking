@@ -11,10 +11,10 @@ vi.mock('@/server/services/course-business-profile',()=>({isMusicCourseStore:m.m
 vi.mock('@/server/services/music-item-compatibility',()=>({musicItemTemplateIds:async()=>['item-a']}));
 vi.mock('@/server/services/course-display-order',()=>({readCourseOrders:async()=>({})}));
 vi.mock('@/server/services/course-monthly-settlement',()=>({readSettlementSettings:m.settings}));
-import {loadCourseStudentPurchase} from '@/server/actions/course-members';
+import {loadCourseStudentPurchase,assignCoursePointCard} from '@/server/actions/course-members';
 import {AppError} from '@/lib/errors';
 beforeEach(()=>{
- vi.resetAllMocks();m.access.mockResolvedValue({user:{role:'OWNER',staffId:'owner'},storeId:'isolated'});
+ vi.resetAllMocks();m.access.mockResolvedValue({user:{id:'owner-user',role:'OWNER',staffId:'owner'},storeId:'isolated'});
  m.booking.mockResolvedValue({customerId:'learner',customerName:'驗收學員',session:{templateId:'item-a',template:{musicSubjectId:null}}});
  m.plans.mockResolvedValue([]);m.customer.mockResolvedValue({id:'learner',assignedStaffId:null});
  m.staff.mockResolvedValue([{id:'owner',displayName:'本店店長'}]);m.settings.mockResolvedValue({profitEnabled:true});m.music.mockResolvedValue(false);
@@ -35,4 +35,13 @@ it('keeps music period checkout independent of sports sale attribution',async()=
 });
 it('does not disclose recipients or learner data without checkout permission',async()=>{
  m.access.mockRejectedValue(new AppError('FORBIDDEN','沒有權限'));expect(await loadCourseStudentPurchase('booking')).toMatchObject({success:false});expect(m.customer).not.toHaveBeenCalled();expect(m.staff).not.toHaveBeenCalled();
+});
+it.each([
+ ['another store',{user:{id:'owner-user'},storeId:'other-store'}],
+ ['another identity',{user:{id:'other-user'},storeId:'isolated'}],
+])('rejects %s between independent checkout grants before reading learner or plan data',async(_reason,financial)=>{
+ m.access.mockImplementation(async permission=>permission==='transaction.create'?financial:{user:{id:'owner-user',role:'OWNER',staffId:'owner'},storeId:'isolated'});
+ expect(await loadCourseStudentPurchase('booking')).toMatchObject({success:false,error:'店家範圍不一致'});
+ expect(await assignCoursePointCard({})).toMatchObject({success:false,error:'店家範圍不一致'});
+ expect(m.booking).not.toHaveBeenCalled();expect(m.customer).not.toHaveBeenCalled();expect(m.plans).not.toHaveBeenCalled();
 });

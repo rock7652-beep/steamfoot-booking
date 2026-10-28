@@ -8,6 +8,14 @@ export function withPermissionRequestSession<T>(work: () => Promise<T>): Promise
   return requestSessions.run({}, work);
 }
 
+/** Identity only for one atomic checkout. Always starts fresh, including inside
+ * a read scope; grants, store policy, membership and financial locks remain live.
+ * Checkout must not change the authenticated identity or selected store.
+ */
+export function withCheckoutPermissionSession<T>(work: () => Promise<T>): Promise<T> {
+  return requestSessions.run({}, work);
+}
+
 export function permissionRequestSession<T>(authenticate: () => Promise<T>): Promise<T> {
   const state = requestSessions.getStore();
   if (!state) return authenticate();
