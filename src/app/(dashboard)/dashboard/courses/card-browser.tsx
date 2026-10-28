@@ -7,6 +7,7 @@ import { CourseCardReservations } from "./card-reservations";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useRef, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
+import {readNativeCourseCards} from "@/lib/course-card-read-client";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
@@ -15,7 +16,7 @@ export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", nat
   dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;
 }) {
-  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??browseCourseCards, String(revision));
+  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??(native?readNativeCourseCards:browseCourseCards), String(revision));
   const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);

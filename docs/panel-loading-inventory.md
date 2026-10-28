@@ -6,6 +6,7 @@
 
 | 入口 | 資料來源／共用資源 | 策略 |
 | --- | --- | --- |
+| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、TTL 0及關閉／換人晚到隔離，避免 Server Action 排隊；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |

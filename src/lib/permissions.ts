@@ -565,8 +565,8 @@ export async function requirePermission(
   const feature = coreFeatureForPermission(permission);
   if (feature) {
     const { getActiveStoreForRead } = await import("@/lib/store");
-    const storeId = explicitStoreId ?? await getActiveStoreForRead(user);
-    if (storeId) await (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature);
+    const storeId = explicitStoreId ?? await measurePermission(timing, "permission.featureStore", () => getActiveStoreForRead(user));
+    if (storeId) await measurePermission(timing, "permission.feature", async () => (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature));
   }
   if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission)) {
     const { isHqStoreView } = await import("@/lib/hq-store-view");

@@ -23,15 +23,16 @@ export async function courseManager(permission: PermissionCode) {
 async function checkCourseManager(permission: PermissionCode) {
   const startedAt = Date.now();
   // Store resolution checks the subscription for the authorized target store.
-  const user = await measureMusicCheckout(`permission.${permission}`,()=>requirePermission(permission, undefined, { deferSubscriptionGuard: true }));
+  const permissionTiming={measure:<T>(name:string,work:()=>Promise<T>)=>measureMusicCheckout(`${permission}.${name}`,work)};
+  const user = await measureMusicCheckout(`permission.${permission}`,()=>requirePermission(permission, permissionTiming, { deferSubscriptionGuard: true }));
   const permissionMs = Date.now() - startedAt;
   const storeId = await musicCheckoutWriteStore(user,()=>resolveWriteStoreId(user));
   const storeMs = Date.now() - startedAt - permissionMs;
   const [, staff] = await Promise.all([
-    requireCourseStore(storeId),
-    user.role === "ADMIN"
-      ? Promise.resolve(true)
-      : prisma.staff.findFirst({
+    measureMusicCheckout(`${permission}.module`,()=>requireCourseStore(storeId)),
+    measureMusicCheckout(`${permission}.membership`,async()=>user.role === "ADMIN"
+      ? true
+      : await prisma.staff.findFirst({
           where: {
             id: user.staffId ?? "",
             storeId,
@@ -40,7 +41,7 @@ async function checkCourseManager(permission: PermissionCode) {
             user: { status: "ACTIVE" },
           },
           select: { id: true },
-        }),
+        })),
   ]);
   if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   if (permission === "booking.read" || permission === "booking.update") {
