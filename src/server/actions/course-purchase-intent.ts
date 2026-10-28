@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
-import { withPermissionRequestSession } from "@/lib/permission-request-session";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
 import { withCourseCheckoutRequest } from "@/server/services/music-checkout-request";
 import { lockCourseStore } from "@/server/services/course-store-lock";
@@ -121,14 +120,10 @@ export async function acknowledgeCoursePurchaseIntent(input: unknown) {
   });
 }
 export async function getPendingCoursePurchaseIntent(input: unknown) {
-  // Share only authentication inside this single read request. All three grants,
-  // store/membership checks and customer visibility remain independently enforced.
-  return withPermissionRequestSession(async () => {
-    const timer = intentTimer("pending");
-    try {
-      assertEnabled(); const data = customerInput.parse(input), actor = await timer.measure("authorization", readActor);
-      await timer.measure("customer", () => requireVisibleCustomer(actor,data.customerId));
-      return {success:true as const,data:await timer.measure("pendingLookup", () => readPendingCourseIntent(coursePrisma,actor.storeId,data.customerId))};
-    } catch (error) { return handleActionError(error); } finally { timer.finish(); }
-  });
+  const timer = intentTimer("pending");
+  try {
+    assertEnabled(); const data = customerInput.parse(input), actor = await timer.measure("authorization", readActor);
+    await timer.measure("customer", () => requireVisibleCustomer(actor,data.customerId));
+    return {success:true as const,data:await timer.measure("pendingLookup", () => readPendingCourseIntent(coursePrisma,actor.storeId,data.customerId))};
+  } catch (error) { return handleActionError(error); } finally { timer.finish(); }
 }
