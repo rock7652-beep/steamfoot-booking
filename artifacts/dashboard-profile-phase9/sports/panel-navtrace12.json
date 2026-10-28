@@ -1,0 +1,809 @@
+{
+  "module": "sports",
+  "phase": "panel",
+  "deployment": "dpl_Btw5A79zSDQYb9qiq7x47YGgGt8S",
+  "complete": true,
+  "samples": [
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 84,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1114,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 1,
+      "clickAtEpochMs": 1793181204477,
+      "elapsedMs": 1424,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 48,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1397,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 2,
+      "clickAtEpochMs": 1793181205974,
+      "elapsedMs": 1888,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 27,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1265,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 3,
+      "clickAtEpochMs": 1793181207906,
+      "elapsedMs": 1353,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 22,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1178,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 4,
+      "clickAtEpochMs": 1793181209311,
+      "elapsedMs": 1346,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 51,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1141,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 5,
+      "clickAtEpochMs": 1793181210722,
+      "elapsedMs": 1380,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "lost": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 6,
+      "clickAtEpochMs": 1793181212153,
+      "elapsedMs": 20466,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 32,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 997,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 7,
+      "clickAtEpochMs": 1793181240937,
+      "elapsedMs": 1390,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 87,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 1092,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 8,
+      "clickAtEpochMs": 1793181242492,
+      "elapsedMs": 1556,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 34,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 849,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 9,
+      "clickAtEpochMs": 1793181244210,
+      "elapsedMs": 996,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "lost": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 10,
+      "clickAtEpochMs": 1793181245278,
+      "elapsedMs": 11263,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "ms": 0,
+          "dialog": false,
+          "status": false,
+          "balance": false
+        },
+        {
+          "ms": 54,
+          "dialog": true,
+          "status": true,
+          "balance": false
+        },
+        {
+          "ms": 861,
+          "dialog": true,
+          "status": false,
+          "balance": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 11,
+      "clickAtEpochMs": 1793181265086,
+      "elapsedMs": 899,
+      "remaining": 10
+    },
+    {
+      "paintEvents": [
+        {
+          "lost": true
+        }
+      ],
+      "step": "ready-page-plan-click-to-visible",
+      "sample": 12,
+      "clickAtEpochMs": 1793181266068,
+      "elapsedMs": 11699,
+      "remaining": 10
+    }
+  ],
+  "requests": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181201293.518,
+      "durationMs": 956,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181204591.665,
+      "durationMs": 817,
+      "action": "40320082332121ec0bfa951008595eec78073d4ed7"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181204592.245,
+      "durationMs": 1012,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181206040.538,
+      "durationMs": 1340,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181207951.455,
+      "durationMs": 1222,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181209346.923,
+      "durationMs": 1146,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181210787.4082,
+      "durationMs": 1083,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181212671.212,
+      "durationMs": 1368,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181209346.4229,
+      "durationMs": 5333,
+      "action": "40320082332121ec0bfa951008595eec78073d4ed7"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181231504.855,
+      "durationMs": 976,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181231502.1218,
+      "durationMs": 1293,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181232674.204,
+      "durationMs": 1460,
+      "action": "40320082332121ec0bfa951008595eec78073d4ed7"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181240995.855,
+      "durationMs": 948,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181242617.389,
+      "durationMs": 977,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181242604.605,
+      "durationMs": 1933,
+      "action": "40320082332121ec0bfa951008595eec78073d4ed7"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181244292.4321,
+      "durationMs": 778,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181245611.45,
+      "durationMs": 1200,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181255382.611,
+      "durationMs": 791,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181255382.157,
+      "durationMs": 821,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181265172.583,
+      "durationMs": 786,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181266169.954,
+      "durationMs": 983,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses/card-read",
+      "operation": null,
+      "startedAtEpochMs": 1793181276615.0579,
+      "durationMs": 849,
+      "action": null
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181276614.1409,
+      "durationMs": 872,
+      "action": "404614a3bba2ebe160fb3a108a4f2ed33dc1a56c4d"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "operation": null,
+      "startedAtEpochMs": 1793181277827.9438,
+      "durationMs": 1436,
+      "action": "40320082332121ec0bfa951008595eec78073d4ed7"
+    }
+  ],
+  "navigations": [
+    {
+      "at": 1793181195342,
+      "kind": "document-request",
+      "path": "/"
+    },
+    {
+      "at": 1793181195418,
+      "kind": "document-request",
+      "path": "/"
+    },
+    {
+      "at": 1793181195865,
+      "path": "/",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181196185,
+      "kind": "document-request",
+      "path": "/api/auth/session"
+    },
+    {
+      "at": 1793181196627,
+      "path": "/",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181196843,
+      "path": "/api/auth/session",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181197819,
+      "kind": "document-request",
+      "path": "/s/sports-live-flow/admin/dashboard/courses"
+    },
+    {
+      "at": 1793181198454,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181199288,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181203980,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181204575,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181204578,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181205944,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181205951,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181206032,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181206460,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181207885,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181207889,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181207944,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181208496,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181209288,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181209293,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181209341,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181209825,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181210696,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181210703,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181210782,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181211542,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181212136,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181212652,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181212662,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181213130,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181214153,
+      "kind": "document-request",
+      "path": "/s/sports-live-flow/admin/dashboard/courses"
+    },
+    {
+      "at": 1793181214964,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181215662,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181232663,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181232669,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181239278,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181240983,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181240987,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181242403,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181242415,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181242591,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181243124,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181244132,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181244140,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181244272,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181244603,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181245262,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181245560,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181245587,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181245595,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181246506,
+      "kind": "document-request",
+      "path": "/s/sports-live-flow/admin/dashboard/courses"
+    },
+    {
+      "at": 1793181247352,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181247948,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181256603,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181256609,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181263882,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181265154,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181265161,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181266045,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181266054,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181266132,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181266146,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181266980,
+      "kind": "document-request",
+      "path": "/s/sports-live-flow/admin/dashboard/courses"
+    },
+    {
+      "at": 1793181267602,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181268341,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": true
+    },
+    {
+      "at": 1793181277812,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181277819,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    },
+    {
+      "at": 1793181282983,
+      "path": "/s/sports-live-flow/admin/dashboard/courses",
+      "customerPanel": false
+    }
+  ]
+}
