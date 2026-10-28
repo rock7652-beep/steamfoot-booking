@@ -9,7 +9,8 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
 import {ModalPanel} from "@/components/admin/modal-panel";
 import {DashboardLink} from "@/components/dashboard-link";
-import {loadMusicPeriods} from "@/server/actions/music-periods";
+import type {loadMusicPeriods} from "@/server/actions/music-periods";
+import {readMusicPeriods} from "@/lib/music-period-read-client";
 import {loadCourseCustomerPurchases} from "@/server/actions/course-customer-history";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
@@ -31,7 +32,7 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
 }){
  const params=useSearchParams(),title=useId();
  const section=useRef<HTMLElement>(null);
- const periodsReader=usePanelReader("music-periods",loadMusicPeriods);
+ const periodsReader=usePanelReader("music-periods",readMusicPeriods);
  const ordersReader=usePanelReader("purchases",loadCourseCustomerPurchases);
  const [state,setState]=useState<{customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;error:string}|null>(null);
  const [revision,setRevision]=useState(0),[loading,setLoading]=useState(false),[subjectId,setSubject]=useState(params.get("studentSubject")??""),[methodId,setMethod]=useState(params.get("studentMethod")??""),[advanced,setAdvanced]=useState<string|null>(null);
