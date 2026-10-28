@@ -10,7 +10,7 @@ import {readCoursePurchaseOptions} from "@/lib/course-purchase-options-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {musicPanelRead} from "@/lib/music-panel-transport";
 import { publishMusicFinanceChange, isMusicPreviewPage, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
-import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseOptionSelect } from "@/components/admin/course-option-select";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
@@ -1744,7 +1744,7 @@ export function CourseRoster({
                 }
                 const refreshed=await load(false);
                 if(refreshed==="failed")setMessage("購買及收款已完成，名單同步失敗；請重新讀取名單，勿再次付款。");
-              }).catch(() => {if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchaseError("結果待確認，請核對購買紀錄後再操作。");}).finally(() => {purchaseLock.current=false;if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchasePending(false);});
+              }).catch(() => {if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchaseError(CHECKOUT_OUTCOME_UNCONFIRMED);}).finally(() => {purchaseLock.current=false;if(purchaseScope===operationScope.current&&rosterMounted.current)setPurchasePending(false);});
             }}>
               {purchaseOptions.plans.length ? <>
               <label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={event=>{setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map(option=><option key={option.id} value={option.id}>{option.name} · {option.points} {option.unit==="POINT"?"點":"堂"}</option>)}</select></label>

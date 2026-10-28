@@ -25,7 +25,7 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
 import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
-import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentCourses } from "./music-student-courses";
 import { MusicStudentOverview } from "./music-student-overview";
@@ -318,7 +318,7 @@ export function CourseMemberWorkspace({
         // customer event; keep the underlying reservation list mounted.
         if(!source&&!isMusicPreviewPage()&&!result.financePublished&&!result.checkoutCards)setTimeout(() => router.refresh(), 0);
       } catch {
-        setError("連線中斷，請重試");
+        setError(panel === "assign" ? CHECKOUT_OUTCOME_UNCONFIRMED : "連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
   }
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);

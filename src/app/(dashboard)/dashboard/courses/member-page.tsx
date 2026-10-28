@@ -27,12 +27,15 @@ import { CoursePurchaseReview } from "./purchase-review";
 import { CourseMemberWorkspace } from "./member-workspace";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { OperationTiming } from "@/lib/operation-timing";
 export async function CourseMemberPage({
   view, query = {},
 }: {
   view: "customers" | "plans";
   query?: Record<string, string | undefined>;
 }) {
+  const timing = new OperationTiming("course-member-page");
+  try {
   const user = await getCurrentUser();
   if (
     !user ||
@@ -66,11 +69,11 @@ export async function CourseMemberPage({
   );
   const params = new URLSearchParams(Object.entries(query).filter((pair): pair is [string,string] => typeof pair[1] === "string"));
   const customerPage = view === "customers" && canReadPeople
-    ? await getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards, new Date(), music) : undefined;
+    ? await timing.measure("customer_list", () => getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards, new Date(), music)) : undefined;
   const customerIds = customerPage?.rows.map(r => r.id) ?? [];
   if (query.customerId) customerIds.push(query.customerId);
   const [people, plans, canEdit, canAssign, canCreate, canManageStaff] =
-    await Promise.all([
+    await timing.measure("people_and_permissions", () => Promise.all([
       view === "customers" && canReadPeople
         ? prisma.customer.findMany({
             where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds }, AND:[musicCustomerWhere(storeId,query.dataScope)] },
@@ -98,7 +101,7 @@ export async function CourseMemberPage({
       user.role === "OWNER" && !isViewMode
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
-    ]);
+    ]));
   const lastClassByCustomer = new Map(customerPage?.rows.map(row=>[row.id,row.lastVisitAt ? new Date(row.lastVisitAt) : null]));
   const customerRows = people.map(p=>({
     id:p.id,name:p.name,phone:p.phone,lineName:p.lineName,lineUserId:p.lineUserId,
@@ -111,58 +114,81 @@ export async function CourseMemberPage({
     validPackageSessions:0,
   }));
   const canReadTermSessions = view === "plans" && await checkPermission(user.role, user.staffId, "booking.read");
-  const [assignmentStaff, termSessions, templates, subjects, displayOrders] = await Promise.all([
+  const [assignmentStaff, termSessions, templates, subjects, displayOrders, musicTeacherRows, canEditMusicTeachers] = await timing.measure("catalog_metadata", () => Promise.all([
     prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
     canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,...musicSessionWhere(storeId,query.dataScope),cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]}),
     (music || sportsNative) ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
     readCourseOrders(storeId),
-  ]);
-  const musicTeachers = music ? (await prisma.staff.findMany({where:{storeId,courseCoachEnabled:true},select:{id:true,displayName:true,status:true,courseQualifiedTemplateIds:true},orderBy:{displayName:"asc"}})).map(t=>({id:t.id,name:t.displayName,active:t.status==="ACTIVE",qualificationIds:t.courseQualifiedTemplateIds})) : [];
-  const canEditMusicTeachers = !isViewMode && await checkPermission(user.role,user.staffId,"staff.manage");
+    music ? prisma.staff.findMany({where:{storeId,courseCoachEnabled:true},select:{id:true,displayName:true,status:true,courseQualifiedTemplateIds:true},orderBy:{displayName:"asc"}}) : [],
+    isViewMode ? false : checkPermission(user.role,user.staffId,"staff.manage"),
+  ]));
+  const musicTeachers = musicTeacherRows.map(t=>({id:t.id,name:t.displayName,active:t.status==="ACTIVE",qualificationIds:t.courseQualifiedTemplateIds}));
 
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
   subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
-  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,query.dataScope),status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
+  // Once the actor, selected store and page permissions are verified these
+  // independent reads can proceed together. Never use these presentation
+  // grants in place of server-side mutation authorization.
+  const [orders, canExport, labelSnapshot, settlement, canMerge, canAssignManager,
+    healthEnabled, canReadTransactions, canSchedule, canReadBookings,
+    canAssignWithTransaction, canDiscount, sharedCardState, schedulingModes, sportsData] = await timing.measure("workspace_finish", () => Promise.all([
+    view === "plans" && canReadCards ? coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,query.dataScope),status:"PENDING"},orderBy:{createdAt:"asc"}}) : [],
+    (async()=>view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId))(),
+    view === "customers" && canReadPeople ? customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS,
+    readSettlementSettings(coursePrisma,storeId),
+    !isViewMode && (user.role === "OWNER" || user.role === "ADMIN") ? checkPermission(user.role, user.staffId, "customer.update") : false,
+    !isViewMode ? checkPermission(user.role, user.staffId, "customer.assign") : false,
+    hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY),
+    checkPermission(user.role, user.staffId, "transaction.read"),
+    !isViewMode ? checkPermission(user.role,user.staffId,"booking.create") : false,
+    checkPermission(user.role, user.staffId, "booking.read"),
+    canAssign && canReadCards && canReadPeople ? checkPermission(user.role,user.staffId,"transaction.create") : false,
+    !isViewMode ? checkPermission(user.role,user.staffId,"transaction.discount") : false,
+    music ? "ENABLED" as const : getCourseSharedCardState(storeId),
+    sportsNative ? coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}) : undefined,
+    sportsDataPromise,
+  ]));
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
-  const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId);
-  const labelSnapshot = view === "customers" && canReadPeople ? await customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS;
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" && <PageHeader title={sportsNative?"收費方式":music ? "收費方式" : "方案管理"} />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign && musicDataScope(storeId,query.dataScope)!=="legacy"} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace initialAction={query.action==="assign"&&canAssign?"assign":undefined} initialCustomerId={query.customerId} dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+      <CourseMemberWorkspace initialAction={query.action==="assign"&&canAssign?"assign":undefined} initialCustomerId={query.customerId} dataScope={musicDataScope(storeId,query.dataScope)??undefined} sportsNative={sportsNative} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.plan} profitEnabled={settlement.profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
         canExport={canExport}
-        canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
+        canMerge={canMerge}
         customerRows={customerRows}
         customerPage={customerPage}
         assignmentStaff={assignmentStaff}
-        canAssignManager={!isViewMode&&await checkPermission(user.role, user.staffId, "customer.assign")}
+        canAssignManager={canAssignManager}
         canReadCards={canReadCards}
-        healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
+        healthEnabled={healthEnabled}
         termSessions={termSessions.map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString()}))}
         templates={presentCourseTemplates(templates,plans,music)}
         subjects={subjects}
         musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers}
         view={view}
-        canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
-        canSchedule={!isViewMode&&await checkPermission(user.role,user.staffId,"booking.create")}
-        canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
+        canReadTransactions={canReadTransactions}
+        canSchedule={canSchedule}
+        canReadBookings={canReadBookings}
         people={people.map((p) => ({ id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
         cards={[]}
         canEdit={canEdit}
         canCreate={canCreate}
         canManageStaff={canManageStaff}
-        canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
-        canDiscount={!isViewMode&&await checkPermission(user.role,user.staffId,"transaction.discount")}
-        sharedCardState={music ? "ENABLED" : await getCourseSharedCardState(storeId)}
-        schedulingModes={sportsNative?await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined:undefined}
-        sportsData={await sportsDataPromise}
+        canAssign={canAssign && canReadCards && canReadPeople && canAssignWithTransaction}
+        canDiscount={canDiscount}
+        sharedCardState={sharedCardState}
+        schedulingModes={schedulingModes??undefined}
+        sportsData={sportsData}
         music={music}
       />
     </PageShell>
     </CustomerLabelsSeed>
   );
+  } finally {
+    timing.finish();
+  }
 }

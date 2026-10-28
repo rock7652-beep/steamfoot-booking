@@ -2,6 +2,7 @@ import {capturePurchaseSnapshotReceiver,MUSIC_PURCHASE_APPLY} from "./music-purc
 import {parseMusicPeriods} from './music-period-read-client';
 import { isMusicPreviewPage, publishMusicFinanceChange, publishMusicRevenueCommit } from "./music-finance-sync";
 export type MusicMutationResult = { success: boolean;financePublished?:boolean;musicSnapshot?:import('./music-purchase-snapshot').MusicPurchaseSnapshot; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
+export const CHECKOUT_OUTCOME_UNCONFIRMED = "收款結果尚未確認，請勿再次收款，請管理員協助核對；即使查無紀錄，原請求仍可能處理中。";
 /** Fixed URL and versioned JSON contract avoid deployment-pinned Server Action IDs.
  * Never retry a payment automatically: callers retain their original idempotency key.
  */
@@ -47,6 +48,6 @@ export async function musicCheckoutTransport(
   } catch {
     // The server has already confirmed the write. A disconnected projection must not invite a second payment.
     if (committed) { publishMusicFinanceChange(operation, token); return {success:true,financePublished:true}; }
-    return { success: false, error: "尚未確認收款結果，輸入已保留；請用相同資料重試，系統會防止重複收款。" };
+    return { success: false, error: CHECKOUT_OUTCOME_UNCONFIRMED };
   }
 }

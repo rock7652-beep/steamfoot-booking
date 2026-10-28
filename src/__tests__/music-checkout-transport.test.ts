@@ -24,6 +24,7 @@ describe("deployment independent music checkout",()=>{
   const fallback=vi.fn();const input={requestKey:"original-key",customerId:"customer",planId:"plan",amount:200};
   const first=await musicCheckoutTransport("purchase",input,fallback);
   expect(first.success).toBe(false);expect(first.error).toContain("尚未確認");
+  expect(first.error).toContain("請勿再次收款");expect(first.error).toContain("查無紀錄");expect(first.error).not.toContain("系統會防止重複收款");
   expect(fetcher).toHaveBeenCalledTimes(1);expect(notify).not.toHaveBeenCalled();
   const second=await musicCheckoutTransport("purchase",input,fallback);
   expect(second.success).toBe(true);expect(fetcher).toHaveBeenCalledTimes(2);
