@@ -18,6 +18,32 @@ describe("deployment independent music checkout",()=>{
   expect((await musicCheckoutTransport("receipt",{},fallback)).success).toBe(false);
   expect(fetcher).toHaveBeenCalledOnce();expect(fallback).not.toHaveBeenCalled();expect(notify).not.toHaveBeenCalled();
  });
+ it("a manual retry after an uncertain purchase keeps the original key and submits only once per attempt",async()=>{
+  const fetcher=vi.fn().mockRejectedValueOnce(new Error("connection lost")).mockResolvedValueOnce(Response.json({success:true}));
+  vi.stubGlobal("fetch",fetcher);
+  const fallback=vi.fn();const input={requestKey:"original-key",customerId:"customer",planId:"plan",amount:200};
+  const first=await musicCheckoutTransport("purchase",input,fallback);
+  expect(first.success).toBe(false);expect(first.error).toContain("尚未確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);expect(notify).not.toHaveBeenCalled();
+  const second=await musicCheckoutTransport("purchase",input,fallback);
+  expect(second.success).toBe(true);expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(fetcher.mock.calls.map(([,options])=>options.body)).toEqual([
+    JSON.stringify({operation:"purchase",input}),JSON.stringify({operation:"purchase",input}),
+  ]);
+  expect(fallback).not.toHaveBeenCalled();expect(notify).toHaveBeenCalledOnce();
+ });
+ it("does not announce success or retry when the server rejects a purchase",async()=>{
+  const fetcher=vi.fn().mockResolvedValue(Response.json({success:false,error:"方案已停用"}));vi.stubGlobal("fetch",fetcher);
+  const result=await musicCheckoutTransport("purchase",{requestKey:"key"},vi.fn());
+  expect(result).toEqual({success:false,error:"方案已停用"});
+  expect(fetcher).toHaveBeenCalledOnce();expect(early).not.toHaveBeenCalled();expect(notify).not.toHaveBeenCalled();
+ });
+ it("does not report success when a purchase response is unreadable before confirmation",async()=>{
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,status:200,headers:new Headers(),json:vi.fn().mockRejectedValue(new Error("disconnected"))}));
+  const result=await musicCheckoutTransport("purchase",{requestKey:"key"},vi.fn());
+  expect(result.success).toBe(false);expect(result.error).toContain("尚未確認");
+  expect(early).not.toHaveBeenCalled();expect(notify).not.toHaveBeenCalled();
+ });
  it("preserves the draft on an unsupported contract and does not notify",async()=>{
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(null,{status:409})));
   expect((await musicCheckoutTransport("purchase",{},vi.fn())).error).toContain("輸入仍保留");expect(notify).not.toHaveBeenCalled();

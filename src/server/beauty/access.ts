@@ -53,11 +53,8 @@ export async function beautyManager(
     ? await resolveWriteStoreId(user)
     : await getActiveStoreForRead(user);
   if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
-  await requireBeauty(storeId, write);
-  if (
-    user.role !== "ADMIN" &&
-    storeId === user.storeId &&
-    !(await prisma.staff.findFirst({
+  const checkStaff = () => user.role !== "ADMIN" && storeId === user.storeId
+    ? prisma.staff.findFirst({
       where: {
         id: user.staffId ?? "",
         storeId,
@@ -66,9 +63,17 @@ export async function beautyManager(
         user: { status: "ACTIVE" },
       },
       select: { id: true },
-    }))
-  )
-    throw new AppError("FORBIDDEN", "本店工作權限已停用");
+    }) : Promise.resolve(true);
+  // Reads may verify these independent gates together. Writes keep their
+  // existing subscription and membership ordering.
+  let staff;
+  if (write) {
+    await requireBeauty(storeId, true);
+    staff = await checkStaff();
+  } else {
+    [, staff] = await Promise.all([requireBeauty(storeId), checkStaff()]);
+  }
+  if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   return storeId;
   });
   return { storeId, userId: user.id, name:user.name, manager: true };
