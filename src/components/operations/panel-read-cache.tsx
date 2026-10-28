@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useTransition, type ReactNode } from "react";
-import {MUSIC_PURCHASE_START, createPurchaseSnapshotSeeds, type MusicPurchaseSnapshot, type PurchaseSnapshotReceiver} from "@/lib/music-purchase-snapshot";
+import {MUSIC_PURCHASE_START,MUSIC_PURCHASE_APPLY, createPurchaseSnapshotSeeds, type MusicPurchaseSnapshot, type PurchaseSnapshotReceiver} from "@/lib/music-purchase-snapshot";
 import {musicPanelRead} from "@/lib/music-panel-transport";
 import { createClientReadCache } from "@/lib/client-read-cache";
 
@@ -25,7 +25,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const searchParams = useSearchParams();
   const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
   useEffect(() => {
-    if (!isMusicPreviewPage() || !isMusicSyncRoute(pathname)) return;
+    if (!isMusicSyncRoute(pathname)) return;
     let active = true, epoch = 0;
     let incoming: MusicPurchaseSnapshot | null = null;
     const beginPurchase = (event: Event) => {
@@ -37,7 +37,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
       };
     };
     window.addEventListener(MUSIC_PURCHASE_START, beginPurchase);
-    const unsubscribe = subscribeMusicFinanceChange((kind) => {
+    const applyFinanceChange = (kind:import('@/lib/music-finance-sync').MusicFinanceChange) => {
         epoch++;
         const snapshot = kind === "purchase" ? incoming : null;
         incoming = null;
@@ -53,12 +53,16 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         // Purchase panels and the music customer list re-read their own authoritative data.
         if(kind === "purchase" && studentPage) return;
         startTransition(() => router.refresh());
-    });
+    };
+    const applyProjection=()=>applyFinanceChange('purchase');
+    window.addEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
+    const unsubscribe=isMusicPreviewPage()?subscribeMusicFinanceChange(applyFinanceChange):()=>{};
     return () => {
       active = false;
       incoming = null;
       purchaseSeeds.clear();
       window.removeEventListener(MUSIC_PURCHASE_START, beginPurchase);
+      window.removeEventListener(MUSIC_PURCHASE_APPLY,applyProjection);
       unsubscribe();
     };
   }, [pathname, studentPage, registry, router, purchaseSeeds]);

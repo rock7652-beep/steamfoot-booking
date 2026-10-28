@@ -1,7 +1,7 @@
-import {capturePurchaseSnapshotReceiver} from "./music-purchase-snapshot";
+import {capturePurchaseSnapshotReceiver,MUSIC_PURCHASE_APPLY} from "./music-purchase-snapshot";
 import {parseMusicPeriods} from './music-period-read-client';
 import { isMusicPreviewPage, publishMusicFinanceChange, publishMusicRevenueCommit } from "./music-finance-sync";
-export type MusicMutationResult = { success: boolean;financePublished?:boolean; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
+export type MusicMutationResult = { success: boolean;financePublished?:boolean;musicSnapshot?:import('./music-purchase-snapshot').MusicPurchaseSnapshot; error?: string; checkoutReceipt?:unknown;checkoutCards?:import('./course-purchase-roster').CoursePurchaseCardsSnapshot;rosterSnapshot?:import('./course-purchase-roster').CoursePurchaseRosterSnapshot };
 /** Fixed URL and versioned JSON contract avoid deployment-pinned Server Action IDs.
  * Never retry a payment automatically: callers retain their original idempotency key.
  */
@@ -9,8 +9,15 @@ export async function musicCheckoutTransport(
   operation: "purchase" | "receipt", input: unknown,
   fallback: (input: unknown) => Promise<MusicMutationResult>,
 ): Promise<MusicMutationResult> {
-  if (!isMusicPreviewPage()) return fallback(input);
   const acceptSnapshot = operation === "purchase" ? capturePurchaseSnapshotReceiver() : undefined;
+  if (!isMusicPreviewPage()) {
+    const result=await fallback(input);
+    if(result.success&&result.musicSnapshot&&acceptSnapshot){
+      acceptSnapshot(result.musicSnapshot);window.dispatchEvent(new Event(MUSIC_PURCHASE_APPLY));
+      return {...result,financePublished:true};
+    }
+    return result;
+  }
   const started=performance.now();
   const token = `${operation}:${crypto.randomUUID()}`;
   let committed = false;

@@ -54,8 +54,8 @@ export async function POST(request: Request) {
             // JSON whitespace flushes committed headers while retaining the existing JSON response contract.
             controller.enqueue(encoder.encode(" "));
             const snapshotStart = performance.now();
-            let snapshot = null;
-            try { if(!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
+            let snapshot = 'musicSnapshot' in result?result.musicSnapshot??null:null;
+            try { if(!snapshot&&!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
             timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
             console.info("[music-checkout-write]", JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
             try { controller.enqueue(encoder.encode(JSON.stringify({...result,...(snapshot?{snapshot}:{}),readTiming:detail}))); controller.close(); }
@@ -69,8 +69,8 @@ export async function POST(request: Request) {
         }});
       }
       const snapshotStart = performance.now();
-      let snapshot = null;
-      try { if(!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
+      let snapshot = 'musicSnapshot' in result?result.musicSnapshot??null:null;
+      try { if(!snapshot&&!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
       timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
       return reply(snapshot ? {...result, snapshot} : result);
     }

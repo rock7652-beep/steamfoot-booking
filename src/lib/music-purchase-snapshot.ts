@@ -9,6 +9,7 @@ export type MusicPurchaseSnapshot = {
   purchases?:Extract<Awaited<ReturnType<typeof import('@/server/actions/course-customer-history').loadCourseCustomerPurchases>>,{success:true}>;
 };
 export const MUSIC_PURCHASE_START = "music-preview:purchase-start";
+export const MUSIC_PURCHASE_APPLY = 'course:purchase-projection';
 export type PurchaseSnapshotReceiver = { accept?: (snapshot: MusicPurchaseSnapshot) => void };
 
 /** Synchronous, same-window handoff. Never send this data to storage or BroadcastChannel. */
