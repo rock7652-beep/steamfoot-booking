@@ -1,0 +1,36 @@
+{
+  "deployment": "dpl_8vSCvizvS78sWDLDhq7FWmDyVP8t",
+  "complete": true,
+  "checks": [
+    {
+      "kind": "connection",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "kind": "connection",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    },
+    {
+      "kind": "advanced",
+      "scope": "own",
+      "status": 200,
+      "success": true,
+      "cache": "private, no-store"
+    },
+    {
+      "kind": "advanced",
+      "scope": "foreign",
+      "status": 200,
+      "success": false,
+      "cache": "private, no-store"
+    }
+  ],
+  "studentPlansVisible": true,
+  "pathname": "/hq/dashboard/beauty"
+}
