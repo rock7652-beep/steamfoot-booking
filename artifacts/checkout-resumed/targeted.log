@@ -1,9 +1,0 @@
-
- RUN  v4.1.4 /workspace/shared-item-login-qa
-
-
- Test Files  8 passed (8)
-      Tests  62 passed (62)
-   Start at  06:12:21
-   Duration  2.41s (transform 859ms, setup 0ms, import 1.26s, tests 1.61s, environment 317ms)
-

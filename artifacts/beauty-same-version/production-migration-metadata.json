@@ -1,5 +1,0 @@
-{
-  "scope": "migration metadata only; no writes",
-  "latestFinished": "20261025170000_course_single_charge",
-  "unfinishedNotRolledBack": 0
-}

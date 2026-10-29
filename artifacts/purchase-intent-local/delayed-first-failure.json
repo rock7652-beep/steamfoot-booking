@@ -1,7 +1,0 @@
-{
-  "login": true,
-  "sendCalls": 0,
-  "cancelled": false,
-  "released": false,
-  "failure": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded."
-}

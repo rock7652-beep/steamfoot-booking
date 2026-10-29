@@ -68,16 +68,17 @@ export async function GET(req: NextRequest) {
   const level = sp.get("level") ?? "summary";
 
   try {
-    if(analysisStoreId&&await getStoreIndustryModule(analysisStoreId)==="beauty"){
-      if(true){
+    const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
+    if(analysisStoreId&&(industry==="beauty"||industry==="steamfoot")){
+      if(industry==="beauty"){
         const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
         if(typeof scope.revenueStaffId==="string"){
           if(filters.coachId&&filters.coachId!==scope.revenueStaffId)return new NextResponse("Forbidden",{status:403});
           filters.coachId=scope.revenueStaffId;
         }
       }
-      if(level!=="summary"&&(!(await checkPermission(user.role,user.staffId,"transaction.read"))||!(await hasStoreFeature(analysisStoreId,FEATURES.TRANSACTION_MANAGEMENT))))return NextResponse.json({error:"Forbidden"},{status:403});
-      const report=await (await import('@/server/queries/beauty-revenue-report')).getBeautyRevenueReport(analysisStoreId,filters,{customers:await checkPermission(user.role,user.staffId,"customer.read")});
+      if(industry==="beauty"&&level!=="summary"&&(!(await checkPermission(user.role,user.staffId,"transaction.read"))||!(await hasStoreFeature(analysisStoreId,FEATURES.TRANSACTION_MANAGEMENT))))return NextResponse.json({error:"Forbidden"},{status:403});
+      const report=industry==='steamfoot'?await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(analysisStoreId,{...filters,storeFilter:{...filters.storeFilter,storeId:analysisStoreId}},{customers:await checkPermission(user.role,user.staffId,'customer.read'),reader:readUser}):await (await import('@/server/queries/beauty-revenue-report')).getBeautyRevenueReport(analysisStoreId,filters,{customers:await checkPermission(user.role,user.staffId,"customer.read")});
       const headers={"Cache-Control":"private, no-store"};
       if(level==="summary")return NextResponse.json({summary:moduleStaffRevenueSummary(report),kpi:report.kpi},{headers});
       const page=Math.max(1,Math.floor(Number(sp.get('page'))||1)),pageSize=Math.min(1000,Math.max(1,Math.floor(Number(sp.get('pageSize'))||50)));
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ summary, kpi, details });
   } catch (e) {
-    if(e instanceof AppError && e.code==="VALIDATION")return NextResponse.json({error:e.message},{status:400});
+    if(e instanceof AppError && ["VALIDATION","FORBIDDEN"].includes(e.code))return NextResponse.json({error:e.message},{status:e.code==="FORBIDDEN"?403:400});
     console.error("Coach revenue API error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

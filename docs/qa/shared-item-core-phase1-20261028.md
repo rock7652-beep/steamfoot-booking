@@ -1,5 +1,7 @@
 # 三模組項目權益核心：第一批實作與驗證
 
+> 本次上線審查版本不包含新增的驗收截圖及原始結果檔；下列 artifacts 路徑為當時紀錄的來源，並非此版本內的連結。驗收結論僅適用所載版本及條件。
+
 狀態：獨立支線完成實作與本地驗證，尚未部署或修改正式資料。
 
 - 支線：`fix/shared-item-entitlement-core`
@@ -31,7 +33,7 @@
 - `tsc --noEmit`：通過。
 - 異動檔案ESLint：0錯誤、3個既有警告（原名單讀取ref、原學員表單effect相依、原排課action未使用變數）。
 - `git diff --check`：通過。
-- 瀏覽器結果：[results.json](../../../artifacts/item-core/results.json)。重現：`node scripts/qa/item-core-browser.mjs`；截圖輸出至`artifacts/item-core/`，包含名單及購課視窗。
+- 瀏覽器結果：results.json（原始證據：`artifacts/item-core/results.json`）。重現：`node scripts/qa/item-core-browser.mjs`；截圖輸出至`artifacts/item-core/`，包含名單及購課視窗。
 
 ## 發布前仍需完成的相容驗收
 

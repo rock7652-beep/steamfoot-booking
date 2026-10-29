@@ -1,5 +1,7 @@
 # 項目核心：登入驗收與發布準備
 
+> 本次上線審查版本不包含新增的驗收截圖及原始結果檔；下列 artifacts 路徑為當時紀錄的來源，並非此版本內的連結。驗收結論僅適用所載版本及條件。
+
 狀態：已整合最新正式程式、完成隔離真實登入檢查，並成功部署美業Preview候選。另已用直接Playwright完成美業Preview OWNER購課、合計、扣抵與返還。後續運動／音樂實際登入、追加修正與效能限制見[本輪報告](shared-item-hosted-courses-20261028.md)，不可宣告正式上線。
 
 ## 候選與正式基準
@@ -18,7 +20,7 @@
 
 最終候選：**`a54afcff1da472b18948f1f1799ef47419d7abd6`**，部署 **`dpl_6ae6JkCrBphnVVFjTn72hypwTipB`**，**READY／Preview（target=null）**。遠端完整編譯與部署成功；封裝調整後另通過5檔26項圖片公告回歸、TypeScript及lint。
 
-交付登入入口：[美業測試站](https://steamfoot-booking-6qmkv3gmm-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021)。線上唯讀確認登入頁200，HTML部署識別與本候選一致；session回應200且無登入使用者；未登入名單API回403及success=false；圖片公告API GET回405，沒有原生依賴載入500錯誤。詳見[唯讀證據](../../../artifacts/item-core-login/hosted-read-results.json)。沒有將這些未登入檢查算成線上OWNER購課／點名驗收。
+交付登入入口：[美業測試站](https://steamfoot-booking-6qmkv3gmm-rock7652-2111s-projects.vercel.app/hq/login?store=beauty-hosted-20261021)。線上唯讀確認登入頁200，HTML部署識別與本候選一致；session回應200且無登入使用者；未登入名單API回403及success=false；圖片公告API GET回405，沒有原生依賴載入500錯誤。詳見唯讀證據（原始證據：`artifacts/item-core-login/hosted-read-results.json`）。沒有將這些未登入檢查算成線上OWNER購課／點名驗收。
 
 部署後再核對正式版本仍為`dpl_FxTqGE2xa5g1Gb3X4ZVkt4sa2qv5`／`979c956`，`www.steamfoot.com` alias未變。沒有正式發布、遠端DDL或正式交易。
 
@@ -28,7 +30,7 @@
 
 三模組合計 **19項通過**：未登入讀取拒絕1項；運動、音樂、美業各6項：OWNER登入、授權模組入口、跨店請求拒絕、登出後session清除、STAFF登入、無權限操作拒絕。跨店／無權限寫入後核對教室筆數不變。瀏覽器pageerror為空，對外網路請求封鎖。
 
-結果：[results.json](../../../artifacts/item-core-login/results.json)。本機帳號及店家皆為專用合成資料；未使用銀百合會員、店長身分或正式款項。
+結果：results.json（原始證據：`artifacts/item-core-login/results.json`）。本機帳號及店家皆為專用合成資料；未使用銀百合會員、店長身分或正式款項。
 
 限制：沒有為了本機測試更改原生模組rollout條件，因此這19項只證明整合候選的實際登入及權限邊界；不能冒稱「三模組原生核心完整流程已在正式登入站驗收」。項目購課／扣抵完整交易證據見[前批報告](shared-item-core-phase2-20261028.md)，兩種證據不能取代線上完整驗收。
 

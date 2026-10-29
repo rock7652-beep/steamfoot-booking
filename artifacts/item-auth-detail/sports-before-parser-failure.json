@@ -1,9 +1,0 @@
-{
-  "module": "sports",
-  "phase": "before",
-  "deployment": "dpl_Ei1UDPejUneviQZ51N12Uar4JtGR",
-  "complete": false,
-  "samples": [],
-  "requests": [],
-  "failure": "Error: page.evaluate: TypeError: Cannot read properties of null (reading 'user')\n    at eval (eval at evaluate (:290:30), <anonymous>:1:60)\n    at async <anonymous>:316:30"
-}

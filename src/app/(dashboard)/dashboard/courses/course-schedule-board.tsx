@@ -15,6 +15,8 @@ import {musicScheduleColors} from "@/lib/music-schedule-colors";
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 
 import React from "react";
+import {RightSheet} from "@/components/admin/right-sheet";
+import {courseWeekOverlaps} from "@/lib/course-week-overlaps";
 import { scheduleLanes } from "@/lib/course-schedule-lanes";
 import { courseCardContentOffset } from "@/lib/course-card-content-offset";
 
@@ -134,6 +136,7 @@ type Props = {
   rooms: Room[];
   coaches: Coach[];
   templates: Template[];
+  detailOpen?: boolean;
   pending?: boolean;
   canCreate?: boolean;
   occupiedSessions?: Session[];
@@ -160,7 +163,7 @@ function hhmm(iso: string) {
   return formatTWDateTime(new Date(iso)).slice(11);
 }
 
-function sessionDate(session: Session) {
+function sessionDate(session: Pick<Session,"startsAt">) {
   return toLocalDateStr(new Date(session.startsAt));
 }
 
@@ -262,7 +265,26 @@ function ServiceCleanup({session,minuteHeight}:{session:Session;minuteHeight:num
  return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(session.service.occupiedEndsAt)}</div>;
 }
 
+/** Weekly cards show a short summary; the button opens complete booking details. */
+function ServiceWeekCardContent({session,height,resource}:{session:Session;height:number;resource:string}) {
+  const service=session.service;
+  if(!service)return null;
+  const status=({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[service.status]??service.status;
+  if(height<34)return <div className="flex min-w-0 items-center gap-1 text-sm leading-4"><span className="hidden shrink-0 text-xs tabular-nums @[8rem]/week-card:inline">{hhmm(session.startsAt)}</span><strong className="min-w-0 truncate">{service.personName}<span className="hidden @[8rem]/week-card:inline"> · {session.nameSnapshot}</span></strong></div>;
+  return <div className="min-w-0 w-full text-sm leading-4" data-service-week-summary>
+    <div className="flex min-w-0 items-center justify-between gap-1 text-[13px]">
+      <span data-service-week-time className="min-w-0 truncate whitespace-nowrap tabular-nums">{hhmm(session.startsAt)}<span className="hidden @[8rem]/week-card:inline">–{hhmm(service.endsAt)}</span></span>
+      {height>=60&&<span className="shrink-0 whitespace-nowrap">{status}</span>}
+    </div>
+    <strong data-service-week-customer className="block truncate">{service.personName}<span data-service-week-name className="hidden @[8rem]/week-card:inline"> · {session.nameSnapshot}</span></strong>
+    {height>=60&&<span className="block truncate text-[13px]">{resource}</span>}
+  </div>;
+}
+
 function SessionCard({
+  weekPixelHeight,
+  showWeekResource=false,
+  serviceWeek=false,
   servicePixelHeight,
   session,
   templates,
@@ -278,6 +300,9 @@ function SessionCard({
   onOpen,
   readOnly = false,
 }: {
+  weekPixelHeight?:number;
+  showWeekResource?:boolean;
+  serviceWeek?:boolean;
   servicePixelHeight?:number;
   session: Session;
   templates: Template[];
@@ -326,8 +351,10 @@ function SessionCard({
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = rental || !copy.privateClass && !session.bookings.length
     ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
+  const weekTitle = <>{teacherState ? `${teacherState} · ` : ""}{copy.primary}{showWeekResource&&<span className="hidden @[8rem]/week-card:inline"> · {resourceView === "coach" ? copy.coach : copy.room}</span>}</>;
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
   const resourceLabel = rental || resourceView === "coach" ? (/教室/.test(copy.room) ? copy.room : `教室 ${copy.room}`) : copy.coach;
+  const serviceWeekDescription=serviceWeek&&session.service?[`${hhmm(session.startsAt)}–${hhmm(session.service.endsAt)}`,session.service.personName,session.nameSnapshot,copy.coach,copy.room,({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status],session.service.paymentStatus,session.service.groupLabel,session.service.groupProgress].filter(Boolean).join(' · '):undefined;
   const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? `${personnelText(" · 原老師 ")}${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : ""].filter(Boolean).join(" · ") : teacherState;
   return (
     <button
@@ -335,15 +362,18 @@ function SessionCard({
       onClick={onOpen}
       tabIndex={session.sportsPalette&&session.previewFaded?-1:undefined}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.servicePalette?serviceCalendarPresentation(!!trialClass,rental,session.service?.status==='COMPLETED').card:session.sportsPalette?sportsCalendarPresentation(session).card:businessProfile === "MUSIC" ? tone.fill :"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`@container/week-card data-[week-card]:px-1 w-full rounded-md border text-left transition ${dense ? (weekPixelHeight!==undefined&&weekPixelHeight<40||serviceWeek&&(servicePixelHeight??0)<40)?"flex h-full items-center overflow-hidden px-1.5":"flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.servicePalette?serviceCalendarPresentation(!!trialClass,rental,session.service?.status==='COMPLETED').card:session.sportsPalette?sportsCalendarPresentation(session).card:businessProfile === "MUSIC" ? tone.fill :"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      data-calendar-session={session.id}
+      data-week-card={weekPixelHeight!==undefined||serviceWeek?session.id:undefined}
+      data-service-week-card={serviceWeek&&session.service?session.id:undefined}
       data-service-schedule-kind={session.servicePalette?presentation.label:undefined}
       data-sports-schedule-kind={session.sportsPalette?sportsCalendarPresentation(session).kind:undefined}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
-      title={`${session.service?`${session.service.personName} · ${session.nameSnapshot} · ${session.service.paymentStatus??""} · `:""}${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
-      aria-label={`${session.service?`${session.service.personName}，${session.nameSnapshot}，${session.service.paymentStatus??""}，`:""}${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      title={weekPixelHeight!==undefined&&!session.service?`${hhmm(session.startsAt)}–${hhmm(session.endsAt)} · ${copy.primary} · ${copy.coach} · ${copy.room} · ${detailStatus}`:serviceWeekDescription??`${session.service?`${session.service.personName} · ${session.nameSnapshot} · ${session.service.paymentStatus??""} · `:""}${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      aria-label={weekPixelHeight!==undefined&&!session.service?`${hhmm(session.startsAt)}–${hhmm(session.endsAt)}，${copy.primary}，${copy.coach}，${copy.room}，${presentation.label}，${detailStatus}`:serviceWeekDescription??`${session.service?`${session.service.personName}，${session.nameSnapshot}，${session.service.paymentStatus??""}，`:""}${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
-      {session.service ? <div className="space-y-0.5 text-sm leading-5">
+      {session.service ? serviceWeek?<ServiceWeekCardContent session={session} height={servicePixelHeight??96} resource={showWeekResource?`${copy.room} · ${copy.coach}`:resourceView==='coach'?copy.room:copy.coach}/>:<div className="space-y-0.5 text-sm leading-5">
         {servicePixelHeight!==undefined&&servicePixelHeight<44?<div className="flex items-center gap-1"><span className="shrink-0 tabular-nums">{hhmm(session.startsAt)}</span><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong>{session.service.status==='COMPLETED'&&<span className="ml-auto">✓</span>}</div>:<>
         <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{servicePixelHeight!==undefined&&servicePixelHeight<76?<span className="inline-flex items-center gap-1">{session.service.status==='COMPLETED'?<span aria-label="已完成">✓</span>:session.service.status==='NO_SHOW'?'未到':null}{session.service.paymentStatus&&<span className="rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</span>:({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
         {servicePixelHeight!==undefined&&servicePixelHeight<76?<div className="flex min-w-0 items-center gap-1"><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong></div>:<><div className="flex min-w-0 items-center justify-between gap-1"><strong className="min-w-0 truncate">{session.nameSnapshot}</strong>{session.service.paymentStatus&&<span className="shrink-0 rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</div><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>{session.service.groupLabel&&<span className="inline-block text-xs">{session.service.groupLabel} · {session.service.groupProgress}</span>}</>}
@@ -351,7 +381,9 @@ function SessionCard({
         </>}
       </div> : <>            <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&!musicDense&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
-      {musicDense ? (
+      {weekPixelHeight !== undefined ? <div className="min-w-0 w-full text-sm leading-4">
+        {weekPixelHeight < 34 ? <div className="flex min-w-0 items-center gap-1"><span className="hidden shrink-0 text-xs tabular-nums @[8rem]/week-card:inline">{hhmm(session.startsAt)}</span><strong className="min-w-0 truncate">{weekTitle}</strong></div> : <><div className="flex min-w-0 items-center gap-1 text-[13px] tabular-nums"><span className="min-w-0 truncate whitespace-nowrap">{hhmm(session.startsAt)}<span className="hidden @[8rem]/week-card:inline">–{hhmm(session.endsAt)}</span></span>{progressText&&<span title={teacherState || "點名完成度"} className={`ml-auto hidden @[8rem]/week-card:inline ${progressColor}`}>{progressText}</span>}</div><strong className="block truncate">{weekTitle}</strong>{weekPixelHeight >= 58 && <span className="block truncate text-[13px]">{resourceLabel}</span>}</>}
+      </div> : musicDense ? (
         <div className="min-w-0 text-sm">
           <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-sm leading-4 tabular-nums">
             <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
@@ -482,6 +514,7 @@ export function CourseScheduleBoard({
   rooms,
   coaches,
   templates,
+  detailOpen = false,
   pending = false,
   canCreate = true,
   occupiedSessions,
@@ -516,7 +549,7 @@ export function CourseScheduleBoard({
   const knownCoaches = new Set(activeCoaches.map(coach=>coach.id));
   for(const session of sessions) if(!knownCoaches.has(session.coachId)) { activeCoaches.push({id:session.coachId,displayName:personnelText("未建檔老師"),status:"INACTIVE",courseCoachEnabled:false}); knownCoaches.add(session.coachId); }
   const [resourceView, updateResourceView] = useSportsCalendarState<ResourceView>(sportsNative,"resourceView",initialResourceView ?? (businessProfile === "MUSIC" && !replica ? "coach" : "room"),calendarResource);
-  const [weekRoomId, setWeekRoomId] = useSportsCalendarState(sportsNative,`resourceId:${resourceView}`,initialWeekRoomId ?? activeRooms[0]?.id ?? "",calendarString);
+  const [weekRoomId, setWeekRoomId] = useSportsCalendarState(sportsNative,`weekResourceId:v2:${resourceView}`,initialWeekRoomId ?? "__all__",calendarString);
   React.useEffect(()=>{if(sportsNative&&initialResourceView)updateResourceView(initialResourceView);},[sportsNative,initialResourceView,updateResourceView]);
   React.useEffect(()=>{if(sportsNative&&initialWeekRoomId)setWeekRoomId(initialWeekRoomId);},[sportsNative,initialWeekRoomId,setWeekRoomId]);
   function setResourceView(view:ResourceView) { updateResourceView(view); onResourceChange?.(view); }
@@ -549,6 +582,10 @@ export function CourseScheduleBoard({
     }).catch(() => { if (current) setMatchError("空位暫時無法讀取，請重試"); });
     return () => { current = false; };
   }, [businessProfile, sportsNative, mode, selectedDate, moveClipboard]);
+  const [overlapSelection,setOverlapSelection]=React.useState<{ids:string[];date:string;startsAt:string;endsAt:string}|null>(null);
+  const overlapTitleId=React.useId();
+  const overlapTrigger=React.useRef<HTMLButtonElement|null>(null);
+  const closeOverlap=()=>{setOverlapSelection(null);requestAnimationFrame(()=>{if(overlapTrigger.current?.isConnected)overlapTrigger.current.focus({preventScroll:true});});};
   const boardRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     const board = boardRef.current;
@@ -584,12 +621,33 @@ export function CourseScheduleBoard({
   const serviceBounds=serviceMode?serviceTimelineBounds(serviceDates.flatMap(d=>calendarDays?.[d]?.periods??storePeriods),(occupiedSessions??sessions).filter(s=>serviceDates.includes(sessionDate(s)))):{firstHour:9,endHour:22};
   const [serviceHourHeight,setServiceHourHeight]=React.useState(60);
   React.useEffect(()=>{
-    if(!serviceMode||!boardRef.current)return;
+    if(!serviceMode||mode==='week'||!boardRef.current)return;
     const board=boardRef.current;
-    const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=mode==='week'?weekScrollRef.current:dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY+(mode==='week'?40:0);const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
-    update();const observer=new ResizeObserver(update);observer.observe(board);window.addEventListener('resize',update);return()=>{observer.disconnect();window.removeEventListener('resize',update);};
+    const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY;const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
+    update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(board);window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
   },[serviceMode,mode,serviceBounds.firstHour,serviceBounds.endHour]);
-  const hourHeight = serviceMode ? serviceHourHeight : businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
+  const weekLegendId = React.useId();
+  const weekOverview = mode === "week";
+  const fitWeek = weekOverview;
+  const weekPeriods = serviceDates.flatMap(date=>{const day=calendarDays?.[date];return day?.status==="closed"||day?.status==="training"?[]:day?.periods??storePeriods;});
+  const weekOccupations = (occupiedSessions??sessions).flatMap(session=>{const original=originalPlace(session);return original?[session,original]:[session];}).filter(session=>serviceDates.includes(sessionDate(session)));
+  const weekBounds = serviceTimelineBounds(weekPeriods.length?weekPeriods:[{openTime:"09:00",closeTime:"22:00"}],weekOccupations);
+  const weekVisibleHours = Math.min(12,weekBounds.endHour-weekBounds.firstHour);
+  const [fitHourHeight,setFitHourHeight] = React.useState(44);
+  const [weekHeaderHeight,setWeekHeaderHeight] = React.useState(44);
+  React.useEffect(()=>{
+    if(!fitWeek || !weekScrollRef.current)return;
+    const grid=weekScrollRef.current;
+    const update=()=>{
+      const top=grid.getBoundingClientRect().top+window.scrollY;
+      const header=grid.querySelector<HTMLElement>('[data-schedule-sticky-header]')?.offsetHeight??44;
+      setWeekHeaderHeight(header);
+      setFitHourHeight(Math.max(24,Math.min(88,Math.floor((window.innerHeight-top-header-38)/weekVisibleHours))));
+    };
+    update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(grid);if(boardRef.current)observer?.observe(boardRef.current);
+    window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
+  },[fitWeek,weekVisibleHours]);
+  const hourHeight = fitWeek ? fitHourHeight : serviceMode ? serviceHourHeight : businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
 
   const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
 
@@ -599,29 +657,44 @@ export function CourseScheduleBoard({
     const start = weekStart(selectedDate);
     const dates = Array.from({ length: 7 }, (_, index) => addTaiwanDuration(start, index, "DAY"));
     const weekResources = resourceView === "room" ? activeRooms.map(room=>({id:room.id,name:room.name,enabled:room.isActive})) : activeCoaches.map(coach=>({id:coach.id,name:coach.displayName,enabled:coach.status === "ACTIVE" && coach.courseCoachEnabled}));
-    const roomId = weekResources.some(resource=>resource.id===weekRoomId) ? weekRoomId : weekResources[0]?.id;
+    const allWeekResources = weekOverview && (weekRoomId === "__all__" || !weekResources.some(resource=>resource.id===weekRoomId));
+    const roomId = allWeekResources ? "__all__" : weekResources.some(resource=>resource.id===weekRoomId) ? weekRoomId : weekResources[0]?.id;
     const weekResource = weekResources.find(resource=>resource.id===roomId);
-    const matchesResource = (session:Session) => (resourceView === "room" ? session.roomId : session.coachId) === roomId;
+    const matchesResource = (session:Session) => allWeekResources || (resourceView === "room" ? session.roomId : session.coachId) === roomId;
     const weekSessions = sessions.filter((session) => matchesResource(session) && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
-    const weekLanes = scheduleLanes(weekSessions.filter(s=>!(sportsNative&&s.previewFaded)),resourceView === "room" ? "roomId" : "coachId");
-    const firstHour = serviceMode?serviceBounds.firstHour:Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
-    const lastHour = serviceMode?serviceBounds.endHour:Math.max(22, ...weekSessions.map(session => businessProfile === "MUSIC" ? Math.ceil(minuteOfDay(hhmm(session.endsAt))/60) : Number(hhmm(session.endsAt).slice(0, 2)) + 1));
+    const weekGroups=courseWeekOverlaps(weekSessions.filter(session=>!(sportsNative&&session.previewFaded)));
+    const groupOccupationEnd=(group:typeof weekGroups[number])=>new Date(Math.max(...group.sessions.map(session=>Date.parse(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt)))).toISOString();
+    const weekLanes=scheduleLanes(weekGroups.map(group=>({id:group.id,startsAt:group.startsAt,endsAt:groupOccupationEnd(group),roomId:"",coachId:""})),"all");
+    const groupCount=(rows:Session[])=>{
+      if(serviceMode){const total=serviceScheduleTotals(rows);return [total.groups?`${total.groups}筆預約${total.people>total.groups?`・${total.people}人次`:""}`:"",total.rentals?`${total.rentals}筆租借`:""].filter(Boolean).join("・");}
+      const total=scheduleTotals(rows);return [total.classes?`${total.classes}堂`:"",total.rentals?`${total.rentals}筆租借`:""].filter(Boolean).join("・");
+    };
+    const itemCopy=(session:Session)=>adaptiveCopy(session,templates,coaches,rooms,businessProfile,personnelText);
+    const itemName=(session:Session)=>session.service?.personName??itemCopy(session).primary;
+    const selectedGroup=overlapSelection?weekGroups.find(group=>sessionDate(group)===overlapSelection.date&&group.sessions.some(session=>overlapSelection.ids.includes(session.id))):undefined;
+    const listRows=selectedGroup?.sessions??[];
+    const listStart=selectedGroup?.startsAt??overlapSelection?.startsAt;
+    const listEnd=selectedGroup?.endsAt??overlapSelection?.endsAt;
+    const firstHour = weekBounds.firstHour;
+    const lastHour = weekBounds.endHour;
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
-      <section ref={boardRef} className="space-y-1" data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"服務週班表":"教室週課表"}>
+      <section ref={boardRef} className="space-y-1" data-week-scale={weekOverview?"fit":undefined} data-hour-height={hourHeight} data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"服務週班表":"教室週課表"}>
 
         <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
           {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}</button></div>
           <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? personnelText("教師") : personnelText(courseDisplayText("教練", businessProfile))}</label>
-          {weekResources.length > 1 ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':'選擇週表技師'):resourceView === "room" ? "選擇週表教室" : personnelText("選擇週表老師")} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+          {(weekOverview || weekResources.length > 1) ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':'選擇週表技師'):resourceView === "room" ? "選擇週表教室" : personnelText("選擇週表老師")} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+            {weekOverview&&<option value="__all__">{resourceView==="room"?serviceMode?"全部位置":"全部教室":serviceMode?"全部技師":businessProfile==="MUSIC"?personnelText("全部老師"):personnelText("全部教練")}</option>}
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
-          <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
-          {serviceMode&&toolbarContent}{legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
+          <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : weekOverview ? <>本週 {weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals>0&&`・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
+          {weekOverview&&!allWeekResources&&weekSessions.length===0&&sessions.some(session=>dates.includes(sessionDate(session)))&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-900" onClick={()=>{setWeekRoomId("__all__");onResourceChange?.(resourceView,"__all__");}}>此{resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}本週無{serviceMode?"預約":"課"}，查看全部{serviceMode?"預約":"課程"}</button>}
+          {(serviceMode||weekOverview)&&toolbarContent}{legend && (weekOverview ? <><button type="button" popoverTarget={weekLegendId} className="ml-auto min-h-11 rounded-lg border border-earth-200 bg-white px-3">圖例</button><div id={weekLegendId} popover="auto" aria-label="課表圖例" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20">{legend}<button type="button" popoverTarget={weekLegendId} popoverTargetAction="hide" className="mt-2 min-h-11 rounded-lg px-3">關閉</button></div></> : <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>)}
         </Toolbar>
-        <div ref={weekScrollRef} className={`${serviceMode?"":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
+        <div ref={weekScrollRef} data-week-scroll={weekOverview?true:undefined} data-sports-week-scroll={sportsNative&&weekOverview?true:undefined} style={weekOverview&&weekBounds.endHour-weekBounds.firstHour>12?{maxHeight:weekHeaderHeight+hourHeight*12+2}:undefined} className={`${fitWeek?"":serviceMode?"max-h-[calc(100dvh-18rem)] min-h-64":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
@@ -636,9 +709,10 @@ export function CourseScheduleBoard({
                 {String(hour).padStart(2, "0")}:00
               </div>
               {dates.map((date) => {
-                const list = weekSessions.filter((session) => sessionDate(session) === date && Number(hhmm(session.startsAt).slice(0, 2)) === hour);
+                const list = weekGroups.filter(group=>sessionDate(group)===date&&Number(hhmm(group.startsAt).slice(0,2))===hour);
+                const faded=weekSessions.filter(session=>sportsNative&&session.previewFaded&&sessionDate(session)===date&&Number(hhmm(session.startsAt).slice(0,2))===hour);
                 const shadows = sessions.filter((session) => session.rescheduledFromStartsAt &&
-                  (resourceView === "room" ? session.rescheduledFromRoomId : session.rescheduledFromCoachId) === roomId &&
+                  (allWeekResources || (resourceView === "room" ? session.rescheduledFromRoomId : session.rescheduledFromCoachId) === roomId) &&
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
                 return <div key={`${date}:${hour}`} className="relative border-b border-r border-earth-100 bg-white" style={{height:hourHeight}}>
@@ -646,32 +720,65 @@ export function CourseScheduleBoard({
                     const time = `${String(hour).padStart(2,"0")}:${minute}`;
                     const day = calendarDays?.[date];
                     const periods = normalizeAvailabilityPeriods(day ? day.periods : storePeriods);
-                    const slotDuration = moveClipboard?.durationMinutes ?? 30;
+                    const defaultDuration = serviceMode?30:sportsNative?60:businessProfile==="MUSIC"?MUSIC_DEFAULT_DURATION_MINUTES:30;
+                    const slotDuration = moveClipboard?.durationMinutes ?? defaultDuration;
                     const slotStart=parseTaipeiDateTime(date,time)!;
-                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && session.id !== moveClipboard?.sessionId && matchesResource(session) && +slotStart < +new Date(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt) && +slotStart+slotDuration*60000 > +new Date(session.occupiedStartsAt??session.startsAt));
+                    const conflict = !allWeekResources && (occupiedSessions ?? sessions).some(session => !session.previewFaded && session.id !== moveClipboard?.sessionId && matchesResource(session) && +slotStart < +new Date(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt) && +slotStart+slotDuration*60000 > +new Date(session.occupiedStartsAt??session.startsAt));
                     const exception = staffAvailabilityExceptions.find(item=>item.staffId===roomId && item.date===date);
                     const availability = staffAvailability.filter(item=>item.staffId===roomId);
                     const coachSegments = exception?.type === "UNAVAILABLE" ? [] : exception?.type === "CUSTOM" ? normalizeAvailabilityPeriods(exception.segments) : availability.length ? normalizeAvailabilityPeriods(availability.find(item=>item.dayOfWeek===parseLocalDate(date).getDay())?.segments) : periods;
-                    const teacherOpen = resourceView === "room" || periodContains(coachSegments,time,slotDuration);
-                    const available = weekResource?.enabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
-                    const reason = conflict ? (serviceMode?"已有預約":"已有課程") : !weekResource?.enabled ? "資源未啟用" : !teacherOpen ? (serviceMode?"技師未開放":personnelText("老師未開放")) : "店家未開放";
-                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":serviceMode?"新增預約":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":`排課 ${sportsNative?60:30} 分鐘`}` : reason} onClick={() => moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:sportsNative?60:30,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative ${businessProfile === "MUSIC" ? "min-h-0" : "min-h-11"} ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
+                    const teacherOpen = allWeekResources || resourceView === "room" || periodContains(coachSegments,time,slotDuration);
+                    const resourceEnabled = allWeekResources ? weekResources.some(resource=>resource.enabled) && !moveClipboard : weekResource?.enabled;
+                    const available = resourceEnabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
+                    const reason = conflict ? (serviceMode?"已有預約":"已有課程") : !resourceEnabled ? allWeekResources&&moveClipboard?`請先選擇${resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}再貼上`:"資源未啟用" : !teacherOpen ? (serviceMode?"技師未開放":personnelText("老師未開放")) : "店家未開放";
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":serviceMode?"新增預約":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":serviceMode?"新增預約":`排課 ${defaultDuration} 分鐘`}` : reason} onClick={() => allWeekResources?onOpenEmpty({date,time,durationMinutes:defaultDuration,...(sportsNative?{single:true}:{})}):moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:defaultDuration,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative ${fitWeek||businessProfile === "MUSIC" ? "min-h-0" : "min-h-11"} ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
-                      <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(fitWeek?22:businessProfile === "MUSIC" ? 21 : 44, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
+                      <SessionCard showWeekResource={allWeekResources} weekPixelHeight={fitWeek?sessionDurationMinutes(original)*hourHeight/60-4:undefined} session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":""}`} style={{ left: `calc(${(weekLanes.get(session.id)?.lane ?? 0) * 100 / (weekLanes.get(session.id)?.count ?? 1)}% + 4px)`, right: "auto", width:`calc(${100 / (weekLanes.get(session.id)?.count ?? 1)}% - 8px)`, top: Number(hhmm(session.startsAt).slice(3, 5)) * hourHeight / 60 + 2, height: Math.max(serviceMode||businessProfile === "MUSIC"?21:44, sessionDurationMinutes(session) * hourHeight / 60 - 4) }}>
-                    <SessionCard servicePixelHeight={serviceMode?sessionDurationMinutes(session)*hourHeight/60-4:undefined} session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => openCard(session, date)} />
-                    <ServiceCleanup session={session} minuteHeight={hourHeight/60}/>
-                  </div>)}
+                  {list.map(group=>{
+                    const session=group.sessions[0];
+                    const pixelHeight=Math.max(22,(Date.parse(group.endsAt)-Date.parse(group.startsAt))/60000*hourHeight/60-4);
+                    const lane=weekLanes.get(group.id)??{lane:0,count:1};
+                    const occupiedEnd=groupOccupationEnd(group);
+                    const cleanupHeight=Math.max(0,(Date.parse(occupiedEnd)-Date.parse(group.endsAt))/60000*hourHeight/60);
+                    return <div key={group.id} className="absolute z-10" style={{left:`calc(${lane.lane*100/lane.count}% + 4px)`,width:`calc(${100/lane.count}% - 8px)`,top:Number(hhmm(group.startsAt).slice(3,5))*hourHeight/60+2,height:pixelHeight}}>
+                      {group.sessions.length===1?<><SessionCard showWeekResource={allWeekResources} weekPixelHeight={pixelHeight} serviceWeek={serviceMode} servicePixelHeight={serviceMode?pixelHeight:undefined} session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id]??0} readOnly={readOnly} onOpen={()=>openCard(session,date)}/><ServiceCleanup session={session} minuteHeight={hourHeight/60}/></>:<>
+                        <button type="button" data-week-group={group.id} data-week-group-ids={group.sessions.map(row=>row.id).join(',')} aria-haspopup="dialog" aria-expanded={!!overlapSelection&&!detailOpen&&!!selectedGroup&&selectedGroup.id===group.id} aria-label={`${date} ${hhmm(group.startsAt)}–${hhmm(group.endsAt)}，共${groupCount(group.sessions)}，查看時段清單`} title={group.sessions.map(row=>`${hhmm(row.startsAt)} ${itemName(row)}`).join(' · ')} onClick={event=>{overlapTrigger.current=event.currentTarget;setOverlapSelection({ids:group.sessions.map(row=>row.id),date,startsAt:group.startsAt,endsAt:group.endsAt});}} className="flex h-full w-full flex-col justify-start overflow-hidden rounded-md border border-primary-300 bg-primary-50 px-1 py-0.5 text-left text-sm leading-4 text-primary-950 hover:bg-primary-100 focus-visible:outline-2 focus-visible:outline-primary-600">
+                          <span className="flex w-full min-w-0 items-center gap-1"><span className="shrink-0 text-xs tabular-nums">{hhmm(group.startsAt)}</span><strong className="min-w-0 truncate">共{groupCount(group.sessions)}</strong><span aria-hidden="true" className="ml-auto">›</span></span>
+                          {pixelHeight>=56?group.sessions.slice(0,2).map(row=><span key={row.id} className="block w-full truncate text-[13px]"><span className="tabular-nums">{hhmm(row.startsAt)}</span> {itemName(row)}</span>):pixelHeight>=38&&<span className="flex w-full min-w-0 gap-1">{group.sessions.slice(0,2).map(row=><span key={row.id} className="min-w-0 flex-1 truncate">{row.startsAt!==group.startsAt?`${hhmm(row.startsAt)} `:""}{itemName(row)}</span>)}</span>}
+                        </button>
+                        {cleanupHeight>0&&<div aria-label={`整理至 ${hhmm(occupiedEnd)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,cleanupHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(occupiedEnd)}</div>}
+                      </>}
+                    </div>;
+                  })}
+                  {faded.map(session=><div key={session.id} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{top:Number(hhmm(session.startsAt).slice(3,5))*hourHeight/60+2,height:Math.max(22,sessionDurationMinutes(session)*hourHeight/60-4)}}><SessionCard weekPixelHeight={sessionDurationMinutes(session)*hourHeight/60-4} session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} readOnly onOpen={()=>{}}/></div>)}
                 </div>;
               })}
             </React.Fragment>)}
           </div>
+          {weekOverview&&<div aria-label="課表結束時間" className="sticky left-0 border-t border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">{String(lastHour).padStart(2,"0")}:00</div>}
         </div>
+        {overlapSelection&&<RightSheet open={!detailOpen} compact width={560} labelledById={overlapTitleId} onClose={closeOverlap}>
+          <header className="flex shrink-0 items-start justify-between gap-3 border-b border-earth-200 p-4"><div className="min-w-0"><h2 id={overlapTitleId} className="font-semibold">時段清單</h2><p className="mt-1 text-sm text-earth-700">{overlapSelection.date}（{["日","一","二","三","四","五","六"][parseLocalDate(overlapSelection.date).getDay()]}）</p><p className="text-sm tabular-nums">{listStart&&hhmm(listStart)}–{listEnd&&hhmm(listEnd)}・共{listRows.length?groupCount(listRows):"0筆"}</p></div><button type="button" className="min-h-11 shrink-0 rounded-lg border border-earth-200 px-3 text-sm" onClick={closeOverlap}>關閉清單</button></header>
+          <div data-week-overlap-list className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+            {!listRows.length&&<p role="status" className="p-3 text-sm text-earth-600">此時段的資料已更新，請返回週表核對。</p>}
+            <ol className="space-y-2">{listRows.map(session=>{const copy=itemCopy(session);const rental=session.previewKind==="RENTAL";const palette=session.servicePalette?serviceCalendarPresentation(isTrial(session),rental,session.service?.status==='COMPLETED'):session.sportsPalette?sportsCalendarPresentation(session):{dot:musicScheduleColors(session).dot,label:rental?'空間租借':isTrial(session)?'體驗':session.isFixed?'固定課':'單次課'};return <li key={session.id}>
+              <button type="button" data-week-list-session={session.id} disabled={readOnly} className="w-full rounded-lg border border-earth-200 bg-white p-3 text-left text-sm hover:border-primary-400 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600" onClick={()=>openCard(session,overlapSelection.date)}>
+                <span className="flex flex-wrap items-center justify-between gap-2"><strong className="tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</strong><span className="inline-flex items-center gap-1 text-earth-600"><i aria-hidden="true" className={`h-2 w-2 rounded-full ${palette.dot}`}/>{palette.label}</span></span>
+                <strong className="mt-1 block break-words">{itemName(session)}</strong>
+                <span className="block break-words text-earth-700">{session.service||session.nameSnapshot!==copy.primary?session.nameSnapshot:session.bookings.map(booking=>booking.customerName).filter(Boolean).join("、")}</span>
+                <span className="mt-1 block break-words text-earth-600">{rental?copy.room:`${serviceMode?'技師':personnelText(businessProfile==='MUSIC'?'老師':'教練')}：${copy.coach}・${serviceMode?'位置':'教室'}：${copy.room}`}</span>
+                {session.service&&<span className="mt-1 block text-earth-600">{({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}{session.service.paymentStatus&&`・${session.service.paymentStatus}`}{session.service.buffer>0&&`・整理至 ${hhmm(session.service.occupiedEndsAt)}`}</span>}
+                {!session.service&&!rental&&<span className="mt-1 block text-earth-600">{session.rescheduledAt?'已異動・':''}{session.teacherAttendance==='LEAVE'?'老師請假':session.teacherAttendance==='NO_SHOW'?'老師曠課':`點名 ${courseAttendanceState(session.displayBookings??session.bookings,0,session.teacherAttendance).processed}/${courseAttendanceState(session.displayBookings??session.bookings,0,session.teacherAttendance).total}`}</span>}
+                <span className="mt-2 block font-medium text-primary-800">查看詳細資料 ›</span>
+              </button>
+            </li>;})}</ol>
+          </div>
+        </RightSheet>}
       </section>
     );
   }

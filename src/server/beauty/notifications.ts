@@ -1,3 +1,4 @@
+import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import "server-only";
 import { beautyNotificationDeliveryBlocked,beautyNotificationActivationAt } from "@/lib/beauty/notification-policy";
 import {beautyWorkerLineAllowed} from "./notification-worker-context";
@@ -22,7 +23,7 @@ import {queueTechnicianDigest,deliverTechnicianEvent} from './technician-notific
  * Notifications are opt-in and cron-authenticated. No request-time sending. */
 export async function runBeautyNotifications(now = new Date(),storeId?:string) {
   const summary = { sent: 0, skipped: 0, failed: 0 };
-  if (beautyNotificationDeliveryBlocked()) return summary;
+  if (!beautyRetiredSettings.notifications || beautyNotificationDeliveryBlocked()) return summary;
   const activatedAt=beautyNotificationActivationAt();
   const stores = await prisma.store.findMany({
     where: {

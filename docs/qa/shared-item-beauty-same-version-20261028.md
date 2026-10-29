@@ -1,5 +1,7 @@
 # 美業同版本線上驗收（2026-10-28）
 
+> 本次上線審查版本不包含新增的驗收截圖及原始結果檔；下列 artifacts 路徑為當時紀錄的來源，並非此版本內的連結。驗收結論僅適用所載版本及條件。
+
 美業已更新至運動／音樂相同產品來源 **`8b7d81dcdd5ca5640da0bb4c04b76c31874cbfcc`**。Preview `dpl_7T1PwFGpYQTnnnMLYGhp3aJXLq4C` 為 READY，stable alias 已核對該部署。使用隔離 Supabase `ttworfzgwejdeolegkxl`；既有 branch 專屬通知停用、LINE 憑證空值及 legacy DB 設定維持不變。正式站沒有發布。
 
 ## 原生流程結果
