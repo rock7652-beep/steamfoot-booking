@@ -1,3 +1,5 @@
+vi.mock("@/server/services/course-applicable-balances", () => ({ readCourseApplicableBalances: async () => new Map() }));
+vi.mock("@/server/services/course-business-profile", () => ({ isMusicCourseStore: async () => true }));
 import { beforeEach, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({

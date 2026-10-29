@@ -1,3 +1,6 @@
+import { readCourseApplicableBalances } from "@/server/services/course-applicable-balances";
+import { isMusicCourseStore } from "@/server/services/course-business-profile";
+import type { ApplicableBalance } from "@/lib/applicable-balance";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { fixedMusicPeriodsEnabled, readMusicLessonAssignments } from "@/server/services/music-lesson-periods";
 import {measureMusicRead} from "@/lib/music-read-timing";
@@ -165,7 +168,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const fixedAssignments = await readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]);
   const fixedById = new Map(fixedAssignments.map(a=>[a.bookingId,a]));
   const nativeSports = await sportsNativePreview(storeId);
-  const unlinkedBalances=nativeSports?await (await import("@/server/services/sports-roster-balance")).readSportsRosterBalances(storeId,sessionId,bookings.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!)):bookings[0]?await (await import("@/server/services/music-item-cards")).readMusicItemBalances(coursePrisma,storeId,bookings.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!),{...bookings[0].session,id:sessionId}):new Map<string,never>();
+  const applicableBalances = await readCourseApplicableBalances(storeId, sessionId, bookings.flatMap(b => b.customerId ? [b.customerId] : []), await isMusicCourseStore(coursePrisma, storeId));
   return bookings.map(({ card, checkedInAt, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey, ...b }) => {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });
     const opening = readMusicOpeningCard(card, storeId, b.customerId);
@@ -269,7 +272,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     available: !card || !courseCardCoversDate(card, storeId, new Date()) ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
     cardId: b.cardId,
     cardRemaining: card?.remaining ?? null,
-    ...(!openingMakeup&&!card?.musicOpeningStateRequired&&b.bookingKind!=="TRIAL"?{sportsBalance:unlinkedBalances.get(b.customerId??"")??null}:{}),
+    applicableBalance: (["TRIAL", "TEACHER_MAKEUP", "OPENING_MAKEUP"].includes(b.bookingKind) || openingMakeup || card?.musicOpeningStateRequired || b.companionIndex ? null : applicableBalances.get(b.customerId ?? "") ?? null) as ApplicableBalance | null,
     assignedCoachId: customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.id ?? null : null,
     assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
     expiresAt: card?.expiresAt?.toISOString() ?? null,

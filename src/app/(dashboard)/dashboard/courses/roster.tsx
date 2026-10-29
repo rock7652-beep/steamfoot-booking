@@ -1,6 +1,7 @@
 "use client";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
+import { ApplicableBalanceSummary } from "@/components/admin/applicable-balance";
 import type {CourseRosterSource,NativeRosterBooking} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
 import bookingLayout from "./sports-booking-layout.module.css";
@@ -32,7 +33,6 @@ import { previewCourseEnrollment, enrollCourseSeries } from "@/server/actions/co
 import { CustomerLabels } from "@/components/customer-labels";
 import { RosterToolbar,rosterRowClassName,rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
 import {CourseAssignmentPayment} from "@/components/admin/course-assignment-payment";
-import {ItemBalanceSummary} from "@/components/admin/item-balance-summary";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
@@ -82,7 +82,7 @@ const field =
 
 type RosterView = "roster" | "member-booking" | "trial-booking";
 
-const postClassBalanceDescription = "本方案扣除本堂全部使用同一卡的預約後餘額，不含其他方案；其他堂預約尚未扣點";
+const applicableBalanceDescription = "同項目有效且適用方案的餘額合計，扣除所有預約保留；共用卡為共同額度，實際扣抵仍依原方案核對。";
 
 type RosterBooking = NativeRosterBooking;
 // Old native cached payloads remain readable. Imported progress never falls back
@@ -512,7 +512,12 @@ export function CourseRoster({
           }
           return rows.map(row => {
             const change = changes.get(row.id);
-            const balanced = row.cardRemaining != null && row.cardId ? {...row, cardRemaining: row.cardRemaining + (deltas.get(row.cardId) ?? 0)} : row;
+            const balanced = {
+              ...row,
+              ...(row.cardRemaining != null && row.cardId ? {cardRemaining: row.cardRemaining + (deltas.get(row.cardId) ?? 0)} : {}),
+              // Status may update optimistically; aggregate balances wait for the authoritative read.
+              applicableBalance: row.applicableBalance ? {...row.applicableBalance, pending: true} : null,
+            };
             return change ? {
               ...balanced,
               status: change.status,
@@ -1416,8 +1421,8 @@ export function CourseRoster({
                 </div>
                 <div className="min-w-0">{booking.customerPhone ? <a className="inline-flex min-h-11 items-center whitespace-nowrap" href={`tel:${booking.customerPhone}`}>{booking.customerPhone}</a> : "—"}</div>
                 <div className="min-w-0 text-primary-800">
+                  {booking.applicableBalance && <ApplicableBalanceSummary balance={booking.applicableBalance} selectedCardId={booking.cardId}/>}
                   <button type="button" className="min-h-11 text-left" aria-controls={`lesson-history-${booking.id}`} aria-label={booking.termCount > 0 ? `${booking.openingImported ? `原第 ${booking.termNumber} 期第` : "本期第"} ${booking.termIndex}/${booking.termCount} 堂` : undefined} aria-expanded={expandedLessonIds.includes(booking.id)} onClick={()=>setExpandedLessonIds(ids=>ids.includes(booking.id)?[]:[booking.id])}>{booking.bookingKind === "TRIAL" ? "體驗" : booking.termIndex !== null && booking.termCount > 0 ? `${booking.bonusPeriod ? "贈課 " : ""}${booking.termIndex} / ${booking.termCount} 堂` : "—"}</button>
-                  {!booking.openingImported&&booking.bookingKind!=="TRIAL"&&<strong className="block">本期剩餘 {booking.sportsBalance?.remaining??0} 堂{!booking.sportsBalance&&" · 需繳費"}</strong>}
                   {booking.status !== "RESERVED" && <span className="block text-earth-600">{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "曠課・扣堂" : booking.absenceKind === "TEACHER_ABSENT" ? "本堂免扣" : booking.absenceKind === "STUDENT_LEAVE" ? (booking.leaveDeductsWithMakeup ? "請假・扣堂另補" : "請假・不扣堂") : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : "已取消"}</span>}
                 </div>
                 <div aria-label={`${booking.customerName} 標籤與備註`} className="flex min-w-0 flex-col">
@@ -1451,17 +1456,13 @@ export function CourseRoster({
           </section>
 
         </div>
-      ) : <CourseRosterList disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"本期剩餘",balanceDescription:"目前方案未扣用的餘額；可用額度另扣除已預約保留，點名時重新核對。"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
+      ) : <CourseRosterList disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:"技師／位置",cost:"本次使用",balance:"剩餘",balanceDescription:applicableBalanceDescription,scroll:"預約名單捲動區"}:{cost:"本堂用量",balance:"剩餘",balanceDescription:applicableBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!source&&!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
         const leave=["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"");
         const deducted=(booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)||booking.status==="NO_SHOW";
         const label=booking.absenceKind==="TEACHER_ABSENT"?"本堂免扣":booking.status==="ATTENDED"?"已出席":leave?((booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)?"缺席・扣堂":"缺席・不扣堂"):booking.status==="NO_SHOW"?(booking.bookingKind==="TRIAL"?"缺席":"缺席・扣堂"):booking.status==="CANCELLED"?"已取消":"待點名";
-        const classCost=roster.filter(row=>row.cardId&&row.cardId===booking.cardId&&row.status==="RESERVED").reduce((sum,row)=>sum+row.pointCost,0);
-        const after=booking.cardRemaining==null?null:booking.cardRemaining-classCost;
         return {id:booking.id,name:booking.customerName,phone:booking.customerPhone,owner:booking.assignedCoachName||"",status:label,mark:booking.status==="ATTENDED"?'attended':deducted?'deducted':leave?'leave':booking.status==="CANCELLED"?'cancelled':'pending',statusTitle:booking.status==="RESERVED"?"標記出席":"更正點名",statusDisabled:!canEdit||rowPending(booking.id)||teacherAbsent||(booking.status==="CANCELLED"&&!leave),onStatus:event=>booking.status==="RESERVED"?run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:booking.id,status:"ATTENDED"}),`已將 ${booking.customerName} 標記出席`,{bookingId:booking.id,status:"ATTENDED"}):toggleRosterMenu(event.currentTarget,booking.id,sportsNative?"status":"more"),onOpen:()=>source?.onOpen?source.onOpen(booking):setInfoBookingId(booking.id),
           ...(batchMode&&(source?!!source.batchAction:canEdit)&&booking.status!=="CANCELLED"?{selected:selected.includes(booking.id),selectionDisabled:bulkPending||!selectableRows.some(row=>row.id===booking.id),onSelect:(checked:boolean)=>setSelected(old=>checked?[...old,booking.id]:old.filter(id=>id!==booking.id))}:{}),
-          context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:booking.bookingKind==="UNPAID"&&sportsNative?<span className="text-sm text-amber-800">點名前核對方案</span>:trialBadge(booking),feedback:rowFeedback(booking.id),cost:booking.bookingKind==="TRIAL"?"":booking.bookingKind==="UNPAID"?"點名時扣":booking.bookingKind==="TEACHER_MAKEUP"?"免費券":<>{booking.pointCost}{booking.unit==="SESSION"&&<span className="ml-1 text-sm">堂</span>}</>,
-          balance:(sportsNative||!!booking.sportsBalance)&&booking.bookingKind!=="TRIAL"&&booking.bookingKind!=="TEACHER_MAKEUP"?<ItemBalanceSummary balance={booking.sportsBalance}/>:after==null?"":after<0?"不足":after,
-          balanceWarning:sportsNative?!(booking.sportsBalance?.byUnit??(booking.sportsBalance?[booking.sportsBalance]:[])).some(balance=>balance.available>=balance.cost):after!=null&&after<=0,
+          context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:booking.bookingKind==="UNPAID"&&sportsNative?<span className="text-xs text-amber-800">點名前核對方案</span>:trialBadge(booking),feedback:rowFeedback(booking.id),cost:booking.bookingKind==="TRIAL"?"":booking.bookingKind==="UNPAID"?"點名時扣":booking.bookingKind==="TEACHER_MAKEUP"?"免費券":<>{booking.pointCost}{booking.unit==="SESSION"&&<span className="ml-1 text-xs">堂</span>}</>,balance:<ApplicableBalanceSummary balance={booking.applicableBalance} selectedCardId={booking.cardId}/>,balanceWarning:false,
           reminders:<SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit&&booking.status!=="CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)}/>,...((source?source.actions(booking).length>0:canEdit)?{onMore:(event)=>toggleRosterMenu(event.currentTarget,booking.id),moreOpen:openActionMenu?.bookingId===booking.id}:{}),...(source?.row?.(booking)??{}),...(source?{statusDisabled:!canEdit||rowPending(booking.id)||source.row?.(booking).statusDisabled||(!source.statusMenu&&booking.status!=="RESERVED"),...(source.statusMenu?{onStatus:(event)=>source.statusActions&&booking.status==="RESERVED"?source.row?.(booking).onStatus?.(event):toggleRosterMenu(event.currentTarget,booking.id,"status")}:{})}: {})};
       })}/>}
 
@@ -1476,7 +1477,7 @@ export function CourseRoster({
           </header>
           <div className="min-h-0 space-y-4 overflow-y-auto p-4 text-sm">
             <section><h4 className="text-earth-500">本次預約</h4><p>{session && formatTWDateTime(new Date(session.startsAt))} · {courseName}</p><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>建立：{formatTWDateTime(new Date(booking.createdAt))}</p>}<p>{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "曠課" : booking.absenceKind === "STUDENT_LEAVE" ? "請假・不扣堂" : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : booking.status === "CANCELLED" ? "已取消" : "待上課"}</p></section>
-            <section><h4 className="text-earth-500">使用方案</h4><p className="break-words">{booking.planName}</p>{booking.termCount > 0 && <p>{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</p>}{booking.expiresAt && <p>期限：{toLocalDateStr(new Date(booking.expiresAt))}</p>}</section>
+            <section><h4 className="text-earth-500">使用方案</h4><ApplicableBalanceSummary details balance={booking.applicableBalance} selectedCardId={booking.cardId}/><p className="break-words">{booking.planName}</p>{booking.termCount > 0 && <p>{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</p>}{booking.expiresAt && <p>期限：{toLocalDateStr(new Date(booking.expiresAt))}</p>}</section>
             <section><h4 className="text-earth-500">本期上課紀錄</h4>
               {booking.termLessons.length ? <ol className="space-y-1">{booking.termLessons.map((lesson,index)=><li key={`${lesson.date}-${index}`}>{index+1}. {toLocalDateStr(new Date(lesson.date))} · {lesson.status}</li>)}</ol> : <p>尚無本期上課日期</p>}
               {booking.termPrivateLeaves.map((date,index)=><p key={`leave-${index}`}>{toLocalDateStr(new Date(date))} · 請假・不扣堂</p>)}
@@ -1499,6 +1500,7 @@ export function CourseRoster({
               {booking.sharedCard && <p className="text-earth-600">共卡：與授權成員共用餘額</p>}
               {!source&&booking.bookingKind === "TRIAL" && <div className="flex min-h-11 flex-wrap items-center justify-between gap-2"><span>{payment ? `已收 NT$ ${payment.amount.toLocaleString("zh-TW")}` : booking.trialPrice == null ? "待收款" : `待收 NT$ ${booking.trialPrice.toLocaleString("zh-TW")}`}</span>{!payment && trial?.canCollect && booking.status !== "CANCELLED" && <button type="button" className={primaryButton} onClick={() => { if (infoGuard.allowLeave()) { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); } }}>收款</button>}</div>}
             </section>
+            {booking.applicableBalance && <section aria-label="適用方案合計"><ApplicableBalanceSummary details balance={booking.applicableBalance} selectedCardId={booking.cardId}/></section>}
             <RetainedNoteEditor confirmDiscard={source?.confirmDiscard} quiet stateKey={`inline-roster-note:${note.scopeKey}`} title="本次備註" hint="" placeholder={source?"記錄本次服務需要留意的事項":"記錄本次上課需要留意的事項"} maxLength={note.maxLength} value={booking.notes || null} canEdit={canEdit && booking.status !== "CANCELLED"} save={note.save} onSaved={note.onSaved}/>
             <div className="flex flex-wrap gap-2 border-t border-earth-100 pt-2">{source?source.actions(booking).map(action=><button key={action.label} type="button" className={reminderButton} onClick={()=>{if(infoGuard.allowLeave()){setInfoBookingId(null);action.onSelect();}}}>{action.label}</button>):<><button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setInfoView("history"); }}>預約紀錄</button>{payment && trial?.canCorrect && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setPaymentMenu(booking.id); }}>收款更正</button>}{canPurchase && booking.customerId && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) void openStudentPurchase(booking.id); }}>學員繳費</button>}</>}</div>
             {!source&&<details className="border-t border-earth-100"><summary className="min-h-11 cursor-pointer py-3 text-earth-600">預約來源</summary><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>{formatTWDateTime(new Date(booking.createdAt))}</p>}{!!booking.operatorCustomerId && booking.operatorCustomerId !== booking.customerId && !booking.companionIndex && <p>代約：{booking.operatorName || "已授權成員"} 替 {booking.customerName} 預約</p>}</details>}

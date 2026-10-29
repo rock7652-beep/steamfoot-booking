@@ -32,6 +32,23 @@ export async function readCardCharge(tx:ChargeTx,storeId:string,card:{id:string;
  const owner={storeId,chargeId:`plan:${card.planId}`,revision:0,serviceIds:card.serviceIds};
  try{return snapshotStoredChargeRule(storedColumn(row.chargeRuleSnapshot,row.ruleIsNull),owner,storeId,'snapshot');}catch{throw new AppError('CONFLICT','購入方案規則待核對');}
 }
+/** Roster projection uses the same purchased snapshot policy without one query per card. */
+export async function readRosterCardCharges(tx:Pick<ChargeTx,"$queryRaw">,storeId:string,cards:{id:string;planId:string;serviceIds:string[]}[]){
+ const result=new Map<string,ReturnType<typeof snapshotStoredChargeRule>|null>();
+ if(!cards.length)return result;
+ const rows=await tx.$queryRaw<{id:string;chargeRuleSnapshot:unknown;ruleIsNull:boolean}[]>`
+  SELECT id,"chargeRuleSnapshot",("chargeRuleSnapshot" IS NULL) AS "ruleIsNull"
+  FROM "BeautyCard" WHERE "storeId"=${storeId} AND id=ANY(${cards.map(c=>c.id)}::text[])`;
+ for(const card of cards){
+  const row=rows.find(row=>row.id===card.id);
+  try{
+   if(!row)throw Error("Missing purchased snapshot");
+   result.set(card.id,snapshotStoredChargeRule(storedColumn(row.chargeRuleSnapshot,row.ruleIsNull),
+    {storeId,chargeId:`plan:${card.planId}`,revision:0,serviceIds:card.serviceIds},storeId,"snapshot"));
+  }catch{result.set(card.id,null);}
+ }
+ return result;
+}
 export async function readAppointmentCharge(tx:ChargeTx,storeId:string,id:string){
  const item=await tx.beautyAppointment.findFirst({where:{id,storeId}});
  if(!item)throw new AppError('NOT_FOUND','找不到原預約');

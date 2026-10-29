@@ -10,7 +10,7 @@ vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction
 import {readBeautyNativeRoster,saveBeautyNativeRosterNote} from '@/server/actions/beauty-native-roster';
 const actor={storeId:'store',userId:'owner'},row={id:'b',storeId:'store',groupId:'g',group:{customerId:'c',contactName:'本人'},customerId:'c',personName:'顧客',personPhone:'0900000000',technicianId:'t',locationId:'room',serviceId:'s',serviceName:'做臉',price:1000,cardId:'card',isTrial:false,status:'NO_SHOW',debit:false,notes:'原備註',revision:2,startsAt:new Date('2026-11-02T01:00:00Z'),endsAt:new Date('2026-11-02T02:00:00Z'),occupiedEndsAt:new Date('2026-11-02T02:15:00Z'),createdAt:new Date('2026-10-23T01:00:00Z')};
 const tx={beautyAppointment:{findFirst:m.anchor,update:m.update}};
-beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue(actor);m.user.mockResolvedValue({role:'PARTNER',staffId:'self'});m.permission.mockResolvedValue(true);m.feature.mockResolvedValue(true);m.rows.mockResolvedValue([row]);m.anchor.mockResolvedValue(row);m.people.mockResolvedValue([{id:'c',phone:'0900000000',serviceNote:'店內提醒',notes:null,assignedStaff:{id:'manager',storeId:'store',displayName:'店長'}}]);m.cards.mockResolvedValue([{id:'card',remaining:4,memberIds:['c'],serviceIds:['s'],name:'五次方案',expiresAt:new Date('2090-01-01'),closedAt:null}]);m.held.mockResolvedValue([{cardId:'card',_count:{id:2}}]);m.techs.mockResolvedValue([{id:'t',name:'技師'}]);m.raw.mockResolvedValue([{id:'room',name:'床位'}]);m.tx.mockImplementation((_a,work)=>work(tx));});
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue(actor);m.user.mockResolvedValue({role:'PARTNER',staffId:'self'});m.permission.mockResolvedValue(true);m.feature.mockResolvedValue(true);m.rows.mockResolvedValue([row]);m.anchor.mockResolvedValue(row);m.people.mockResolvedValue([{id:'c',phone:'0900000000',serviceNote:'店內提醒',notes:null,assignedStaff:{id:'manager',storeId:'store',displayName:'店長'}}]);m.cards.mockResolvedValue([{id:'card',remaining:4,memberIds:['c'],name:'五次方案',serviceIds:['s'],allowShared:false,expiresAt:new Date('2090-01-01'),closedAt:null}]);m.held.mockResolvedValue([{cardId:'card',_count:{id:2}}]);m.techs.mockResolvedValue([{id:'t',name:'技師'}]);m.raw.mockResolvedValue([{id:'room',name:'床位'}]);m.tx.mockImplementation((_a,work)=>work(tx));});
 it('reads authoritative service duration, cleanup, debit and all reservations on the card',async()=>{expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{status:'NO_SHOW',cardRemaining:4,available:2,service:{revision:2,debit:false,available:2,serviceName:'做臉',technicianName:'技師',locationName:'床位',endsAt:row.endsAt.toISOString(),occupiedEndsAt:row.occupiedEndsAt.toISOString()}}]}});expect(m.rows.mock.calls[0][0].where).toMatchObject({storeId:'store',startsAt:{gte:expect.any(Date),lte:expect.any(Date)}});});
 it('does not read or disclose card identity or balances without wallet permission',async()=>{m.permission.mockImplementation(async(_r,_s,p)=>p!=='wallet.read');expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{cardId:null,cardRemaining:null,bookingKind:'CARD',service:{available:null}}]}});expect(m.cards).not.toHaveBeenCalled();expect(m.held).not.toHaveBeenCalled();});
 it('does not read or disclose customer contacts or notes without customer permission',async()=>{m.permission.mockImplementation(async(_r,_s,p)=>p!=='customer.read');expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{customerId:null,customerPhone:'',notes:'',serviceNote:''}]}});expect(m.people).not.toHaveBeenCalled();});
@@ -27,3 +27,48 @@ it('shows the current authorized customer name and phone without rewriting appoi
  expect(m.people).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'store',assignedStaffId:'self',mergedIntoCustomerId:null}),select:expect.objectContaining({name:true,phone:true})}));
 });
 it('retains the booking snapshot for an unlinked or invisible customer',async()=>{m.people.mockResolvedValue([]);expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{customerName:row.personName,customerPhone:row.personPhone}]}});});
+
+it('includes a renewed service package and all shared holds while keeping the debit source',async()=>{
+ const base={memberIds:['c'],name:'做臉方案',serviceIds:['s'],allowShared:false,expiresAt:new Date('2090-01-01'),closedAt:null};
+ const old={...base,id:'card',remaining:1},renewal={...base,id:'renewal',remaining:20,memberIds:['c','family']};
+ m.cards.mockImplementation(async q=>q.where.id?[old]:[old,renewal]);
+ m.held.mockResolvedValue([{cardId:'card',_count:{id:1}},{cardId:'renewal',_count:{id:2}}]);
+ const result=await readBeautyNativeRoster('day:2026-11-02');
+ expect(result).toMatchObject({success:true,data:{roster:[{cardId:'card',cardRemaining:1,applicableBalance:{
+  groups:[{unit:'USE',remaining:21,held:3,available:18}],cards:[{id:'card'},{id:'renewal',shared:true}]
+ }}]}});
+ expect(m.cards.mock.calls[1][0].where).toMatchObject({storeId:'store',closedAt:null,memberIds:{hasSome:['c']}});
+ expect(m.held.mock.calls[0][0].where).toMatchObject({storeId:'store',cardId:{in:['card','renewal']},status:'RESERVED'});
+});
+it('excludes expired, closed and different-service packages from the beauty total',async()=>{
+ const base={memberIds:['c'],name:'方案',serviceIds:['s'],allowShared:false,expiresAt:new Date('2090-01-01'),closedAt:null,remaining:20};
+ m.cards.mockImplementation(async q=>q.where.id?[]:[
+  {...base,id:'valid'},
+  {...base,id:'expired',expiresAt:new Date('2000-01-01')},
+  {...base,id:'closed',closedAt:new Date()},
+  {...base,id:'other-service',serviceIds:['other']},
+  {...base,id:'other-person',memberIds:['other']},
+ ]);
+ expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{applicableBalance:{
+  groups:[{unit:'USE',remaining:20,held:0,available:20}],cards:[{id:'valid'}]
+ }}]}});
+});
+it('honors purchased technician restrictions and rejects corrupt snapshots in the total',async()=>{
+ vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');
+ vi.stubEnv('BEAUTY_CHARGE_RULES_SCOPE','stores');
+ vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','store');
+ try {
+  const base={planId:'plan',memberIds:['c'],name:'方案',serviceIds:['s'],allowShared:false,expiresAt:new Date('2090-01-01'),closedAt:null};
+  const cards=[{...base,id:'card',remaining:1},{...base,id:'renewal',remaining:20},{...base,id:'other-tech',remaining:99},{...base,id:'corrupt',remaining:99}];
+  m.cards.mockImplementation(async q=>q.where.id?[cards[0]]:cards);
+  m.raw.mockImplementation(async strings=>strings.join('').includes('FROM "BeautyCard"')?cards.map(c=>({
+   id:c.id,ruleIsNull:false,chargeRuleSnapshot:c.id==='corrupt'?null:{version:1,rule:{
+    storeId:'store',chargeId:'plan:plan',revision:1,serviceIds:['s'],mode:'SELECTED',technicianIds:[c.id==='other-tech'?'other':'t']
+   }}
+  })):[{id:'room',name:'床位'}]);
+  m.held.mockResolvedValue([{cardId:'card',_count:{id:1}}]);
+  expect(await readBeautyNativeRoster('day:2026-11-02')).toMatchObject({success:true,data:{roster:[{applicableBalance:{
+   groups:[{unit:'USE',remaining:21,held:1,available:20}],cards:[{id:'card'},{id:'renewal'}]
+  }}]}});
+ } finally {vi.unstubAllEnvs();}
+});

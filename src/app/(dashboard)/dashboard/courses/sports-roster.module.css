@@ -2,7 +2,7 @@
 .list { min-width: 0; }
 .header, .row {
   display: grid;
-  grid-template-columns: minmax(26rem, 1.2fr) 5rem 4rem 4rem minmax(14rem, 1.4fr) 44px;
+  grid-template-columns: minmax(26rem, 1.2fr) 5rem 4rem 6rem minmax(14rem, 1.4fr) 44px;
   align-items: center;
   gap: 6px;
   padding-inline: 10px;
@@ -22,14 +22,14 @@
 .reminders { min-width: 0; }
 
 @container sports-roster (max-width: 1023px) {
-  .header, .row { grid-template-columns: minmax(26rem, 1.2fr) 4rem 4rem minmax(14rem, 1.4fr) 44px; }
+  .header, .row { grid-template-columns: minmax(26rem, 1.2fr) 4rem 6rem minmax(14rem, 1.4fr) 44px; }
   .ownerColumn { display: none; }
   .ownerInline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-earth-600); font-weight: 400; }
 }
 
 /* Portrait/tablet split view: keep text and touch targets, then use a second band. */
 @container sports-roster (max-width: 879px) {
-  .header, .row { grid-template-columns: minmax(0, 1fr) 64px 72px 44px; }
+  .header, .row { grid-template-columns: minmax(0, 1fr) 64px 96px 44px; }
   .header .notesHeading { display: none; }
   .row { row-gap: 4px; padding-block: 5px; }
   .row .reminders { grid-column: 1 / -1; grid-row: 2; }
