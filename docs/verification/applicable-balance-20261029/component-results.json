@@ -1,0 +1,47 @@
+{
+  "synthetic": true,
+  "realBackend": false,
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "pageOverflow": false,
+      "simpleRemainingOnly": true,
+      "detailsInBookingOnly": true,
+      "keyboard": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "pageOverflow": false,
+      "simpleRemainingOnly": true,
+      "detailsInBookingOnly": true,
+      "keyboard": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "pageOverflow": false,
+      "simpleRemainingOnly": true,
+      "detailsInBookingOnly": true,
+      "keyboard": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "pageOverflow": false,
+      "simpleRemainingOnly": true,
+      "detailsInBookingOnly": true,
+      "keyboard": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "pageOverflow": false,
+      "simpleRemainingOnly": true,
+      "detailsInBookingOnly": true,
+      "keyboard": true
+    }
+  ],
+  "errors": []
+}

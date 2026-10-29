@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-booking
+
+
+ Test Files  2 passed (2)
+      Tests  39 passed (39)
+   Start at  18:20:14
+   Duration  5.18s (transform 161ms, setup 0ms, import 217ms, tests 4.99s, environment 0ms)
+
