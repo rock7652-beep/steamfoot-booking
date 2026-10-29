@@ -128,7 +128,7 @@ export const dailyOperationGuides20261003: OperationGuide[] = [
     steps: ["先切月、週或日並選日期，再輸入名稱或選課程、所屬教練篩選。", "依色點、課程堂數、租借筆數及點名完成度找到正確項目；月表可開啟該日完整清單。", "需要新增時點空白時段，選排課或租借；儲存後清除篩選核對完整課表。"],
     important: "租借不是課程，不會顯示教練、容量、加入學員或點名；隱藏筆數只代表目前畫面收合。",
     success: "三種檢視顯示相同日期與正確篩選結果，課程／租借不混淆，清除條件後資料完整。",
-    details: ["完成度以已處理點名／應點名人數計算；教師請假或曠課顯示免點名。", "週表依營業時間排列，一次最多顯示 12 個小時格，超過才在課表內捲動；卡片只列摘要，詳細狀態請點開課次或當日清單。", "新增排課與租借都會檢查教室占用；篩選結果不能代替衝突檢查。"],
+    details: ["完成度以已處理點名／應點名人數計算；教師請假或曠課顯示免點名。", "週表與日表依營業時間排列，一次最多顯示 12 個小時格，超過才在課表內捲動；卡片只列摘要，詳細狀態請點開課次或當日清單。", "新增排課與租借都會檢查教室占用；篩選結果不能代替衝突檢查。"],
     modules: ["course"], permission: "booking.read", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/app/(dashboard)/dashboard/courses/rental-panel.tsx"],
   },

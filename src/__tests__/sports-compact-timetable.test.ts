@@ -21,15 +21,15 @@ describe("sports compact timetable uses one scale for cards and clock",()=>{
  for(const mode of ["week","day"] as const){
   it.each([40,45,50,60])(`${mode} preserves a %i minute course and its quarter-hour start`,minutes=>{
    const div=board(mode,minutes);const card=div.querySelector('[data-calendar-session="session"]')!;const wrapper=card.parentElement!;
-   const scale=mode==="week"?Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight):88;
-   expect(parseFloat(wrapper.style.height)).toBeCloseTo(Math.max(22,minutes*scale/60-4));
+   const scale=Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight);
+   expect(parseFloat(wrapper.style.height)).toBeCloseTo(Math.max(mode==="week"?22:21,minutes*scale/60-4));
    expect(parseFloat(wrapper.style.top)).toBeCloseTo(15*scale/60+2);
    expect(div.querySelector(`[style*="height:${scale}px"]`)).not.toBeNull();
    expect(card.textContent).toContain("10:15");expect(card.textContent).toContain("短課程");
   });
   it(`${mode} keeps music cards aligned with the timeline hour scale`,()=>{
    const div=board(mode,60,false);const wrapper=div.querySelector('[data-calendar-session="session"]')!.parentElement!;
-   const scale=mode==="week"?Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight):64;
+   const scale=Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight);
    expect(parseFloat(wrapper.style.height)).toBe(scale-4);expect(div.querySelector(`[style*="height:${scale}px"]`)).not.toBeNull();
   });
  }
@@ -40,11 +40,11 @@ for (const mode of ["week", "day"] as const) {
   const div=board(mode,minutes,false);
   const card=div.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!;
   expect(card).not.toBeNull();
-  const scale=mode==="week"?Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight):64;
-  expect(parseFloat(card.parentElement!.style.height)).toBeCloseTo(Math.max(mode==="week"?22:0,minutes*scale/60-4));
+  const scale=Number(div.querySelector<HTMLElement>("[data-hour-height]")!.dataset.hourHeight);
+  expect(parseFloat(card.parentElement!.style.height)).toBeCloseTo(Math.max(mode==="week"?22:21,minutes*scale/60-4));
   expect(parseFloat(card.parentElement!.style.top)).toBeCloseTo(15*scale/60+2);
   expect(card.textContent).toContain("10:15");
-  expect(mode==="week"?card.getAttribute("aria-label"):card.textContent).toContain(minutes===25?"10:40":"11:05");
+  expect(card.getAttribute("aria-label")).toContain(minutes===25?"10:40":"11:05");
   expect(card.textContent).toContain("短課程");
  });
 }
