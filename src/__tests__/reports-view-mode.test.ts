@@ -9,6 +9,7 @@ const STORE_CHILD = "store-child";
 
 const mockModuleQuery = vi.fn();
 const mockCourseReport = vi.fn();
+const mockSteamfootReport = vi.fn();
 const mockAuth = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockRequireStaffSession = vi.fn();
@@ -26,6 +27,7 @@ const mockGetCoachRevenueSummary = vi.fn();
 const mockGetTransactionDetails = vi.fn();
 const mockGetRevenueKpi = vi.fn();
 
+vi.mock("@/server/queries/steamfoot-revenue-report",()=>({getSteamfootRevenueReport:(...args:unknown[])=>mockSteamfootReport(...args)}));
 vi.mock("@/server/queries/course-revenue-report", () => ({ getCourseRevenueReport: (...args: unknown[]) => mockCourseReport(...args) }));
 
 vi.mock("@/lib/auth", () => ({
@@ -170,6 +172,7 @@ describe("reports view mode support", () => {
       { id: "staff-child", displayName: "Child Store Staff" },
     ]);
     mockGetStoreRevenueSummary.mockResolvedValue([]);
+    mockSteamfootReport.mockResolvedValue({summary:[],kpi:{netRevenue:0},data:[],paymentMethods:[]});
     mockGetCoachRevenueSummary.mockResolvedValue([]);
     mockGetTransactionDetails.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50 });
     mockGetRevenueKpi.mockResolvedValue({
@@ -199,6 +202,13 @@ describe("reports view mode support", () => {
     );
   });
 
+  it("uses UTC calendar dates for cashbook entries without shifting the first day", async () => {
+    const { monthlyStoreSummary } = await import("@/server/queries/report");
+    await monthlyStoreSummary("2026-10", { activeStoreId: STORE_PARENT, startDate: "2026-10-01", endDate: "2026-10-29" });
+    expect(mockCashbookGroupBy).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({entryDate:{gte:new Date("2026-10-01T00:00:00Z"),lte:new Date("2026-10-29T00:00:00Z")}})}));
+    expect(mockTransactionGroupBy).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({createdAt:{gte:new Date("2026-09-30T16:00:00Z"),lte:new Date("2026-10-29T15:59:59.999Z")}})}));
+  });
+
   it("forces store revenue API reads to the viewed store", async () => {
     const { GET } = await import("@/app/api/reports/store-revenue/route");
 
@@ -209,11 +219,11 @@ describe("reports view mode support", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockGetStoreRevenueSummary).toHaveBeenCalledWith(
+    expect(mockSteamfootReport).toHaveBeenCalledWith(STORE_CHILD,
       expect.objectContaining({
         storeId: STORE_CHILD,
         storeFilter: expect.objectContaining({ storeId: STORE_CHILD }),
-      }),
+      }),expect.objectContaining({customers:true}),
     );
   });
 

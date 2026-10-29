@@ -293,8 +293,8 @@ describe("previewStaffSettlement — operator overrides", () => {
         revenueStaffId: STAFF_A,
         revenueStaffName: "A",
         walletId: "wallet-1",
-        walletPurchasedPrice: 0, // 異常：confirmed 但價格 0
-        walletTotalSessions: 10,
+        walletPurchasedPrice: 1000,
+        walletTotalSessions: 0, // 缺少堂數不能攤提
       }),
     ]);
     const r = await previewStaffSettlement({
@@ -381,7 +381,7 @@ describe("previewStaffSettlement — fallback when no override", () => {
     expect(r.details[0].needsReview).toBe(true);
   });
 
-  it("無 override + wallet 資料殘缺（price=0）→ data_missing", async () => {
+  it("無 override + wallet 資料殘缺（堂數=0）→ data_missing", async () => {
     mockBookingFindMany.mockResolvedValueOnce([
       makeBooking({
         id: "b1",
@@ -390,7 +390,7 @@ describe("previewStaffSettlement — fallback when no override", () => {
         revenueStaffName: "A",
         walletId: "wallet-1",
         walletPurchasedPrice: 0,
-        walletTotalSessions: 10,
+        walletTotalSessions: 0,
         walletHasAdjustment: false,
       }),
     ]);
@@ -600,4 +600,13 @@ describe("previewStaffSettlement — staff filter", () => {
     const [callArg] = mockBookingFindMany.mock.calls[0];
     expect(callArg.where.revenueStaffId).toBe(STAFF_B);
   });
+});
+
+describe('explicit zero-price policy',()=>{
+ it.each([false,true])('counts a zero-price service as zero (confirmed=%s)',async confirmed=>{
+  mockGetOverride.mockReturnValue(confirmed?{walletId:'free',decision:'CONFIRM_AS_IS'}:null);
+  mockBookingFindMany.mockResolvedValue([makeBooking({id:'zero',date:'2026-10-01',revenueStaffId:STAFF_A,walletId:'free',walletPurchasedPrice:0,walletTotalSessions:10})]);
+  const result=await previewStaffSettlement({startDate:'2026-10-01',endDate:'2026-10-31'});
+  expect(result.details[0]).toMatchObject({amount:0,needsReview:false,counted:true});expect(result.summary[0].needsReviewCount).toBe(0);
+ });
 });

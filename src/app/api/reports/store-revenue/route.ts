@@ -70,6 +70,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
+    if(analysisStoreId&&industry==='steamfoot'){
+      const report=await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(analysisStoreId,{...filters,storeFilter:{...filters.storeFilter,storeId:analysisStoreId}},{customers:await checkPermission(user.role,user.staffId,'customer.read'),reader:readUser});
+      const headers={'Cache-Control':'private, no-store'};
+      if(level==='summary')return NextResponse.json({summary:report.summary,kpi:report.kpi},{headers});
+      if(level==='payment-methods')return NextResponse.json({paymentMethods:report.paymentMethods},{headers});
+      const page=Math.max(1,Math.floor(Number(sp.get('page'))||1)),pageSize=Math.min(1000,Math.max(1,Math.floor(Number(sp.get('pageSize'))||50)));
+      const details={data:report.data.slice((page-1)*pageSize,page*pageSize),total:report.data.length,page,pageSize};
+      return NextResponse.json(level==='details'?details:{summary:report.summary,kpi:report.kpi,details},{headers});
+    }
     if (analysisStoreId && (industry === "course"||industry==="beauty")) {
       if(industry==="beauty"){
         const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
@@ -117,7 +126,7 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ summary, kpi, details });
   } catch (e) {
-    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
+    if (e instanceof AppError && ["VALIDATION","FORBIDDEN"].includes(e.code)) return NextResponse.json({ error: e.message }, { status: e.code==="FORBIDDEN"?403:400 });
     console.error("Store revenue API error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

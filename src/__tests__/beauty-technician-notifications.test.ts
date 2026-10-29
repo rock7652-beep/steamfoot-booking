@@ -1,3 +1,6 @@
+// Exercise retained transport contracts in isolation; production retirement is verified separately.
+const retirement=vi.hoisted(()=>({notifications:true}));
+vi.mock('@/lib/beauty/retired-settings',()=>({beautyRetiredSettings:retirement}));
 import {beforeEach,expect,it,vi} from 'vitest';
 import type {Prisma} from '@prisma/client';
 import type {Tx} from '@/server/beauty/booking';
@@ -35,4 +38,13 @@ it('does not resend a frozen digest after its schedule snapshot changed',async()
  m.query.mockImplementation((sql:TemplateStringsArray)=>Promise.resolve(sql.join('').includes('FROM "BeautyAppointment"')?[{technicianId:'tech',status:'RESERVED',startsAt,endsAt:new Date('2026-10-27T04:00:00Z'),name:'合成顧客',service:'按摩',location:'床位'}]:[{id:'tech'}]));
  await deliverTechnicianEvent(tx as unknown as Prisma.TransactionClient,{id:'s',name:'店'},{...event,body:frozen},now,skip);
  expect(skip).toHaveBeenCalledWith('班表已更新，停止重送舊通知');expect(m.deliver).toHaveBeenCalledTimes(1);
+});
+
+it('retirement prevents technician queue creation and final delivery even with saved opt-ins',async()=>{
+ retirement.notifications=false;
+ try{
+  await queueTechnicianDigest('s',now);await queueTechnicianChange(tx as unknown as Tx,{storeId:'s',userId:'operator'},{id:'b',technicianId:'tech',startsAt},'BOOKING');
+  expect(await deliverTechnicianEvent(tx as unknown as Prisma.TransactionClient,{id:'s',name:'合成店'},event,now,skip)).toBe('SKIPPED');
+  expect(m.query).not.toHaveBeenCalled();expect(m.upsert).not.toHaveBeenCalled();expect(m.create).not.toHaveBeenCalled();expect(m.deliver).not.toHaveBeenCalled();
+ }finally{retirement.notifications=true;}
 });

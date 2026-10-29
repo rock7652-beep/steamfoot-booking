@@ -150,11 +150,11 @@ export function BeautyCatalogEditor({
                   ...data.policy,
                   revision: data.policy.revision,
                   selfBooking: bool("selfBooking"),
-                  notifications: bool("notifications"),
+                  notifications: false,
                   selfCancel: bool("selfCancel"),
                   selfReschedule: bool("selfReschedule"),
-                  cancelDeduct: bool("cancelDeduct"),
-                  noShowDeduct: bool("noShowDeduct"),
+                  cancelDeduct: false,
+                  noShowDeduct: false,
                   leadMinutes: num("leadMinutes"),
                   cancelLeadMinutes: num("cancelLeadMinutes"),
                   bookableDays: num("bookableDays"),
@@ -694,14 +694,11 @@ export function BeautyCatalogEditor({
           {kind === "settings" && (
             <>
               {[
-                ["notifications", "LINE 服務通知與前一天提醒"],
                 ["selfBooking", "顧客自行預約"],
                 ["selfCancel", "顧客自行取消"],
                 ["selfReschedule", "顧客自行改期"],
-                ["cancelDeduct", "取消扣次（未勾選不扣次）"],
-                ["noShowDeduct", "未到扣次（未勾選不扣次）"],
               ].map(([key, label]) => (
-                <label key={key} className={(key==='notifications'?settingsSection==='notifications':settingsSection==='booking')?"flex min-h-11 gap-2 items-center":"hidden"}>
+                <label key={key} className={settingsSection==='booking'?"flex min-h-11 gap-2 items-center":"hidden"}>
                   <input
                     type="checkbox"
                     name={key}

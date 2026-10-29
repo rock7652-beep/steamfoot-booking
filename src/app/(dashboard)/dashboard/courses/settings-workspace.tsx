@@ -255,7 +255,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">{props.moduleContent ? props.moduleContent.sections.notifications : <>
         <CourseNotificationSettings {...props} labels={props.source?.notificationLabels} careSummary={props.source?.careSummary}/>
         {props.source?.notificationSwitches.map(row=><OperationSettingSwitch key={row.key+':'+row.enabled} storeId={props.storeId} title={row.title} initialEnabled={row.enabled} canEdit={props.canEdit} save={input=>props.source!.operationSave({...input,key:row.key})}/>)}
-        {props.source&&<Row title={props.source.lineTitle??"LINE 官方帳號"} summary={props.source.lineSummary??"帳號連結與登入設定"} href={props.source.href("/dashboard/settings/line-official-accounts")}/>}
+        {props.source&&props.source.showLineAccount!==false&&<Row title={props.source.lineTitle??"LINE 官方帳號"} summary={props.source.lineSummary??"帳號連結與登入設定"} href={props.source.href("/dashboard/settings/line-official-accounts")}/>}
        </>}</section>
       <section hidden={active !== "subscription"} aria-label="系統方案與用量">{props.moduleContent ? props.moduleContent.sections.subscription : <>
         {props.source?.subscription??<><Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />

@@ -16,7 +16,7 @@ import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} fr
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {readSportsCalendar} from "@/lib/sports-calendar-client";
-import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
+import {CALENDAR_SYNC_INTERVAL,startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {SportsAttendancePanel} from "./sports-attendance-panel";
 import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
@@ -54,7 +54,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -166,6 +166,7 @@ export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
  readBlocked?:boolean;
+ detailOpen?:boolean;
  snapshotVersion?:string;
  move?:{clipboard:CourseMoveClipboard;onPaste:(target:{date:string;time:string;roomId:string;coachId:string})=>void;onCancel:()=>void};
  read:(date:string)=>Promise<{success:true;data:CourseCalendarSnapshot;onAccepted?:()=>void}|{success:false;error:string}>;
@@ -474,6 +475,7 @@ export function CourseWorkspace({
       return startSportsBackgroundSync(
         () => refreshNativeCalendar(nativeDateRef.current,false,true),
         () => calendarReadsInFlight.current > 0,
+        CALENDAR_SYNC_INTERVAL,
       );
     }
     const refresh = () => {
@@ -484,7 +486,7 @@ export function CourseWorkspace({
         setLastUpdated(new Date());
       });
     };
-    const timer = window.setInterval(refresh, 60_000);
+    const timer = window.setInterval(refresh, CALENDAR_SYNC_INTERVAL);
     window.addEventListener("focus", refresh);
     window.addEventListener("pageshow", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -933,6 +935,58 @@ export function CourseWorkspace({
     <div className="relative min-w-0 flex-1 basis-44 max-w-72"><input type="search" aria-label="課表搜尋" placeholder="搜尋顧客姓名／電話" className={`${button} min-h-11 w-full bg-white py-1 pr-11 [&::-webkit-search-cancel-button]:hidden`} value={scheduleQuery} onChange={event=>setScheduleQuery(event.target.value)}/>{scheduleQuery&&<button type="button" aria-label="清除顧客搜尋" className="absolute right-0 top-0 min-h-11 min-w-11 text-earth-600" onClick={()=>setScheduleQuery("")}>×</button>}</div>
     <label className="flex min-w-0 items-center gap-1 text-sm">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 min-w-0 max-w-48 bg-white py-1`} value={assignedCoachFilter} onChange={e=>setAssignedCoachFilter(e.target.value)}><option value="all">全部所屬店長</option>{calendarSource?.assignmentStaff.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}<option value="none">未指定所屬店長</option></select></label>
   </>;
+  const compactSportsWeek = sportsNative && businessProfile === "FITNESS" && !calendarSource && scheduleMode === "week";
+  const sportsFilterPanelId = useId();
+  const scheduleFilters = <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
+            <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{personnelText(courseDisplayText("授課教練", businessProfile))}
+            <select
+              id="course-coach-filter"
+              aria-label={calendarSource?"技師篩選":personnelText(courseDisplayText("教練篩選", businessProfile))}
+              className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+              value={coachFilter}
+              onChange={(e) => setCoachFilter(e.target.value)}
+            >
+              <option value="all">{personnelText("全部授課教練")}</option>
+              {allCoaches.map((coach) => (
+                <option key={coach.id} value={coach.id}>
+                  {coach.displayName}
+                </option>
+              ))}
+            </select>
+            </label><label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-room-filter">教室
+            <select
+              id="course-room-filter"
+              aria-label={calendarSource?"位置篩選":"教室篩選"}
+              className={`${button} min-h-11 bg-white py-1 ${roomFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+              value={roomFilter}
+              onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
+            >
+              <option value="all">全部空間</option>
+              {allRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+            </label>{sportsNative ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700">排課類型<select aria-label="排課類型篩選" className={`${button} min-h-11 bg-white py-1`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部排課類型</option>{sportsScheduleKinds.map(item=><option key={item.kind} value={item.kind}>{item.label}</option>)}</select></label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{<label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
+            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 min-w-0 w-full @min-[48rem]/course-schedule:w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
+            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || classFilter !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
+              <button
+                type="button"
+                className="min-h-11 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
+                onClick={() => {
+                  setAssignedCoachFilter("all");
+                  setScheduleQuery("");
+                  setCoachFilter("all");
+                  setRoomFilter("all");
+                  setCategory("all");setClassFilter("all");setRentalFilter("all");
+                }}
+              >
+                清除篩選
+              </button>
+            )}
+          </div>;
+  const weekFilters = <><button type="button" popoverTarget={sportsFilterPanelId} className={`${button} min-h-11 whitespace-nowrap`}>篩選{scheduleFiltered ? "（已套用）" : ""}</button><div id={sportsFilterPanelId} popover="auto" aria-label="課表篩選" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20"><div className="mb-3 flex items-center justify-between"><strong>課表篩選</strong><button type="button" popoverTarget={sportsFilterPanelId} popoverTargetAction="hide" className="min-h-11 rounded-lg px-3">完成</button></div>{calendarSource?<div className="flex flex-wrap items-center gap-3">{serviceFilters}</div>:scheduleFilters}</div></>;
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
@@ -1049,7 +1103,7 @@ export function CourseWorkspace({
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
               <div className={calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":businessProfile === "MUSIC"?"ml-auto flex shrink-0 gap-1":"flex shrink-0 gap-2"}>
-                {calendarSource&&<ServiceCalendarLegend/>}{cashbookShortcut}
+                {calendarSource&&scheduleMode!=="week"&&<ServiceCalendarLegend/>}{cashbookShortcut}
                 {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
 
                 {canCreate && (
@@ -1066,55 +1120,7 @@ export function CourseWorkspace({
           </div>
 
             {businessProfile === "MUSIC" && scheduleMode === "month" && <div className="basis-full flex items-center gap-3"><div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div>{scheduleLegend}</div>}
-          {!calendarSource&&businessProfile !== "MUSIC" && <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
-            <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{personnelText(courseDisplayText("授課教練", businessProfile))}
-            <select
-              id="course-coach-filter"
-              aria-label={calendarSource?"技師篩選":personnelText(courseDisplayText("教練篩選", businessProfile))}
-              className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-              value={coachFilter}
-              onChange={(e) => setCoachFilter(e.target.value)}
-            >
-              <option value="all">{personnelText("全部授課教練")}</option>
-              {allCoaches.map((coach) => (
-                <option key={coach.id} value={coach.id}>
-                  {coach.displayName}
-                </option>
-              ))}
-            </select>
-            </label><label className="flex min-w-0 items-center gap-2 text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-room-filter">教室
-            <select
-              id="course-room-filter"
-              aria-label={calendarSource?"位置篩選":"教室篩選"}
-              className={`${button} min-h-11 bg-white py-1 ${roomFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-              value={roomFilter}
-              onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
-            >
-              <option value="all">全部空間</option>
-              {allRooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
-            </label>{sportsNative ? <label className="flex items-center gap-2 text-xs font-medium text-earth-700">排課類型<select aria-label="排課類型篩選" className={`${button} min-h-11 bg-white py-1`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部排課類型</option>{sportsScheduleKinds.map(item=><option key={item.kind} value={item.kind}>{item.label}</option>)}</select></label> : <label className="flex items-center gap-2 text-xs font-medium text-earth-700">班別<select aria-label="課表班別篩選" className={`${button} min-h-11 bg-white py-1 ${classFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班別</option><option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="TRIAL">體驗</option><option value="RENTAL">空間租借</option><option value="unset">未設定</option></select></label>}{<label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
-            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 min-w-0 w-full @min-[48rem]/course-schedule:w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
-            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || classFilter !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
-              <button
-                type="button"
-                className="min-h-11 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
-                onClick={() => {
-                  setAssignedCoachFilter("all");
-                  setScheduleQuery("");
-                  setCoachFilter("all");
-                  setRoomFilter("all");
-                  setCategory("all");setClassFilter("all");setRentalFilter("all");
-                }}
-              >
-                清除篩選
-              </button>
-            )}
-          </div>}
+          {!calendarSource&&businessProfile !== "MUSIC" && !compactSportsWeek && scheduleFilters}
           {calendarSource&&(scheduleQuery.trim()||assignedCoachFilter!=="all")&&!serviceHasResults&&<p role="status" className="text-sm text-earth-600">查無符合顧客</p>}
           {calendarSource&&scheduleMode==="month"&&<div className="flex flex-wrap items-center gap-2">{serviceFilters}</div>}
             {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
@@ -1191,8 +1197,8 @@ export function CourseWorkspace({
 
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
-            <CourseScheduleBoard toolbarContent={calendarSource?serviceFilters:undefined} serviceMode={!!calendarSource} sportsNative={sportsNative}
-              legend={!calendarSource ? scheduleLegend : undefined}
+            <CourseScheduleBoard detailOpen={!!courseDialog||!!calendarSource?.detailOpen} toolbarContent={calendarSource?scheduleMode==="week"?weekFilters:serviceFilters:compactSportsWeek?weekFilters:undefined} serviceMode={!!calendarSource} sportsNative={sportsNative}
+              legend={calendarSource?scheduleMode==="week"?<ServiceCalendarLegend/>:undefined:scheduleLegend}
               hideDateHeading={businessProfile === "MUSIC"}
               searchControl={businessProfile === "MUSIC" ? <div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div> : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}

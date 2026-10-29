@@ -59,6 +59,8 @@ const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 const nextConfig: NextConfig = {
   ...(process.env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'?{distDir:'.next-beauty-shared-pages-build-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-build-qa.json'},experimental:{cpus:2}}:{}),
   ...(process.env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'?{distDir:'.next-beauty-shared-pages-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-qa.json'}}:{}),
+  // Review documents and QA artifacts are not runtime dependencies.
+  outputFileTracingExcludes: {"/*": ["./docs/**", "./artifacts/**", "./scripts/qa/**"]},
   outputFileTracingIncludes: {
     "/*": ["./generated/course-client/**", "./generated/beauty-client/**", "./scripts/certs/supabase-root-2021.crt"],
   },

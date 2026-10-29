@@ -108,6 +108,17 @@ function loadOverrides(): Map<string, SettlementOverride> {
     map.set(o.walletId, o);
   }
 
+  const privateSource=process.env.SETTLEMENT_PRIVATE_OVERRIDES;
+  if(privateSource){
+    let privateEntries:z.infer<typeof OverrideFileSchema>;
+    try{privateEntries=OverrideFileSchema.parse(JSON.parse(privateSource));}
+    catch{throw new Error("[settlement-overrides] Private override configuration is invalid");}
+    for(const entry of privateEntries.overrides){
+      if(map.has(entry.walletId))throw new Error("[settlement-overrides] Private override duplicates an existing decision");
+      map.set(entry.walletId,entry);
+    }
+  }
+
   overrideMapCache = map;
   return map;
 }

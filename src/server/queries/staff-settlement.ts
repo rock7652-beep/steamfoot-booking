@@ -26,7 +26,7 @@
  *       source = override
  *
  *     override.decision === "CONFIRM_AS_IS":
- *       若 wallet.purchasedPrice > 0 AND wallet.totalSessions > 0:
+ *       若 wallet.purchasedPrice >= 0 AND wallet.totalSessions > 0:
  *         amount = wallet.purchasedPrice / wallet.totalSessions
  *         source = formula_confirmed
  *       否則:
@@ -37,7 +37,7 @@
  *         amount=null, source=needs_operator_review, needsReview=true
  *         （保守預設：未經 review 的 risk wallet 不硬算）
  *       否則:
- *         若 wallet.purchasedPrice > 0 AND wallet.totalSessions > 0:
+ *         若 wallet.purchasedPrice >= 0 AND wallet.totalSessions > 0:
  *           amount = wallet.purchasedPrice / wallet.totalSessions
  *           source = formula_clean
  *         否則:
@@ -138,7 +138,7 @@ function classifyByWallet(
       };
     }
     // CONFIRM_AS_IS
-    if (wallet.purchasedPrice > 0 && wallet.totalSessions > 0) {
+    if (wallet.purchasedPrice >= 0 && wallet.totalSessions > 0) {
       return {
         amount: wallet.purchasedPrice / wallet.totalSessions,
         source: "formula_confirmed",
@@ -156,7 +156,7 @@ function classifyByWallet(
   if (wallet.hasAdjustment) {
     return { amount: null, source: "needs_operator_review", needsReview: true };
   }
-  if (wallet.purchasedPrice > 0 && wallet.totalSessions > 0) {
+  if (wallet.purchasedPrice >= 0 && wallet.totalSessions > 0) {
     return {
       amount: wallet.purchasedPrice / wallet.totalSessions,
       source: "formula_clean",
@@ -306,7 +306,7 @@ export async function previewStaffSettlement(
       needsReview = c.needsReview;
     }
 
-    const counted = amount !== null && amount > 0 && b.revenueStaffId !== null;
+    const counted = amount !== null && amount >= 0 && walletForCalc !== null && b.revenueStaffId !== null;
 
     return {
       bookingId: b.id,
