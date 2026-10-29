@@ -1,3 +1,5 @@
+// Exercise transport behavior separately from the global incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ after: vi.fn(), store: vi.fn(), central: vi.fn() }));
 vi.mock("next/server", () => ({ after: m.after }));

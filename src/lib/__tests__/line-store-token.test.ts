@@ -1,3 +1,5 @@
+// Exercise transport behavior separately from the global incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
 import crypto from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
