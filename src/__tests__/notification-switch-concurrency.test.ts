@@ -8,6 +8,7 @@ vi.mock("@/server/actions/course-coach-notifications", () => ({ setCoachNotifica
 vi.mock("@/server/actions/store-line-notification-recipients", () => ({ setManagerNotificationPreference: m.preference, setStoreLineNotificationRecipientActive: m.active, createStoreLineNotificationRecipient: vi.fn(),resumeStoreLineNotificationRecipient:vi.fn(), removeStoreLineNotificationRecipient: vi.fn() }));
 vi.mock("@/server/actions/session-balance-notification-toggle", () => ({ setSessionBalanceNotificationToggle: m.balance }));
 vi.mock("@/server/actions/reminder", () => ({ saveSessionBalanceTemplateSetting: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { error: m.error, success: m.success } }));
 import { SimpleSessionBalanceReminders } from "@/app/(dashboard)/dashboard/reminders/simple-session-balance-reminders";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";

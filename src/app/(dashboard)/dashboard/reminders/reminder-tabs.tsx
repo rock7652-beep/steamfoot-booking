@@ -12,6 +12,7 @@ export function ReminderTabs({
   customerOnly = false,
   coach = false,
   music = false,
+  beauty = false,
 }: {
   active: string;
   explicit: boolean;
@@ -20,6 +21,7 @@ export function ReminderTabs({
   customerOnly?: boolean;
   coach?: boolean;
   music?: boolean;
+  beauty?: boolean;
 }) {
   const personnelText = useCoursePersonnelText();
   const router = useRouter();
@@ -34,16 +36,17 @@ export function ReminderTabs({
       const saved = localStorage.getItem(storageKey);
       if (
         saved &&
-        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[])]).includes(saved) &&
+        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[]), ...(beauty?["technician"]:[])]).includes(saved) &&
         saved !== active
       )
         if (panelNavigate) panelNavigate(`${baseHref}?tab=${saved}`); else router.replace(`?tab=${saved}`);
     } catch {}
-  }, [active, explicit, router, storageKey, customerOnly, coach, panelNavigate, baseHref]);
+  }, [active, explicit, router, storageKey, customerOnly, coach, beauty, panelNavigate, baseHref]);
   return (
     <nav aria-label="提醒管理分頁" className="flex border-b border-earth-200">
       {[
         { key: "manager", label: "店長通知" },
+        ...(beauty?[{key:"technician",label:"技師通知"}]:[]),
         { key: "customer", label: "顧客提醒" },
         ...(coach?[{key:"coach",label:music ? personnelText("教師通知") : personnelText("教練通知")}]:[]),
         { key: "logs", label: "發送紀錄" },

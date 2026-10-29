@@ -52,6 +52,7 @@ export async function saveLineQuotaNotificationSetting(input: z.input<typeof sch
     });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
     return { success: true as const };
   } catch (error) { return handleActionError(error); }
 }
@@ -93,6 +94,7 @@ export async function sendLineQuotaTestEmail() {
     if (!sent && !failed) throw new AppError("BUSINESS_RULE", "剛剛已申請測試信，請五分鐘後再試");
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/courses/reminders");
+    revalidatePath("/dashboard/beauty/reminders");
     return { success: true as const, message: `寄信服務已接受 ${sent} 封測試信${failed ? `，另有 ${failed} 封寄送失敗，請查看發送紀錄` : "，請各位老闆確認收件匣或垃圾郵件。"}` };
   } catch (error) { return handleActionError(error); }
 }

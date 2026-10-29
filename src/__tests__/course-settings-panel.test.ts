@@ -82,3 +82,13 @@ it('Beauty skips discard confirmation but keeps an in-flight panel mounted',asyn
  await act(async()=>root.render(panel(false)));await click('關閉視窗');
  expect(window.location.search).not.toContain('panel=');expect(host.querySelector('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('true');
 });
+
+it("keeps beauty reminder tabs in the settings panel", async () => {
+ window.history.replaceState(null, "", "/hq/dashboard/beauty?tab=設定&section=notifications&panel=reminders&panelQuery=tab%3Dmanager");
+ await act(async () => root.render(el(CourseSettingsPanel, { panel: "reminders", workspaceHref: "/dashboard/beauty", children: el("a", { href: "/hq/dashboard/beauty/reminders?tab=technician" }, "技師通知") })));
+ await click("技師通知");
+ const target = new URL(m.replace.mock.calls[0][0], "https://example.com");
+ expect(target.pathname).toBe("/hq/dashboard/beauty");
+ expect(target.searchParams.get("panel")).toBe("reminders");
+ expect(target.searchParams.get("panelQuery")).toBe("tab=technician");
+});
