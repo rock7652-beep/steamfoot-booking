@@ -626,7 +626,6 @@ export function CourseScheduleBoard({
     const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY;const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
     update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(board);window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
   },[serviceMode,mode,serviceBounds.firstHour,serviceBounds.endHour]);
-  const weekLegendId = React.useId();
   const weekOverview = mode === "week";
   const fitWeek = weekOverview;
   const fitDay = mode === "day" && !serviceMode;
@@ -686,7 +685,8 @@ export function CourseScheduleBoard({
     return (
       <section ref={boardRef} className="space-y-1" data-week-scale={weekOverview?"fit":undefined} data-hour-height={hourHeight} data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"服務週班表":"教室週課表"}>
 
-        <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
+        <Toolbar className={styles.calendarToolbar}>
+          <div className={styles.calendarToolbarControls}>
           {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}</button></div>
           <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? personnelText("教師") : personnelText(courseDisplayText("教練", businessProfile))}</label>
@@ -696,7 +696,9 @@ export function CourseScheduleBoard({
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : weekOverview ? <>本週 {weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals>0&&`・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {weekOverview&&!allWeekResources&&weekSessions.length===0&&sessions.some(session=>dates.includes(sessionDate(session)))&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-900" onClick={()=>{setWeekRoomId("__all__");onResourceChange?.(resourceView,"__all__");}}>此{resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}本週無{serviceMode?"預約":"課"}，查看全部{serviceMode?"預約":"課程"}</button>}
-          {(serviceMode||weekOverview)&&toolbarContent}{legend && (weekOverview ? <><button type="button" popoverTarget={weekLegendId} className="ml-auto min-h-11 rounded-lg border border-earth-200 bg-white px-3">圖例</button><div id={weekLegendId} popover="auto" aria-label="課表圖例" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20">{legend}<button type="button" popoverTarget={weekLegendId} popoverTargetAction="hide" className="mt-2 min-h-11 rounded-lg px-3">關閉</button></div></> : <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>)}
+          {(serviceMode||weekOverview)&&toolbarContent}
+          </div>
+          {legend && <div className={styles.calendarLegend}>{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} data-week-scroll={weekOverview?true:undefined} data-sports-week-scroll={sportsNative&&weekOverview?true:undefined} style={weekOverview&&weekBounds.endHour-weekBounds.firstHour>12?{maxHeight:weekHeaderHeight+hourHeight*12+2}:undefined} className={`${fitWeek?"":serviceMode?"max-h-[calc(100dvh-18rem)] min-h-64":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
@@ -940,7 +942,8 @@ export function CourseScheduleBoard({
     <section ref={boardRef} className="space-y-1" data-day-scale={fitDay?"fit":undefined} data-hour-height={fitDay?hourHeight:undefined} data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"日班表":"日課表"}>
 
 
-      <Toolbar aria-label={fitDay?"日表資訊與操作":undefined} className={fitDay ? "flex min-h-11 max-w-full items-center gap-2 overflow-x-auto text-sm text-earth-700 [&>*]:shrink-0" : musicDense ? styles.musicToolbar : serviceMode ? "flex max-w-full flex-wrap items-center gap-2 !overflow-visible [&>*]:!shrink" : undefined}>
+      <Toolbar aria-label="日表資訊與操作" className={styles.calendarToolbar}>
+        <div className={styles.calendarToolbarControls}>
         {searchControl}
         {!musicDense && resourceViewControls}
         {musicDense && !replica && <span className="text-sm text-earth-700 whitespace-nowrap">{dayTotals.classes} 堂・{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
@@ -988,7 +991,8 @@ export function CourseScheduleBoard({
 
         {(serviceMode||fitDay)&&toolbarContent}
         {musicDense && resourceViewControls}
-        {legend && (fitDay ? <><button type="button" popoverTarget={weekLegendId} className="ml-auto min-h-11 rounded-lg border border-earth-200 bg-white px-3">圖例</button><div id={weekLegendId} popover="auto" aria-label="課表圖例" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20">{legend}<button type="button" popoverTarget={weekLegendId} popoverTargetAction="hide" className="mt-2 min-h-11 rounded-lg px-3">關閉</button></div></> : <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>)}
+        </div>
+        {legend && <div className={styles.calendarLegend}>{legend}</div>}
       </Toolbar>
 
       {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? serviceMode?"目前只顯示待服務預約。":"目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>{serviceMode?"查看全部服務":"查看全部課程（含已點名）"}</button></div>}
