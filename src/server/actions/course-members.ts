@@ -1,5 +1,5 @@
 "use server";
-import {measureMusicCheckout,withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
@@ -369,7 +369,7 @@ export async function assignCoursePointCard(input: unknown) {
     const rosterSnapshot=await readPurchasedCourseRoster(storeId,data.customerId,data.bookingId);
     const checkoutCards=!data.bookingId&&!musicCheckout?await readPurchasedCourseCards(data.customerId):null;
     let musicSnapshot:import('@/lib/music-purchase-snapshot').MusicPurchaseSnapshot|null=null;
-    if(musicCheckout&&!data.bookingId&&input&&typeof input==='object'&&'musicSnapshotView' in input&&input.musicSnapshotView==='periods'){
+    if(!musicCheckoutShouldDeferSnapshot()&&musicCheckout&&!data.bookingId&&input&&typeof input==='object'&&'musicSnapshotView' in input&&input.musicSnapshotView==='periods'){
       try{const {readMusicPurchaseSnapshot}=await import('@/server/queries/music-purchase-snapshot');musicSnapshot=await readMusicPurchaseSnapshot(input);}catch{/* Committed purchase remains successful. */}
     }
     return { success: true as const,...(musicSnapshot?{musicSnapshot}:{}),...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{}),checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };

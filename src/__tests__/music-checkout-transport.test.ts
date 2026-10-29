@@ -69,3 +69,29 @@ it("retains confirmed success when the projection stream disconnects",async()=>{
  expect(await musicCheckoutTransport("purchase",{},vi.fn())).toEqual({success:true,financePublished:true});
  expect(early).toHaveBeenCalledOnce();expect(notify).toHaveBeenCalledOnce();
 });
+it("returns the committed receipt before a slow projection and publishes sync afterward",async()=>{
+ let controller!:ReadableStreamDefaultController<Uint8Array>;
+ const stream=new ReadableStream<Uint8Array>({start(c){controller=c;c.enqueue(new TextEncoder().encode(JSON.stringify({kind:"receipt",result:{success:true,checkoutReceipt:{quantity:60,paid:6000}}})+"\n"));}});
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(stream,{headers:{"content-type":"application/x-ndjson","x-music-committed":"1"}})));
+ const result=await musicCheckoutTransport("purchase",{},vi.fn());
+ expect(result).toEqual({success:true,checkoutReceipt:{quantity:60,paid:6000},financePublished:true});
+ expect(early).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled();
+ controller.enqueue(new TextEncoder().encode(JSON.stringify({kind:"snapshot",snapshot:null})+"\n"));controller.close();
+ await vi.waitFor(()=>expect(notify).toHaveBeenCalledWith("purchase",early.mock.calls[0][0]));
+});
+it("keeps a committed receipt and publishes refresh if the projection disconnects",async()=>{
+ let controller!:ReadableStreamDefaultController<Uint8Array>;
+ const stream=new ReadableStream<Uint8Array>({start(c){controller=c;c.enqueue(new TextEncoder().encode('{"kind":"receipt","result":{"success":true}}\n'));}});
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(stream,{headers:{"content-type":"application/x-ndjson","x-music-committed":"1"}})));
+ expect((await musicCheckoutTransport("purchase",{},vi.fn())).success).toBe(true);controller.error(new Error("offline"));
+ await vi.waitFor(()=>expect(notify).toHaveBeenCalledOnce());
+});
+it("publishes refresh if the optional projection stalls indefinitely",async()=>{
+ vi.useFakeTimers();
+ try{
+  const stream=new ReadableStream<Uint8Array>({start(c){c.enqueue(new TextEncoder().encode('{"kind":"receipt","result":{"success":true}}\n'));}});
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(stream,{headers:{"content-type":"application/x-ndjson","x-music-committed":"1"}})));
+  expect((await musicCheckoutTransport("purchase",{},vi.fn())).success).toBe(true);
+  expect(notify).not.toHaveBeenCalled();await vi.advanceTimersByTimeAsync(8000);expect(notify).toHaveBeenCalledOnce();
+ }finally{vi.useRealTimers();}
+});

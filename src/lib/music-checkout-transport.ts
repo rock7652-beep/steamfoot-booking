@@ -25,7 +25,7 @@ export async function musicCheckoutTransport(
   try {
     const response = await fetch("/s/lubymusic/admin/dashboard/music-checkout", {
       method: "POST", credentials: "same-origin", cache: "no-store",
-      headers: { "Content-Type": "application/json", "X-Music-Contract": "1", "X-Music-Stream": "1" },
+      headers: { "Content-Type": "application/json", "X-Music-Contract": "1", "X-Music-Stream": operation === "purchase" ? "2" : "1" },
       body: JSON.stringify({ operation, input }),
     });
     if (response.status === 409) return { success: false, error: "系統已更新，尚未送出；輸入仍保留，請開啟最新版後核對再送出。" };
@@ -33,6 +33,37 @@ export async function musicCheckoutTransport(
     if (committed) {
       publishMusicRevenueCommit(token);
       console.info("[music-checkout-committed]", JSON.stringify({requestMs:Math.round(performance.now()-started)}));
+    }
+    if (committed && response.headers.get("content-type")?.includes("application/x-ndjson") && response.body) {
+      const reader=response.body.getReader(),decoder=new TextDecoder();
+      let buffer="";
+      const readLine=async():Promise<string|null>=>{
+        for (;;) {
+          if(buffer.length>2_000_000)throw new Error("Checkout response too large");
+          const newline=buffer.indexOf("\n");
+          if(newline>=0){const line=buffer.slice(0,newline);buffer=buffer.slice(newline+1);return line;}
+          const chunk=await reader.read();
+          if(chunk.done)return null;
+          buffer+=decoder.decode(chunk.value,{stream:true});
+        }
+      };
+      const first=await readLine();
+      const frame=first?JSON.parse(first):null;
+      if(frame?.kind!=="receipt"||frame.result?.success!==true)throw new Error("Invalid committed receipt");
+      // The receipt is authoritative. Continue the optional projection without
+      // making the operator wait, and always publish invalidation on timeout.
+      void (async()=>{
+        let timer:ReturnType<typeof setTimeout>|undefined;
+        try {
+          const line=await Promise.race([readLine(),new Promise<null>(resolve=>{timer=setTimeout(()=>resolve(null),8000);})]);
+          const next=line?JSON.parse(line):null,snapshot=next?.kind==="snapshot"?next.snapshot:null;
+          if(typeof snapshot?.customerId==="string"&&(snapshot?.overview?.success===true||snapshot?.cards?.success===true||snapshot?.periods?.success===true||snapshot?.purchases?.success===true)){
+            try{if(snapshot.periods)snapshot.periods=parseMusicPeriods(JSON.stringify(snapshot.periods));acceptSnapshot?.(snapshot);}catch{/* Authoritative readers refresh instead. */}
+          }
+        } catch {/* The committed receipt remains successful. */}
+        finally {if(timer)clearTimeout(timer);void reader.cancel().catch(()=>{});publishMusicFinanceChange(operation,token);}
+      })();
+      return {...frame.result,financePublished:true};
     }
     const result = await response.json();
     console.info("[music-checkout-response]", JSON.stringify({operation,requestMs:Math.round(performance.now()-started),serverTiming:response.headers.get("server-timing"),phases:response.headers.get("x-music-timing"),readTiming:result.readTiming}));
