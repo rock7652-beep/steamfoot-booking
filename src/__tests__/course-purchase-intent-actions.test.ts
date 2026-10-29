@@ -24,6 +24,16 @@ describe("course intent actions authorization",()=>{
   const result=await getCoursePurchaseIntent({customerId:"customer",requestKey:key});expect(result.success).toBe(true);
   expect(mocks.managerRead.mock.calls.map(c=>c[0]).sort()).toEqual(["customer.read","transaction.create","wallet.create"]);
  });
+ it("uses the authorized sports test store for preparation, recovery and cancellation on the shared preview",async()=>{
+  vi.stubEnv('COURSE_PURCHASE_QA_STORE_SCOPE','1');vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('VERCEL_GIT_COMMIT_REF','release/music-production-20261023');
+  const sportsActor={...actor,storeId:'sports-live-flow-store'};
+  mocks.manager.mockResolvedValue(sportsActor);mocks.managerRead.mockResolvedValue(sportsActor);
+  mocks.atomic.mockResolvedValue({kind:'prepared',intent:success});mocks.cancel.mockResolvedValue({...success,status:'CANCELLED'});
+  expect((await prepareCoursePurchaseIntentAtomic(base)).success).toBe(true);
+  expect((await getCoursePurchaseIntent({customerId:'customer',requestKey:key})).success).toBe(true);
+  expect((await cancelCoursePurchaseIntent({customerId:'customer',requestKey:key})).success).toBe(true);
+  expect(mocks.atomic.mock.calls[0][1].storeId).toBe('sports-live-flow-store');
+ });
  it("rejects unauthorized or cross-store customer before reading an intent",async()=>{
   mocks.customer.mockResolvedValue(null);expect((await getCoursePurchaseIntent({customerId:"foreign",requestKey:key})).success).toBe(false);expect(mocks.read).not.toHaveBeenCalled();
   mocks.customer.mockResolvedValue({id:"customer"});mocks.managerRead.mockImplementation(async p=>p==="transaction.create"?{...actor,storeId:"other"}:actor);
