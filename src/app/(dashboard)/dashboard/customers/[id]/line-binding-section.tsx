@@ -117,6 +117,8 @@ export function LineBindingSection({
 
   // ── 產生綁定碼 ──
   async function handleGenerateCode() {
+    if (busy.current) return;
+    busy.current = true;
     setPending(true);
     setMessage(null);
     try {
@@ -131,6 +133,7 @@ export function LineBindingSection({
     } catch {
       setMessage({ text: "操作失敗，請稍後再試", type: "error" });
     } finally {
+      busy.current = false;
       setPending(false);
     }
   }

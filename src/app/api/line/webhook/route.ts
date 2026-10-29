@@ -938,15 +938,13 @@ async function handleBindingRequest(
     }
   }
 
-  // 5. 執行綁定
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      lineUserId,
-      lineLinkStatus: "LINKED",
-      lineLinkedAt: new Date(),
-    },
-  });
+  // 5. Consume once with compare-and-set and identity conflict checks.
+  const { consumeCustomerLineBindingCode } = await import("@/server/services/customer-line-binding-code");
+  const bound = await consumeCustomerLineBindingCode({ customerId: customer.id, storeId, code: bindingCode, lineUserId });
+  if (!bound) {
+    if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: "綁定狀態已異動或身分需核對，請聯繫店家重新確認。" }]);
+    return;
+  }
 
   console.log("[LINE] Binding success", { customerId: customer.id, userId: maskLineUserId(lineUserId), storeId });
 
