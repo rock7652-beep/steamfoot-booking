@@ -34,6 +34,7 @@ import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
+import {SteamPlanClose} from "@/components/admin/steam-plan-close";
 import { ExtendWalletExpiryForm } from "./extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
 import { MigratePaperPlanDialog } from "./migrate-paper-plan-dialog";
@@ -1250,6 +1251,7 @@ function WalletItem({
   simplified = false,
 }: {
   w: {
+    storeId:string;
     id: string;
     plan: { name: string };
     status: string;
@@ -1360,6 +1362,7 @@ function WalletItem({
                   expired={w.status === "EXPIRED"}
                 />
               )}
+            {canAdjustWallet&&!readOnly&&<SteamPlanClose wallet={w}/>}
             {hasSessions && (
               <div className="border-t border-earth-100 pt-2">
                 <p className="mb-1.5 text-[11px] font-semibold text-earth-600">

@@ -97,7 +97,8 @@ beforeEach(() => {
   mockRequirePermission.mockResolvedValue(OWNER);
   mockTx.mockImplementation((cb: (tx: unknown) => Promise<unknown>) =>
     cb({
-      customerPlanWallet: { update: (...a: unknown[]) => mockWalletUpdate(...a) },
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      customerPlanWallet: { findUnique: (...a: unknown[]) => mockWalletFindUnique(...a), update: (...a: unknown[]) => mockWalletUpdate(...a) },
       auditLog: { create: (...a: unknown[]) => mockAuditCreate(...a) },
       transaction: { create: (...a: unknown[]) => mockTxTransactionCreate(...a) },
     }),
@@ -107,6 +108,11 @@ beforeEach(() => {
 });
 
 describe("extendWalletExpiry — 護欄", () => {
+  it("鎖定後若已註銷，不會由舊的延長請求重新啟用", async () => {
+    mockWalletFindUnique.mockResolvedValueOnce(wallet({ status: "EXPIRED" })).mockResolvedValueOnce(wallet({ status: "CANCELLED" }));
+    expect(await run({ newExpiryDate: "2026-07-15" })).toMatchObject({success:false,error:expect.stringContaining("已更新")});
+    expect(mockWalletUpdate).not.toHaveBeenCalled();
+  });
   it("唯讀或無 wallet.adjust 權限時，不讀取或更改錢包", async () => {
     mockRequirePermission.mockRejectedValueOnce(new AppError("FORBIDDEN", "目前為唯讀模式"));
     expect(await run({ newExpiryDate: "2026-07-15" })).toMatchObject({
