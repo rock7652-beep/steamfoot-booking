@@ -59,6 +59,13 @@ describe("phone rebind", () => {
     expect(await completePhoneLineRebind(input)).toBe("not_requested");
     expect(tx.customer.update).not.toHaveBeenCalled();
   });
+  it("accepts a redelivered event only when the same customer is already linked to that LINE", async () => {
+    tx.$queryRaw.mockResolvedValue([]);
+    tx.customer.findFirst.mockResolvedValue({ id: "customer-a" });
+    expect(await completePhoneLineRebind(input)).toBe("linked");
+    expect(tx.customer.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "store-a", id: "customer-a", phone, lineUserId: line, lineLinkStatus: "LINKED" }) }));
+    expect(tx.customer.update).not.toHaveBeenCalled();
+  });
   it("refuses a manager who no longer has access to the store", async () => {
     tx.user.findUnique.mockResolvedValue({ id: "owner", role: "OWNER", status: "ACTIVE", staff: { storeId: "store-b", status: "ACTIVE" } });
     expect(await completePhoneLineRebind(input)).toBe("conflict");

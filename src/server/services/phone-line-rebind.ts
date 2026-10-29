@@ -49,7 +49,12 @@ export async function completePhoneLineRebind(input: { storeIds: string[]; desti
       if (matches.length !== 1) return matches.length ? "conflict" : "not_requested";
       const target = matches[0];
       const requests = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "LineRebindRequest" WHERE "customerId"=${target.id} AND "storeId"=${target.storeId} AND "status"='PENDING_CAPTURE' AND "reason"=${PHONE_REBIND_REASON} FOR UPDATE`;
-      if (!requests.length) return "not_requested";
+      if (!requests.length) {
+        // LINE may redeliver an event after a successful transaction. Do not
+        // turn an already-completed rebind into a new confirmation request.
+        const existing = await tx.customer.findFirst({ where: { id: target.id, storeId: target.storeId, phone, lineUserId: input.lineUserId, lineLinkStatus: "LINKED", mergedIntoCustomerId: null }, select: { id: true } });
+        return existing ? "linked" : "not_requested";
+      }
       if (requests.length !== 1) return "conflict";
       const request = await tx.lineRebindRequest.findUnique({ where: { id: requests[0].id } });
       if (!request || request.expiresAt <= now || request.createdAt.getTime() > input.timestamp || request.phoneHash !== sha256(phone)) return "conflict";
