@@ -7,6 +7,7 @@ import {
   getCoursePurchaseIntent,
   getPendingCoursePurchaseIntent,
   prepareCoursePurchaseIntent,
+  prepareCoursePurchaseIntentAtomic,
 } from "@/server/actions/course-purchase-intent";
 import { createPurchaseIntentCoordinator, type PurchaseIntentTransport, type PurchaseRecoveryState } from "@/lib/purchase-intent-coordinator";
 import { CHECKOUT_OUTCOME_UNCONFIRMED, type MusicMutationResult } from "@/lib/music-checkout-transport";
@@ -70,6 +71,7 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
             const result = await prepareCoursePurchaseIntent({ ...input, requestKey });
             return result.success && !result.data ? { success: false, error: "購買狀態尚未確認" } : result;
           },
+          prepareAtomic: (input, requestKey) => prepareCoursePurchaseIntentAtomic({ ...input, requestKey }),
           get: (id, requestKey) => getCoursePurchaseIntent({ customerId: id, requestKey }),
           getPending: id => getPendingCoursePurchaseIntent({ customerId: id }),
           cancel: async (id, requestKey) => {
@@ -86,6 +88,7 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
         storage: window.sessionStorage, randomUUID: () => crypto.randomUUID(),
         transport: {
           prepare: (input, key) => boundedRequest(() => transport.prepare(input, key)),
+          ...(transport.prepareAtomic ? {prepareAtomic:(input:CheckoutInput,key:string) => boundedRequest(() => transport.prepareAtomic!(input,key))} : {}),
           get: (id, key) => boundedRequest(() => transport.get(id, key)),
           getPending: id => boundedRequest(() => transport.getPending(id)),
           cancel: (id, key) => boundedRequest(() => transport.cancel(id, key)),
@@ -120,9 +123,9 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
     const expected = generation.current;
     const previous = currentView.current;
     if (previous.kind === "checking" || previous.kind === "inactive" || previous.kind === "uncertain" || (previous.kind === "intent" && previous.intent.status !== "PREPARED")) return null;
-    const next = await execute(item => previous.kind === "none-known" ? item.start(input) : item.retry(input));
+    const next = await execute(item => previous.kind === "none-known" ? (scope.transport ? item.start(input) : item.startAtomic(input)) : item.retry(input));
     if (expected !== generation.current || !currentScope.current.enabled || currentScope.current.customerId !== input.customerId || currentScope.current.storeId !== scope.storeId || currentScope.current.family !== scope.family || currentScope.current.transport !== scope.transport) return null;
-    if (next?.kind !== "intent" || next.intent.status !== "PREPARED") return null;
+    if (next?.kind !== "intent" || next.recovered || next.intent.status !== "PREPARED") return null;
     return { ...input, requestKey: next.intent.requestKey };
   }, [customerId, enabled, execute, scope.family, scope.storeId, scope.transport]);
 

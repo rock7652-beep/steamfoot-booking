@@ -4,12 +4,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@/server/actions/course-purchase-intent", () => ({
-  prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(),
+  prepareCoursePurchaseIntent: vi.fn(), prepareCoursePurchaseIntentAtomic: vi.fn(), getCoursePurchaseIntent: vi.fn(),
   getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(),
   acknowledgeCoursePurchaseIntent: vi.fn(),
 }));
 import { CoursePurchaseIntentProvider, CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery } from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 import type { PurchaseIntentTransport } from "@/lib/purchase-intent-coordinator";
+import {getPendingCoursePurchaseIntent,prepareCoursePurchaseIntentAtomic} from "@/server/actions/course-purchase-intent";
 
 const key = "9ff0de58-4872-4eaf-8642-218f8d995e85";
 const prepared = { status: "PREPARED" as const, requestKey: key, purchaseId: null };
@@ -198,4 +199,17 @@ it("recovers an unacknowledged committed purchase from another tab and never sen
   expect(host.textContent).toContain("這筆購買已完成"); expect(button("購買").disabled).toBe(true); expect(send).not.toHaveBeenCalled();
   await act(async () => button("確認完成並繼續購買").click());
   expect(api.acknowledge).toHaveBeenCalledWith("student-a", key); expect(send).not.toHaveBeenCalled();
+});
+
+it("shows a conflicting purchase from another device and never sends a second payment", async () => {
+  const other={status:"PREPARED" as const,requestKey:"1ff0de58-4872-4eaf-8642-218f8d995e86",purchaseId:null};
+  vi.mocked(getPendingCoursePurchaseIntent).mockResolvedValue({success:true,data:null});
+  vi.mocked(prepareCoursePurchaseIntentAtomic).mockResolvedValue({success:true,data:{kind:"existing",intent:other}});
+  await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:"test-store"},createElement(Body,{customerId:"student-a"}))));
+  await act(async()=>button("購買").click());
+  expect(prepareCoursePurchaseIntentAtomic).toHaveBeenCalledOnce();
+  expect(getPendingCoursePurchaseIntent).toHaveBeenCalledOnce();
+  expect(send).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("待確認購買");
+  expect([...Object.keys(sessionStorage)].map(k=>sessionStorage.getItem(k)).join()).toContain(other.requestKey);
 });

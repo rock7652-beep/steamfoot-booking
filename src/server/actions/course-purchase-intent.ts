@@ -9,7 +9,7 @@ import { courseManager, courseManagerRead } from "@/server/services/course-acces
 import { withCourseCheckoutRequest } from "@/server/services/music-checkout-request";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 import { parseCoursePurchaseIntentInput } from "@/server/services/course-purchase-intent-input";
-import { prepareCourseIntent, cancelCourseIntent, acknowledgeCourseIntent, readCourseIntent, readPendingCourseIntent } from "@/server/services/course-purchase-intent";
+import { prepareCourseIntent, prepareCourseIntentAtomic, cancelCourseIntent, acknowledgeCourseIntent, readCourseIntent, readPendingCourseIntent } from "@/server/services/course-purchase-intent";
 import type { Prisma } from "../../../generated/course-client";
 
 const customerInput = z.object({ customerId: z.string().min(1).max(100) });
@@ -58,7 +58,7 @@ async function requireVisibleCustomerLocked(tx: Prisma.TransactionClient, actor:
   if (!found.length) throw new AppError("FORBIDDEN", "無法核對此學員的購買");
 }
 
-export async function prepareCoursePurchaseIntent(input: unknown) {
+async function preparePurchaseIntent(input: unknown, atomic: boolean) {
   return withCourseCheckoutRequest(async () => {
     const timer = intentTimer("prepare");
     try {
@@ -79,11 +79,21 @@ export async function prepareCoursePurchaseIntent(input: unknown) {
       const result = await timer.measure("transaction", () => coursePrisma.$transaction(async tx => {
         await timer.measure("storeLock", () => lockCourseStore(tx, actor.storeId));
         await timer.measure("lockedCustomer", () => requireVisibleCustomerLocked(tx, actor, data.customerId));
-        return timer.measure("register", () => prepareCourseIntent(tx, {storeId:actor.storeId,userId:actor.user.id}, data));
+        const auth = {storeId:actor.storeId,userId:actor.user.id};
+        return timer.measure("register", async () => atomic
+          ? prepareCourseIntentAtomic(tx, auth, data)
+          : {kind:"prepared" as const,intent:await prepareCourseIntent(tx, auth, data)});
       }, {timeout:15000}));
       return {success:true as const,data:result};
     } catch (error) { return handleActionError(error); } finally { timer.finish(); }
   });
+}
+export async function prepareCoursePurchaseIntent(input: unknown) {
+  const result = await preparePurchaseIntent(input, false);
+  return result.success ? {success:true as const,data:result.data.intent} : result;
+}
+export async function prepareCoursePurchaseIntentAtomic(input: unknown) {
+  return preparePurchaseIntent(input, true);
 }
 export async function cancelCoursePurchaseIntent(input: unknown) {
   return withCourseCheckoutRequest(async () => {

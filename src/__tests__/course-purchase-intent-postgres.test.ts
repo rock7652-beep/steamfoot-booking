@@ -10,7 +10,7 @@ vi.mock("@/server/services/course-sale-allocation",()=>({courseSaleSnapshot:vi.f
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 import { lockCourseStore } from "@/server/services/course-store-lock";
-import { acknowledgeCourseIntent, assertCourseIntentForCheckout, cancelCourseIntent, commitCourseIntent, prepareCourseIntent, readCourseIntent, readPendingCourseIntent } from "@/server/services/course-purchase-intent";
+import { acknowledgeCourseIntent, assertCourseIntentForCheckout, cancelCourseIntent, commitCourseIntent, prepareCourseIntent, prepareCourseIntentAtomic, readCourseIntent, readPendingCourseIntent } from "@/server/services/course-purchase-intent";
 import { parseCoursePurchaseIntentInput } from "@/server/services/course-purchase-intent-input";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
 import type { Prisma } from "../../generated/course-client";
@@ -54,7 +54,7 @@ suite("course purchase intent with real PostgreSQL store locking",()=>{
       await c.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${restrictedRole}"`);
       await c.query(`GRANT SELECT ON "CoursePurchaseIntent" TO "${restrictedRole}"`);
       await c.query('INSERT INTO "Store" (id,"industryModule") VALUES ($1,$2)',[store,"COURSE"]);
-      for(const name of [customer,"qa-customer-two","qa-race","qa-cancel-first","qa-rls","qa-rotation","qa-real-checkout","qa-six"])await c.query('INSERT INTO "Customer" (id,"storeId") VALUES ($1,$2)',[name,store]);
+      for(const name of [customer,"qa-customer-two","qa-race","qa-cancel-first","qa-rls","qa-rotation","qa-real-checkout","qa-six","qa-atomic-race"])await c.query('INSERT INTO "Customer" (id,"storeId") VALUES ($1,$2)',[name,store]);
     }finally{c.release()}
   });
   afterAll(async()=>{const c=await pool.connect();try{await c.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await c.query(`DROP ROLE IF EXISTS "${restrictedRole}"`)}finally{c.release();await pool.end();vi.unstubAllEnvs()}});
@@ -62,6 +62,17 @@ suite("course purchase intent with real PostgreSQL store locking",()=>{
     const data=input();expect((await transaction(tx=>cancelCourseIntent(tx,actor,customer,data.requestKey))).status).toBe("CANCELLED");
     await expect(transaction(tx=>prepareCourseIntent(tx,actor,data))).rejects.toThrow("已取消");
     await expect(transaction(tx=>assertCourseIntentForCheckout(tx,store,data))).rejects.toThrow("已取消");
+  });
+  it("two devices atomically discover one pending purchase and bar the late losing key",async()=>{
+    const first=input(randomUUID(),{customerId:"qa-atomic-race"}),second=input(randomUUID(),{customerId:"qa-atomic-race"});
+    const results=await Promise.all([transaction(tx=>prepareCourseIntentAtomic(tx,actor,first)),transaction(tx=>prepareCourseIntentAtomic(tx,actor,second))]);
+    expect(results.filter(r=>r.kind==="prepared")).toHaveLength(1);expect(results.filter(r=>r.kind==="existing")).toHaveLength(1);
+    const winner=results[0].kind==="prepared"?first:second,loser=winner===first?second:first;
+    expect(results.find(r=>r.kind==="existing")?.intent.requestKey).toBe(winner.requestKey);
+    expect((await transaction(tx=>readCourseIntent(tx,store,loser.customerId,loser.requestKey)))?.status).toBe("CANCELLED");
+    await transaction(tx=>cancelCourseIntent(tx,actor,winner.customerId,winner.requestKey));
+    await expect(transaction(tx=>prepareCourseIntentAtomic(tx,actor,loser))).rejects.toThrow("已取消");
+    await expect(transaction(tx=>assertCourseIntentForCheckout(tx,store,loser))).rejects.toThrow("已取消");
   });
   it("concurrent keys serialize; committed but unseen blocks until acknowledgement",async()=>{
     const c1="qa-customer-two", first=input(randomUUID(),{customerId:c1}), second=input(randomUUID(),{customerId:c1});

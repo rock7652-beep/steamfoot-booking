@@ -251,4 +251,41 @@ describe("purchase intent recovery coordinator", () => {
     expect(transport.prepare).toHaveBeenCalledOnce();
     expect(storage.values.size).toBe(1);
   });
+
+  it("prepares atomically without a second pending lookup", async () => {
+    const {transport,make}=setup();
+    transport.prepareAtomic=vi.fn(async()=>({success:true as const,data:{kind:"prepared" as const,intent:intent("PREPARED")}}));
+    expect(await make().startAtomic({customerId:"customer-1",amount:1,transferLastFour:""})).toEqual({kind:"intent",intent:intent("PREPARED")});
+    expect(transport.getPending).not.toHaveBeenCalled();
+    expect(transport.prepare).not.toHaveBeenCalled();
+  });
+
+  it("adopts another device's unresolved intent only after the server has barred this key", async () => {
+    const {transport,make,storage}=setup();
+    transport.prepareAtomic=vi.fn(async()=>({success:true as const,data:{kind:"existing" as const,intent:intent("PREPARED",otherKey)}}));
+    expect(await make().startAtomic({customerId:"customer-1",amount:1,transferLastFour:""})).toEqual({kind:"intent",intent:intent("PREPARED",otherKey),recovered:true});
+    expect([...storage.values.values()]).toEqual([JSON.stringify({v:1,requestKey:otherKey})]);
+  });
+
+  it("retains a timed-out atomic key across reload and allows its explicit cancellation", async () => {
+    const {transport,make,storage}=setup();
+    transport.prepareAtomic=vi.fn(async()=>{throw new Error("lost reply")});
+    expect(await make().startAtomic({customerId:"customer-1",amount:1,transferLastFour:""})).toEqual({kind:"uncertain",reason:"network"});
+    vi.mocked(transport.get).mockResolvedValueOnce({success:true,data:null});
+    expect(await make().inspect()).toEqual({kind:"uncertain",reason:"not-found"});
+    expect(await make().cancel()).toEqual({kind:"intent",intent:intent("CANCELLED")});
+    expect([...storage.values.values()]).toEqual([JSON.stringify({v:1,requestKey:key})]);
+  });
+
+  it("does not replace another coordinator's key with a late atomic conflict response", async () => {
+    const {transport,make,storage}=setup();
+    let finish!:(value:{success:true;data:{kind:"existing";intent:PurchaseIntent}})=>void;
+    transport.prepareAtomic=vi.fn(()=>new Promise<{success:true;data:{kind:"existing";intent:PurchaseIntent}}>(resolve=>{finish=resolve;}));
+    const result=make().startAtomic({customerId:"customer-1",amount:1,transferLastFour:""});
+    await vi.waitFor(()=>expect(transport.prepareAtomic).toHaveBeenCalledOnce());
+    const [storageKey]=storage.values.keys();storage.setItem(storageKey,JSON.stringify({v:1,requestKey:otherKey}));
+    finish({success:true,data:{kind:"existing",intent:intent("PREPARED",otherKey)}});
+    expect(await result).toEqual({kind:"uncertain",reason:"concurrent"});
+    expect(JSON.parse(storage.getItem(storageKey)!).requestKey).toBe(otherKey);
+  });
 });

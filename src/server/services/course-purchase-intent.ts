@@ -40,6 +40,23 @@ export async function prepareCourseIntent(tx: Tx, actor: Actor, input: CoursePur
   return { status: "PREPARED", requestKey: input.requestKey, purchaseId: null };
 }
 
+/** Inspect and prepare under the same store lock. If another device owns an
+ * unresolved intent, install a cancellation barrier for this request's key
+ * before returning it; a delayed retry can never start a second purchase. */
+export async function prepareCourseIntentAtomic(tx: Tx, actor: Actor, input: CoursePurchaseIntentInput): Promise<{kind:"prepared"|"existing";intent:CoursePurchaseIntentView}> {
+  const prior = await find(tx, actor.storeId, input.requestKey);
+  if (prior) return {kind:"prepared",intent:await prepareCourseIntent(tx, actor, input)};
+  const existing = await readPendingCourseIntent(tx, actor.storeId, input.customerId);
+  if (existing) {
+    const barrier = await cancelCourseIntent(tx, actor, input.customerId, input.requestKey);
+    // A legacy purchase already using this key cannot be represented as a
+    // cancelled request; retain it for manual reconciliation instead.
+    if (barrier.status !== "CANCELLED") throw new AppError("CONFLICT", "此購買識別碼已有交易，請先核對交易紀錄");
+    return {kind:"existing",intent:existing};
+  }
+  return {kind:"prepared",intent:await prepareCourseIntent(tx, actor, input)};
+}
+
 /** A missing key must become a tombstone, because the original prepare can arrive later. */
 export async function cancelCourseIntent(tx: Tx, actor: Actor, customerId: string, requestKey: string): Promise<CoursePurchaseIntentView> {
   const prior = await find(tx, actor.storeId, requestKey);

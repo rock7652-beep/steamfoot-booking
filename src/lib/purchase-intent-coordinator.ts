@@ -12,6 +12,7 @@ export type PurchaseIntent = {
 type Result<T> = { success: true; data: T } | { success: false; error?: string };
 export type PurchaseIntentTransport<T> = {
   prepare: (input: T, requestKey: string) => Promise<Result<PurchaseIntent>>;
+  prepareAtomic?: (input: T, requestKey: string) => Promise<Result<{kind:"prepared"|"existing";intent:PurchaseIntent}>>;
   get: (customerId: string, requestKey: string) => Promise<Result<PurchaseIntent | null>>;
   getPending: (customerId: string) => Promise<Result<PurchaseIntent | null>>;
   cancel: (customerId: string, requestKey: string) => Promise<Result<PurchaseIntent>>;
@@ -20,7 +21,7 @@ export type PurchaseIntentTransport<T> = {
 export type PurchaseIntentStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export type PurchaseRecoveryState =
   | { kind: "none-known" }
-  | { kind: "intent"; intent: PurchaseIntent }
+  | { kind: "intent"; intent: PurchaseIntent; recovered?: boolean }
   | { kind: "uncertain"; reason: "storage" | "network" | "protocol" | "not-found" | "concurrent" | "rejected" };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -125,6 +126,42 @@ export function createPurchaseIntentCoordinator<T>(options: {
         if (!result.success) return uncertain("network");
         if (!validIntent(result.data, key)) return uncertain("protocol");
         return { kind: "intent", intent: result.data };
+      } catch { return uncertain("network"); }
+    }),
+    /** The server atomically checks other devices and either prepares this key
+     * or installs its cancellation barrier before returning another intent. */
+    startAtomic: (input: T) => exclusive(async () => {
+      if (!transport.prepareAtomic || !input || typeof input !== "object" || !("customerId" in input) || input.customerId !== customerId) return uncertain("protocol");
+      const local = read();
+      if (!local.valid) return uncertain("storage");
+      if (local.key) {
+        const state = await inspectInner();
+        return state.kind === "intent" ? {...state,recovered:true} : state;
+      }
+      let key: string;
+      try { key = options.randomUUID(); } catch { return uncertain("storage"); }
+      if (!uuid.test(key) || !remember(key)) return uncertain("storage");
+      try {
+        const result = await transport.prepareAtomic(input, key);
+        if (!result.success) return uncertain("network");
+        const {kind,intent} = result.data;
+        if (kind === "prepared") {
+          if (!validIntent(intent, key)) return uncertain("protocol");
+          const current = read();
+          if (!current.valid || current.key !== key) return uncertain("concurrent");
+          return {kind:"intent",intent};
+        }
+        if (kind !== "existing" || !validIntent(intent) || intent.requestKey === key || (intent.status !== "PREPARED" && intent.status !== "COMMITTED")) return uncertain("protocol");
+        // Only this server response proves our key has a durable cancellation
+        // tombstone. Never overwrite another coordinator's local key.
+        const current = read();
+        if (!current.valid || current.key !== key) return uncertain("concurrent");
+        try {
+          storage.setItem(storageKey, JSON.stringify({v:1,requestKey:intent.requestKey}));
+          const saved = read();
+          if (!saved.valid || saved.key !== intent.requestKey) return uncertain("storage");
+        } catch { return uncertain("storage"); }
+        return {kind:"intent",intent,recovered:true};
       } catch { return uncertain("network"); }
     }),
     /**
