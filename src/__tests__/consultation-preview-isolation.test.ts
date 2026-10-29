@@ -9,6 +9,7 @@ import {
   isIsolatedConsultationDatabaseUrl,
   PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
   NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH,
+  LIFF_MEMBER_LOGOUT_PREVIEW_BRANCH,
 } from "../../scripts/consultation-preview-scope.mjs";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
@@ -20,6 +21,13 @@ const valid = {
   CONSULTATION_HQ_ENABLED: "true", CONSULTATION_PREVIEW_INTAKE_ENABLED: "true",
   DATABASE_URL: pool, DIRECT_URL: direct,
 };
+
+it("requires both isolated connections for the member logout preview", () => {
+  const env = { ...valid, VERCEL_GIT_COMMIT_REF: LIFF_MEMBER_LOGOUT_PREVIEW_BRANCH };
+  expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview");
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DIRECT_URL: direct.replace("ttworfzgwejdeolegkxl", "other-project") })).toThrow();
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DATABASE_URL: pool.replace("ttworfzgwejdeolegkxl", "other-project") })).toThrow();
+});
 const invalidConnections = [
   undefined, "", "malformed", direct.replace("ttworfzgwejdeolegkxl", "another-project"),
   direct.replace("postgresql:", "https:"), direct.replace(".supabase.co", ".supabase.co.attacker.invalid"),
