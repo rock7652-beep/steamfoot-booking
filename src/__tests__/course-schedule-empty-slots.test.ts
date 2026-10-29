@@ -5,7 +5,7 @@ import {expect,it,vi} from "vitest";
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:vi.fn()}));
 import {CourseScheduleBoard} from "@/app/(dashboard)/dashboard/courses/course-schedule-board";
 const session={id:"occupied",templateId:"group",nameSnapshot:"團課",startsAt:"2026-10-01T02:00:00Z",endsAt:"2026-10-01T03:00:00Z",coachId:"coach",roomId:"room",capacity:10,pointCost:2,bookings:[]};
-const base={businessProfile:"FITNESS" as const,selectedDate:"2026-10-01",today:"2026-10-01",sessions:[],rooms:[{id:"room",name:"A教室",isActive:true}],coaches:[{id:"coach",displayName:"林教練",status:"ACTIVE",courseCoachEnabled:true}],templates:[{id:"group",name:"團課",classType:"GROUP"},{id:"private",name:"私課",classType:"PRIVATE"}],storePeriods:[{openTime:"09:00",closeTime:"12:00"}],staffAvailability:[],staffAvailabilityExceptions:[],onSelectDate:vi.fn(),onOpenSession:vi.fn()};
+const base={businessProfile:"FITNESS" as const,selectedDate:"2026-10-01",today:"2026-10-01",initialWeekRoomId:"room",sessions:[],rooms:[{id:"room",name:"A教室",isActive:true}],coaches:[{id:"coach",displayName:"林教練",status:"ACTIVE",courseCoachEnabled:true}],templates:[{id:"group",name:"團課",classType:"GROUP"},{id:"private",name:"私課",classType:"PRIVATE"}],storePeriods:[{openTime:"09:00",closeTime:"12:00"}],staffAvailability:[],staffAvailabilityExceptions:[],onSelectDate:vi.fn(),onOpenSession:vi.fn()};
 it.each(["week","day"] as const)("%s opens a half-hour slot with room/time and blocks hidden occupancy",async(mode)=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const open=vi.fn();
@@ -30,14 +30,14 @@ it("week honors each day's opening periods and creation permission",async()=>{
   expect(free.disabled).toBe(true);await act(async()=>free.click());expect(open).not.toHaveBeenCalled();
  } finally {await act(async()=>root.unmount());host.remove();}
 });
-it("fitness class dots distinguish group/private without coloured fills",async()=>{
+it("fitness week cards distinguish group/private accessibly without coloured fills",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode:"week",sessions:[session,{...session,id:"private",templateId:"private",nameSnapshot:"私課",startsAt:"2026-10-01T03:00:00Z",endsAt:"2026-10-01T04:00:00Z"}],onOpenEmpty:vi.fn()})));
-  const group=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("團課，"))!;
-  const individual=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("私課，"))!;
-  expect(group.querySelector("span[aria-hidden]")?.className).toContain("bg-emerald-600");expect(individual.querySelector("span[aria-hidden]")?.className).toContain("bg-blue-600");expect(group.className).toContain("bg-white");
+  const group=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.includes("，團課，"))!;
+  const individual=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.includes("，私課，"))!;
+  expect(group.getAttribute("aria-label")).toContain("團課");expect(individual.getAttribute("aria-label")).toContain("私課");expect(group.className).toContain("bg-white");
   expect(group.querySelector("strong")?.parentElement?.className).toContain("text-sm");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
@@ -68,10 +68,10 @@ it("music uses schedule-kind colors and attendance progress",async()=>{
   const card=host.querySelector<HTMLButtonElement>('button[data-schedule-card="tracking"]')!;
   expect(card.className).toContain("bg-violet-100");
   expect(card.className).not.toContain("border-l-4");
-  expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-violet-600");
+  expect(card.getAttribute("aria-label")).toContain("隔週");
   expect(card.textContent).toContain("10:00–11:30");
   expect(card.textContent).toContain("✓ 1/1");
-  expect(card.textContent).toContain("隔週");
+  expect(card.getAttribute("aria-label")).toContain("隔週");
   expect(card.querySelector("strong")?.parentElement?.className).toContain("text-sm");
   expect(host.textContent).toContain("今天");
   expect(host.textContent).not.toContain("0 堂｜0 人次");

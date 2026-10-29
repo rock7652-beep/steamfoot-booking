@@ -382,7 +382,7 @@ function SessionCard({
       </div> : <>            <span className="sr-only">{presentation.label}</span>
       {!session.sportsPalette&&!musicDense&&(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
       {weekPixelHeight !== undefined ? <div className="min-w-0 w-full text-sm leading-4">
-        {weekPixelHeight < 34 ? <div className="flex min-w-0 items-center gap-1"><span className="hidden shrink-0 text-xs tabular-nums @[8rem]/week-card:inline">{hhmm(session.startsAt)}</span><strong className="min-w-0 truncate">{weekTitle}</strong></div> : <><div className="flex min-w-0 items-center gap-1 text-[13px] tabular-nums"><span className="min-w-0 truncate whitespace-nowrap">{hhmm(session.startsAt)}<span className="hidden @[8rem]/week-card:inline">–{hhmm(session.endsAt)}</span></span>{progressText&&<span className={`ml-auto hidden @[8rem]/week-card:inline ${progressColor}`}>{progressText}</span>}</div><strong className="block truncate">{weekTitle}</strong>{weekPixelHeight >= 58 && <span className="block truncate text-[13px]">{resourceLabel}</span>}</>}
+        {weekPixelHeight < 34 ? <div className="flex min-w-0 items-center gap-1"><span className="hidden shrink-0 text-xs tabular-nums @[8rem]/week-card:inline">{hhmm(session.startsAt)}</span><strong className="min-w-0 truncate">{weekTitle}</strong></div> : <><div className="flex min-w-0 items-center gap-1 text-[13px] tabular-nums"><span className="min-w-0 truncate whitespace-nowrap">{hhmm(session.startsAt)}<span className="hidden @[8rem]/week-card:inline">–{hhmm(session.endsAt)}</span></span>{progressText&&<span title={teacherState || "點名完成度"} className={`ml-auto hidden @[8rem]/week-card:inline ${progressColor}`}>{progressText}</span>}</div><strong className="block truncate">{weekTitle}</strong>{weekPixelHeight >= 58 && <span className="block truncate text-[13px]">{resourceLabel}</span>}</>}
       </div> : musicDense ? (
         <div className="min-w-0 text-sm">
           <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-sm leading-4 tabular-nums">
@@ -624,7 +624,7 @@ export function CourseScheduleBoard({
     if(!serviceMode||mode==='week'||!boardRef.current)return;
     const board=boardRef.current;
     const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY;const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
-    update();const observer=new ResizeObserver(update);observer.observe(board);window.addEventListener('resize',update);return()=>{observer.disconnect();window.removeEventListener('resize',update);};
+    update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(board);window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
   },[serviceMode,mode,serviceBounds.firstHour,serviceBounds.endHour]);
   const weekLegendId = React.useId();
   const weekOverview = mode === "week";
@@ -644,8 +644,8 @@ export function CourseScheduleBoard({
       setWeekHeaderHeight(header);
       setFitHourHeight(Math.max(24,Math.min(88,Math.floor((window.innerHeight-top-header-38)/weekVisibleHours))));
     };
-    update();const observer=new ResizeObserver(update);observer.observe(grid);if(boardRef.current)observer.observe(boardRef.current);
-    window.addEventListener('resize',update);return()=>{observer.disconnect();window.removeEventListener('resize',update);};
+    update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(grid);if(boardRef.current)observer?.observe(boardRef.current);
+    window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
   },[fitWeek,weekVisibleHours]);
   const hourHeight = fitWeek ? fitHourHeight : serviceMode ? serviceHourHeight : businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
 
@@ -663,7 +663,7 @@ export function CourseScheduleBoard({
     const matchesResource = (session:Session) => allWeekResources || (resourceView === "room" ? session.roomId : session.coachId) === roomId;
     const weekSessions = sessions.filter((session) => matchesResource(session) && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
-    const weekGroups=courseWeekOverlaps(weekSessions.filter(session=>!session.previewFaded));
+    const weekGroups=courseWeekOverlaps(weekSessions.filter(session=>!(sportsNative&&session.previewFaded)));
     const groupOccupationEnd=(group:typeof weekGroups[number])=>new Date(Math.max(...group.sessions.map(session=>Date.parse(session.occupiedEndsAt??session.service?.occupiedEndsAt??session.endsAt)))).toISOString();
     const weekLanes=scheduleLanes(weekGroups.map(group=>({id:group.id,startsAt:group.startsAt,endsAt:groupOccupationEnd(group),roomId:"",coachId:""})),"all");
     const groupCount=(rows:Session[])=>{
@@ -710,7 +710,7 @@ export function CourseScheduleBoard({
               </div>
               {dates.map((date) => {
                 const list = weekGroups.filter(group=>sessionDate(group)===date&&Number(hhmm(group.startsAt).slice(0,2))===hour);
-                const faded=weekSessions.filter(session=>session.previewFaded&&sessionDate(session)===date&&Number(hhmm(session.startsAt).slice(0,2))===hour);
+                const faded=weekSessions.filter(session=>sportsNative&&session.previewFaded&&sessionDate(session)===date&&Number(hhmm(session.startsAt).slice(0,2))===hour);
                 const shadows = sessions.filter((session) => session.rescheduledFromStartsAt &&
                   (allWeekResources || (resourceView === "room" ? session.rescheduledFromRoomId : session.rescheduledFromCoachId) === roomId) &&
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
