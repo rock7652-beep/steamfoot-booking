@@ -44,6 +44,10 @@ https://steamfoot-booking-82s55w5kr-rock7652-2111s-projects.vercel.app
 - [iPad 確認畫面](ipad-confirm.png)
 - 重現：`node scripts/qa/customer-line-management-browser.mjs`，輸出預設 `/tmp/pr1465-rwd`。
 
+## 視覺回歸補驗
+
+重複區塊已以唯一 React key 修復，最新 Preview 操作／尺寸證據與資源載入限制見 [key 修正驗證](key-fix/README.md)。使用者確認沒有獨立測試 OA，真實 LINE 維持未驗。
+
 ## 登入後補驗
 
 正常 Vercel 登入、OWNER／ADMIN 取消、STAFF／跨店後端拒絕、遠端記錄完整列比對與實際 Preview 七組尺寸幾何／觸達驗證已完成，詳見 [登入後驗證與剩餘限制](hosted/README.md)。以下為前次驗證時的阻礙紀錄；以該補驗文件為最新狀態。

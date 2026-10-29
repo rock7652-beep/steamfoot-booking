@@ -1,0 +1,347 @@
+{
+  "failures": [
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "other"
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "other"
+    },
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "other"
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2uqyk9rk6d3g5.css",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ol16qmzkvz93.css",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2b9-9h5j1t-a3.css",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/38zi712zna5j2.css",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ioxix1cg_-bq.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2kfvm5mlopbpz.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3n9_x9yw9ntow.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3b74odoq2duo5.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/29olnez67jsz5.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1gx3q_t4t0tqv.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0a30myrqwzcwl.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2nxr1t6cmqbca.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2x8c3yae9i3eb.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3x4edn4ha9x5x.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0bxd90yl24dxg.js",
+      "frameId": "952E17A963737CE5DB14C277DF138EB7",
+      "documentPath": "/hq/login",
+      "initiator": "script",
+      "stack": [
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "origin": "https://steamfoot-booking-ohm38szky-rock7652-2111s-projects.vercel.app",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        }
+      ]
+    }
+  ],
+  "mainFrame": "952E17A963737CE5DB14C277DF138EB7",
+  "framePaths": [
+    "/s/staging/admin/dashboard/customers"
+  ],
+  "loadedAppScripts": 20
+}
