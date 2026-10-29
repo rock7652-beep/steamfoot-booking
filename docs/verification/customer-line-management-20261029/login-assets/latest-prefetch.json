@@ -1,0 +1,85 @@
+[
+  {
+    "path": "/hq/login",
+    "failures": [],
+    "responses": [],
+    "title": "蒸管家｜服務品牌成長系統"
+  },
+  {
+    "path": "/hq/login?store=staging",
+    "failures": [],
+    "responses": [
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      },
+      {
+        "path": "/hq/forgot-password",
+        "status": 200,
+        "type": "text/x-component",
+        "rsc": "1",
+        "prefetch": "1",
+        "hasImmutable": false,
+        "hasGeist": false,
+        "hasRecoveryTitle": false
+      }
+    ],
+    "title": "蒸管家｜服務品牌成長系統"
+  }
+]

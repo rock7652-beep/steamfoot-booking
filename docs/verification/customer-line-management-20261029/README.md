@@ -44,6 +44,10 @@ https://steamfoot-booking-82s55w5kr-rock7652-2111s-projects.vercel.app
 - [iPad 確認畫面](ipad-confirm.png)
 - 重現：`node scripts/qa/customer-line-management-browser.mjs`，輸出預設 `/tmp/pr1465-rwd`。
 
+## 登入頁載入再驗證
+
+最新與舊部署目前均未重現先前靜態資源 404；最新部署七組尺寸的實際登入／忘記密碼導覽及資源健康皆通過。沒有推測修改應用程式，永久根因仍未定位。詳見 [登入頁再驗證](login-assets/README.md)。
+
 ## 視覺回歸補驗
 
 重複區塊已以唯一 React key 修復，最新 Preview 操作／尺寸證據與資源載入限制見 [key 修正驗證](key-fix/README.md)。使用者確認沒有獨立測試 OA，真實 LINE 維持未驗。

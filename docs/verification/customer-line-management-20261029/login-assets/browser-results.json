@@ -1,0 +1,506 @@
+{
+  "scope": "read-only hosted Preview; Chromium viewport simulation; no login submission",
+  "base": "https://steamfoot-booking-23x39k0fx-rock7652-2111s-projects.vercel.app",
+  "sizes": [
+    {
+      "width": 1366,
+      "height": 900,
+      "login": {
+        "width": 1366,
+        "height": 900,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 1366,
+        "height": 900,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "login": {
+        "width": 1920,
+        "height": 1080,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 1920,
+        "height": 1080,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "login": {
+        "width": 1024,
+        "height": 768,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 1024,
+        "height": 768,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "login": {
+        "width": 768,
+        "height": 1024,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 768,
+        "height": 1024,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 560,
+      "height": 800,
+      "login": {
+        "width": 560,
+        "height": 800,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 560,
+        "height": 800,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "login": {
+        "width": 390,
+        "height": 844,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 390,
+        "height": 844,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "login": {
+        "width": 360,
+        "height": 800,
+        "overflow": false
+      },
+      "recovery": {
+        "width": 360,
+        "height": 800,
+        "overflow": false
+      },
+      "emailDraftRetainedOnResize": true,
+      "loginAndRecoveryControlsReachable": true,
+      "loginRecoveryRoundTrip": true,
+      "staticAssets": [
+        {
+          "path": "/_next/static/chunks/074prxct1iqr1.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/04.i-__.as.dk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/10787q4ojjapa.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0qkeyi~1xx38p.js",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/1113eysi2-5iu.css",
+          "status": 200
+        },
+        {
+          "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "failures": [],
+  "passed": true
+}
