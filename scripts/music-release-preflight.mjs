@@ -2,10 +2,12 @@
 import {fileURLToPath} from 'node:url';
 import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
+import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
 const tables=['CourseScheduleSeries','CourseMusicTuition','CourseMusicReceipt','CourseMusicLessonAssignment','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement'];
 const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointCard:['musicOpeningStateRequired'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
 export async function runMusicNativeSchemaPreflight(env=process.env){
  const target=assertMusicNativeReleaseEnvironment(env);
+ if(target==='production'&&env.COURSE_PURCHASE_QA_STORE_SCOPE==='1')throw Error('Production purchase intent scope invalid');
  const {Client}=await import('pg');
  const client=new Client({connectionString:env.DIRECT_URL,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000});
  try{
@@ -27,6 +29,7 @@ export async function runMusicNativeSchemaPreflight(env=process.env){
   if(!stores.length)throw Error('Music native store rollout scope missing');
   const enabled=await client.query(`SELECT DISTINCT "storeId" FROM "StoreFeatureEntitlement" WHERE "storeId"=ANY($1::text[]) AND "featureKey"='business.music' AND status::text='ENABLED'`,[stores]);
   if(enabled.rows.length!==new Set(stores).size)throw Error('Music native store entitlement mismatch');
+  if(env.COURSE_PURCHASE_INTENTS_ENABLED==='1')await purchaseIntentAccessPreflight(client,'course');
   await client.query('ROLLBACK');
   return {target,tablesChecked:tables.length};
  }finally{await client.end();}
@@ -40,12 +43,12 @@ export async function musicBuildPreflight(env=process.env){
  }
  if(env.VERCEL_ENV==='production'&&env.BEAUTY_MODULE_ENABLED==='1'){
   const {beautyProductionReleasePreflight,beautyPrismaProductionPreflight,beautySharedTodosProductionPreflight,beautyNotificationWorkerPreflight}=await import('./beauty-production-release-preflight.mjs');
-  await beautyProductionReleasePreflight(env);
+  const beauty=await beautyProductionReleasePreflight(env);
   await beautyPrismaProductionPreflight(env);
   await beautySharedTodosProductionPreflight(env);
   const notifications=await beautyNotificationWorkerPreflight(env);
   console.info(`[beauty-notification-preflight] enabled=${notifications.notifications} worker=${notifications.worker??'off'} readonly=true`);
-  console.info(`[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=${env.BEAUTY_CHARGE_RULES_SCOPE==='module'?'module':'stores'} editing_enabled=${env.BEAUTY_CHARGE_EDITING_ENABLED==='1'}`);
+  console.info(`[beauty-production-preflight] runtime_login=true tls=true prisma=true shared_todos=true schema_tables=${beauty.schemaTables} readonly=true migration_target_absent=true charge_scope=${env.BEAUTY_CHARGE_RULES_SCOPE==='module'?'module':'stores'} editing_enabled=${env.BEAUTY_CHARGE_EDITING_ENABLED==='1'}`);
  }
 
  const refs=[env.VERCEL_GIT_COMMIT_REF,env.WORKERS_CI_BRANCH,env.CF_PAGES_BRANCH];

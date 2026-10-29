@@ -61,7 +61,7 @@ function statements(sql: string) {
       for (const statement of [
         'ALTER TABLE "CourseBooking" DROP COLUMN "musicOpeningMakeupEntitlementId" CASCADE',
         'DROP TABLE "CourseMusicOpeningMakeupEntitlement" CASCADE',
-        'CREATE TABLE "Store"(id text PRIMARY KEY,slug text,"industryModule" text)',
+        'CREATE TABLE "Store"(id text PRIMARY KEY,slug text,"industryModule" text,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')',
         'CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text NOT NULL,name text,"mergedIntoCustomerId" text,UNIQUE(id,"storeId"))',
         'CREATE TABLE "StoreFeatureEntitlement"("storeId" text,"featureKey" text,status text)',
         'CREATE TABLE "SpecialBusinessDay"("storeId" text,date date,type text)',
@@ -72,7 +72,7 @@ function statements(sql: string) {
         'CREATE TABLE "OperationAuditOutbox"(id text PRIMARY KEY,payload jsonb)',
       ]) await tx.$executeRawUnsafe(statement);
       await tx.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF; END $$`);
-      await tx.$executeRawUnsafe(`INSERT INTO "Store" VALUES('store-lubymusic','lubymusic','COURSE')`);
+      await tx.$executeRawUnsafe(`INSERT INTO "Store" (id,slug,"industryModule") VALUES('store-lubymusic','lubymusic','COURSE')`);
       const notifications = readFileSync("supabase/migrations/20261002093141_course_coach_notifications.sql", "utf8")
         .replaceAll("public.", `"${schema}".`).replaceAll("search_path=public", `search_path="${schema}"`);
       for (const statement of statements(notifications)) await tx.$executeRawUnsafe(statement);
@@ -97,7 +97,7 @@ function statements(sql: string) {
     const storeId = randomUUID(), customerId = randomUUID(), coachId = randomUUID();
     const actor = { storeId, userId: "synthetic-manager", name: "Synthetic manager" };
     const data = await transact(async tx => {
-      await tx.$executeRaw`INSERT INTO "Store" VALUES(${storeId},NULL,'COURSE')`;
+      await tx.$executeRaw`INSERT INTO "Store" (id,slug,"industryModule") VALUES(${storeId},NULL,'COURSE')`;
       await tx.$executeRaw`INSERT INTO "Staff" VALUES(${coachId},${storeId})`;
       await tx.$executeRaw`INSERT INTO "MessageTemplate" VALUES(${`course-coach-change:${storeId}`},${storeId},'enabled'),(${`course-coach-trial:${storeId}`},${storeId},'enabled')`;
       await tx.$executeRaw`INSERT INTO "Customer" VALUES(${customerId},${storeId},'Synthetic student',NULL)`;

@@ -14,7 +14,7 @@ let cardReader:ReturnType<typeof usePanelReader<[unknown],unknown>>;
 const fallback=async()=>({success:true});
 const snapshot={customerId:'learner',overview:{success:true,data:{}},cards:{success:true,rows:[{id:'fresh'}],hasMore:false}} as MusicPurchaseSnapshot;
 let browserReader:ReturnType<typeof usePanelReader<[unknown],unknown>>;
-function Consumer(){cardReader=usePanelReader('course-card',fallback);browserReader=usePanelReader('course-card-browse',fallback,'1');return null;}
+function Consumer(){const cards=usePanelReader('course-card',fallback),browse=usePanelReader('course-card-browse',fallback,'1');useEffect(()=>{cardReader=cards;browserReader=browse;},[cards,browse]);return null;}
 async function render(key='store-a'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key},React.createElement(Consumer))));}
 async function signal(kind='purchase'){await act(async()=>{window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:`${kind}:test-${seq++}`}));});}
 beforeEach(()=>{m.router.refresh.mockClear();m.preview.mockReturnValue(true);Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');root=createRoot(host);m.read.mockReset();m.read.mockResolvedValue({success:true,rows:[{id:'queried'}]});});
