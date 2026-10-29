@@ -2,7 +2,8 @@
 import {useCallback,useEffect,useState,type ReactNode} from "react";
 import {CourseAssignmentPayment,type AssignmentSummary} from "./course-assignment-payment";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-import {loadMusicPeriods} from "@/server/actions/music-periods";
+import type {loadMusicPeriods} from "@/server/actions/music-periods";
+import {readMusicPeriods} from "@/lib/music-period-read-client";
 import {musicPeriodLabel} from "@/lib/music-purchase-periods";
 import {loadMusicJoinOptions} from "@/server/actions/course-members";
 import {musicCheckoutQuote} from "@/lib/music-course-products";
@@ -11,7 +12,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 type MusicPlan={id:string;validDays:number;points:number;price:number;storeCost?:number;musicTerms?:number|null;musicTermSizes?:number[];musicBonusLessons?:number;templateIds?:string[]};
 const field="min-h-11 w-full min-w-0 max-w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
 export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,customerId,planField}:{planField?:ReactNode;customerId?:string;split?:boolean;plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
- const periodsReader=usePanelReader("music-periods",loadMusicPeriods);
+ const periodsReader=usePanelReader("music-periods",readMusicPeriods);
  const [periodHistory,setPeriodHistory]=useState<{customerId:string;cards:Extract<Awaited<ReturnType<typeof loadMusicPeriods>>,{success:true}>["data"]}|null>(null);
  useEffect(()=>{let active=true;if(!customerId)return;
   periodsReader.invalidate(customerId);
