@@ -11,6 +11,7 @@ import {ModalPanel} from "@/components/admin/modal-panel";
 import {DashboardLink} from "@/components/dashboard-link";
 import type {loadMusicPeriods} from "@/server/actions/music-periods";
 import {readMusicPeriods} from "@/lib/music-period-read-client";
+import {useMusicPurchaseRevision} from "@/lib/use-music-purchase-revision";
 import {loadCourseCustomerPurchases} from "@/server/actions/course-customer-history";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
@@ -34,7 +35,7 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
  const section=useRef<HTMLElement>(null);
  const periodsReader=usePanelReader("music-periods",readMusicPeriods);
  const ordersReader=usePanelReader("purchases",loadCourseCustomerPurchases);
- const [state,setState]=useState<{key:string;customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;cardsReady:boolean;ordersReady:boolean;cardError:string;orderError:string}|null>(null);
+ const [state,setState]=useState<{key:string;customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;cardsReady:boolean;ordersReady:boolean;cardError:string;orderError:string;purchaseRevision?:string}|null>(null);
  const [revision,setRevision]=useState(0),[loading,setLoading]=useState(false),[subjectId,setSubject]=useState(params.get("studentSubject")??""),[methodId,setMethod]=useState(params.get("studentMethod")??""),[advanced,setAdvanced]=useState<string|null>(null);
  const readKey=JSON.stringify([customerId,dataRevision,revision,canReadBookings,canReadCards,canReadTransactions]);
  useEffect(()=>{let active=true;setLoading(true);
@@ -44,7 +45,7 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
  setState({key:readKey,customerId,cards:[],orders:[],more:false,cardsReady:!(canReadBookings||canReadCards),ordersReady:!canReadTransactions,cardError:"",orderError:""});
  const update=(patch:Partial<NonNullable<typeof state>>)=>{if(active)setState(previous=>previous?.key===readKey?{...previous,...patch}:previous);};
  const periods=canReadBookings||canReadCards?periodsReader.read(customerId).then(result=>{
-  update(result.success?{cards:result.data,cardsReady:true}:{cardsReady:true,cardError:result.error??"課程期別讀取失敗"});
+  update(result.success?{cards:result.data,cardsReady:true,purchaseRevision:result.purchaseRevision}:{cardsReady:true,cardError:result.error??"課程期別讀取失敗"});
  }).catch(()=>update({cardsReady:true,cardError:"課程期別讀取失敗，請重試。"})):Promise.resolve();
  const orders=canReadTransactions?ordersReader.read(customerId,0).then(result=>{
   update(result.success?{orders:result.data,more:result.hasMore,ordersReady:true}:{ordersReady:true,orderError:result.error??"購課紀錄讀取失敗"});
@@ -54,6 +55,7 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
  function retain(key:string,value:string){const url=new URL(window.location.href);if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);window.history.replaceState(null,"",url.pathname+url.search);}
  const refresh=()=>setRevision(n=>n+1);
  const current=state?.key===readKey?state:null;
+ useMusicPurchaseRevision(customerId,current?.cardsReady?current.purchaseRevision:undefined,()=>setRevision(n=>n+1));
  const error=[current?.cardError,current?.orderError].filter(Boolean).join("・");
  const contentReady=!!current&&((canReadBookings||canReadCards)?current.cardsReady:current.ordersReady);
  useEffect(()=>{if(loading||!current)return;const area=section.current?.closest<HTMLElement>("[data-course-person-scroll]");const key=area?.dataset.coursePersonScroll;if(area&&key){try{area.scrollTop=Number(sessionStorage.getItem(key))||0;}catch{}}},[loading,current]);
