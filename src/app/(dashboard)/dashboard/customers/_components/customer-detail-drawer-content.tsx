@@ -200,8 +200,8 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
-        {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
-        <CustomerPanelAdvanced key={customer.id} managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
+        {!readOnly && <StoreMemberConnectionPanel key={`member-connection:${customer.id}`} customerId={customer.id} />}
+        <CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
