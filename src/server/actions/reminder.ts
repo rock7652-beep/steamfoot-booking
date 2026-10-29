@@ -1444,29 +1444,40 @@ export async function generateLineBindingCode(
   }
 }
 
-/** 解除 LINE 綁定 */
+/** 解除 LINE 綁定：主檔及身分關聯必須在同一交易內更新。 */
 export async function unlinkLineAccount(
   customerId: string
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("customer.update");
-
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const user = await requirePermission("customer.identity.rebind");
+    if (user.role !== "OWNER" && user.role !== "ADMIN") {
+      throw new AppError("FORBIDDEN", "僅限負責人或管理員解除 LINE 綁定");
+    }
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, storeId: true },
+    });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
 
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        lineUserId: null,
-        lineLinkedAt: null,
-        lineLinkStatus: "UNLINKED",
-        lineBindingCode: null,
-        lineBindingCodeCreatedAt: null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.customerIdentityLink.deleteMany({
+        where: { customerId, storeId: customer.storeId, provider: "line" },
+      });
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          lineUserId: null,
+          lineName: null,
+          lineLinkedAt: null,
+          lineLinkStatus: "UNLINKED",
+          lineBindingCode: null,
+          lineBindingCodeCreatedAt: null,
+        },
+      });
     });
-
     revalidatePath(`/dashboard/customers/${customerId}`);
+    revalidatePath("/dashboard/customers");
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
