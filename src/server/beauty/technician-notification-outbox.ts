@@ -1,3 +1,4 @@
+import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import 'server-only';
 import {after} from 'next/server';
 import {beautyNotificationDeliveryBlocked} from '@/lib/beauty/notification-policy';
@@ -7,7 +8,7 @@ import type {BeautyActor} from './access';
 
 /** Transactional outbox; no LINE I/O and no historical scanning on activation. */
 export async function queueTechnicianChange(tx:Tx,a:BeautyActor,b:{id:string;technicianId:string;startsAt:Date},action:string,previous?:{technicianId:string;startsAt:Date}) {
- if(beautyNotificationDeliveryBlocked()||!['BOOKING','MOVE','CANCEL','RESTORE'].includes(action))return;
+ if(!beautyRetiredSettings.notifications||beautyNotificationDeliveryBlocked()||!['BOOKING','MOVE','CANCEL','RESTORE'].includes(action))return;
  const enabled=await tx.$queryRaw<{id:string}[]>`SELECT id FROM "BeautyEvent" WHERE kind='TECH_SETTING' AND status='AUDIT' AND id=${technicianNoticeSettingId(a.storeId,'TECH_CHANGE')} AND "storeId"=${a.storeId} AND body='enabled' AND EXISTS(SELECT 1 FROM "BeautySetting" WHERE "storeId"=${a.storeId} AND notifications=true)`;
  if(!enabled?.length)return;
  const technicians=await tx.beautyTechnician.findMany({where:{storeId:a.storeId,active:true,id:{in:[b.technicianId,previous?.technicianId??b.technicianId]},userId:{not:null}},select:{id:true,userId:true}});

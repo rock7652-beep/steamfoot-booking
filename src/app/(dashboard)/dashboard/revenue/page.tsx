@@ -297,8 +297,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <OperationsReceiptSummary gross={periodSummary.totalCourseRevenue+periodSummary.cashbookIncome} refunds={Math.abs(periodSummary.totalRefund)} net={periodSummary.netCourseRevenue+periodSummary.cashbookIncome}>
-        <p>{dateFrom} 至 {dateTo}，含系統交易與手動收入 NT$ {periodSummary.cashbookIncome.toLocaleString()}，皆為台灣時間。交易表與收入分類列系統交易，手動收支明細於現金帳查看。</p>
+      <OperationsReceiptSummary gross={periodSummary.totalCourseRevenue+periodSummary.cashbookIncome} refundLabel="退款／沖回" refunds={Math.abs(periodSummary.totalRefund)+(periodSummary.cashbookRefund??0)} net={periodSummary.netCourseRevenue+periodSummary.cashbookIncome-(periodSummary.cashbookRefund??0)}>
+        <p>{dateFrom} 至 {dateTo}，含系統交易與手動收入 NT$ {periodSummary.cashbookIncome.toLocaleString()}，皆為台灣時間。交易表列系統交易；收入分類另含零售、其他收入及進銷存退款／更正沖回，來源明細於現金帳查看。</p>
       </OperationsReceiptSummary>
 
       <div className={`${toolbar.container} grid grid-cols-12 gap-2.5 sm:gap-3`}>

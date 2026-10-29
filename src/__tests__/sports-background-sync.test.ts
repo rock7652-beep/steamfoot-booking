@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {startSportsBackgroundSync,SPORTS_SYNC_INTERVAL} from "@/lib/sports-background-sync";
+import {startSportsBackgroundSync,SPORTS_SYNC_INTERVAL,CALENDAR_SYNC_INTERVAL} from "@/lib/sports-background-sync";
 let stop: (()=>void)|undefined;
 beforeEach(()=>{vi.useFakeTimers();vi.spyOn(document,"visibilityState","get").mockReturnValue("visible");});
 afterEach(()=>{stop?.();stop=undefined;vi.restoreAllMocks();vi.useRealTimers();});
@@ -32,4 +32,22 @@ it("backs off failed reads and resets after recovery",async()=>{
 it("cleanup during an in-flight read removes listeners and future work",async()=>{
  let resolve!:(v:boolean)=>void;const read=vi.fn(()=>new Promise<boolean>(r=>{resolve=r;}));stop=startSportsBackgroundSync(read);window.dispatchEvent(new Event("focus"));stop();resolve(true);
  await vi.advanceTimersByTimeAsync(60_000);window.dispatchEvent(new Event("online"));expect(read).toHaveBeenCalledOnce();expect(vi.getTimerCount()).toBe(0);
+});
+
+it("uses a 60-second calendar cadence while still waking on focus",async()=>{
+ const read=vi.fn().mockResolvedValue(true);stop=startSportsBackgroundSync(read,()=>false,CALENDAR_SYNC_INTERVAL);
+ await vi.advanceTimersByTimeAsync(59_999);expect(read).not.toHaveBeenCalled();
+ await vi.advanceTimersByTimeAsync(1);expect(read).toHaveBeenCalledOnce();
+ await vi.advanceTimersByTimeAsync(30_000);expect(read).toHaveBeenCalledOnce();
+ window.dispatchEvent(new Event("focus"));await vi.advanceTimersByTimeAsync(0);expect(read).toHaveBeenCalledTimes(2);
+ await vi.advanceTimersByTimeAsync(59_999);expect(read).toHaveBeenCalledTimes(2);
+ await vi.advanceTimersByTimeAsync(1);expect(read).toHaveBeenCalledTimes(3);
+});
+it("keeps a blocked calendar idle and does not start overlapping reads",async()=>{
+ let blocked=true;let resolve!:(value:boolean)=>void;
+ const read=vi.fn(()=>new Promise<boolean>(done=>{resolve=done;}));stop=startSportsBackgroundSync(read,()=>blocked,CALENDAR_SYNC_INTERVAL);
+ await vi.advanceTimersByTimeAsync(60_000);expect(read).not.toHaveBeenCalled();
+ blocked=false;await vi.advanceTimersByTimeAsync(60_000);expect(read).toHaveBeenCalledOnce();
+ await vi.advanceTimersByTimeAsync(120_000);window.dispatchEvent(new Event("focus"));expect(read).toHaveBeenCalledOnce();
+ resolve(true);await vi.advanceTimersByTimeAsync(60_000);expect(read).toHaveBeenCalledTimes(2);
 });

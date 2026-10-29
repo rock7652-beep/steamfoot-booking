@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
-import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
+import { toLocalMonthStr, monthRange,parseTaiwanDateToDbDate,toLocalDateStr } from "@/lib/date-utils";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.cashbookEntry.groupBy({
       by: ["type"],
-      where: { ...staffIdFilter, ...storeFilter, entryDate: { gte: monthStart, lte: monthEnd } },
+      where: { ...staffIdFilter, ...storeFilter, entryDate: { gte: parseTaiwanDateToDbDate(toLocalDateStr(monthStart)), lte: parseTaiwanDateToDbDate(toLocalDateStr(monthEnd)) } },
       _sum: { amount: true },
     }),
     prisma.spaceFeeRecord.findMany({
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.booking.groupBy({
       by: ["revenueStaffId"],
-      where: { ...revenueFilter, ...storeFilter, bookingStatus: "COMPLETED", bookingDate: { gte: monthStart, lte: monthEnd } },
+      where: { ...revenueFilter, ...storeFilter, bookingStatus: "COMPLETED", bookingDate: { gte: parseTaiwanDateToDbDate(toLocalDateStr(monthStart)), lte: parseTaiwanDateToDbDate(toLocalDateStr(monthEnd)) } },
       _count: { id: true },
     }),
   ]);
@@ -174,6 +174,11 @@ export async function GET(req: NextRequest) {
     ["淨額", cashIncome - cashExpense],
   ].map((row) => row.map(String));
 
+  if(activeStoreId&&await (await import('@/lib/industry-module-server')).getStoreIndustryModule(activeStoreId)==='steamfoot'){
+    const report=await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(activeStoreId,{startDate:toLocalDateStr(monthStart),endDate:toLocalDateStr(monthEnd),storeFilter},{customers:false,reader:user});
+    const c=report.classification;
+    rows.unshift(...[['全店收退款（與營收明細及收入分類同口徑）'],['體驗',c.trial],['單次',c.single],['方案／課程',c.plan],['補差額',c.supplement],['零售收入',c.retail],['其他收入',c.other],['收款入帳',report.kpi.totalRevenue],['退款／沖回',report.kpi.refundAmount],['淨收款',report.kpi.netRevenue],[]].map(r=>r.map(String)));
+  }
   const csv = toCsv(rows);
   return new NextResponse("\uFEFF" + csv, {
     headers: {

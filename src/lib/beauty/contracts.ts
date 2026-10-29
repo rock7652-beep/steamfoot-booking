@@ -81,13 +81,13 @@ export const planInput = z.object({
   active: z.boolean().default(true),
 });
 export const settingsInput = z.object({
-  notifications: z.boolean().default(false),
+  notifications: z.literal(false).default(false),
   revision: z.number().int().nonnegative(),
   selfBooking: z.boolean(),
   selfCancel: z.boolean(),
   selfReschedule: z.boolean(),
-  cancelDeduct: z.boolean(),
-  noShowDeduct: z.boolean(),
+  cancelDeduct: z.literal(false).default(false),
+  noShowDeduct: z.literal(false).default(false),
   leadMinutes: z.number().int().min(0).max(43200),
   cancelLeadMinutes: z.number().int().min(0).max(43200),
   bookableDays: z.number().int().min(1).max(365),

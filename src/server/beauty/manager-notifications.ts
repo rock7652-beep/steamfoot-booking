@@ -1,3 +1,4 @@
+import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -10,7 +11,7 @@ import { deliverManagerNotification, type ManagerDeliveryResult } from "@/server
 
 /** Final authoritative opt-in, also used by the common transport. Never imports recipients. */
 export async function beautyManagerDeliveryAllowed(storeId: string) {
-  if (beautyNotificationDeliveryBlocked()) return false;
+  if (!beautyRetiredSettings.notifications || beautyNotificationDeliveryBlocked()) return false;
   const store = await prisma.store.findFirst({where:{id:storeId,industryModule:"BEAUTY",isDemo:false,operatingStatus:"ACTIVE"},select:{id:true}});
   if (!store || !await hasStoreFeature(storeId,FEATURES.LINE_REMINDER)) return false;
   return !!(await beautyPrisma.beautySetting.findUnique({where:{storeId},select:{notifications:true}}))?.notifications;

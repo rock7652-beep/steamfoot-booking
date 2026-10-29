@@ -102,6 +102,7 @@ export default async function StoreRevenuePage({searchParams}: {searchParams:Pro
       </div>
 
       <RevenueReportClient
+        steamfootMode={reportIndustry==="steamfoot"}
         mode="store"
         stores={stores}
         coaches={coaches}

@@ -40,6 +40,7 @@ interface StoreSummaryRow {
   packageRevenue: number;
   singleRevenue: number;
   otherRevenue: number;
+  retailRevenue?:number;otherIncomeRevenue?:number;supplementRevenue?:number;
 }
 
 interface CoachSummaryRow {
@@ -87,6 +88,7 @@ interface PaymentMethodSummary { paymentMethod: string; amount: number }
 type ReportMode = "store" | "coach";
 
 interface Props {
+  steamfootMode?:boolean;
   canReadDetails?:boolean;
   serviceMode?:boolean;
   dataScope?: string;
@@ -113,7 +115,7 @@ function fmtMoney(n: number): string {
 
 function fmtPlanType(t: string | null): string {
   if (!t) return "-";
-  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案" };
+  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案", RETAIL:"零售收入",OTHER:"其他收入",SUPPLEMENT:"補差額" };
   return m[t] ?? t;
 }
 
@@ -127,7 +129,7 @@ function fmtPayment(m: string): string {
 }
 
 function fmtStatus(s: string): string {
-  const map: Record<string, string> = { SUCCESS: "成功", CANCELLED: "已取消", REFUNDED: "已退款" };
+  const map: Record<string, string> = { SUCCESS: "成功", CANCELLED: "已取消", REFUNDED: "已退款", REVERSED:"收款更正沖回" };
   return map[s] ?? s;
 }
 
@@ -150,6 +152,7 @@ export function RevenueReportClient({
   mode,
   canReadDetails=true,
   serviceMode=false,
+  steamfootMode=false,
   courseMode = false,
   dataScope,
   musicMode = false,
@@ -444,7 +447,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              {courseMode ? <>{!musicMode&&!serviceMode && <option value="POINT">點數方案</option>}<option value="SESSION">{serviceMode?"次數方案":"堂數方案"}</option>{serviceMode&&<option value="SINGLE">單次服務</option>}<option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
+              {courseMode ? <>{!musicMode&&!serviceMode && <option value="POINT">點數方案</option>}<option value="SESSION">{serviceMode?"次數方案":"堂數方案"}</option>{serviceMode&&<option value="SINGLE">單次服務</option>}<option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option>{steamfootMode&&<><option value="SUPPLEMENT">補差額</option><option value="RETAIL">零售收入</option><option value="OTHER">其他收入</option></>}</>}
             </select>
           </div>
 
@@ -505,10 +508,10 @@ export function RevenueReportClient({
       {/* ===== KPI Cards ===== */}
       {kpi && (
         <div className={`grid gap-3 ${mode === "coach" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
-          <KpiCard label={courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
-          <KpiCard label={courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
-          <KpiCard label={courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
-          <KpiCard label={courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
+          <KpiCard label={steamfootMode?"收款入帳":courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
+          <KpiCard label={steamfootMode?"退款／沖回":courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
+          <KpiCard label={steamfootMode?"淨收款":courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
+          <KpiCard label={steamfootMode?"收入筆數":courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
           <KpiCard label={courseMode ? "付款顧客數" : "客戶數"} value={kpi.customerCount} color="amber" />
           <KpiCard label="平均客單價" value={fmtMoney(kpi.avgPerCustomer)} color="earth" />
           {mode === "coach" && kpi.newCustomerRevenue != null && (
@@ -567,7 +570,7 @@ export function RevenueReportClient({
               <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
-                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
+                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : steamfootMode?["分店名稱","收款入帳","退款／沖回","淨收款","收入筆數","客戶數","平均客單價","體驗","方案","單次","補差額","零售收入","其他收入"]:["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -585,7 +588,7 @@ export function RevenueReportClient({
                       {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td></>}
+                      <td className="px-3 py-2 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-2 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-2 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
                     </tr>
                   ))}
                 </tbody>

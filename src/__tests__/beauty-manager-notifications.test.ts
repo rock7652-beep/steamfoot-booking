@@ -1,3 +1,6 @@
+// Exercise retained transport contracts in isolation; production retirement is verified separately.
+const retirement=vi.hoisted(()=>({notifications:true}));
+vi.mock('@/lib/beauty/retired-settings',()=>({beautyRetiredSettings:retirement}));
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({blocked:vi.fn(),store:vi.fn(),stores:vi.fn(),feature:vi.fn(),policy:vi.fn(),group:vi.fn(),source:vi.fn(),person:vi.fn(),order:vi.fn(),appointments:vi.fn(),booking:vi.fn(),count:vi.fn(),orders:vi.fn(),send:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{store:{findFirst:m.store,findMany:m.stores},customer:{findFirst:m.person}}}));
@@ -39,4 +42,10 @@ it('does not catch up the 9am digest or old incomplete services on activation',a
  await runBeautyManagerReminders(now);
  expect(m.appointments.mock.calls[0][0].where.endsAt.gte).toEqual(new Date('2026-10-22T01:04Z'));
  expect(m.send).not.toHaveBeenCalled();
+});
+
+it('blocks manager delivery at the shared transport gate after retirement',async()=>{
+ retirement.notifications=false;
+ try{expect(await beautyManagerDeliveryAllowed('s')).toBe(false);await notifyBeautyBookingManagers('s','g',now);await notifyBeautyPurchaseManagers('s','order',now);await runBeautyManagerReminders(now);expect(m.send).not.toHaveBeenCalled();expect(m.group).not.toHaveBeenCalled();expect(m.order).not.toHaveBeenCalled();}
+ finally{retirement.notifications=true;}
 });

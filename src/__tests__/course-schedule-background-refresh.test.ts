@@ -9,9 +9,10 @@ vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
+import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", router: { refresh: vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), router: { refresh: vi.fn() } }));
+vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
 vi.mock("next/navigation", () => ({
   useRouter: () => m.router,
   usePathname: () => "/s/sports-test/admin/dashboard/courses",
@@ -34,16 +35,21 @@ const props = {
   view: "schedule" as const, staffAvailability: [], staffAvailabilityExceptions: [],
 };
 let host: HTMLDivElement, root: Root;
+const elementScrollDescriptor=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"scrollTo");
 beforeEach(() => {
   vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(new Date(props.nowIso));
   m.query = "";
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal("ResizeObserver",class {observe(){}unobserve(){}disconnect(){}});
+  vi.stubGlobal("matchMedia",vi.fn().mockReturnValue({matches:false,media:"",onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()}));
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  Object.defineProperty(HTMLElement.prototype,"scrollTo",{configurable:true,value:vi.fn()});
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => {
-  await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks();
+  await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks();vi.unstubAllGlobals();
+  if(elementScrollDescriptor)Object.defineProperty(HTMLElement.prototype,"scrollTo",elementScrollDescriptor);else Reflect.deleteProperty(HTMLElement.prototype,"scrollTo");
 });
 async function render(businessProfile: "FITNESS" | "MUSIC" = "FITNESS", view: "schedule" | "catalog" = "schedule") {
   await act(async () => root.render(createElement(CourseWorkspace, { ...props, view, businessProfile })));
@@ -92,3 +98,25 @@ vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: 
 vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
 vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));
+
+it.each(["month","week","day"] as const)("native sports and beauty %s calendars wait 60 seconds between background reads",async mode=>{
+ m.query="scheduleView="+mode;
+ const snapshot={month:"2026-10",sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]};
+ m.nativeRead.mockResolvedValue({success:true,data:snapshot});
+ for(const beauty of [false,true]){
+  const read=vi.fn().mockResolvedValue({success:true,data:snapshot});
+  const source:CourseCalendarSource={read,readBlocked:false,schedule:{catalogHref:"#",command:async()=>({success:false,error:"synthetic"}),createCustomer:async()=>({success:false,error:"synthetic"})},onOpen:()=>{},onRoster:()=>{},assignmentStaff:[]};
+  const activeRead=beauty?read:m.nativeRead;
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,key:String(beauty),sportsNative:true,businessProfile:"FITNESS",calendarSource:beauty?source:undefined})));
+  await tick(59_999);expect(activeRead).not.toHaveBeenCalled();
+  await tick(1);expect(activeRead).toHaveBeenCalledTimes(1);
+  await tick(59_999);expect(activeRead).toHaveBeenCalledTimes(1);
+  await tick(1);expect(activeRead).toHaveBeenCalledTimes(2);
+ }
+});
+it.each(["month","week","day"] as const)("music %s uses the same 60-second calendar cadence",async mode=>{
+ m.query="scheduleView="+mode;await render("MUSIC");
+ await tick(59_999);expect(m.router.refresh).not.toHaveBeenCalled();
+ await tick(1);expect(m.router.refresh).toHaveBeenCalledTimes(1);
+ await tick(60_000);expect(m.router.refresh).toHaveBeenCalledTimes(2);
+});

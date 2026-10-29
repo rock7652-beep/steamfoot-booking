@@ -1,3 +1,4 @@
+import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import {beautyServiceStoreCost} from '@/lib/beauty/sale-allocation';
 import {readBeautyChargeFinance} from './charge-finance';
 import {beautyChargeRulesEnabled,isEmptyBeautyStore,readCatalogCharge,readCardCharge,readAppointmentCharge,chargeAllowedIds,writeAppointmentCharge} from './charge-runtime';
@@ -56,7 +57,7 @@ export async function assertCustomerAvailable(
 }
 export async function settings(tx: Tx, storeId: string) {
   const current=await tx.beautySetting.findUnique({where:{storeId}});
-  if(current)return current;
+  if(current)return {...current,...beautyRetiredSettings};
   const selfBooking=beautyChargeRulesEnabled(storeId)&&await isEmptyBeautyStore(tx,storeId)?false:true;
   return (
     {
@@ -521,8 +522,8 @@ export async function transition(
       throw new AppError("FORBIDDEN", "此預約請聯絡店家處理");
   }
   if(input.noShowDeduct!==undefined&&(!a.manager||input.target!=='NO_SHOW'))throw new AppError('FORBIDDEN','只有後台可選擇未出席扣次方式');
-  if(input.noShowDeduct===true&&!b.cardId)throw new AppError('VALIDATION','此服務未使用方案，無法扣次');
-  const debit=input.target==='COMPLETED'||(input.target==='CANCELLED'&&b.cancelDeduct)||(input.target==='NO_SHOW'&&(input.noShowDeduct??b.noShowDeduct));
+  if(input.noShowDeduct===true)throw new AppError('BUSINESS_RULE','未到扣次功能已停用');
+  const debit=input.target==='COMPLETED';
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
   if(b.isTrial&&b.status==='CANCELLED'&&input.target!=='CANCELLED')await assertBeautyTrialEligibility(tx,a.storeId,{serviceId:b.serviceId,customerId:b.customerId,phone:b.personPhone},b.id);
   if (input.target === "RESERVED") {
@@ -673,8 +674,8 @@ export function publicReceipt(b: BeautyAppointment) {
     price: b.price,
     personName: b.personName,
     preference: b.preference,
-    cancelDeduct: b.cancelDeduct,
-    noShowDeduct: b.noShowDeduct,
+    cancelDeduct: beautyRetiredSettings.cancelDeduct,
+    noShowDeduct: beautyRetiredSettings.noShowDeduct,
     isTrial: b.isTrial,
   };
 }

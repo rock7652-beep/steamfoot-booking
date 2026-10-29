@@ -1,9 +1,12 @@
 /** Visible sports Preview reads only. Writes retain their existing transaction guards. */
 export const SPORTS_SYNC_INTERVAL = 3_000;
+/** Shared month/week/day calendar cadence; detail readers keep their own lifecycle. */
+export const CALENDAR_SYNC_INTERVAL = 60_000;
 
 export function startSportsBackgroundSync(
   read: () => Promise<boolean | null>,
   blocked: () => boolean = () => false,
+  intervalMs = SPORTS_SYNC_INTERVAL,
 ) {
   let stopped = false;
   let reading = false;
@@ -13,7 +16,7 @@ export function startSportsBackgroundSync(
   const schedule = () => {
     clear();
     if (!stopped && document.visibilityState === "visible") {
-      timer = setTimeout(() => { void refresh(); }, Math.min(60_000, SPORTS_SYNC_INTERVAL * 2 ** failures));
+      timer = setTimeout(() => { void refresh(); }, Math.min(60_000, intervalMs * 2 ** failures));
     }
   };
   async function refresh() {
