@@ -147,10 +147,19 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
       // Keep the server blocker until the operator sees and acknowledges the
       // completed purchase. A lost response must never release another device.
       setConfirmedScope(scopeKey);
-      // The server has already confirmed the transaction. Show the receipt
-      // immediately while rechecking its durable state in the background; the
-      // confirmed scope keeps the form blocked until explicit acknowledgement.
-      void inspect().catch(() => {});
+      // The committed action receipt already identifies this exact purchase.
+      // Keep its durable blocker and key; explicit acknowledgement still reads
+      // fresh state and checks it on the server before permitting another sale.
+      const receipt = result.checkoutReceipt && typeof result.checkoutReceipt === "object"
+        ? result.checkoutReceipt as Record<string, unknown> : null;
+      if ((scope.family ?? "course") === "course" && receipt?.storeId === scope.storeId &&
+          receipt.customerId === prepared.customerId && receipt.requestKey === prepared.requestKey &&
+          typeof receipt.purchaseId === "string" && receipt.purchaseId.length > 0) {
+        setState({kind:"intent",intent:{status:"COMMITTED",requestKey:prepared.requestKey,purchaseId:receipt.purchaseId}});
+      } else {
+        // Older response contracts and other modules retain authoritative recovery.
+        void inspect().catch(() => {});
+      }
       return sameScope() ? result : { success: false, discarded: true };
     }
     const state = await inspect();
@@ -163,7 +172,7 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
     // can still commit. Preserve the useful error without implying rollback.
     const detail = result.error?.trim();
     return { success: false, error: detail && detail !== CHECKOUT_OUTCOME_UNCONFIRMED ? `${detail} ${CHECKOUT_OUTCOME_UNCONFIRMED}` : CHECKOUT_OUTCOME_UNCONFIRMED };
-  }, [enabled, inspect, prepare, scope.family, scope.storeId, scope.transport, scopeKey]);
+  }, [enabled, inspect, prepare, scope.family, scope.storeId, scope.transport, scopeKey, setState]);
   const blocked = enabled && (!customerId || busy || confirmed || view.kind === "checking" || view.kind === "uncertain" || (view.kind === "intent" && view.intent.status !== "PREPARED"));
 
   const finishAcknowledgement = useCallback(async (status: "COMMITTED" | "CANCELLED") => {

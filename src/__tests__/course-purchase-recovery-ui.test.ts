@@ -60,6 +60,33 @@ it("returns a confirmed purchase immediately while a slow status read continues 
   expect(button("購買").disabled).toBe(true);
 });
 
+it("shows an exact committed course receipt without another status read, but retains the key until a fresh explicit acknowledgement", async () => {
+  const receipt={storeId:"test-store",customerId:"student-a",requestKey:key,purchaseId:committed.purchaseId};
+  send.mockResolvedValue({success:true,checkoutReceipt:receipt});
+  await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:"test-store",transport:api},createElement(Body,{customerId:"student-a"}))));
+  await act(async()=>button("購買").click());
+  expect(host.textContent).toContain("這筆購買已完成");
+  expect(button("確認完成並繼續購買").disabled).toBe(false);
+  expect(button("購買").disabled).toBe(true);expect(sessionStorage.length).toBe(1);
+  expect(api.get).not.toHaveBeenCalled();expect(api.acknowledge).not.toHaveBeenCalled();
+  api.get.mockResolvedValue({success:true,data:committed});
+  await act(async()=>button("確認完成並繼續購買").click());
+  expect(api.get).toHaveBeenCalledWith("student-a",key);expect(api.acknowledge).toHaveBeenCalledWith("student-a",key);
+  expect(sessionStorage.length).toBe(0);
+});
+
+it.each([{storeId:"other-store"},{customerId:"other-student"},{requestKey:"other-key"},{purchaseId:""}])("keeps a mismatched receipt pending authoritative verification: %j", async mismatch=>{
+  let finish!:(result:{success:true;data:typeof committed})=>void;
+  api.get.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+  send.mockResolvedValue({success:true,checkoutReceipt:{storeId:"test-store",customerId:"student-a",requestKey:key,purchaseId:committed.purchaseId,...mismatch}});
+  await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:"test-store",transport:api},createElement(Body,{customerId:"student-a"}))));
+  await act(async()=>button("購買").click());
+  expect(host.textContent).toContain("狀態仍在核對中");expect(host.textContent).not.toContain("這筆購買已完成");
+  expect(button("購買").disabled).toBe(true);expect(sessionStorage.length).toBe(1);expect(api.acknowledge).not.toHaveBeenCalled();
+  await act(async()=>finish({success:true,data:committed}));
+  expect(host.textContent).toContain("這筆購買已完成");
+});
+
 it("shows a business error while retaining the unconfirmed purchase warning", async () => {
   send.mockResolvedValue({ success: false, error: "請選擇所屬店長" });
   await act(async () => root.render(render("student-a")));

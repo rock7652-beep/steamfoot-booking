@@ -372,7 +372,7 @@ export async function assignCoursePointCard(input: unknown) {
     if(!musicCheckoutShouldDeferSnapshot()&&musicCheckout&&!data.bookingId&&input&&typeof input==='object'&&'musicSnapshotView' in input&&input.musicSnapshotView==='periods'){
       try{const {readMusicPurchaseSnapshot}=await import('@/server/queries/music-purchase-snapshot');musicSnapshot=await readMusicPurchaseSnapshot(input);}catch{/* Committed purchase remains successful. */}
     }
-    return { success: true as const,...(musicSnapshot?{musicSnapshot}:{}),...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{}),checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
+    return { success: true as const,...(musicSnapshot?{musicSnapshot}:{}),...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{}),checkoutReceipt:{storeId,requestKey:data.requestKey,purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
   } catch (error) {
     return handleActionError(error);
   }finally{console.info("[course-checkout-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
