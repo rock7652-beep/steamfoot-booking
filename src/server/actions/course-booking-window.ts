@@ -30,8 +30,8 @@ async function saveWindow(input:unknown,receipt?:Omit<ReturnType<typeof courseBo
     const config=value.mode==="fixed" ? {bookableUntilDate:new Date(`${value.date}T00:00:00Z`),bookingOpensAt:null} : {bookableUntilDate:null,bookingOpensAt:null,bookingWindowDays:value.days};
     const window=resolveCustomerBookingWindow(config,now);
     const data=await prisma.$transaction(async tx=>{
-      const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Store" WHERE id=${storeId} AND "industryModule"::text='COURSE' FOR UPDATE`;
-      if(receipt&&!locked.length) throw new AppError("VALIDATION","課程門市不存在");
+      const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Store" WHERE id=${storeId} AND "industryModule"::text='COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
+      if(!locked.length) throw new AppError("FORBIDDEN","店家已暫停、停用或模組已變更");
       const normalize=(row:{bookableUntilDate:Date|null;bookingWindowDays:number;bookingOpensAt:Date|null}|null):SavedBookingWindow=>({date:row?.bookableUntilDate?.toISOString().slice(0,10)??null,days:row?.bookingWindowDays??14,opensAt:row?.bookingOpensAt?.toISOString()??null});
       const previous=receipt?await tx.shopConfig.findUnique({where:{storeId}}):null;
       if(receipt) {

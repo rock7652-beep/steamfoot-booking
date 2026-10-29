@@ -44,7 +44,7 @@ suite("course purchase intent with real PostgreSQL store locking",()=>{
   beforeAll(async()=>{
     vi.stubEnv("AUTH_SECRET","synthetic-test-secret-which-is-long-enough");
     const c=await pool.connect();try{await c.query(`CREATE SCHEMA "${schema}"`);await c.query(`SET search_path TO "${schema}"`);
-      await c.query('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL)');
+      await c.query('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
       await c.query('CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text NOT NULL,"mergedIntoCustomerId" text,UNIQUE("storeId",id))');
       await c.query('CREATE TABLE "CoursePurchase" (id text PRIMARY KEY,"storeId" text NOT NULL,"requestKey" text NOT NULL,"customerId" text NOT NULL,payload jsonb NOT NULL DEFAULT \'{}\',UNIQUE("storeId","requestKey"),UNIQUE(id,"storeId"))');
       await c.query('CREATE TABLE "CoursePointCard" (id text PRIMARY KEY,"storeId" text NOT NULL,"requestKey" text NOT NULL,"customerId" text NOT NULL,payload jsonb NOT NULL,UNIQUE("storeId","requestKey"))');

@@ -46,7 +46,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await testDb().$transaction(async tx=>{for(const statement of migration.split(";").map(s=>s.trim()).filter(s=>s && s!=="BEGIN" && s!=="COMMIT")) {const sql=statement.replace(/--[^\n]*/g,"").trim();if(sql && sql!=="BEGIN")await tx.$executeRawUnsafe(sql);}});
     expect(await testDb().courseBooking.findUnique({where:{id:"legacy-booking"}})).toMatchObject({bookingKind:"CARD",trialPrice:null,pointCost:3,status:"RESERVED",customerName:"原上課人",cardId:"legacy-card"});
     expect(await testDb().coursePointCard.findUnique({where:{id:"legacy-card"}})).toMatchObject({remaining:7});
-    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookEntryType" AS ENUM (\'INCOME\',\'EXPENSE\')');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookPaymentMethod" AS ENUM (\'CASH\',\'OTHER\')');
     await testDb().$executeRawUnsafe('CREATE TABLE "CashDrawerSession" (id text PRIMARY KEY,"storeId" text,"businessDate" date,status text,"updatedAt" timestamp)');
@@ -65,7 +65,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
   });
 
   async function fixture(){
-    const storeId=randomUUID();await testDb().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    const storeId=randomUUID();await testDb().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
     const room=await testDb().courseRoom.create({data:{storeId,name:storeId}});
     const template=await testDb().courseTemplate.create({data:{storeId,name:storeId,durationMinutes:30,pointCost:3,capacity:2}});
     const session=await testDb().courseSession.create({data:{storeId,templateId:template.id,roomId:room.id,coachId:"coach",nameSnapshot:"體驗專用",startsAt:new Date("2026-01-01"),endsAt:new Date("2026-01-01T01:00Z"),pointCost:3,capacity:2,requestKey:storeId,requestIndex:0,createdById:"manager"}});

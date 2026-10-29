@@ -66,7 +66,7 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
    const ddl=execFileSync('node_modules/.bin/prisma',['migrate','diff','--from-empty','--to-schema-datamodel',datamodel,'--script'],{encoding:'utf8'});
    for(const sql of ddl.split(';').map(s=>s.trim()).filter(Boolean))await db().$executeRawUnsafe(sql);
   }
-  await db().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL)');
+  await db().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
   await db().$executeRawUnsafe('CREATE TABLE "Customer" (id text,"storeId" text,name text,phone text,"assignedStaffId" text,"mergedIntoCustomerId" text,PRIMARY KEY(id,"storeId"))');
   await db().$executeRawUnsafe('CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text,status text)');
   await db().$executeRawUnsafe('CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)');
@@ -91,7 +91,7 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
 
  it.each(['sports','music'] as const)('%s: arrange unpaid → purchase twice → aggregate → legacy A2 binding → FIFO A1 → restore; no duplicate income',async kind=>{
   const storeId=`${kind}-${randomUUID()}`,customerId=randomUUID(),actor={storeId,userId:randomUUID(),name:'合成店長'};
-  await db().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+  await db().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
   await db().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'合成學員','0900000000',NULL,NULL)`;
   await db().courseSettlementSetting.create({data:{storeId,profitEnabled:false}});
   await db().courseBookingRule.create({data:{storeId,selfBookingEnabled:false,assignedSchedulingEnabled:true}});
@@ -143,7 +143,7 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
 
  it('beauty: actual service booking → unpaid guard → purchase → aggregate → old-card FIFO → restore without changing receipt history',async()=>{
   const storeId=`beauty-${randomUUID()}`,customerId=randomUUID(),actor={storeId,userId:randomUUID(),manager:true};
-  await db().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'BEAUTY')`;
+  await db().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'BEAUTY')`;
   await db().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'合成顧客','0900000000',NULL,NULL)`;
   const date=addTaiwanDuration(toLocalDateStr(),2,'DAY');
   const service=await bdb().beautyService.create({data:{storeId,name:'A',duration:60,price:1000,defaultRate:{mode:'PERCENT',value:50,base:'PAID'}}});

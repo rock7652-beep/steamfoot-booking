@@ -41,7 +41,7 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
       const candidate=readFileSync("scripts/sql/sports-entitlement-candidate.sql","utf8").replace(/^--.*$/gm,"").replaceAll("public.",`"${schema}".`);
       for(const sql of candidate.split(";").map(s=>s.trim()).filter(s=>s&&s!=="BEGIN"&&s!=="COMMIT"))await tx.$executeRawUnsafe(sql);
     });
-    await database().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL DEFAULT \'COURSE\')');
+    await database().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL DEFAULT \'COURSE\',"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
     await database().$executeRawUnsafe('CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)');
     await database().$executeRawUnsafe('CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,status text,"displayName" text,"courseCoachEnabled" boolean,"courseQualificationsConfirmed" boolean,"courseQualifiedTemplateIds" text[],"updatedAt" timestamptz DEFAULT now())');
     await database().$executeRawUnsafe('CREATE TABLE "AuditLog" (id text PRIMARY KEY,"actorUserId" text,"actorNameSnapshot" text,"storeId" text,module text,summary text,"targetType" text,"targetId" text,action text,"beforeJson" jsonb,"afterJson" jsonb,"createdAt" timestamptz)');

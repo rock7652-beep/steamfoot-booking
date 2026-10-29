@@ -279,7 +279,7 @@ export async function updateCourseSession(input: unknown) {
       async (tx) => {
         const stores = await tx.$queryRaw<
           Array<{ id: string }>
-        >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+        >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
         const [session, room, coaches] = await Promise.all([
@@ -563,7 +563,7 @@ export async function createCourseSchedule(input: unknown) {
         // Serialize this store's batches; a retried request returns its original
         // batch. DB exclusion constraints also protect writes outside this action.
         const stores = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE
+        SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
@@ -1123,7 +1123,7 @@ export async function setCourseCatalogStatus(input: unknown) {
     await coursePrisma.$transaction(async (tx) => {
       const stores = await tx.$queryRaw<
         Array<{ id: string }>
-      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
       if (!stores.length)
         throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
       if (data.kind === "room" && !data.isActive && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
