@@ -1,3 +1,5 @@
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const originalVercelEnv = process.env.VERCEL_ENV;
