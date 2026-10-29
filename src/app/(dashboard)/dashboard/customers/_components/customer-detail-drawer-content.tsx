@@ -1,5 +1,6 @@
 "use client";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
+import { CustomerLineBindingControl } from "./customer-line-binding-control";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 
@@ -201,6 +202,7 @@ export function CustomerDetailDrawerContent({
         </section>
 
         {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
+        {!readOnly && canEditNote && <CustomerLineBindingControl customerId={customer.id} status={customer.lineLinkStatus} onUpdated={handleMutated} />}
         <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
