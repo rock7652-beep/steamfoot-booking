@@ -43,6 +43,7 @@ import { refundCoursePurchase } from "./course-refund";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { sportsTeachingTemplateId } from "@/server/services/sports-teaching-rule";
 import { assertSportsProductionReady } from "@/server/services/sports-production-readiness";
+import { prepareCoursePurchaseIntent } from "./course-purchase-intent";
 const id = z.string().min(1).max(100);
 async function actor(permission: Parameters<typeof courseManager>[0]) {
   const a = await courseManager(permission);
@@ -64,6 +65,26 @@ async function result<T extends { success: boolean; error?: string }>(
   const r = await value;
   if (!r.success) throw new AppError("VALIDATION", r.error ?? "操作失敗");
   return r;
+}
+
+/** The staging preview derives exactly the same checkout input for preparation
+ * and submission. Price, staff and expiry are rechecked server-side on both. */
+async function stagingPurchaseInput(payload: unknown, a: { storeId: string; user: { id: string } }) {
+  const d = z.object({ planId: id, customerId: id, requestKey: z.string().uuid(), expectedPrice: z.number() }).parse(payload);
+  const plan = await coursePrisma.coursePointPlan.findFirst({ where: { id: d.planId, storeId: a.storeId, isActive: true } });
+  if (!plan || plan.price !== d.expectedPrice) throw new AppError("CONFLICT", "價格已更新，請重新開啟");
+  const staff = await prisma.staff.findFirst({ where: { storeId: a.storeId, userId: a.user.id, status: "ACTIVE" } });
+  return { ...d, expiresDate: addTaiwanDuration(toLocalDateStr(), plan.validDays, "DAY"), expectedListPrice: plan.price,
+    expectedStoreCost: plan.storeCost, discountKind: "AMOUNT" as const, discountValue: 0,
+    paymentMethod: "CARD" as const, revenueStaffId: staff?.id ?? "" };
+}
+
+/** Register only. The actual purchase remains a separate explicit operation. */
+export async function prepareSportsStagingPurchaseIntent(payload: unknown) {
+  try {
+    const a = await actor("booking.read");
+    return await prepareCoursePurchaseIntent(await stagingPurchaseInput(payload, a));
+  } catch (e) { return handleActionError(e); }
 }
 export async function loadSportsStaging(formOnly = false): Promise<
   { success: true; data: SportsSnapshot } | { success: false; error: string }
@@ -491,9 +512,9 @@ export async function sportsStagingCommand(input: unknown) {
           }),
         );
       const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.fee??"", storeId, isActive: true },
+        where: { id: d.kind==="體驗"?d.fee??"":"", storeId, isActive: true },
       });
-      if (d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
+      if (d.kind==="體驗" && d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
       if(d.kind==="體驗"&&d.mode==="指定學員"){
         const settings=courseChargeSettings.safeParse(plan?.chargeSettings);
         if(!settings.success||settings.data.kind!=="single"||settings.data.trialPrice===null)throw new AppError("VALIDATION","請選擇已設定體驗價的單次收費");
@@ -556,7 +577,7 @@ export async function sportsStagingCommand(input: unknown) {
             frequency,
             ...((await sportsNativePreview(storeId))&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
-            planId: d.kind === "體驗" ? null : plan?.id??null,
+            planId: null,
             students:d.kind==="體驗"?[]:students,
             trialPrice: d.price,
           },
@@ -598,38 +619,7 @@ export async function sportsStagingCommand(input: unknown) {
       );
     }
     if (data.operation === "purchase") {
-      const d = z
-        .object({
-          planId: id,
-          customerId: id,
-          requestKey: z.string().uuid(),
-          expectedPrice: z.number(),
-        })
-        .parse(p);
-      const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.planId, storeId, isActive: true },
-      });
-      if (!plan || plan.price !== d.expectedPrice)
-        throw new AppError("CONFLICT", "價格已更新，請重新開啟");
-      const staff = await prisma.staff.findFirst({
-        where: { storeId, userId: user.id, status: "ACTIVE" },
-      });
-      return await result(
-        assignCoursePointCard({
-          ...d,
-          expiresDate: addTaiwanDuration(
-            toLocalDateStr(),
-            plan.validDays,
-            "DAY",
-          ),
-          expectedListPrice: plan.price,
-          expectedStoreCost: plan.storeCost,
-          discountKind: "AMOUNT",
-          discountValue: 0,
-          paymentMethod: "CARD",
-          revenueStaffId: staff?.id ?? "",
-        }),
-      );
+      return await result(assignCoursePointCard(await stagingPurchaseInput(p, {storeId,user})));
     }
     if (data.operation === "attendance")
       return await result(updateCourseBookingStatus(p));

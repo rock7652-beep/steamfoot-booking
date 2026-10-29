@@ -1,5 +1,6 @@
 import 'server-only';
 import {beautyCardSaleAttribution} from './transaction-revisions';
+import {assertOnlineConfirmationSettled} from './online-confirm-guard';
 import {AppError} from '@/lib/errors';
 import {lockCashDay} from '@/server/services/cash-day';
 import {audit,command,type BeautyActor} from './access';
@@ -12,6 +13,7 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
   const request=payment?null:await tx.beautyPurchase.findFirst({where:{storeId:a.storeId,id:input.purchaseId}});
   const row=payment??request;
   if(!row)throw new AppError('NOT_FOUND','找不到本店交易');
+  await assertOnlineConfirmationSettled(tx,a.storeId,{orderId:request?.id,cardId:payment?.cardId});
   const prior=await tx.beautyTransactionRevision.findFirst({where:{storeId:a.storeId,transactionId:row.id},orderBy:{revision:'desc'}});
   if((prior?.revision??0)!==input.expectedRevision)throw new AppError('CONFLICT','交易已更新，請重新開啟核對');
   if(prior?.voidedAt||request&&request.status!=='PENDING')throw new AppError('CONFLICT','交易狀態已變更，請保留原紀錄');

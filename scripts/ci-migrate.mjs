@@ -1,3 +1,12 @@
+// A not-yet-provisioned, dedicated test branch must fail closed until its
+// source-controlled project ref is reviewed and pinned. Never run migrations.
+import {assertBeautyPurchaseIsolatedPreview,BEAUTY_PURCHASE_QA_BRANCH} from './beauty-purchase-isolated-preview-scope.mjs';
+if (process.env.BEAUTY_ISOLATED_PURCHASE_QA === '1' || [process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes(BEAUTY_PURCHASE_QA_BRANCH)) {
+  await assertBeautyPurchaseIsolatedPreview(process.env);
+  console.info('[beauty-purchase-isolated-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
+
 // Explicitly authorized test deployment; schema installation remains separate.
 import { assertBeautyHostedPreviewEnvironment, BEAUTY_HOSTED_PREVIEW_BRANCH } from './consultation-preview-scope.mjs';
 if (process.env.BEAUTY_HOSTED_PREVIEW === '1' || [process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes(BEAUTY_HOSTED_PREVIEW_BRANCH)) {

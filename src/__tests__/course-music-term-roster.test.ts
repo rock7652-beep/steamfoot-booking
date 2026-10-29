@@ -13,11 +13,13 @@ vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
     courseBooking: { findMany: (query: { where: { sessionId?: string } }) => query.where.sessionId ? db.bookings(query) : db.absences(query), groupBy: db.leaveCounts },
     courseSession: { count: db.sessionCount },
+    courseTemplate: { findFirst: async () => null, findMany: async () => [] },
     coursePurchase: { findMany: db.purchases },
     coursePointCard: { findMany: db.cards },
   },
 }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findMany: db.customers } } }));
+vi.mock("@/server/services/music-item-cards",()=>({readMusicItemBalances:async()=>new Map()}));
 import { getCourseRoster } from "@/server/queries/course-members";
 
 const day = (n: number) => new Date(`2026-09-${String(n).padStart(2, "0")}T10:00:00.000Z`);

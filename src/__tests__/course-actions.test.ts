@@ -258,10 +258,10 @@ describe("course editing", () => {
   });
 });
 describe("course scheduling action", () => {
-  it("names open enrollment after the teaching item instead of a pricing package", async () => {
+  it.each(["OPEN","ASSIGNED"] as const)("names %s enrollment after the teaching item instead of a pricing package", async enrollment => {
     mocks.template.mockResolvedValue({ id:"yoga",name:"重量訓練 · abcdef",pointCost:2,isActive:true,visibility:"PUBLIC" });
     mocks.planName.mockResolvedValue({ name:"5次" });
-    const result = await createCourseSchedule({ ...input, repeatUntil:undefined, sportsStaging:{frequency:"SINGLE",enrollment:"OPEN",planId:null,students:[],trialPrice:0} });
+    const result = await createCourseSchedule({ ...input, repeatUntil:undefined, sportsStaging:{frequency:"SINGLE",enrollment,planId:null,students:[],trialPrice:0} });
     expect(result).toMatchObject({success:true});
     expect(mocks.create.mock.calls[0][0].data[0].nameSnapshot).toBe("重量訓練");
     expect(mocks.planName).not.toHaveBeenCalled();

@@ -25,7 +25,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     for (const statement of ddl.split(";").map(s => s.trim()).filter(Boolean)) {
       await testDb().$executeRawUnsafe(statement);
     }
-    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookPaymentMethod" AS ENUM (\'CASH\',\'OTHER\')');
     await testDb().$executeRawUnsafe(`CREATE TABLE "CashbookEntry" (
       id text PRIMARY KEY, "storeId" text, "entryDate" date, type text,
@@ -42,7 +42,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
 
   async function fixture() {
     const storeId = randomUUID(), purchaseId = randomUUID(), cardId = randomUUID();
-    await testDb().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    await testDb().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
     const plan = await testDb().coursePointPlan.create({ data: { storeId, name: storeId, points: 10, price: 1000, validDays: 30 } });
     await testDb().coursePointCard.create({ data: { id: cardId, storeId, planId: plan.id, nameSnapshot: "隔離並行退款", remaining: 6, expiresAt: new Date("2099-01-01"), requestKey: cardId } });
     await testDb().coursePointEntry.createMany({ data: [

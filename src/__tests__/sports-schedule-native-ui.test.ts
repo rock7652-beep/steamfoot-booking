@@ -28,22 +28,22 @@ it("教練視角帶入教練，空間預設第一個；五種排課有對應選�
  const m=await mount({coachId:"coach"});
  expect((m.host.querySelector('[aria-label="排課教練"]') as HTMLInputElement).value).toBe("王教練");expect((m.host.querySelector('[aria-label="排課空間"]') as HTMLInputElement).value).toBe("第一空間");
  const button=Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==="固定隔週")!;await act(async()=>button.click());expect(button.getAttribute('aria-pressed')).toBe("true");expect(button.className).toContain("bg-violet-100");
- expect(m.host.querySelectorAll('[role="combobox"]').length).toBe(3);expect(m.host.querySelector('[aria-label="排課收費方式"]')).toBeNull();await m.close();
+ expect(m.host.querySelectorAll('[role="combobox"]').length).toBe(4);expect(m.host.querySelector('[aria-label="排課收費方式"]')).toBeNull();await m.close();
 });
 
 it("學員姓名／電話即時篩選，切換開放選課仍保留已選草稿",async()=>{
  const m=await mount();expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
  const initialQuery=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(initialQuery,"學員");initialQuery.dispatchEvent(new Event("input",{bubbles:true}));});
- const checkbox=m.host.querySelector('input[type="checkbox"]') as HTMLInputElement;
+ const checkbox=m.host.querySelector('[role="option"]') as HTMLElement;
  await act(async()=>checkbox.click());expect(m.host.textContent).toContain("已選 1 人");
  const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
  await act(async()=>{setter.call(query,'找不到');query.dispatchEvent(new Event('input',{bubbles:true}));});
- expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);expect(m.host.querySelector('[aria-label="移除學員 學員"]')).not.toBeNull();
- await act(async()=>{setter.call(query,'0900');query.dispatchEvent(new Event('input',{bubbles:true}));});expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+ expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);expect(m.host.querySelector('[aria-label^="移除 學員"]')).not.toBeNull();
+ await act(async()=>{setter.call(query,'0900');query.dispatchEvent(new Event('input',{bubbles:true}));});expect(m.host.querySelectorAll('[role="option"]')).toHaveLength(1);
  const radios=Array.from(m.host.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
- await act(async()=>radios[1].click());await act(async()=>radios[0].click());expect(m.host.textContent).toContain('已選 1 人');expect((m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
+ await act(async()=>radios[1].click());await act(async()=>radios[0].click());expect(m.host.textContent).toContain('已選 1 人');expect(m.host.querySelector('[aria-label^="移除 學員"]')).not.toBeNull();
  await m.close();
 });
 
@@ -64,7 +64,7 @@ it("submits assigned scheduling without choosing a sales package",async()=>{
  const m=await mount({coachId:"coach"});
  const query=m.host.querySelector<HTMLInputElement>('[aria-label="搜尋學員"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(query,"學員");query.dispatchEvent(new Event("input",{bubbles:true}));});
- await act(async()=>m.host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+ await act(async()=>m.host.querySelector<HTMLElement>('[role="option"]')!.click());
  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
  const request=vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0] as {payload:Record<string,unknown>};
  expect(request.payload).toMatchObject({subject:"subject",coach:"王教練",coachId:"coach",mode:"指定學員",students:["student"]});
@@ -91,7 +91,7 @@ it("the original complete form routes scheduling to the injected core and retain
  const m=await mount({coachId:"coach"},{},source);
  const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(query,"學員");query.dispatchEvent(new Event("input",{bubbles:true}));});
- await act(async()=>(m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+ await act(async()=>(m.host.querySelector('[role="option"]') as HTMLElement).click());
  const previous=vi.mocked(sportsStagingCommand).mock.calls.length;
  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(command).toHaveBeenCalledWith(expect.objectContaining({operation:"schedule",payload:expect.objectContaining({students:["student"],coachId:"coach",kind:"每週固定",room:"第一空間"})}));

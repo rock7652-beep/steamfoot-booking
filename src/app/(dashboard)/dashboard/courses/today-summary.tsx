@@ -7,6 +7,8 @@ import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { todayRange } from "@/lib/date-utils";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { coursePurchaseIntentsEnabled } from "@/lib/course-purchase-intent-flag";
+import { CoursePurchaseIntentProvider } from "./purchase-recovery";
 
 export async function CourseTodaySummary() {
   const user = await getCurrentUser();
@@ -69,6 +71,7 @@ export async function CourseTodaySummary() {
         </Link>
       </div>
       {pendingPurchases > 0 && <div className="border-b border-earth-200 bg-secondary-50 px-4 py-2 text-sm"><Link href="/dashboard/revenue?status=PENDING" className="inline-flex min-h-11 items-center font-medium text-primary-800">待處理：{pendingPurchases} 筆方案待核帳 →</Link></div>}
+      <CoursePurchaseIntentProvider enabled={coursePurchaseIntentsEnabled(storeId)} storeId={storeId}>
       <CourseTodayList music={music}
         canCreate={canCreate}
         canEdit={canEdit}
@@ -85,6 +88,7 @@ export async function CourseTodaySummary() {
           unmarked: s.bookings.filter((b) => b.status === "RESERVED").length,
         }))}
       />
+      </CoursePurchaseIntentProvider>
       <nav aria-label="今日快捷操作" className="flex flex-wrap gap-2 border-t border-earth-200 p-3">
         {canCreate && <Link href={`/dashboard/courses?date=${dateStr}&action=schedule`} className="min-h-11 rounded-lg bg-primary-700 px-3 py-2 text-sm text-white">新增排課</Link>}
         {canCreate && <Link href={`/dashboard/courses?date=${dateStr}&action=booking`} className="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm text-primary-800">替學員預約</Link>}

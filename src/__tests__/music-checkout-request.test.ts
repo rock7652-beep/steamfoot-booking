@@ -1,6 +1,15 @@
 import { expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-import { withMusicCheckoutRequest, musicCheckoutPermission, musicCheckoutWriteStore, measureMusicCheckout } from "@/server/services/music-checkout-request";
+import { withMusicCheckoutRequest, musicCheckoutPermission, musicCheckoutWriteStore, measureMusicCheckout, musicCheckoutShouldDeferSnapshot } from "@/server/services/music-checkout-request";
+
+it("keeps projection deferral inside the explicit checkout request",async()=>{
+ expect(musicCheckoutShouldDeferSnapshot()).toBe(false);
+ expect(await Promise.all([
+  withMusicCheckoutRequest(async()=>musicCheckoutShouldDeferSnapshot(),{deferSnapshot:true}),
+  withMusicCheckoutRequest(async()=>musicCheckoutShouldDeferSnapshot()),
+ ])).toEqual([true,false]);
+ expect(musicCheckoutShouldDeferSnapshot()).toBe(false);
+});
 
 it("shares identical checks only within one checkout, including concurrent callers", async()=>{
   const check=vi.fn().mockResolvedValue({storeId:"a"});

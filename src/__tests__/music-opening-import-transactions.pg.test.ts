@@ -91,7 +91,7 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
         'DROP TABLE "CourseMusicOpeningState" CASCADE',
         'ALTER TABLE "CourseBooking" DROP COLUMN "musicOpeningTermKey" CASCADE, DROP COLUMN "musicOpeningLessonOrdinal" CASCADE, DROP COLUMN "musicOpeningSourceLessonKey" CASCADE',
         'ALTER TABLE "CoursePointCard" DROP COLUMN "musicOpeningStateRequired" CASCADE, ALTER COLUMN "expiresAt" SET NOT NULL',
-        'CREATE TABLE "Store"(id text PRIMARY KEY,slug text,"industryModule" text)',
+        'CREATE TABLE "Store"(id text PRIMARY KEY,slug text,"industryModule" text,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')',
         'CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text NOT NULL,name text,"serviceNote" text,"mergedIntoCustomerId" text,UNIQUE(id,"storeId"))',
         'CREATE TABLE "StoreFeatureEntitlement"("storeId" text,"featureKey" text,status text)',
         'CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text NOT NULL)',
@@ -107,7 +107,7 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
         IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
         IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF;
       END $$`);
-      await tx.$executeRaw`INSERT INTO "Store" VALUES(${actor.storeId},'lubymusic','COURSE')`;
+      await tx.$executeRaw`INSERT INTO "Store" (id,slug,"industryModule") VALUES(${actor.storeId},'lubymusic','COURSE')`;
       await tx.$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES(${actor.storeId},'business.music','ENABLED')`;
       const priorValues = readFileSync("prisma/migrations/20260925191000_course_music_absence/migration.sql", "utf8")
         .match(/ALTER TABLE "CourseBooking" ADD CONSTRAINT "CourseBooking_values" CHECK \([\s\S]*?\n\);/)?.[0];

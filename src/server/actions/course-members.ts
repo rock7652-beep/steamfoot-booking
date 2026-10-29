@@ -1,5 +1,6 @@
 "use server";
-import {withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
+import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
@@ -29,6 +30,10 @@ import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { courseCheckoutSchema } from "@/lib/course-checkout";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
+import { coursePurchaseIntentsEnabled } from "@/lib/course-purchase-intent-flag";
+import { parseCoursePurchaseIntentInput } from "@/server/services/course-purchase-intent-input";
+import { assertCourseIntentForCheckout, commitCourseIntent } from "@/server/services/course-purchase-intent";
+import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import { after } from "next/server";
 import { z } from "zod";
 import { updateCustomerSchema } from "@/lib/validators/customer";
@@ -322,7 +327,9 @@ export async function assignCoursePointCard(input: unknown) {
   try {
     if (input && typeof input === "object" && ["musicOpeningState","musicOpeningStateRequired","sourceKey","openingBalance"].some(key=>key in input))
       throw new AppError("VALIDATION","期初資料不可經新增購買或收款流程建立");
-    const { user, storeId } = await courseManager("wallet.create");
+    const [actor,financialActor] = await Promise.all([courseManager("wallet.create"),courseManager("transaction.create")]);
+    const {user,storeId}=actor;
+    if(financialActor.storeId!==storeId||financialActor.user.id!==user.id)throw new AppError("FORBIDDEN","店家範圍不一致");
     const data = z
       .object({
         planId: id,
@@ -334,20 +341,21 @@ export async function assignCoursePointCard(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0 || checkout.musicDiscountTeacherFee || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
+    const intentInput = coursePurchaseIntentsEnabled(storeId) ? parseCoursePurchaseIntentInput(input) : null;
+    let musicCheckout=false;
     const purchase=await courseTransaction(storeId, async tx => {
+      if (intentInput) await assertCourseIntentForCheckout(tx,storeId,intentInput);
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
-      const music = await isMusicCourseStore(tx, storeId);
+      const music = await isMusicCourseStore(tx, storeId);musicCheckout=music;
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
-      if(music&&data.bookingId&&purchase.cardId){
-        await courseManager("booking.update");
-        const {attachUnpaidMusicBookings}=await import("@/server/services/music-schedule-enrollment");
-        await attachUnpaidMusicBookings(tx,{storeId,userId:user.id,name:user.name??"店長"},purchase.cardId,data.customerId,data.bookingId);
-      }
+      if (intentInput) await commitCourseIntent(tx,storeId,intentInput,purchase.id);
+      // Purchasing grants rights only. Staff confirms attendance separately;
+      // selecting a new purchase here would bypass first-purchased-first-used.
+
       return purchase;
     });
     // The transaction is committed. Cache invalidation must not delay the
@@ -358,7 +366,13 @@ export async function assignCoursePointCard(input: unknown) {
       refresh();
     } catch { console.error("[course-checkout] committed; refresh invalidation failed"); }
     });
-    return { success: true as const,checkoutReceipt:{purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
+    const rosterSnapshot=await readPurchasedCourseRoster(storeId,data.customerId,data.bookingId);
+    const checkoutCards=!data.bookingId&&!musicCheckout?await readPurchasedCourseCards(data.customerId):null;
+    let musicSnapshot:import('@/lib/music-purchase-snapshot').MusicPurchaseSnapshot|null=null;
+    if(!musicCheckoutShouldDeferSnapshot()&&musicCheckout&&!data.bookingId&&input&&typeof input==='object'&&'musicSnapshotView' in input&&input.musicSnapshotView==='periods'){
+      try{const {readMusicPurchaseSnapshot}=await import('@/server/queries/music-purchase-snapshot');musicSnapshot=await readMusicPurchaseSnapshot(input);}catch{/* Committed purchase remains successful. */}
+    }
+    return { success: true as const,...(musicSnapshot?{musicSnapshot}:{}),...(checkoutCards?{checkoutCards}:{}),...(rosterSnapshot?{rosterSnapshot}:{}),checkoutReceipt:{storeId,requestKey:data.requestKey,purchaseId:purchase.id,cardId:purchase.cardId,customerId:data.customerId,name:purchase.name,quantity:purchase.points,unit:purchase.unit,paid:purchase.price} };
   } catch (error) {
     return handleActionError(error);
   }finally{console.info("[course-checkout-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
@@ -367,31 +381,38 @@ export async function assignCoursePointCard(input: unknown) {
 
 /** Checkout options for the learner currently selected in the schedule dialog. */
 export async function loadCourseStudentPurchase(bookingId: string) {
+  return withCourseCheckoutRequest(async timings=>{
+  const started=performance.now();
   try {
     id.parse(bookingId);
-    const { user, storeId } = await courseManager("wallet.create");
-    await courseManager("transaction.create");
+    const [actor,financialActor]=await Promise.all([courseManager("wallet.create"),courseManager("transaction.create")]);
+    const {user,storeId}=actor;
+    if(financialActor.storeId!==storeId||financialActor.user.id!==user.id)throw new AppError("FORBIDDEN","店家範圍不一致");
     const booking = await coursePrisma.courseBooking.findFirst({
       where: { id: bookingId, storeId },
-      select: { customerId: true, customerName: true, session: { select: { templateId: true } } },
+      select: { customerId: true, customerName: true, session: { select: { templateId: true,template:{select:{musicSubjectId:true}} } } },
     });
     if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
     const { checkPermission } = await import("@/lib/permissions");
+    const music=await isMusicCourseStore(coursePrisma,storeId);
     const itemTemplates = await musicItemTemplateIds(coursePrisma,storeId,booking.session.templateId);
-    const [plans, customer, canDiscount] = await Promise.all([
+    const [plans, customer, canDiscount, settlement, revenueStaffOptions] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
-        where: { storeId, isActive: true, unit: "SESSION", templateIds: { hasSome: itemTemplates } },
-        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
+        where: { storeId, isActive: true, unit:music?"SESSION":{in:["SESSION","POINT"]}, OR:[{templateIds:{hasSome:itemTemplates}},...(!music&&booking.session.template.musicSubjectId?[{sportsMode:"ASSIGNED",sportsSubjectId:booking.session.template.musicSubjectId}]:[])] },
+        select: { id: true, name: true, unit:true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
-      prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true } }),
+      prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true, assignedStaffId:true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
+      music?Promise.resolve({profitEnabled:false}):readSettlementSettings(coursePrisma,storeId),
+      music?Promise.resolve([]):prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",role:"OWNER"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount, music, profitEnabled:settlement.profitEnabled, revenueStaffOptions:settlement.profitEnabled?revenueStaffOptions:[], defaultRevenueStaffId:settlement.profitEnabled?revenueStaffOptions.find(staff=>staff.id===customer.assignedStaffId)?.id??"":"" } };
   } catch (error) {
     return handleActionError(error);
-  }
+  }finally{console.info("[course-purchase-options-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
+  });
 }
 
 export async function setCourseCardMembers(input: unknown) {
@@ -516,10 +537,13 @@ export async function createMemberCourseBooking(input: unknown) {
 }
 
 export async function updateCourseBookingStatus(input: unknown) {
+ return withCourseCheckoutRequest(async(timings)=>{
+  const started = performance.now();
   try {
     const data = z
       .object({
         bookingId: id,
+        returnRoster:z.boolean().default(false),
         status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW", "STUDENT_LEAVE"]),
         noShowChoice: z
           .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
@@ -592,10 +616,14 @@ export async function updateCourseBookingStatus(input: unknown) {
       if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
       else refresh();
     }
-    return { success: true as const };
+    const rosterSnapshot=data.returnRoster&&!data.member?await measureMusicCheckout("attendance.rosterSnapshot",()=>readCommittedCourseRoster(actor.storeId,settledSessionId)):null;
+    return { success: true as const,...(rosterSnapshot?{rosterSnapshot}:{}) };
   } catch (error) {
     return handleActionError(error);
+  } finally {
+    console.info("[course-attendance-perf]", {durationMs:Math.round(performance.now()-started),phases:timings});
   }
+ });
 }
 
 export async function cancelCourseSession(input: unknown) {
@@ -1007,6 +1035,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 }
 
 export async function updateCourseRosterBatch(input: unknown) {
+ return withCourseCheckoutRequest(async timings=>{
   const startedAt = Date.now();
   let authMs = 0;
   let lockWaitMs = 0;
@@ -1016,7 +1045,7 @@ export async function updateCourseRosterBatch(input: unknown) {
   let target = "UNKNOWN";
   let count = 0;
   try {
-    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
+    const data=z.object({sessionId:id,returnRoster:z.boolean().default(false),target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
     target = data.target;
     count = data.bookings.length;
@@ -1053,14 +1082,16 @@ export async function updateCourseRosterBatch(input: unknown) {
 
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     const refreshStartedAt = Date.now();
-    if (!(await musicLookup)) refresh();
+    if (!(await musicLookup)) after(()=>refresh());
     const refreshMs = Date.now() - refreshStartedAt;
-    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, totalMs: Date.now() - startedAt });
-    return {success:true as const};
+    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, phases:timings, totalMs: Date.now() - startedAt });
+    const rosterSnapshot=data.returnRoster?await readCommittedCourseRoster(storeId,data.sessionId):null;
+    return {success:true as const,...(rosterSnapshot?{rosterSnapshot}:{})};
   }catch(error){
     console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);
   }
+ });
 }
 
 /** One transaction for the manager's day-wide leave/attendance list. */

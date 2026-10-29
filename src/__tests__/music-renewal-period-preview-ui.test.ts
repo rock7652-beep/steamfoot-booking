@@ -2,9 +2,10 @@
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {expect,it,vi} from "vitest";
-const mock=vi.hoisted(()=>({periods:vi.fn(),reader:{read:vi.fn(),invalidate:vi.fn()}}));
-vi.mock("@/components/operations/panel-read-cache",()=>({usePanelReader:()=>mock.reader}));
+const mock=vi.hoisted(()=>({periods:vi.fn(),transport:vi.fn(),useReader:vi.fn(),reader:{read:vi.fn(),invalidate:vi.fn()}}));
+vi.mock("@/components/operations/panel-read-cache",()=>({usePanelReader:mock.useReader.mockImplementation(()=>mock.reader)}));
 vi.mock("@/server/actions/music-periods",()=>({loadMusicPeriods:mock.periods}));
+vi.mock("@/lib/music-period-read-client",()=>({readMusicPeriods:mock.transport}));
 vi.mock("@/server/actions/course-members",()=>({loadMusicJoinOptions:vi.fn()}));
 vi.mock("@/components/admin/course-assignment-payment",()=>({CourseAssignmentPayment:()=>null}));
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
@@ -15,6 +16,7 @@ it("previews cumulative renewal periods as quantity changes without changing pur
  const host=document.createElement("form");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(MusicAssignmentPayment,{plan,customerId:"student",canDiscount:true,onSummary:vi.fn()})));
+  expect(mock.useReader).toHaveBeenCalledWith("music-periods",mock.transport);
   expect(host.textContent).toContain("本次期別第 5 期");
   const quantity=host.querySelector<HTMLInputElement>('input[type="number"]')!;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(quantity,"2");quantity.dispatchEvent(new Event("input",{bubbles:true}));});

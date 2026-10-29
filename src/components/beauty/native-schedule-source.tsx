@@ -27,7 +27,7 @@ export function beautyNativeScheduleSource(data:BeautyDashboardData):{initial:Sp
    students:data.cards.filter(c=>!c.closedAt&&c.remaining>c.held).flatMap(c=>c.memberIds.flatMap(customerId=>c.serviceIds.map(serviceId=>({id:customerId,name:data.customers.find(p=>p.id===customerId)?.name??'',subject:serviceId,fee:c.planId,cardId:c.id,available:c.remaining-c.held,sportsMode:'ASSIGNED'})))),
   },
   source:{catalogHref:'?tab=服務項目',
-   reservation:{services:services.filter(s=>s.active),technicians:techs.filter(t=>t.active).map(t=>({id:t.id,name:t.name,serviceIds:t.serviceIds})),locations:locations.filter(r=>r.isActive).map(r=>({id:r.id,name:r.name})),customers:data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone})),cards:data.cards,policyRevision:data.policy.revision,
+   reservation:{itemEntitlements:true,services:services.filter(s=>s.active),technicians:techs.filter(t=>t.active).map(t=>({id:t.id,name:t.name,serviceIds:t.serviceIds})),locations:locations.filter(r=>r.isActive).map(r=>({id:r.id,name:r.name})),customers:data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone})),cards:data.cards,policyRevision:data.policy.revision,
     readAvailability:intent=>measureBooking('availability',()=>readBeautySlots('manager','',intent)),submit:intent=>measureBooking('submit',()=>bookBeautyParty('manager',intent)),
     ...(data.manage.customer&&data.access.customerAccess?{createCustomer:(input:{name:string;phone:string})=>createRentalCustomer(input,'beauty')}:{}),
    },

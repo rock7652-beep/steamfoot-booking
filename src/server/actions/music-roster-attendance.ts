@@ -1,6 +1,9 @@
 "use server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import {measureMusicCheckout,withCourseCheckoutRequest} from "@/server/services/music-checkout-request";
+import {readCommittedCourseRoster} from "@/server/queries/course-purchase-roster";
+import { after } from "next/server";
 import { AppError, handleActionError } from "@/lib/errors";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { correctCourseAttendance } from "@/server/services/course-booking";
@@ -8,15 +11,17 @@ import { isMusicCourseStore } from "@/server/services/course-business-profile";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 
-const schema=z.object({bookingId:z.string().min(1).max(100),expectedStatus:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"]),target:z.enum(["RESERVED","WAIVED","NO_SHOW"])});
+const schema=z.object({returnRoster:z.boolean().default(false),bookingId:z.string().min(1).max(100),expectedStatus:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"]),target:z.enum(["RESERVED","WAIVED","NO_SHOW"])});
 /** Manager correction: the existing attendance ledger refunds or deducts once, in the store lock. */
 export async function correctMusicRosterAttendance(input:unknown){
+ return withCourseCheckoutRequest(async(timings)=>{
+ const started=performance.now();
  try{
   const data=schema.parse(input);
   const {storeId,user}=await courseManager("booking.update");
-  await courseTransaction(storeId,async tx=>{
+  const sessionId=await courseTransaction(storeId,async tx=>{
    if(!await isMusicCourseStore(tx,storeId))throw new AppError("FORBIDDEN","此入口僅適用音樂課程");
-   const booking=await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId},select:{status:true,absenceKind:true,bookingKind:true,musicOpeningMakeupEntitlementId:true,card:{select:{requestKey:true}}}});
+   const booking=await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId},select:{sessionId:true,status:true,absenceKind:true,bookingKind:true,musicOpeningMakeupEntitlementId:true,card:{select:{requestKey:true}}}});
    if(!booking||booking.status!==data.expectedStatus)throw new AppError("CONFLICT","點名狀態已變更，請重新核對");
    if(booking.card?.requestKey.startsWith("yjy-"))throw new AppError("VALIDATION","封存來源方案請由原核對流程更正，未變更點名或堂數");
    if(isMusicOpeningMakeupBooking(booking))throw new AppError("FORBIDDEN",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
@@ -27,8 +32,14 @@ export async function correctMusicRosterAttendance(input:unknown){
    if(booking.status==="CANCELLED"&&data.target==="NO_SHOW")await correctCourseAttendance(tx,actor,data.bookingId,"RESERVED","CANCELLED",{suppressNotice:true});
    await correctCourseAttendance(tx,actor,data.bookingId,data.target==="WAIVED"?"CANCELLED":data.target,booking.status==="CANCELLED"&&data.target==="NO_SHOW"?"RESERVED":booking.status,{suppressNotice:true,...(data.target==="WAIVED"?{waiveAbsence:true}:{})});
    await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseBooking",targetId:data.bookingId,action:`ATTENDANCE_${data.target}`,summary:({RESERVED:"恢復待點名",WAIVED:"請假（不扣堂）",NO_SHOW:"曠課（扣堂）"} as const)[data.target]},tx);
+   return booking.sessionId;
   });
-  revalidatePath("/dashboard/courses");revalidatePath("/book");
-  return {success:true as const};
+  // The active roster reconciles committed rows directly. Invalidation must not
+  // attach an unrelated dashboard render to the financial correction response.
+  after(()=>{revalidatePath("/dashboard/courses");revalidatePath("/book");});
+  const rosterSnapshot=data.returnRoster?await measureMusicCheckout("attendance.rosterSnapshot",()=>readCommittedCourseRoster(storeId,sessionId)):null;
+  return {success:true as const,...(rosterSnapshot?{rosterSnapshot}:{})};
  }catch(error){return handleActionError(error);}
+ finally{console.info("[music-attendance-correction-perf]",{durationMs:Math.round(performance.now()-started),phases:timings});}
+ });
 }

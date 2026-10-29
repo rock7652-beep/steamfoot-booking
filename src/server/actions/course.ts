@@ -279,7 +279,7 @@ export async function updateCourseSession(input: unknown) {
       async (tx) => {
         const stores = await tx.$queryRaw<
           Array<{ id: string }>
-        >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+        >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
         const [session, room, coaches] = await Promise.all([
@@ -484,10 +484,11 @@ export async function createCourseSchedule(input: unknown) {
     const data = courseScheduleInput
       .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    if(!data.isTrial)data.chargePlanId=undefined;
     const chargeDefaults=data.chargePlanId?await (await import('@/lib/shop-config')).getTrialSettings(storeId):null;
     const receiptSession=data.chargePlanId?await coursePrisma.courseSession.findFirst({where:{storeId,requestKey:data.requestKey,createdById:user.id},orderBy:{requestIndex:'asc'}}):null;
     const captured=courseChargeSnapshot.safeParse(receiptSession?.chargeSnapshot);
-    const chargeQuote=captured.success&&captured.data.planId===data.chargePlanId?{snapshot:captured.data,duration:Math.round((+receiptSession!.endsAt-+receiptSession!.startsAt)/60000),trialPrice:captured.data.isTrial?captured.data.trialPrice:null}:await resolveScheduleCharge(coursePrisma,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+    const chargeQuote=!data.isTrial?null:captured.success&&captured.data.planId===data.chargePlanId?{snapshot:captured.data,duration:Math.round((+receiptSession!.endsAt-+receiptSession!.startsAt)/60000),trialPrice:captured.data.isTrial?captured.data.trialPrice:null}:await resolveScheduleCharge(coursePrisma,storeId,{...data,sports:!!data.sportsStaging,requireSelection:true,open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
     if(chargeQuote){
       data.durationMinutes=chargeQuote.duration;
       if(data.isTrial){
@@ -562,7 +563,7 @@ export async function createCourseSchedule(input: unknown) {
         // Serialize this store's batches; a retried request returns its original
         // batch. DB exclusion constraints also protect writes outside this action.
         const stores = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE
+        SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
@@ -736,9 +737,9 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
-        // Open classes are named for the teaching item, independently of the
-        // cards/pricing packages members use to attend them.
-        const sportsPlanName=data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
+        // Regular classes use the teaching item in every enrollment mode.
+        // A pricing name is relevant only to an explicitly priced trial.
+        const sportsPlanName=data.isTrial&&data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
         if(musicScheduling)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{not:null},OR:occurrences.map(range=>({rescheduledFromStartsAt:{lt:range.endsAt},rescheduledFromEndsAt:{gt:range.startsAt},OR:[{rescheduledFromRoomId:data.roomId},{rescheduledFromCoachId:data.coachId}]}))},data:{rescheduleShadowHidden:true}});
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
@@ -1122,7 +1123,7 @@ export async function setCourseCatalogStatus(input: unknown) {
     await coursePrisma.$transaction(async (tx) => {
       const stores = await tx.$queryRaw<
         Array<{ id: string }>
-      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`;
       if (!stores.length)
         throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
       if (data.kind === "room" && !data.isActive && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});

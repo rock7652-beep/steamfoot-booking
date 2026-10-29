@@ -112,10 +112,10 @@ describe("course business boundaries", () => {
     expect(courseDebitPolicy("MUSIC",{...leave,hasCard:false}).shouldDebit).toBe(false);
   });
 
-  it("deducts paid no-shows in both businesses but only sports allows a makeup voucher", () => {
+  it("deducts paid no-shows in both businesses without issuing a no-show makeup voucher", () => {
     const missed = {target:"NO_SHOW" as const,hasCard:true};
     expect(courseDebitPolicy("MUSIC",missed)).toMatchObject({shouldDebit:true,allowsNoShowMakeup:false});
-    expect(courseDebitPolicy("FITNESS",missed)).toMatchObject({shouldDebit:true,allowsNoShowMakeup:true});
+    expect(courseDebitPolicy("FITNESS",missed)).toMatchObject({shouldDebit:true,allowsNoShowMakeup:false});
     for (const profile of ["MUSIC","FITNESS"] as const) {
       expect(courseDebitPolicy(profile,{...missed,hasCard:false}).shouldDebit).toBe(false);
       expect(courseDebitPolicy(profile,{target:"CANCELLED",hasCard:true}).shouldDebit).toBe(false);

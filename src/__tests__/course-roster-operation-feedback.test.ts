@@ -7,8 +7,10 @@ vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }))
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
 const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
 vi.mock("@/lib/sports-session-detail-client",()=>({readSportsSessionDetail:m.native}));
+vi.mock('@/lib/music-panel-transport',()=>({musicPanelRead:(_operation:string,_args:unknown[],fallback:()=>unknown)=>fallback()}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn() }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: vi.fn() }));
@@ -23,6 +25,7 @@ vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 import { OperationScope } from "@/components/operations/operation-scope";
+import {publishMusicFinanceChange} from '@/lib/music-finance-sync';
 
 const booking = (id = "a", notes = "原始備註") => ({
   id, customerId: id, customerName: id === "a" ? "甲同學" : "乙同學", customerPhone: "0900000001",
@@ -60,6 +63,35 @@ const row = (name = "甲同學") => host.querySelector<HTMLButtonElement>(`butto
 const attendance = (name = "甲同學") => row(name).querySelector<HTMLButtonElement>("button[data-roster-action-trigger]")!;
 async function clickAttendance(name = "甲同學") { await act(async () => attendance(name).click()); }
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; }
+
+it('applies a matching authoritative attendance projection without another request',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),status:'ATTENDED',customerName:'後端確認學員'},booking('b')],waitlist:[]}}});
+ await render(true);await clickAttendance();expect(m.quick).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="後端確認學員：已出席"]')).not.toBeNull();
+});
+it('does not use another class projection and falls back to its scoped reader',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'foreign',data:{roster:[{...booking(),planName:'不得套用'}]}}});
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[]}});
+ await render(true);await clickAttendance();expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('不得套用');
+});
+it('reconciles once instead of accepting an older response after concurrent row writes',async()=>{
+ const first=deferred<unknown>(),second=deferred<unknown>();m.status.mockImplementation(input=>input.bookingId==='a'?first.promise:second.promise);
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},{...booking('b'),status:'ATTENDED'}],waitlist:[]}});
+ await render(true);await clickAttendance();await clickAttendance('乙同學');
+ await act(async()=>second.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[booking(),{...booking('b'),status:'ATTENDED'}]}}}));
+ await act(async()=>first.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),planName:'過期回應',status:'ATTENDED'},booking('b')]}}}));
+ expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('過期回應');expect(attendance('乙同學').getAttribute('aria-label')).toBe('乙同學：已出席');
+});
+
+it('defers finance-triggered quick reads during attendance and reconciles exactly once after commit',async()=>{
+ const oldPath=window.location.pathname;vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState({},'','/s/lubymusic/admin/dashboard/courses');
+ try{
+  const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
+  m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[],teacherAttendance:'SCHEDULED'}});
+  await render(true);await clickAttendance();
+  await act(async()=>publishMusicFinanceChange());expect(m.quick).not.toHaveBeenCalled();
+  await act(async()=>write.resolve({success:true}));expect(m.quick).toHaveBeenCalledOnce();
+ }finally{vi.unstubAllEnvs();window.history.replaceState({},'',oldPath);}
+});
 
 it.each([false, true])("%s shows local pending immediately, guards same-tick repeats and waits for server confirmation", async music => {
   const write = deferred<{ success: boolean }>(); m.status.mockReturnValue(write.promise);

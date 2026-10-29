@@ -80,3 +80,14 @@ it("refreshes receipt readers without refreshing the whole course page",async()=
  expect(refresh).not.toHaveBeenCalled();
  expect(await readers.panel.read("1")).toBe("after");
 });
+it('keeps an open music roster mounted and refreshes the outer page once after closing',async()=>{
+ refresh.mockClear();const fetcher=vi.fn().mockResolvedValueOnce('old').mockResolvedValueOnce('new');
+ const marker=document.createElement('section');marker.dataset.liveMusicRoster='true';document.body.append(marker);
+ try{
+  await act(async()=>root.render(tree('roster',[consumer('panel',fetcher)])));
+  const original=readers.panel;expect(await original.read('1')).toBe('old');
+  await act(async()=>{window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:'attendance-while-open:1'}));window.dispatchEvent(new CustomEvent(MUSIC_FINANCE_SIGNAL,{detail:'attendance-while-open:2'}));});
+  expect(refresh).not.toHaveBeenCalled();expect(readers.panel).toBe(original);expect(await original.read('1')).toBe('new');
+  marker.remove();await act(async()=>window.dispatchEvent(new Event('music-roster-closed')));expect(refresh).toHaveBeenCalledOnce();
+ }finally{marker.remove();}
+});
