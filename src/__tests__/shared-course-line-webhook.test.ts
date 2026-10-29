@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ bind:vi.fn(),store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn(), reply: vi.fn() }));
+const m = vi.hoisted(() => ({ bind:vi.fn(),store: vi.fn(), verify: vi.fn(), links: vi.fn(), update: vi.fn(), reply: vi.fn(), rebind: vi.fn() }));
 vi.mock("@/server/services/store-line-notification-binding",()=>({bindStoreLineNotificationRecipient:m.bind}));
+vi.mock("@/server/services/phone-line-rebind",()=>({completePhoneLineRebind:m.rebind}));
 vi.mock("@/lib/db", () => ({ prisma: {
   store: { findFirst: m.store }, customerIdentityLink: { findMany: m.links }, customer: { updateMany: m.update },
 } }));
@@ -15,9 +16,20 @@ beforeEach(() => {
   vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
   vi.stubEnv("NEXTAUTH_URL", "https://booking.example");
   m.verify.mockReturnValue(true);
+  m.rebind.mockResolvedValue("not_requested");
   m.store.mockImplementation(async ({ where }) => ({ id: where.id, slug: where.slug, name: `門市 ${where.id}`, shopConfig: null }));
   m.links.mockImplementation(async ({ where }) => [{ customerId: "customer-" + where.storeId }]);
   m.update.mockResolvedValue({ count: 1 });
+});
+it("dispatches an authorized phone rebind only after the official account signature is verified", async () => {
+  m.rebind.mockResolvedValue("linked");
+  const input = { ...request(), events: [{ type: "message", source: { userId: "U" + "1".repeat(32) }, message: { type: "text", text: "0912345678" }, replyToken: "reply", timestamp: Date.now() }] };
+  expect(await handleConfiguredCourseLineWebhook(input)).toBe("handled");
+  expect(m.rebind).toHaveBeenCalledWith(expect.objectContaining({ storeIds: ["a", "b"], phone: "0912345678", destination: a.destination }));
+  expect(m.reply).toHaveBeenCalledWith("a", "reply", [{ type: "text", text: "LINE 綁定已完成。" }]);
+  m.rebind.mockClear(); m.verify.mockReturnValue(false);
+  expect(await handleConfiguredCourseLineWebhook(input)).toBe("invalid_signature");
+  expect(m.rebind).not.toHaveBeenCalled();
 });
 it("welcomes a shared-account follower once with explicit store entries and never captures a phone", async () => {
   m.links.mockResolvedValue([]);

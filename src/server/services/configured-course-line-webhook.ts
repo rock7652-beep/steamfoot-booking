@@ -8,6 +8,7 @@ import { captureStoreMemberConnection, connectionReplyText } from "./store-membe
 import { normalizePhone } from "@/lib/normalize";
 import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
 import { resolveBookingLineEntry } from "./booking-line-entry";
+import { completePhoneLineRebind } from "./phone-line-rebind";
 
 /** OA events describe friendship, not a booking's store. Never choose the
  * first store or run legacy phone binding for a configured course account. */
@@ -41,6 +42,11 @@ export async function handleConfiguredCourseLineWebhook(input: {
     if (await handleMemberConnectionWebhook({ destination: input.destination!, storeIds: configs.map(c => c.storeId), event })) continue;
     const phone = normalizePhone(event.message?.text ?? "");
     if (event.type === "message" && event.message?.type === "text" && /^09\d{8}$/.test(phone) && event.source?.userId) {
+      const rebind = await completePhoneLineRebind({ storeIds: configs.map(c => c.storeId), destination: input.destination!, lineUserId: event.source.userId, phone, timestamp: event.timestamp ?? 0 });
+      if (rebind !== "not_requested") {
+        if (event.replyToken) await replyMessage(configs[0].storeId, event.replyToken, [{ type: "text", text: rebind === "linked" ? "LINE 綁定已完成。" : "目前無法完成綁定，請聯繫門市確認資料。" }]);
+        continue;
+      }
       const text = configs.length === 1
         ? await connectionReplyText(await captureStoreMemberConnection({ storeId: configs[0].storeId, destination: input.destination!, lineUserId: event.source.userId, phone, timestamp: event.timestamp ?? 0 }), configs[0].storeId, event.source.userId)
         : "此官方 LINE 有多家門市，請掃您交件門市的 QR 完成連結。電話尚未綁定。";

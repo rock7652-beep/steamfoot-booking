@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { normalizePhone } from "@/lib/normalize";
 import { AppError, handleActionError } from "@/lib/errors";
+import { getLineSecretForStore } from "@/lib/line-config";
 import { cancelLineRebindRequest, createLineRebindRequest } from "@/server/services/line-rebind";
 import type { LineRebindDryRunResult } from "@/server/services/line-rebind-dry-run";
 import type { ActionResult } from "@/types";
@@ -19,6 +20,21 @@ function requireRebindAdministrator(actor: { role: string }) {
   if (actor.role !== "OWNER" && actor.role !== "ADMIN") {
     throw new AppError("FORBIDDEN", "僅限 OWNER 或 ADMIN 管理 LINE 重新綁定申請");
   }
+}
+
+export async function startPhoneLineRebindAction(customerId: string): Promise<ActionResult> {
+  try {
+    const actor = await requirePermission("customer.identity.rebind");
+    requireRebindAdministrator(actor);
+    const id = z.string().cuid().parse(customerId);
+    const customer = await prisma.customer.findUnique({ where: { id }, select: { storeId: true } });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(actor, customer.storeId);
+    if (!getLineSecretForStore(customer.storeId)) throw new AppError("VALIDATION", "本店官方 LINE 尚未完成設定，請先聯絡管理員");
+    const { startPhoneLineRebind } = await import("@/server/services/phone-line-rebind");
+    await startPhoneLineRebind({ customerId: id, storeId: customer.storeId, actorUserId: actor.id });
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
 }
 
 /** PR-1 only: creates a 15-minute capture window, never a rebind. */

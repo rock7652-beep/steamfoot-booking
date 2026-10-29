@@ -2,6 +2,7 @@ import { bindStoreLineNotificationRecipient } from "@/server/services/store-line
 import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
+import { completePhoneLineRebind } from "@/server/services/phone-line-rebind";
 // ============================================================
 // LINE Webhook — 完整事件處理（B7-4.5: store-aware）
 //
@@ -459,6 +460,13 @@ async function handleTextMessage(
   }
   const normalizedPhone = normalizePhone(text);
   if (/^09\d{8}$/.test(normalizedPhone)) {
+    if (verifiedDestination) {
+      const rebind = await completePhoneLineRebind({ storeIds: [storeId], destination: verifiedDestination, lineUserId, phone: normalizedPhone, timestamp: eventIdentity?.timestamp ?? 0 });
+      if (rebind !== "not_requested") {
+        if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: rebind === "linked" ? "LINE 綁定已完成。" : "目前無法完成綁定，請聯繫門市確認資料。" }]);
+        return;
+      }
+    }
     // A phone number can be both a Digital Butler answer and a notification
     // binding request. Let an active Butler conversation consume and persist
     // the answer first; then perform the binding without spending the LINE

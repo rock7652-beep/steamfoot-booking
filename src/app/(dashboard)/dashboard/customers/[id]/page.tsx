@@ -250,10 +250,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         customerId: id,
         storeId: effectiveStoreId,
         status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
+        OR: [{ untilUsed: true }, { expiresAt: { gt: new Date() } }],
       },
       select: {
         id: true,
         status: true,
+        reason: true,
         capturedAt: true,
         expiresAt: true,
         untilUsed: true,
@@ -905,6 +907,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   activeLineRebindRequest={activeLineRebindRequest ? {
                     id: activeLineRebindRequest.id,
                     status: activeLineRebindRequest.status,
+                    phoneRebindFailed: activeLineRebindRequest.reason === "OA_PHONE_REBIND_FAILED",
                     capturedAt: activeLineRebindRequest.capturedAt?.toISOString() ?? null,
                     expiresAt: activeLineRebindRequest.expiresAt.toISOString(),
                     untilUsed: activeLineRebindRequest.untilUsed,

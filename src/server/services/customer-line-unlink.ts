@@ -27,7 +27,20 @@ export async function unlinkCustomerLine(input: { customerId: string; storeId: s
       data: { status: "CANCELLED", cancelledAt: new Date(), cancelledByUserId: input.actorUserId },
     });
     await tx.customerIdentityLink.deleteMany({
-      where: { customerId: input.customerId, storeId: input.storeId, provider: "line" },
+      where: { customerId: input.customerId, storeId: input.storeId, OR: [
+        { provider: "line" },
+        { provider: { startsWith: "line-provider:" } },
+        { provider: { startsWith: "line-messaging:" } },
+      ] },
+    });
+    // A previous notification approval must not continue to describe this
+    // customer as linked after the LINE identity has been removed. Login
+    // recovery requests and every other customer's records are independent.
+    await tx.storeMemberConnection.updateMany({
+      where: { customerId: input.customerId, storeId: input.storeId,
+        status: { in: ["PENDING", "APPROVED"] },
+        channelKey: { not: { startsWith: "login:" } } },
+      data: { status: "REJECTED" },
     });
     await tx.customer.update({
       where: { id: input.customerId, storeId: input.storeId },

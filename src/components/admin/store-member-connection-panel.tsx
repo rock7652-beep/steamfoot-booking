@@ -24,6 +24,20 @@ export function StoreMemberConnectionPanel({ customerId, compact=false,initial }
     }).catch(() => { if (key === sequence.current) setError("目前無法讀取，請重新開啟"); });
     return () => { sequence.current = key + 1; };
   }, [customerId, reader,initial?.customerId,initial?.value]);
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== customerId) return;
+      const key = ++sequence.current;
+      reader.invalidate(customerId);
+      void reader.read(customerId).then(value => {
+        if (key !== sequence.current) return;
+        if (value.success && "canConfirm" in value) { setResult(value); setError(null); }
+        else if (!value.success) setError(value.error);
+      }).catch(() => { if (key === sequence.current) setError("目前無法讀取，請重新開啟"); });
+    };
+    window.addEventListener("customer-line:changed", refresh);
+    return () => { window.removeEventListener("customer-line:changed", refresh); sequence.current++; };
+  }, [customerId, reader]);
   async function confirm(id: string, kind: "login" | "notification", verificationCode: string) {
     if (submitting.current) return;
     submitting.current = true; setBusy(true); setError(null);
