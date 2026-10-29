@@ -242,7 +242,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const canEdit = user.role !== "CUSTOMER" && !isViewMode;
   const canRunLineRebindDryRun = Boolean(getLineConfigForStore(effectiveStoreId).expectedBasicId);
   const [canManageLineRebind, activeLineRebindRequest] = await Promise.all([
-    checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false),
+    (user.role === "OWNER" || user.role === "ADMIN") && !isViewMode
+      ? checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false)
+      : Promise.resolve(false),
     prisma.lineRebindRequest.findFirst({
       where: {
         customerId: id,

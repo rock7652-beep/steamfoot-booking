@@ -126,6 +126,23 @@ describe("LINE rebind execution", () => {
     expect(h.customerUpdate).not.toHaveBeenCalled();
   });
 
+  it("never replaces a global login Account used by another customer or store", async () => {
+    h.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "another-store-customer" }]);
+    await expect(executeLineRebind({ requestId: "request-1", actorUserId: "owner-1", actorRole: "OWNER" }))
+      .resolves.toEqual({ status: "rejected", code: "LINE_REBIND_CONFLICT" });
+    expect(h.customerUpdate).not.toHaveBeenCalled();
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+    expect(h.accountDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects another store's identity reference before changing the global Account", async () => {
+    h.links.mockResolvedValueOnce([]).mockResolvedValueOnce([{ customerId: "another-store-customer", userId: "user-1" }]);
+    await expect(executeLineRebind({ requestId: "request-1", actorUserId: "owner-1", actorRole: "OWNER" }))
+      .resolves.toEqual({ status: "rejected", code: "LINE_REBIND_CONFLICT" });
+    expect(h.customerUpdate).not.toHaveBeenCalled();
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+  });
+
   it("fails closed for a same-store Customer candidate collision", async () => {
     h.customers.mockResolvedValue([{ id: "other-customer" }]);
     await expect(executeLineRebind({ requestId: "request-1", actorUserId: "owner-1", actorRole: "OWNER" })).resolves.toEqual({ status: "rejected", code: "LINE_REBIND_CONFLICT" });

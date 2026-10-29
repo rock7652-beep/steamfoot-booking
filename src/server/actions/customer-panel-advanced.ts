@@ -16,7 +16,7 @@ export async function getCustomerPanelAdvanced(customerId:string) {
     if(!customer || customer.user?.status === "SUSPENDED")throw new AppError("NOT_FOUND","顧客不存在");
     const [canManageLineRebind,request]=await Promise.all([
       checkPermission(actor.role,actor.staffId,"customer.identity.rebind"),
-      prisma.lineRebindRequest.findFirst({where:{customerId,storeId:customer.storeId,status:{in:["PENDING_CAPTURE","CANDIDATE_CAPTURED"]}},select:{id:true,status:true,capturedAt:true,expiresAt:true,untilUsed:true,candidate:{select:{userIdHash:true}}}}),
+      prisma.lineRebindRequest.findFirst({where:{customerId,storeId:customer.storeId,status:{in:["PENDING_CAPTURE","CANDIDATE_CAPTURED"]},OR:[{untilUsed:true},{expiresAt:{gt:new Date()}}]},select:{id:true,status:true,capturedAt:true,expiresAt:true,untilUsed:true,candidate:{select:{userIdHash:true}}}}),
     ]);
     return {success:true as const,data:{customer,canManageLineRebind:canManageLineRebind && (actor.role === "OWNER" || actor.role === "ADMIN") && !context?.isViewMode,canRunLineRebindDryRun:Boolean(getLineConfigForStore(customer.storeId).expectedBasicId),activeLineRebindRequest:request?{id:request.id,status:request.status,capturedAt:request.capturedAt?.toISOString()??null,expiresAt:request.expiresAt.toISOString(),untilUsed:request.untilUsed,userIdHashPrefix:request.candidate?.userIdHash.slice(0,8)??null}:null}};
   }catch(error){return handleActionError(error);}

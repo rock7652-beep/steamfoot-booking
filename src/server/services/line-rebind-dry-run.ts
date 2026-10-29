@@ -59,17 +59,23 @@ export async function runLineRebindDryRun(requestId: string): Promise<LineRebind
   const identityLinkConsistency = activeLinks.length === 1 ? pass() : fail("IDENTITY_LINK_INCONSISTENT");
   let customerConflict: Check = pass("NO_CONFLICT"), lineBot: Check = fail("LINE_TOKEN_NOT_CONFIGURED"), lineProfile: Check = fail("LINE_PROFILE_NOT_CHECKED"), botBasicId: string | null = null;
   if (candidateUserId && candidateIntegrity.status === "PASS") {
-    const [customers, links, accounts] = await Promise.all([
+    const [customers, links, accounts, otherCustomers, otherLinks] = await Promise.all([
       prisma.customer.findMany({ where: { storeId: request.storeId, lineUserId: candidateUserId }, select: { id: true, userId: true } }),
       prisma.customerIdentityLink.findMany({ where: { storeId: request.storeId, OR: [{ lineUserId: candidateUserId }, { provider: "line", providerAccountId: candidateUserId }] }, select: { customerId: true, userId: true } }),
       prisma.account.findMany({ where: { provider: "line", providerAccountId: candidateUserId }, select: { userId: true } }),
+      request.customer.userId ? prisma.customer.findMany({ where: { id: { not: request.customerId }, userId: request.customer.userId }, select: { id: true } }) : Promise.resolve([]),
+      request.customer.userId ? prisma.customerIdentityLink.findMany({ where: {
+        customerId: { not: request.customerId }, provider: "line",
+        OR: [{ userId: request.customer.userId }, { providerAccountId: request.customer.lineUserId ?? "" }, { lineUserId: request.customer.lineUserId }],
+      }, select: { customerId: true, userId: true } }) : Promise.resolve([]),
     ]);
     const knownUsers = new Set([request.customer.userId, ...request.customer.identityLinks.map((x) => x.userId)].filter(Boolean));
     const foreignCustomer = customers.some((customer) => customer.id !== request.customerId);
     const foreignIdentityLink = links.some((link) => link.customerId !== request.customerId || (Boolean(link.userId) && !knownUsers.has(link.userId)));
     const foreignAccount = accounts.some((account) => Boolean(account.userId) && !knownUsers.has(account.userId));
     const foreign = foreignCustomer || foreignIdentityLink || foreignAccount;
-    customerConflict = foreign ? fail("CANDIDATE_USED_BY_OTHER_CUSTOMER") : pass("NO_CONFLICT");
+    customerConflict = foreign ? fail("CANDIDATE_USED_BY_OTHER_CUSTOMER")
+      : otherCustomers.some(row => row.id !== request.customerId) || otherLinks.some(row => row.customerId !== request.customerId) ? fail("GLOBAL_ACCOUNT_SHARED_WITH_OTHER_CUSTOMER") : pass("NO_CONFLICT");
     const { accessToken: token, expectedBasicId } = getLineConfigForStore(request.storeId);
     if (!expectedBasicId) lineBot = fail("LINE_BOT_EXPECTED_ID_MISSING");
     else if (token) {
