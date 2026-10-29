@@ -7,6 +7,7 @@ type Input = Record<string, unknown> & { customerId: string; requestKey: string 
 type ScopedKey = { customerId: string; expectedStoreId: string; requestKey?: string };
 type Port = {
   prepare: (input: Input) => Promise<Result<BeautyIntent>>;
+  prepareAtomic: (input: Input) => Promise<Result<{kind:'prepared'|'existing';intent:BeautyIntent}>>;
   read: (input: ScopedKey) => Promise<Result<BeautyIntent | null>>;
   cancel: (input: Required<ScopedKey>) => Promise<Result<BeautyIntent>>;
   acknowledge: (input: Required<ScopedKey> & { purchaseId: string }) => Promise<Result<BeautyIntent>>;
@@ -32,6 +33,10 @@ export function beautyPlanRecoveryTransport(storeId: string, rosterSessionId: st
   const scope = (customerId: string, requestKey?: string): ScopedKey => ({customerId, expectedStoreId: storeId, ...(requestKey ? {requestKey} : {})});
   return {
     prepare: async (input, requestKey) => mapResult(await port.prepare(beautyPlanCheckoutInput({...input,requestKey},storeId,rosterSessionId))),
+    prepareAtomic: async (input, requestKey) => {
+      const result=await port.prepareAtomic(beautyPlanCheckoutInput({...input,requestKey},storeId,rosterSessionId));
+      return result.success?{success:true,data:{kind:result.data.kind,intent:normalize(result.data.intent)}}:result;
+    },
     get: async (customerId, requestKey) => mapOptional(await port.read(scope(customerId,requestKey))),
     getPending: async customerId => mapOptional(await port.read(scope(customerId))),
     cancel: async (customerId, requestKey) => mapResult(await port.cancel({customerId,expectedStoreId:storeId,requestKey})),

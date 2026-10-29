@@ -123,7 +123,7 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
     const expected = generation.current;
     const previous = currentView.current;
     if (previous.kind === "checking" || previous.kind === "inactive" || previous.kind === "uncertain" || (previous.kind === "intent" && previous.intent.status !== "PREPARED")) return null;
-    const next = await execute(item => previous.kind === "none-known" ? (scope.transport ? item.start(input) : item.startAtomic(input)) : item.retry(input));
+    const next = await execute(item => previous.kind === "none-known" ? (!scope.transport || scope.transport.prepareAtomic ? item.startAtomic(input) : item.start(input)) : item.retry(input));
     if (expected !== generation.current || !currentScope.current.enabled || currentScope.current.customerId !== input.customerId || currentScope.current.storeId !== scope.storeId || currentScope.current.family !== scope.family || currentScope.current.transport !== scope.transport) return null;
     if (next?.kind !== "intent" || next.recovered || next.intent.status !== "PREPARED") return null;
     return { ...input, requestKey: next.intent.requestKey };

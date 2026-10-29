@@ -42,6 +42,20 @@ export async function prepareBeautyPlanIntent(tx:Tx,a:BeautyActor,input:{request
   return view(rows[0]);
 }
 
+/** Caller holds the store lock. A competing key receives a durable cancellation
+ * barrier before it is told about the unresolved original purchase. */
+export async function prepareBeautyPlanIntentAtomic(tx:Tx,a:BeautyActor,input:{requestKey:string;customerId:string;fingerprint:string}):Promise<{kind:'prepared'|'existing';intent:BeautyPlanIntentView}> {
+  const prior=await byKey(tx,a.storeId,input.requestKey);
+  if(prior)return {kind:'prepared',intent:await prepareBeautyPlanIntent(tx,a,input)};
+  const existing=await readBeautyPlanIntent(tx,a,{customerId:input.customerId});
+  if(existing){
+    const barrier=await cancelBeautyPlanIntent(tx,a,{customerId:input.customerId,requestKey:input.requestKey});
+    if(barrier.status!=='CANCELLED')throw new AppError('CONFLICT','購買識別碼狀態已變更，請先核對');
+    return {kind:'existing',intent:existing};
+  }
+  return {kind:'prepared',intent:await prepareBeautyPlanIntent(tx,a,input)};
+}
+
 /** An absent request must also be cancelled durably: a delayed prepare using the
  * same key must never recreate it after the operator has cancelled. */
 export async function cancelBeautyPlanIntent(tx:Tx,a:BeautyActor,input:{requestKey:string;customerId:string}):Promise<BeautyPlanIntentView> {

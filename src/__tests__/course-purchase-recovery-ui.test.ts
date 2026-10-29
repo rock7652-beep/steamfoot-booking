@@ -213,3 +213,14 @@ it("shows a conflicting purchase from another device and never sends a second pa
   expect(host.textContent).toContain("待確認購買");
   expect([...Object.keys(sessionStorage)].map(k=>sessionStorage.getItem(k)).join()).toContain(other.requestKey);
 });
+
+it("uses an injected atomic prepare and does not send checkout for another device's intent",async()=>{
+ const other={status:"PREPARED" as const,requestKey:"1ff0de58-4872-4eaf-8642-218f8d995e86",purchaseId:null};
+ const atomic=vi.fn().mockResolvedValue({success:true,data:{kind:"existing",intent:other}});
+ const scoped={...api,prepareAtomic:atomic};
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:"test-store",family:"beauty-plan",transport:scoped},createElement(Body,{customerId:"student-a"}))));
+ expect(api.getPending).toHaveBeenCalledOnce();
+ await act(async()=>button("購買").click());
+ expect(atomic).toHaveBeenCalledOnce();expect(api.getPending).toHaveBeenCalledOnce();
+ expect(send).not.toHaveBeenCalled();expect(host.textContent).toContain("待確認購買");
+});

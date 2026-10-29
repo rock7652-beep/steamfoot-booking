@@ -9,7 +9,7 @@ vi.mock('next/dynamic',()=>({default:()=>()=>null}));
 vi.mock('@/lib/beauty/customer-reader',()=>({beautyCustomerReaders:()=>({})}));
 vi.mock('@/server/actions/beauty-customer-attribution',()=>({saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn(),bulkAssignBeautyCustomers:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-customers',()=>({maintainBeautyNativeCard:vi.fn(),saveBeautyNativeCustomerProfile:vi.fn(),saveBeautyNativeCustomerNote:vi.fn(),saveBeautyNativeCardMembers:vi.fn(),assignBeautyNativeCard:m.assign}));
-vi.mock('@/server/actions/beauty-purchase-intent',()=>({prepareBeautyPlanPurchaseIntent:vi.fn(),readBeautyPlanPurchaseIntent:vi.fn(),cancelBeautyPlanPurchaseIntent:vi.fn(),acknowledgeBeautyPlanPurchaseIntent:vi.fn()}));
+vi.mock('@/server/actions/beauty-purchase-intent',()=>({prepareBeautyPlanPurchaseIntent:vi.fn(),prepareBeautyPlanPurchaseIntentAtomic:vi.fn(),readBeautyPlanPurchaseIntent:vi.fn(),cancelBeautyPlanPurchaseIntent:vi.fn(),acknowledgeBeautyPlanPurchaseIntent:vi.fn()}));
 vi.mock('@/app/(dashboard)/dashboard/courses/purchase-recovery',()=>({CoursePurchaseIntentProvider:(props:{enabled:boolean;storeId:string;family?:string;children:unknown})=>{m.provider=props;return props.children;}}));
 vi.mock('@/app/(dashboard)/dashboard/courses/member-workspace',()=>({CourseMemberWorkspace:({source}:{source:CourseCustomerSource})=>{m.source=source;return null;}}));
 import {BeautyNativeCustomerWorkspace} from '@/components/beauty/native-customer-source';

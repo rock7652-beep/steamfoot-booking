@@ -9,7 +9,7 @@ import { AppError,handleActionError } from '@/lib/errors';
 import { calculateCourseCheckout } from '@/lib/course-checkout';
 import { beautyManager,beautyTransaction } from '@/server/beauty/access';
 import { beautyNativePlanCheckoutSchema,beautyPlanPurchaseIntentsEnabled } from '@/server/beauty/plan-checkout-input';
-import { acknowledgeBeautyPlanIntent,beautyPlanIntentFingerprint,cancelBeautyPlanIntent,prepareBeautyPlanIntent,readBeautyPlanIntent } from '@/server/beauty/purchase-intent';
+import { acknowledgeBeautyPlanIntent,beautyPlanIntentFingerprint,cancelBeautyPlanIntent,prepareBeautyPlanIntent,prepareBeautyPlanIntentAtomic,readBeautyPlanIntent } from '@/server/beauty/purchase-intent';
 
 const id=z.string().min(1).max(180);
 const lookup=z.object({customerId:id,expectedStoreId:id,requestKey:z.string().uuid().optional()});
@@ -29,7 +29,7 @@ async function authorized(input:{customerId:string;expectedStoreId:string},write
 }
 async function result<T>(work:()=>Promise<T>){try{return {success:true as const,data:await work()};}catch(error){return handleActionError(error);}}
 
-export async function prepareBeautyPlanPurchaseIntent(input:unknown){
+async function prepare(input:unknown,atomic:boolean){
   return result(async()=>{
     const d=beautyNativePlanCheckoutSchema.parse(input),actor=await authorized(d,true);
     if(d.revenueStaffId||d.expectedStoreCost||d.musicPurchaseTerms||d.musicValidityDays||d.musicManualBonus||d.musicJoinSessionId)throw new AppError('VALIDATION','此服務方案不使用課程期數或成本欄位');
@@ -37,8 +37,17 @@ export async function prepareBeautyPlanPurchaseIntent(input:unknown){
     if(d.paymentMethod==='BANK_TRANSFER'&&!/^\d{4}$/.test(d.transferLastFour))throw new AppError('VALIDATION','請填寫轉帳末四碼');
     calculateCourseCheckout(d.expectedListPrice,d.discountKind,d.discountValue);
     const fingerprint=beautyPlanIntentFingerprint(d);
-    return beautyTransaction(actor,tx=>prepareBeautyPlanIntent(tx,actor,{customerId:d.customerId,requestKey:d.requestKey,fingerprint}));
+    return beautyTransaction(actor,async tx=>atomic
+      ?prepareBeautyPlanIntentAtomic(tx,actor,{customerId:d.customerId,requestKey:d.requestKey,fingerprint})
+      :{kind:'prepared' as const,intent:await prepareBeautyPlanIntent(tx,actor,{customerId:d.customerId,requestKey:d.requestKey,fingerprint})});
   });
+}
+export async function prepareBeautyPlanPurchaseIntent(input:unknown){
+  const r=await prepare(input,false);
+  return r.success?{success:true as const,data:r.data.intent}:r;
+}
+export async function prepareBeautyPlanPurchaseIntentAtomic(input:unknown){
+  return prepare(input,true);
 }
 
 export async function readBeautyPlanPurchaseIntent(input:unknown){

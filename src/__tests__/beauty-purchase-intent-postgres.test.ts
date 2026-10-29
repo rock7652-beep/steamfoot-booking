@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 vi.mock('server-only',()=>({}));
-import { acknowledgeBeautyPlanIntent, beautyPlanIntentFingerprint, cancelBeautyPlanIntent, commitBeautyPlanIntent, prepareBeautyPlanIntent, readBeautyPlanIntent } from '@/server/beauty/purchase-intent';
+import { acknowledgeBeautyPlanIntent, beautyPlanIntentFingerprint, cancelBeautyPlanIntent, commitBeautyPlanIntent, prepareBeautyPlanIntent, prepareBeautyPlanIntentAtomic, readBeautyPlanIntent } from '@/server/beauty/purchase-intent';
 import { assertOnlineConfirmationSettled } from '@/server/beauty/online-confirm-guard';
 import type { Tx } from '@/server/beauty/booking';
 
@@ -57,6 +57,23 @@ describe.skipIf(!valid)('beauty plan intent with real store-row locking',()=>{
   }finally{delete process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED;}
  });
  it('cancellation before a delayed prepare leaves a durable tombstone',async()=>{const k=key+'-cancel';expect((await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId}))).status).toBe('CANCELLED');expect((await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}))).status).toBe('CANCELLED');await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>({cardId:'never'})))).rejects.toThrow('安全取消');});
+ it('atomic concurrent preparations return one original and tombstone the competing key',async()=>{
+  const keys=[key+'-atomic-one',key+'-atomic-two'];
+  const results=await Promise.all(keys.map(requestKey=>transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey,customerId,fingerprint:fp()}))));
+  const winner=results.find(x=>x.kind==='prepared'),other=results.find(x=>x.kind==='existing');
+  expect(winner?.intent.status).toBe('PREPARED');expect(other?.intent).toEqual(winner?.intent);
+  const loser=keys.find(k=>k!==winner?.intent.requestKey)!;
+  expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId,requestKey:loser})))?.status).toBe('CANCELLED');
+  expect((await transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey:loser,customerId,fingerprint:fp()}))).intent.status).toBe('CANCELLED');
+  await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:loser,customerId,fingerprint:fp()},async()=>({cardId:'never-atomic'})))).rejects.toThrow('安全取消');
+  await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{customerId,requestKey:winner!.intent.requestKey}));
+ });
+ it('atomic prepare respects a cancellation made before the delayed original request',async()=>{
+  const requestKey=key+'-atomic-late';await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey,customerId}));
+  const result=await transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey,customerId,fingerprint:fp()}));
+  expect(result.intent.status).toBe('CANCELLED');
+  await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey,customerId,fingerprint:fp()},async()=>({cardId:'never-late'})))).rejects.toThrow('安全取消');
+ });
  it('concurrent different keys for the same customer permit one prepared intent',async()=>{const results=await Promise.allSettled(['one','two'].map(s=>transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:key+s,customerId,fingerprint:fp()}))));expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);const row=await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId}));expect(row?.status).toBe('PREPARED');expect(row).toBeTruthy();await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{customerId,requestKey:row!.requestKey}));});
  it('a committed sale replay or cancellation never creates a second card',async()=>{const k=key+'-commit';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));const create=async(tx:Tx)=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'card-1')`;await tx.$executeRaw`INSERT INTO "TestCard" (id) VALUES ('card-1')`;return {cardId:'card-1'};};const results=await Promise.all([transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},()=>create(tx))),transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},()=>create(tx)))]);expect(results).toEqual([{cardId:'card-1'},{cardId:'card-1'}]);expect((await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId}))).status).toBe('COMMITTED');expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId})))?.status).toBe('COMMITTED');await expect(transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:key+'-new',customerId,fingerprint:fp()}))).rejects.toThrow('未確認');await expect(transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'wrong'}))).rejects.toThrow('不一致');expect((await transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'card-1'}))).status).toBe('ACKNOWLEDGED');const c=await connect();const count=await c.query('SELECT count(*)::int AS n FROM "TestCard"');await c.end();expect(count.rows).toEqual([{n:1}]);});
  it('rejects a changed input and rolls back failed writes',async()=>{const k=key+'-changed';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:beautyPlanIntentFingerprint({amount:999})},async()=>({cardId:'x'})))).rejects.toThrow('資料已變更');await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "TestCard" (id) VALUES ('will-rollback')`;throw new Error('injected failure');}))).rejects.toThrow('injected failure');expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId,requestKey:k})))?.status).toBe('PREPARED');const c=await connect();const rows=await c.query('SELECT id FROM "TestCard" WHERE id=$1',['will-rollback']);await c.end();expect(rows.rows).toEqual([]);});
