@@ -460,7 +460,7 @@ it('rejects discount without grant, stale money snapshots and discounts below co
 
 describe('explicit back-office attendance correction',()=>{
  it.each([
-  ['RESERVED',false,'NO_SHOW',false,0],['NO_SHOW',true,'NO_SHOW',false,1],['NO_SHOW',true,'COMPLETED',undefined,0],['COMPLETED',true,'NO_SHOW',false,1]
+  ['RESERVED',false,'NO_SHOW',true,-1],['NO_SHOW',false,'NO_SHOW',true,-1],['NO_SHOW',true,'NO_SHOW',true,0],['COMPLETED',true,'NO_SHOW',true,0],['RESERVED',false,'NO_SHOW',false,0],['NO_SHOW',true,'NO_SHOW',false,1],['NO_SHOW',true,'COMPLETED',undefined,0],['COMPLETED',true,'NO_SHOW',false,1]
  ] as const)('reconciles %s/%s to %s/%s exactly once',async(status,debit,target,noShowDeduct,delta)=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status,debit,noShowDeduct:false} as never);
   await transition(tx,a,{id:'b',revision:0,target,reason:'合成出席更正',...(noShowDeduct===undefined?{}:{noShowDeduct})});
@@ -470,8 +470,8 @@ describe('explicit back-office attendance correction',()=>{
  it('preserves an explicit no-show decision when a legacy caller repeats the same state',async()=>{
   vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'NO_SHOW',debit:true,noShowDeduct:false} as never);await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',reason:'重送'});expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
  });
- it('rejects stale revisions and retired deduction requests before ledger writes',async()=>{
-  await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('未到扣次功能已停用');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+ it('rejects stale revisions and deductions without a plan before ledger writes',async()=>{
+  await expect(transition(tx,a,{id:'b',revision:99,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('預約已更新');vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null} as never);await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'合成'})).rejects.toThrow('此預約未使用方案，無法扣次');expect(tx.beautyLedger.create).not.toHaveBeenCalled();
  });
 });
 it('does not append another receipt or revision for a zero payment with unchanged discount',async()=>{
@@ -595,9 +595,20 @@ it.each(['CANCELLED','NO_SHOW'])('never deducts for %s despite legacy flags',asy
  expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
  expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({debit:false,fee:0})}));
 });
-it('rejects explicit no-show deductions even when the plan has balance',async()=>{
- await expect(transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'舊版請求'})).rejects.toThrow('未到扣次功能已停用');
- expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+it('deducts only once for an explicit manager no-show correction and never creates cash or a service fee',async()=>{
+ await transition(tx,a,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'後台人工確認'});
+ expect(tx.beautyCard.update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:{increment:-1}}});
+ expect(tx.beautyLedger.create).toHaveBeenCalledTimes(1);
+ expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'NO_SHOW',debit:true,fee:0})}));
+ expect(tx.beautyPayment.create).not.toHaveBeenCalled();
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:'NO_SHOW',debit:true,revision:1} as never);
+ await transition(tx,a,{id:'b',revision:1,target:'NO_SHOW',noShowDeduct:true,reason:'重送'});
+ expect(tx.beautyCard.update).toHaveBeenCalledTimes(1);expect(tx.beautyLedger.create).toHaveBeenCalledTimes(1);
+});
+it('rejects customer deductions and wrong-target manual flags before ledger writes',async()=>{
+ await expect(transition(tx,member,{id:'b',revision:0,target:'NO_SHOW',noShowDeduct:true,reason:'非後台'})).rejects.toThrow('請聯絡店家');
+ await expect(transition(tx,a,{id:'b',revision:0,target:'CANCELLED',noShowDeduct:true,reason:'錯誤目標'})).rejects.toThrow('只有後台');
+ expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
 });
 it.each(['CANCELLED','NO_SHOW'])('preserves historical %s deductions on an unchanged status retry',async status=>{
  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status,debit:true,noShowDeduct:true} as never);
