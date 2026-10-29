@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession, requireStaffSession } from "@/lib/session";
@@ -1399,7 +1400,7 @@ function generateBindingCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 排除易混淆字元
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[randomInt(chars.length)];
   }
   return code;
 }
@@ -1409,13 +1410,16 @@ export async function generateLineBindingCode(
   customerId: string
 ): Promise<ActionResult<{ code: string }>> {
   try {
-    const user = await requirePermission("customer.update");
+    const user = await requirePermission("customer.identity.rebind");
+    if (user.role !== "OWNER" && user.role !== "ADMIN") {
+      throw new AppError("FORBIDDEN", "僅限負責人或管理員管理 LINE 綁定");
+    }
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
-    if (customer.lineLinkStatus === "LINKED") {
-      throw new AppError("BUSINESS_RULE", "此顧客���綁定 LINE，請先解除綁定");
+    if (customer.lineUserId || customer.lineLinkStatus !== "UNLINKED" || customer.mergedIntoCustomerId) {
+      throw new AppError("BUSINESS_RULE", "此顧客已綁定 LINE 或狀態已異動，請重新讀取");
     }
 
     // 產生唯一綁定碼（最多嘗試 10 次）
@@ -1429,14 +1433,15 @@ export async function generateLineBindingCode(
       if (attempt === 9) throw new AppError("BUSINESS_RULE", "產生綁定碼失敗，請重試");
     }
 
-    await prisma.customer.update({
-      where: { id: customerId },
+    const updated = await prisma.customer.updateMany({
+      where: { id: customerId, storeId: customer.storeId, lineUserId: null, lineLinkStatus: "UNLINKED", mergedIntoCustomerId: null },
       data: {
         lineBindingCode: code,
         lineBindingCodeCreatedAt: new Date(),
       },
     });
 
+    if (updated.count !== 1) throw new AppError("BUSINESS_RULE", "顧客綁定狀態已異動，請重新讀取");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: { code } };
   } catch (e) {
@@ -1448,38 +1453,6 @@ export async function generateLineBindingCode(
 export async function unlinkLineAccount(
   customerId: string
 ): Promise<ActionResult<void>> {
-  try {
-    const user = await requirePermission("customer.identity.rebind");
-    if (user.role !== "OWNER" && user.role !== "ADMIN") {
-      throw new AppError("FORBIDDEN", "僅限負責人或管理員解除 LINE 綁定");
-    }
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { id: true, storeId: true },
-    });
-    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    assertStoreAccess(user, customer.storeId);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.customerIdentityLink.deleteMany({
-        where: { customerId, storeId: customer.storeId, provider: "line" },
-      });
-      await tx.customer.update({
-        where: { id: customerId },
-        data: {
-          lineUserId: null,
-          lineName: null,
-          lineLinkedAt: null,
-          lineLinkStatus: "UNLINKED",
-          lineBindingCode: null,
-          lineBindingCodeCreatedAt: null,
-        },
-      });
-    });
-    revalidatePath(`/dashboard/customers/${customerId}`);
-    revalidatePath("/dashboard/customers");
-    return { success: true, data: undefined };
-  } catch (e) {
-    return handleActionError(e);
-  }
+  const { unlinkLineAccount: unlink } = await import("@/server/actions/customer-line");
+  return unlink(customerId);
 }

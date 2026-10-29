@@ -1,6 +1,5 @@
 "use client";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
-import { CustomerLineBindingControl } from "./customer-line-binding-control";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 
@@ -202,7 +201,7 @@ export function CustomerDetailDrawerContent({
         </section>
 
         {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
-        {!readOnly && canEditNote && <CustomerLineBindingControl customerId={customer.id} status={customer.lineLinkStatus} onUpdated={handleMutated} />}
+        <CustomerPanelAdvanced key={customer.id} managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
@@ -320,7 +319,6 @@ export function CustomerDetailDrawerContent({
             {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
           </dl>
         </CollapsibleSection>
-        <CustomerPanelAdvanced managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         </section>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">
