@@ -1,0 +1,102 @@
+{
+  "scope": "real hosted Preview, synthetic QA1465 accounts and records, Chromium viewport simulation",
+  "commit": "331827d7fa853c9b1efedcb1b94805fd9d4c3ea5",
+  "checks": [
+    {
+      "name": "missing LINE setup fails closed",
+      "passed": true
+    },
+    {
+      "name": "OWNER unlink A persisted and reopened drawer shows UNLINKED",
+      "passed": true
+    },
+    {
+      "name": "OWNER generates actual one-time code for unlinked A",
+      "passed": true
+    },
+    {
+      "name": "ADMIN unlinks isolated D through normal authenticated UI without navigation",
+      "passed": true
+    },
+    {
+      "name": "OWNER cross-store C rejected by backend",
+      "passed": true,
+      "error": "無權存取其他店舖的資料"
+    },
+    {
+      "name": "STAFF with stale dedicated grant has no unlink UI and backend rejects B",
+      "passed": true,
+      "error": "僅限負責人或管理員解除 LINE 綁定"
+    }
+  ],
+  "sizes": [
+    {
+      "width": 1366,
+      "height": 900,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 560,
+      "height": 800,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryReachable": true,
+      "primaryWidth": 108,
+      "primaryHeight": 44
+    }
+  ],
+  "pageErrors": [],
+  "harnessNotes": [
+    "Initial OWNER mutation committed successfully; Chromium response.text was unavailable after RSC refresh. Resumed without repeating the mutation and verified persisted UI/database state."
+  ],
+  "passed": true
+}

@@ -7,10 +7,10 @@ vi.mock("@/server/actions/line-rebind",()=>({createLineRebindCaptureRequest:vi.f
 import {LineBindingSection} from "@/app/(dashboard)/dashboard/customers/[id]/line-binding-section";
 it("compact manager view exposes status and help without identifiers, capture internals or unlink",()=>{
  const html=renderToStaticMarkup(createElement(LineBindingSection,{compact:true,customerId:"test",lineLinkStatus:"LINKED",lineUserId:"Uprivate-identifier",lineLinkedAt:null,lineBindingCode:null,lineBindingCodeCreatedAt:null,canManageLineRebind:true,canRunLineRebindDryRun:false,activeLineRebindRequest:null}));
- expect(html).toContain("已綁定");expect(html).toContain("重新綁定");
+ expect(html).toContain("已綁定");expect(html).toContain("⋯ 管理");
  for(const text of ["Uprivate-identifier","LINE User ID","候選密文","解除綁定","hash"]){expect(html).not.toContain(text);}
 });
 it("unlinked compact view does not expose a generated code until help is requested",()=>{
  const html=renderToStaticMarkup(createElement(LineBindingSection,{compact:true,customerId:"test",lineLinkStatus:"UNLINKED",lineUserId:null,lineLinkedAt:null,lineBindingCode:"private-code",lineBindingCodeCreatedAt:null,canManageLineRebind:false,canRunLineRebindDryRun:false,activeLineRebindRequest:null}));
- expect(html).toContain("未綁定");expect(html).toContain("協助綁定");expect(html).not.toContain("private-code");
+ expect(html).toContain("未綁定");expect(html).toContain("⋯ 管理");expect(html).not.toContain("private-code");
 });

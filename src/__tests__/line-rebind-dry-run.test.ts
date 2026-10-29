@@ -15,6 +15,12 @@ function request(overrides: Record<string, unknown> = {}) { const c = candidate(
 describe("LINE rebind dry-run security", () => {
   beforeEach(() => { vi.clearAllMocks(); process.env.LINE_REBIND_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64url"); h.findUnique.mockResolvedValue(request()); h.customers.mockResolvedValue([]); h.links.mockResolvedValue([]); h.accounts.mockResolvedValue([]); h.config.mockReturnValue({ accessToken: "test", expectedBasicId: "@ok" }); vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ basicId: "@ok" }), { status: 200 })).mockResolvedValueOnce(new Response("{}", { status: 200 }))); });
   it("returns READY_FOR_REBIND when all checks pass", async () => { const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("READY_FOR_REBIND"); expect(r.checks.lineProfile).toMatchObject({ status: "PASS" }); expect(r.candidateMaskedUserId).not.toBe(uid); });
+  it("blocks a central login shared with another store before offering rebind", async () => {
+    h.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "other-store-customer" }]);
+    const result = await runLineRebindDryRun("r1");
+    expect(result.overall).toBe("NOT_READY");
+    expect(result.checks.customerConflict.code).toBe("GLOBAL_ACCOUNT_SHARED_WITH_OTHER_CUSTOMER");
+  });
   it("rejects a missing request", async () => { h.findUnique.mockResolvedValue(null); await expect(runLineRebindDryRun("none")).rejects.toThrow("LINE_REBIND_REQUEST_NOT_FOUND"); });
   it("fails when candidate is missing", async () => { h.findUnique.mockResolvedValue(request({ candidate: null })); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("NOT_READY"); expect(r.checks.candidateIntegrity.code).toBe("CANDIDATE_MISSING"); });
   it("short-circuits expired requests before decrypting, querying, or calling LINE", async () => {

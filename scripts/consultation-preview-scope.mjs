@@ -377,6 +377,12 @@ export function assertReviewedReleaseEnvironment(env) {
     assertSportsSharedCardPreviewEnvironment(env);
     return "sports-shared-card-preview";
   }
+  if (env.VERCEL_GIT_COMMIT_REF === "fix/customer-line-binding-management-20261029") {
+    // Same exact repository, isolated connection and notification gates. This
+    // customer-only review must never apply unrelated pending migrations.
+    assertSportsSharedCardPreviewEnvironment(env);
+    return "module-roster-preview";
+  }
   assertSportsSharedCardPreviewEnvironment(env);
   return "sports-shared-card-preview";
 }

@@ -1,0 +1,243 @@
+{
+  "commit": "af1b53221ebeebf28e4242bdb612c73ba6aa2390",
+  "scope": "authenticated isolated Preview; real components; synthetic QA1465 data; Chromium viewport simulation",
+  "checks": [
+    {
+      "name": "initial open A",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "after actual note save and server refresh",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "after compare-and-set undo and server refresh",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "switch to B",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 1366x900",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 1920x1080",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 1024x768",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 768x1024",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 560x800",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 390x844",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "viewport 360x800",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    },
+    {
+      "name": "return to A after seven resizes and B confirmation cancelled",
+      "membershipPanels": 1,
+      "lineManagers": 1
+    }
+  ],
+  "sizes": [
+    {
+      "width": 1366,
+      "height": 900,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 560,
+      "height": 800,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "documentOverflow": false,
+      "dialogOverflow": false,
+      "primaryWidth": 108,
+      "primaryHeight": 44,
+      "primaryReachable": true
+    }
+  ],
+  "pageErrors": [],
+  "staticFailures": [
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/38zi712zna5j2.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2uqyk9rk6d3g5.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2b9-9h5j1t-a3.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ol16qmzkvz93.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2kfvm5mlopbpz.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ioxix1cg_-bq.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3b74odoq2duo5.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3n9_x9yw9ntow.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2x8c3yae9i3eb.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0a30myrqwzcwl.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1gx3q_t4t0tqv.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0bxd90yl24dxg.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/29olnez67jsz5.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3x4edn4ha9x5x.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3figeh5tvttx6.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2vcj1cuinfpgh.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2nxr1t6cmqbca.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3azevnpv6botr.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0ixnvi9qq_jjv.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1glpgh07o13d7.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0ambgv387vyv1.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1f05zwdz9m-ms.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1if8snblge2nb.js",
+      "status": 404
+    }
+  ],
+  "failure": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     path: '/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/38zi712zna5j2.css',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2uqyk9rk6d3g5.css',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/1-9yb6i_h9yg1.css',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2b9-9h5j1t-a3.css',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3ol16qmzkvz93.css',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2kfvm5mlopbpz.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3ioxix1cg_-bq.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3b74odoq2duo5.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3n9_x9yw9ntow.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2x8c3yae9i3eb.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/0a30myrqwzcwl.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/1gx3q_t4t0tqv.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/0bxd90yl24dxg.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/29olnez67jsz5.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3x4edn4ha9x5x.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3figeh5tvttx6.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2vcj1cuinfpgh.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/2nxr1t6cmqbca.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/3azevnpv6botr.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/0ixnvi9qq_jjv.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/1glpgh07o13d7.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/0ambgv387vyv1.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/1f05zwdz9m-ms.js',\n+     status: 404\n+   },\n+   {\n+     path: '/_next/static/immutable/chunks/1if8snblge2nb.js',\n+     status: 404\n+   }\n+ ]\n- []\n"
+}

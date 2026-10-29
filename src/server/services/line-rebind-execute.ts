@@ -119,6 +119,20 @@ export async function executeLineRebind(input: {
       const existingCandidateAccount = candidateAccounts[0] ?? null;
       const oldAccount = await tx.account.findFirst({ where: { userId: targetUserId, provider: "line", providerAccountId: oldUserId }, select: { id: true } });
 
+      // Account is global, while this operation is store-scoped. Replacing its
+      // login identity must never change another customer's access, even when
+      // both records currently share the same central user.
+      if (oldAccount) {
+        const [otherCustomers, otherLinks] = await Promise.all([
+          tx.customer.findMany({ where: { id: { not: request.customerId }, userId: targetUserId }, select: { id: true } }),
+          tx.customerIdentityLink.findMany({ where: {
+            customerId: { not: request.customerId }, provider: "line",
+            OR: [{ userId: targetUserId }, { providerAccountId: oldUserId }, { lineUserId: oldUserId }],
+          }, select: { customerId: true, userId: true } }),
+        ]);
+        if (otherCustomers.length || otherLinks.length) throw new RebindRejected("LINE_REBIND_CONFLICT");
+      }
+
       const customerUpdated = await tx.customer.updateMany({
         where: { id: request.customerId, storeId: request.storeId, userId: targetUserId, lineUserId: oldUserId },
         data: { lineUserId: candidateUserId, lineLinkStatus: "LINKED", lineLinkedAt: now },
