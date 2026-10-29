@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ session: vi.fn(), joins: vi.fn(), cards: vi.fn(), rule: vi.fn() }));
+const m = vi.hoisted(() => ({ session: vi.fn(), joins: vi.fn(), cards: vi.fn(), rule: vi.fn(), music: vi.fn() }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {
   courseSession: { findFirst: m.session, findMany: m.joins },
   coursePointCard: { findMany: m.cards },
@@ -7,6 +7,7 @@ vi.mock("@/lib/course-db", () => ({ coursePrisma: {
 vi.mock("@/server/services/sports-staging-schedule", () => ({ readSportsSessionRule: m.rule }));
 vi.mock("@/server/services/sports-teaching-templates", () => ({ readSportsTeachingTemplates: async () => ["old-A", "new-A"] }));
 vi.mock("@/server/services/music-item-compatibility", () => ({ musicItemTemplateIds: async () => ["old-A", "new-A"] }));
+vi.mock("@/server/services/music-item-cards", () => ({ musicItemCards: m.music }));
 import { readCourseApplicableBalances } from "@/server/services/course-applicable-balances";
 
 const card = (id: string, remaining: number, held = 0) => ({
@@ -24,6 +25,7 @@ beforeEach(() => {
     startsAt: new Date("2026-11-04"), template: { musicSubjectId: "A" } });
   m.rule.mockResolvedValue({ enrollment: "ASSIGNED", planId: null });
   m.joins.mockResolvedValue([]);
+  m.music.mockImplementation(async () => m.cards());
 });
 afterEach(() => vi.useRealTimers());
 it.each([false, true])("aggregates all valid A cards for music=%s", async music => {
@@ -31,9 +33,9 @@ it.each([false, true])("aggregates all valid A cards for music=%s", async music 
   const result = await readCourseApplicableBalances("store", "lesson", ["ming", "ming"], music);
   expect(result.get("ming")?.groups).toEqual([{ unit: "SESSION", remaining: 21, held: 1, available: 20 }]);
   expect(m.cards).toHaveBeenCalledTimes(1);
-  expect(m.cards.mock.calls[0][0].where).toMatchObject({ storeId: "store", closedAt: null, members: { some: { customerId: { in: ["ming"] } } } });
+  if (!music) expect(m.cards.mock.calls[0][0].where).toMatchObject({ storeId: "store", closedAt: null, members: { some: { customerId: { in: ["ming"] } } } });
 });
-it.each([false, true])("excludes expired, wrong-item, restricted-term and makeup cards for music=%s", async music => {
+it.each([false])("excludes expired, wrong-item, restricted-term and makeup cards for music=%s", async music => {
   m.cards.mockResolvedValue([
     card("valid", 20),
     { ...card("expired", 99), expiresAt: new Date("2026-11-01") },
@@ -45,10 +47,11 @@ it.each([false, true])("excludes expired, wrong-item, restricted-term and makeup
   ]);
   expect((await readCourseApplicableBalances("store", "lesson", ["ming"], music)).get("ming")?.groups[0].available).toBe(20);
 });
-it("does not include a music purchase before its join date", async () => {
-  m.cards.mockResolvedValue([{ ...card("later", 20), musicJoinSessionId: "join" }]);
-  m.joins.mockResolvedValue([{ id: "join", startsAt: new Date("2026-11-10") }]);
+it("delegates native music eligibility to the attendance reader", async () => {
+  m.music.mockResolvedValueOnce([]);
   expect((await readCourseApplicableBalances("store", "lesson", ["ming"], true)).get("ming")?.cards).toEqual([]);
+  expect(m.music).toHaveBeenCalledWith(expect.anything(), "store", ["ming"], expect.objectContaining({id:"lesson"}));
+  expect(m.rule).not.toHaveBeenCalled();
 });
 it("does not multiply shared balances or return another member's identity", async () => {
   m.cards.mockResolvedValue([{ ...card("shared", 20, 2), members: [{ customerId: "ming" }, { customerId: "other" }] }]);

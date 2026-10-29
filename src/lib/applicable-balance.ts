@@ -1,3 +1,5 @@
+import { sumItemBalances } from "./item-entitlement";
+
 /** Display projection only. Each module verifies membership, item and expiry first.
  * Balances stay on their original cards; this summary never authorizes a debit.
  */
@@ -26,17 +28,9 @@ export function summarizeApplicableBalance(cards: ApplicableBalanceCard[]): Appl
     held: Math.max(0, card.held),
     available: Math.max(0, card.remaining - Math.max(0, card.held)),
   })).sort((a, b) => (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999") || a.id.localeCompare(b.id));
-  const groups: ApplicableBalance["groups"] = [];
-  for (const card of rows) {
-    let group = groups.find(group => group.unit === card.unit);
-    if (!group) {
-      group = { unit: card.unit, remaining: 0, held: 0, available: 0 };
-      groups.push(group);
-    }
-    group.remaining += card.remaining;
-    group.held += card.held;
-    // Clamp each card independently: a deficit on one card cannot consume another.
-    group.available += card.available;
-  }
+  const groups: ApplicableBalance["groups"] = sumItemBalances(rows.map(card => ({
+    id:card.id,unit:card.unit,remaining:card.remaining,available:card.available,cost:1,planName:card.name,
+  }))).map(group => ({unit:group.unit as BalanceUnit,remaining:group.remaining,available:group.available,
+    held:rows.filter(card=>card.unit===group.unit).reduce((sum,card)=>sum+card.held,0)}));
   return { groups, cards: rows };
 }
