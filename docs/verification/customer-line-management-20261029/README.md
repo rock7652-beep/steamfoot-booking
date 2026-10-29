@@ -44,7 +44,11 @@ https://steamfoot-booking-82s55w5kr-rock7652-2111s-projects.vercel.app
 - [iPad 確認畫面](ipad-confirm.png)
 - 重現：`node scripts/qa/customer-line-management-browser.mjs`，輸出預設 `/tmp/pr1465-rwd`。
 
-## 尚未完成，禁止標示完整驗收成功
+## 登入後補驗
+
+正常 Vercel 登入、OWNER／ADMIN 取消、STAFF／跨店後端拒絕、遠端記錄完整列比對與實際 Preview 七組尺寸幾何／觸達驗證已完成，詳見 [登入後驗證與剩餘限制](hosted/README.md)。以下為前次驗證時的阻礙紀錄；以該補驗文件為最新狀態。
+
+## 前次未驗紀錄（已由補驗文件更新）
 
 - 此環境 Vercel CLI `whoami` 顯示 Logged out，尚無正常 OIDC／SSO 瀏覽器存取；已要求正常登入方式。未取出或要求任何 token／密碼。
 - 未驗隔離 Preview 登入後 OWNER／ADMIN／其他角色實際工作流程、實際 Prisma 遠端寫入前後紀錄數量與取消後 drawer 更新。
