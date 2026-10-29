@@ -407,7 +407,7 @@ function BeautyDetailedBookingForm({
                 </select>
               </label>
 </details>
-              {!trial && cards.length > 0 && (
+              {mode!=="manager" && !trial && cards.length > 0 && (
                 <label>
                   付款／方案
                   <select

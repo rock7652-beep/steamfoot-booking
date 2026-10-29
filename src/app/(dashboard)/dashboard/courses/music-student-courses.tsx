@@ -9,7 +9,9 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
 import {ModalPanel} from "@/components/admin/modal-panel";
 import {DashboardLink} from "@/components/dashboard-link";
-import {loadMusicPeriods} from "@/server/actions/music-periods";
+import type {loadMusicPeriods} from "@/server/actions/music-periods";
+import {readMusicPeriods} from "@/lib/music-period-read-client";
+import {useMusicPurchaseRevision} from "@/lib/use-music-purchase-revision";
 import {loadCourseCustomerPurchases} from "@/server/actions/course-customer-history";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
@@ -25,28 +27,37 @@ type Card=PeriodData["data"][number];
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";
 const amount=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const lessonStatus=(b:Card["bookings"][number])=>b.absenceKind==="STUDENT_LEAVE"?"請假／補課":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假・扣堂":({ATTENDED:"已出席",CHECKED_IN:"已報到",NO_SHOW:"曠課",CANCELLED:"已取消",RESERVED:"待上課"}[b.status]??b.status);
-export function MusicStudentCourses({customerId,revision:dataRevision=0,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard}:{
+export function MusicStudentCourses({customerId,revision:dataRevision=0,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard,active=true}:{
  customerId:string;revision?:number;templates:{id:string;name:string;musicSubjectId?:string|null}[];subjects:{id:string;name:string}[];
- canReadBookings:boolean;canReadTransactions:boolean;canReadCards:boolean;canAssign:boolean;canSchedule?:boolean;onPurchase:(selection?:{subjectId:string;planId:string})=>void;onManageCard:(id:string)=>void;
+ canReadBookings:boolean;canReadTransactions:boolean;canReadCards:boolean;canAssign:boolean;canSchedule?:boolean;active?:boolean;onPurchase:(selection?:{subjectId:string;planId:string})=>void;onManageCard:(id:string)=>void;
 }){
  const params=useSearchParams(),title=useId();
  const section=useRef<HTMLElement>(null);
- const periodsReader=usePanelReader("music-periods",loadMusicPeriods);
+ const periodsReader=usePanelReader("music-periods",readMusicPeriods);
  const ordersReader=usePanelReader("purchases",loadCourseCustomerPurchases);
- const [state,setState]=useState<{customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;error:string}|null>(null);
+ const [state,setState]=useState<{key:string;customerId:string;cards:Card[];orders:TuitionOrder[];more:boolean;cardsReady:boolean;ordersReady:boolean;cardError:string;orderError:string;purchaseRevision?:string}|null>(null);
  const [revision,setRevision]=useState(0),[loading,setLoading]=useState(false),[subjectId,setSubject]=useState(params.get("studentSubject")??""),[methodId,setMethod]=useState(params.get("studentMethod")??""),[advanced,setAdvanced]=useState<string|null>(null);
+ const readKey=JSON.stringify([customerId,dataRevision,revision,canReadBookings,canReadCards,canReadTransactions]);
  useEffect(()=>{let active=true;setLoading(true);
  // A completed purchase updates the mounted panel without remounting its filters.
  // Detach any pre-purchase in-flight reads before requesting authoritative data.
  periodsReader.invalidate(customerId);ordersReader.clear();
- void Promise.all([canReadBookings||canReadCards?periodsReader.read(customerId):null,canReadTransactions?ordersReader.read(customerId,0):null]).then(([periods,orders])=>{
-  if(!active)return;
-  setState({customerId,cards:periods?.success?periods.data:[],orders:orders?.success?orders.data:[],more:orders?.success?orders.hasMore:false,error:[periods&&!periods.success?periods.error:"",orders&&!orders.success?orders.error:""].filter(Boolean).join("・")});
- }).catch(()=>{if(active)setState({customerId,cards:[],orders:[],more:false,error:"讀取未完成，請重試。"});}).finally(()=>{if(active)setLoading(false);});
- return()=>{active=false;};},[customerId,dataRevision,revision,canReadBookings,canReadCards,canReadTransactions,periodsReader,ordersReader]);
+ setState({key:readKey,customerId,cards:[],orders:[],more:false,cardsReady:!(canReadBookings||canReadCards),ordersReady:!canReadTransactions,cardError:"",orderError:""});
+ const update=(patch:Partial<NonNullable<typeof state>>)=>{if(active)setState(previous=>previous?.key===readKey?{...previous,...patch}:previous);};
+ const periods=canReadBookings||canReadCards?periodsReader.read(customerId).then(result=>{
+  update(result.success?{cards:result.data,cardsReady:true,purchaseRevision:result.purchaseRevision}:{cardsReady:true,cardError:result.error??"課程期別讀取失敗"});
+ }).catch(()=>update({cardsReady:true,cardError:"課程期別讀取失敗，請重試。"})):Promise.resolve();
+ const orders=canReadTransactions?ordersReader.read(customerId,0).then(result=>{
+  update(result.success?{orders:result.data,more:result.hasMore,ordersReady:true}:{ordersReady:true,orderError:result.error??"購課紀錄讀取失敗"});
+ }).catch(()=>update({ordersReady:true,orderError:"購課紀錄讀取失敗，請重試。"})):Promise.resolve();
+ void Promise.all([periods,orders]).finally(()=>{if(active)setLoading(false);});
+ return()=>{active=false;};},[customerId,readKey,canReadBookings,canReadCards,canReadTransactions,periodsReader,ordersReader]);
  function retain(key:string,value:string){const url=new URL(window.location.href);if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);window.history.replaceState(null,"",url.pathname+url.search);}
  const refresh=()=>setRevision(n=>n+1);
- const current=state?.customerId===customerId?state:null;
+ const current=state?.key===readKey?state:null;
+ useMusicPurchaseRevision(customerId,current?.cardsReady?current.purchaseRevision:undefined,()=>setRevision(n=>n+1),active);
+ const error=[current?.cardError,current?.orderError].filter(Boolean).join("・");
+ const contentReady=!!current&&((canReadBookings||canReadCards)?current.cardsReady:current.ordersReady);
  useEffect(()=>{if(loading||!current)return;const area=section.current?.closest<HTMLElement>("[data-course-person-scroll]");const key=area?.dataset.coursePersonScroll;if(area&&key){try{area.scrollTop=Number(sessionStorage.getItem(key))||0;}catch{}}},[loading,current]);
  const methods=new Map<string,{id:string;name:string;items:{id:string;name:string}[]}>();
  for(const entry of [...(current?.cards??[]),...(current?.orders??[])]){
@@ -61,13 +72,14 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
  const orders=current?.orders.filter(o=>o.planId===selectedMethod?.id)??[];
  return <section ref={section} aria-label="課程與學費" className="@container/student space-y-3">
   <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-sm">教學項目<select aria-label="學員教學項目" className={`${field} mt-1 w-full`} value={selectedSubject?.id??""} onChange={e=>{setSubject(e.target.value);setMethod("");retain("studentSubject",e.target.value);retain("studentMethod","");}}><option value="" disabled>請選擇教學項目</option>{items.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{canAssign&&<button type="button" className={field} onClick={()=>onPurchase(selectedSubject&&selectedMethod?{subjectId:selectedSubject.id,planId:selectedMethod.id}:undefined)}>{selectedMethod?"續購此方案":"購課／續購"}</button>}<button type="button" className={field} disabled={loading} onClick={refresh}>更新</button></div>
-  {current?.error&&<p role="alert" className="text-sm text-red-700">{current.error}<button className={field} onClick={refresh}>重試</button></p>}
-  {loading&&!current?<p role="status">讀取課程與學費…</p>:<>
+  {error&&<p role="alert" className="text-sm text-red-700">{error}<button className={field} onClick={refresh}>重試</button></p>}
+  {!contentReady?<p role="status">讀取課程與學費…</p>:<>
+   {canReadTransactions&&!current?.ordersReady&&<p role="status" className="text-sm text-earth-600">收款紀錄讀取中…</p>}
    <nav aria-label="收費方式" className="flex flex-wrap gap-1 border-b border-earth-200">{options.map(method=><button key={method.id} type="button" aria-pressed={method.id===selectedMethod?.id} className={`min-h-11 min-w-0 break-words border-b-2 px-3 text-sm ${method.id===selectedMethod?.id?"border-primary-700 font-semibold text-primary-800":"border-transparent text-earth-600"}`} onClick={()=>{setMethod(method.id);retain("studentMethod",method.id);}}>{musicPurchasedTitle(method.name,current?.cards.find(c=>c.planId===method.id)?.musicTermSizes)}</button>)}</nav>
-   {!selectedMethod&&!current?.error&&<p className="py-3 text-sm text-earth-500">尚無已購課程。</p>}
+   {!selectedMethod&&!error&&current?.cardsReady&&current.ordersReady&&<p className="py-3 text-sm text-earth-500">尚無已購課程。</p>}
    {cards.map(card=>{const order=orders.find(o=>o.cardId===card.id);return <PeriodPurchase key={card.id} card={card} order={order} customerId={customerId} query={params.toString()} scheduleTemplate={selectedSubject?musicTeachingKey(selectedSubject.id):""} canSchedule={canSchedule&&canReadBookings&&!card.closedAt} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} refresh={refresh} canReadCards={canReadCards} onManageCard={onManageCard} onAdvanced={()=>setAdvanced(card.id)}/>;})}
    {orders.filter(o=>!cards.some(c=>c.id===o.cardId)).map(order=><section className="rounded-lg border p-3 text-sm" key={order.id}><div className="flex flex-wrap items-center justify-between gap-2"><span>購課 {toLocalDateStr(new Date(order.createdAt))}・{({PENDING:"待核帳",CONFIRMED:"已購課",REFUNDED:"已退款",VOIDED:"已作廢"})[order.status as "PENDING"]??order.status}</span><div className="flex flex-wrap gap-2"><MusicTuitionDetails closeLabel="返回課程與學費" order={order} onUpdated={refresh}/><CustomerTransactionAction closeLabel="返回課程與學費" customerId={customerId} purchaseId={order.id} onUpdated={refresh}/></div></div>{order.tuition?.periods.map(p=><div key={p.period} className="flex flex-wrap gap-x-5 gap-y-2 border-t py-3"><strong>第 {p.period} 期</strong><span>{p.lessons} 堂</span><span>應收 {amount(p.due)}</span><span>已收 {amount(p.received)}</span><span>未收 {amount(p.outstanding)}</span></div>)}</section>)}
-   {current?.more&&<button className={field} disabled={loading} onClick={async()=>{setLoading(true);try{const result=await ordersReader.read(customerId,current.orders.length);if(result.success)setState(previous=>previous?.customerId===customerId?{...previous,orders:[...previous.orders,...result.data],more:result.hasMore}:previous);else setState(previous=>previous?{...previous,error:result.error}:previous);}catch{setState(previous=>previous?{...previous,error:"更多購課讀取失敗，請重試。"}:previous);}finally{setLoading(false);}}}>載入更多購課</button>}
+   {current?.more&&<button className={field} disabled={loading} onClick={async()=>{setLoading(true);try{const result=await ordersReader.read(customerId,current.orders.length);if(result.success)setState(previous=>previous?.key===readKey?{...previous,orders:[...previous.orders,...result.data],more:result.hasMore}:previous);else setState(previous=>previous?.key===readKey?{...previous,orderError:result.error??"更多購課讀取失敗"}:previous);}catch{setState(previous=>previous?.key===readKey?{...previous,orderError:"更多購課讀取失敗，請重試。"}:previous);}finally{setLoading(false);}}}>載入更多購課</button>}
   </>}
   <ModalPanel open={advanced!==null} onClose={()=>setAdvanced(null)} labelledById={title} width={1000}><header className="flex items-center justify-between border-b p-3"><h3 id={title} className="font-semibold">期別核對與詳細紀錄</h3><button className={field} onClick={()=>{setAdvanced(null);refresh();}}>關閉</button></header><div className="min-h-0 overflow-y-auto p-3">{advanced&&<MusicPeriodOverview key={advanced} customerId={customerId} initialCardId={advanced}/>}</div></ModalPanel>
  </section>;

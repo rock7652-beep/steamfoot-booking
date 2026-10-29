@@ -46,6 +46,23 @@ export async function POST(request: Request) {
     if (operation === "purchase") {
       const result = await assignCoursePointCard(input);
       if (!result.success) return reply(result);
+      if (request.headers.get("x-music-stream") === "2") {
+        const encoder = new TextEncoder();
+        const committedMs = Math.round(performance.now() - started);
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            try { controller.enqueue(encoder.encode(JSON.stringify({kind:"receipt",result})+"\n")); }
+            catch { return; }
+            const snapshotStart = performance.now();
+            let snapshot = 'musicSnapshot' in result ? result.musicSnapshot ?? null : null;
+            try { if (!snapshot && !('rosterSnapshot' in result && result.rosterSnapshot)) snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Purchase is already committed. */ }
+            timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
+            console.info("[music-checkout-write]",JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
+            try { controller.enqueue(encoder.encode(JSON.stringify({kind:"snapshot",snapshot})+"\n")); controller.close(); } catch { /* The client may have disconnected. */ }
+          },
+        });
+        return new Response(stream,{headers:{"Content-Type":"application/x-ndjson","Cache-Control":"no-store","X-Music-Committed":"1","Server-Timing":`checkout-commit;dur=${committedMs}`,"X-Music-Build":process.env.VERCEL_GIT_COMMIT_SHA??"local"}});
+      }
       if (request.headers.get("x-music-stream") === "1") {
         const encoder = new TextEncoder();
         const committedMs = Math.round(performance.now() - started);
@@ -54,8 +71,8 @@ export async function POST(request: Request) {
             // JSON whitespace flushes committed headers while retaining the existing JSON response contract.
             controller.enqueue(encoder.encode(" "));
             const snapshotStart = performance.now();
-            let snapshot = null;
-            try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
+            let snapshot = 'musicSnapshot' in result?result.musicSnapshot??null:null;
+            try { if(!snapshot&&!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Write already committed. */ }
             timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
             console.info("[music-checkout-write]", JSON.stringify({committedMs,totalMs:Math.round(performance.now()-started),phases:timings}));
             try { controller.enqueue(encoder.encode(JSON.stringify({...result,...(snapshot?{snapshot}:{}),readTiming:detail}))); controller.close(); }
@@ -69,13 +86,13 @@ export async function POST(request: Request) {
         }});
       }
       const snapshotStart = performance.now();
-      let snapshot = null;
-      try { snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
+      let snapshot = 'musicSnapshot' in result?result.musicSnapshot??null:null;
+      try { if(!snapshot&&!('rosterSnapshot' in result&&result.rosterSnapshot))snapshot = await readMusicPurchaseSnapshot(input); } catch { /* Committed purchase stays successful. */ }
       timings["purchase.snapshot"] = Math.round(performance.now() - snapshotStart);
       return reply(snapshot ? {...result, snapshot} : result);
     }
     if (operation === "receipt") return reply(await recordMusicTuitionReceipt(input));
     return reply({ success: false, error: "不支援的收款操作。" }, 400);
   } catch (error) { return reply(handleActionError(error)); }
- })));
+ },{deferSnapshot:request.headers.get("x-music-stream")==="2"})));
 }

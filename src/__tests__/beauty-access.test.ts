@@ -82,9 +82,36 @@ describe("beauty authorization boundary", () => {
     expect(m.writeStore).toHaveBeenCalled();
     expect(m.subscription).toHaveBeenCalledWith("s");
   });
+  it("keeps the subscription check before membership on write operations", async () => {
+    let releaseStore!: (value:{id:string})=>void;
+    m.store.findFirst.mockImplementation(()=>new Promise(resolve=>{releaseStore=resolve;}));
+    const pending=beautyManager("booking.create",true);
+    await vi.waitFor(()=>expect(m.store.findFirst).toHaveBeenCalledOnce());
+    expect(m.staff.findFirst).not.toHaveBeenCalled();
+    releaseStore({id:"s"});
+    await pending;
+    expect(m.subscription).toHaveBeenCalledWith("s");
+    expect(m.staff.findFirst).toHaveBeenCalledOnce();
+  });
   it("a revoked backend staff cannot use an old active session", async () => {
     m.staff.findFirst.mockResolvedValue(null);
     await expect(beautyManager("booking.update", true)).rejects.toThrow("停用");
+  });
+  it("checks read module and membership concurrently without granting access early", async () => {
+    let releaseStore!: (value: {id:string})=>void;
+    m.store.findFirst.mockImplementation(()=>new Promise(resolve=>{releaseStore=resolve;}));
+    let finished=false;
+    const pending=beautyManager("customer.read").then(result=>{finished=true;return result;});
+    await vi.waitFor(()=>expect(m.staff.findFirst).toHaveBeenCalledOnce());
+    expect(finished).toBe(false);
+    releaseStore({id:"s"});
+    expect((await pending).storeId).toBe("s");
+  });
+  it("rejects reads when either module or staff authorization is invalid", async () => {
+    m.store.findFirst.mockResolvedValueOnce(null);
+    await expect(beautyManager("customer.read")).rejects.toThrow();
+    m.staff.findFirst.mockResolvedValueOnce(null);
+    await expect(beautyManager("customer.read")).rejects.toThrow("停用");
   });
   it("member identity must come from a verified store membership", async () => {
     m.member.mockResolvedValue(null);
@@ -108,4 +135,12 @@ describe("beauty authorization boundary", () => {
       where: { storeId: "s", userId: "u", active: true },
     });
   });
+});
+
+import {withBeautyReadScope} from '@/server/beauty/request-scope';
+it('keeps distinct grants while sharing one verified store/membership per request',async()=>{
+ await withBeautyReadScope(async()=>{await Promise.all([beautyManager('customer.read'),beautyManager('wallet.read')]);await beautyManager('customer.read');});
+ expect(m.permission.mock.calls.map(c=>c[0]).sort()).toEqual(['customer.read','wallet.read']);
+ expect(m.readStore).toHaveBeenCalledTimes(1);expect(m.staff.findFirst).toHaveBeenCalledTimes(1);expect(m.store.findFirst).toHaveBeenCalledTimes(1);
+ m.staff.findFirst.mockResolvedValue(null);await expect(withBeautyReadScope(()=>beautyManager('customer.read'))).rejects.toThrow('停用');
 });

@@ -62,7 +62,7 @@ it('assigned legacy lesson-count packages follow verified teaching item rather t
   expect(resolveSportsEntitlement({planId,unit:'SESSION',sportsMode:'LEGACY',templateIds:[templateId]},lesson)).toEqual({eligible:true,cost:1});
  expect(resolveSportsEntitlement({planId:'yoga',unit:'SESSION',sportsMode:'LEGACY',templateIds:['yoga']},lesson).eligible).toBe(false);
  expect(resolveSportsEntitlement({planId:'unknown',unit:'SESSION',sportsMode:'LEGACY',templateIds:[]},lesson).eligible).toBe(false);
- expect(resolveSportsEntitlement({planId:'points',unit:'POINT',sportsMode:'LEGACY',templateIds:['old-10']},lesson).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'points',unit:'POINT',sportsMode:'LEGACY',templateIds:['old-10']},lesson)).toEqual({eligible:true,cost:1});
  expect(resolveSportsEntitlement({planId:'makeup',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10'],templateRestricted:true},lesson).eligible).toBe(false);
  expect(resolveSportsEntitlement({planId:'ten',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10']},{...lesson,enrollment:'OPEN'}).eligible).toBe(false);
 });

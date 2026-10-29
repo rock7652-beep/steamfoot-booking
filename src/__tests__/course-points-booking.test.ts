@@ -248,14 +248,14 @@ describe("course point settlement", () => {
   });
   it("student no-show spends one term lesson without granting a makeup card", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,termSessionIds:["s1","s2","s3","s4"]}});
-    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP");
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED");
     expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
   });
   it("rejects makeup coupons for music even if a caller sends the old option", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
-    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("音樂教室曠課只扣堂");
+    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("未出席扣堂不發補課券");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
   });

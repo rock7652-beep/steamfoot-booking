@@ -11,7 +11,7 @@ import type {Prisma} from "../../generated/course-client";
 // Transaction doubles contain only fields exercised by these lifecycle tests.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let card:any,booking:any,coupon:any;
-const m={coursePurchase:{count:vi.fn()},courseBooking:{findFirst:vi.fn(),findMany:vi.fn(),count:vi.fn(),aggregate:vi.fn(),update:vi.fn()},coursePointCard:{findMany:vi.fn(),findFirst:vi.fn(),findUnique:vi.fn(),create:vi.fn(),update:vi.fn(),updateMany:vi.fn()},coursePointEntry:{create:vi.fn(),findUnique:vi.fn()},courseSession:{findFirst:vi.fn(),update:vi.fn()},courseTemplate:{findFirst:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
+const m={coursePurchase:{count:vi.fn(),findMany:vi.fn()},courseBooking:{findFirst:vi.fn(),findMany:vi.fn(),count:vi.fn(),aggregate:vi.fn(),update:vi.fn()},coursePointCard:{findMany:vi.fn(),findFirst:vi.fn(),findUnique:vi.fn(),create:vi.fn(),update:vi.fn(),updateMany:vi.fn()},coursePointEntry:{create:vi.fn(),findUnique:vi.fn()},courseSession:{findFirst:vi.fn(),findMany:vi.fn(),update:vi.fn()},courseTemplate:{findFirst:vi.fn(),findMany:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
 const tx=m as unknown as Prisma.TransactionClient;
 const actor={storeId:"synthetic-store",userId:"synthetic-actor",name:"Synthetic"};
 beforeEach(()=>{
@@ -25,7 +25,14 @@ beforeEach(()=>{
  m.coursePointCard.updateMany.mockImplementation(async({data})=>{card.remaining-=data.remaining.decrement;return {count:1};});
  m.coursePointCard.create.mockImplementation(async({data})=>{coupon={...data,members:[{customerId:"synthetic-student"}],closedAt:null};return coupon;});
  m.coursePointCard.update.mockImplementation(async({where,data})=>{if(where.id===card.id){if(data.remaining?.increment)card.remaining+=data.remaining.increment;}else Object.assign(coupon,data);return data;});
- m.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP"});m.courseSession.findFirst.mockResolvedValue(null);
+ m.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP",musicSubjectId:"synthetic-subject",musicTrialMode:null});m.courseSession.findFirst.mockResolvedValue(null);
+ // The fixture's one current paid card is also the oldest eligible item card.
+ // Include the ordinary-card reads introduced by legacy-binding reconciliation.
+ card.createdAt=new Date("2026-10-01");card.bookings=[];
+ m.coursePointCard.findMany.mockImplementation(async()=>[card]);
+ m.coursePurchase.findMany.mockResolvedValue([]);
+ m.courseSession.findMany.mockResolvedValue([]);
+ m.courseTemplate.findMany.mockResolvedValue([{id:"synthetic-template"}]);
 });
 describe("new music purchase leave policy",()=>{
  it("deducts ordinary once, issues one separate same-expiry makeup and ignores replay",async()=>{

@@ -13,8 +13,9 @@ describe("music item eligibility",()=>{
   expect(findMany).toHaveBeenCalledWith({where:{storeId:"preview",musicSubjectId:"A",musicTrialMode:null},select:{id:true}});
  });
  it("rejects B cards for A",async()=>expect(await courseCardMatchesItem(tx,"preview",["B1","B2"],"A2")).toBe(false));
- it("keeps other stores on their existing exact-template behavior",async()=>{
-  expect(await courseCardMatchesItem(tx,"production",["A1"],"A2")).toBe(false);expect(findFirst).not.toHaveBeenCalled();
+ it("resolves same-item versions in production without a preview-store allowlist",async()=>{
+  expect(await courseCardMatchesItem(tx,"production",["A1"],"A2")).toBe(true);
+  expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({where:{id:"A2",storeId:"production"}}));
  });
  it("does not broaden a legacy template with no item mapping",async()=>{findFirst.mockResolvedValue({musicSubjectId:null});expect(await courseCardMatchesItem(tx,"preview",["A1"],"A2")).toBe(false);});
 });

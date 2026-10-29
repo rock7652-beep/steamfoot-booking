@@ -1,5 +1,4 @@
 import "server-only";
-import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import type { Prisma } from "../../../generated/course-client";
 
@@ -12,7 +11,6 @@ export async function musicItemTemplateIds(
     const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:null},select:{id:true}});
     return [...new Set([templateId,...versions.map(row=>row.id)])];
   }
-  if (!musicNativeWorkflowEnabled(storeId)) return [templateId];
   const target = await tx.courseTemplate.findFirst({ where: { id: templateId, storeId }, select: { musicSubjectId: true, classType: true, musicTrialMode: true } });
   if (!target?.musicSubjectId) return [templateId];
   const versions = await tx.courseTemplate.findMany({

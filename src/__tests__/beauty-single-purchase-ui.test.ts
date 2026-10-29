@@ -2,6 +2,7 @@
 import {act,createElement as h} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
+vi.mock("@/server/actions/beauty-collection-intent", () => ({ prepareBeautyCollectionPurchaseIntent: vi.fn(), readBeautyCollectionPurchaseIntent: vi.fn(), cancelBeautyCollectionPurchaseIntent: vi.fn(), acknowledgeBeautyCollectionPurchaseIntent: vi.fn() }));
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const m=vi.hoisted(()=>({read:vi.fn(),quote:vi.fn(),collect:vi.fn(),submit:vi.fn(),availability:vi.fn()}));
 vi.mock('@/server/actions/course-browse',()=>({searchCourseCustomers:vi.fn(),loadCourseCustomerSearchIndex:vi.fn()}));

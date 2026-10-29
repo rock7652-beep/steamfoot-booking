@@ -35,6 +35,8 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { coursePurchaseIntentsEnabled } from "@/lib/course-purchase-intent-flag";
+import { CoursePurchaseIntentProvider } from "./purchase-recovery";
 
 export default async function CoursesPage({
   searchParams,
@@ -358,6 +360,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
+      <CoursePurchaseIntentProvider enabled={coursePurchaseIntentsEnabled(storeId)} storeId={storeId}>
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&writableStore}
         storeId={storeId}
         key={`${storeId}:${view}`}
@@ -409,6 +412,7 @@ export default async function CoursesPage({
         })),...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:sportsNative,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))]}
         cancelledBookings={cancelledBookings}
       />
+      </CoursePurchaseIntentProvider>
     </PageShell>
     </CustomerLabelsSeed>
   );

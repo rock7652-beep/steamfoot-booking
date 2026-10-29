@@ -15,7 +15,7 @@ beforeEach(()=>{vi.clearAllMocks();m.store.mockResolvedValue("authorized-store")
 it("reuses only a server-registered actor object after permission and retains module checks",async()=>{
  const user={id:"hq",role:"ADMIN",storeId:null,staffId:null};registerHqStoreViewContext(user,"verified-store");m.permission.mockResolvedValue(user);
  const measure=vi.fn(async(_name:string,work:()=>Promise<unknown>)=>work());
- const result=await courseManagerRead("transaction.read",{reuseVerifiedStore:true,timing:{measure} as any});
+ const result=await courseManagerRead("transaction.read",{reuseVerifiedStore:true,timing:{measure:<T>(name:string,work:()=>Promise<T>)=>measure(name,work) as Promise<T>}});
  expect(result.storeId).toBe("verified-store");expect(m.permission).toHaveBeenCalledWith("transaction.read",expect.any(Object),{deferSubscriptionGuard:true});
  expect(m.store).not.toHaveBeenCalled();expect(m.module).toHaveBeenCalledWith("verified-store");
  expect(measure.mock.calls.map(c=>c[0])).toEqual(["store.verified","store.module"]);
@@ -36,6 +36,23 @@ it("retains active staff and active user membership checks for store staff",asyn
  m.permission.mockResolvedValue({id:"owner",role:"OWNER",storeId:"authorized-store",staffId:"staff"});m.staff.mockResolvedValue(null);
  await expect(courseManagerRead("transaction.read",{reuseVerifiedStore:true})).rejects.toThrow("本店工作權限已停用");
  expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({where:{id:"staff",userId:"owner",storeId:"authorized-store",status:"ACTIVE",user:{status:"ACTIVE"}}}));
+});
+it("starts both independent store checks together and awaits both before granting access",async()=>{
+ m.permission.mockResolvedValue({id:"owner",role:"OWNER",storeId:"authorized-store",staffId:"staff"});
+ let releaseModule!:()=>void;
+ m.module.mockImplementation(()=>new Promise<void>(resolve=>{releaseModule=resolve;}));
+ let finished=false;
+ const pending=courseManagerRead("wallet.read").then(result=>{finished=true;return result;});
+ await vi.waitFor(()=>expect(m.staff).toHaveBeenCalledOnce());
+ expect(finished).toBe(false);
+ releaseModule();
+ expect((await pending).storeId).toBe("authorized-store");
+});
+it("does not grant access when the concurrent module check fails",async()=>{
+ m.permission.mockResolvedValue({id:"owner",role:"OWNER",storeId:"authorized-store",staffId:"staff"});
+ m.module.mockRejectedValue(new Error("wrong module"));
+ await expect(courseManagerRead("wallet.read")).rejects.toThrow("wrong module");
+ expect(m.staff).toHaveBeenCalledOnce();
 });
 it("leaves the existing resolver path unchanged unless explicitly enabled",async()=>{
  const user={id:"hq",role:"ADMIN"};registerHqStoreViewContext(user,"verified-store");m.permission.mockResolvedValue(user);

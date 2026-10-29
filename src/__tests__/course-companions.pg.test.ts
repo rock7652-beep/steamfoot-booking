@@ -51,7 +51,7 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     const migration = readFileSync("supabase/migrations/20261003105340_course_companion_booking.sql", "utf8");
     for (const sql of migration.split(";").map(s => s.trim()).filter(Boolean)) await database().$executeRawUnsafe(sql);
     for (const sql of [
-      'CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text)',
+      'CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')',
       'CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text, name text, "mergedIntoCustomerId" text)',
       'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text, "featureKey" text, status text, "startsAt" timestamptz, "expiresAt" timestamptz)',
@@ -79,7 +79,7 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
   async function fixture(capacity = 3, shared = true, sharedCardEnabled = true) {
     const storeId = randomUUID(), customerId = randomUUID(), bId = randomUUID();
     fixtureStoreIds.add(storeId);
-    await database().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    await database().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
     if (sharedCardEnabled) await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" ("storeId", "featureKey", status) VALUES (${storeId},'shared_card','ENABLED')`;
     await database().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'A',NULL),(${bId},${storeId},'B',NULL)`;
     const plan = await database().coursePointPlan.create({data: {storeId, name: "自由選課", points: 10, price: 1000, validDays: 30, allowShared: shared}});
