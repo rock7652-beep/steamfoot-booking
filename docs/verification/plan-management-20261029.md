@@ -21,4 +21,24 @@
 - TypeScript、所有變更 TS/TSX 的 ESLint 與 git diff --check 通過。
 - 已整合主線 `38ea7672`（含 LINE 綁定管理更新），保留新的關聯面板測試設定；重疊顧客面板及 LINE 介面 25 項、隔離資料庫 10 項再次通過。LINE 發送暫停設定維持主線內容。
 
-限制：介面預覽使用合成儲存接點，資料庫交易另行驗證；尚非登入後完整網站或實機 Safari 驗收。本文件及支線完成不代表已合併或更新正式站。無正式顧客帳務異動。
+## 真實登入複驗（台灣時間 2026-10-30）
+
+已補做完整本機網站驗收，使用真實 Auth.js 帳密登入、原權限及模組檢查、原 Server Action 與獨立 PostgreSQL，不替換驗證或儲存接點。所有帳號、門市、收款及使用紀錄皆為合成資料；對外請求限縮，無正式顧客帳務異動。
+
+| 範圍 | 結果 |
+| --- | --- |
+| 四模組登入、管理入口、原地延長及縮短、註銷、重整 | 25 個檢查點通過，包含音樂回覆遺失後重試相同請求 |
+| 四模組各兩個獨立登入環境同時註銷 | 20 個檢查點通過；每張卡僅一筆註銷，後端觀察到成功與衝突；原收款與使用歷史不變 |
+| 蒸足舊顧客頁 | 真實登入 HTTP 200，無 Decimal 序列化警告或瀏覽器程式錯誤 |
+| 顧客面板及跨店權限回歸 | 5 個測試檔、23 項通過；另有重疊介面 21 項通過 |
+| TypeScript／變更檔 ESLint／diff 檢查 | 通過 |
+
+驗收發現並修正兩處資料傳遞問題：舊顧客頁的新控制只接收必要欄位；右滑顧客資料讀取將方案購入金額轉成純數字顯示資料，保留原資料庫金額型別。後續完整登入流程未再出現序列化警告，未更動收款或扣堂計算。
+
+證據：[`results.json`](../../artifacts/plan-management-login-20261030/results.json)、[`race-results.json`](../../artifacts/plan-management-login-20261030/race-results.json)、[`legacy-results.json`](../../artifacts/plan-management-login-20261030/legacy-results.json)。雙裝置的成功／衝突欄位為實際回應觀察摘要，註銷筆數另由權威資料庫核對。iPad 尺寸為真實後台的 768×1024 瀏覽器視窗，截圖保留尚未送出的原因。
+
+登入後截圖僅保留工作區 `artifacts/plan-management-login-20261030/`，未上傳 GitHub；遠端審查版本只包含程式、文字及合成驗收結果。
+
+重現腳本：`scripts/qa/plan-management.mjs`、`plan-management-seed.ts`、`plan-management-browser.mjs`。啟動器只接受既有 `sports-live-flow-qa-scope.mjs` 限制的 localhost:3107、127.0.0.1:55438/sports_live_flow_test；拒絕部署 metadata 或環境檔。先以 Prisma 的空資料庫 DDL 初始化主庫與課程結構，再依序執行 `sportsSeed`、`modulesSeed`、`seed`，開啟 `dev` 後執行 `browser` 與 `browser sports,music,beauty,steam --race`。Chromium 僅載入合成帳號，未讀取使用者登入資料。測試容器及帳號於驗收後移除。
+
+限制：音樂本機「課程與學費」的逐期紀錄仍受既有部署開通條件限制，本次經正常「收費方式 → 顧客持有方案」入口驗收，沒有繞過權限或放寬開關。尚未部署同版本線上測試站，亦非實機 iPad／Safari 驗收。本文件及支線完成不代表已合併或更新正式站。

@@ -1362,7 +1362,7 @@ function WalletItem({
                   expired={w.status === "EXPIRED"}
                 />
               )}
-            {canAdjustWallet&&!readOnly&&<SteamPlanClose wallet={w}/>}
+            {canAdjustWallet&&!readOnly&&<SteamPlanClose wallet={{id:w.id,storeId:w.storeId,remainingSessions:w.remainingSessions,expiryDate:w.expiryDate,status:w.status}}/>}
             {hasSessions && (
               <div className="border-t border-earth-100 pt-2">
                 <p className="mb-1.5 text-[11px] font-semibold text-earth-600">
