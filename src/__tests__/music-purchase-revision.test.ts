@@ -11,7 +11,6 @@ vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({})}));
 vi.mock('@/lib/permissions',()=>({checkPermission:m.permission}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer}}}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{coursePointCard:{findFirst:m.card}}}));
-vi.mock('@/lib/music-finance-sync',()=>({isMusicPreviewPage:()=>true}));
 import {GET} from '@/app/(dashboard)/dashboard/courses/music-purchase-revision/route';
 import {useMusicPurchaseRevision} from '@/lib/use-music-purchase-revision';
 const actor={storeId:'store-a',user:{role:'OWNER',staffId:'staff-a',id:'owner'}};
@@ -37,4 +36,16 @@ it('does not issue overlapping requests and stops polling when the view unmounts
  const fetcher=vi.fn(()=>new Promise(resolve=>{finish=resolve;}));vi.stubGlobal('fetch',fetcher);
  const host=document.createElement('div'),root=createRoot(host);function Harness(){useMusicPurchaseRevision('student','old-card',vi.fn());return null;}
  try{await act(async()=>root.render(createElement(Harness)));await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});expect(fetcher).toHaveBeenCalledOnce();await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});expect(fetcher).toHaveBeenCalledOnce();await act(async()=>root.unmount());await act(async()=>finish({ok:true,json:async()=>({success:true,revision:'new-card'})}));await act(async()=>{await vi.advanceTimersByTimeAsync(20000);});expect(fetcher).toHaveBeenCalledOnce();}finally{vi.useRealTimers();}
+});
+it('polls a production dashboard only while the learner panel is active and ignores a late response after it closes',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.useFakeTimers();window.history.replaceState(null,'','/dashboard/courses');
+ let finish!:(value:unknown)=>void;const changed=vi.fn();const fetcher=vi.fn((url:string)=>{void url;return new Promise(resolve=>{finish=resolve;});});vi.stubGlobal('fetch',fetcher);
+ const host=document.createElement('div'),root=createRoot(host);function Harness({active}:{active:boolean}){useMusicPurchaseRevision('student','old-card',changed,active);return null;}
+ try{
+  await act(async()=>root.render(createElement(Harness,{active:false})));await act(async()=>{await vi.advanceTimersByTimeAsync(10000);});expect(fetcher).not.toHaveBeenCalled();
+  await act(async()=>root.render(createElement(Harness,{active:true})));await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+  expect(fetcher).toHaveBeenCalledOnce();expect(fetcher.mock.calls[0][0]).toBe('/dashboard/courses/music-purchase-revision?customerId=student');
+  await act(async()=>root.render(createElement(Harness,{active:false})));await act(async()=>finish({ok:true,json:async()=>({success:true,revision:'new-card'})}));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(10000);});expect(changed).not.toHaveBeenCalled();expect(fetcher).toHaveBeenCalledOnce();
+ }finally{await act(async()=>root.unmount());window.history.replaceState(null,'','/');}
 });

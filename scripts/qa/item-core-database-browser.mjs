@@ -15,11 +15,15 @@ export async function verifyItemDatabaseUi(handle,profile,width,height){
  for(const file of readdirSync(path.join(root,'src/server/actions'))){if(!file.endsWith('.ts'))continue;for(const match of readFileSync(path.join(root,'src/server/actions',file),'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g))names.add(match[1]);}
  const server=await createServer({root,configFile:false,define:{'process.env':'{}'},cacheDir:'/tmp/item-core-database-vite',optimizeDeps:{include:['react','react-dom','react-dom/client','sonner','zod']},plugins:[react(),{
   name:'isolated-item-core-db',configureServer(server){server.middlewares.use(async(req,res,next)=>{
+   if(req.url?.startsWith('/dashboard/courses/purchase-options?')){
+    try{const url=new URL(req.url,'http://127.0.0.1');const result=await handle('loadCourseStudentPurchase',[url.searchParams.get('bookingId')]);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));}
+    catch(error){res.statusCode=500;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({success:false,error:error instanceof Error?error.message:'Failed'}));}return;
+   }
    if(req.url==='/__qa/item-core'){
     try{let body='';for await(const chunk of req){body+=chunk;if(body.length>32768)throw Error('Request too large');}const input=JSON.parse(body);const result=await handle(input.name,input.args);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));}
     catch(error){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({success:false,error:error instanceof Error?error.message:'Failed'}));}return;
    }
-   if(req.url==='/'||req.url?.startsWith('/?')){const fixture=profile==='beauty'?'item-core-beauty-database-fixture.tsx':'item-core-database-fixture.tsx';res.setHeader('Content-Type','text/html');res.end(await server.transformIndexHtml(req.url,`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/scripts/qa/${fixture}"></script></body></html>`));return;}next();
+   if(req.url?.startsWith('/dashboard/courses?')){const fixture=profile==='beauty'?'item-core-beauty-database-fixture.tsx':'item-core-database-fixture.tsx';res.setHeader('Content-Type','text/html');res.end(await server.transformIndexHtml(req.url,`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/scripts/qa/${fixture}"></script></body></html>`));return;}next();
   });},resolveId(id){if(id.startsWith(prefix))return id;},load(id){
    if(id===prefix+'navigation')return `const router={refresh(){throw Error('Unexpected refresh')},push(){throw Error('Unexpected navigation')},replace(){throw Error('Unexpected navigation')},prefetch(){}};export const useRouter=()=>router;export const usePathname=()=>'/s/isolated/admin/dashboard/courses';export const useSearchParams=()=>new URLSearchParams(location.search);export const unstable_rethrow=()=>{};`;
    if(id===prefix+'link')return `export default 'a';export const useLinkStatus=()=>({pending:false});`;
@@ -31,7 +35,7 @@ export async function verifyItemDatabaseUi(handle,profile,width,height){
  try{
   await server.listen();browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
   const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',error=>errors.push(error.message));page.setDefaultTimeout(25000);
-  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?profile=${profile}`);const original=page.url();
+  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/dashboard/courses?profile=${profile}`);const original=page.url();
   if(profile==='beauty'){
    const pending=page.getByRole('button',{name:'驗收顧客：已預約',exact:true});await pending.click();
    const confirm=page.getByRole('button',{name:'確認結帳',exact:true});await confirm.waitFor();

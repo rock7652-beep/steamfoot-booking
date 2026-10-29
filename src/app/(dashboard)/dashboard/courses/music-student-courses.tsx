@@ -27,9 +27,9 @@ type Card=PeriodData["data"][number];
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-sm";
 const amount=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const lessonStatus=(b:Card["bookings"][number])=>b.absenceKind==="STUDENT_LEAVE"?"請假／補課":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假・扣堂":({ATTENDED:"已出席",CHECKED_IN:"已報到",NO_SHOW:"曠課",CANCELLED:"已取消",RESERVED:"待上課"}[b.status]??b.status);
-export function MusicStudentCourses({customerId,revision:dataRevision=0,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard}:{
+export function MusicStudentCourses({customerId,revision:dataRevision=0,templates,subjects,canReadBookings,canReadTransactions,canReadCards,canAssign,canSchedule=false,onPurchase,onManageCard,active=true}:{
  customerId:string;revision?:number;templates:{id:string;name:string;musicSubjectId?:string|null}[];subjects:{id:string;name:string}[];
- canReadBookings:boolean;canReadTransactions:boolean;canReadCards:boolean;canAssign:boolean;canSchedule?:boolean;onPurchase:(selection?:{subjectId:string;planId:string})=>void;onManageCard:(id:string)=>void;
+ canReadBookings:boolean;canReadTransactions:boolean;canReadCards:boolean;canAssign:boolean;canSchedule?:boolean;active?:boolean;onPurchase:(selection?:{subjectId:string;planId:string})=>void;onManageCard:(id:string)=>void;
 }){
  const params=useSearchParams(),title=useId();
  const section=useRef<HTMLElement>(null);
@@ -55,7 +55,7 @@ export function MusicStudentCourses({customerId,revision:dataRevision=0,template
  function retain(key:string,value:string){const url=new URL(window.location.href);if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);window.history.replaceState(null,"",url.pathname+url.search);}
  const refresh=()=>setRevision(n=>n+1);
  const current=state?.key===readKey?state:null;
- useMusicPurchaseRevision(customerId,current?.cardsReady?current.purchaseRevision:undefined,()=>setRevision(n=>n+1));
+ useMusicPurchaseRevision(customerId,current?.cardsReady?current.purchaseRevision:undefined,()=>setRevision(n=>n+1),active);
  const error=[current?.cardError,current?.orderError].filter(Boolean).join("・");
  const contentReady=!!current&&((canReadBookings||canReadCards)?current.cardsReady:current.ordersReady);
  useEffect(()=>{if(loading||!current)return;const area=section.current?.closest<HTMLElement>("[data-course-person-scroll]");const key=area?.dataset.coursePersonScroll;if(area&&key){try{area.scrollTop=Number(sessionStorage.getItem(key))||0;}catch{}}},[loading,current]);
