@@ -1,3 +1,5 @@
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
 import {createHash} from "node:crypto";
 import {afterEach,expect,it,vi} from "vitest";
 import {readPreviewLineAcceptance,withPreviewLineAcceptance,withAcceptanceRetryKey,allowsPreviewLinePush} from "../preview-line-acceptance";

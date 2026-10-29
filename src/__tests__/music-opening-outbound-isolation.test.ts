@@ -1,3 +1,5 @@
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
 // URL-only synthetic scope. Senders are mocked; no database or network access.
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MUSIC_OPENING_BRANCH } from "../../scripts/music-opening-preview-scope.mjs";

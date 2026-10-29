@@ -1,3 +1,4 @@
+import { isSystemLineDeliveryPaused } from "@/lib/line-delivery-pause";
 import { after } from "next/server";
 import { isLineQuotaExceeded } from "./line-quota-policy";
 import { allowsPreviewLinePush } from "@/lib/preview-line-acceptance";
@@ -39,14 +40,14 @@ export type LineReplyResult =
       success: false;
       error: string;
       httpStatus: number | null;
-      errorType: "token_not_configured" | "line_api_rejected" | "network_error" | "preview_blocked";
+      errorType: "token_not_configured" | "line_api_rejected" | "network_error" | "preview_blocked" | "delivery_paused";
     };
 
 export type LinePushResult = {
   success: boolean;
   error?: string;
   httpStatus?: number;
-  errorType?: "line_api_rejected" | "preview_blocked";
+  errorType?: "line_api_rejected" | "preview_blocked" | "delivery_paused";
 };
 
 export type StoreLineRecipientProbe =
@@ -122,6 +123,7 @@ export async function pushMessage(
   messages: LineMessage[],
   retryKey?: string,
 ): Promise<LinePushResult> {
+  if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", errorType: "delivery_paused" };
   if (getConfiguredStoreLine(storeId)) {
     if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) return { success: false, error: "隔離預覽未授權外發", errorType: "preview_blocked" };
     if (!(await configuredStoreBotMatches(storeId))) return { success: false, error: "本店官方 LINE 設定不匹配或無法確認", errorType: "line_api_rejected" };
@@ -140,6 +142,7 @@ export async function pushSteamButlerMessage(
   messages: LineMessage[],
   retryKey?: string,
 ): Promise<LinePushResult> {
+  if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", errorType: "delivery_paused" };
   return pushMessageWithAccessToken(
     getSteamButlerLineAccessToken(),
     lineUserId,
@@ -220,6 +223,7 @@ export async function replyMessage(
   replyToken: string,
   messages: LineMessage[]
 ): Promise<LineReplyResult> {
+  if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", httpStatus: null, errorType: "delivery_paused" };
   return replyMessageWithAccessToken(getLineAccessTokenForStore(storeId), replyToken, messages);
 }
 
@@ -227,6 +231,7 @@ export async function replySteamButlerMessage(
   replyToken: string,
   messages: LineMessage[]
 ): Promise<LineReplyResult> {
+  if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", httpStatus: null, errorType: "delivery_paused" };
   return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages);
 }
 
