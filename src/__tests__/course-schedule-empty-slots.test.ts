@@ -123,15 +123,15 @@ it.each([{native:true,service:true},{native:true,service:false},{native:false,se
  }finally{await act(async()=>root.unmount());host.remove();read.mockReset();vi.unstubAllGlobals();}
 });
 
-it("music prioritizes 09:00–22:00 without expanding for unused business hours", async()=>{
+it("music displays its opening range rather than a fixed 09:00–22:00 window", async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"day",storePeriods:[{openTime:"07:00",closeTime:"23:00"}],onOpenEmpty:vi.fn()})));
   expect(host.querySelector('button[aria-label^="09:00"]')).not.toBeNull();
-  expect(host.querySelector('button[aria-label^="07:00"]')).toBeNull();
-  expect(host.querySelector('button[aria-label^="22:00"]')).toBeNull();
-  expect(host.querySelector('[aria-label="課表結束時間"]')?.textContent).toBe("22:00");
+  expect(host.querySelector('button[aria-label^="07:00"]')).not.toBeNull();
+  expect(host.querySelector('button[aria-label^="22:00"]')).not.toBeNull();
+  expect(host.querySelector('[aria-label="課表結束時間"]')?.textContent).toBe("23:00");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
 it("music keeps real lessons and original moved positions outside its default window visible", async()=>{

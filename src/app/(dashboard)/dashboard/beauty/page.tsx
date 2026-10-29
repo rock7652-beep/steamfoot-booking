@@ -140,7 +140,7 @@ export default async function BeautyPage({
       {tab!=='首頁'&&tab!=='班表'&&tab!=='顧客管理'&&tab!=='營運'&&<PageHeader compact title={tab} />}
       <BeautyDashboard
         planPurchaseRecoveryEnabled={beautyPlanPurchaseIntentsEnabled(a.storeId)}
-        collectionRecoveryEnabled={beautyCollectionIntentsEnabled()}
+        collectionRecoveryEnabled={beautyCollectionIntentsEnabled(a.storeId)}
         homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
         data={data}

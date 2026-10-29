@@ -935,7 +935,9 @@ export function CourseWorkspace({
     <div className="relative min-w-0 flex-1 basis-44 max-w-72"><input type="search" aria-label="課表搜尋" placeholder="搜尋顧客姓名／電話" className={`${button} min-h-11 w-full bg-white py-1 pr-11 [&::-webkit-search-cancel-button]:hidden`} value={scheduleQuery} onChange={event=>setScheduleQuery(event.target.value)}/>{scheduleQuery&&<button type="button" aria-label="清除顧客搜尋" className="absolute right-0 top-0 min-h-11 min-w-11 text-earth-600" onClick={()=>setScheduleQuery("")}>×</button>}</div>
     <label className="flex min-w-0 items-center gap-1 text-sm">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 min-w-0 max-w-48 bg-white py-1`} value={assignedCoachFilter} onChange={e=>setAssignedCoachFilter(e.target.value)}><option value="all">全部所屬店長</option>{calendarSource?.assignmentStaff.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}<option value="none">未指定所屬店長</option></select></label>
   </>;
-  const compactSportsWeek = sportsNative && businessProfile === "FITNESS" && !calendarSource && scheduleMode === "week";
+  const beautyRoomActions = view === "rooms" && catalogSource?.rentalModule === "beauty";
+  const calendarHeader = scheduleMode !== "month";
+  const compactCourseOverview = !calendarSource && (scheduleMode === "day" || sportsNative && businessProfile === "FITNESS" && scheduleMode === "week");
   const sportsFilterPanelId = useId();
   const scheduleFilters = <div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
             <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm font-medium text-earth-700 [&_select]:min-w-0 [&_select]:flex-1" htmlFor="course-coach-filter">{personnelText(courseDisplayText("授課教練", businessProfile))}
@@ -999,9 +1001,9 @@ export function CourseWorkspace({
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
           {!courseDialog&&monthlyReturnHref(params.toString())&&<DashboardLink className="inline-flex min-h-11 items-center px-3 text-primary-800" href={monthlyReturnHref(params.toString())!}>返回月結</DashboardLink>}
           {!courseDialog&&params.get("returnStudentId") && <nav aria-label="返回學員資料" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-earth-200 bg-primary-50 px-3 text-sm"><span>學員資料</span><DashboardLink className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800" href={studentReturnHref(params.get("returnStudentId")!, params.get("returnStudentQuery") ?? "", "bookings")}>返回原學員 →</DashboardLink></nav>}
-          <div className={businessProfile === "MUSIC" ? styles.musicHeader : "flex flex-wrap items-center justify-between gap-2"}>
-            <div className={businessProfile === "MUSIC" ? "contents" : "flex min-w-0 flex-wrap items-center gap-2"}>
-              <div className={businessProfile === "MUSIC" ? "sr-only" : "mr-1 shrink-0"}>
+          <div data-calendar-header className={calendarHeader ? styles.calendarHeader : businessProfile === "MUSIC" ? styles.musicHeader : "flex flex-wrap items-center justify-between gap-2"}>
+            <div className={calendarHeader ? styles.calendarNavigation : businessProfile === "MUSIC" ? "contents" : "flex min-w-0 flex-wrap items-center gap-2"}>
+              <div className={businessProfile === "MUSIC" || scheduleMode === "day"&&!calendarSource ? "sr-only" : "mr-1 shrink-0"}>
                 <h1 className="admin-page-title">{calendarSource?"班表":businessProfile === "MUSIC" ? "課表" : "課表排程"}</h1>
 
               </div>
@@ -1102,8 +1104,8 @@ export function CourseWorkspace({
               </div>}
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
-              <div className={calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":businessProfile === "MUSIC"?"ml-auto flex shrink-0 gap-1":"flex shrink-0 gap-2"}>
-                {calendarSource&&scheduleMode!=="week"&&<ServiceCalendarLegend/>}{cashbookShortcut}
+              <div data-calendar-actions className={calendarHeader ? styles.calendarActions : calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":businessProfile === "MUSIC"?"ml-auto flex shrink-0 gap-1":"flex shrink-0 gap-2"}>
+                {calendarSource&&scheduleMode==="month"&&<ServiceCalendarLegend/>}{cashbookShortcut}
                 {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
 
                 {canCreate && (
@@ -1119,8 +1121,8 @@ export function CourseWorkspace({
             )}
           </div>
 
-            {businessProfile === "MUSIC" && scheduleMode === "month" && <div className="basis-full flex items-center gap-3"><div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div>{scheduleLegend}</div>}
-          {!calendarSource&&businessProfile !== "MUSIC" && !compactSportsWeek && scheduleFilters}
+            {businessProfile === "MUSIC" && scheduleMode === "month" && <div className="basis-full flex items-center gap-3"><div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact floating initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div>{scheduleLegend}</div>}
+          {!calendarSource&&businessProfile !== "MUSIC" && !compactCourseOverview && scheduleFilters}
           {calendarSource&&(scheduleQuery.trim()||assignedCoachFilter!=="all")&&!serviceHasResults&&<p role="status" className="text-sm text-earth-600">查無符合顧客</p>}
           {calendarSource&&scheduleMode==="month"&&<div className="flex flex-wrap items-center gap-2">{serviceFilters}</div>}
             {(businessProfile === "MUSIC"||sportsNative) && moveClipboard && (
@@ -1197,10 +1199,10 @@ export function CourseWorkspace({
 
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
-            <CourseScheduleBoard detailOpen={!!courseDialog||!!calendarSource?.detailOpen} toolbarContent={calendarSource?scheduleMode==="week"?weekFilters:serviceFilters:compactSportsWeek?weekFilters:undefined} serviceMode={!!calendarSource} sportsNative={sportsNative}
-              legend={calendarSource?scheduleMode==="week"?<ServiceCalendarLegend/>:undefined:scheduleLegend}
-              hideDateHeading={businessProfile === "MUSIC"}
-              searchControl={businessProfile === "MUSIC" ? <div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div> : undefined}
+            <CourseScheduleBoard detailOpen={!!courseDialog||!!calendarSource?.detailOpen} toolbarContent={calendarSource?scheduleMode==="week"?weekFilters:serviceFilters:compactCourseOverview?weekFilters:undefined} serviceMode={!!calendarSource} sportsNative={sportsNative}
+              legend={calendarSource?<ServiceCalendarLegend/>:scheduleLegend}
+              hideDateHeading={businessProfile === "MUSIC" || scheduleMode === "day"&&!calendarSource}
+              searchControl={businessProfile === "MUSIC" ? <div className={styles.scheduleSearch}><CourseCustomerPicker name="scheduleStudent" compact floating initial={scheduleStudentSelection} onChange={setScheduleStudentSelection}/></div> : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
@@ -1428,13 +1430,13 @@ export function CourseWorkspace({
                         </span>
                       </td>)}
                       <td className={`whitespace-nowrap px-3 py-2 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-white text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
-                        {sportsNative || businessProfile === "MUSIC" ? <>
+                        {sportsNative || businessProfile === "MUSIC" || beautyRoomActions ? <>
                         <div className="flex items-center justify-center gap-1">
-                          {view==="rooms"&&canEdit&&<button type="button" className={`${button} min-h-11`} aria-label={`編輯${item.name}`} disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing({kind:"room",value:item});open("edit");}}>編輯</button>}
-                          <ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
-                          {view!=="rooms"&&canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
+                          {view==="rooms"&&!beautyRoomActions&&canEdit&&<button type="button" className={`${button} min-h-11`} aria-label={`編輯${item.name}`} disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing({kind:"room",value:item});open("edit");}}>編輯</button>}
+                          {(!beautyRoomActions||canEdit)&&<ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
+                          {(view!=="rooms"||beautyRoomActions)&&canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
                           {canEdit && (template ? <>{[...(catalogSource?["PUBLIC","OFF"]:["PUBLIC","HIDDEN","OFF"])].filter(v=>v!==(template.visibility??"PUBLIC")).map(v=><button type="button" key={v} className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>changeStatus(item,v)}>{v==="PUBLIC"?"上架":v==="HIDDEN"?"隱藏":"下架"}</button>)}{canCreate&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:courseDisplayName(template.name)+"（複製）"}});open("edit");}}>複製</button>}</> : <><CourseStatusButton driver={catalogSource?.status} quiet kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/>{!catalogSource&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button>}</>)}
-                        </ExclusiveMenu></div>
+                        </ExclusiveMenu>}</div>
 </> : <>
                         <div className="flex items-center gap-1">
                           {canEdit && (

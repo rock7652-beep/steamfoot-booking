@@ -433,8 +433,8 @@ async function collectBeautyPaymentCore(input: unknown) {
     await requireStoreFeature(a.storeId, FEATURES.TRANSACTION_MANAGEMENT);
     const d=paymentInput.parse(input),canDiscount=!!d.quotes?.some(q=>q.discount);
     if(canDiscount)await requirePermission("transaction.discount");
-    if(beautyCollectionIntentsEnabled())await requirePermission('booking.read');
-    return beautyTransaction(a, (tx) => beautyCollectionIntentsEnabled()
+    if(beautyCollectionIntentsEnabled(a.storeId))await requirePermission('booking.read');
+    return beautyTransaction(a, (tx) => beautyCollectionIntentsEnabled(a.storeId)
       ? commitBeautyCollectionIntent(tx,a,d,()=>collect(tx,a,d,{canDiscount}))
       : collect(tx,a,d,{canDiscount}));
   });

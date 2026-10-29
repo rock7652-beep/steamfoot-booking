@@ -626,9 +626,11 @@ export function CourseScheduleBoard({
     const update=()=>{const touch=window.matchMedia('(pointer: coarse)').matches;const grid=dayScrollRef.current;const gridTop=(grid??board).getBoundingClientRect().top+window.scrollY;const available=window.innerHeight-gridTop-16;setServiceHourHeight(Math.max(touch?90:48,Math.min(88,Math.floor(available/(serviceBounds.endHour-serviceBounds.firstHour)))));};
     update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(board);window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
   },[serviceMode,mode,serviceBounds.firstHour,serviceBounds.endHour]);
-  const weekLegendId = React.useId();
   const weekOverview = mode === "week";
   const fitWeek = weekOverview;
+  const fitDay = mode === "day" && !serviceMode;
+  const fitOverview = fitWeek || fitDay;
+  const dayStatusId = React.useId();
   const weekPeriods = serviceDates.flatMap(date=>{const day=calendarDays?.[date];return day?.status==="closed"||day?.status==="training"?[]:day?.periods??storePeriods;});
   const weekOccupations = (occupiedSessions??sessions).flatMap(session=>{const original=originalPlace(session);return original?[session,original]:[session];}).filter(session=>serviceDates.includes(sessionDate(session)));
   const weekBounds = serviceTimelineBounds(weekPeriods.length?weekPeriods:[{openTime:"09:00",closeTime:"22:00"}],weekOccupations);
@@ -636,20 +638,21 @@ export function CourseScheduleBoard({
   const [fitHourHeight,setFitHourHeight] = React.useState(44);
   const [weekHeaderHeight,setWeekHeaderHeight] = React.useState(44);
   React.useEffect(()=>{
-    if(!fitWeek || !weekScrollRef.current)return;
-    const grid=weekScrollRef.current;
+    if(!fitOverview)return;
+    const grid=fitDay?dayScrollRef.current:weekScrollRef.current;
+    if(!grid)return;
     const update=()=>{
       const top=grid.getBoundingClientRect().top+window.scrollY;
-      const header=grid.querySelector<HTMLElement>('[data-schedule-sticky-header]')?.offsetHeight??44;
+      const header=fitDay?0:grid.querySelector<HTMLElement>('[data-schedule-sticky-header]')?.offsetHeight??44;
       setWeekHeaderHeight(header);
       setFitHourHeight(Math.max(24,Math.min(88,Math.floor((window.innerHeight-top-header-38)/weekVisibleHours))));
     };
     update();const observer=typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);observer?.observe(grid);if(boardRef.current)observer?.observe(boardRef.current);
     window.addEventListener('resize',update);return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
-  },[fitWeek,weekVisibleHours]);
-  const hourHeight = fitWeek ? fitHourHeight : serviceMode ? serviceHourHeight : businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
+  },[fitOverview,fitDay,weekVisibleHours,selectedDate,resourceView]);
+  const hourHeight = fitOverview ? fitHourHeight : serviceMode ? serviceHourHeight : businessProfile === "MUSIC" ? 64 : sportsNative ? 88 : 96;
 
-  const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
+  const Toolbar = businessProfile === "MUSIC" || fitDay ? "div" : CourseScheduleToolbar;
 
   // Keep the all-room list when historical sessions have no active room.
   // A room-only grid must never silently hide those sessions.
@@ -682,7 +685,8 @@ export function CourseScheduleBoard({
     return (
       <section ref={boardRef} className="space-y-1" data-week-scale={weekOverview?"fit":undefined} data-hour-height={hourHeight} data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"服務週班表":"教室週課表"}>
 
-        <Toolbar className={businessProfile === "MUSIC" ? `${styles.musicToolbar} flex-wrap` : serviceMode ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
+        <Toolbar className={styles.calendarToolbar}>
+          <div className={styles.calendarToolbarControls}>
           {searchControl}
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}</button></div>
           <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? personnelText("教師") : personnelText(courseDisplayText("教練", businessProfile))}</label>
@@ -692,7 +696,9 @@ export function CourseScheduleBoard({
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : weekOverview ? <>本週 {weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals>0&&`・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
           {weekOverview&&!allWeekResources&&weekSessions.length===0&&sessions.some(session=>dates.includes(sessionDate(session)))&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-900" onClick={()=>{setWeekRoomId("__all__");onResourceChange?.(resourceView,"__all__");}}>此{resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}本週無{serviceMode?"預約":"課"}，查看全部{serviceMode?"預約":"課程"}</button>}
-          {(serviceMode||weekOverview)&&toolbarContent}{legend && (weekOverview ? <><button type="button" popoverTarget={weekLegendId} className="ml-auto min-h-11 rounded-lg border border-earth-200 bg-white px-3">圖例</button><div id={weekLegendId} popover="auto" aria-label="課表圖例" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20">{legend}<button type="button" popoverTarget={weekLegendId} popoverTargetAction="hide" className="mt-2 min-h-11 rounded-lg px-3">關閉</button></div></> : <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>)}
+          {(serviceMode||weekOverview)&&toolbarContent}
+          </div>
+          {legend && <div className={styles.calendarLegend}>{legend}</div>}
         </Toolbar>
         <div ref={weekScrollRef} data-week-scroll={weekOverview?true:undefined} data-sports-week-scroll={sportsNative&&weekOverview?true:undefined} style={weekOverview&&weekBounds.endHour-weekBounds.firstHour>12?{maxHeight:weekHeaderHeight+hourHeight*12+2}:undefined} className={`${fitWeek?"":serviceMode?"max-h-[calc(100dvh-18rem)] min-h-64":"max-h-[calc(100dvh-16rem)]"} overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white`}>
           <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
@@ -845,17 +851,12 @@ export function CourseScheduleBoard({
     resourceView === "room"
       ? activeRooms.map((room) => ({ id: room.id, name: room.name }))
       : activeCoaches.map((coach) => ({ id: coach.id, name: coach.displayName }));
-  const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
-  const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
-  const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
-  // Music starts with 09:00–22:00; actual lessons (including moved shadows)
-  // outside that window stay visible without expanding for unused opening hours.
-  const movedMinutes = sessions.flatMap(session => session.rescheduledFromStartsAt && session.rescheduledFromEndsAt && sessionDate({...session, startsAt:session.rescheduledFromStartsAt}) === selectedDate ? [minuteOfDay(hhmm(session.rescheduledFromStartsAt)), minuteOfDay(hhmm(session.rescheduledFromEndsAt))] : []);
-  const visibleMinutes = businessProfile === "MUSIC" ? [...sessionMinutes, ...movedMinutes] : boundaryMinutes.length ? boundaryMinutes : sessionMinutes;
-  const minMinute = serviceMode?serviceBounds.firstHour*60:Math.min(9*60, ...visibleMinutes);
-  const maxMinute = serviceMode?serviceBounds.endHour*60:Math.max(22*60, ...visibleMinutes);
-  const firstHour = Math.floor(minMinute/60);
-  const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
+  const calendarDay = calendarDays?.[selectedDate];
+  const normalizedStorePeriods = normalizeAvailabilityPeriods(calendarDay?.status === "closed" || calendarDay?.status === "training" ? [] : calendarDay?.periods ?? storePeriods);
+  // Bounds use the selected day's hours and all historical occupations, so
+  // filtering never hides an early/late class or its original moved position.
+  const firstHour = serviceMode ? serviceBounds.firstHour : weekBounds.firstHour;
+  const lastHour = (serviceMode ? serviceBounds.endHour : weekBounds.endHour) - 1;
   const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
   const selectedDayOfWeek=parseLocalDate(selectedDate).getDay();
   const coachPeriods=(staffId:string)=>{
@@ -938,15 +939,18 @@ export function CourseScheduleBoard({
   );
 
   return (
-    <section ref={boardRef} className="space-y-1" data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"日班表":"日課表"}>
+    <section ref={boardRef} className="space-y-1" data-day-scale={fitDay?"fit":undefined} data-hour-height={fitDay?hourHeight:undefined} data-service-hour-height={serviceMode?hourHeight:undefined} aria-label={serviceMode?"日班表":"日課表"}>
 
 
-      <Toolbar className={musicDense ? styles.musicToolbar : serviceMode ? "flex max-w-full flex-wrap items-center gap-2 !overflow-visible [&>*]:!shrink" : undefined}>
+      <Toolbar aria-label="日表資訊與操作" className={styles.calendarToolbar}>
+        <div className={styles.calendarToolbarControls}>
         {searchControl}
         {!musicDense && resourceViewControls}
         {musicDense && !replica && <span className="text-sm text-earth-700 whitespace-nowrap">{dayTotals.classes} 堂・{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
-        {(!musicDense || quickFilter !== "all") && !replica && <div
-          className={musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
+        {fitDay&&!musicDense&&!replica&&<span className="whitespace-nowrap text-sm">今日 {dayTotals.classes} 堂・{booked} 人次</span>}
+        {fitDay&&!replica&&<button type="button" popoverTarget={dayStatusId} className="min-h-11 rounded-lg border border-earth-200 bg-white px-3">狀態{quickFilter!=="all"?"（已篩選）":""}</button>}
+        {(!musicDense || quickFilter !== "all" || fitDay) && !replica && <div id={fitDay?dayStatusId:undefined} popover={fitDay?"auto":undefined}
+          className={fitDay ? "fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20" : musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
           aria-label="今日狀態快速篩選"
         >
           {filters.map((filter) => (
@@ -954,7 +958,7 @@ export function CourseScheduleBoard({
               key={filter.id}
               type="button"
               disabled={pending}
-              onClick={() => setQuickFilter(filter.id)}
+              onClick={(event) => {setQuickFilter(filter.id);if(fitDay)event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();}}
               className={`${tab} ${!musicDense ? "!px-1.5" : ""} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
             >
               <span>{filter.label}</span>
@@ -985,9 +989,10 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : personnelText("正在核對老師與教室…"))}
         </span>}
 
-        {serviceMode&&toolbarContent}
+        {(serviceMode||fitDay)&&toolbarContent}
         {musicDense && resourceViewControls}
-        {legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
+        </div>
+        {legend && <div className={styles.calendarLegend}>{legend}</div>}
       </Toolbar>
 
       {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? serviceMode?"目前只顯示待服務預約。":"目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>{serviceMode?"查看全部服務":"查看全部課程（含已點名）"}</button></div>}
@@ -999,8 +1004,8 @@ export function CourseScheduleBoard({
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
             <div data-schedule-sticky-header className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
-              {!serviceMode&&<div aria-label="日表日期" className={hideDateHeading?"sr-only":"flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900"}>{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>}
-              <div className={`absolute bottom-0 left-0 ${serviceMode||hideDateHeading?"top-0":"top-9"} z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500`}>
+              {!serviceMode&&<div aria-label="日表日期" className={hideDateHeading||fitDay?"sr-only":"flex min-h-9 items-center px-2 text-sm font-semibold text-primary-900"}>{selectedDate}{selectedDate === today ? " · 今天" : ""}</div>}
+              <div className={`absolute bottom-0 left-0 ${serviceMode||hideDateHeading||fitDay?"top-0":"top-9"} z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500`}>
                 時間
               </div>
               <div
@@ -1026,11 +1031,13 @@ export function CourseScheduleBoard({
             </div>
           )}
           <div
+            data-day-scroll={fitDay?true:undefined}
+            style={fitDay&&times.length>12?{maxHeight:hourHeight*12}:undefined}
             ref={timelineDense ? dayScrollRef : undefined}
             onScroll={timelineDense ? (event) => setDayScrollLeft(event.currentTarget.scrollLeft) : undefined}
 
 
-            className={timelineDense ? "max-w-full overflow-x-auto overscroll-x-contain scroll-smooth pb-1" : "max-w-full overflow-x-auto pb-1"}
+            className={fitDay ? "max-w-full overflow-auto overscroll-contain" : timelineDense ? "max-w-full overflow-x-auto overscroll-x-contain scroll-smooth pb-1" : "max-w-full overflow-x-auto pb-1"}
           >
             <div
               className={timelineDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
@@ -1117,7 +1124,7 @@ export function CourseScheduleBoard({
                                : null;
                              const enabled = resourceView === "room" ? rooms.some(room=>room.id===resource.id && room.isActive) : coaches.some(coach=>coach.id===resource.id && coach.status==="ACTIVE" && coach.courseCoachEnabled);
                              const available=moveClipboard
-                               ? sportsNative ? enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict : Boolean(serverMatch) && !matchError
+                               ? sportsNative ? enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict : Boolean(serverMatch) && storeOpen && resourceOpen && qualified && !hasConflict && !matchError
                                : enabled&&storeOpen&&resourceOpen&&qualified&&!hasConflict;
                              const origin = movedShadows.find((session) => {
                                const starts = session.rescheduledFromStartsAt;
@@ -1179,6 +1186,7 @@ export function CourseScheduleBoard({
                             } : undefined}
                           >
                             <SessionCard
+                              weekPixelHeight={fitDay?Math.max(21,sessionDurationMinutes(session)*hourHeight/60-4):undefined}
                               servicePixelHeight={serviceMode?sessionDurationMinutes(session)*hourHeight/60-4:undefined}
                               session={session}
                               templates={templates}
@@ -1203,7 +1211,7 @@ export function CourseScheduleBoard({
               </React.Fragment>
             ))}
               </div>
-              {musicDense && <div aria-label="課表結束時間" className="border-t border-earth-200 px-2 py-1 text-xs text-earth-600">{String(lastHour + 1).padStart(2, "0")}:00</div>}
+              {musicDense && <div aria-label="課表結束時間" className={fitDay?"sr-only":"border-t border-earth-200 px-2 py-1 text-xs text-earth-600"}>{String(lastHour + 1).padStart(2, "0")}:00</div>}
             </div>
           </div>
         </div>

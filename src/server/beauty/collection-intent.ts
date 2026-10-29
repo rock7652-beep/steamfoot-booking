@@ -1,4 +1,5 @@
 import 'server-only';
+import {beautyPurchaseIntentStoreAllowed} from './plan-checkout-input';
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import type {z} from 'zod';
 import type {paymentInput} from '@/lib/beauty/contracts';
@@ -14,7 +15,7 @@ export type BeautyCollectionIntentStatus='PREPARED'|'COMMITTED'|'ACKNOWLEDGED'|'
 export type BeautyCollectionIntentView={status:BeautyCollectionIntentStatus;requestKey:string;appointmentIds:string[]};
 type Row={status:BeautyCollectionIntentStatus;requestKey:string;fingerprint:string|null};
 
-export function beautyCollectionIntentsEnabled(){return process.env.BEAUTY_COLLECTION_INTENTS_ENABLED==='1';}
+export function beautyCollectionIntentsEnabled(storeId?:string){return process.env.BEAUTY_COLLECTION_INTENTS_ENABLED==='1'&&beautyPurchaseIntentStoreAllowed(storeId);}
 export function collectionFingerprint(input:BeautyCollectionInput):string{
  const secret=process.env.AUTH_SECRET||process.env.NEXTAUTH_SECRET;
  if(!secret)throw new AppError('FORBIDDEN','收款核對服務尚未設定，請聯絡管理員');

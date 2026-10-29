@@ -522,8 +522,10 @@ export async function transition(
       throw new AppError("FORBIDDEN", "此預約請聯絡店家處理");
   }
   if(input.noShowDeduct!==undefined&&(!a.manager||input.target!=='NO_SHOW'))throw new AppError('FORBIDDEN','只有後台可選擇未出席扣次方式');
-  if(input.noShowDeduct===true)throw new AppError('BUSINESS_RULE','未到扣次功能已停用');
-  const debit=input.target==='COMPLETED';
+  if(input.noShowDeduct===true&&!b.cardId)throw new AppError('BUSINESS_RULE','此預約未使用方案，無法扣次');
+  // Automatic policy deductions stay retired; only an explicit authorized
+  // back-office attendance correction can deduct a no-show from its plan.
+  const debit=input.target==='COMPLETED'||input.target==='NO_SHOW'&&input.noShowDeduct===true;
   const hadCardBinding=!!b.cardId;
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
   // Completion may use existing paid single-service rights, or an eligible

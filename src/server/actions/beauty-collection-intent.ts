@@ -11,7 +11,7 @@ import {acknowledgeBeautyCollectionIntent,beautyCollectionIntentsEnabled,cancelB
 const ids=z.array(z.string().min(1).max(100)).min(1).max(12).refine(v=>new Set(v).size===v.length);
 const scope=z.object({expectedStoreId:z.string().min(1).max(100),ids,requestKey:z.string().uuid().optional()});
 const keyed=scope.extend({requestKey:z.string().uuid()});
-function assertEnabled(){if(!beautyCollectionIntentsEnabled())throw new AppError('FORBIDDEN','收款核對功能尚未啟用');}
+function assertEnabled(storeId:string){if(!beautyCollectionIntentsEnabled(storeId))throw new AppError('FORBIDDEN','收款核對功能尚未啟用');}
 async function actor(expectedStoreId:string,write:boolean){
  const a=await beautyManager('transaction.create',write);
  await Promise.all([requirePermission('booking.read'),requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT)]);
@@ -22,7 +22,7 @@ async function actor(expectedStoreId:string,write:boolean){
 /** Same schema and canonical input as the real collection write; raw form and
  * payment data are never returned or stored by the intent endpoints. */
 export async function prepareBeautyCollectionPurchaseIntent(input:unknown){
- try{assertEnabled();const s=scope.parse(input),d=paymentInput.parse(input),a=await actor(s.expectedStoreId,true);
+ try{const s=scope.parse(input);assertEnabled(s.expectedStoreId);const d=paymentInput.parse(input),a=await actor(s.expectedStoreId,true);
   if(d.quotes?.some(q=>q.discount))await requirePermission('transaction.discount');
   const data=await beautyTransaction(a,async tx=>{
    const rows=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:d.ids}},select:{id:true,status:true,cardId:true}});
@@ -32,7 +32,7 @@ export async function prepareBeautyCollectionPurchaseIntent(input:unknown){
  }catch(error){return handleActionError(error);}
 }
 export async function readBeautyCollectionPurchaseIntent(input:unknown){
- try{assertEnabled();const d=scope.parse(input),a=await actor(d.expectedStoreId,false);
+ try{const d=scope.parse(input);assertEnabled(d.expectedStoreId);const a=await actor(d.expectedStoreId,false);
   const data=await beautyTransaction(a,async tx=>{
    const selected=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:d.ids}},select:{id:true}});
    if(selected.length!==d.ids.length)throw new AppError('FORBIDDEN','無法核對此服務收款');
@@ -48,10 +48,10 @@ export async function readBeautyCollectionPurchaseIntent(input:unknown){
  }catch(error){return handleActionError(error);}
 }
 export async function cancelBeautyCollectionPurchaseIntent(input:unknown){
- try{assertEnabled();const d=keyed.parse(input),a=await actor(d.expectedStoreId,true);const data=await beautyTransaction(a,tx=>cancelBeautyCollectionIntent(tx,a,d.requestKey,d.ids));return {success:true as const,data};}
+ try{const d=keyed.parse(input);assertEnabled(d.expectedStoreId);const a=await actor(d.expectedStoreId,true);const data=await beautyTransaction(a,tx=>cancelBeautyCollectionIntent(tx,a,d.requestKey,d.ids));return {success:true as const,data};}
  catch(error){return handleActionError(error);}
 }
 export async function acknowledgeBeautyCollectionPurchaseIntent(input:unknown){
- try{assertEnabled();const d=keyed.parse(input),a=await actor(d.expectedStoreId,true);const data=await beautyTransaction(a,tx=>acknowledgeBeautyCollectionIntent(tx,a,d.requestKey,d.ids));return {success:true as const,data};}
+ try{const d=keyed.parse(input);assertEnabled(d.expectedStoreId);const a=await actor(d.expectedStoreId,true);const data=await beautyTransaction(a,tx=>acknowledgeBeautyCollectionIntent(tx,a,d.requestKey,d.ids));return {success:true as const,data};}
  catch(error){return handleActionError(error);}
 }
