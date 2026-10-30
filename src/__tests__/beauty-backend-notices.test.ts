@@ -15,13 +15,13 @@ it('captures a customer same-day booking despite the legacy disabled setting',as
 });
 it('uses the shared table, coalesces one item and preserves the first move origin',async()=>{const tx=adapter(db);await recordBeautyStoreNotice(tx,actor,true,b,'BOOKING');expect((await db.query('SELECT * FROM "CourseStoreNotice"')).rows[0]).toMatchObject({subjectKey:'beauty:booking',kind:'BOOKING',handledByName:'店長',revision:0});const next={...b,startsAt:new Date('2099-01-02T02:00Z')};await recordBeautyStoreNotice(tx,actor,true,next,'MOVE',{startsAt:b.startsAt,technicianId:'tech'});await recordBeautyStoreNotice(tx,actor,true,{...next,startsAt:new Date('2099-01-03T02:00Z')},'MOVE',{startsAt:next.startsAt,technicianId:'tech'});const rows=(await db.query<Record<string,unknown>>('SELECT * FROM "CourseStoreNotice"')).rows;expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({kind:'MOVE',revision:2,handledAt:null});expect(new Date(rows[0].previousStartsAt as string).getTime()).toBe(+b.startsAt);});
 it('rolls notice creation back with the caller transaction',async()=>{await expect(db.transaction(async sql=>{await recordBeautyStoreNotice(adapter(sql),actor,true,{...b,id:'rolled-back'},'MOVE');throw Error('booking failed');})).rejects.toThrow('booking failed');expect((await db.query('SELECT id FROM "CourseStoreNotice" WHERE "subjectKey"=\'beauty:rolled-back\'')).rows).toHaveLength(0);});
-it('marks a customer same-day booking pending without using manager LINE settings',async()=>{
+it('marks both customer and staff same-day bookings pending without using manager LINE settings',async()=>{
  const tx=adapter(db),now=new Date();
  await recordBeautyStoreNotice(tx,{storeId:'store',userId:'customer-user',customerId:'customer'},true,{...b,id:'today-customer',startsAt:now},'BOOKING');
  await recordBeautyStoreNotice(tx,actor,true,{...b,id:'today-manager',startsAt:now},'BOOKING');
  const rows=await db.query<{subjectKey:string;handledAt:Date|null}>(`SELECT "subjectKey","handledAt" FROM "CourseStoreNotice" WHERE "subjectKey" IN ('beauty:today-customer','beauty:today-manager') ORDER BY "subjectKey"`);
  expect(rows.rows[0]).toMatchObject({subjectKey:'beauty:today-customer',handledAt:null});
- expect(rows.rows[1].handledAt).not.toBeNull();
+ expect(rows.rows[1]).toMatchObject({subjectKey:'beauty:today-manager',handledAt:null});
 });
 it('keeps a public trial pending even when it is not today',async()=>{
  await recordBeautyStoreNotice(adapter(db),{storeId:'store',userId:null,actorKey:'public'},true,{...b,id:'public-trial',isTrial:true},'BOOKING');

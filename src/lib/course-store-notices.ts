@@ -6,6 +6,6 @@ export type CourseNoticeItem={
  handledAt:string|null;handledByName:string|null;revision:number;createdAt:string;updatedAt:string;canViewCourse?:boolean;
 };
 export function courseNoticeNeedsFollowup(kind:CourseNoticeKind,member:boolean,sameDayBooking=false) {
- if(kind==="BOOKING")return member && sameDayBooking;
+ if(kind==="BOOKING")return sameDayBooking;
  return member || kind==="LEAVE" || kind==="STOP" || kind==="MOVE";
 }

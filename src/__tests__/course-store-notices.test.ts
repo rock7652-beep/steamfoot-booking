@@ -55,6 +55,8 @@ describe("transactional store notices",()=>{
    vi.setSystemTime(new Date("2026-10-29T16:05:00Z"));
    await recordCourseStoreNotice(tx as never,actor,{...event,kind:"BOOKING",startsAt:new Date("2026-10-30T11:00:00+08:00")});
    expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:null,handledById:null})}));
+   await recordCourseStoreNotice(tx as never,{...actor,customerId:undefined},{...event,kind:"BOOKING",startsAt:new Date("2026-10-30T11:00:00+08:00")});
+   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:null,handledById:null})}));
    await recordCourseStoreNotice(tx as never,actor,{...event,kind:"BOOKING",startsAt:new Date("2026-10-31T11:00:00+08:00")});
    expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:expect.any(Date)})}));
   } finally { vi.useRealTimers(); }

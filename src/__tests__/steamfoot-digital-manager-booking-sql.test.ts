@@ -12,7 +12,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('scripts/sql/steamfoot-digital-manager-booking-candidate.sql','utf8'));
 },30000);
 afterAll(async()=>db.close());
-it('makes customer same-day bookings and public trials pending, independently of LINE',async()=>{
+it('makes all same-day bookings and public trials pending, independently of LINE',async()=>{
  await db.exec(`INSERT INTO "Booking" (id,"storeId","customerId","bookingDate","slotTime","bookedByType","bookingType") VALUES
  ('today','a','ca',(now() AT TIME ZONE 'Asia/Taipei')::date,'10:00','CUSTOMER','PACKAGE_SESSION'),
  ('trial','a','ca',(now() AT TIME ZONE 'Asia/Taipei')::date+2,'10:00','CUSTOMER','FIRST_TRIAL'),
@@ -22,7 +22,7 @@ it('makes customer same-day bookings and public trials pending, independently of
  const rows=(await db.query<{bookingId:string;handledAt:Date|null}>(`SELECT "bookingId","handledAt" FROM "SteamfootStoreNotice" ORDER BY "bookingId"`)).rows;
  const find=(id:string)=>rows.find(r=>r.bookingId===id)!;
  expect(find('today').handledAt).toBeNull();expect(find('trial').handledAt).toBeNull();expect(find('other').handledAt).toBeNull();
- expect(find('future').handledAt).not.toBeNull();expect(find('staff').handledAt).not.toBeNull();
+ expect(find('future').handledAt).not.toBeNull();expect(find('staff').handledAt).toBeNull();
 });
 it('retains transactional rollback and captures bookings despite a legacy disabled setting',async()=>{
  await db.exec(`BEGIN; INSERT INTO "Booking" (id,"storeId","customerId","bookingDate","slotTime") VALUES ('rolled','a','ca',(now() AT TIME ZONE 'Asia/Taipei')::date,'10:00'); ROLLBACK;
