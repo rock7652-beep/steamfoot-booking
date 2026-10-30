@@ -10,7 +10,7 @@ import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
 import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
 
 import {coursePlanModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
-import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {useSportsCalendarState,useSportsCalendarDate,useSportsCalendarScroll,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calendar-month-boundary";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
@@ -351,9 +351,7 @@ export function CourseWorkspace({
   const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
   const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
-  const [retainedDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
-  // Explicit links win immediately, before retained state is synchronized by effects.
-  const nativeDate=sportsNative&&calendarDate(explicitDate)?explicitDate:retainedDate;
+  const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
   const [nativeCalendar,setNativeCalendar]=useState<{schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
@@ -390,9 +388,9 @@ export function CourseWorkspace({
   },[sportsNative,canCreate,sportsCalendarReader,calendarSource]);
   const calendarDataReady=calendarMonthReady(sportsNative,nativeDate,nativeCalendar?.month??loadedDate.slice(0,7));
   useEffect(()=>{if(!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
-    if(!calendarSource){const next=new URLSearchParams(window.location.search);next.set("date",nativeDate);window.history.replaceState(null,"",`${pathname}?${next}`);}
+    if(!calendarSource)setNativeDate(nativeDate);
     void refreshNativeCalendar(nativeDate,true);
-  }},[calendarDataReady,nativeDate,calendarSource,pathname,refreshNativeCalendar]);
+  }},[calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
   const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
   const requestedDate = sportsNative?nativeDate:params.get("date");
@@ -405,7 +403,7 @@ export function CourseWorkspace({
         ? "day"
         : "month",calendarMode,
   );
-  useEffect(()=>{if(!sportsNative)return;if(explicitDate&&calendarDate(explicitDate))setNativeDate(explicitDate);if(explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitDate,explicitMode,setNativeDate,setScheduleMode]);
+  useEffect(()=>{if(sportsNative&&explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitMode,setScheduleMode]);
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
     if(sportsNative)return;
@@ -679,7 +677,7 @@ export function CourseWorkspace({
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
     calendarSource?.onDateChange?.(date);
-    if(sportsNative){const next=new URLSearchParams(window.location.search);next.set("date",date);window.history.replaceState(null,"",`${pathname}?${next}`);setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
+    if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
