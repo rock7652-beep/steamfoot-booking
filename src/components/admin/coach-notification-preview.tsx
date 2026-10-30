@@ -2,8 +2,9 @@
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { coachNoticeFlex,type CoachNoticeKind } from '@/lib/course-coach-notifications';
-type Node={type:string;text?:string;color?:string;weight?:string;size?:string;layout?:string;contents?:Node[];action?:{label:string}};
-function FlexNode({node}:{node:Node}){
+type Node={type:string;body?:Node;footer?:Node;text?:string;color?:string;weight?:string;size?:string;layout?:string;contents?:Node[];action?:{label:string}};
+export function FlexNode({node}:{node:Node}){
+ if(node.type==='bubble')return <><FlexNode node={node.body!}/>{node.footer&&<div className="mt-4"><FlexNode node={node.footer}/></div>}</>;
  if(node.type==='text')return <p className={`${node.weight==='bold'?'font-semibold':''} whitespace-pre-wrap break-words text-sm`} style={{color:node.color}}>{node.text}</p>;
  if(node.type==='button')return <div className="rounded-lg px-3 py-3 text-center text-sm font-medium text-white" style={{backgroundColor:node.color}}>{node.action?.label}</div>;
  return <div className={`flex ${node.layout==='horizontal'?'flex-row items-start':'flex-col'} gap-2`}>{node.contents?.map((child,i)=><FlexNode key={i} node={child}/>)}</div>;

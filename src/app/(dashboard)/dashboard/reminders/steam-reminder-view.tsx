@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingsScope} from "@/components/admin/reminder-settings-list";
 import {LineMessagePolicy,lineMessageListClass} from "@/components/admin/line-message-policy";
 import { ReminderScheduleNote } from '@/components/admin/reminder-schedule-note';
 import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
@@ -28,7 +29,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
   if (data.content.kind === "manager") {
     const { recipients } = data.content;
     content = (
-      <LineNotificationRecipientsCard storeId={storeId} key={storeId} recipients={recipients} showHeading={false} />
+      <LineNotificationRecipientsCard storeId={storeId} key={storeId} recipients={recipients} readOnly={data.readOnly} showHeading={false} />
     );
   } else if (data.content.kind === "logs") {
     content = (
@@ -43,8 +44,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
       <><LineMessagePolicy preview={previewBlocked} paused={data.deliveryPaused} resumeAt={data.deliveryResumeAt}/><ReminderSectionPicker key={storeId} initial={customerSection} sections={[
         { key: "booking-reminders", label: "預約前提醒", content: (
 
-          <section aria-labelledby="booking-reminders-title" className="space-y-3">
-            <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
+          <section className="min-w-0">
             {!previewBlocked && <CronRunBanner data={cron} />}
             <div className={lineMessageListClass}>
               <PackageLineCardReminderSettingCard key={`${storeId}-package`} initialBody={packageBody} hasMapLink={!!trial.mapUrl} initialEnabled={state.packageBookingEnabled} />
@@ -53,14 +53,12 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
           </section>
         ) },
         { key: "trial-care", label: "體驗後關懷", content: (
-          <section aria-labelledby="trial-care-title" className="space-y-3">
-            <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
+          <section className="min-w-0">
             <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
           </section>
         ) },
         { key: "plan-reminders", label: "方案提醒", content: (
-          <section aria-labelledby="plan-reminders-title" className="space-y-3">
-            <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案提醒</h3><p className="mt-1 text-sm text-earth-500">管理方案開通、剩餘堂數與到期通知。</p></div>
+          <section className="min-w-0">
             <PlanActivationNotificationSetting key={`${storeId}-activation`} storeId={storeId} initialEnabled={activationEnabled} readOnly={data.readOnly}/>
             <div className={lineMessageListClass}>
               <SimpleSessionBalanceReminders key={`${storeId}-balance`} initialSetting={balance} />
@@ -89,7 +87,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
           };
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={enabled}>
+    <ReminderSettingsScope key={storeId}><FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={enabled}>
       <PageShell>
         <PageHeader
           title="提醒管理"
@@ -147,7 +145,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
           <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
         </div>
 
-        {activeTab === "manager" && quotaEmail && <LineQuotaEmailSetting key={`quota-email:${storeId}`} initial={quotaEmail} />}
+        {activeTab === "manager" && quotaEmail && <details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="min-h-11 cursor-pointer py-3 text-sm text-primary-700">進階：額度 Email 提醒</summary><LineQuotaEmailSetting key={`quota-email:${storeId}`} initial={quotaEmail} /></details>}
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">
@@ -164,6 +162,6 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
           </div>
         </details>
       </PageShell>
-    </FeatureGate>
+    </FeatureGate></ReminderSettingsScope>
   );
 }

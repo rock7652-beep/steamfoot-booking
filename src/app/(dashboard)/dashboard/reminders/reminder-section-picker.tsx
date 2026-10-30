@@ -1,22 +1,16 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import {ReminderSettingsList} from '@/components/admin/reminder-settings-list';
 
-/** Keep inactive forms mounted so changing categories preserves drafts. */
+/** All sections stay mounted; disclosure changes preserve drafts. */
 export function ReminderSectionPicker({ initial, sections }: {
   initial: string;
   sections: { key: string; label: string; content: ReactNode }[];
 }) {
-  const id = useId();
-  const [selected, setSelected] = useState(initial);
-  const active = sections.some(section => section.key === selected) ? selected : sections[0]?.key;
-  return <div className="space-y-3">
-    <div className="flex flex-wrap items-center gap-3">
-      <label htmlFor={id} className="text-sm font-medium text-earth-700">提醒類型</label>
-      <select id={id} value={active} onChange={event => setSelected(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm">
-        {sections.map(section => <option key={section.key} value={section.key}>{section.label}</option>)}
-      </select>
-    </div>
-    {sections.map(section => <div key={section.key} hidden={section.key !== active} className="space-y-3">{section.content}</div>)}
+  const root=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(initial&&initial!=='booking-reminders')Array.from(root.current?.querySelectorAll<HTMLElement>('[data-reminder-group]')??[]).find(section=>section.dataset.reminderGroup===initial)?.scrollIntoView({block:'start'});},[initial]);
+  return <div ref={root} className="space-y-5">
+    {sections.map(section => <section key={section.key} data-reminder-group={section.key} className="min-w-0 scroll-mt-4 space-y-2"><h2 className="font-semibold text-earth-900">{section.label}</h2><ReminderSettingsList>{section.content}</ReminderSettingsList></section>)}
   </div>;
 }

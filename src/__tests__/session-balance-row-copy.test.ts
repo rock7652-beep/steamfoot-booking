@@ -1,0 +1,20 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),feature:vi.fn(),upsert:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{sessionBalanceNotificationSetting:{upsert:m.upsert}}}));
+vi.mock('@/lib/permissions',()=>({requirePermission:m.permission}));
+vi.mock('@/lib/store',()=>({resolveWriteStoreId:m.store}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('@/lib/session',()=>({requireStaffSession:vi.fn(),requireAdminSession:vi.fn()}));
+vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
+vi.mock('@/lib/line',()=>({pushMessage:vi.fn(),renderTemplate:vi.fn(),probeStoreLineRecipient:vi.fn(),probeSteamButlerLineRecipient:vi.fn()}));
+import {saveSessionBalanceTemplateSetting} from '@/server/actions/reminder';
+const last={section:'last-session' as const,lastSessionUnbookedTemplate:'未預約提醒',lastSessionBookedTemplate:'已預約提醒'};
+const used={section:'used-up' as const,planUsedUpTemplate:'用完提醒',learnMoreButtonLabel:'儲值',laterButtonLabel:'稍後'};
+beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue({id:'owner-a',role:'OWNER'});m.store.mockResolvedValue('store-a');m.upsert.mockResolvedValue({});});
+it.each([last,used])('only updates the selected row fields in the server-selected store',async data=>{
+ expect((await saveSessionBalanceTemplateSetting(data)).success).toBe(true);
+ const {section,...expected}=data;expect(section).toBeTruthy();expect(m.upsert).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({where:{storeId:'store-a'},update:expected}));expect(m.permission).toHaveBeenCalledWith('business_hours.manage');expect(m.store).toHaveBeenCalledWith({id:'owner-a',role:'OWNER'});
+});
+it('keeps the legacy five-field client contract',async()=>{const {section:_,...a}=last;const {section:__,...b}=used;void _;void __;expect((await saveSessionBalanceTemplateSetting({...a,...b})).success).toBe(true);expect(m.upsert.mock.calls[0][0].update).toEqual({...a,...b});});
+it('rejects fields from another row or arbitrary store ids',async()=>{expect((await saveSessionBalanceTemplateSetting({...last,planUsedUpTemplate:'other draft'})).success).toBe(false);expect((await saveSessionBalanceTemplateSetting({...last,storeId:'store-b'})).success).toBe(false);expect(m.upsert).not.toHaveBeenCalled();});
+it.each(['permission','store','feature'] as const)('rejects changed %s before writing',async guard=>{m[guard].mockRejectedValue(new Error('拒絕'));expect((await saveSessionBalanceTemplateSetting(last)).success).toBe(false);expect(m.upsert).not.toHaveBeenCalled();});

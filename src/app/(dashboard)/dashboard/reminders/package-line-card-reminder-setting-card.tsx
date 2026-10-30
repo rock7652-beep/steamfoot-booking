@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow,closeReminderRow} from "@/components/admin/reminder-settings-list";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { LineCardPreview } from "./line-card-preview";
 
@@ -50,16 +51,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
   }
 
   return (
-    <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className={`flex flex-wrap cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
-        <div className="min-w-0 flex-1 basis-48">
-          <h2 className={`${course ? "text-sm" : "text-base"} font-semibold text-earth-900`}>{title}</h2>
-          <p className={`${course ? "mt-0.5" : "mt-1"} text-sm text-earth-500`}>{course ? "前一日 18:00・實際上課者・取消不發送" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
-          {mutation.toggleError && <p role="alert" className="mt-1 break-words text-sm text-red-700">{mutation.toggleError}</p>}
-          {mutation.formError && <p role="alert" className="mt-1 break-words text-sm text-red-700 group-open:hidden">{mutation.formError}</p>}
-        </div>
-        <ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label={`${title}開關`} onToggle={toggle} />
-      </summary>
+    <ReminderSettingRow title={title} description={course ? "前一天 18:00・通知實際上課者" : "前一天 18:00・方案與單次預約"} control={<ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label={`${title}開關`} onToggle={toggle} />} pending={mutation.pending} error={mutation.toggleError || mutation.formError} resetToken={savedBody} dirty={body !== savedBody}>
       <div className={`border-t border-earth-100 ${course ? "p-3" : "p-4"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -79,7 +71,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
       </div>
 
       <div className={`${course ? "mt-3" : "mt-4"} grid gap-3 md:grid-cols-2`}>
-        <div className="md:col-span-2">
+        <div className="min-w-0">
           <label htmlFor="package-line-card-reminder" className="mb-1 block text-xs font-medium text-earth-700">
             店長自訂提醒
           </label>
@@ -99,18 +91,19 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           </div>
         </div>
 
-        <details className="md:col-span-2 rounded-xl border border-earth-200 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary>
+        <div className="min-w-0 rounded-xl border border-earth-200 bg-white p-3">
+          <p className="text-sm font-medium text-earth-700">卡片預覽・示意資料</p>
           <div className="mt-3">
           <LineCardPreview title="預約提醒" actions={course ? [...(hasMapLink ? [{label:"開啟 Google Maps 導航"}] : []), {label:"改時段",variant:"outline"}, {label:"取消前往",variant:"cancel"}] : [...(hasMapLink ? [{ label: "開啟 Google Maps 導航" }] : []), { label: "改時段", variant: "outline" }, { label: "取消前往", variant: "cancel" }]}>
             <p className="font-semibold">王小美 您好</p><p>日期時間　2026-09-17 14:00</p><p>{trimmedBody || defaultBody}</p>
           </LineCardPreview>
           <p className="mt-2 text-[11px] text-earth-400">{course ? "體驗課另有「確認會到」。改期與取消依本店截止、名額與方案規則處理，逐位確認。" : "改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。"}</p></div>
-        </details>
+        </div>
       </div>
 
       <div className={`${course ? "mt-3" : "mt-4"} flex flex-wrap items-center justify-end gap-3`}>
         {mutation.formError && <p role="alert" className="mr-auto min-w-0 break-words text-sm text-red-700">{mutation.formError}</p>}
+        <button type="button" disabled={mutation.pending} onClick={event => { setBody(savedBody); closeReminderRow(event); }} className="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm">取消</button>
         <button
           type="button"
           disabled={mutation.pending || !canSave}
@@ -121,6 +114,6 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         </button>
       </div>
       </div>
-    </details>
+    </ReminderSettingRow>
   );
 }

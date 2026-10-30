@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow} from "./reminder-settings-list";
 import { useState } from "react";
 import { NotificationSwitch } from "./notification-switch";
 import { useSettingsPanelGuard } from "./settings-panel-context";
@@ -17,20 +18,8 @@ export function PlanActivationNotificationSetting({storeId,initialEnabled,readOn
       const previous=enabled;setEnabled(next);return ()=>setEnabled(previous);
     });
   }
-  return <section aria-label="方案開通通知" className="min-w-0 space-y-2 rounded-xl border border-earth-200 bg-white p-4 text-sm">
-    <label className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-      <span className="font-semibold text-earth-900">方案開通通知・{mutation.pending?"儲存中…":enabled?"開啟":"關閉"}</span>
-      <NotificationSwitch aria-label="方案開通通知開關" checked={enabled} disabled={readOnly||mutation.pending} onChange={e=>change(e.target.checked)}/>
-    </label>
-    <p className="text-earth-600">購買或續購方案開通後，自動以 LINE 通知購買人。待核帳訂單於核帳開通後通知。</p>
-    <p className="text-earth-500">啟用後不補發歷史購買；共用成員不另外通知。沿用本店 LINE 提醒額度。</p>
-    <details className="min-w-0 rounded-lg border border-earth-200">
-      <summary className="min-h-11 cursor-pointer px-3 py-2.5 font-medium text-primary-700">查看訊息預覽</summary>
-      <div className="space-y-2 border-t border-earth-100 p-3">
-        <p className="text-earth-500">示範資料，不會發送。</p>
-        <PlanActivationCardPreview value={sampleCard}/>
-      </div>
-    </details>
-    {mutation.toggleError&&<p role="alert" className="break-words text-red-700">{mutation.toggleError}</p>}
-  </section>;
+  return <section aria-label="方案開通通知" className="min-w-0"><ReminderSettingRow title="方案開通通知" description="購買／續購開通後通知購買人；待核帳訂單於開通後通知" pending={mutation.pending} error={mutation.toggleError} action="預覽" control={<NotificationSwitch aria-label="方案開通通知開關" checked={enabled} disabled={readOnly||mutation.pending} onChange={e=>change(e.target.checked)}/> }>
+    <p className="mb-3 text-sm text-earth-500">示範資料，不會發送。啟用後不補發歷史購買；共用成員不另外通知。</p>
+    <PlanActivationCardPreview value={sampleCard}/>
+  </ReminderSettingRow></section>;
 }

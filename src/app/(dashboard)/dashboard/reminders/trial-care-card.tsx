@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow,closeReminderRow} from "@/components/admin/reminder-settings-list";
 
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useId, useRef, useState, useTransition } from "react";
@@ -10,7 +11,7 @@ type CareLog = { id: string; customerId: string; customerName: string; stage: nu
 const STATUS: Record<string, string> = { SENT: "已發送", SKIPPED: "已略過", FAILED: "發送失敗", SENDING: "已處理，等待結果" };
 
 function CareSwitch({ checked, label, disabled, onChange }: { checked: boolean; label: string; disabled: boolean; onChange: (value: boolean) => void }) {
-  return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex h-9 w-14 shrink-0 items-center rounded-full p-1 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600 disabled:opacity-50 ${checked ? "bg-primary-600" : "bg-earth-200"}`}><span className={`h-7 w-7 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} /></button>;
+  return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={event => {event.preventDefault();onChange(!checked);const row=event.currentTarget.closest<HTMLDetailsElement>('details[data-reminder-row]');if(row)row.open=true;}} className={`inline-flex h-9 w-14 shrink-0 items-center rounded-full p-1 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600 disabled:opacity-50 ${checked ? "bg-primary-600" : "bg-earth-200"}`}><span className={`h-7 w-7 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} /></button>;
 }
 
 export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules, logs, course = false, deliveryBlocked = false, readOnly = false, canStop = true, initialRevision = null, saveSettings = saveTrialCareSettings, stopCare = stopCustomerTrialCare }: { storeId: string; storeName: string; initialEnabled: boolean; initialRules: TrialCareRule[]; logs: CareLog[]; course?: boolean; deliveryBlocked?: boolean; readOnly?: boolean; canStop?: boolean; initialRevision?: string|null; saveSettings?: (input:{storeId:string;enabled:boolean;rules:TrialCareRule[];expectedRevision?:string|null})=>Promise<{success:boolean;error?:string;revision?:string}>; stopCare?: (customerId:string)=>Promise<{success:boolean;error?:string}> }) {
@@ -39,13 +40,7 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
     update(index, { body: body.slice(0, from) + token + body.slice(to) });
     requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(from + token.length, from + token.length); });
   }
-  const Container = course ? "details" : "section";
-  return <Container className="rounded-2xl border border-earth-200 bg-white shadow-sm md:col-span-2 [&_button]:min-h-11 [&_input]:min-h-11">
-    {course && <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm"><strong>體驗客後續關懷</strong><span role="status">{saved.enabled ? "已開啟" : "已關閉"}{pending ? " · 儲存中…" : dirty ? " · 未儲存" : ""}{message ? ` · ${message}` : ""}</span></summary>}
-    <header className="flex items-start justify-between gap-4 p-5">
-      <div><h2 className="font-semibold text-earth-900">{course ? "整組關懷與發送設定" : "體驗客後續關懷"}</h2><p className="mt-1 text-sm text-earth-500">先關心，再邀請。各店獨立設定，僅適用於啟用後新完成的體驗。</p></div>
-      <CareSwitch checked={enabled} label="啟用整組體驗關懷" disabled={pending || readOnly} onChange={value => { setEnabled(value); setMessage(""); }} />
-    </header>
+  return <ReminderSettingRow title="體驗後關懷" description={`共 ${rules.length} 階段・依已儲存設定發送`} dirty={dirty} pending={pending} resetToken={JSON.stringify(saved)} control={<><span className="text-sm text-earth-500">{saved.enabled?'開啟':'關閉'}</span><CareSwitch checked={enabled} label="啟用整組體驗關懷" disabled={pending||readOnly} onChange={value=>{setEnabled(value);setMessage('');}}/></>}>
     <div role="status" className={`mx-5 rounded-xl px-4 py-3 text-sm ${saved.enabled ? "bg-primary-50 text-primary-800" : "bg-earth-50 text-earth-700"}`}>
       <p className="font-medium">{deliveryBlocked ? (saved.enabled ? "設定已儲存；LINE 關閉，尚不發送" : "整組尚未啟用；LINE 維持關閉") : saved.enabled ? "整組已啟用，依已儲存設定發送" : "整組尚未啟用，不會發送"}</p>
       {dirty && <p className="mt-1 text-xs">有尚未儲存的變更，按下方儲存後才會生效。</p>}
@@ -89,9 +84,9 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
         <details className="px-1 py-2 text-xs text-earth-500"><summary className="cursor-pointer">發送規則與避免打擾</summary><p className="mt-2 leading-6">台灣時間，每 5 分鐘檢查。各階段至少間隔 3 天。購買申請待核帳時略過邀請，不補發；已購買方案或儲值停止邀請；已預約略過該次邀請。每階段只發一次，不補發、不循環。重新啟用整組關懷只處理新體驗。</p></details>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-earth-200 bg-white px-5 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
-        <p role="status" className="text-sm text-earth-600">{message || (dirty ? "有尚未儲存的變更" : "設定與文案修改後，請儲存生效")}</p><button disabled={readOnly || pending || !dirty} type="submit" className="rounded-lg bg-primary-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{pending ? "儲存中…" : enabled && !saved.enabled ? "確認文案並啟用" : "儲存設定"}</button>
+        <p role="status" className="text-sm text-earth-600">{message || (dirty ? "有尚未儲存的變更" : "設定與文案修改後，請儲存生效")}</p><button type="button" disabled={pending} onClick={event=>{setEnabled(saved.enabled);setRules(saved.rules);setMessage('');setExpanded(null);closeReminderRow(event);}} className="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm">取消</button><button disabled={readOnly || pending || !dirty} type="submit" className="rounded-lg bg-primary-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{pending ? "儲存中…" : enabled && !saved.enabled ? "確認文案並啟用" : "儲存設定"}</button>
       </div>
     </form>
     <details className="border-t border-earth-100 p-5"><summary className="cursor-pointer text-sm text-earth-700">最近關懷紀錄</summary><div className="mt-3 space-y-2">{logs.length === 0 && <p className="text-sm text-earth-500">尚無紀錄，啟用不會補發歷史體驗。</p>}{logs.map(log => <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-earth-50 p-3 text-xs"><div><p>{log.customerName} · {TRIAL_CARE_LABELS[log.stage]} · {STATUS[log.status] ?? log.status}</p><p className="mt-1 text-earth-500">{new Date(log.createdAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })} {log.reason}</p></div><button type="button" disabled={pending || readOnly || !canStop} className="text-earth-600 underline" onClick={() => start(async () => { try { const result = await stopCare(log.customerId); setMessage(result.success ? `已停止 ${log.customerName} 的後續體驗關懷` : result.error??"操作失敗"); router.refresh(); } catch { setMessage("停止失敗，請稍後重試"); } })}>停止此顧客關懷</button></div>)}</div></details>
-  </Container>;
+  </ReminderSettingRow>;
 }

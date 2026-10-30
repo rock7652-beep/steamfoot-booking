@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow} from "@/components/admin/reminder-settings-list";
 import { NotificationSwitch } from "@/components/admin/notification-switch";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
@@ -229,16 +230,7 @@ export function CourseLowBalanceSettings({ plans, music = false, beauty = false,
   }
 
   return (
-    <details className="rounded-xl border border-earth-200 bg-white">
-      <summary className="flex min-h-12 cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-2">
-        <div>
-          <h2 className="text-sm font-semibold text-primary-900">方案提醒設定</h2>
-          <p className="mt-0.5 text-xs text-earth-500">每個方案可獨立設定剩餘額度與到期提醒</p>
-        </div>
-        <span className="text-sm tabular-nums text-earth-600">
-          共 {plans.length} 項{changes.length > 0 ? ` · ${changes.length} 項未儲存` : ""}
-        </span>
-      </summary>
+    <ReminderSettingRow title="方案餘額與到期設定" description="依各方案分別設定開關、門檻與到期天數" control={<span className="text-sm text-earth-500">依方案設定・{plans.length} 項</span>} action="管理方案" pending={pending}>
 
       <div className="flex max-h-[min(48dvh,420px)] min-h-0 flex-col border-t border-earth-100">
         <div className="flex shrink-0 flex-wrap items-center gap-2 p-3">
@@ -429,6 +421,6 @@ export function CourseLowBalanceSettings({ plans, music = false, beauty = false,
           </div>
         </div>
       </div>
-    </details>
+    </ReminderSettingRow>
   );
 }

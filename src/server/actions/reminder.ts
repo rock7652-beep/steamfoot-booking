@@ -693,6 +693,12 @@ const sessionBalanceTemplateSettingSchema = z.object({
   learnMoreButtonLabel: z.string().min(1).max(20),
   laterButtonLabel: z.string().min(1).max(20),
 });
+// Row editors only save their own copy; retain the existing full-form contract.
+const sessionBalanceTemplateRowSchema = z.union([
+  sessionBalanceTemplateSettingSchema.strict(),
+  sessionBalanceTemplateSettingSchema.pick({lastSessionUnbookedTemplate:true,lastSessionBookedTemplate:true}).extend({section:z.literal('last-session')}).strict(),
+  sessionBalanceTemplateSettingSchema.pick({planUsedUpTemplate:true,learnMoreButtonLabel:true,laterButtonLabel:true}).extend({section:z.literal('used-up')}).strict(),
+]);
 
 export async function saveSessionBalanceRuleSetting(
   input: z.input<typeof sessionBalanceRuleSettingSchema>,
@@ -719,13 +725,16 @@ export async function saveSessionBalanceRuleSetting(
 }
 
 export async function saveSessionBalanceTemplateSetting(
-  input: z.input<typeof sessionBalanceTemplateSettingSchema>,
+  input: z.input<typeof sessionBalanceTemplateRowSchema>,
 ): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
-    const data = sessionBalanceTemplateSettingSchema.parse(input);
+    const parsed = sessionBalanceTemplateRowSchema.parse(input);
+    const data = !('section' in parsed) ? parsed : parsed.section === 'last-session'
+      ? {lastSessionUnbookedTemplate:parsed.lastSessionUnbookedTemplate,lastSessionBookedTemplate:parsed.lastSessionBookedTemplate}
+      : {planUsedUpTemplate:parsed.planUsedUpTemplate,learnMoreButtonLabel:parsed.learnMoreButtonLabel,laterButtonLabel:parsed.laterButtonLabel};
     await prisma.sessionBalanceNotificationSetting.upsert({
       where: { storeId },
       create: {

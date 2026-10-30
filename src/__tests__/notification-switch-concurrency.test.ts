@@ -33,14 +33,8 @@ it("keeps other manager switches available, blocks duplicate writes, and restore
  const a = deferred(), b = deferred(); m.preference.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
  const recipient = { id: "r1", displayName: "店長", roleLabel: "店長", isActive: true, linkedAt: new Date(), sameDayBookingEnabled: false, preferences: { trial: false } };
  await act(async () => root.render(createElement(LineNotificationRecipientsCard, { storeId: "store-a", recipients: [recipient] })));
- await act(async () => [...host.querySelectorAll("button")].find(el => el.textContent?.includes("設定提醒"))!.click());
  await act(async () => switches()[1].click()); expect(switches()[1].checked).toBe(true); expect(switches()[2].disabled).toBe(false);
- const category = host.querySelector<HTMLSelectElement>('select[aria-label="店長 通知分類"]')!;
- expect(category.disabled).toBe(false);
- await act(async () => { category.value = "店務提醒"; category.dispatchEvent(new Event("change", { bubbles: true })); });
- expect(host.querySelector('section[aria-label="店務提醒"]')).not.toBeNull();
- await act(async () => { category.value = "預約通知"; category.dispatchEvent(new Event("change", { bubbles: true })); });
-
+ expect(host.querySelectorAll('[data-reminder-row]').length).toBeGreaterThan(3);
  await act(async () => { switches()[1].click(); switches()[2].click(); }); expect(m.preference).toHaveBeenCalledTimes(2);
  await act(async () => a.reject(new Error("offline"))); expect(switches()[1].checked).toBe(false); expect(switches()[2].checked).toBe(true); expect(switches()[2].disabled).toBe(true);
  await act(async () => { root.render(createElement(LineNotificationRecipientsCard, { storeId: "store-a", recipients: [{ ...recipient, preferences: { trial: true } }] })); b.resolve({ success: true }); });

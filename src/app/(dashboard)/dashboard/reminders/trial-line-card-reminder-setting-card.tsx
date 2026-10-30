@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow,closeReminderRow} from "@/components/admin/reminder-settings-list";
 import { LineCardPreview } from "./line-card-preview";
 
 import { useState } from "react";
@@ -51,16 +52,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
   }
 
   return (
-    <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className="flex flex-wrap cursor-pointer list-none items-start justify-between gap-3 p-4">
-        <div className="min-w-0 flex-1 basis-48">
-          <h2 className="text-base font-semibold text-earth-900">首次體驗提醒</h2>
-          <p className="mt-1 text-sm text-earth-500">前一日 18:00 發送；只影響首次體驗預約。</p>
-          {mutation.toggleError && <p role="alert" className="mt-1 break-words text-sm text-red-700">{mutation.toggleError}</p>}
-          {mutation.formError && <p role="alert" className="mt-1 break-words text-sm text-red-700 group-open:hidden">{mutation.formError}</p>}
-        </div>
-        <ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label="首次體驗提醒開關" onToggle={toggle} />
-      </summary>
+    <ReminderSettingRow title="首次體驗提醒" description="前一天 18:00・首次體驗預約" control={<ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label="首次體驗提醒開關" onToggle={toggle} />} pending={mutation.pending} error={mutation.toggleError || mutation.formError} resetToken={JSON.stringify(saved)} dirty={body !== saved.body || mapUrl !== saved.mapUrl}>
       <div className="border-t border-earth-100 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -128,6 +120,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
         {mutation.formError && <p role="alert" className="mr-auto min-w-0 break-words text-sm text-red-700">{mutation.formError}</p>}
+        <button type="button" disabled={mutation.pending} onClick={event => { setBody(saved.body); setMapUrl(saved.mapUrl); closeReminderRow(event); }} className="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm">取消</button>
         <button
           type="button"
           disabled={mutation.pending || !canSave}
@@ -138,6 +131,6 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
         </button>
       </div>
       </div>
-    </details>
+    </ReminderSettingRow>
   );
 }
