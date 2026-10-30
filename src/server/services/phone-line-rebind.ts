@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 
 const PHONE_REBIND_REASON = "OA_PHONE_REBIND_V1";
 const PHONE_REBIND_FAILED = "OA_PHONE_REBIND_FAILED";
+const PHONE_REBIND_REASONS = [PHONE_REBIND_REASON, PHONE_REBIND_FAILED];
 const TTL = 15 * 60_000;
 
 /** A manager authorizes exactly one unbound customer for a short interval. */
@@ -24,7 +25,7 @@ export async function startPhoneLineRebind(input: { storeId: string; customerId:
     await tx.lineRebindRequest.updateMany({ where: { storeId: input.storeId, customerId: input.customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, untilUsed: false, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
     const active = await tx.lineRebindRequest.findFirst({ where: { storeId: input.storeId, customerId: input.customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, OR: [{ untilUsed: true }, { expiresAt: { gt: now } }] }, select: { id: true, reason: true } });
     if (active) {
-      if (active.reason === PHONE_REBIND_REASON) return;
+      if (PHONE_REBIND_REASONS.includes(active.reason)) return;
       throw new AppError("CONFLICT", "已有其他 LINE 身分處理，請先完成或取消");
     }
     await tx.storeMemberConnection.updateMany({ where: { storeId: input.storeId, customerId: input.customerId, status: "PENDING", channelKey: { not: { startsWith: "login:" } } }, data: { status: "REJECTED" } });
@@ -40,15 +41,15 @@ export async function completePhoneLineRebind(input: { storeIds: string[]; desti
   if (!/^09\d{8}$/.test(phone) || !/^U[a-f0-9]{32}$/.test(input.lineUserId) || !Number.isFinite(input.timestamp) || Math.abs(now.getTime() - input.timestamp) > 10 * 60_000) return "conflict";
   const markFailure = async () => {
     // Never select a store by guessing: update only one unambiguous intent.
-    const requests = await prisma.lineRebindRequest.findMany({ where: { storeId: { in: input.storeIds }, phoneHash: sha256(phone), reason: PHONE_REBIND_REASON, status: "PENDING_CAPTURE", createdAt: { lte: new Date(input.timestamp) }, expiresAt: { gt: now } }, select: { id: true }, take: 2 });
-    if (requests.length === 1) await prisma.lineRebindRequest.updateMany({ where: { id: requests[0].id, reason: PHONE_REBIND_REASON, status: "PENDING_CAPTURE" }, data: { reason: PHONE_REBIND_FAILED } });
+    const requests = await prisma.lineRebindRequest.findMany({ where: { storeId: { in: input.storeIds }, phoneHash: sha256(phone), reason: { in: PHONE_REBIND_REASONS }, status: "PENDING_CAPTURE", createdAt: { lte: new Date(input.timestamp) }, expiresAt: { gt: now } }, select: { id: true }, take: 2 });
+    if (requests.length === 1) await prisma.lineRebindRequest.updateMany({ where: { id: requests[0].id, reason: { in: PHONE_REBIND_REASONS }, status: "PENDING_CAPTURE" }, data: { reason: PHONE_REBIND_FAILED } });
   };
   try {
     const result = await prisma.$transaction(async tx => {
       const matches = await tx.customer.findMany({ where: { storeId: { in: input.storeIds }, phone, mergedIntoCustomerId: null }, select: { id: true, storeId: true }, take: 2 });
       if (matches.length !== 1) return matches.length ? "conflict" : "not_requested";
       const target = matches[0];
-      const requests = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "LineRebindRequest" WHERE "customerId"=${target.id} AND "storeId"=${target.storeId} AND "status"='PENDING_CAPTURE' AND "reason"=${PHONE_REBIND_REASON} FOR UPDATE`;
+      const requests = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "LineRebindRequest" WHERE "customerId"=${target.id} AND "storeId"=${target.storeId} AND "status"='PENDING_CAPTURE' AND ("reason"=${PHONE_REBIND_REASON} OR "reason"=${PHONE_REBIND_FAILED}) FOR UPDATE`;
       if (!requests.length) {
         // LINE may redeliver an event after a successful transaction. Do not
         // turn an already-completed rebind into a new confirmation request.
@@ -68,7 +69,15 @@ export async function completePhoneLineRebind(input: { storeIds: string[]; desti
       // Messaging API subjects do not prove LINE Login identity. Keep them in
       // a separate provider namespace and never manufacture an OAuth Account.
       const provider = channel.identityProvider === "line" ? `line-messaging:${channel.channelKey}` : channel.identityProvider;
-      const account = await tx.account.findUnique({ where: { provider_providerAccountId: { provider, providerAccountId: input.lineUserId } }, select: { userId: true, user: { select: { role: true, status: true } } } });
+      const accountSelect = { userId: true, user: { select: { role: true, status: true } } } as const;
+      const messagingAccount = await tx.account.findUnique({ where: { provider_providerAccountId: { provider, providerAccountId: input.lineUserId } }, select: accountSelect });
+      // Only an explicitly configured CENTRAL channel resolves to "line".
+      // Its verified Messaging subject shares the configured central Provider;
+      // reuse an existing OAuth owner without creating or changing an Account.
+      // Legacy/unconfigured channels remain messaging-only and cannot borrow it.
+      const account = messagingAccount ?? (channel.identityProvider === "line"
+        ? await tx.account.findUnique({ where: { provider_providerAccountId: { provider: "line", providerAccountId: input.lineUserId } }, select: accountSelect })
+        : null);
       const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(link => link.userId)]);
       if (owners.size > 1 || (account && (account.user.status !== "ACTIVE" || account.user.role !== "CUSTOMER" || (owners.size && !owners.has(account.userId))))) return "conflict";
       const other = await tx.customer.findFirst({ where: { storeId: target.storeId, lineUserId: input.lineUserId, id: { not: target.id }, mergedIntoCustomerId: null }, select: { id: true } });
