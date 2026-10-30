@@ -25,6 +25,10 @@ try{
   const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,controls:[...document.querySelectorAll('button')].filter(n=>n.offsetParent).map(n=>({text:n.textContent,width:n.getBoundingClientRect().width,height:n.getBoundingClientRect().height}))}));
   assert.equal(layout.overflow,false);assert.ok(layout.controls.every(c=>c.height>=44&&c.width>=44));
   await page.getByRole('button',{name:'確認取消綁定',exact:true}).click();await page.getByText('LINE：未綁定',{exact:true}).waitFor();
+  const rebind=page.getByRole('button',{name:'重新綁定',exact:true});
+  const row=await rebind.evaluate(button=>({text:button.parentElement?.textContent,width:button.getBoundingClientRect().width,height:button.getBoundingClientRect().height}));
+  assert.ok(row.text.includes('LINE：未綁定'));assert.ok(row.width>=44&&row.height>=44);
+  await page.screenshot({path:path.join(out,`${width}x${height}-rebind.png`),fullPage:true});
   await page.getByRole('button',{name:'重新綁定',exact:true}).click();
   await page.getByText('請顧客在 15 分鐘內於本店官方 LINE 輸入手機號碼，系統會自動完成綁定。',{exact:true}).waitFor();
   await page.screenshot({path:path.join(out,`${width}x${height}-waiting.png`),fullPage:true});
