@@ -1,3 +1,4 @@
+import {createCoursePageTiming,coursePageTimingVisible} from "@/server/services/course-page-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
@@ -42,6 +43,7 @@ export default async function CoursesPage({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined; date?: string; view?: string; month?: string; preset?: string; startDate?: string; endDate?: string }>;
 }) {
+  const timing = createCoursePageTiming();
   const query = await searchParams;
   const routeUser = await getCurrentUser();
   if (!routeUser) redirect("/dashboard");
@@ -84,6 +86,7 @@ export default async function CoursesPage({
     );
   }
   if (query.showcase === "luby-day") redirect("/dashboard/courses");
+  timing.mark("access");
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
@@ -98,6 +101,7 @@ export default async function CoursesPage({
   const sportsNative = businessProfile === "FITNESS" && (await sportsNativePreview(storeId));
   if(sportsNative&&process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>import("@/server/services/sports-production-readiness").then(m=>m.assertSportsProductionReady(tx,storeId)));
 
+  timing.mark("profile");
   if (view === "catalog" && (businessProfile === "MUSIC" || sportsNative)) {
     const [subjects, displayOrders, canCreate, canEdit] = await Promise.all([
       coursePrisma.musicSubject.findMany({
@@ -124,23 +128,25 @@ export default async function CoursesPage({
   let sportsCalendarWarning:string|undefined;
   if(sportsNative&&writableStore&&await checkPermission(user.role,user.staffId,"booking.create")){
     const {ensureSportsMonth}=await import("@/server/services/sports-permanent-series");
-    sportsCalendarWarning=await ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY"));
+    sportsCalendarWarning=await timing.read("ensure_month",()=>ensureSportsMonth({storeId,userId:user.id,name:user.name??"門市人員"},addTaiwanDuration(firstOfMonth,-6,"DAY"),addTaiwanDuration(addTaiwanDuration(firstOfMonth,1,"MONTH"),5,"DAY")));
   }
 
+  timing.mark("ensure_month");
   const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
-  const rentals = musicDataScope(storeId,query.dataScope)==="legacy" ? [] : await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
+  const rentals = musicDataScope(storeId,query.dataScope)==="legacy" ? [] : await timing.read("rentals",()=>coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}}));
   const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
   const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
   const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
-  const rentalCustomers=rentalPermissions.customerRead?await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}):[];
-  const cancelledBookings = await coursePrisma.courseBooking.findMany({
+  const rentalCustomers=rentalPermissions.customerRead?await timing.read("rental_customers",()=>prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}})):[];
+  const cancelledBookings = await timing.read("cancelled_bookings",()=>coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
     select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
     orderBy: { updatedAt: "desc" },
-  });
+  }));
+  timing.mark("pre_calendar");
   const [
     rooms,
     templates,
@@ -153,7 +159,7 @@ export default async function CoursesPage({
     staffAvailability,
     staffAvailabilityExceptions,
   ] = await Promise.all([
-      coursePrisma.courseRoom.findMany({
+      timing.read("rooms",()=>coursePrisma.courseRoom.findMany({
         where: { storeId },
         select: {
           id: true,
@@ -171,8 +177,8 @@ export default async function CoursesPage({
           },
         },
         orderBy: { name: "asc" },
-      }),
-      coursePrisma.courseTemplate.findMany({
+      })),
+      timing.read("templates",()=>coursePrisma.courseTemplate.findMany({
         where: { storeId },
         select: {
           id: true,
@@ -194,8 +200,8 @@ export default async function CoursesPage({
           precautions: true,
         },
         orderBy: { name: "asc" },
-      }),
-      coursePrisma.courseSession.findMany({
+      })),
+      timing.read("sessions",()=>coursePrisma.courseSession.findMany({
         where: {
           ...musicSessionWhere(storeId,query.dataScope),
           storeId,
@@ -240,23 +246,24 @@ export default async function CoursesPage({
           },
         },
         orderBy: { startsAt: "asc" },
-      }),
-      prisma.staff.findMany({
+      })),
+      timing.read("coaches",()=>prisma.staff.findMany({
         where: { storeId },
         select: { id: true, displayName: true, phone: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
         orderBy: { displayName: "asc" },
-      }),
+      })),
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
-      prisma.businessHours.findMany({ where: { storeId } }),
-      prisma.specialBusinessDay.findMany({ where: { storeId } }),
-      prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
-        SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
-      prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
+      timing.read("business_hours",()=>prisma.businessHours.findMany({ where: { storeId } })),
+      timing.read("special_days",()=>prisma.specialBusinessDay.findMany({ where: { storeId } })),
+      timing.read("availability",()=>prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
+        SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`),
+      timing.read("availability_exceptions",()=>prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
         SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
-        WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
+        WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`),
     ]);
-  const rosterCustomers = await prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId).filter((id): id is string => !!id)))] } }, select: { id: true, assignedStaffId: true } });
+  timing.mark("calendar_batch");
+  const rosterCustomers = await timing.read("roster_customers",()=>prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId).filter((id): id is string => !!id)))] } }, select: { id: true, assignedStaffId: true } }));
   const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
@@ -283,19 +290,19 @@ export default async function CoursesPage({
       },
     ),
   );
-  const waitlistFeatureAvailable = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
+  const waitlistFeatureAvailable = await timing.read("waitlist_feature",()=>hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST));
   const waitlistStoreSetting = waitlistFeatureAvailable
-    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } })
+    ? await timing.read("waitlist_setting",()=>coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } }))
     : null;
   const waitlistEnabled = waitlistFeatureAvailable && (waitlistStoreSetting?.enabled ?? false);
   const waitlistDefaultLimit = waitlistStoreSetting?.defaultLimit ?? 5;
   const waitlistDefaultStopMinutes = waitlistStoreSetting?.autoPromoteStopMinutes ?? 240;
-  const displayOrders=await readCourseOrders(storeId);
+  const displayOrders=await timing.read("display_orders",()=>readCourseOrders(storeId));
   rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
   const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
   templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
-  const sportsFixedRows=sportsNative?await coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[];
+  const sportsFixedRows=sportsNative?await timing.read("sports_rules",()=>coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`):[];
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
@@ -335,9 +342,14 @@ export default async function CoursesPage({
     canCreate && writableStore;
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
-  const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
+  timing.mark("post_calendar");
+  const labelSnapshot = await timing.read("labels",()=>checkPermission(user.role,user.staffId,"customer.read")) ? await timing.read("labels",()=>customerLabelSnapshot(rosterCustomers.map(c=>c.id))) : EMPTY_LABELS;
+  const presentationPlans = await timing.read("plans",()=>coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}));
+  const presentationModes = await timing.read("scheduling_modes",()=>coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}));
+  timing.mark("presentation");
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
+    {coursePageTimingVisible(query.perf,storeId,user.role)&&<script id="course-read-timing" type="application/json" dangerouslySetInnerHTML={{__html:JSON.stringify(timing.snapshot())}}/>}
     <PageShell
       className={
         view === "schedule"
@@ -372,7 +384,7 @@ export default async function CoursesPage({
           ...room,
           uses: uses.map((u) => ({ ...u, nameSnapshot: courseDisplayName(u.nameSnapshot), startsAt: u.startsAt.toISOString() })),
         }))}
-        templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
+        templates={presentCourseTemplates(templates,presentationPlans,businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && writableStore}
@@ -380,7 +392,7 @@ export default async function CoursesPage({
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && writableStore}}
         cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
         sportsNative={sportsNative}
-        schedulingModes={await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined}
+        schedulingModes={presentationModes??undefined}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
