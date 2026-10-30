@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useRef,useState,type RefObject} from "react";
+import {useCallback,useEffect,useRef,useState,type RefObject} from "react";
 import {useRetainedState,retainedString} from "@/components/operations/operation-scope";
 export function useSportsCalendarState<T>(enabled:boolean,key:string,initial:T,valid:(value:unknown)=>value is T){
  const retained=useRetainedState(`sports-calendar:${key}`,initial,valid);
@@ -10,6 +10,17 @@ export const calendarString=retainedString;
 export const calendarDate=(v:unknown):v is string=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+"T00:00:00Z"));
 export const calendarMode=(v:unknown):v is "month"|"week"|"day"=>v==="month"||v==="week"||v==="day";
 export const calendarResource=(v:unknown):v is "room"|"coach"=>v==="room"||v==="coach";
+/** Date links, retained UI and post-create/move callbacks share one setter. */
+export function useSportsCalendarDate(enabled:boolean,initial:string,requested:string|null,pathname:string,syncUrl=true){
+ const [retained,setRetained]=useSportsCalendarState(enabled,"date",initial,calendarDate);
+ const date=enabled&&syncUrl&&calendarDate(requested)?requested:retained;
+ const setDate=useCallback((next:string)=>{
+  if(enabled&&syncUrl){const query=new URLSearchParams(window.location.search);query.set("date",next);window.history.replaceState(null,"",`${pathname}?${query}`);}
+  setRetained(next);
+ },[enabled,syncUrl,pathname,setRetained]);
+ useEffect(()=>{if(enabled&&calendarDate(requested))setRetained(requested);},[enabled,requested,setRetained]);
+ return [date,setDate] as const;
+}
 type Position={x:number;y:number};
 const position=(v:unknown):v is Position=>!!v&&typeof v==="object"&&"x" in v&&"y" in v&&typeof v.x==="number"&&typeof v.y==="number"&&Number.isFinite(v.x)&&Number.isFinite(v.y)&&v.x>=0&&v.y>=0;
 /** Scope and sessionStorage lifecycle are owned by OperationScope; only UI coordinates persist. */

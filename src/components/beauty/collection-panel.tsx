@@ -8,13 +8,14 @@ import {COURSE_PAYMENT_LABELS} from '@/lib/course-checkout';
 import type {ServiceCharge} from '@/server/beauty/service-charges';
 import {BeautyCollectionRecoveryNotice,useBeautyCollectionRecovery} from './collection-recovery';
 const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-base disabled:opacity-50';
-type Props={ids:string[];storeId?:string;collectionRecoveryEnabled?:boolean;canDiscount:boolean;onClose:()=>void;onSaved:()=>void;onGuard:(dirty:boolean,pending:boolean)=>void;modal?:boolean};
+export type BeautyCollectionPanelProps={ids:string[];storeId?:string;collectionRecoveryEnabled?:boolean;canDiscount:boolean;onClose:()=>void;onSaved:()=>void;onGuard:(dirty:boolean,pending:boolean)=>void;modal?:boolean;withinModal?:boolean};
+type Props=BeautyCollectionPanelProps;
 export function BeautyCollectionPanel(props:Props){
  // A different target owns a new draft, quote and request identity. The roster stays mounted.
- return <CollectionDraft key={JSON.stringify(props.ids)} {...props}/>;
+ return <CollectionDraft key={JSON.stringify([props.storeId,props.ids])} {...props}/>;
 }
-function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscount,onClose,onSaved,onGuard,modal=false}:Props){
- const reader=usePanelReader('beauty-service-collection',readBeautyCollection,'',0),key=JSON.stringify(ids);
+function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscount,onClose,onSaved,onGuard,modal=false,withinModal=false}:Props){
+ const reader=usePanelReader('beauty-service-collection',readBeautyCollection,storeId??'',0),key=JSON.stringify(ids);
  const target=useRef(ids).current;
  const [charges,setCharges]=useState<ServiceCharge[]|null>(null),[values,setValues]=useState<Record<string,ServiceCollectionValue>>({}),[error,setError]=useState(''),[retry,setRetry]=useState(0),[pending,setPending]=useState(false),[dirty,setDirty]=useState(false);
  const lock=useRef(false),request=useRef(crypto.randomUUID());
@@ -28,7 +29,7 @@ function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscoun
  const method=needsPayment?<label className="block">付款方式<select name="method" required className="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base">{Object.entries(COURSE_PAYMENT_LABELS).filter(([k])=>k!=='DISCOUNT').map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>:null;
  const close=()=>{if(!lock.current&&!pending&&!recovery.busy)onClose();};
  const content=<form className="min-h-0 min-w-0 space-y-3 overflow-y-auto p-4" onChangeCapture={()=>{setDirty(true);request.current=crypto.randomUUID();setError('');}} onSubmit={async e=>{e.preventDefault();if(lock.current||recovery.blocked||!valid||!charges)return;const form=new FormData(e.currentTarget);lock.current=true;setPending(true);setError('');try{const r=await recovery.submit({requestKey:request.current,ids:charges.map(c=>c.id),amounts:charges.map(c=>values[c.id].amount),quotes:charges.map(c=>({id:c.id,revision:c.revision,price:c.price,collected:c.collected,...(canDiscount?{discount:values[c.id].discount}:{})})),method:form.get('method')??'CASH',note:form.get('note')??''});if(r.success){setDirty(false);if(!recovery.enabled)onSaved();}else setError(r.error);}catch{setError('收款結果尚未確認，請勿再次收款；查無紀錄仍可能處理中。');}finally{lock.current=false;setPending(false);}}}>
-  <header className="flex items-center justify-between gap-2"><h2 id="beauty-collection-title" className="font-semibold">服務收款</h2><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>關閉</button></header>
+  {!withinModal&&<header className="flex items-center justify-between gap-2"><h2 id="beauty-collection-title" className="font-semibold">服務收款</h2><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>關閉</button></header>}
   <BeautyCollectionRecoveryNotice recovery={recovery} disabled={pending} onConfirmed={onSaved}/>
   {!charges&&!error&&<p role="status">核對應收與已收款…</p>}
   {settled&&<p role="status">本次無待收款金額。</p>}
@@ -37,7 +38,7 @@ function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscoun
   </fieldset>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   {!charges&&error&&<button type="button" className={button} onClick={()=>{setError('');setRetry(n=>n+1);}}>重新讀取</button>}
-  <footer className="sticky bottom-0 flex justify-end gap-2 border-t bg-white py-3"><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>{modal?'取消':'返回'}</button><button type={settled?"button":"submit"} onClick={settled?onSaved:undefined} className={button+' bg-primary-700 text-white'} disabled={pending||recovery.blocked||!settled&&!valid}>{pending?'儲存中…':settled?'完成':valid&&!needsPayment?'確認折抵':'確認收款'}</button></footer>
+  <footer className="sticky bottom-0 flex justify-end gap-2 border-t bg-white py-3"><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>{modal?'取消':'返回'}</button><button type={settled?"button":"submit"} onClick={settled?close:undefined} className={button+' bg-primary-700 text-white'} disabled={pending||recovery.blocked||!settled&&!valid}>{pending?'儲存中…':settled?'完成':valid&&!needsPayment?'確認折抵':'確認收款'}</button></footer>
  </form>;
- return modal?<ModalPanel open onClose={close} labelledById="beauty-collection-title" pending={pending||recovery.busy} width={560}>{content}</ModalPanel>:content;
+ return modal&&!withinModal?<ModalPanel open onClose={close} labelledById="beauty-collection-title" pending={pending||recovery.busy} width={560}>{content}</ModalPanel>:content;
 }
