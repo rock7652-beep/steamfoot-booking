@@ -22,7 +22,9 @@ import {checkSportsCourseMove} from "@/server/actions/course";
 import {SportsCancelCourse} from "./sports-cancel-course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleDialog} from "./sports-schedule-dialog";
-import {SportsScheduleFields,type SportsScheduleSource} from "./sports-schedule-fields";
+import type {SportsScheduleSource} from "./sports-schedule-fields";
+import {SportsScheduleLoader} from "./sports-schedule-loader";
+import {readSportsScheduleOptions} from "@/lib/sports-schedule-options-client";
 import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel, courseDisplayName } from "@/lib/course-template-presentation";
@@ -498,6 +500,11 @@ export function CourseWorkspace({
     };
   }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
+  const scheduleOpenIntent=useRef(false);
+  // TTL 0 always re-reads on open; a refreshed page clock is not a metadata revision.
+  const sportsScheduleScope=JSON.stringify([storeId,pathname]);
+  const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,0);
+  function prefetchSportsSchedule(){if(sportsNative&&!sportsData&&!calendarSource&&!scheduleOpenIntent.current)sportsScheduleReader.prefetch();}
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
   const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};if(sportsNative)setSportsScheduleBusy(pending);},[sportsNative]);
@@ -849,7 +856,6 @@ export function CourseWorkspace({
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
-  const scheduleOpenIntent=useRef(false);
   useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
   function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     if(pending||(scheduleOpenIntent.current&&!scheduleCreated))return;
@@ -1112,6 +1118,9 @@ export function CourseWorkspace({
                   <button
                     className={`${primary} min-h-9`}
                     disabled={pending}
+                    onPointerEnter={prefetchSportsSchedule}
+                    onFocus={prefetchSportsSchedule}
+                    onTouchStart={prefetchSportsSchedule}
                     onClick={()=>openSchedule()}
                   >
                     {calendarSource?"新增預約":"＋ 排課"}
@@ -1491,7 +1500,7 @@ export function CourseWorkspace({
       {panel === "schedule" && sportsNative && <SportsScheduleDialog fitContent={!!calendarSource} title={calendarSource?"新增預約":copySource?"複製排課":"新增排課"} busy={pending||sportsScheduleBusy} onClose={closePanel} onDraft={()=>setDirty(true)}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice&&<p role="status" className="text-sm text-primary-700">{notice}</p>}
-        {sportsData?<SportsScheduleFields source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>}
+        <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>
       </SportsScheduleDialog>}
       {panel && !(panel === "schedule" && sportsNative) && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
@@ -2161,7 +2170,7 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && !calendarSource && sportsNative && (sportsData?<SportsScheduleFields schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={{...sportsData,customers:[...new Map([...sportsData.customers,...Object.values(sportsCreatedCustomers)].map(c=>[c.id,c])).values()]}} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>:<p role="alert">無法讀取排課資料，請確認排課、學員、方案及計酬權限。</p>)}
+            {panel === "schedule" && !calendarSource && sportsNative && <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard

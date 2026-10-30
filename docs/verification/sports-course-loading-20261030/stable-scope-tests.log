@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-sports-performance
+
+
+ Test Files  3 passed (3)
+      Tests  27 passed (27)
+   Start at  02:47:55
+   Duration  1.22s (transform 925ms, setup 0ms, import 1.33s, tests 422ms, environment 865ms)
+

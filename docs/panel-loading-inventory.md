@@ -6,6 +6,7 @@
 
 | 入口 | 資料來源／共用資源 | 策略 |
 | --- | --- | --- |
+| 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → 原 loadSportsStaging(true) | 課表不預載完整排課資料；開啟即顯示原對話框，共用 panel reader TTL 0，主入口 pointer／focus／touch intent 在途去重；關閉晚到隔離、錯誤原視窗重試；原本外部模組已供應的 props 直接顯示；初始化後背景刷新不覆蓋草稿，仍由原提交核對權限、設定、衝突及額度 |
 | 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
 | 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、TTL 0及關閉／換人晚到隔離，避免 Server Action 排隊；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
