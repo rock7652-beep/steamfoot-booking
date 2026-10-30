@@ -1,4 +1,6 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
+import {readFileSync} from "node:fs";
+import {PGlite} from "@electric-sql/pglite";
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 const m=vi.hoisted(()=>({modeRule:vi.fn(),findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
@@ -37,6 +39,18 @@ describe("course portal mutations",()=>{
  it("takes purchase price from a customer-purchasable plan and records a store-scoped pending notice in the purchase transaction",async()=>{m.plan.mockResolvedValue({id:"p",name:"六堂",unit:"SESSION",points:6,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:["t"]});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234",price:1})).toEqual({success:true});expect(m.plan).toHaveBeenCalledWith({where:{id:"p",storeId:"store-a",isActive:true,customerPurchasable:true}});expect(m.createOrder.mock.calls[0][0].data.price).toBe(600);expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).toHaveBeenCalledOnce();expect(m.execute.mock.calls[0].slice(1)).toEqual([expect.any(String),"store-a","course-purchase-pending:purchase","TRANSFER_PENDING_CONFIRMATION","purchase"]);});
  it("accepts exactly four transfer digits",async()=>{expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"12345"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("replayed purchase cannot be claimed by another customer",async()=>{m.order.mockResolvedValue({customerId:"other",planId:"p",transferLastFive:"1234"});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false});expect(m.createOrder).not.toHaveBeenCalled();});
+ it.each([600,0])("writes a valid checkout snapshot for a customer purchase priced %s",async price=>{
+  m.plan.mockResolvedValue({id:"p",name:"六堂",unit:"SESSION",points:6,price,storeCost:0,termSessionIds:[],validDays:30,templateIds:[]});
+  expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:true});
+  const data=m.createOrder.mock.calls[0][0].data;
+  const db=new PGlite();try{
+   await db.exec('CREATE TABLE "CoursePurchase" (price integer NOT NULL)');
+   await db.exec(readFileSync('prisma/migrations/20260920173000_course_assignment_checkout/migration.sql','utf8'));
+   await db.query('INSERT INTO "CoursePurchase" (price,"listPrice","discountKind","discountValue","paymentMethod","transferLastFour") VALUES ($1,$2,$3,$4,$5,$6)',[data.price,data.listPrice,data.discountKind,data.discountValue,data.paymentMethod,data.transferLastFour]);
+   const rows=await db.query('SELECT price,"listPrice","paymentMethod","transferLastFour" FROM "CoursePurchase"');
+   expect(rows.rows).toEqual([{price,listPrice:price,paymentMethod:price===0?'DISCOUNT':'BANK_TRANSFER',transferLastFour:'1234'}]);
+  }finally{await db.close();}
+ },30000);
  it("replayed confirmation never issues a second card or receipt",async()=>{m.order.mockResolvedValue({status:"CONFIRMED"});expect(await confirmCoursePurchase({purchaseId:"p"})).toEqual({success:true});expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();});
  it("refreshes both transaction entrances and the cash drawer after confirmation, but not rollback",async()=>{
   m.order.mockResolvedValue({status:"CONFIRMED"});await confirmCoursePurchase({purchaseId:"p"});
