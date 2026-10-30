@@ -7,9 +7,9 @@ import { Suspense } from "react";
 import { useActionState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { hqLoginAction } from "@/server/actions/auth";
+import { hqLoginAction, type LoginState } from "@/server/actions/auth";
 
-const initialState = { error: null as string | null };
+const initialState: LoginState = { error: null };
 
 const URL_ERROR_MESSAGES: Record<string, string> = {
   "missing-store": "您的登入資訊缺少店舖資料，請重新登入。",
