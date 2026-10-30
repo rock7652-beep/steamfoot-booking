@@ -70,3 +70,16 @@ it("returns all three runner totals without losing separate care and manager out
  const response=await GET(new NextRequest("http://localhost/api/cron/beauty-notifications",{headers:{authorization:"Bearer synthetic-qa"}}));
  expect(await response.json()).toEqual({sent:12,failed:15,skipped:18,care:{sent:4,failed:5,skipped:6},managers:{sent:7,failed:8,skipped:9},digitalManager:{recorded:0,failed:0}});
 });
+
+it('still records store reminders when a LINE worker throws',async()=>{
+ vi.stubEnv('CRON_SECRET','synthetic-qa');m.run.mockRejectedValueOnce(new Error('LINE failure'));m.digital.mockResolvedValueOnce({recorded:2,failed:0});
+ const response=await GET(new NextRequest('http://localhost/api/cron/beauty-notifications',{headers:{authorization:'Bearer synthetic-qa'}}));
+ expect(response.status).toBe(500);expect(await response.json()).toMatchObject({failed:1,digitalManager:{recorded:2,failed:0}});
+ expect(m.digital).toHaveBeenCalledOnce();expect(m.care).toHaveBeenCalledOnce();expect(m.managers).toHaveBeenCalledOnce();
+});
+it('continues the LINE workers when the store reminder worker throws',async()=>{
+ vi.stubEnv('CRON_SECRET','synthetic-qa');m.digital.mockRejectedValueOnce(new Error('store reminder failure'));
+ const response=await GET(new NextRequest('http://localhost/api/cron/beauty-notifications',{headers:{authorization:'Bearer synthetic-qa'}}));
+ expect(response.status).toBe(500);expect(await response.json()).toMatchObject({failed:1,digitalManager:{recorded:0,failed:1}});
+ expect(m.run).toHaveBeenCalledOnce();expect(m.care).toHaveBeenCalledOnce();expect(m.managers).toHaveBeenCalledOnce();
+});

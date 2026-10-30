@@ -1,14 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-const m = vi.hoisted(() => ({ oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(),record:vi.fn(),resolve:vi.fn(), notify: vi.fn(),feature:vi.fn() }));
+const m = vi.hoisted(() => ({ query:vi.fn(),oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(),record:vi.fn(),resolve:vi.fn(), notify: vi.fn(),feature:vi.fn() }));
 vi.mock("@/server/queries/course-manager-todos", () => ({ getIncompleteCourseCandidates: m.candidates, isCourseBookingStillIncomplete: m.recheck }));
 vi.mock("@/server/services/store-manager-line-notifications", () => ({ notifyStoreManagerOnLine: m.notify }));
 vi.mock("@/server/services/digital-manager-notices",()=>({recordDigitalManagerNotice:m.record,resolveDigitalManagerNotice:m.resolve}));
 vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature}));
-vi.mock("@/lib/db", () => ({ prisma: { booking: { findMany: m.oldCandidates, findFirst: m.oldRecheck }, digitalButlerExecutionLog: { create: m.claim, update: m.update, delete: m.remove } } }));
+vi.mock("@/lib/db", () => ({ prisma: { $queryRaw:m.query,booking: { findMany: m.oldCandidates, findFirst: m.oldRecheck }, digitalButlerExecutionLog: { create: m.claim, update: m.update, delete: m.remove } } }));
 import { runIncompleteServiceReminders } from "@/server/services/incomplete-service-reminders";
 const now = new Date("2026-09-17T04:00:00Z");
-beforeEach(() => { vi.resetAllMocks(); m.feature.mockResolvedValue(true);m.remove.mockResolvedValue({}); m.oldCandidates.mockResolvedValue([]); m.candidates.mockResolvedValue([{ id: "booking", storeId: "course", storeSlug: "course-store", sessionId: "session", customerName: "Learner", session: { startsAt: new Date("2026-09-17T00:00:00Z"), endsAt: new Date("2026-09-17T03:00:00Z") } }]); m.recheck.mockResolvedValue({ id: "booking" }); m.claim.mockResolvedValue({ id: "claim" }); m.notify.mockResolvedValue({ status: "skipped", reason: "recipient_not_configured" }); });
+beforeEach(() => { vi.resetAllMocks();m.query.mockResolvedValue([]); m.feature.mockResolvedValue(true);m.remove.mockResolvedValue({}); m.oldCandidates.mockResolvedValue([]); m.candidates.mockResolvedValue([{ id: "booking", storeId: "course", storeSlug: "course-store", sessionId: "session", customerName: "Learner", session: { startsAt: new Date("2026-09-17T00:00:00Z"), endsAt: new Date("2026-09-17T03:00:00Z") } }]); m.recheck.mockResolvedValue({ id: "booking" }); m.claim.mockResolvedValue({ id: "claim" }); m.notify.mockResolvedValue({ status: "skipped", reason: "recipient_not_configured" }); });
 it("uses actual end for a three-hour class and the existing delivery/claim service", async () => {
   await runIncompleteServiceReminders(now);
   expect(m.oldCandidates).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ store: expect.objectContaining({ industryModule: "STEAMFOOT" }) }) }));
@@ -61,4 +61,14 @@ it("a course query failure is reported but does not stop existing service remind
   const result = await runIncompleteServiceReminders(now);
   expect(result.failed).toBe(1); expect(m.notify).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "incomplete-service-reminder:old", storeId: "steamfoot" }));
   log.mockRestore();
+});
+it('a steam query failure is reported without stopping course reminders',async()=>{
+ m.oldCandidates.mockRejectedValue(new Error('steam unavailable'));const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+ try{const result=await runIncompleteServiceReminders(now);expect(result.failed).toBe(1);expect(m.record).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'course',targetId:'booking'}));}finally{log.mockRestore();}
+});
+it('records overflow store notices without expanding the LINE delivery scan',async()=>{
+ m.oldCandidates.mockResolvedValue([]);m.candidates.mockResolvedValue([]);
+ m.query.mockResolvedValueOnce([{id:'later',storeId:'steamfoot',store:{slug:'steamfoot'},bookingDate:new Date('2026-09-17T00:00:00Z'),slotTime:'09:00',customer:{name:'QA'},courseSessionId:null,courseEndsAt:null}]).mockResolvedValueOnce([]);
+ m.oldRecheck.mockResolvedValue({id:'later'});await runIncompleteServiceReminders(now);
+ expect(m.record).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'steamfoot',targetId:'later'}));expect(m.notify).not.toHaveBeenCalled();expect(m.claim).not.toHaveBeenCalled();
 });
