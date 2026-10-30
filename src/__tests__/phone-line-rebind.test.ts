@@ -46,7 +46,20 @@ describe("phone rebind", () => {
     expect(tx.customer.update).not.toHaveBeenCalled();
   });
   it("refuses a different customer in another store sharing the LINE", async () => {
-    tx.customer.findMany.mockReset().mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a" }]).mockResolvedValueOnce([{ id: "customer-b", userId: "user-b" }]);
+    tx.customer.findMany.mockReset().mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a" }]).mockResolvedValueOnce([{ id: "customer-b", userId: "user-b", identityLinks: [] }]);
+    expect(await completePhoneLineRebind(input)).toBe("conflict");
+    expect(tx.customer.update).not.toHaveBeenCalled();
+  });
+  it("accepts another store's customer only when verified identity links establish the same owner", async () => {
+    tx.customer.findMany.mockReset().mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a" }]).mockResolvedValueOnce([{ id: "customer-b", userId: null, identityLinks: [{ userId: "user-a" }] }]);
+    expect(await completePhoneLineRebind(input)).toBe("linked");
+    expect(tx.customer.update).toHaveBeenCalledOnce();
+  });
+  it.each([
+    { id: "other", userId: null, identityLinks: [] },
+    { id: "other", userId: null, identityLinks: [{ userId: "user-a" }, { userId: "user-b" }] },
+  ])("rejects another store's customer with missing or conflicting ownership", async other => {
+    tx.customer.findMany.mockReset().mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a" }]).mockResolvedValueOnce([other]);
     expect(await completePhoneLineRebind(input)).toBe("conflict");
     expect(tx.customer.update).not.toHaveBeenCalled();
   });

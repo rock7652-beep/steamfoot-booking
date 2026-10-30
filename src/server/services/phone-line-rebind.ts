@@ -82,8 +82,14 @@ export async function completePhoneLineRebind(input: { storeIds: string[]; desti
       } else {
         userId = (await tx.user.create({ data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } })).id;
       }
-      const otherRecipients = await tx.customer.findMany({ where: { lineUserId: input.lineUserId, id: { not: target.id }, mergedIntoCustomerId: null }, select: { id: true, userId: true } });
-      if (otherRecipients.some(otherCustomer => otherCustomer.userId !== userId)) throw new AppError("CONFLICT", "LINE 已連結其他顧客");
+      const otherRecipients = await tx.customer.findMany({ where: { lineUserId: input.lineUserId, id: { not: target.id }, mergedIntoCustomerId: null }, select: { id: true, userId: true, identityLinks: { select: { userId: true } } } });
+      // A person can have a separate Customer row at each store. Some older
+      // rows have no direct userId but do have verified identity links. Only
+      // allow them when every known owner is the same central member.
+      if (otherRecipients.some(otherCustomer => {
+        const otherOwners = new Set([...(otherCustomer.userId ? [otherCustomer.userId] : []), ...otherCustomer.identityLinks.map(link => link.userId)]);
+        return otherOwners.size !== 1 || !otherOwners.has(userId);
+      })) throw new AppError("CONFLICT", "LINE 已連結其他顧客");
       const otherAccounts = await tx.account.findMany({ where: { providerAccountId: input.lineUserId }, select: { userId: true } });
       if (otherAccounts.some(otherAccount => otherAccount.userId !== userId)) throw new AppError("CONFLICT", "LINE 已連結其他帳號");
       const conflicts = await tx.customerIdentityLink.findMany({ where: { storeId: target.storeId, OR: [{ userId }, { provider, providerAccountId: input.lineUserId }, { lineUserId: input.lineUserId }] }, select: { customerId: true } });
