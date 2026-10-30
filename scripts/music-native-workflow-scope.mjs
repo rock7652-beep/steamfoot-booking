@@ -26,6 +26,8 @@ export function assertMusicNativeReleaseEnvironment(env){
 /** Capability only. Every caller must retain store/feature/permission authorization. */
 export function musicNativeWorkflowEnabled(storeId,env=process.env){
  if(!storeId)return false;
+ // Exact integration Preview capability; this never authorizes a production release or importer.
+ if(storeId==='store-lubymusic'&&env.VERCEL==='1'&&env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='review/plan-management-sports-performance'&&env.VERCEL_GIT_REPO_OWNER==='rock7652-beep'&&env.VERCEL_GIT_REPO_SLUG==='steamfoot-booking'&&!env.WORKERS_CI_BRANCH&&!env.CF_PAGES_BRANCH&&[env.DATABASE_URL,env.DIRECT_URL].every(isMusicOpeningDatabase))return true;
  if(storeId==='store-lubymusic'&&env.VERCEL==='1'){
   try{assertMusicOpeningPreviewEnvironment(env);return true;}catch{}
  }
