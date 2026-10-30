@@ -7,6 +7,7 @@ import {STORE_NOTICE_LABELS,type StoreNoticeItem,type StoreNoticeLoadResult,type
 import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
+import {DigitalManagerIcon} from "./digital-manager-icon";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
 export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
@@ -86,8 +87,8 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  useEffect(()=>{if(!undo)return;const timer=setTimeout(()=>setUndo(null),7000);return()=>clearTimeout(timer);},[undo]);
  if(!enabled)return null;
  return <>
-  <button type="button" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
-   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+  <button type="button" title="數位店長" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
+   <DigitalManagerIcon/>
    {count>0&&<span className="absolute right-0 top-0 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}
   </button>
   {open&&createPortal(<RightSheet open compact fixedHeight width={560} labelledById={heading} onClose={()=>setOpen(false)}>
