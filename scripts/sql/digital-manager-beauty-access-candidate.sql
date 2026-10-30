@@ -10,6 +10,9 @@ BEGIN
  END IF;
  IF to_regclass('public."DigitalManagerNotice"') IS NULL THEN RAISE EXCEPTION 'Digital manager notice table is required'; END IF;
  IF to_regclass('public."DigitalManagerActivation"') IS NULL THEN RAISE EXCEPTION 'Digital manager activation table is required'; END IF;
+ IF NOT has_column_privilege(app_role,'public."Store"','id','SELECT') OR NOT has_column_privilege(app_role,'public."Store"','industryModule','SELECT') THEN
+  RAISE EXCEPTION 'Beauty runtime role must be able to read the store ID and industry module';
+ END IF;
  EXECUTE format('GRANT SELECT, INSERT ON public."DigitalManagerNotice" TO %I',app_role);
  EXECUTE format('GRANT UPDATE ("handledAt","handledById","handledByName",revision,"updatedAt") ON public."DigitalManagerNotice" TO %I',app_role);
  EXECUTE format('GRANT SELECT, INSERT ON public."DigitalManagerActivation" TO %I',app_role);
