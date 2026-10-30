@@ -36,3 +36,9 @@ it('uses supplied external data immediately and preserves the mounted draft on s
  const input=host.querySelector('input')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'未儲存');input.dispatchEvent(new Event('input',{bubbles:true}));});
  await render(true,{...data,storeId:'replacement'},'new-revision');expect(host.querySelector('input')?.value).toBe('未儲存');expect(host.textContent).not.toContain('replacement');expect(m.read).not.toHaveBeenCalled();
 });
+
+it('does not restart an in-flight read on an unchanged-scope parent refresh',async()=>{
+ let resolve!:(value:unknown)=>void;m.read.mockImplementation(()=>new Promise(r=>{resolve=r;}));
+ await render();await render();await render();expect(m.read).toHaveBeenCalledOnce();
+ await act(async()=>resolve({success:true,data}));expect(host.textContent).toContain('sports-store');
+});
