@@ -1,5 +1,4 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
-import {loadSportsStaging} from "@/server/actions/sports-staging";
 import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
@@ -113,10 +112,9 @@ export default async function CoursesPage({
     const writable = writableStore;
     const canManageSportsRules=sportsNative&&writable&&["OWNER","ADMIN"].includes(user.role)&&(await Promise.all((["staff.view","staff.manage","teacher.compensation.manage","teacher.compensation.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean);
     const sportsCoaches=canManageSportsRules?await prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true},select:{id:true,displayName:true}}):undefined;
-    const enrichedSubjects=canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRule}=await import("@/server/services/sports-teaching-rule");return Promise.all(subjects.map(async s=>({...s,sportsRule:await readSportsTeachingRule(tx,storeId,s.id)})));}):subjects;
+    const enrichedSubjects=canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRules}=await import("@/server/services/sports-teaching-rule");const rules=await readSportsTeachingRules(tx,storeId,subjects.map(s=>s.id));return subjects.map(s=>({...s,sportsRule:rules.get(s.id)}));}):subjects;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog schedulingModes={sportsNative?await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined:undefined} sportsNative={sportsNative} sportsCoaches={sportsCoaches?.map(c=>({id:c.id,name:c.displayName}))} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={enrichedSubjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
-  const sportsFormPromise=sportsNative ? Promise.all((["plans.edit","customer.read","wallet.read","transaction.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))).then(grants=>grants.every(Boolean)&&writableStore?loadSportsStaging(true):null).then(r=>r?.success?r.data:undefined) : Promise.resolve(undefined);
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
@@ -383,7 +381,6 @@ export default async function CoursesPage({
         cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
         sportsNative={sportsNative}
         schedulingModes={await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined}
-        sportsData={await sportsFormPromise}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}

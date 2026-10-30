@@ -58,9 +58,9 @@ it.each(['store-ido-xinzhuang','store-ido-banqiao'])('routes enabled own-store %
  const data={lessons:[]};m.load.mockResolvedValue({success:true,data});
  const page=await CoursesPage({searchParams:Promise.resolve({})});
  const workspace=find(page,'legacy-workspace');
- expect(workspace?.props).toMatchObject({storeId,sportsNative:true,sportsData:data,canCreate:true,canEdit:true});
+ expect(workspace?.props).toMatchObject({storeId,sportsNative:true,canCreate:true,canEdit:true});
  expect(find(page,'sports-workspace')).toBeUndefined();
- expect(m.load).toHaveBeenCalledWith(true);expect(m.ensure).toHaveBeenCalledTimes(1);
+ expect(m.load).not.toHaveBeenCalled();expect(m.ensure).toHaveBeenCalledTimes(1);
  expect(m.sessions).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId})}));
 });
 it('keeps admin on the original schedule with native forms',async()=>{
@@ -73,7 +73,7 @@ it('keeps insufficiently privileged staff on the schedule without privileged for
  m.user.mockResolvedValue({id:'staff',role:'STAFF',staffId:'staff',storeId:'child'});m.context.mockResolvedValue(null);
  m.permission.mockImplementation(async(_role,_staff,p)=>p!=='plans.edit');
  const page=await CoursesPage({searchParams:Promise.resolve({})});
- expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:true,sportsData:undefined});expect(m.load).not.toHaveBeenCalled();
+ expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:true});expect(m.load).not.toHaveBeenCalled();
 });
 it('preserves explicit read-only view mode even when store IDs match',async()=>{
  m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',storeId:'child'});m.context.mockResolvedValue({isViewMode:true});
@@ -94,7 +94,7 @@ it('keeps child catalog read-only',async()=>{
 it('does not activate native forms or generation when the production gate is disabled',async()=>{
  m.native.mockReturnValue(false);m.enabled.mockReturnValue(false);m.context.mockResolvedValue(null);
  const page=await CoursesPage({searchParams:Promise.resolve({})});
- expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:false,sportsData:undefined});expect(m.load).not.toHaveBeenCalled();expect(m.ensure).not.toHaveBeenCalled();
+ expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:false});expect(m.load).not.toHaveBeenCalled();expect(m.ensure).not.toHaveBeenCalled();
 });
 it('does not route music into the sports workspace',async()=>{
  m.profile.mockResolvedValue([{featureKey:'business.music'}]);m.enabled.mockReturnValue(false);m.context.mockResolvedValue(null);
@@ -112,4 +112,12 @@ it('retains historical schedule reads and passes a capacity warning to the works
  const page=await CoursesPage({searchParams:Promise.resolve({date:'2027-03-01'})});
  expect(m.sessions).toHaveBeenCalled();
  expect(find(page,'legacy-workspace')?.props).toMatchObject({initialSportsCalendarWarning:'固定課名單超過人數上限；既有課表仍可查看'});
+});
+
+it('does not wait for scheduling metadata when opening a writable sports calendar',async()=>{
+ m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',storeId:'child'});m.context.mockResolvedValue(null);
+ m.load.mockImplementation(()=>new Promise(()=>{}));
+ const page=await CoursesPage({searchParams:Promise.resolve({})});
+ expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:true,canCreate:true});
+ expect(m.load).not.toHaveBeenCalled();expect(m.ensure).toHaveBeenCalledOnce();
 });
