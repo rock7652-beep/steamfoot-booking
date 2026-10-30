@@ -1,4 +1,3 @@
-import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { bindStoreLineNotificationRecipient } from "./store-line-notification-binding";
 import { prisma } from "@/lib/db";
 import { verifyLineSignature, replyMessage } from "@/lib/line";
@@ -30,7 +29,6 @@ export async function handleConfiguredCourseLineWebhook(input: {
   })));
   if (stores.some(store => !store)) return "handled";
   for (const event of input.events) {
-    if(event.type==="message"&&!isLineDeliveryEventCurrent(event.timestamp))continue;
     const notificationCode=event.type==="message"&&event.message?.type==="text"?event.message.text?.trim().match(/^綁定通知\s*([A-F0-9]{10})$/i):null;
     if(notificationCode&&event.source?.userId){
       const result=await bindStoreLineNotificationRecipient({storeIds:configs.map(c=>c.storeId),lineUserId:event.source.userId,bindingCode:notificationCode[1]});

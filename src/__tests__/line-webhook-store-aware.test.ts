@@ -323,6 +323,16 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(mockPrisma.customer.updateMany).toHaveBeenCalledOnce();
     expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [{type:"text",text:expect.stringContaining("通知設定完成")}]);
   });
+  it('keeps verified incoming phone processing independent from the outgoing pause',async()=>{
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',new Date(Date.now()+60_000).toISOString());
+    try{
+      completePhoneLineRebindMock.mockResolvedValueOnce('linked');
+      const timestamp=Date.now(),{POST}=await import('@/app/api/line/webhook/route');
+      const response=await POST(postReq({destination:'D_hsinchu',events:[{type:'message',replyToken:'reply',source:{type:'user',userId:'U-hsinchu-store'},message:{type:'text',text:'0912345678'},timestamp}]}));
+      expect(response.status).toBe(200);
+      expect(completePhoneLineRebindMock).toHaveBeenCalledWith(expect.objectContaining({storeIds:['store-hsinchu'],phone:'0912345678',timestamp}));
+    }finally{vi.unstubAllEnvs();}
+  });
 
   it.each([
     { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "通知設定完成", updates: 1 },

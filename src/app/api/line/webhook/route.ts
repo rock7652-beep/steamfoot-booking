@@ -1,4 +1,3 @@
-import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { bindStoreLineNotificationRecipient } from "@/server/services/store-line-notification-binding";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
@@ -162,7 +161,6 @@ export async function POST(req: Request) {
 }
 
 async function handleSteamButlerEvent(event: LineWebhookEvent) {
-  if(!isLineDeliveryEventCurrent(event.timestamp))return;
   if (event.type !== "message" || event.message?.type !== "text") {
     return;
   }
@@ -241,7 +239,6 @@ async function resolveStoreFromDestination(
 // ============================================================
 
 async function handleLineEvent(event: LineWebhookEvent, storeId: string, destination?: string) {
-  if(event.type==="message"&&!isLineDeliveryEventCurrent(event.timestamp))return;
   if (destination && await handleMemberConnectionWebhook({ destination, storeIds: [storeId], event })) return;
   const lineUserId = event.source?.userId;
   console.log("[LINE] Event:", {

@@ -31,6 +31,13 @@ it("dispatches an authorized phone rebind only after the official account signat
   expect(await handleConfiguredCourseLineWebhook(input)).toBe("invalid_signature");
   expect(m.rebind).not.toHaveBeenCalled();
 });
+it('continues processing verified inbound phone input while outbound delivery is still scheduled to resume',async()=>{
+ vi.stubEnv('LINE_DELIVERY_RESUME_AT',new Date(Date.now()+60_000).toISOString());
+ m.rebind.mockResolvedValue('linked');
+ const timestamp=Date.now();
+ await handleConfiguredCourseLineWebhook({...request(),events:[{type:'message',source:{userId:'U'+'1'.repeat(32)},message:{type:'text',text:'0912345678'},replyToken:'reply',timestamp}]});
+ expect(m.rebind).toHaveBeenCalledWith(expect.objectContaining({storeIds:['a','b'],phone:'0912345678',timestamp}));
+});
 it.each([false,true])("never welcomes a follower, including a shared OA (%s)",async shared=>{
  vi.stubEnv("STORE_LINE_CONFIG_JSON",JSON.stringify(shared?[a,b]:[{...a,sharedAccountKey:undefined}]));
  m.links.mockResolvedValue([]);
