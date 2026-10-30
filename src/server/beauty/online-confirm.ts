@@ -4,6 +4,7 @@ import { planInput } from '@/lib/beauty/contracts';
 import { command, type BeautyActor } from './access';
 import type { Tx } from './booking';
 import { issueCard } from './commerce';
+import {resolveDigitalManagerNotice} from '@/server/services/digital-manager-notices';
 
 /** Called under the store lock. The original order snapshot, issue, payment,
  * correction history and order transition stay in one database transaction. */
@@ -27,6 +28,7 @@ export async function confirmOnlineBeautyOrder(tx:Tx,a:BeautyActor,d:{requestKey
       chargeRuleSnapshot:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'chargeRuleSnapshot' in order.snapshot?order.snapshot.chargeRuleSnapshot:null,
     });
     await tx.beautyPurchase.update({where:{id:order.id},data:{cardId:receipt.cardId,status:'CONFIRMED'}});
+    await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-purchase-pending:${order.id}`,actorUserId:a.userId!,actorName:a.name??'門市人員'});
     const corrected=await tx.beautyTransactionRevision.findFirst({where:{storeId:a.storeId,transactionId:order.id},orderBy:{revision:'desc'}});
     if(corrected){
       const payment=await tx.beautyPayment.findFirstOrThrow({where:{storeId:a.storeId,cardId:receipt.cardId,kind:'SALE'}});

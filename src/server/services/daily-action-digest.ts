@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { HUMAN_SUPPORT_COMPLETION_ACTION_KEY } from "@/server/services/human-support-handoff";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
+import {recordDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 
 export interface DailyActionDigestResult {
   storesScanned: number;
@@ -60,12 +61,10 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
     let claimId: string | null = null;
 
     try {
+      let lineAllowed=true;
       if (store.industryModule === "COURSE") {
         const [{ hasStoreFeature }, { FEATURES }] = await Promise.all([import("@/lib/feature-gate"), import("@/lib/feature-flags")]);
-        if (!(await hasStoreFeature(store.id, FEATURES.LINE_REMINDER))) {
-          result.storesSkipped += 1;
-          continue;
-        }
+        lineAllowed=await hasStoreFeature(store.id, FEATURES.LINE_REMINDER);
       }
       const courseTodos = store.industryModule === "COURSE"
         ? await (await import("@/server/queries/course-manager-todos")).getCourseManagerTodoCounts(store.id, now)
@@ -103,6 +102,8 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
         result.storesSkipped += 1;
         continue;
       }
+      await recordDigitalManagerNotice(prisma,{storeId:store.id,eventKey,eventType:"DAILY_ACTION_DIGEST",targetId:store.id});
+      if(!lineAllowed){result.storesSkipped+=1;continue;}
 
       try {
         const claim = await prisma.digitalButlerExecutionLog.create({

@@ -32,7 +32,9 @@ describe("course transaction corrections", () => {
   it("does not post a cash reversal for an unconfirmed order", async () => {
     tx.coursePurchase.findFirst.mockResolvedValue({ ...order, status: "PENDING", cardId: null });
     await voidCoursePurchaseInTransaction(db, actor, input);
-    expect(tx.coursePointCard.update).not.toHaveBeenCalled(); expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(tx.coursePointCard.update).not.toHaveBeenCalled(); expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$executeRaw.mock.calls[0][0].join('')).toContain('"DigitalManagerNotice"');
+    expect(tx.$executeRaw.mock.calls[0].slice(1)).toContain('course-purchase-pending:order-a');
   });
   it("rejects a staff attribution from another store before updating", async () => {
     tx.$queryRaw.mockResolvedValue([]);

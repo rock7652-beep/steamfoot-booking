@@ -8,12 +8,13 @@ import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
+function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
 export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
  storeId:string;namespace:"course"|"steamfoot"|"beauty";initialEnabled?:boolean;
  loadNotices:(input:{storeId:string;handled:boolean;offset:number;summaryOnly?:boolean})=>Promise<StoreNoticeLoadResult>;
  markNotice:(input:{storeId:string;id:string;handled:boolean;revision:number})=>Promise<StoreNoticeMarkResult>;
  labels?:Partial<Record<StoreNoticeItem["kind"],string>>;
- onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;closeOnViewTarget?:boolean;targetLabel?:string;refreshKey?:number;
+ onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;closeOnViewTarget?:boolean|((notice:StoreNoticeItem)=>boolean);targetLabel?:string;refreshKey?:number;
 }) {
  const [enabled,setEnabled]=useState(initialEnabled),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
  const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
@@ -99,14 +100,14 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
      {!loading&&!items.length&&!error&&<p className="p-3 text-sm text-earth-500">{handled?"尚無已處理通知":"沒有待處理通知"}</p>}
      {items.map(n=><div key={n.id} className="border-b border-earth-100 text-sm">
       <div className="flex items-center gap-1 px-2 py-1 hover:bg-earth-50">
-       <button type="button" className={`${rosterStatusButtonClassName} ${n.handledAt?"text-primary-700":"text-earth-400"}`} disabled={!canHandle||!!pending} aria-label={`${n.handledAt?"恢復待處理":"標記已處理"}：${n.customerName}`} aria-pressed={!!n.handledAt} onClick={()=>void toggle(n)}><span className="text-lg font-semibold" aria-hidden="true">{n.handledAt?"O":"○"}</span></button>
+       <button type="button" className={`${rosterStatusButtonClassName} ${n.handledAt?"text-primary-700":"text-earth-400"}`} disabled={!canHandle||!!pending} aria-label={`${n.handledAt?"恢復待處理":"標記已處理"}：${n.customerName}`} aria-pressed={!!n.handledAt} onClick={()=>void toggle(n)}><svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.8" stroke="currentColor" strokeWidth={n.handledAt?2.4:1.8}/></svg></button>
        <button className="min-h-11 min-w-0 flex-1 text-left" aria-expanded={expanded===n.id} onClick={()=>setExpanded(expanded===n.id?null:n.id)}>
-        <span className="flex flex-wrap gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{labels[n.kind]??STORE_NOTICE_LABELS[n.kind]}</span>{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>
-        <span className="block break-words text-earth-600">{n.previousStartsAt?`${noticeTime(n.previousStartsAt)} → `:""}{noticeTime(n.startsAt)}・{n.previousCoachName&&n.previousCoachName!==n.coachName?`${n.previousCoachName} → `:""}{n.coachName}</span>
+        <span className="flex flex-wrap items-center gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{labels[n.kind]??STORE_NOTICE_LABELS[n.kind]}</span>{compactNotice(n)&&<span className="text-earth-600">{noticeTime(n.startsAt)}</span>}{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>
+        {!compactNotice(n)&&<span className="block break-words text-earth-600">{n.previousStartsAt?`${noticeTime(n.previousStartsAt)} → `:""}{noticeTime(n.startsAt)}{n.coachName&&<>・{n.previousCoachName&&n.previousCoachName!==n.coachName?`${n.previousCoachName} → `:""}{n.coachName}</>}</span>}
        </button>
       </div>
       {rowError[n.id]&&<p role="alert" className="px-3 pb-2 text-red-700">{rowError[n.id]}</p>}
-      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600"><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p>{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>{if(closeOnViewTarget){skipTargetCloseRead.current=true;setOpen(false);}onViewTarget(n,canHandle);}}>{targetLabel}</button>}</div>}
+      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600">{!compactNotice(n)&&<><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p></>}{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{compactNotice(n)&&!n.canViewCourse&&<p>{n.kind==="PAYMENT"?"需要付款管理權限":n.kind==="REMINDER"||n.kind==="DIGEST"?"需要門市查閱權限":"需要顧客查閱權限"}</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>{if(typeof closeOnViewTarget==='function'?closeOnViewTarget(n):closeOnViewTarget){skipTargetCloseRead.current=true;setOpen(false);}onViewTarget(n,canHandle);}}>{n.kind==='PAYMENT'?"查看待核帳":n.kind==='LEAD'||n.kind==='SUPPORT'||n.kind==='VIP'?"查看顧客需求":n.kind==='DIGEST'?"查看門市":targetLabel}</button>}</div>}
      </div>)}
      {(offset>0||more)&&<div className="flex justify-between p-2"><button disabled={offset===0||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>Math.max(0,v-50))}>上一頁</button><button disabled={!more||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>v+50)}>下一頁</button></div>}
     </div>

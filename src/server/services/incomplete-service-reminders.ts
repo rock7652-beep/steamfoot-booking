@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr, formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 
 const SERVICE_DURATION_MINUTES = 60;
 const REMINDER_GRACE_MINUTES = 60;
@@ -85,14 +86,14 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
   let courseCandidates: Awaited<ReturnType<typeof getIncompleteCourseCandidates>> = [];
   let courseQueryFailed = false;
   try {
-    courseCandidates = await getIncompleteCourseCandidates(now);
+    courseCandidates = await getIncompleteCourseCandidates(now,{includeWithoutLine:true});
   } catch (error) {
     courseQueryFailed = true;
     console.error("[IncompleteServiceReminder] course candidates failed", { error: error instanceof Error ? error.message : "Unknown error" });
   }
   const candidates = [
-    ...steamfootCandidates.map(candidate => ({ ...candidate, courseSessionId: null as string | null, courseEndsAt: null as Date | null })),
-    ...courseCandidates.map(candidate => ({ id: candidate.id, storeId: candidate.storeId, bookingDate: new Date(`${toLocalDateStr(candidate.session.startsAt)}T00:00:00Z`), slotTime: formatTWDateTime(candidate.session.startsAt).slice(11), customer: { name: candidate.customerName }, store: { slug: candidate.storeSlug }, courseSessionId: candidate.sessionId, courseEndsAt: candidate.session.endsAt })),
+    ...steamfootCandidates.map(candidate => ({ ...candidate, courseSessionId: null as string | null, courseEndsAt: null as Date | null,lineAllowed:true })),
+    ...courseCandidates.map(candidate => ({ id: candidate.id, storeId: candidate.storeId, bookingDate: new Date(`${toLocalDateStr(candidate.session.startsAt)}T00:00:00Z`), slotTime: formatTWDateTime(candidate.session.startsAt).slice(11), customer: { name: candidate.customerName }, store: { slug: candidate.storeSlug }, courseSessionId: candidate.sessionId, courseEndsAt: candidate.session.endsAt,lineAllowed:candidate.lineAllowed??true })),
   ];
 
   const result: IncompleteServiceReminderResult = {
@@ -112,15 +113,10 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
     result.due += 1;
 
     const eventKey = `${candidate.courseSessionId ? "course-incomplete-attendance" : "incomplete-service-reminder"}:${candidate.id}`;
+    const digitalEventKey=candidate.courseEndsAt?`${eventKey}:${candidate.courseEndsAt.toISOString()}`:`${eventKey}:${candidate.bookingDate.toISOString().slice(0,10)}:${candidate.slotTime}`;
     let claimId: string | null = null;
     try {
-      claimId = await claimNotification(candidate.storeId, eventKey);
-      if (!claimId) {
-        result.skipped += 1;
-        continue;
-      }
-
-      // Re-check after claiming so a concurrent completion, cancellation, or no-show wins.
+      // Recheck the business event before independently recording the store notice.
       const stillIncomplete = candidate.courseSessionId ? await isCourseBookingStillIncomplete(candidate.storeId, candidate.id, now) : await prisma.booking.findFirst({
         where: {
           id: candidate.id,
@@ -131,9 +127,15 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
       });
       if (!stillIncomplete) {
         result.skipped += 1;
-        await releaseClaim(claimId);
         continue;
       }
+      await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,eventType:"INCOMPLETE_SERVICE_REMINDER",targetId:candidate.id});
+      if(!candidate.lineAllowed){result.skipped+=1;continue;}
+      claimId = await claimNotification(candidate.storeId, eventKey);
+      if (!claimId) { result.skipped += 1; continue; }
+      // A completion can win between the first check and the outbound claim.
+      const stillDue=candidate.courseSessionId?await isCourseBookingStillIncomplete(candidate.storeId,candidate.id,now):await prisma.booking.findFirst({where:{id:candidate.id,storeId:candidate.storeId,bookingStatus:{in:["PENDING","CONFIRMED"]}},select:{id:true}});
+      if(!stillDue){await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,actorUserId:'system',actorName:'系統'});result.skipped+=1;await releaseClaim(claimId);continue;}
 
       const delivery = await notifyStoreManagerOnLine({
         type: "INCOMPLETE_SERVICE_REMINDER",

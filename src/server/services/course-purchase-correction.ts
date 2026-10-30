@@ -3,6 +3,7 @@ import "server-only";
 import { lockCourseCashDay } from "./course-assignment-checkout";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
+import {resolveDigitalManagerNotice} from "./digital-manager-notices";
 type Actor = { storeId: string; userId: string };
 async function audit(tx: Prisma.TransactionClient, actor: Actor, id: string, action: string, before: object, after: object) {
   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},'CoursePurchase',${id},${action},${JSON.stringify({ storeId: actor.storeId, ...before })}::jsonb,${JSON.stringify({ storeId: actor.storeId, ...after })}::jsonb,NOW())`;
@@ -43,6 +44,7 @@ export async function voidCoursePurchaseInTransaction(tx: Prisma.TransactionClie
     await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${"course-void:" + order.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'課程誤建沖銷',amount,${"作廢：" + input.reason},${actor.userId},NOW() FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId}`;
   }
   const result = await tx.coursePurchase.update({ where: { id: order.id }, data: { status: "VOIDED", voidedAt: new Date(), voidedBy: actor.userId, voidReason: input.reason } });
+  if(order.status === "PENDING")await resolveDigitalManagerNotice(tx,{storeId:actor.storeId,eventKey:`course-purchase-pending:${order.id}`,actorUserId:actor.userId,actorName:"門市人員"});
   await audit(tx, actor, order.id, "VOID", { status: order.status, price: order.price }, { status: "VOIDED", reason: input.reason });
   return result;
 }

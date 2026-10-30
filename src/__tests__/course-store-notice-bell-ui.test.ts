@@ -2,8 +2,10 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),mark:vi.fn(),target:vi.fn()}));
+const m=vi.hoisted(()=>({load:vi.fn(),mark:vi.fn(),target:vi.fn(),digitalMark:vi.fn(),push:vi.fn()}));
 vi.mock("@/server/actions/course-store-notices",()=>({loadCourseStoreNotices:m.load,markCourseStoreNotice:m.mark,loadCourseStoreNoticeTarget:m.target}));
+vi.mock("@/server/actions/course-digital-manager-notices",()=>({loadCombinedCourseStoreNotices:m.load,markCourseDigitalManagerNotice:m.digitalMark}));
+vi.mock("next/navigation",()=>({useRouter:()=>({push:m.push}),usePathname:()=>"/s/s/admin/dashboard/courses"}));
 vi.mock("next/dynamic",()=>({default:()=> (props:{sessionId:string})=>createElement("div",{"data-testid":"notice-course"},props.sessionId)}));
 import {CourseStoreNoticeBell} from "@/components/admin/course-store-notice-bell";
 let host:HTMLDivElement,root:Root;
@@ -67,4 +69,22 @@ it("preserves the course-specific restore label in the shared notice presentatio
  m.load.mockResolvedValue(response([{...row,kind:"RESTORE"}]));
  await act(async()=>window.dispatchEvent(new Event("focus")));
  expect(document.body.textContent).toContain("恢復上課");
+});
+it("shows payment notices in the same bell and opens the store's pending-payment page",async()=>{
+ m.load.mockResolvedValue(response([{...row,id:"digital:p",kind:"PAYMENT",customerName:"方案付款",courseName:"請至待核帳清單查看",coachName:"",canViewCourse:true}]));
+ await click("門市通知，1 筆待處理");
+ const detail=[...document.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find(b=>b.textContent?.includes("方案付款"));
+ await act(async()=>detail!.click());
+ await click("查看待核帳");
+ expect(m.push).toHaveBeenCalledWith("/s/s/admin/dashboard/revenue?status=PENDING");
+ expect(m.target).not.toHaveBeenCalled();
+});
+it("marks and restores a payment notice using its store-scoped digital identifier",async()=>{
+ m.load.mockResolvedValue(response([{...row,id:"digital:p",kind:"PAYMENT",customerName:"方案付款",coachName:""}]));
+ m.digitalMark.mockResolvedValue({success:true,storeId:"s",data:{id:"p",revision:1,handledAt:"2026-10-30T03:00:00Z",handledByName:"店員"}});
+ await click("門市通知，1 筆待處理");await click("標記已處理：方案付款");
+ expect(m.digitalMark).toHaveBeenCalledWith({storeId:"s",id:"p",handled:true,revision:0});
+ await click("復原");
+ expect(m.digitalMark).toHaveBeenLastCalledWith({storeId:"s",id:"p",handled:false,revision:1});
+ expect(m.mark).not.toHaveBeenCalled();
 });

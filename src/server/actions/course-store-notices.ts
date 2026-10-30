@@ -35,7 +35,10 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
   const {storeId,user}=await courseManager("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
-  const notice=await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
+  const notice=d.id.startsWith('digital:')?await (async()=>{
+   const rows=await coursePrisma.$queryRaw<Array<{targetId:string}>>`SELECT "targetId" FROM public."DigitalManagerNotice" WHERE id=${d.id.slice(8)} AND "storeId"=${storeId} AND "eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'course-incomplete-attendance:%'`;
+   return rows[0]?{subjectKey:`booking:${rows[0].targetId}`}:null;
+  })():await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
   if(!notice)throw new AppError("NOT_FOUND","找不到通知");
   let sessionId:string|undefined;
   if(notice.subjectKey.startsWith("session:"))sessionId=notice.subjectKey.slice(8);

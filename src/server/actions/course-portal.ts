@@ -12,6 +12,7 @@ import { assertCoursePurchaseUnit } from "@/server/services/course-purchase-rule
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 import { after } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -178,6 +179,12 @@ export async function purchaseCoursePlan(input: unknown) {
           templateIds: plan.templateIds,
         },
       });
+      await recordDigitalManagerNotice(tx, {
+        storeId,
+        eventKey: `course-purchase-pending:${created.id}`,
+        eventType: "TRANSFER_PENDING_CONFIRMATION",
+        targetId: created.id,
+      });
       return created.id;
     });
     after(async () => {
@@ -249,6 +256,7 @@ export async function confirmCoursePurchase(input: unknown) {
           confirmedBy: user.id,
         },
       });
+      await resolveDigitalManagerNotice(tx, { storeId, eventKey: `course-purchase-pending:${order.id}`, actorUserId: user.id, actorName: user.name ?? "門市人員" });
       await enqueuePlanActivation(tx,{storeId,customerId:order.customerId,module:"COURSE",sourceId:order.id,entitlementId:card.id,planName:order.name,quantity:order.points,unit:order.unit==="POINT"?"點":"堂",expiresDate:musicCard?`首堂上課起算 ${order.validDays} 天`:activationExpiry(card.expiresAt)});
     });
     kickPlanActivationNotifications(storeId);

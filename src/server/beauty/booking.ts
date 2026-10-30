@@ -6,6 +6,7 @@ import {assertBeautyTrialEligibility} from "./trial-eligibility";
 import {beautyPaymentVisibility} from "./transaction-revisions";
 import "server-only";
 import {recordBeautyStoreNotice} from "./store-notices";
+import {resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import { cardAllowsRecipient,halfHourRule } from "@/lib/beauty/member-booking";
 import { AppError } from "@/lib/errors";
@@ -676,6 +677,7 @@ export async function transition(
     where: { id: b.id },
     data: { status: input.target, debit, fee, revision: { increment: 1 } },
   });
+  if(b.status==='RESERVED'&&input.target!=='RESERVED')await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,actorUserId:a.userId??'system',actorName:a.name??'系統'});
   await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,b,({COMPLETED:"COMPLETE",CANCELLED:"CANCEL",NO_SHOW:"NO_SHOW",RESERVED:"RESTORE"} as const)[input.target as "COMPLETED"|"CANCELLED"|"NO_SHOW"|"RESERVED"]);
   await audit(
     tx,

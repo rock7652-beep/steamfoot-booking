@@ -1,8 +1,9 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({command:vi.fn(),issue:vi.fn()}));
+const m=vi.hoisted(()=>({command:vi.fn(),issue:vi.fn(),resolve:vi.fn()}));
 vi.mock('server-only',()=>({}));
 vi.mock('@/server/beauty/access',()=>({command:m.command}));
 vi.mock('@/server/beauty/commerce',()=>({issueCard:m.issue}));
+vi.mock('@/server/services/digital-manager-notices',()=>({resolveDigitalManagerNotice:m.resolve}));
 import {confirmOnlineBeautyOrder} from '@/server/beauty/online-confirm';
 import type {Tx} from '@/server/beauty/booking';
 const actor={storeId:'store',userId:'staff'};
@@ -15,6 +16,7 @@ describe('online confirmation accounting',()=>{
   expect(await confirmOnlineBeautyOrder(tx,actor,{id:'order',requestKey:'key'})).toEqual({cardId:'card'});
   expect(m.issue).toHaveBeenCalledWith(tx,actor,expect.objectContaining({planId:'plan',customerId:'customer',paid:5000,method:'BANK_TRANSFER'}),expect.objectContaining({name:'方案原快照',price:5000}));
   expect(update).toHaveBeenCalledWith({where:{id:'order'},data:{cardId:'card',status:'CONFIRMED'}});
+  expect(m.resolve).toHaveBeenCalledWith(tx,{storeId:'store',eventKey:'beauty-purchase-pending:order',actorUserId:'staff',actorName:'門市人員'});
  });
  it('does not issue a second card for a previously confirmed legacy order',async()=>{
   find.mockResolvedValue({...order,status:'CONFIRMED',cardId:'existing-card'});

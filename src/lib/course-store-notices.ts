@@ -5,6 +5,7 @@ export type CourseNoticeItem={
  startsAt:string;previousStartsAt:string|null;affectedCount:number;details:unknown;
  handledAt:string|null;handledByName:string|null;revision:number;createdAt:string;updatedAt:string;canViewCourse?:boolean;
 };
-export function courseNoticeNeedsFollowup(kind:CourseNoticeKind,member:boolean) {
- return kind!=="BOOKING" && (member || kind==="LEAVE" || kind==="STOP" || kind==="MOVE");
+export function courseNoticeNeedsFollowup(kind:CourseNoticeKind,member:boolean,sameDayBooking=false) {
+ if(kind==="BOOKING")return member && sameDayBooking;
+ return member || kind==="LEAVE" || kind==="STOP" || kind==="MOVE";
 }

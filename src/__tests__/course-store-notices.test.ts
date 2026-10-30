@@ -49,6 +49,16 @@ describe("transactional store notices",()=>{
   await recordCourseStoreNotice(tx as never,actor,{...event,kind:"BOOKING"});
   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledById:"u",handledAt:expect.any(Date)})}));
  });
+ it("makes a member's same-day booking pending using Taiwan's business date",async()=>{
+  vi.useFakeTimers();
+  try {
+   vi.setSystemTime(new Date("2026-10-29T16:05:00Z"));
+   await recordCourseStoreNotice(tx as never,actor,{...event,kind:"BOOKING",startsAt:new Date("2026-10-30T11:00:00+08:00")});
+   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:null,handledById:null})}));
+   await recordCourseStoreNotice(tx as never,actor,{...event,kind:"BOOKING",startsAt:new Date("2026-10-31T11:00:00+08:00")});
+   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:expect.any(Date)})}));
+  } finally { vi.useRealTimers(); }
+ });
  it("keeps staff leave followup pending and restores without stale pending state",async()=>{
   const staff={...actor,customerId:undefined};await recordCourseStoreNotice(tx as never,staff,{...event,kind:"LEAVE"});
   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:null})}));

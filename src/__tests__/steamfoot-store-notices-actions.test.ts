@@ -5,7 +5,7 @@ vi.mock("@/lib/permissions",()=>({requirePermission:m.read,requireWritablePermis
 vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.active,resolveWriteStoreId:m.writeStore}));
 vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.module}));
 vi.mock("@/server/services/operation-audit",()=>({recordOperationAudit:m.audit}));
-import {loadSteamfootStoreNotices,markSteamfootStoreNotice,saveSteamfootNoticeSetting} from "@/server/actions/steamfoot-store-notices";
+import {loadSteamfootStoreNotices,markSteamfootStoreNotice,saveSteamfootNoticeSetting,loadSteamfootVipNoticeTarget,loadSteamfootReminderTarget} from "@/server/actions/steamfoot-store-notices";
 const tx={$queryRaw:m.raw,$executeRaw:m.exec};
 const actor={id:"u",name:"店長",role:"OWNER",storeId:"s",staffId:"staff"};
 const date=new Date('2030-01-11T02:00:00Z');
@@ -16,6 +16,17 @@ it('requires a staff read grant, current store and module before reading notices
  m.read.mockRejectedValueOnce(new Error('permission denied'));expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
  expect(await loadSteamfootStoreNotices({storeId:'other',handled:false})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
  m.module.mockResolvedValue('course');expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+});
+it('resolves a VIP target only for an authorized current-store reader',async()=>{
+ expect(await loadSteamfootVipNoticeTarget({storeId:'other',id:'digital:n'})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+ m.permission.mockResolvedValueOnce(false);expect(await loadSteamfootVipNoticeTarget({storeId:'s',id:'digital:n'})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+ m.raw.mockResolvedValueOnce([{id:'customer'}]);expect(await loadSteamfootVipNoticeTarget({storeId:'s',id:'digital:n'})).toMatchObject({success:true,data:{id:'customer'}});
+ expect(m.raw.mock.calls[0][0].join('')).toContain('c."storeId"=n."storeId"');
+});
+it('resolves an incomplete reminder through its saved same-store booking',async()=>{
+ expect(await loadSteamfootReminderTarget({storeId:'other',id:'digital:n'})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+ m.raw.mockResolvedValueOnce([{id:'booking'}]);expect(await loadSteamfootReminderTarget({storeId:'s',id:'digital:n'})).toMatchObject({success:true,data:{id:'booking'}});
+ expect(m.raw.mock.calls[0][0].join('')).toContain('b."storeId"=n."storeId"');
 });
 it('uses default-on for missing settings and serializes safe paginated rows',async()=>{
  m.raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:'n',targetId:'b',kind:'MOVE',customerName:'顧客',courseName:'蒸足',coachName:'店長',startsAt:date,previousStartsAt:null,handledAt:null,createdAt:date,updatedAt:date,revision:0}]).mockResolvedValueOnce([{count:1}]);

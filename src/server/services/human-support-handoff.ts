@@ -4,6 +4,7 @@ import { encryptDigitalButlerValue, hashDigitalButlerSensitiveValue } from "@/li
 import { getUserProfile } from "@/lib/line";
 import type { DigitalButlerInboundTextMessage } from "@/server/services/digital-butler-channel";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
+import {recordDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 
 export const HUMAN_SUPPORT_COMPLETION_ACTION_KEY = "__human_support_handoff__";
 
@@ -206,6 +207,7 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
         await releaseClaim(claimId);
         continue;
       }
+      await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,eventType:"HUMAN_SUPPORT_FINAL_REMINDER",targetId:candidate.id});
 
       const delivery = await notifyStoreManagerOnLine({
         type: "HUMAN_SUPPORT_FINAL_REMINDER",

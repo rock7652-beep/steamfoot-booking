@@ -4,6 +4,7 @@ import {assertOnlineConfirmationSettled} from './online-confirm-guard';
 import {AppError} from '@/lib/errors';
 import {lockCashDay} from '@/server/services/cash-day';
 import {audit,command,type BeautyActor} from './access';
+import {resolveDigitalManagerNotice} from '@/server/services/digital-manager-notices';
 import type {Tx} from './booking';
 type Input={purchaseId:string;requestKey:string;expectedRevision:number;reason:string};
 /** Same original transaction controls: metadata correction and unused erroneous receipt reversal. */
@@ -26,6 +27,7 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
   }else if(request){
    if(request.cardId)throw new AppError('CONFLICT','購買申請已有發卡資料，請先核對');
    await tx.beautyPurchase.update({where:{id:request.id},data:{status:'VOIDED'}});
+   await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-purchase-pending:${request.id}`,actorUserId:a.userId!,actorName:a.name??'門市人員'});
   }else if(payment){
    // Service receipts can affect frozen technician fees. Preserve those; cancel and refund instead.
    if(!payment.cardId||payment.appointmentId)throw new AppError('BUSINESS_RULE','服務收款請先取消服務並使用退款；此處只作廢未使用的方案誤建交易');

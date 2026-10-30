@@ -19,10 +19,10 @@ export async function getCourseManagerTodoCounts(storeId: string, now: Date) {
 }
 
 /** Preserve the mature one-hour post-service grace period, using the actual class end. */
-export async function getIncompleteCourseCandidates(now: Date) {
+export async function getIncompleteCourseCandidates(now: Date, options: {includeWithoutLine?:boolean} = {}) {
   const candidates = await prisma.store.findMany({ where: { industryModule: "COURSE", isDemo: false, operatingStatus: { in: ["ACTIVE", "TRIAL"] } }, select: { id: true, slug: true } });
   const eligible = await Promise.all(candidates.map(store => hasStoreFeature(store.id, FEATURES.LINE_REMINDER)));
-  const stores = candidates.filter((_, index) => eligible[index]);
+  const stores = candidates.filter((_, index) => options.includeWithoutLine || eligible[index]);
   if (!stores.length) return [];
   const today = dayRange(toLocalDateStr(now)).start;
   const earliest = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -32,7 +32,7 @@ export async function getIncompleteCourseCandidates(now: Date) {
     select: { id: true, storeId: true, sessionId: true, customerName: true, session: { select: { startsAt: true, endsAt: true } } },
     orderBy: { session: { startsAt: "asc" } }, take: 300,
   });
-  return bookings.map(booking => ({ ...booking, storeSlug: stores.find(store => store.id === booking.storeId)!.slug }));
+  return bookings.map(booking => ({ ...booking, storeSlug: stores.find(store => store.id === booking.storeId)!.slug, lineAllowed:eligible[candidates.findIndex(store=>store.id===booking.storeId)] }));
 }
 
 export async function isCourseBookingStillIncomplete(storeId: string, id: string, now: Date) {

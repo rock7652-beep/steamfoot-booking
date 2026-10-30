@@ -12,6 +12,11 @@ it("checks permission, requested store and enabled setting before reading any ta
  expect(await loadCourseStoreNoticeTarget({storeId:"other",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
  m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
 });
+it("resolves an incomplete reminder through the saved same-store booking",async()=>{
+ m.coach.mockResolvedValueOnce([{targetId:'booking'}]).mockResolvedValueOnce([{displayName:'老師',phone:null}]);m.booking.mockResolvedValue({sessionId:'lesson'});
+ expect(await loadCourseStoreNoticeTarget({storeId:'s',id:'digital:notice'})).toMatchObject({success:true,data:{id:'lesson'}});
+ expect(m.coach.mock.calls[0][0].join('')).toContain('"storeId"=');expect(m.booking).toHaveBeenCalledWith({where:{id:'booking',storeId:'s'},select:{sessionId:true}});
+});
 it("resolves a saved session subject in the authorized store and returns actual permissions",async()=>{
  expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n",sessionId:"foreign"})).toMatchObject({success:true,storeId:"s",data:{id:"lesson",courseName:"現行課程",canEdit:false,canCreate:false,musicLayout:false}});
  expect(m.manager).toHaveBeenCalledWith("booking.read");expect(m.notice).toHaveBeenCalledWith({where:{id:"n",storeId:"s"},select:{subjectKey:true}});expect(m.session).toHaveBeenCalledWith(expect.objectContaining({where:{id:"lesson",storeId:"s"}}));

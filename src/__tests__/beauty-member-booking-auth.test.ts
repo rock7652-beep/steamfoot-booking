@@ -1,6 +1,6 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {AppError} from '@/lib/errors';
-const m=vi.hoisted(()=>({manager:vi.fn(),permission:vi.fn(),rows:vi.fn(),charges:vi.fn(),member:vi.fn(),worker:vi.fn(),customer:vi.fn(),reserve:vi.fn(),availability:vi.fn(),allocate:vi.fn(),feature:vi.fn(),transition:vi.fn(),command:vi.fn(),bank:vi.fn(),notify:vi.fn(),queryRaw:vi.fn(),executeRaw:vi.fn(),plan:vi.fn(),order:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),permission:vi.fn(),rows:vi.fn(),charges:vi.fn(),member:vi.fn(),worker:vi.fn(),customer:vi.fn(),reserve:vi.fn(),availability:vi.fn(),allocate:vi.fn(),feature:vi.fn(),transition:vi.fn(),command:vi.fn(),bank:vi.fn(),notify:vi.fn(),queryRaw:vi.fn(),executeRaw:vi.fn(),plan:vi.fn(),order:vi.fn(),settings:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer},shopConfig:{findUnique:m.bank}}}));
 vi.mock('@/server/beauty/manager-notifications',()=>({notifyBeautyBookingManagers:vi.fn(),notifyBeautyPurchaseManagers:m.notify}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
@@ -8,7 +8,7 @@ vi.mock('@/lib/permissions',()=>({requirePermission:m.permission,checkPermission
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature,hasStoreFeature:vi.fn()}));
 vi.mock('@/server/services/trial-booking-chat-link',()=>({resolveTrialBookingChatLink:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({beautyMember:m.member,beautyManager:m.manager,beautyWorker:m.worker,beautyTransaction:async(_a:unknown,work:(tx:object)=>unknown)=>work({beautyAppointment:{findMany:m.rows},beautyPlan:{findFirst:m.plan},beautyPurchase:{create:m.order},$queryRaw:m.queryRaw,$executeRaw:m.executeRaw}),command:m.command,audit:vi.fn(),requireBeauty:vi.fn()}));
-vi.mock('@/server/beauty/booking',()=>({reserveParty:m.reserve,loadAvailability:m.availability,findAllocation:m.allocate,transition:m.transition,ownsItem:vi.fn(),settings:vi.fn(),assertCustomerAvailable:vi.fn()}));
+vi.mock('@/server/beauty/booking',()=>({reserveParty:m.reserve,loadAvailability:m.availability,findAllocation:m.allocate,transition:m.transition,ownsItem:vi.fn(),settings:m.settings,assertCustomerAvailable:vi.fn()}));
 vi.mock('@/server/beauty/service-charges',()=>({serviceCharges:m.charges}));
 import {bookBeautyParty,readBeautySlots,changeBeautyStatus,changeBeautyAttendance,collectBeautyPayment,readBeautyCollection,purchaseBeautyPlan,confirmBeautyPurchase,requestBeautyPlan} from '@/server/actions/beauty';
 import {beautyMemberPurchaseFingerprint} from '@/server/beauty/member-purchase-intent';
@@ -26,6 +26,15 @@ it('replays a recorded online request even if bank settings later disappear, whi
  m.command.mockImplementationOnce((_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>unknown)=>work());
  expect(await requestBeautyPlan({...request,requestKey:crypto.randomUUID()})).toMatchObject({success:false,error:'店家尚未設定銀行資料，請洽店家購買'});
  expect(m.bank).toHaveBeenCalledOnce();
+});
+it('writes a store notice for a new pending plan even when manager LINE notifications are off',async()=>{
+ const request={requestKey:crypto.randomUUID(),planId:'plan',lastFour:'1234'};
+ m.command.mockImplementationOnce((_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>unknown)=>work());
+ m.bank.mockResolvedValueOnce({bankName:'銀行',bankAccountNumber:'123'});
+ m.plan.mockResolvedValueOnce({id:'plan',name:'方案',price:500,sessions:10});m.order.mockResolvedValueOnce({id:'purchase'});m.settings.mockResolvedValue({notifications:false});
+ expect(await requestBeautyPlan(request)).toMatchObject({success:true,data:{id:'purchase'}});
+ expect(m.executeRaw).toHaveBeenCalledOnce();
+ expect(m.executeRaw.mock.calls[0].slice(1)).toEqual([expect.any(String),'store','beauty-purchase-pending:purchase','TRANSFER_PENDING_CONFIRMATION','purchase']);
 });
 it('refuses to create a member order if the displayed plan revision or price has changed',async()=>{
  vi.stubEnv('BEAUTY_MEMBER_PURCHASE_INTENTS_ENABLED','1');vi.stubEnv('AUTH_SECRET','test-secret');

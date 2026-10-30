@@ -11,6 +11,7 @@ import {persistBeautyCatalog} from '@/server/beauty/catalog';
 import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 import { cardAllowsRecipient } from "@/lib/beauty/member-booking";
 import {serviceCharges} from "@/server/beauty/service-charges";
 import {linkCompanion} from "@/server/beauty/companions";
@@ -390,6 +391,7 @@ async function moveBeautyAppointmentCore(
             revision: { increment: 1 },
           },
         });
+        if(next.endsAt.getTime()!==b.endsAt.getTime())await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,actorUserId:a.userId??'system',actorName:a.name??'系統'});
         await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,{...b,technicianId:next.technicianId,startsAt:allocation.startsAt},"MOVE",{startsAt:b.startsAt,technicianId:b.technicianId});
         await tx.beautyEvent.updateMany({
           where: {
@@ -580,6 +582,7 @@ export async function requestBeautyPlan(input: unknown) {
             lastFour: d.lastFour,
           },
         });
+        await recordDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-purchase-pending:${order.id}`,eventType:"TRANSFER_PENDING_CONFIRMATION",targetId:order.id});
         await audit(
           tx,
           a,

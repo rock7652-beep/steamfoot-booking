@@ -1,8 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-const m = vi.hoisted(() => ({ oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(), notify: vi.fn() }));
+const m = vi.hoisted(() => ({ oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(),record:vi.fn(),resolve:vi.fn(), notify: vi.fn() }));
 vi.mock("@/server/queries/course-manager-todos", () => ({ getIncompleteCourseCandidates: m.candidates, isCourseBookingStillIncomplete: m.recheck }));
 vi.mock("@/server/services/store-manager-line-notifications", () => ({ notifyStoreManagerOnLine: m.notify }));
+vi.mock("@/server/services/digital-manager-notices",()=>({recordDigitalManagerNotice:m.record,resolveDigitalManagerNotice:m.resolve}));
 vi.mock("@/lib/db", () => ({ prisma: { booking: { findMany: m.oldCandidates, findFirst: m.oldRecheck }, digitalButlerExecutionLog: { create: m.claim, update: m.update, delete: m.remove } } }));
 import { runIncompleteServiceReminders } from "@/server/services/incomplete-service-reminders";
 const now = new Date("2026-09-17T04:00:00Z");
@@ -20,7 +21,13 @@ it("does not notify before grace expires or after concurrent attendance/cancella
   expect(m.notify).not.toHaveBeenCalled(); expect(m.claim).not.toHaveBeenCalled();
   m.recheck.mockResolvedValue(null);
   await runIncompleteServiceReminders(now);
-  expect(m.notify).not.toHaveBeenCalled(); expect(m.remove).toHaveBeenCalled();
+  expect(m.notify).not.toHaveBeenCalled(); expect(m.record).not.toHaveBeenCalled();
+});
+it("creates the store notice even when the store has no LINE reminder entitlement",async()=>{
+ m.candidates.mockResolvedValue([{id:'booking',storeId:'course',storeSlug:'course-store',sessionId:'session',customerName:'Learner',lineAllowed:false,session:{startsAt:new Date('2026-09-17T00:00:00Z'),endsAt:new Date('2026-09-17T03:00:00Z')}}]);
+ await runIncompleteServiceReminders(now);
+ expect(m.record).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'course',eventType:'INCOMPLETE_SERVICE_REMINDER',targetId:'booking'}));
+ expect(m.claim).not.toHaveBeenCalled();expect(m.notify).not.toHaveBeenCalled();
 });
 it("a duplicate claim cannot send a second reminder", async () => {
   m.claim.mockRejectedValue(new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }));

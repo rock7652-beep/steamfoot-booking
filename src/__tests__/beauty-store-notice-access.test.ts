@@ -11,3 +11,15 @@ it('limits background summary to a count and hides personal snapshots without gr
 it('keeps parent/store view read-only and rejects stale writes before auditing',async()=>{m.view.mockResolvedValue({isViewMode:true});expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,canHandle:false});m.raw.mockResolvedValue([]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:1})).toMatchObject({success:false});expect(m.audit).not.toHaveBeenCalled();});
 it('marks only matching store, beauty subject and current revision',async()=>{m.raw.mockResolvedValue([{id:'notice',revision:3,handledAt:now,handledByName:'店長'}]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:2})).toMatchObject({success:true,data:{id:'notice',revision:3,handledAt:now.toISOString()}});expect(m.manager).toHaveBeenCalledWith('booking.update',true);expect(m.raw.mock.calls[0][0].join('')).toContain('"subjectKey" LIKE \'beauty:%\' AND revision=');expect(m.audit).toHaveBeenCalledOnce();});
 it('resolves the target from the saved notice and current appointment, never a supplied booking id',async()=>{m.raw.mockResolvedValue([{id:'actual-booking',startsAt:now}]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'notice',bookingId:'foreign'})).toMatchObject({success:true,data:{id:'actual-booking',date:'2099-01-01'}});expect(m.raw.mock.calls[0]).not.toContain('foreign');m.raw.mockResolvedValue([]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'gone'})).toMatchObject({success:false});});
+it('keeps payment notices generic and opens finance only with transaction read permission',async()=>{
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[{...row,id:'digital:payment',kind:'PAYMENT',customerName:'方案付款',coachName:'',courseName:''}]);
+ m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=='transaction.read');
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{id:'digital:payment',customerName:'方案付款',coachName:'',canViewCourse:false}]});
+ m.permission.mockResolvedValue(true);
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{id:'digital:payment',canViewCourse:true}]});
+});
+it('marks only the current store and a Beauty payment notice with the expected revision',async()=>{
+ m.raw.mockResolvedValue([{id:'payment',revision:3,handledAt:now,handledByName:'店長'}]);
+ expect(await markBeautyStoreNotice({storeId:'store',id:'digital:payment',handled:true,revision:2})).toMatchObject({success:true,data:{id:'digital:payment',revision:3}});
+ const sql=m.raw.mock.calls[0][0].join('');expect(sql).toContain('"DigitalManagerNotice"');expect(sql).toContain('"storeId"=');expect(sql).toContain("'beauty-purchase-pending:%'");expect(sql).toContain('revision=');
+});
