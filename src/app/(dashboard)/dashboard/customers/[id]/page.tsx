@@ -892,7 +892,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div className="mt-3 border-t border-earth-100 pt-3">
                 {!simplified && <p className="mb-2 text-[11px] font-semibold text-earth-600">LINE 綁定操作</p>}
                 <CustomerDetailSection enabled={simplified} title="管理 LINE 綁定">
-                <StoreMemberConnectionPanel customerId={customer.id} />
+                <StoreMemberConnectionPanel customerId={customer.id} pendingOnly />
                 <LineBindingSection
                   customerId={id}
                   lineLinkStatus={customer.lineLinkStatus}

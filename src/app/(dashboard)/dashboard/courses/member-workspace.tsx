@@ -655,7 +655,7 @@ export function CourseMemberWorkspace({
                 <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
               {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
-              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
+              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} pendingOnly />
               <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/></>}
               {!sportsNative&&detailFields}
               {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{personnelText("加入為教練")}</button></ExclusiveMenu>}
