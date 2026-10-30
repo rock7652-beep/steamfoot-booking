@@ -4,7 +4,7 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
 import { Suspense } from "react";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { hqLoginAction } from "@/server/actions/auth";
@@ -28,6 +28,11 @@ export default function HqLoginPage() {
 
 function HqLoginForm() {
   const [state, action, pending] = useActionState(hqLoginAction, initialState);
+  const destination = state.redirectTo;
+  useEffect(() => {
+    if (!destination || !destination.startsWith("/") || destination.startsWith("//") || destination.includes("\\")) return;
+    window.location.assign(destination);
+  }, [destination]);
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
   const urlErrorMessage = urlError ? URL_ERROR_MESSAGES[urlError] : null;
@@ -89,10 +94,10 @@ function HqLoginForm() {
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !!destination}
             className="w-full rounded-xl bg-[#123E32] px-4 py-3 text-base font-medium text-white hover:bg-[#245A49] disabled:opacity-60"
           >
-            {pending ? "登入中…" : "登入"}
+            {pending || destination ? "登入中…" : "登入"}
           </button>
         </form>
         {storeSlug && (
