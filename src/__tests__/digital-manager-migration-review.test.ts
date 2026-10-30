@@ -22,6 +22,15 @@ it('keeps the reviewed bundle identical to all six tested source scripts',()=>{
  const beauty=readFileSync('scripts/sql/digital-manager-beauty-access-candidate.sql','utf8').replace('\nBEGIN;\n','\n').replace(/\nCOMMIT;\s*$/,'');
  expect(scoped).toContain(review.replace(/\nCOMMIT;\s*$/,''));expect(scoped).toContain(beauty);
 });
+it('keeps the rollback review tied to the prior booking function and preserves tables and records',()=>{
+ const original=readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8');
+ const match=original.match(/CREATE FUNCTION public\.record_steamfoot_store_notice\(\) RETURNS trigger[\s\S]*?\$notice\$;/);
+ expect(match).not.toBeNull();
+ const rollback=readFileSync('prisma/reconciliation/20261030_digital_manager_rollback_review.sql','utf8');
+ expect(rollback).toContain(match![0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION'));
+ expect(rollback).toContain('unexpected notification trigger state');
+ expect(rollback).not.toMatch(/\b(DROP TABLE|TRUNCATE|DELETE FROM|DROP SCHEMA)\b/i);
+});
 it('installs the complete bundle against the existing booking trigger and is repeatable',async()=>{
  const db=new PGlite();
  try {
