@@ -1,5 +1,7 @@
 # 運動／舞蹈課表及教學項目載入優化
 
+後續分段計時、進一步調整及最新Preview見 [分段驗收紀錄](sports-course-stages-20261030.md)；本文件保留第一輪基準與結果。
+
 日期：2026-10-30（Asia/Taipei）。獨立分支 `perf/sports-course-loading`；[PR #1470](https://github.com/rock7652-beep/steamfoot-booking/pull/1470)，維持 Draft。基於 main `c95fa19e`，不包含方案餘額 PR #1469。
 
 ## 修改及保留的規則

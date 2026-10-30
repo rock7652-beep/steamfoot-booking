@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
-const m = vi.hoisted(() => ({ user: vi.fn(), store: vi.fn(), permission: vi.fn(), enabled: vi.fn(), native: vi.fn(), ensure: vi.fn(), ready: vi.fn(), profile: vi.fn(), load: vi.fn(), sessions: vi.fn(), context: vi.fn() }));
+const m = vi.hoisted(() => ({ user: vi.fn(), store: vi.fn(), permission: vi.fn(), enabled: vi.fn(), native: vi.fn(), ensure: vi.fn(), ready: vi.fn(), profile: vi.fn(), load: vi.fn(), sessions: vi.fn(), context: vi.fn(), hours:vi.fn(), labels:vi.fn() }));
 vi.mock('@/lib/session', () => ({ getCurrentUser: m.user }));
 vi.mock('@/lib/store', () => ({ getActiveStoreForRead: m.store }));
 vi.mock('@/lib/permissions', () => ({ checkPermission: m.permission }));
@@ -12,10 +12,10 @@ vi.mock('@/server/actions/sports-staging', () => ({ loadSportsStaging: m.load })
 vi.mock('@/lib/industry-module-server', () => ({ getStoreIndustryModule: async () => 'course' }));
 vi.mock('@/lib/feature-gate', () => ({ requireStoreFeature: async () => {}, hasStoreFeature: async () => false }));
 vi.mock('@/lib/store-view-context-server', () => ({ resolveStoreViewContextFromCookie: m.context }));
-vi.mock('@/lib/db', () => ({ prisma: { storeFeatureEntitlement: { findMany: m.profile }, customer: { findMany: async () => [] }, staff: { findMany: async () => [] }, businessHours: { findMany: async () => [] }, specialBusinessDay: { findMany: async () => [] }, $queryRaw: async () => [], store: { findUnique: async () => ({ name: '運動店' }) } } }));
+vi.mock('@/lib/db', () => ({ prisma: { storeFeatureEntitlement: { findMany: m.profile }, customer: { findMany: async () => [] }, staff: { findMany: async () => [] }, businessHours: { findMany:m.hours }, specialBusinessDay: { findMany: async () => [] }, $queryRaw: async () => [], store: { findUnique: async () => ({ name: '運動店' }) } } }));
 vi.mock('@/lib/course-db', () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null }, $transaction: async (fn: (tx: object) => unknown) => fn({}), $queryRaw:async()=>[], musicSubject:{findMany:async()=>[]}, courseRental: { findMany: async () => [] }, courseBooking: { findMany: async () => [] }, courseRoom: { findMany: async () => [] }, courseTemplate: { findMany: async () => [] }, courseSession: { findMany: m.sessions }, coursePointPlan: { findMany: async () => [] } } }));
 vi.mock('@/server/services/course-display-order', () => ({ readCourseOrders: async () => ({}) }));
-vi.mock('@/server/services/customer-label-snapshot', () => ({ customerLabelSnapshot: async () => ({}) }));
+vi.mock('@/server/services/customer-label-snapshot', () => ({ customerLabelSnapshot:m.labels }));
 vi.mock('@/components/admin/sports-staging-workspace', () => ({ SportsStagingWorkspace: 'sports-workspace' }));
 vi.mock('@/components/desktop', () => ({ PageShell: 'page-shell', PageHeader: 'page-header' }));
 vi.mock('@/components/customer-labels', () => ({ CustomerLabelsSeed: 'labels-seed' }));
@@ -37,7 +37,7 @@ function find(node: unknown, type: string): ReactElement<Record<string, unknown>
  return find(element.props?.children, type);
 }
 beforeEach(() => {
- vi.resetAllMocks();
+ vi.resetAllMocks();m.hours.mockResolvedValue([]);m.labels.mockResolvedValue({});
  m.user.mockResolvedValue({ id: 'owner', role: 'OWNER', staffId: 'staff', storeId: 'parent' });
  m.native.mockReturnValue(true);m.profile.mockResolvedValue([{featureKey:'business.fitness'}]);
  m.store.mockResolvedValue('child'); m.permission.mockResolvedValue(true); m.enabled.mockReturnValue(true);
@@ -120,4 +120,16 @@ it('does not wait for scheduling metadata when opening a writable sports calenda
  const page=await CoursesPage({searchParams:Promise.resolve({})});
  expect(find(page,'legacy-workspace')?.props).toMatchObject({sportsNative:true,canCreate:true});
  expect(m.load).not.toHaveBeenCalled();expect(m.ensure).toHaveBeenCalledOnce();
+});
+
+it('does not start sports presentation reads before a music setup redirect',async()=>{
+ m.profile.mockResolvedValue([{featureKey:'business.music'}]);m.enabled.mockReturnValue(false);m.context.mockResolvedValue(null);
+ m.hours.mockResolvedValue([{dayOfWeek:1,segments:null,isClosed:false,openTime:'09:00',closeTime:'21:00'}]);
+ await expect(CoursesPage({searchParams:Promise.resolve({})})).rejects.toThrow('NEXT_REDIRECT');
+ expect(m.labels).not.toHaveBeenCalled();
+});
+it('propagates an overlapped sports label authorization failure instead of swallowing it',async()=>{
+ m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',storeId:'child'});m.context.mockResolvedValue(null);
+ const error=new Error('label authorization unavailable');m.labels.mockRejectedValue(error);
+ await expect(CoursesPage({searchParams:Promise.resolve({})})).rejects.toBe(error);
 });
