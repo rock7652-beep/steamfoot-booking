@@ -24,6 +24,10 @@
 
 審查稿已在本機 PGlite 合成 schema 上完整安裝兩次，確認新 trigger 數量、檔案內容與六份候選一致；移除必要資料表時，確認整批交易回滾。這不是正式資料庫副本或正式 Prisma migration 的完整部署／回滾演練。受限角色本機測試另確認可處理美業通知及啟用紀錄，禁止修改 targetId、寫入不相符事件類型、刪除通知及跨模組寫入。
 
+補充真實 PostgreSQL 16 本機演練：在全新專用隔離資料庫建立獨立 LOGIN、非 superuser、非 BYPASSRLS 角色，安裝候選 1、7 並重新執行確認可重複。以該角色真實登入，確認三種美業事件的新增、去重、處理、啟用紀錄與限定門市查詢；跨業態寫入、事件類型不符、刪除和修改受限欄位均遭拒絕。另透過該角色的 Beauty Prisma 連線實際執行 `recordDigitalManagerNotice`／`resolveDigitalManagerNotice` 成功。腳本為 `scripts/qa/beauty-digital-manager-role-postgres.mjs` 及 `scripts/qa/beauty-digital-manager-role-service.ts`；前者只接受指定本機空資料庫及未使用角色。這仍不是正式角色的登入驗證或完整正式環境演練。
+
+此共用角色的 RLS 限制美業範圍，但不單獨區分不同美業門市；必須由每個伺服器操作核實使用者及目前門市並限定查詢。`beauty-combined-notices.test.ts` 有本店資料與跨店拒絕的應用層測試；上線前仍須以正式設定驗證實際連線角色與端到端跨店隔離。
+
 Preview 中的 `steamfoot_beauty_data_dmqa` 僅是無登入能力的測試角色；清理其政策與角色的工具要求返回 `Invalid or expired requestState`，目前仍保留，並未修改正式環境。重新清理前應核對角色仍無登入能力且政策僅屬於該角色。
 
 2026-10-30 唯讀核對：正式資料庫已有 `steamfoot_beauty_prod_20261025` 受限登入角色，非 superuser、非 BYPASSRLS，具備 `Store.id` 與 `Store.industryModule` 欄位的 SELECT 權限；`Store` 啟用 RLS 且已有該角色的 SELECT policy。正式環境設定列出美業資料庫模式為 `dedicated`；尚須在發布前重新確認實際連線角色與政策及正式 schema 相符。正式資料庫尚無 `DigitalManagerNotice` 與 `DigitalManagerActivation` 表，故不得先部署本分支程式。
