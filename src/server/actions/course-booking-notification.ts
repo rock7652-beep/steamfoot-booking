@@ -91,9 +91,8 @@ export async function rescheduleMemberCourseBooking(input: unknown) {
       await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${customer.name},${storeId},'COURSE','顧客改期：原預約與新預約同步完成','CourseBooking',${old.id},'COURSE_MEMBER_RESCHEDULE',${JSON.stringify({sessionId:old.sessionId})}::jsonb,${JSON.stringify({bookingId:next.id,sessionId:next.sessionId,paymentUnchanged:true})}::jsonb,NOW())`;
       await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${next.id}`,kind:"MOVE",customerName:old.customerName,courseName:target.nameSnapshot,coachId:target.coachId,previousCoachId:old.session.coachId,startsAt:target.startsAt,previousStartsAt:old.session.startsAt,details:{previousBookingId:old.id,bookingId:next.id}});
       // Keep one chain notification across successive moves, including a previously handled item.
-      const noticesEnabled=(await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled??true;
-      const oldNotice=noticesEnabled?await tx.courseStoreNotice.findUnique({where:{storeId_subjectKey:{storeId,subjectKey:`booking:${old.id}`}}}):null;
-      if(oldNotice && noticesEnabled){
+      const oldNotice=await tx.courseStoreNotice.findUnique({where:{storeId_subjectKey:{storeId,subjectKey:`booking:${old.id}`}}});
+      if(oldNotice){
         const newNotice=await tx.courseStoreNotice.findUnique({where:{storeId_subjectKey:{storeId,subjectKey:`booking:${next.id}`}}});
         if(newNotice){await tx.courseStoreNotice.delete({where:{id:newNotice.id}});await tx.courseStoreNotice.update({where:{id:oldNotice.id},data:{subjectKey:`booking:${next.id}`,kind:"MOVE",startsAt:target.startsAt,previousStartsAt:oldNotice.previousStartsAt??old.session.startsAt,coachName:newNotice.coachName,previousCoachName:oldNotice.previousCoachName??newNotice.previousCoachName,details:newNotice.details??{},handledAt:null,handledById:null,handledByName:null,revision:{increment:1}}});}
       }

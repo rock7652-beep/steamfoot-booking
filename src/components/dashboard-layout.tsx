@@ -37,7 +37,6 @@ import { SubscriptionStatusBanner } from "@/components/subscription-status-banne
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
-import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
@@ -149,16 +148,10 @@ async function readDashboardLayout({
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
-  // Resolve only the switch alongside the server layout; counts and snapshots stay lazy.
+  // Counts and snapshots remain lazy; the store digital manager stays available.
   const noticeEnabledPromise=(async()=>{
-  if(!hqPlatform && effectiveStoreId && permissions.includes("booking.read")) {
-    try {
-      return industryModule==="course"
-        ? (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false
-        : industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1" ? (await (await import("@/lib/beauty-db")).beautyPrisma.beautySetting.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
-    } catch { /* The authenticated background summary retries without blocking the dashboard. */ }
-  }
-  return false;
+  return !hqPlatform && !!effectiveStoreId && permissions.includes("booking.read") &&
+    (industryModule==="course" || industryModule==="steamfoot" || (industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1"));
   })();
   // These reads depend on the already authorized store and module, but not on
   // one another. Keep their existing gates and failure behavior while avoiding

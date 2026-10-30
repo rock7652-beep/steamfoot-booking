@@ -14,8 +14,8 @@ it('creates incomplete and daily store notices with LINE disabled',async()=>{
  expect(m.record).toHaveBeenCalledWith(tx,{storeId:'s',eventKey:'beauty-incomplete:appointment:2026-10-21T23:30:00.000Z',eventType:'INCOMPLETE_SERVICE_REMINDER',targetId:'appointment'});
  expect(m.record).toHaveBeenCalledWith(tx,{storeId:'s',eventKey:'beauty-digest:s:2026-10-22',eventType:'DAILY_ACTION_DIGEST',targetId:'s'});
 });
-it('stops for a disabled store bell and uses activation time to avoid historical backfill',async()=>{
- m.setting.mockResolvedValueOnce({backendNoticesEnabled:false});await runBeautyDigitalManagerReminders(now);expect(m.record).not.toHaveBeenCalled();
+it('ignores a legacy disabled setting and uses activation time to avoid historical backfill',async()=>{
+ m.setting.mockResolvedValueOnce({backendNoticesEnabled:false});await runBeautyDigitalManagerReminders(now);expect(m.record).toHaveBeenCalledTimes(2);m.record.mockClear();m.appointments.mockClear();
  m.query.mockResolvedValue([{activatedAt:now}]);m.appointments.mockResolvedValue([]);await runBeautyDigitalManagerReminders(now);
  expect(m.appointments.mock.calls[0][0].where.endsAt.gte).toEqual(new Date('2026-10-22T00:05:00Z'));expect(m.record).not.toHaveBeenCalled();
 });

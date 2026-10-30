@@ -14,8 +14,6 @@ export async function loadCourseStoreNotices(input:unknown) {
   const d=z.object({storeId:store,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  const rule=await coursePrisma.courseBookingRule.findUnique({where:{storeId}});
-  if(rule?.backendNoticesEnabled===false)return {success:true as const,storeId,enabled:false,items:[] as CourseNoticeItem[],count:0,canHandle:false,more:false};
   if(d.summaryOnly){
    const count=await coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}});
    return {success:true as const,storeId,enabled:true,items:[] as CourseNoticeItem[],count,canHandle:false,more:false};
@@ -34,7 +32,6 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
   const d=z.object({storeId:store,id:store}).parse(input);
   const {storeId,user}=await courseManager("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
   const notice=d.id.startsWith('digital:')?await (async()=>{
    const rows=await coursePrisma.$queryRaw<Array<{targetId:string}>>`SELECT "targetId" FROM public."DigitalManagerNotice" WHERE id=${d.id.slice(8)} AND "storeId"=${storeId} AND "eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'course-incomplete-attendance:%'`;
    return rows[0]?{subjectKey:`booking:${rows[0].targetId}`}:null;
@@ -60,7 +57,6 @@ export async function markCourseStoreNotice(input:unknown) {
   const {storeId,user}=await courseManager("booking.update");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const saved=await courseTransaction(storeId,async tx=>{
-   if((await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
    const n=await tx.courseStoreNotice.findFirst({where:{id:d.id,storeId}});
    if(!n)throw new AppError("NOT_FOUND","找不到通知");
    if(n.revision!==d.revision)throw new AppError("CONFLICT","通知已更新，請重新確認");
@@ -77,6 +73,7 @@ export async function saveCourseOperationSwitch(input:unknown) {
   const d=z.object({storeId:store,key:z.enum(["selfLeaveEnabled","selfRescheduleEnabled","backendNoticesEnabled"]),enabled:z.boolean(),previous:z.boolean()}).parse(input);
   const {storeId,user}=await courseManager("business_hours.manage");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
+  if(d.key==="backendNoticesEnabled")throw new AppError("VALIDATION","門市通知持續接收；提示音可在小鈴噹內調整");
   const data=await courseTransaction(storeId,async tx=>{
    const before=await tx.courseBookingRule.findUnique({where:{storeId}});
    const current=before?.[d.key]??(d.key==="selfRescheduleEnabled"?before?.selfBookingEnabled??true:true);

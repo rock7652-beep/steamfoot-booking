@@ -28,14 +28,11 @@ it('resolves an incomplete reminder through its saved same-store booking',async(
  m.raw.mockResolvedValueOnce([{id:'booking'}]);expect(await loadSteamfootReminderTarget({storeId:'s',id:'digital:n'})).toMatchObject({success:true,data:{id:'booking'}});
  expect(m.raw.mock.calls[0][0].join('')).toContain('b."storeId"=n."storeId"');
 });
-it('uses default-on for missing settings and serializes safe paginated rows',async()=>{
- m.raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:'n',targetId:'b',kind:'MOVE',customerName:'顧客',courseName:'蒸足',coachName:'店長',startsAt:date,previousStartsAt:null,handledAt:null,createdAt:date,updatedAt:date,revision:0}]).mockResolvedValueOnce([{count:1}]);
+it('serializes store-scoped paginated rows independently of the legacy setting',async()=>{
+ m.raw.mockResolvedValueOnce([{id:'n',targetId:'b',kind:'MOVE',customerName:'顧客',courseName:'蒸足',coachName:'店長',startsAt:date,previousStartsAt:null,handledAt:null,createdAt:date,updatedAt:date,revision:0}]).mockResolvedValueOnce([{count:1}]);
  expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:true,enabled:true,count:1,canHandle:true,items:[{targetId:'b',startsAt:date.toISOString(),handledAt:null}]});
  expect(m.read).toHaveBeenCalledWith('booking.read');
- expect(m.raw.mock.calls[1][0].join('')).toContain('WHERE "storeId"=');
-});
-it('returns no customer snapshots when disabled',async()=>{
- m.raw.mockResolvedValueOnce([{enabled:false}]);expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:true,enabled:false,items:[],count:0,canHandle:false});expect(m.raw).toHaveBeenCalledTimes(1);
+ expect(m.raw.mock.calls[0][0].join('')).toContain('WHERE "storeId"=');
 });
 it('allows child-store reads with no handling controls',async()=>{
  m.read.mockResolvedValue({...actor,storeId:'parent'});expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:true,canHandle:false});expect(m.permission).not.toHaveBeenCalled();
@@ -45,27 +42,22 @@ it('requires a writable permission and resolved write store before mutations',as
  m.writeStore.mockResolvedValue('other');expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:false,previous:true})).toMatchObject({success:false});expect(m.exec).not.toHaveBeenCalled();
 });
 it('uses store and revision predicates and records handling audit without changing bookings',async()=>{
- m.raw.mockResolvedValueOnce([{id:'s'}]).mockResolvedValueOnce([{enabled:true}]).mockResolvedValueOnce([{id:'n',revision:3,handledAt:date,handledByName:'店長'}]);
+ m.raw.mockResolvedValueOnce([{id:'s'}]).mockResolvedValueOnce([{id:'n',revision:3,handledAt:date,handledByName:'店長'}]);
  expect(await markSteamfootStoreNotice({storeId:'s',id:'n',handled:true,revision:2})).toMatchObject({success:true,data:{id:'n',revision:3,handledAt:date.toISOString()}});
- const sql=m.raw.mock.calls[2][0].join('');expect(sql).toContain('AND revision=');expect(sql).toContain('WHERE "storeId"=');expect(sql).not.toContain('"Booking"');expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({actorUserId:'u',storeId:'s',action:'HANDLE_NOTICE'}),tx);
+ const sql=m.raw.mock.calls[1][0].join('');expect(sql).toContain('AND revision=');expect(sql).toContain('WHERE "storeId"=');expect(sql).not.toContain('"Booking"');expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({actorUserId:'u',storeId:'s',action:'HANDLE_NOTICE'}),tx);
 });
-it('rejects stale notice revisions and disabled-state changes before auditing',async()=>{
+it('rejects stale notice revisions before auditing',async()=>{
  expect(await markSteamfootStoreNotice({storeId:'s',id:'n',handled:true,revision:0})).toMatchObject({success:false});expect(m.audit).not.toHaveBeenCalled();
- m.raw.mockResolvedValueOnce([{id:'s'}]).mockResolvedValueOnce([{enabled:false}]);expect(await markSteamfootStoreNotice({storeId:'s',id:'n',handled:true,revision:0})).toMatchObject({success:false,error:'後台異動通知已關閉'});
 });
-it('disables the default-on setting with a version check and permission audit',async()=>{
- expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:false,previous:true})).toMatchObject({success:true,data:{enabled:false}});expect(m.write).toHaveBeenCalledWith('business_hours.manage');expect(m.exec).toHaveBeenCalledTimes(1);expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({before:{enabled:true},after:{enabled:false}}),tx);
-});
-it('preserves a newer setting and treats an already-saved retry as idempotent',async()=>{
- expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:false,previous:false})).toMatchObject({success:false});expect(m.exec).not.toHaveBeenCalled();
- expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:true,previous:false})).toMatchObject({success:true,data:{enabled:true}});expect(m.exec).not.toHaveBeenCalled();
+it('rejects stale attempts to change the retired switch after checking permission',async()=>{
+ expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:false,previous:true})).toMatchObject({success:false});expect(m.write).toHaveBeenCalledWith('business_hours.manage');expect(m.exec).not.toHaveBeenCalled();
 });
 it('rejects malformed payloads before any store or database access',async()=>{
  expect(await loadSteamfootStoreNotices({storeId:'s',handled:false,offset:-1})).toMatchObject({success:false});expect(await markSteamfootStoreNotice({storeId:'s',id:'n',handled:true,revision:-1})).toMatchObject({success:false});expect(await saveSteamfootNoticeSetting({storeId:'s',enabled:'true',previous:false})).toMatchObject({success:false});expect(m.read).not.toHaveBeenCalled();expect(m.write).not.toHaveBeenCalled();
 });
 
 it('reads only the scoped pending count for a closed bell, without snapshots or write permission checks',async()=>{
- m.raw.mockResolvedValueOnce([{enabled:true}]).mockResolvedValueOnce([{count:7}]);
+ m.raw.mockResolvedValueOnce([{count:7}]);
  expect(await loadSteamfootStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,items:[],count:7,canHandle:false});
- expect(m.raw).toHaveBeenCalledTimes(2);expect(m.raw.mock.calls[1][0].join('')).toContain('count(*)');expect(m.permission).not.toHaveBeenCalled();
+ expect(m.raw).toHaveBeenCalledTimes(1);expect(m.raw.mock.calls[0][0].join('')).toContain('count(*)');expect(m.permission).not.toHaveBeenCalled();
 });

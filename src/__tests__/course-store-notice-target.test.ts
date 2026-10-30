@@ -7,10 +7,10 @@ vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:vi.fn()}));
 import {loadCourseStoreNoticeTarget} from "@/server/actions/course-store-notices";
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"s",user:{role:"STAFF",staffId:"u"}});m.rule.mockResolvedValue({backendNoticesEnabled:true});m.notice.mockResolvedValue({subjectKey:"session:lesson"});m.session.mockResolvedValue({id:"lesson",nameSnapshot:"現行課程 · 83f866",startsAt:new Date("2026-10-13T02:00:00Z"),capacity:4,coachId:"t",roomId:"r",cancelledAt:null,template:{classType:"GROUP"},room:{name:"教室"}});m.coach.mockResolvedValue([{displayName:"老師",phone:null}]);m.permission.mockResolvedValue(false);});
-it("checks permission, requested store and enabled setting before reading any target",async()=>{
+it("checks permission and requested store regardless of the legacy setting",async()=>{
  m.manager.mockRejectedValueOnce(new Error("forbidden"));expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
  expect(await loadCourseStoreNoticeTarget({storeId:"other",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
- m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
+ m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:true});expect(m.notice).toHaveBeenCalled();
 });
 it("resolves an incomplete reminder through the saved same-store booking",async()=>{
  m.coach.mockResolvedValueOnce([{targetId:'booking'}]).mockResolvedValueOnce([{displayName:'老師',phone:null}]);m.booking.mockResolvedValue({sessionId:'lesson'});

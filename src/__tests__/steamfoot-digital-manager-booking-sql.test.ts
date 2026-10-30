@@ -24,8 +24,8 @@ it('makes customer same-day bookings and public trials pending, independently of
  expect(find('today').handledAt).toBeNull();expect(find('trial').handledAt).toBeNull();expect(find('other').handledAt).toBeNull();
  expect(find('future').handledAt).not.toBeNull();expect(find('staff').handledAt).not.toBeNull();
 });
-it('retains transactional rollback and skips disabled-store captures',async()=>{
+it('retains transactional rollback and captures bookings despite a legacy disabled setting',async()=>{
  await db.exec(`BEGIN; INSERT INTO "Booking" (id,"storeId","customerId","bookingDate","slotTime") VALUES ('rolled','a','ca',(now() AT TIME ZONE 'Asia/Taipei')::date,'10:00'); ROLLBACK;
  UPDATE "SteamfootNoticeSetting" SET enabled=false WHERE "storeId"='a'; INSERT INTO "Booking" (id,"storeId","customerId","bookingDate","slotTime") VALUES ('disabled','a','ca',(now() AT TIME ZONE 'Asia/Taipei')::date,'10:00');`);
- expect((await db.query(`SELECT id FROM "SteamfootStoreNotice" WHERE "bookingId" IN ('rolled','disabled')`)).rows).toHaveLength(0);
+ expect((await db.query(`SELECT "bookingId","handledAt" FROM "SteamfootStoreNotice" WHERE "bookingId" IN ('rolled','disabled')`)).rows).toEqual([{bookingId:'disabled',handledAt:null}]);
 });

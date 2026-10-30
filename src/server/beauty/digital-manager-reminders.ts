@@ -14,8 +14,6 @@ export async function runBeautyDigitalManagerReminders(now=new Date()) {
  for(const store of stores)try{
   if(!await hasStoreFeature(store.id,FEATURES.BASIC_BOOKING))continue;
   const count=await beautyTransaction({storeId:store.id,userId:null},async tx=>{
-   const setting=await tx.beautySetting.findUnique({where:{storeId:store.id},select:{backendNoticesEnabled:true}});
-   if(setting?.backendNoticesEnabled===false)return 0;
    await tx.$executeRaw`INSERT INTO public."DigitalManagerActivation" ("storeId","activatedAt") VALUES (${store.id},${now}) ON CONFLICT ("storeId") DO NOTHING`;
    const activation=await tx.$queryRaw<Array<{activatedAt:Date}>>`SELECT "activatedAt" FROM public."DigitalManagerActivation" WHERE "storeId"=${store.id}`;
    if(!activation[0])throw new Error('門市通知啟用時間未設定');

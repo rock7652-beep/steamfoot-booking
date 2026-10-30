@@ -275,7 +275,7 @@ export function CourseNotificationSettings(props:CourseSettingsWorkspaceProps&{b
     || (props.canReferralShare && referralState !== "HIDDEN")
     || (props.canDigitalButler && butlerState !== "HIDDEN");
  return <>
-        {props.backendControl??<CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" save={props.source?.operationSave} eventName={props.source?.operationEvent} setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??true} canEdit={props.canEdit}/>}
+        <p className="px-4 py-3 text-sm text-earth-600">門市小鈴噹持續接收營運通知；提示音可在小鈴噹內調整。</p>
         {props.labels??<CustomerLabelsSettings />}
         {props.canUnassignedPlans ? <Row title="提醒管理" summary={personnelText(courseDisplayText("顧客待辦・顧客提醒・教師通知・發送紀錄", !!props.music))} action="管理" href={props.links?.reminders??"/dashboard/courses/reminders?tab=manager"} /> : props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={personnelText(courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music))} action="管理" href={props.links?.reminders??"/dashboard/courses/reminders?tab=customer"} /></FeatureEntry>}
         {props.canCare && <Row title="顧客關懷" summary={props.careSummary??"生日・未回課・方案關懷"} action="查看" href={props.links?.care??"/dashboard/growth"} />}

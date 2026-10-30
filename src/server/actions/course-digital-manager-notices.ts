@@ -19,7 +19,6 @@ export async function loadCombinedCourseStoreNotices(input:unknown):Promise<Stor
   const d=z.object({storeId:id,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)return {success:true,storeId,enabled:false,items:[],count:0,canHandle:false,more:false};
   const counts=await coursePrisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "eventType" IN ('TRANSFER_PENDING_CONFIRMATION','DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') AND "handledAt" IS NULL) AS pending`;
   const count=counts[0]?.count??0,latestAt=counts[0]?.latest?.toISOString()??null;
   if(d.summaryOnly)return {success:true,storeId,enabled:true,items:[],count,latestAt,canHandle:false,more:false};
@@ -43,8 +42,6 @@ export async function loadCourseDigitalManagerNotices(input: unknown) {
     const d=z.object({storeId:id,handled:z.boolean(),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
     const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
     if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-    if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)
-      return {success:true as const,storeId,enabled:false,items:[],count:0,canHandle:false,more:false};
     const [rows,counts,canHandle]=await Promise.all([
       coursePrisma.$queryRaw<NoticeRow[]>`SELECT id,"eventType","handledAt","handledByName",revision,"createdAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND ("handledAt" IS NOT NULL)=${d.handled} ORDER BY CASE WHEN ${d.handled} THEN "handledAt" END DESC,"createdAt" DESC,id OFFSET ${d.offset} LIMIT 51`,
       coursePrisma.$queryRaw<Array<{count:number}>>`SELECT count(*)::int AS count FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL`,
@@ -60,7 +57,6 @@ export async function markCourseDigitalManagerNotice(input:unknown) {
     const {storeId,user}=await courseManager("booking.update");
     if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
     const data=await courseTransaction(storeId,async tx=>{
-      if((await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","門市通知已關閉");
       const rows=await tx.$queryRaw<Array<{id:string;revision:number;handledAt:Date|null;handledByName:string|null}>>`UPDATE public."DigitalManagerNotice" SET "handledAt"=${d.handled?new Date():null},"handledById"=${d.handled?user.id:null},"handledByName"=${d.handled?user.name??"門市人員":null},revision=revision+1,"updatedAt"=now() WHERE id=${d.id} AND "storeId"=${storeId} AND revision=${d.revision} RETURNING id,revision,"handledAt","handledByName"`;
       const saved=rows[0];if(!saved)throw new AppError("CONFLICT","通知已更新，請重新確認");
       await enqueueOperationAudit({actorUserId:user.id,actorNameSnapshot:user.name,storeId,module:"COURSE",targetType:"DigitalManagerNotice",targetId:saved.id,action:d.handled?"HANDLE_NOTICE":"REOPEN_NOTICE",summary:d.handled?"標記門市通知已處理":"恢復門市通知待處理"},tx);

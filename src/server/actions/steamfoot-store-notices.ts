@@ -6,7 +6,6 @@ import {getActiveStoreForRead,resolveWriteStoreId} from "@/lib/store";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import {AppError,handleActionError} from "@/lib/errors";
 import {recordOperationAudit} from "@/server/services/operation-audit";
-import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import type {StoreNoticeItem,StoreNoticeLoadResult,StoreNoticeMarkResult} from "@/lib/store-notices";
 const id=z.string().min(1).max(100);
 async function scope(storeId:string,permission:"booking.read"|"booking.update"|"business_hours.manage") {
@@ -20,7 +19,6 @@ export async function loadSteamfootStoreNotices(input:unknown):Promise<StoreNoti
  try {
   const d=z.object({storeId:id,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
   const user=await scope(d.storeId,"booking.read");
-  if(!await readSteamfootNoticeEnabled(prisma,d.storeId))return {success:true,storeId:d.storeId,enabled:false,items:[],count:0,canHandle:false,more:false};
   if(d.summaryOnly){
    const totals=await prisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."SteamfootStoreNotice" WHERE "storeId"=${d.storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${d.storeId} AND ("eventType" IN ('DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','VIP_INTEREST','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') OR ("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'pending-payment:%')) AND "handledAt" IS NULL) AS pending`;
    return {success:true,storeId:d.storeId,enabled:true,items:[],count:totals[0]?.count??0,latestAt:totals[0]?.latest?.toISOString()??null,canHandle:false,more:false};
@@ -66,7 +64,6 @@ export async function markSteamfootStoreNotice(input:unknown):Promise<StoreNotic
   const user=await scope(d.storeId,"booking.update");
   const data=await prisma.$transaction(async tx=>{
    await tx.$queryRaw`SELECT id FROM public."Store" WHERE id=${d.storeId} FOR UPDATE`;
-   if(!await readSteamfootNoticeEnabled(tx,d.storeId))throw new AppError("FORBIDDEN","後台異動通知已關閉");
    const digital=d.id.startsWith('digital:'),actualId=digital?d.id.slice(8):d.id;
    const rows=digital?await tx.$queryRaw<Array<{id:string;revision:number;handledAt:Date|null;handledByName:string|null}>>`UPDATE public."DigitalManagerNotice" SET "handledAt"=${d.handled?new Date():null},"handledById"=${d.handled?user.id:null},"handledByName"=${d.handled?user.name??"門市人員":null},revision=revision+1,"updatedAt"=now() WHERE "storeId"=${d.storeId} AND id=${actualId} AND ("eventType" IN ('DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','VIP_INTEREST','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') OR ("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'pending-payment:%')) AND revision=${d.revision} RETURNING id,revision,"handledAt","handledByName"`:await tx.$queryRaw<Array<{id:string;revision:number;handledAt:Date|null;handledByName:string|null}>>`UPDATE public."SteamfootStoreNotice" SET "handledAt"=${d.handled?new Date():null},"handledById"=${d.handled?user.id:null},"handledByName"=${d.handled?user.name??"門市人員":null},revision=revision+1,"updatedAt"=now() WHERE "storeId"=${d.storeId} AND id=${actualId} AND revision=${d.revision} RETURNING id,revision,"handledAt","handledByName"`;
    const saved=rows[0];if(!saved)throw new AppError("CONFLICT","通知已更新，請重新確認");
@@ -79,16 +76,7 @@ export async function markSteamfootStoreNotice(input:unknown):Promise<StoreNotic
 export async function saveSteamfootNoticeSetting(input:unknown) {
  try {
   const d=z.object({storeId:id,enabled:z.boolean(),previous:z.boolean()}).parse(input);
-  const user=await scope(d.storeId,"business_hours.manage");
-  const enabled=await prisma.$transaction(async tx=>{
-   await tx.$queryRaw`SELECT id FROM public."Store" WHERE id=${d.storeId} FOR UPDATE`;
-   const before=await readSteamfootNoticeEnabled(tx,d.storeId);
-   if(before===d.enabled)return before;
-   if(before!==d.previous)throw new AppError("CONFLICT","設定已更新，請重新整理核對");
-   await tx.$executeRaw`INSERT INTO public."SteamfootNoticeSetting" ("storeId",enabled,"updatedAt") VALUES (${d.storeId},${d.enabled},now()) ON CONFLICT ("storeId") DO UPDATE SET enabled=EXCLUDED.enabled,"updatedAt"=now()`;
-   await recordOperationAudit({actorUserId:user.id,actorNameSnapshot:user.name,storeId:d.storeId,module:"STEAM",targetType:"SteamfootNoticeSetting",targetId:d.storeId,action:"UPDATE_OPERATION_SWITCH",summary:`${d.enabled?"開啟":"關閉"}後台異動通知`,before:{enabled:before},after:{enabled:d.enabled}},tx);
-   return d.enabled;
-  });
-  return {success:true as const,data:{enabled}};
+  await scope(d.storeId,"business_hours.manage");
+  throw new AppError("VALIDATION","門市通知持續接收；提示音可在小鈴噹內調整");
  }catch(e){return handleActionError(e);}
 }

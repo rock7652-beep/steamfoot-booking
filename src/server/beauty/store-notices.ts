@@ -7,7 +7,6 @@ import {toLocalDateStr} from '@/lib/date-utils';
 /** Same notice table and presentation as courses. Never queues LINE delivery. */
 export async function recordBeautyStoreNotice(tx:Prisma.TransactionClient,a:BeautyActor,enabled:boolean|undefined,b:Pick<BeautyAppointment,'id'|'personName'|'serviceName'|'technicianId'|'startsAt'|'isTrial'>,kind:StoreNoticeItem['kind'],previous?:{startsAt:Date;technicianId:string}){
  await queueTechnicianChange(tx,a,b,kind,previous);
- if(enabled!==true)return;
  const techs=await tx.beautyTechnician.findMany({where:{storeId:a.storeId,id:{in:[b.technicianId,previous?.technicianId??b.technicianId]}},select:{id:true,name:true}});
  const name=techs.find(t=>t.id===b.technicianId)?.name??'未指派',oldName=previous?techs.find(t=>t.id===previous.technicianId)?.name??'未指派':null;
  // Customer same-day bookings and public trials require store follow-up.

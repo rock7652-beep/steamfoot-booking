@@ -15,7 +15,6 @@ BEGIN
  -- Also serializes setting changes with capture; never lock another store.
  PERFORM id FROM public."Store" WHERE id=NEW."storeId" AND "industryModule"='STEAMFOOT' FOR SHARE;
  IF NOT FOUND THEN RETURN NEW; END IF;
- IF coalesce((SELECT enabled FROM public."SteamfootNoticeSetting" WHERE "storeId"=NEW."storeId"),true)=false THEN RETURN NEW; END IF;
  IF TG_OP='INSERT' THEN
   event_kind := 'BOOKING';
  ELSE
