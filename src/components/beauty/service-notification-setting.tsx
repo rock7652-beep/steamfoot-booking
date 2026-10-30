@@ -13,8 +13,8 @@ export function BeautyServiceNotificationSetting({storeId,initialEnabled,readOnl
   try{const result=await saveBeautyOperationSwitch({storeId,key:'notifications',enabled:next,previous:enabled});if(!result.success){setError(result.error);return;}setEnabled(result.data.enabled);}catch{setError('儲存結果尚未確認，請重新整理後核對。');}finally{setPending(false);}
  }
  return <section className="min-w-0 border-b border-earth-100 py-3">
-  <label className="flex min-h-11 flex-wrap items-center justify-between gap-3"><span className="font-semibold text-primary-900">服務通知與明日提醒・{pending?'儲存中…':enabled?'開啟':'關閉'}</span><NotificationSwitch aria-label="服務通知與明日提醒開關" checked={enabled} disabled={readOnly||pending} onChange={e=>void save(e.target.checked)}/></label>
-  <p className="text-sm text-earth-600">預約成立、改期、取消及服務狀態使用本店設定；明日提醒於前一天 18:00 發送。所有訊息使用 Flex 卡片。</p>
+  <label className="flex min-h-11 flex-wrap items-center justify-between gap-3"><span className="font-semibold text-primary-900">本店 LINE 通知・{pending?'儲存中…':enabled?'開啟':'關閉'}</span><NotificationSwitch aria-label="本店 LINE 通知開關" checked={enabled} disabled={readOnly||pending} onChange={e=>void save(e.target.checked)}/></label>
+  <p className="text-sm text-earth-600">依各項設定通知顧客、店長與技師；明日預約提醒於前一天 18:00 發送。關閉 LINE 不影響小鈴噹。</p>
   {error&&<p role="alert" className="mt-2 break-words text-sm text-red-700">{error}</p>}
  </section>;
 }
