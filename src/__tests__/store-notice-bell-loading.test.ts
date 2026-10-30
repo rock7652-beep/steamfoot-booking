@@ -11,7 +11,7 @@ it.each(["course","steamfoot","beauty"] as const)('renders %s bell before any re
  const summary=deferred(),list=deferred();
  const load=vi.fn().mockImplementation(({summaryOnly})=>summaryOnly?summary.promise:list.promise);
  const props={storeId:'s',namespace,initialEnabled:true,loadNotices:load,markNotice:vi.fn()};
- expect(renderToStaticMarkup(createElement(StoreNoticeBell,props))).toContain('aria-label="門市通知"');expect(load).not.toHaveBeenCalled();
+ expect(renderToStaticMarkup(createElement(StoreNoticeBell,props))).toContain('aria-label="數位管家｜門市提醒"');expect(load).not.toHaveBeenCalled();
  expect(renderToStaticMarkup(createElement(StoreNoticeBell,{...props,initialEnabled:false}))).not.toContain('<button');
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  try {

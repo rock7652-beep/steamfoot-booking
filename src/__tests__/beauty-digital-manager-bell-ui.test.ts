@@ -14,7 +14,7 @@ it('opens the scoped pending payment list from a compact notice',async()=>{
  try {
   await act(async()=>root.render(createElement(BeautyStoreNoticeBell,{storeId:'store',initialEnabled:true})));
   const find=(text:string)=>[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')===text||x.textContent?.includes(text));
-  await act(async()=>find('門市通知，1 筆待處理')!.click());
+  await act(async()=>find('數位管家｜門市提醒，1 筆待處理')!.click());
   await act(async()=>find('方案付款')!.click());
   await act(async()=>find('查看待核帳')!.click());
   expect(m.push).toHaveBeenCalledWith('/s/beauty/admin/dashboard/beauty?tab=%E7%87%9F%E9%81%8B&status=PENDING');

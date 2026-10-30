@@ -8,6 +8,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 import {DigitalManagerIcon} from "./digital-manager-icon";
+const NOTICE_TITLE="數位管家｜門市提醒";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
 export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
@@ -87,13 +88,14 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  useEffect(()=>{if(!undo)return;const timer=setTimeout(()=>setUndo(null),7000);return()=>clearTimeout(timer);},[undo]);
  if(!enabled)return null;
  return <>
-  <button type="button" title="數位店長" className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-800 hover:bg-earth-50" aria-label={countKnown?`門市通知，${count} 筆待處理`:"門市通知"} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
-   <DigitalManagerIcon/>
-   {count>0&&<span className="absolute right-0 top-0 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}
+  <button type="button" title={NOTICE_TITLE} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-primary-800 hover:bg-earth-50" aria-label={countKnown?`${NOTICE_TITLE}，${count} 筆待處理`:NOTICE_TITLE} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
+   <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true"><DigitalManagerIcon/>
+   {count>0&&<span className="absolute -right-1 -top-1 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}</span>
+   <span className="whitespace-nowrap text-sm font-medium">數位管家</span>
   </button>
   {open&&createPortal(<RightSheet open compact fixedHeight width={560} labelledById={heading} onClose={()=>setOpen(false)}>
    <div className="flex h-full min-h-0 flex-col">
-    <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-3 py-1"><h2 id={heading} className="text-base font-semibold text-primary-900">門市通知</h2><button className="min-h-11 min-w-11 text-xl" aria-label="關閉通知" onClick={()=>setOpen(false)}>×</button></div>
+    <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-3 py-1"><h2 id={heading} className="text-base font-semibold text-primary-900">{NOTICE_TITLE}</h2><button className="min-h-11 min-w-11 text-xl" aria-label="關閉通知" onClick={()=>setOpen(false)}>×</button></div>
     <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-earth-200 px-3"><div role="tablist" aria-label="處理狀態" className="flex">
      {[false,true].map(h=><button key={String(h)} role="tab" aria-selected={handled===h} disabled={!!pending} className={`min-h-11 border-b-2 px-3 text-sm ${handled===h?"border-primary-700 font-semibold text-primary-800":"border-transparent text-earth-600"}`} onClick={()=>{if(h===handled)return;generation.current++;setItems([]);setLoading(true);setError("");setRowError({});setHandled(h);setOffset(0);setExpanded(null);}}>{h?"已處理":`待處理 ${count}`}</button>)}
     </div><label className="ml-auto flex min-h-11 items-center gap-2 text-sm">提示音<NotificationSwitch aria-label="此裝置提示音" checked={sound} onChange={e=>{const s=e.target.checked;setSound(s);soundRef.current=s;try{localStorage.setItem(soundKey,s?"on":"off");}catch{}if(s)armAudio();}}/></label></div>
