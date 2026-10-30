@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {usePanelReader} from '@/components/operations/panel-read-cache';
 import {ServiceCollectionFields,type ServiceCollectionValue} from '@/components/admin/service-collection-fields';
-import {readBeautyCollection} from '@/server/actions/beauty';
+import {readBeautyCollectionQuote} from '@/lib/beauty/collection-reader';
 import {ModalPanel} from '@/components/admin/modal-panel';
 import {COURSE_PAYMENT_LABELS} from '@/lib/course-checkout';
 import type {ServiceCharge} from '@/server/beauty/service-charges';
@@ -15,7 +15,8 @@ export function BeautyCollectionPanel(props:Props){
  return <CollectionDraft key={JSON.stringify([props.storeId,props.ids])} {...props}/>;
 }
 function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscount,onClose,onSaved,onGuard,modal=false,withinModal=false}:Props){
- const reader=usePanelReader('beauty-service-collection',readBeautyCollection,storeId??'',0),key=JSON.stringify(ids);
+ const read=useCallback((wanted:string[])=>readBeautyCollectionQuote(wanted,storeId),[storeId]);
+ const reader=usePanelReader('beauty-service-collection',read,storeId??'',0),key=JSON.stringify(ids);
  const target=useRef(ids).current;
  const [charges,setCharges]=useState<ServiceCharge[]|null>(null),[values,setValues]=useState<Record<string,ServiceCollectionValue>>({}),[error,setError]=useState(''),[retry,setRetry]=useState(0),[pending,setPending]=useState(false),[dirty,setDirty]=useState(false);
  const lock=useRef(false),request=useRef(crypto.randomUUID());

@@ -7,6 +7,7 @@ vi.mock('next/dynamic',()=>({default:(load:()=>Promise<ComponentType>,options:{l
  const Draft=lazy(async()=>{await m.gate;return {default:await load()};});return (props:object)=>h(Suspense,{fallback:h(options.loading)},h(Draft,props));
 }}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/dashboard/beauty',useSearchParams:()=>new URLSearchParams()}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.read(ids),readBeautyCollectionStatus:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({readBeautyCollection:m.read,collectBeautyPayment:m.collect}));
 vi.mock('@/server/actions/beauty-collection-intent',()=>({prepareBeautyCollectionPurchaseIntent:vi.fn(),readBeautyCollectionPurchaseIntent:vi.fn(),cancelBeautyCollectionPurchaseIntent:vi.fn(),acknowledgeBeautyCollectionPurchaseIntent:vi.fn()}));
 import {BeautyCollectionDialog} from '@/components/beauty/collection-dialog';

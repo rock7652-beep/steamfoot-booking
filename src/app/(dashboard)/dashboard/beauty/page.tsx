@@ -1,4 +1,5 @@
 import {redirectOperations} from "@/lib/operations-navigation-server";
+import {beautyDashboardScope} from '@/lib/beauty/dashboard-scope';
 import {operationsArea,legacyOperationsHref} from "@/lib/operations-navigation";
 import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
 import {customerLabelSnapshot} from "@/server/services/customer-label-snapshot";
@@ -142,7 +143,7 @@ export default async function BeautyPage({
         planPurchaseRecoveryEnabled={beautyPlanPurchaseIntentsEnabled(a.storeId)}
         collectionRecoveryEnabled={beautyCollectionIntentsEnabled(a.storeId)}
         homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
-        key={`${a.storeId}:${tab}:${date}:${month}:${data.calendar}:${q.customerId??""}:${q.bookingId??""}:${q.action??""}:${q.preset??""}:${q.startDate??""}:${q.endDate??""}`}
+        key={beautyDashboardScope(a.storeId,tab,q)}
         data={data}
         tab={tab}
         initialAppointmentId={q.bookingId}

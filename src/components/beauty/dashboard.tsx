@@ -123,7 +123,7 @@ export function BeautyDashboard({
   const [bookingSeed]=useState<{date?:string;time?:string;technicianId?:string;locationId?:string}>({});
   const requestedBookingId=params.get('bookingId');
   const [selection,setSelection]=useState<{param:string|null;id:string|null}>(()=>({param:requestedBookingId,id:initialAppointmentId&&data.items.some(row=>row.id===initialAppointmentId)?initialAppointmentId:null}));
-  if(selection.param!==requestedBookingId)setSelection({param:requestedBookingId,id:requestedBookingId});
+  if(selection.param!==requestedBookingId){setSelection({param:requestedBookingId,id:requestedBookingId});updateMoneyPanel(null);}
   const selectedId=selection.param===requestedBookingId?selection.id:requestedBookingId;
   function setSelectedId(id:string|null){setSelection({param:requestedBookingId,id});}
   function closeRoster(keepList=false){

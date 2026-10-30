@@ -8,6 +8,7 @@ const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "review/plan-management-sports-performance",
   "feat/store-manager-bell-20261030",
   "fix/calendar-restored-month-consistency",
+  "fix/beauty-collection-calendar-remount",
   "fix/customer-line-binding-management-20261029",
   "fix/calendar-visible-legend-actions-20261029",
   "release/day-beauty-polish-20261029",

@@ -4,6 +4,7 @@ import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 vi.mock("@/server/actions/beauty-collection-intent", () => ({ prepareBeautyCollectionPurchaseIntent: vi.fn(), readBeautyCollectionPurchaseIntent: vi.fn(), cancelBeautyCollectionPurchaseIntent: vi.fn(), acknowledgeBeautyCollectionPurchaseIntent: vi.fn() }));
 const m=vi.hoisted(()=>({read:vi.fn(),collect:vi.fn()}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.read(ids),readBeautyCollectionStatus:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({readBeautyCollection:m.read,collectBeautyPayment:m.collect}));
 import {BeautyCollectionPanel} from '@/components/beauty/collection-panel';
 const charge={id:'a',revision:1,personName:'合成甲',serviceName:'合成服務',price:1000,discount:{kind:'AMOUNT' as const,value:0},reduction:0,netPrice:1000,collected:0,due:1000};

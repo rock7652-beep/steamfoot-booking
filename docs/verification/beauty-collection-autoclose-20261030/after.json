@@ -1,0 +1,57 @@
+{
+  "base": "https://steamfoot-booking-ay7ujm4ld-rock7652-2111s-projects.vercel.app",
+  "baseline": false,
+  "scope": "Normal-login synthetic fixture, approved isolated beauty store only. No financial writes.",
+  "checks": [
+    {
+      "step": "approved-store-normal-login"
+    },
+    {
+      "step": "changed-calendar-date-before-opening-qa-roster"
+    },
+    {
+      "step": "shell-remains-visible-during-controlled-5s-quote-delay",
+      "shellMs": 48,
+      "held": 1
+    },
+    {
+      "step": "quote-and-status-arrival-retain-exact-dialog-node"
+    },
+    {
+      "step": "read-only-quote-and-recovery-do-not-trigger-server-action-or-rsc",
+      "operations": [
+        "status",
+        "quote"
+      ]
+    },
+    {
+      "step": "responsive-dialog",
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "responsive-dialog",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "responsive-dialog",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "step": "close-preserves-roster-without-write-or-navigation"
+    },
+    {
+      "step": "reopen-reads-current-quote-without-autoclose"
+    },
+    {
+      "step": "read-failure-stays-in-dialog-and-retry-recovers"
+    },
+    {
+      "step": "wrong-store-read-denied"
+    }
+  ],
+  "pageErrors": [],
+  "success": true
+}
