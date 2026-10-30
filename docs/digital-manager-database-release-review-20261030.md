@@ -34,4 +34,6 @@ Preview 中的 `steamfoot_beauty_data_dmqa` 僅是無登入能力的測試角色
 
 同日重新唯讀核對：該角色沒有整張 `Store` 表的 SELECT，兩個必要欄位均有 SELECT；既有 `Store` 對該角色有多項 SELECT／ALL 政策，包含 `true` 條件，不能假定 `Store` 的 RLS 本身只回傳美業門市。候選通知政策另外明確限制 `industryModule = 'BEAUTY'`；實際應用操作仍須驗證登入角色與門市邊界。
 
+2026-10-30 正式 Prisma 帳本唯讀比對功能分支 `1ebfcd6a`：分支有 154 個 migration，正式帳本已完成 130 個、沒有未完成紀錄；已登記者的名稱與 checksum 均與分支一致。分支另有 24 個沒有完成紀錄，包含既有歷史對帳的 23 個及 `20261025160000_course_personnel_label`。沒有帳本紀錄不等於資料庫中相應結構不存在，不能因此自行補登、執行或重建。**不可直接執行一般 `prisma migrate deploy`**：它可能連同這些其他變更一起套用；須先依各項結構與歷史證據完成對帳，另設計受審查、精確限定的通知 migration 和帳本處理，再核對備份與回退流程。既有歷史證據見 `docs/verification/sports-production-migration/history-reconciliation-plan.md`。
+
 上線前須確認資料庫識別與備份、所有相依 migration、隔離演練與權限測試；先安裝並驗證資料庫，再部署相容的應用版本。候選 trigger 同交易寫入通知，缺少表或執行權限可能使預約、付款等業務操作失敗，禁止先上應用再補資料庫。回退時需保留既有預約、付款及通知紀錄，不以刪除業務資料作回滾。
