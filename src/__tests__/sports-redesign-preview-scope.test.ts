@@ -38,3 +38,9 @@ it('coach compensation Preview keeps the isolated database and explicit opt-in b
  expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
  for(const [key,value] of [['VERCEL_ENV','production'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_GIT_COMMIT_REF','other'],['WORKERS_CI_BRANCH','main'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
 });
+
+it('performance Preview requires the exact branch, repository, opt-ins and both isolated connections',()=>{
+ const env={...safe,VERCEL_GIT_COMMIT_REF:'perf/sports-course-loading'};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
+ for(const [key,value] of [['VERCEL_GIT_COMMIT_REF','perf/sports-course-loading-other'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_REPO_OWNER','other'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertSportsRedesignPreviewEnvironment({...env,[key]:value})).toThrow();
+});

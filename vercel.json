@@ -160,7 +160,8 @@
       "fix/silverlily-teaching-entitlement-20261027": false,
       "feat/operations-workspace-20261027": false,
       "feat/operations-density-hq-monthly-20261028": false,
-      "review/shared-item-formal-release-20261029": false
+      "review/shared-item-formal-release-20261029": false,
+      "perf/sports-course-loading": false
     }
   }
 }
