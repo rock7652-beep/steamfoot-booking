@@ -1,5 +1,9 @@
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase} from './music-opening-preview-scope.mjs';
 export const MUSIC_RELEASE_BRANCH='release/music-production-20261023';
+const BALANCE_PREVIEW_BRANCH='feat/roster-applicable-balance';
+function balancePreviewEnabled(env){
+ return env.VERCEL==='1'&&env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF===BALANCE_PREVIEW_BRANCH&&env.VERCEL_GIT_REPO_OWNER==='rock7652-beep'&&env.VERCEL_GIT_REPO_SLUG==='steamfoot-booking'&&!env.WORKERS_CI_BRANCH&&!env.CF_PAGES_BRANCH&&[env.DATABASE_URL,env.DIRECT_URL].every(isMusicOpeningDatabase);
+}
 const PRODUCTION_REF='qijlnhtpbintanzpxkvf';
 function isProductionConnection(value){
  try{
@@ -26,6 +30,7 @@ export function assertMusicNativeReleaseEnvironment(env){
 /** Capability only. Every caller must retain store/feature/permission authorization. */
 export function musicNativeWorkflowEnabled(storeId,env=process.env){
  if(!storeId)return false;
+ if(storeId==='store-lubymusic'&&balancePreviewEnabled(env))return true;
  if(storeId==='store-lubymusic'&&env.VERCEL==='1'){
   try{assertMusicOpeningPreviewEnvironment(env);return true;}catch{}
  }

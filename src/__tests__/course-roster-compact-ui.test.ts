@@ -311,9 +311,9 @@ it("preselects pending makeup on the original card and allows removing the link"
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
-it("keeps shared post-class balance and attendance confirmed while a save is pending or rejected",async()=>{
+it("keeps shared aggregate balance and attendance confirmed while a save is pending or rejected",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
- const base={customerPhone:"0912345678",sharedCard:true,cardId:"shared",cardRemaining:5,assignedCoachName:"黃教練",status:"RESERVED",bookingKind:"CARD",trialPayments:[],checkedInAt:null,serviceNote:"肩膀留意",notes:"",pointCost:2,available:0,unit:"POINT",termCount:0};
+ const base={customerPhone:"0912345678",sharedCard:true,cardId:"shared",cardRemaining:5,applicableBalance:{groups:[{unit:"POINT",remaining:25,held:4,available:21}],cards:[{id:"shared",name:"共用原方案",unit:"POINT",remaining:5,held:4,available:1,expiresAt:"2027-01-01",shared:true},{id:"renewal",name:"續購方案",unit:"POINT",remaining:20,held:0,available:20,expiresAt:"2027-02-01",shared:true}]},assignedCoachName:"黃教練",status:"RESERVED",bookingKind:"CARD",trialPayments:[],checkedInAt:null,serviceNote:"肩膀留意",notes:"",pointCost:2,available:0,unit:"POINT",termCount:0};
  const roster=[{...base,id:"one",customerId:"c1",customerName:"甲"},{...base,id:"two",customerId:"c2",customerName:"乙"}];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T10:00:00Z",pointCost:2},roster,cards:[],trial:null}});
  m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
@@ -322,16 +322,16 @@ it("keeps shared post-class balance and attendance confirmed while a save is pen
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"shared-session",capacity:5,canCreate:false,canEdit:true})));
-  const rows=()=>[...host.querySelectorAll("li")];
-  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+  const rows=()=>[...host.querySelectorAll('[aria-label="學員名單捲動區"] > ul > li')];
+  expect(rows().map(row=>row.children[3].querySelector("strong")?.textContent)).toEqual(["剩餘 21 點","剩餘 21 點"]);
   expect(rows()[0].textContent).toContain("黃教練");expect(rows()[0].textContent).toContain("肩膀留意");
   act(()=>rows()[0].querySelector<HTMLButtonElement>('button[title="標記出席"]')!.click());
-  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+  expect(rows().map(row=>row.children[3].querySelector("strong")?.textContent)).toEqual(["剩餘 21 點","剩餘 21 點"]);
   expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
   expect(rows()[0].textContent).toContain("儲存中…");
   await act(async()=>finish({success:false,error:"驗證拒絕"}));
   expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
-  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+  expect(rows().map(row=>row.children[3].querySelector("strong")?.textContent)).toEqual(["剩餘 21 點","剩餘 21 點"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it('groups trial payment with identity and separates full usual and class notes',async()=>{
@@ -665,7 +665,7 @@ it("allows a cardless learner to be arranged while keeping payment in the origin
 it('native roster shows current remaining and separates attendance from learner operations',async()=>{
  m.status.mockReset().mockResolvedValue({success:true});
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
- const row={id:'native',customerId:'native-person',customerName:'舞蹈學員',customerPhone:'0972000000',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'UNPAID',checkedInAt:null,trialPayments:[],planName:'固定學員',termCount:0,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:0,unit:'SESSION',notes:'',pointCost:0,cardRemaining:null,sportsFixed:true,sportsBalance:{remaining:8,available:6,cost:1,unit:'SESSION',planName:'舞蹈十堂'}};
+ const row={id:'native',customerId:'native-person',customerName:'舞蹈學員',customerPhone:'0972000000',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'UNPAID',checkedInAt:null,trialPayments:[],planName:'固定學員',termCount:0,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:0,unit:'SESSION',notes:'',pointCost:0,cardRemaining:null,sportsFixed:true,applicableBalance:{groups:[{unit:'SESSION',remaining:28,held:2,available:26}],cards:[{id:'old',name:'舞蹈十堂',unit:'SESSION',remaining:8,held:2,available:6,expiresAt:'2027-01-01',shared:false},{id:'new',name:'舞蹈二十堂',unit:'SESSION',remaining:20,held:0,available:20,expiresAt:'2027-02-01',shared:false}]}};
  m.status.mockImplementation(async()=>{row.status='ATTENDED';return {success:true};});
  m.quick.mockImplementation(async()=>({success:true,data:{roster:[row],teacherAttendance:'SCHEDULED'}}));
  vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data:{session:{startsAt:'2026-10-28T04:00:00Z',pointCost:1},roster:[row],cards:[],canPurchase:true,trial:null,pendingMakeups:[],waitlist:[]}})}));
@@ -673,7 +673,7 @@ it('native roster shows current remaining and separates attendance from learner 
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:'native-menus',capacity:8,canCreate:true,canEdit:true,sportsNative:true})));
-  expect(host.textContent).toContain('本期剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
+  expect(host.textContent).toContain('剩餘 26 堂');expect(host.textContent).not.toContain('方案明細');expect(host.textContent).not.toContain('本次方案剩');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：待點名"]')!.click());
   expect(m.status).toHaveBeenCalledExactlyOnceWith({returnRoster:true,bookingId:'native',status:'ATTENDED'});
   expect(document.querySelector('[role="menu"]')).toBeNull();

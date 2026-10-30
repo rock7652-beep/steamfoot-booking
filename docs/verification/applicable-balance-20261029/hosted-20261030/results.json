@@ -1,0 +1,268 @@
+[
+  {
+    "module": "sports",
+    "source": "c3b51a7b",
+    "actualHosted": true,
+    "fixture": true,
+    "checks": [
+      {
+        "step": "normal-owner-login",
+        "pass": true
+      },
+      {
+        "step": "old1-plus-renewal20-minus-held1",
+        "pass": true,
+        "ms": 4845
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1366,
+        "height": 900,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1024,
+        "height": 768,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 768,
+        "height": 1024,
+        "pageOverflow": false
+      },
+      {
+        "step": "details-only-breakdown",
+        "pass": true
+      },
+      {
+        "step": "attend-no-double-debit",
+        "pass": true
+      },
+      {
+        "step": "restore-keeps-20",
+        "pass": true
+      }
+    ],
+    "errors": [],
+    "requests": [
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+        "ms": 1360,
+        "method": "POST"
+      },
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+        "ms": 1207,
+        "method": "POST"
+      },
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/calendar-read",
+        "ms": 849,
+        "method": "POST"
+      },
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+        "ms": 1367,
+        "method": "POST"
+      },
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/calendar-read",
+        "ms": 870,
+        "method": "POST"
+      },
+      {
+        "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+        "ms": 1395,
+        "method": "POST"
+      }
+    ],
+    "path": "/s/sports-live-flow/admin/dashboard/courses",
+    "success": true
+  },
+  {
+    "module": "music",
+    "source": "c3b51a7b",
+    "actualHosted": true,
+    "fixture": true,
+    "checks": [
+      {
+        "step": "normal-owner-login",
+        "pass": true
+      },
+      {
+        "step": "old1-plus-renewal20-minus-held1",
+        "pass": true,
+        "ms": 5082
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1366,
+        "height": 900,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1024,
+        "height": 768,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 768,
+        "height": 1024,
+        "pageOverflow": false
+      },
+      {
+        "step": "details-only-breakdown",
+        "pass": true
+      },
+      {
+        "step": "attend-no-double-debit",
+        "pass": true
+      },
+      {
+        "step": "restore-keeps-20",
+        "pass": true
+      }
+    ],
+    "errors": [],
+    "requests": [
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1036,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 2080,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1304,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 900,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1817,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1161,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 993,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1562,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 2420,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1060,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1001,
+        "method": "GET"
+      },
+      {
+        "path": "/s/lubymusic/admin/dashboard/music-read",
+        "ms": 1929,
+        "method": "GET"
+      }
+    ],
+    "path": "/s/lubymusic/admin/dashboard/courses",
+    "success": true
+  },
+  {
+    "module": "beauty",
+    "source": "c3b51a7b",
+    "actualHosted": true,
+    "fixture": true,
+    "checks": [
+      {
+        "step": "normal-owner-login",
+        "pass": true
+      },
+      {
+        "step": "old1-plus-renewal20-minus-held1",
+        "pass": true,
+        "ms": 3936
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1366,
+        "height": 900,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 1024,
+        "height": 768,
+        "pageOverflow": false
+      },
+      {
+        "step": "responsive-simple-balance",
+        "width": 768,
+        "height": 1024,
+        "pageOverflow": false
+      },
+      {
+        "step": "details-only-breakdown",
+        "pass": true
+      },
+      {
+        "step": "attend-no-double-debit",
+        "pass": true
+      },
+      {
+        "step": "restore-keeps-20",
+        "pass": true
+      }
+    ],
+    "errors": [],
+    "requests": [
+      {
+        "path": "/api/beauty/roster",
+        "ms": 1094,
+        "method": "GET"
+      },
+      {
+        "path": "/api/beauty/roster",
+        "ms": 979,
+        "method": "GET"
+      },
+      {
+        "path": "/api/beauty/roster",
+        "ms": 1053,
+        "method": "GET"
+      },
+      {
+        "path": "/api/beauty/roster",
+        "ms": 1161,
+        "method": "GET"
+      }
+    ],
+    "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+    "success": true
+  }
+]

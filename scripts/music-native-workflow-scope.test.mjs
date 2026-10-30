@@ -25,3 +25,13 @@ test('preview archive read authorization does not authorize historical import sc
  assert.throws(()=>assertMusicOpeningPreviewEnvironment(preview));
  assert.throws(()=>assertMusicPreviewDataReviewEnvironment(env));
 });
+
+test('balance acceptance capability is confined to exact preview, store and both isolated connections',async()=>{
+ const preview={...env,VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'feat/roster-applicable-balance',DATABASE_URL:connection('ttworfzgwejdeolegkxl'),DIRECT_URL:connection('ttworfzgwejdeolegkxl')};
+ assert.equal(musicNativeWorkflowEnabled('store-lubymusic',preview),true);
+ assert.equal(musicNativeWorkflowEnabled('synthetic-store',preview),false);
+ for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'other'},{VERCEL:'0'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:env.DATABASE_URL},{DIRECT_URL:env.DIRECT_URL},{WORKERS_CI_BRANCH:'main'},{CF_PAGES_BRANCH:'main'}])assert.equal(musicNativeWorkflowEnabled('store-lubymusic',{...preview,...mutation}),false);
+ const {assertMusicOpeningPreviewEnvironment}=await import('./music-opening-preview-scope.mjs');
+ assert.throws(()=>assertMusicOpeningPreviewEnvironment(preview));
+ assert.throws(()=>assertMusicNativeReleaseEnvironment(preview));
+});

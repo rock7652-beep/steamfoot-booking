@@ -502,6 +502,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - 分析工作台 → `src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx`；美業注入服務資料 adapter、稱呼與顧客入口，不使用課程扣堂或授課費公式。
 - 設定分類、草稿及離開保護 → `src/app/(dashboard)/dashboard/courses/settings-workspace.tsx`；美業透過內容與儲存接點插槽共用，避免另建設定工作台。
 - 大量清單 → 共用搜尋／篩選／排序／批次操作模式
+- 適用方案餘額合計 → `src/lib/applicable-balance.ts` 與 `src/components/admin/applicable-balance.tsx`；運動／舞蹈、音樂與美業先依各模組驗證同項目、成員、效期及授課人員／技師限制，再合計可用額度（逐張扣除所有預約保留）；不同單位分列、共用卡去重。名單只顯示「剩餘 N 堂／點／次」，本次扣抵來源及各方案明細放預約詳情；保留音樂期別；補課券獨立，不以單張低餘額推定需要續購。合計僅供顯示，實際交易仍核對原方案。
 - 預約／課程名單 → `src/components/admin/roster-primitives.tsx`（工具列、資料列密度、狀態操作尺寸）；標籤／備註欄 → `src/components/admin/roster-reminders.tsx`（四模組兩行摘要、44px 分離操作、完整內容入口）；本次備註原列編輯 → `src/components/admin/inline-roster-note.tsx`（草稿保留、儲存／取消、就地錯誤，各模組注入 notes-only action）
 
 若共用元件名稱或路徑改變，修改 UI 骨架的 PR **MUST** 同步檢查本節是否需要更新。
