@@ -375,7 +375,7 @@ export function CourseWorkspace({
     calendarTargetMonth.current=date.slice(0,7);
     const request=++calendarRequest.current;
     calendarReadsInFlight.current++;
-    if(!background)setCalendarReading(true);
+    if(!background){setCalendarReading(true);setError("");}
     try{
       let warning:string|undefined;
       const ensured=ensure&&sportsNative&&canCreate&&!calendarSource;
