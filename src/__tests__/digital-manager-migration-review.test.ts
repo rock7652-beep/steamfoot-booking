@@ -18,6 +18,9 @@ const baseline=`CREATE ROLE anon; CREATE ROLE authenticated;
 
 it('keeps the reviewed bundle identical to all six tested source scripts',()=>{
  for(const source of sources) expect(review).toContain(readFileSync(`scripts/sql/${source}.sql`,'utf8').trim());
+ const scoped=readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8');
+ const beauty=readFileSync('scripts/sql/digital-manager-beauty-access-candidate.sql','utf8').replace('\nBEGIN;\n','\n').replace(/\nCOMMIT;\s*$/,'');
+ expect(scoped).toContain(review.replace(/\nCOMMIT;\s*$/,''));expect(scoped).toContain(beauty);
 });
 it('installs the complete bundle against the existing booking trigger and is repeatable',async()=>{
  const db=new PGlite();
@@ -35,5 +38,17 @@ it('rolls back all new objects if a required table is missing',async()=>{
   await db.exec(baseline); await db.exec('DROP TABLE "CourseSession"');
   await expect(db.exec(review)).rejects.toThrow(); await db.exec('ROLLBACK');
   expect((await db.query<{name:string|null}>(`SELECT to_regclass('public."DigitalManagerNotice"')::text AS name`)).rows[0].name).toBeNull();
+ } finally {await db.close();}
+},30000);
+it('rolls back the combined review if the dedicated Beauty role is absent',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(baseline);
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  const before=(await db.query<{definition:string}>(`SELECT pg_get_functiondef('public.record_steamfoot_store_notice()'::regprocedure) AS definition`)).rows[0].definition;
+  await expect(db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'))).rejects.toThrow();
+  await db.exec('ROLLBACK');
+  expect((await db.query<{name:string|null}>(`SELECT to_regclass('public."DigitalManagerNotice"')::text AS name`)).rows[0].name).toBeNull();
+  expect((await db.query<{definition:string}>(`SELECT pg_get_functiondef('public.record_steamfoot_store_notice()'::regprocedure) AS definition`)).rows[0].definition).toBe(before);
  } finally {await db.close();}
 },30000);

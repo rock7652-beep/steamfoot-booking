@@ -18,6 +18,8 @@
 
 已產生 `prisma/reconciliation/20261030_digital_manager_migration_review.sql`，依序合併 1–6 並包在同一交易內，SHA-256 為 `4d6f2db1fff1feabbc42f39c2b5060df8d02a4e4f658345d6f5f810aed74d129`。它是審查稿，刻意不放入自動 migration 目錄，也不包含需指定受限角色的 7。現有正式發布流程有 migration 目標白名單與安全檢查；尚未將此稿註冊為正式 migration 或加入可執行的發布目標，不可跳過這些檢查。上線前仍須確定實際 migration 帳本、相依項、角色與備份，建立並驗證符合現行流程的版本。
 
+另準備包含 1–7 的單交易審查稿 `prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql`，SHA-256 為 `7effc6fba18452850c179b6cca993e84405bf9e76729dc19ef9a088f7a57246d`。其中明確指定目前唯讀核對到的正式美業角色；角色不存在、權限不足或角色不安全時整批失敗。此稿仍未註冊正式 migration 或新增發布白名單，禁止直接用一般部署流程執行。
+
 ## 已驗與未驗
 
 隔離資料庫已安裝 1–6 的候選結構；2 的更新已在隔離資料庫驗證，即使舊通知開關關閉也會產生當日預約提示，店員代建的當日預約已依新決策調整為不建立預約通知；隔離資料庫以交易確認顧客當日預約仍列待處理、店員代建沒有通知，交易已回滾；測試交易已回滾。7 已在本機隔離資料庫使用受限角色測試，並在 Preview 資料庫安裝至專用 NOLOGIN 測試角色；Preview 平台拒絕 `SET ROLE`，因此該角色的實際查寫仍未驗證，不能以本機結果替代。正式資料庫尚未套用 7。正式 schema、實際連線角色與授權、完整 migration／回滾演練仍待核對。
@@ -28,11 +30,15 @@
 
 此共用角色的 RLS 限制美業範圍，但不單獨區分不同美業門市；必須由每個伺服器操作核實使用者及目前門市並限定查詢。`beauty-combined-notices.test.ts` 有本店資料與跨店拒絕的應用層測試；上線前仍須以正式設定驗證實際連線角色與端到端跨店隔離。
 
+單項 Prisma 安裝演練使用 PostgreSQL 16 全新本機測試資料庫、合成基礎 schema 及本次審查稿，執行 `scripts/qa/digital-manager-scoped-prisma-rehearsal.mjs`：僅把單一目標放入暫存 migration 目錄，執行真正的 `prisma migrate deploy`；24 個其他 migration 以同名、帶有可偵測寫入的合成 SQL 表示，結果維持待處理且未執行，既有帳本及測試顧客資料保持不變。另確認美業受限角色、顧客當日預約提示與店員代建不提示；缺少美業角色時整批回滾以 PGlite 測試確認。演練不是正式資料庫副本，也不是已完成正式發布器、正式角色登入或正式回退演練。
+
 Preview 中的 `steamfoot_beauty_data_dmqa` 僅是無登入能力的測試角色；清理其政策與角色的工具要求返回 `Invalid or expired requestState`，目前仍保留，並未修改正式環境。重新清理前應核對角色仍無登入能力且政策僅屬於該角色。
 
 2026-10-30 唯讀核對：正式資料庫已有 `steamfoot_beauty_prod_20261025` 受限登入角色，非 superuser、非 BYPASSRLS，具備 `Store.id` 與 `Store.industryModule` 欄位的 SELECT 權限；`Store` 啟用 RLS 且已有該角色的 SELECT policy。正式環境設定列出美業資料庫模式為 `dedicated`；尚須在發布前重新確認實際連線角色與政策及正式 schema 相符。正式資料庫尚無 `DigitalManagerNotice` 與 `DigitalManagerActivation` 表，故不得先部署本分支程式。
 
 同日重新唯讀核對：該角色沒有整張 `Store` 表的 SELECT，兩個必要欄位均有 SELECT；既有 `Store` 對該角色有多項 SELECT／ALL 政策，包含 `true` 條件，不能假定 `Store` 的 RLS 本身只回傳美業門市。候選通知政策另外明確限制 `industryModule = 'BEAUTY'`；實際應用操作仍須驗證登入角色與門市邊界。
+
+2026-10-30 正式資料庫額外唯讀確認：`record_steamfoot_store_notice()` 存在且有啟用中的 Booking trigger；兩張新通知表仍不存在。這只是部分前置條件，不能取代完整 schema／授權 fingerprint。
 
 2026-10-30 正式 Prisma 帳本唯讀比對功能分支 `1ebfcd6a`：分支有 154 個 migration，正式帳本已完成 130 個、沒有未完成紀錄；已登記者的名稱與 checksum 均與分支一致。分支另有 24 個沒有完成紀錄，包含既有歷史對帳的 23 個及 `20261025160000_course_personnel_label`。沒有帳本紀錄不等於資料庫中相應結構不存在，不能因此自行補登、執行或重建。**不可直接執行一般 `prisma migrate deploy`**：它可能連同這些其他變更一起套用；須先依各項結構與歷史證據完成對帳，另設計受審查、精確限定的通知 migration 和帳本處理，再核對備份與回退流程。既有歷史證據見 `docs/verification/sports-production-migration/history-reconciliation-plan.md`。
 
