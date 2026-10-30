@@ -6,7 +6,7 @@ type Node={type:string;body?:Node;footer?:Node;text?:string;color?:string;weight
 export function FlexNode({node}:{node:Node}){
  if(node.type==='bubble')return <><FlexNode node={node.body!}/>{node.footer&&<div className="mt-4"><FlexNode node={node.footer}/></div>}</>;
  if(node.type==='text')return <p className={`${node.weight==='bold'?'font-semibold':''} whitespace-pre-wrap break-words text-sm`} style={{color:node.color}}>{node.text}</p>;
- if(node.type==='button')return <div className="rounded-lg px-3 py-3 text-center text-sm font-medium text-white" style={{backgroundColor:node.color}}>{node.action?.label}</div>;
+ if(node.type==='button')return <div className="rounded-lg px-3 py-3 text-center text-sm font-medium text-white" style={{backgroundColor:node.color??"#376452"}}>{node.action?.label}</div>;
  return <div className={`flex ${node.layout==='horizontal'?'flex-row items-start':'flex-col'} gap-2`}>{node.contents?.map((child,i)=><FlexNode key={i} node={child}/>)}</div>;
 }
 export function CoachNotificationPreview({kind,music=false}:{kind:CoachNoticeKind;music?:boolean}){
