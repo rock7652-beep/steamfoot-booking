@@ -500,9 +500,10 @@ export function CourseWorkspace({
     };
   }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
+  const scheduleOpenIntent=useRef(false);
   const sportsScheduleScope=JSON.stringify([storeId,nowIso]);
   const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,0);
-  function prefetchSportsSchedule(){if(sportsNative&&!sportsData&&!calendarSource)sportsScheduleReader.prefetch();}
+  function prefetchSportsSchedule(){if(sportsNative&&!sportsData&&!calendarSource&&!scheduleOpenIntent.current)sportsScheduleReader.prefetch();}
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
   const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};if(sportsNative)setSportsScheduleBusy(pending);},[sportsNative]);
@@ -854,7 +855,6 @@ export function CourseWorkspace({
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
-  const scheduleOpenIntent=useRef(false);
   useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
   function openSchedule(seed: {single?:boolean;date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     if(pending||(scheduleOpenIntent.current&&!scheduleCreated))return;
