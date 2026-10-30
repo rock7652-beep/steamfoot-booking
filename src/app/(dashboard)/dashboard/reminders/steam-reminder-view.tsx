@@ -45,7 +45,7 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
 
           <section aria-labelledby="booking-reminders-title" className="space-y-3">
             <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
-            <CronRunBanner data={cron} />
+            {!previewBlocked && <CronRunBanner data={cron} />}
             <div className={lineMessageListClass}>
               <PackageLineCardReminderSettingCard key={`${storeId}-package`} initialBody={packageBody} hasMapLink={!!trial.mapUrl} initialEnabled={state.packageBookingEnabled} />
               <TrialLineCardReminderSettingCard key={`${storeId}-trial`} initialBody={trial.body} initialMapUrl={trial.mapUrl} initialEnabled={state.trialBookingEnabled} />

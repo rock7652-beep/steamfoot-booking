@@ -17,6 +17,6 @@ it('finds an unrecorded support reminder after 200 older recorded ones',async()=
   await db.exec(readFileSync('scripts/sql/digital-manager-notice-candidate.sql','utf8'));
   await db.exec(`INSERT INTO "DigitalManagerNotice" (id,"storeId","eventKey","eventType","targetId") SELECT 'n-'||id,"storeId",'human-support-final-reminder:'||id,'HUMAN_SUPPORT_FINAL_REMINDER',id FROM "DigitalButlerLead" WHERE "storeId"='a'`);
   m.query.mockImplementation(async(strings:TemplateStringsArray,...args:unknown[])=>{let text=strings[0];for(let i=0;i<args.length;i++)text+=`$${i+1}${strings[i+1]}`;return (await db.query(text,args)).rows;});
-  expect(await getUnrecordedHumanSupportCandidates(new Date('2026-10-30T01:00:00Z'))).toEqual([{id:'lead-201',storeId:'b',store:{slug:'b'}}]);
+  expect(await getUnrecordedHumanSupportCandidates(new Date('2026-10-30T01:00:00Z'))).toEqual([{id:'lead-201',storeId:'b',createdAt:new Date('2026-10-30T00:00:00Z'),store:{slug:'b'}}]);
  }finally{await db.close();}
 },30000);
