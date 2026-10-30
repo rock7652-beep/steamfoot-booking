@@ -18,7 +18,7 @@
 
 已產生 `prisma/reconciliation/20261030_digital_manager_migration_review.sql`，依序合併 1–6 並包在同一交易內，SHA-256 為 `4d6f2db1fff1feabbc42f39c2b5060df8d02a4e4f658345d6f5f810aed74d129`。它是審查稿，刻意不放入自動 migration 目錄，也不包含需指定受限角色的 7。現有正式發布流程有 migration 目標白名單與安全檢查；尚未將此稿註冊為正式 migration 或加入可執行的發布目標，不可跳過這些檢查。上線前仍須確定實際 migration 帳本、相依項、角色與備份，建立並驗證符合現行流程的版本。
 
-另準備包含 1–7 的單交易審查稿 `prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql`，SHA-256 為 `7effc6fba18452850c179b6cca993e84405bf9e76729dc19ef9a088f7a57246d`。其中明確指定目前唯讀核對到的正式美業角色；角色不存在、權限不足或角色不安全時整批失敗。此稿仍未註冊正式 migration 或新增發布白名單，禁止直接用一般部署流程執行。
+另準備包含 1–7 的單交易審查稿 `prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql`，SHA-256 為 `7effc6fba18452850c179b6cca993e84405bf9e76729dc19ef9a088f7a57246d`。其中明確指定目前唯讀核對到的正式美業角色；角色不存在、權限不足或角色不安全時整批失敗。此稿已接入本功能分支中指定目標的受控發布流程；尚未合併，正式資料庫仍未執行。禁止直接用一般全量 migration 流程執行。
 
 ## 已驗與未驗
 
@@ -42,8 +42,8 @@ Preview 中的 `steamfoot_beauty_data_dmqa` 僅是無登入能力的測試角色
 
 2026-10-30 正式 Prisma 帳本唯讀比對功能分支 `1ebfcd6a`：分支有 154 個 migration，正式帳本已完成 130 個、沒有未完成紀錄；已登記者的名稱與 checksum 均與分支一致。分支另有 24 個沒有完成紀錄，包含既有歷史對帳的 23 個及 `20261025160000_course_personnel_label`。沒有帳本紀錄不等於資料庫中相應結構不存在，不能因此自行補登、執行或重建。**不可直接執行一般 `prisma migrate deploy`**：它可能連同這些其他變更一起套用；須先依各項結構與歷史證據完成對帳，另設計受審查、精確限定的通知 migration 和帳本處理，再核對備份與回退流程。既有歷史證據見 `docs/verification/sports-production-migration/history-reconciliation-plan.md`。
 
-已準備 `scripts/digital-manager-migration-review.mjs` 單項發布候選程式，但**尚未加入 `ci-migrate.mjs` 的正式目標白名單，也不會自行執行**。候選程式固定 SQL checksum、指定專案／正式主分支／連線、驗證新表不存在與既有 schema 指紋、檢查失敗紀錄與並行鎖，並在單項 Prisma 執行後核對通知結構、政策、授權、觸發器、函式與未涉及的 migration 帳本。正式環境的唯讀前置指紋於 2026-10-30 兩次核對一致；正式環境若變動必須重新審查，不能單純更新指紋放行。
+已在本功能分支將 `scripts/digital-manager-migration-review.mjs` 單項發布程式接入 `ci-migrate.mjs`；只有明確指定 `20261030150000_digital_manager_notice` 才會執行該項 migration，沒有目標時維持不執行 migration。候選程式固定 SQL checksum、指定專案／正式主分支／連線、驗證新表不存在與既有 schema 指紋、檢查失敗紀錄與並行鎖，並在單項 Prisma 執行後核對通知結構、政策、授權、觸發器、函式與未涉及的 migration 帳本。正式環境的唯讀前置指紋於 2026-10-30 兩次核對一致；正式環境若變動必須重新審查，不能單純更新指紋放行。
 
-候選程式已以 PostgreSQL 16 與 17、真正 Prisma CLI 及合成資料演練成功；驗證其他 24 個同名測試項目不執行、範圍／鎖／失敗帳本／重複執行遭拒，且移除 RLS、修改 policy 或多授更新權限會被發布後檢查擋下。**Prisma 是獨立程序：若 SQL 已提交後才發現發布後檢查失敗，資料庫變更不會自動回滾**，必須停止應用部署並依已審查的資料保全與回退程序處理。已編寫獨立唯讀 readiness 候選檢查，並以 PostgreSQL 17 驗證安裝前會擋下、安裝後通過；尚未接入正式應用建置。正式發布仍須完成獨立發布入口的連線綁定、將 readiness 檢查安全接入應用部署、正式角色遠端登入／查寫驗證、備份與回退演練；正式指令、上線與任何正式寫入均另需使用者授權。
+候選程式已以 PostgreSQL 16 與 17、真正 Prisma CLI 及合成資料演練成功；驗證其他 24 個同名測試項目不執行、範圍／鎖／失敗帳本遭拒，已完整套用的目標重跑時先驗證並安全跳過，且移除 RLS、修改 policy 或多授更新權限會被發布後檢查擋下。**Prisma 是獨立程序：若 SQL 已提交後才發現發布後檢查失敗，資料庫變更不會自動回滾**，必須停止應用部署並依已審查的資料保全與回退程序處理。本功能分支已將唯讀 readiness 檢查接入正式應用建置；以 PostgreSQL 17 及嚴格本機 QA 範圍實際執行 ci-migrate 和 readiness 入口，驗證安裝前會擋下、安裝後通過、重跑可驗證跳過；這表示分支合併後的正式建置將需讀取資料庫，且在 schema 未就緒時失敗。正式發布仍須完成正式角色遠端登入／查寫驗證、備份與回退演練；正式指令、上線與任何正式寫入均另需使用者授權。
 
 上線前須確認資料庫識別與備份、所有相依 migration、隔離演練與權限測試；先安裝並驗證資料庫，再部署相容的應用版本。候選 trigger 同交易寫入通知，缺少表或執行權限可能使預約、付款等業務操作失敗，禁止先上應用再補資料庫。回退時需保留既有預約、付款及通知紀錄，不以刪除業務資料作回滾。

@@ -1,3 +1,20 @@
+// Exact, loopback-only rehearsal of this dispatcher. It cannot use deployed metadata.
+if (process.env.DIGITAL_MANAGER_MIGRATION_QA === '1') {
+  const {assertDigitalManagerLocalEnvironment,runDigitalManagerLocalRehearsal}=await import('./digital-manager-migration-review.mjs');
+  assertDigitalManagerLocalEnvironment(process.env);
+  const {PrismaClient}=await import('@prisma/client');
+  const {execFileSync}=await import('node:child_process');
+  const qaClient=new PrismaClient({datasources:{db:{url:process.env.DIRECT_URL}}});
+  try {
+    const result=await runDigitalManagerLocalRehearsal(qaClient,args=>{
+      try{execFileSync('npx',['prisma',...args],{stdio:['ignore','pipe','pipe'],env:process.env});return {exitCode:0};}
+      catch(error){return {exitCode:error.status??1};}
+    },process.env);
+    console.info(`digital-manager-local: ${result}`);
+  } finally {await qaClient.$disconnect();}
+  process.exit(0);
+}
+
 // A not-yet-provisioned, dedicated test branch must fail closed until its
 // source-controlled project ref is reviewed and pinned. Never run migrations.
 import {assertBeautyPurchaseIsolatedPreview,BEAUTY_PURCHASE_QA_BRANCH} from './beauty-purchase-isolated-preview-scope.mjs';
@@ -212,6 +229,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { IMAGE_ANNOUNCEMENTS_MIGRATION, IMAGE_ANNOUNCEMENTS_MIGRATION_FILE, IMAGE_ANNOUNCEMENTS_CHECKSUM, runImageAnnouncementsMigration } from "./image-announcements-production-migration.mjs";
+import { DIGITAL_MANAGER_REVIEW_TARGET, DIGITAL_MANAGER_REVIEW_FILE, DIGITAL_MANAGER_REVIEW_CHECKSUM, runDigitalManagerProductionCandidate } from "./digital-manager-migration-review.mjs";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 import { buildAuditPreviewMigrationSql } from "./audit-preview-migrations.mjs";
 
@@ -374,6 +392,7 @@ export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
   TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
+  DIGITAL_MANAGER_REVIEW_TARGET,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -567,6 +586,7 @@ function assertApprovedMigrationTarget(value) {
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
     [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION]: [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE, TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM],
+    [DIGITAL_MANAGER_REVIEW_TARGET]: [DIGITAL_MANAGER_REVIEW_FILE, DIGITAL_MANAGER_REVIEW_CHECKSUM],
   };
   const target = targetFiles[value];
   if (target && migrationChecksum(target[0]) !== target[1]) {
@@ -1161,6 +1181,15 @@ async function main() {
     datasources: { db: { url: process.env.DIRECT_URL } },
   });
   try {
+    if (target === DIGITAL_MANAGER_REVIEW_TARGET) {
+      try {
+        await runDigitalManagerProductionCandidate(prisma, runPrisma, process.env, log);
+      } catch (error) {
+        if (error instanceof Error && /^digital_manager_[a-z_]+$/.test(error.message)) abort(error.message);
+        throw error;
+      }
+      return;
+    }
     if (target === IMAGE_ANNOUNCEMENTS_MIGRATION) {
       try {
         await runImageAnnouncementsMigration(prisma, runPrisma, log);

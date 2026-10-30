@@ -71,7 +71,8 @@ async function runDigitalManagerReviewCore(prisma,runPrisma,expectedFingerprint,
  return prisma.$transaction(async tx=>{
   const [lock]=await tx.$queryRawUnsafe('SELECT pg_try_advisory_xact_lock(2026103015::bigint) AS locked');if(!lock?.locked)fail('lock_unavailable');
   const failures=await tx.$queryRawUnsafe(`SELECT migration_name FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL`);if(failures.length)fail('failed_history_rejected');
-  const target=await tx.$queryRawUnsafe(`SELECT id FROM public._prisma_migrations WHERE migration_name=$1`,DIGITAL_MANAGER_REVIEW_TARGET);if(target.length)fail('target_already_recorded');
+  const target=await tx.$queryRawUnsafe(`SELECT id FROM public._prisma_migrations WHERE migration_name=$1`,DIGITAL_MANAGER_REVIEW_TARGET);
+  if(target.length){await verifyDigitalManagerReadiness(tx);log('already_applied_verified');return 'already-applied';}
   const [existing]=await tx.$queryRawUnsafe(`SELECT to_regclass('public."DigitalManagerNotice"') IS NOT NULL AS notice,to_regclass('public."DigitalManagerActivation"') IS NOT NULL AS activation`);if(existing.notice||existing.activation)fail('partial_schema_rejected');
   const [baseline]=await tx.$queryRawUnsafe(preflight);if(baseline?.fingerprint!==expectedFingerprint||baseline.relation_count!==12||baseline.function_count!==1)fail('preflight_rejected');
   const oldHistory=await history(tx),scope=createScope(sql);
@@ -84,17 +85,24 @@ async function runDigitalManagerReviewCore(prisma,runPrisma,expectedFingerprint,
  },{maxWait:5000,timeout:180000,isolationLevel:'ReadCommitted'});
 }
 
-/** Review candidate only. It is not registered as an approved ci-migrate target. */
-export async function runDigitalManagerProductionCandidate(prisma,runPrisma,env=process.env,log=()=>{}){
- if(env.VERCEL!=='1'||env.VERCEL_ENV!=='production'||env.NODE_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.VERCEL_GIT_REPO_OWNER!=='rock7652-beep'||env.VERCEL_GIT_REPO_SLUG!=='steamfoot-booking'||env.WORKERS_CI_BRANCH||env.CF_PAGES_BRANCH||env.PRODUCTION_MIGRATION_TARGET!==DIGITAL_MANAGER_REVIEW_TARGET)fail('production_provenance_rejected');
+/** Validate provenance before constructing a production database client. */
+export function assertDigitalManagerProductionEnvironment(env=process.env){
+ if(env.VERCEL!=='1'||env.VERCEL_ENV!=='production'||env.NODE_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.VERCEL_GIT_REPO_OWNER!=='rock7652-beep'||env.VERCEL_GIT_REPO_SLUG!=='steamfoot-booking'||env.WORKERS_CI_BRANCH||env.CF_PAGES_BRANCH)fail('production_provenance_rejected');
  const valid=(value,port)=>{try{const u=new URL(value),project='qijlnhtpbintanzpxkvf',user=decodeURIComponent(u.username);return ['postgres:','postgresql:'].includes(u.protocol)&&u.pathname==='/postgres'&&!u.hash&&u.port===port&&((u.hostname===`db.${project}.supabase.co`&&user==='postgres')||(u.hostname.endsWith('.pooler.supabase.com')&&user===`postgres.${project}`))&&[...u.searchParams].every(([k,v])=>['schema','pgbouncer','sslmode','connection_limit','pool_timeout','connect_timeout','sslaccept','sslcert','sslrootcert','statement_cache_size'].includes(k)&&u.searchParams.getAll(k).length===1&&(k!=='schema'||v==='public')&&(k!=='sslmode'||['require','verify-ca','verify-full'].includes(v))&&(k!=='sslaccept'||v==='strict'));}catch{return false;}};
  if(!valid(env.DATABASE_URL,'6543')||!valid(env.DIRECT_URL,'5432'))fail('production_connection_rejected');
+}
+export async function runDigitalManagerProductionCandidate(prisma,runPrisma,env=process.env,log=()=>{}){
+ assertDigitalManagerProductionEnvironment(env);
+ if(env.PRODUCTION_MIGRATION_TARGET!==DIGITAL_MANAGER_REVIEW_TARGET)fail('production_target_rejected');
  return runDigitalManagerReviewCore(prisma,runPrisma,OBSERVED_PRODUCTION_FINGERPRINT,log);
 }
 /** Dedicated loopback-only rehearsal; no deployed metadata or production endpoint. */
-export async function runDigitalManagerLocalRehearsal(prisma,runPrisma,env=process.env,log=()=>{}){
+export function assertDigitalManagerLocalEnvironment(env=process.env){
  const url='postgresql://postgres@127.0.0.1:55438/digital_manager_release_handler_test';
- if(env.DIGITAL_MANAGER_MIGRATION_QA!=='1'||env.NODE_ENV!=='test'||env.DATABASE_URL!==url||env.DIRECT_URL!==url||['VERCEL','VERCEL_ENV','VERCEL_GIT_COMMIT_REF','WORKERS_CI_BRANCH','CF_PAGES_BRANCH'].some(k=>env[k]))fail('local_scope_rejected');
+ if(env.DIGITAL_MANAGER_MIGRATION_QA!=='1'||env.NODE_ENV!=='test'||env.DATABASE_URL!==url||env.DIRECT_URL!==url||['VERCEL','VERCEL_ENV','VERCEL_GIT_COMMIT_REF','VERCEL_GIT_REPO_OWNER','VERCEL_GIT_REPO_SLUG','WORKERS_CI_BRANCH','CF_PAGES_BRANCH'].some(k=>env[k]))fail('local_scope_rejected');
+}
+export async function runDigitalManagerLocalRehearsal(prisma,runPrisma,env=process.env,log=()=>{}){
+ assertDigitalManagerLocalEnvironment(env);
  const files=verifyReviewFiles();const [snapshot]=await prisma.$queryRawUnsafe(files.preflight);
  return runDigitalManagerReviewCore(prisma,runPrisma,snapshot.fingerprint,log);
 }

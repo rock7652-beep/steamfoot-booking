@@ -49,9 +49,12 @@ try{
  const before=(await db.query(`SELECT * FROM "_prisma_migrations" ORDER BY id`)).rows;
  const prismaDb=new PrismaClient({datasourceUrl:url});
  const qaEnv={NODE_ENV:'test',DIGITAL_MANAGER_MIGRATION_QA:'1',DATABASE_URL:url,DIRECT_URL:url};
+ const entryEnv={PATH:process.env.PATH??'/usr/bin:/bin',...qaEnv};
+ const entry=(file)=>spawnSync(process.execPath,[resolve(file)],{cwd:process.cwd(),env:entryEnv,encoding:'utf8'});
  const scopedCli=args=>{assert.deepEqual(args.slice(0,2),['migrate','deploy']);const p=spawnSync(prisma,args,{cwd:work,env,encoding:'utf8'});return {exitCode:p.status};};
  try{
   await assert.rejects(verifyDigitalManagerReadiness(prismaDb),/readiness_ledger_rejected/);
+  let build=entry('scripts/digital-manager-build-readiness.mjs');assert.equal(build.status,1);assert.ok(build.stderr.includes('readiness_rejected'));
   await assert.rejects(runDigitalManagerLocalRehearsal(prismaDb,scopedCli,{...qaEnv,VERCEL:'1'}),/local_scope_rejected/);
   const holder=new pg.Client({host:'127.0.0.1',port:55438,user:'postgres',database});await holder.connect();
   try{await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(2026103015::bigint)');await assert.rejects(runDigitalManagerLocalRehearsal(prismaDb,scopedCli,qaEnv),/lock_unavailable/);await holder.query('ROLLBACK');}finally{await holder.end();}
@@ -60,7 +63,9 @@ try{
   await db.query(`DELETE FROM "_prisma_migrations" WHERE id='test-failure'`);
   assert.equal(await runDigitalManagerLocalRehearsal(prismaDb,scopedCli,qaEnv),'applied');
   assert.equal(await verifyDigitalManagerReadiness(prismaDb),true);
-  await assert.rejects(runDigitalManagerLocalRehearsal(prismaDb,scopedCli,qaEnv),/target_already_recorded/);
+  assert.equal(await runDigitalManagerLocalRehearsal(prismaDb,scopedCli,qaEnv),'already-applied');
+  const dispatcher=entry('scripts/ci-migrate.mjs');assert.equal(dispatcher.status,0,dispatcher.stderr);assert.ok(dispatcher.stdout.includes('already-applied'));
+  build=entry('scripts/digital-manager-build-readiness.mjs');assert.equal(build.status,0,build.stderr);assert.ok(build.stdout.includes('ready'));
   await verifyDigitalManagerPostflight(prismaDb);
   await db.query(`ALTER TABLE "DigitalManagerNotice" DISABLE ROW LEVEL SECURITY`);
   await assert.rejects(verifyDigitalManagerPostflight(prismaDb),/tables_rejected/);
@@ -86,7 +91,7 @@ try{
  await assert.rejects(db.query(`INSERT INTO "DigitalManagerNotice" (id,"storeId","eventKey","eventType","targetId") VALUES ('wrong','course','beauty-purchase-pending:2','TRANSFER_PENDING_CONFIRMATION','2')`),e=>e.code==='42501');
  await db.query('RESET ROLE');
  console.log('PASS guarded handler with real Prisma: only target applied; 24 unrelated migrations remain pending');
- console.log('PASS scope, concurrency, failed history, repeat rejection and postflight drift detection');
+ console.log('PASS actual CI and readiness entries, scope, concurrency, history, rerun and drift detection');
  console.log('PASS preserved baseline records, customer/staff booking behavior and Beauty grants');
  console.log('NOTE synthetic baseline and sentinel SQL; not a production clone or production deployment');
 }finally{await db.end();rmSync(work,{recursive:true,force:true});}
