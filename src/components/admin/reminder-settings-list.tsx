@@ -2,6 +2,7 @@
 
 import {createContext,useCallback,useContext,useEffect,useId,useMemo,useRef,useState,type ReactNode,type MouseEvent} from 'react';
 import {useRouter} from 'next/navigation';
+import {resolveDashboardHref} from '@/components/dashboard-link';
 import {SettingsPanelContext,type SettingsPanelState} from './settings-panel-context';
 import styles from './reminder-settings-list.module.css';
 
@@ -22,7 +23,7 @@ export function ReminderSettingsScope({children}:{children:ReactNode}){
   if(parentNavigate){parentNavigate(href);return;}
   if([...states.current.values()].some(s=>s.pending)){setNotice('設定正在儲存，請稍候再切換。');return;}
   if([...states.current.values()].some(s=>s.dirty)&&!window.confirm('有尚未儲存的變更，確定離開並捨棄嗎？'))return;
-  router.push(href);
+  router.push(resolveDashboardHref(href,window.location.pathname));
  },[parentNavigate,router]);
  useEffect(()=>{
   const current=states.current;

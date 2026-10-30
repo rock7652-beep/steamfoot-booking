@@ -62,7 +62,7 @@ it('keeps read-only recipient controls disabled while allowing previews',async()
  await open(rows()[0]);expect(rows()[0].open).toBe(true);expect(rows()[0].textContent).toContain('示範資料');expect(m.preference).not.toHaveBeenCalled();
 });
 
-function Guarded({dirty,pending}:{dirty:boolean;pending:boolean}){useSettingsPanelGuard(dirty,pending);const navigate=useSettingsPanelNavigation();return h('button',{onClick:()=>navigate?.('/next')},'leave');}
+function Guarded({dirty,pending,href='/next'}:{dirty:boolean;pending:boolean;href?:string}){useSettingsPanelGuard(dirty,pending);const navigate=useSettingsPanelNavigation();return h('button',{onClick:()=>navigate?.(href)},'leave');}
 it('blocks tab navigation while saving and confirms dirty drafts before leaving',async()=>{
  const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
  await act(async()=>root.render(h(ReminderSettingsScope,null,h(Guarded,{dirty:true,pending:true}))));
@@ -70,4 +70,11 @@ it('blocks tab navigation while saving and confirms dirty drafts before leaving'
  await act(async()=>root.render(h(ReminderSettingsScope,null,h(Guarded,{dirty:true,pending:false}))));
  await act(async()=>host.querySelector('button')!.click());expect(confirm).toHaveBeenCalledOnce();expect(m.push).not.toHaveBeenCalled();
  confirm.mockReturnValue(true);await act(async()=>host.querySelector('button')!.click());expect(m.push).toHaveBeenCalledWith('/next');confirm.mockRestore();
+});
+
+it('preserves the selected store route when navigating a standalone reminder tab',async()=>{
+ window.history.replaceState(null,'','/s/test-store/admin/dashboard/reminders');
+ try{await act(async()=>root.render(h(ReminderSettingsScope,null,h(Guarded,{dirty:false,pending:false,href:'/dashboard/reminders?tab=manager'}))));
+ await act(async()=>host.querySelector('button')!.click());expect(m.push).toHaveBeenCalledWith('/s/test-store/admin/dashboard/reminders?tab=manager');
+ }finally{window.history.replaceState(null,'','/');}
 });
