@@ -1,0 +1,108 @@
+{
+  "scope": "Hosted synthetic QA; music setup restored through normal UI after interrupted driver",
+  "results": [
+    {
+      "module": "sports",
+      "checks": [
+        {
+          "step": "attendance-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "restore-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1366,
+          "height": 900,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1024,
+          "height": 768,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 768,
+          "height": 1024,
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "success": true
+    },
+    {
+      "module": "music",
+      "checks": [
+        {
+          "step": "restore-interrupted-qa-setup",
+          "pass": true
+        },
+        {
+          "step": "attendance-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "restore-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1366,
+          "height": 900,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1024,
+          "height": 768,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 768,
+          "height": 1024,
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "success": true
+    },
+    {
+      "module": "beauty",
+      "checks": [
+        {
+          "step": "attendance-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "restore-persisted-after-reload",
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1366,
+          "height": 900,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 1024,
+          "height": 768,
+          "pass": true
+        },
+        {
+          "step": "responsive-roster",
+          "width": 768,
+          "height": 1024,
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "success": true
+    }
+  ]
+}
