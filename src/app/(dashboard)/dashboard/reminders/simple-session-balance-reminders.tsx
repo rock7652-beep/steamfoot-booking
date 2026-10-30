@@ -25,8 +25,8 @@ const sample = {
 
 function Switch({ checked, onClick, disabled, label }: { checked: boolean; onClick: () => void; disabled: boolean; label: string }) {
   return (
-    <button type="button" onClick={(event) => { event.preventDefault(); onClick(); }} disabled={disabled} aria-label={label} aria-busy={disabled} role="switch" aria-checked={checked} className={`relative h-7 w-12 rounded-full ${checked ? "bg-primary-600" : "bg-earth-300"}`}>
-      <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : ""}`} />
+    <button type="button" onClick={(event) => { event.preventDefault(); onClick(); }} disabled={disabled} aria-label={label} aria-busy={disabled} role="switch" aria-checked={checked} className="flex min-h-11 w-12 shrink-0 items-center rounded-lg focus-visible:outline-2 focus-visible:outline-primary-600">
+      <span aria-hidden="true" className={`relative h-7 w-12 rounded-full ${checked ? "bg-primary-600" : "bg-earth-300"}`}><span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : ""}`} /></span>
     </button>
   );
 }

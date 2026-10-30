@@ -158,7 +158,9 @@ export function LineNotificationRecipientsCard({
         </p>
       )}
       {recipients.length > 0 && <>
-        <div className="flex flex-wrap gap-2" aria-label="通知接收狀態">
+        <p className="text-sm text-earth-500">只調整所選收件人的 LINE 通知；小鈴噹持續接收營運事件。</p>
+        <label className="flex flex-wrap items-center gap-3 text-sm"><span>通知收件人</span><select aria-label="通知收件人" value={selectedId??''} onChange={event=>setExpanded(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2">{filtered.map(item=><option key={item.id} value={item.id}>{item.displayName}・{item.roleLabel}</option>)}</select></label>
+        <details className="text-sm"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">搜尋／篩選收件人</summary><div className="space-y-3 pb-3">        <div className="flex flex-wrap gap-2" aria-label="通知接收狀態">
           {[["ALL", "全部", recipients.length], ["ACTIVE", "接收中", recipients.filter(r => r.linkedAt && r.isActive).length], ["PAUSED", "已暫停", recipients.filter(r => r.linkedAt && !r.isActive).length], ["WAITING", "待綁定", recipients.filter(r => !r.linkedAt).length]].map(([value, label, count]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => { setStatus(String(value)); }} className={`rounded-full border px-3 py-2 text-sm ${status === value ? "border-primary-700 bg-primary-700 text-white" : "border-earth-200 bg-white text-earth-600"}`}>{label} {count}</button>)}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -166,7 +168,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位收件人</p>
-        <label className="flex flex-wrap items-center gap-3 text-sm"><span>通知收件人</span><select aria-label="通知收件人" value={selectedId??''} onChange={event=>setExpanded(event.target.value)} className="min-h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-3 py-2">{filtered.map(item=><option key={item.id} value={item.id}>{item.displayName}・{item.roleLabel}</option>)}</select></label>
+</div></details>
         {recipients.map(item=><div key={item.id} hidden={selectedId!==item.id}><RecipientCard beauty={beauty} readOnly={readOnly} storeId={storeId} onConfirmed={confirm} course={course} item={item}/></div>)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
 

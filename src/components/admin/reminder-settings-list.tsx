@@ -49,7 +49,7 @@ export function ReminderSettingRow({title,description,control,children,action='�
 }){
  const name=useContext(ReminderRowsContext),row=useRef<HTMLDetailsElement>(null),previous=useRef(resetToken);
  useEffect(()=>{if(previous.current!==resetToken){previous.current=resetToken;if(row.current)row.current.open=false;}},[resetToken]);
- const heading=<><div className={styles.heading}><span className="font-semibold text-earth-900">{title}</span>{description&&<div className="mt-1 text-sm leading-relaxed text-earth-500">{description}</div>}{dirty&&<span role="status" className="mt-1 block text-sm text-amber-800">未儲存</span>}{error&&<div role="alert" className="mt-1 break-words text-sm text-red-700">{error}</div>}</div><div className={styles.control} onClick={e=>e.stopPropagation()}>{control}</div></>;
+ const heading=<><div className={styles.heading}><span className="font-semibold text-earth-900">{title}</span>{description&&<div className="mt-1 text-sm leading-relaxed text-earth-500">{description}</div>}{dirty&&<span role="status" className="mt-1 block text-sm text-amber-800">未儲存</span>}{error&&<div role="alert" className="mt-1 break-words text-sm text-red-700">{error}</div>}</div><div className={styles.control} onClick={e=>e.stopPropagation()}><label className="flex min-h-11 items-center gap-2">{control}</label></div></>;
  if(!children)return <div data-reminder-row className={styles.row}><div className={styles.summary}>{heading}</div></div>;
  return <details ref={row} name={name} data-reminder-row className={styles.row} aria-label={title}>
   <summary className={styles.summary}>{heading}<span className={styles.action}>{pending?'儲存中…':action}<span aria-hidden="true" className={styles.chevron}>⌄</span></span></summary>

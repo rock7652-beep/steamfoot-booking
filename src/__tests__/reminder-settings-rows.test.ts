@@ -9,6 +9,7 @@ vi.mock('@/server/actions/session-balance-notification-toggle',()=>({setSessionB
 vi.mock('@/lib/manager-notification-save',()=>({saveManagerNotification:(store:string,id:string,key:string,on:boolean)=>m.preference(store,id,key,on)}));
 vi.mock('@/server/actions/store-line-notification-recipients',()=>({createStoreLineNotificationRecipient:vi.fn(),resumeStoreLineNotificationRecipient:vi.fn(),removeStoreLineNotificationRecipient:vi.fn()}));
 vi.mock('sonner',()=>({toast:{success:vi.fn(),error:vi.fn()}}));
+import {useSettingsPanelGuard,useSettingsPanelNavigation} from '@/components/admin/settings-panel-context';
 import {ReminderSettingRow,ReminderSettingsScope} from '@/components/admin/reminder-settings-list';
 import {SimpleSessionBalanceReminders} from '@/app/(dashboard)/dashboard/reminders/simple-session-balance-reminders';
 import {extractSessionBalanceCustomCopy,DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING as defaults} from '@/lib/session-balance-notification-settings';
@@ -52,4 +53,21 @@ it('keeps a pending recipient write scoped to its original person after selectin
  expect(m.preference.mock.calls[0].slice(0,2)).toEqual(['store-a','A']);
  await act(async()=>resolve({success:true}));expect(host.querySelectorAll<HTMLInputElement>('[data-notification-recipient]')[1].querySelectorAll<HTMLInputElement>('input[role=switch]')[1].checked).toBe(false);
  await act(async()=>{select.value='A';select.dispatchEvent(new Event('change',{bubbles:true}));});expect(a.checked).toBe(true);
+});
+
+it('keeps read-only recipient controls disabled while allowing previews',async()=>{
+ const recipient={id:'r',displayName:'唯讀店長',roleLabel:'店長',isActive:true,linkedAt:new Date(),sameDayBookingEnabled:false,preferences:{}};
+ await act(async()=>root.render(h(ReminderSettingsScope,null,h(LineNotificationRecipientsCard,{storeId:'store-a',recipients:[recipient],readOnly:true}))));
+ expect(Array.from(host.querySelectorAll<HTMLInputElement>('input[role=switch]')).every(input=>input.disabled)).toBe(true);
+ await open(rows()[0]);expect(rows()[0].open).toBe(true);expect(rows()[0].textContent).toContain('示範資料');expect(m.preference).not.toHaveBeenCalled();
+});
+
+function Guarded({dirty,pending}:{dirty:boolean;pending:boolean}){useSettingsPanelGuard(dirty,pending);const navigate=useSettingsPanelNavigation();return h('button',{onClick:()=>navigate?.('/next')},'leave');}
+it('blocks tab navigation while saving and confirms dirty drafts before leaving',async()=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await act(async()=>root.render(h(ReminderSettingsScope,null,h(Guarded,{dirty:true,pending:true}))));
+ await act(async()=>host.querySelector('button')!.click());expect(m.push).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();expect(host.textContent).toContain('正在儲存');
+ await act(async()=>root.render(h(ReminderSettingsScope,null,h(Guarded,{dirty:true,pending:false}))));
+ await act(async()=>host.querySelector('button')!.click());expect(confirm).toHaveBeenCalledOnce();expect(m.push).not.toHaveBeenCalled();
+ confirm.mockReturnValue(true);await act(async()=>host.querySelector('button')!.click());expect(m.push).toHaveBeenCalledWith('/next');confirm.mockRestore();
 });

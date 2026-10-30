@@ -8,7 +8,8 @@ export function ManagerNotificationPreview({ course = false, beauty = false, kin
   const samples = managerNotificationPreviewSamples(course,beauty);
   const [selected, setSelected] = useState("sameDay");
   const sample = samples.find(item => item.key === (kind??selected)) ?? samples[0];
-  if(kind)return <div className="space-y-3"><p className="text-sm text-earth-500">示範資料，不會發送；按鈕僅供預覽。</p><LineCardPreview exactTitle title={sample.title} subtitle="示範門市" actions={sample.actions.map(item=>({label:item.action.label}))}>{sample.details.map((line,index)=><p key={index}>{line}</p>)}</LineCardPreview></div>;
+  if(kind)return <div className="space-y-3"><p className="text-sm text-earth-500">示範資料，不會發送；按鈕僅供預覽。</p>{samples.filter(item=>item.key===kind||(kind==='support'&&item.key==='supportFinal')).map(item=><div key={item.key}><p className="mb-2 text-sm font-medium text-earth-700">{item.label}</p><LineCardPreview exactTitle title={item.title} subtitle="示範門市" actions={item.actions.map(action=>({label:action.action.label}))}>{item.details.map((line,index)=><p key={index}>{line}</p>)}</LineCardPreview></div>)}</div>;
+
   return <details className="rounded-xl border border-earth-200 bg-white">
     <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-medium text-primary-700">查看訊息預覽</summary>
     <div className="space-y-4 border-t border-earth-100 p-4">
