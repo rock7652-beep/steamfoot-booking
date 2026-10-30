@@ -122,12 +122,17 @@ describe("sports shared-card Preview preflight", () => {
 
   it("keeps the build chain intact and places preflight before all migration bodies", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-    expect(scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
+    expect(scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/digital-manager-build-readiness.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
-    expect(preflight).toBeLessThan(source.indexOf("new PrismaClient("));
+    // The preceding loopback-only rehearsal has its own fail-closed scope guard.
+    const localGuard=source.indexOf("assertDigitalManagerLocalEnvironment(process.env)");
+    expect(localGuard).toBeGreaterThan(-1);
+    expect(localGuard).toBeLessThan(source.indexOf("new PrismaClient("));
+    expect(localGuard).toBeLessThan(source.indexOf("execFileSync('npx'"));
+    expect(preflight).toBeLessThan(source.indexOf("new PrismaClient(",preflight));
     expect(readFileSync("next.config.ts", "utf8")).toContain("assertReviewedReleaseEnvironment(process.env)");
   });
 });

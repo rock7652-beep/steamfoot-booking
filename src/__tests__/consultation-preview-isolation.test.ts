@@ -149,12 +149,17 @@ describe("release-bound consultation Preview preflight", () => {
   });
 
   it("keeps the build command and preflights before every migration and Next config path", () => {
-    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
+    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/digital-manager-build-readiness.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const check = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(check).toBeGreaterThan(-1);
     expect(check).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
-    expect(check).toBeLessThan(source.indexOf("new PrismaClient("));
+    // The preceding loopback-only rehearsal has its own fail-closed scope guard.
+    const localGuard=source.indexOf("assertDigitalManagerLocalEnvironment(process.env)");
+    expect(localGuard).toBeGreaterThan(-1);
+    expect(localGuard).toBeLessThan(source.indexOf("new PrismaClient("));
+    expect(localGuard).toBeLessThan(source.indexOf("execFileSync('npx'"));
+    expect(check).toBeLessThan(source.indexOf("new PrismaClient(",check));
     expect(source.indexOf("process.exit(0)", check)).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     const config = readFileSync("next.config.ts", "utf8");
     expect(config.indexOf("isGuideUiPreview();")).toBeLessThan(config.indexOf("assertReviewedReleaseEnvironment(process.env)"));

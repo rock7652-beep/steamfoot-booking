@@ -265,7 +265,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(output).not.toContain("我想了解蒸足");
   });
 
-  it("resolves destination before signature verification and uses that store for replies", async () => {
+  it("resolves and verifies the follow store, updates friendship there and sends no welcome", async () => {
     const body = {
       destination: "D_hsinchu",
       events: [
@@ -290,11 +290,8 @@ describe("LINE webhook store-aware signature and reply", () => {
       JSON.stringify(body),
       "line-signature",
     );
-    expect(replyMessageMock).toHaveBeenCalledWith(
-      "store-hsinchu",
-      "reply-token-1",
-      expect.any(Array),
-    );
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({where:{lineUserId:'U_hsinchu_customer',storeId:'store-hsinchu',lineLinkStatus:'BLOCKED'}});
+    expect(replyMessageMock).not.toHaveBeenCalled();
   });
 
   it.each([

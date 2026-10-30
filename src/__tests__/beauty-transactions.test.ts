@@ -614,9 +614,9 @@ it('closes a partially refunded plan once and retains independent refund receipt
  expect(tx.beautyPayment.create).toHaveBeenCalledTimes(2);expect(returned).toBe(900);
 });
 
-it('reports retired settings as off without rewriting legacy configuration',async()=>{
+it('preserves the store LINE preference while keeping retired deductions off',async()=>{
  vi.mocked(tx.beautySetting.findUnique).mockResolvedValue({storeId:'s',revision:8,notifications:true,cancelDeduct:true,noShowDeduct:true,selfBooking:true} as never);
- expect(await settings(tx,'s')).toMatchObject({revision:8,notifications:false,cancelDeduct:false,noShowDeduct:false,selfBooking:true});
+ expect(await settings(tx,'s')).toMatchObject({revision:8,notifications:true,cancelDeduct:false,noShowDeduct:false,selfBooking:true});
  expect(publicReceipt({...b,noShowDeduct:true} as never)).toMatchObject({cancelDeduct:false,noShowDeduct:false});
 });
 it.each(['CANCELLED','NO_SHOW'])('never deducts for %s despite legacy flags',async target=>{
