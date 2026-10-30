@@ -22,3 +22,14 @@ it('allows the restricted Beauty role to write its payment notice without access
   await expect(db.exec(`SELECT name FROM "Store"`)).rejects.toThrow();
  } finally { await db.exec('RESET ROLE'); }
 });
+it('limits updates and event types to the Beauty role policy',async()=>{
+ await db.exec('SET ROLE steamfoot_beauty_data_qa');
+ try {
+  await db.exec(`UPDATE "DigitalManagerNotice" SET "handledAt"=now(), revision=revision+1 WHERE id='beauty-event';`);
+  expect((await db.query(`SELECT revision FROM "DigitalManagerNotice" WHERE id='beauty-event'`)).rows).toEqual([{revision:1}]);
+  await expect(db.exec(`UPDATE "DigitalManagerNotice" SET "targetId"='another' WHERE id='beauty-event'`)).rejects.toThrow();
+  await expect(db.exec(`INSERT INTO "DigitalManagerNotice" (id,"storeId","eventKey","eventType","targetId") VALUES ('wrong-type','beauty','beauty-purchase-pending:2','INCOMPLETE_SERVICE_REMINDER','2')`)).rejects.toThrow();
+  await db.exec(`UPDATE "DigitalManagerActivation" SET "activatedAt"=now() WHERE "storeId"='beauty'`);
+  expect((await db.query(`SELECT "storeId" FROM "DigitalManagerActivation"`)).rows).toEqual([{storeId:'beauty'}]);
+ } finally { await db.exec('RESET ROLE'); }
+});
