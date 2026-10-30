@@ -4,6 +4,7 @@ import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const api=vi.hoisted(()=>({prepare:vi.fn(),read:vi.fn(),cancel:vi.fn(),ack:vi.fn(),collect:vi.fn()}));
 vi.mock('@/server/actions/beauty-collection-intent',()=>({prepareBeautyCollectionPurchaseIntent:api.prepare,readBeautyCollectionPurchaseIntent:api.read,cancelBeautyCollectionPurchaseIntent:api.cancel,acknowledgeBeautyCollectionPurchaseIntent:api.ack}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionStatus:api.read}));
 vi.mock('@/server/actions/beauty',()=>({collectBeautyPayment:api.collect}));
 import {BeautyCollectionRecoveryNotice,useBeautyCollectionRecovery} from '@/components/beauty/collection-recovery';
 const key='9ff0de58-4872-4eaf-8642-218f8d995e85';

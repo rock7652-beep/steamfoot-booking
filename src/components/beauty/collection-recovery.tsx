@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {acknowledgeBeautyCollectionPurchaseIntent,cancelBeautyCollectionPurchaseIntent,prepareBeautyCollectionPurchaseIntent,readBeautyCollectionPurchaseIntent} from '@/server/actions/beauty-collection-intent';
+import {acknowledgeBeautyCollectionPurchaseIntent,cancelBeautyCollectionPurchaseIntent,prepareBeautyCollectionPurchaseIntent} from '@/server/actions/beauty-collection-intent';
+import {readBeautyCollectionStatus} from '@/lib/beauty/collection-reader';
 import {collectBeautyPayment} from '@/server/actions/beauty';
 import type {BeautyCollectionIntentStatus} from '@/server/beauty/collection-intent';
 import {formatTWDateTime} from '@/lib/date-utils';
@@ -35,7 +36,7 @@ export function useBeautyCollectionRecovery(storeId:string|undefined,ids:string[
  const inspect=useCallback(async()=>{
   if(!enabled)return;if(!scope||!storeId){change({kind:'uncertain'});return;}
   const version=generation.current,read=++readVersion.current;change({kind:'checking'});
-  try{const key=readKey(),result=await boundedRequest(()=>readBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:JSON.parse(sorted),...(key?{requestKey:key}:{})}));
+  try{const key=readKey(),result=await boundedRequest(()=>readBeautyCollectionStatus({expectedStoreId:storeId,ids:JSON.parse(sorted),...(key?{requestKey:key}:{})}));
    if(!alive(version)||read!==readVersion.current)return;if(!result.success){change({kind:'uncertain'});return;}
    if(!result.data){change(key?{kind:'uncertain'}:{kind:'ready'});return;}
    if(key&&result.data.requestKey!==key){change({kind:'uncertain'});return;}
@@ -60,7 +61,7 @@ export function useBeautyCollectionRecovery(storeId:string|undefined,ids:string[
    const result=await boundedRequest(()=>{if(!alive(version))throw new Error('scope changed');return collectBeautyPayment({...input,requestKey:key});});
    if(!alive(version))return {success:false as const,error:'已切換服務，原收款狀態待核對'};
    // A response is not a substitute for reading the persistent intent.
-   const checked=await boundedRequest(()=>readBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:selected,requestKey:key}));
+   const checked=await boundedRequest(()=>readBeautyCollectionStatus({expectedStoreId:storeId,ids:selected,requestKey:key}));
    if(!alive(version))return {success:false as const,error:'已切換服務，原收款狀態待核對'};
    if(!checked.success||!checked.data){change({kind:'uncertain'});return {success:false as const,error:'收款狀態尚未確認，請勿再次收款'};}
    change({kind:'intent',intent:checked.data});return result;
@@ -68,7 +69,7 @@ export function useBeautyCollectionRecovery(storeId:string|undefined,ids:string[
   finally{if(alive(version)){running.current=false;setBusy(false);}}
  },[enabled,scope,storeId,sorted,readKey,remember,alive,change]);
  const cancel=useCallback(async()=>{if(!enabled||!scope||!storeId||running.current)return;const version=generation.current;++readVersion.current;running.current=true;setBusy(true);try{const key=readKey();if(!key)throw new Error('missing');const state=current.current;const original=state.kind==='intent'?state.intent.appointmentIds:JSON.parse(sorted) as string[];const result=await boundedRequest(()=>{if(!alive(version))throw new Error('scope changed');return cancelBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:original,requestKey:key});});if(!alive(version))return;if(!result.success){change({kind:'uncertain'});return;}change({kind:'intent',intent:result.data});}catch{if(alive(version))change({kind:'uncertain'});}finally{if(alive(version)){running.current=false;setBusy(false);}}},[enabled,scope,storeId,sorted,readKey,alive,change]);
- const acknowledge=useCallback(async()=>{if(!enabled||!scope||!storeId||running.current)return false;const version=generation.current;++readVersion.current;running.current=true;setBusy(true);try{const key=readKey(),state=current.current;if(!key||state.kind!=='intent'||key!==state.intent.requestKey)throw new Error('missing');const original=state.intent.appointmentIds;const result=await boundedRequest<IntentResult>(()=>{if(!alive(version))throw new Error('scope changed');return state.intent.status==='CANCELLED'?readBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:original,requestKey:key}):acknowledgeBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:original,requestKey:key});});if(!alive(version))return false;if(!result.success||!result.data||result.data.requestKey!==key||!same(result.data.appointmentIds,original)||!['CANCELLED','ACKNOWLEDGED'].includes(result.data.status))throw new Error('unconfirmed');sessionStorage.removeItem(scope);if(readKey()!==null)throw new Error('storage');change({kind:'ready'});return true;}catch{if(alive(version))change({kind:'uncertain'});return false;}finally{if(alive(version)){running.current=false;setBusy(false);}}},[enabled,scope,storeId,readKey,alive,change]);
+ const acknowledge=useCallback(async()=>{if(!enabled||!scope||!storeId||running.current)return false;const version=generation.current;++readVersion.current;running.current=true;setBusy(true);try{const key=readKey(),state=current.current;if(!key||state.kind!=='intent'||key!==state.intent.requestKey)throw new Error('missing');const original=state.intent.appointmentIds;const result=await boundedRequest<IntentResult>(()=>{if(!alive(version))throw new Error('scope changed');return state.intent.status==='CANCELLED'?readBeautyCollectionStatus({expectedStoreId:storeId,ids:original,requestKey:key}):acknowledgeBeautyCollectionPurchaseIntent({expectedStoreId:storeId,ids:original,requestKey:key});});if(!alive(version))return false;if(!result.success||!result.data||result.data.requestKey!==key||!same(result.data.appointmentIds,original)||!['CANCELLED','ACKNOWLEDGED'].includes(result.data.status))throw new Error('unconfirmed');sessionStorage.removeItem(scope);if(readKey()!==null)throw new Error('storage');change({kind:'ready'});return true;}catch{if(alive(version))change({kind:'uncertain'});return false;}finally{if(alive(version)){running.current=false;setBusy(false);}}},[enabled,scope,storeId,readKey,alive,change]);
  const blocked=enabled&&(busy||state.kind==='checking'||state.kind==='uncertain'||(state.kind==='intent'&&(state.intent.status!=='PREPARED'||!same(state.intent.appointmentIds,ids))));
  return {enabled,state,busy,blocked,submit,inspect,cancel,acknowledge};
 }

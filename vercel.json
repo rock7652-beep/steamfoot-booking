@@ -164,7 +164,8 @@
       "fix/plan-card-management-20261029": false,
       "perf/sports-course-loading": false,
       "review/plan-management-sports-performance": false,
-      "fix/calendar-restored-month-consistency": false
+      "fix/calendar-restored-month-consistency": false,
+      "fix/beauty-collection-calendar-remount": false
     }
   }
 }
