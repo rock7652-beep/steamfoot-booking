@@ -38,6 +38,19 @@
 - 三個遠端隔離排程入口（未完成服務、美業通知、每日待辦）在未帶 CRON_SECRET 時均回 401；本次工作環境沒有可用的遠端排程授權，因此沒有執行授權工作，不能宣稱遠端排程已成功。先前本機授權排程及批次演練仍為本機證據；本輪六個相關測試檔另有 13 項通過，涵蓋美業排程錯誤隔離、通知分批與蒸足顧客／店員預約規則。
 - 截圖：`steam-same-day-notice.png`、`sports-same-day-notice.png`、`music-same-day-notice.png`、`beauty-same-day-notice.png`，位於上述工作區證據目錄；排程未授權結果為 `cron-access-results.json`。本輪七個臨時啟用帳號均已恢復 SUSPENDED；合成預約資料保留供稽核。未改動正式資料庫、正式部署或 LINE 設定。
 
+### 隔離 Preview 授權排程補驗
+
+本節取代上述三個排程「僅未授權 401、尚未授權執行」的限制。驗收程式版本 `8b6757b94733dc65b9996c2a4d490201bfd3814b`，原專案部署 `dpl_H5wEhJ8RyRcfeYoKY7jzXwo5fDzP` 為 READY，建置確認隔離資料庫、外部通知封鎖及 migration 略過。
+
+- 原有 CRON_SECRET bearer 檢查保留。臨時憑證只設於原功能分支 Preview，另加真實時間 15 分鐘有效期、精確分支／repo／雙資料庫連線驗證，以及固定四家合成門市範圍；驗收期間其他 cron 與健康檢查入口即使帶此憑證也被拒絕。不讀取正式排程憑證、不降低 Vercel 部署保護、不新增未授權測試入口。
+- 三個實際 HTTP 入口 `/api/cron/incomplete-service-reminders`、`/api/cron/daily-action-digest`、`/api/cron/beauty-notifications`：未帶或錯誤憑證均 401；正確憑證及重跑均 200、failed=0、LINE 發送結果為 0。採用僅隔離驗收可設定的營業時間 `2026-10-31 09:05`（台灣時間）驗證晨間摘要；授權期限一律使用真實時鐘，不能透過此營業時間延長。這是遠端手動觸發，不代表 Vercel 自動排程或正式晨間工作已驗證。
+- 實際建立 19 筆新通知：蒸足 5 筆未完成提醒＋1 筆摘要、運動 4＋1、音樂 3＋1、美業 3＋1。每個目標歸屬正確，重複事件與跨店事件皆 0；再重跑一輪共四次授權呼叫後，通知事件集合仍相同。美業首次 recorded=4，其後各次 recorded=0。
+- 另建立四筆合成逾時預約及兩筆課程時段供畫面驗收，保留供稽核，並非顧客網站預約／扣堂驗收。排程前後原有蒸足／課程／美業預約內容摘要完全一致，範圍外門市通知內容摘要不變。蒸足測試店 isDemo 暫時改為 false 以納入既有掃描，完成後恢復 true；美業合成啟用時間恢復驗收前無紀錄狀態。未刪改正式或原有業務紀錄。
+- 四種業態 OWNER 實際登入：1366×900、768×1024、390×844 通知清單、處理／復原／重整與跨店拒絕，共 24 項通過；各店均看得到新未完成提醒，沒有整頁水平溢出、不可達關閉按鈕、pageerror 或同源靜態資源失敗。初次驗收腳本的重複名稱選取及課程名稱斷言已修正後重跑通過；沒有因此修改產品畫面。這是 Chromium 尺寸模擬，非真機。
+- 7 個相關測試檔共 46 項通過，TypeScript、變更 TS 檔 ESLint 及 QA runner 語法檢查通過。QA runner 為 `scripts/qa/digital-manager-hosted-cron.cjs`，需指定新的 `CRON_QA_REPORT_DIR` 及受保護 Preview URL；身分與憑證只從私有檔案讀取，不寫入報告。
+- 三個臨時啟用的 OWNER 已全部恢復 SUSPENDED。新建的本分支 CRON_SECRET 值已清空；一般 Preview／production 變數未動。Vercel 不允許重新命名 sensitive key，且目前工具未提供刪除，故空白分支覆寫仍存在，未宣稱已刪除或恢復繼承。驗收視窗變數已改為不被程式讀取的退休名稱；驗收部署為不可變版本，仍由其內建真實期限拒絕舊憑證。後續 Preview 不使用驗收營業時間，也沒有這組有效排程憑證。另於台灣時間 20:02 到期後，向同一不可變驗收部署帶舊憑證重測三個排程及兩個範圍外入口，均為 401；報告在 `expired/http-results.json`，本機臨時憑證檔已移除。
+- 證據：工作區 `/workspace/digital-manager-hosted-check/cron-8b6757b9/` 的 `first-http-results.json`、`http-results.json`、`database-first-repeat.json`、`verification.json` 及 `ui/results.json`／截圖。本節不代表正式新表已安裝、正式新表受限角色讀寫或真實 LINE 已驗證。
+
 ### 新版運動通用堂數方案：遠端補驗通過
 
 此節取代上述「原生 OPEN 運動遠端未驗」的限制，僅限本節流程。程式 `98c0049a4a68277ca4f146ac6f8061dcbc71c0de`，原分支及原 Vercel 專案隔離部署 `dpl_3rFQxPCxLkB87DQQvbMEtxxyw5Ki`，狀態 READY；建置紀錄確認隔離資料庫、外部通知封鎖與 migration 略過。沒有另開 PR 或合併正式站。
