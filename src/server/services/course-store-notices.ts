@@ -12,6 +12,7 @@ type StoreNoticeInput={
 export async function recordCourseStoreNotice(tx:Prisma.TransactionClient,actor:CourseActor,inputOrLoad:StoreNoticeInput|(()=>Promise<StoreNoticeInput>)) {
  // The store's digital manager keeps receiving events independently of legacy switches.
  const input=typeof inputOrLoad==="function"?await inputOrLoad():inputOrLoad;
+ if(input.kind==="BOOKING"&&!actor.customerId)return;
  const coaches=await tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${actor.storeId} AND (id=${input.coachId} OR id=${input.previousCoachId??input.coachId})`;
  const coachName=coaches.find(c=>c.id===input.coachId)?.displayName??"未指派";
  const previousCoachName=input.previousCoachId?coaches.find(c=>c.id===input.previousCoachId)?.displayName??"未指派":null;

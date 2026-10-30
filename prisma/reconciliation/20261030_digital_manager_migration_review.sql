@@ -74,6 +74,7 @@ BEGIN
  PERFORM id FROM public."Store" WHERE id=NEW."storeId" AND "industryModule"='STEAMFOOT' FOR SHARE;
  IF NOT FOUND THEN RETURN NEW; END IF;
  IF TG_OP='INSERT' THEN
+  IF NEW."bookedByType"::text <> 'CUSTOMER' THEN RETURN NEW; END IF;
   event_kind := 'BOOKING';
  ELSE
   IF ROW(NEW."bookingDate",NEW."slotTime",NEW.people,NEW."bookingStatus",NEW."serviceStaffId",NEW."servicePlanId",NEW.notes)
@@ -96,7 +97,7 @@ BEGIN
  SELECT name INTO service_name FROM public."ServicePlan" WHERE id=NEW."servicePlanId" AND "storeId"=NEW."storeId";
  SELECT "displayName" INTO staff_name FROM public."Staff" WHERE id=NEW."serviceStaffId" AND "storeId"=NEW."storeId";
  actor := nullif(current_setting('steamfoot.audit_actor',true),'')::jsonb;
- informational := event_kind = 'COMPLETE' OR (event_kind = 'BOOKING' AND NOT (NEW."bookingDate"::date = (now() AT TIME ZONE 'Asia/Taipei')::date OR (NEW."bookedByType"::text = 'CUSTOMER' AND NEW."bookingType"::text = 'FIRST_TRIAL')));
+ informational := event_kind = 'COMPLETE' OR (event_kind = 'BOOKING' AND NOT (NEW."bookedByType"::text = 'CUSTOMER' AND (NEW."bookingDate"::date = (now() AT TIME ZONE 'Asia/Taipei')::date OR NEW."bookingType"::text = 'FIRST_TRIAL')));
  INSERT INTO public."SteamfootStoreNotice" ("storeId","bookingId",kind,"customerName","serviceName","staffName","previousStaffName","startsAt","previousStartsAt","affectedCount",details,"handledAt","handledById","handledByName")
  VALUES (NEW."storeId",NEW.id,event_kind,coalesce(customer_name,'顧客'),coalesce(service_name,CASE NEW."bookingType"::text WHEN 'FIRST_TRIAL' THEN '體驗預約' WHEN 'SINGLE' THEN '單次預約' ELSE '方案預約' END),coalesce(staff_name,'未指派'),previous_staff_name,booking_start,previous_start,NEW.people,jsonb_build_object('bookingStatus',NEW."bookingStatus",'people',NEW.people),CASE WHEN informational THEN now() ELSE NULL END,CASE WHEN informational THEN coalesce(actor->>'id','system') ELSE NULL END,CASE WHEN informational THEN coalesce(actor->>'name','系統') ELSE NULL END)
  ON CONFLICT ("storeId","bookingId") DO UPDATE SET

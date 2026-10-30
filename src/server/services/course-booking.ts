@@ -465,7 +465,6 @@ export async function reserveCourseInTransaction(
       actorUserId: actor.userId,
     },
   });
-  if(actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
   if(!options.memberReschedule && actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   return booking;

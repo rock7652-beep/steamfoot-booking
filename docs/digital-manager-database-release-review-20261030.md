@@ -7,7 +7,7 @@
 | 順序 | 候選 SQL | SHA-256 |
 | --- | --- | --- |
 | 1 | `scripts/sql/digital-manager-notice-candidate.sql` | `b4c6c7103a121d75d2b90da813b7b2a00073d6c885f44a1a3fe7e37f0ff7af39` |
-| 2 | `scripts/sql/steamfoot-digital-manager-booking-candidate.sql` | `eb1070ce4ae2714c08935800137ba8ed0b0c30f1c45cb4bbec17f92c855a289e` |
+| 2 | `scripts/sql/steamfoot-digital-manager-booking-candidate.sql` | `adf0b38d3f298b92b3462c0d781c36aad7d9fb3e3f8415ce0500d9e481893850` |
 | 3 | `scripts/sql/steamfoot-digital-manager-payment-candidate.sql` | `bc8aaacdfbe33853e456bb04dab0c51f419df7cc7ab3f4555238df4c819f5796` |
 | 4 | `scripts/sql/digital-manager-lead-candidate.sql` | `cf732d131b1f41cbc39933852530c326978ea1bf8283d0fbe50faed4cd762317` |
 | 5 | `scripts/sql/digital-manager-vip-candidate.sql` | `85511aca1b164611970d12da72b58005c588dc2a8f56282a9d15dfe6caf324d3` |
@@ -16,11 +16,11 @@
 
 1 必須先於 2–7；7 另需確認正式美業實際採用的受限 runtime role，不可猜測或以 postgres／anon／authenticated 取代。候選 SQL 須轉成符合現行 migration 流程的正式版本，並與實際部署 commit 一起審查。不得直接把本清單當成可執行正式發布腳本。
 
-已產生 `prisma/reconciliation/20261030_digital_manager_migration_review.sql`，依序合併 1–6 並包在同一交易內，SHA-256 為 `ba9d8a70804650147cefe21b61ba78af75093c26f8df7bd192c1da3166d80d78`。它是審查稿，刻意不放入自動 migration 目錄，也不包含需指定受限角色的 7。現有正式發布流程有 migration 目標白名單與安全檢查；尚未將此稿註冊為正式 migration 或加入可執行的發布目標，不可跳過這些檢查。上線前仍須確定實際 migration 帳本、相依項、角色與備份，建立並驗證符合現行流程的版本。
+已產生 `prisma/reconciliation/20261030_digital_manager_migration_review.sql`，依序合併 1–6 並包在同一交易內，SHA-256 為 `4d6f2db1fff1feabbc42f39c2b5060df8d02a4e4f658345d6f5f810aed74d129`。它是審查稿，刻意不放入自動 migration 目錄，也不包含需指定受限角色的 7。現有正式發布流程有 migration 目標白名單與安全檢查；尚未將此稿註冊為正式 migration 或加入可執行的發布目標，不可跳過這些檢查。上線前仍須確定實際 migration 帳本、相依項、角色與備份，建立並驗證符合現行流程的版本。
 
 ## 已驗與未驗
 
-隔離資料庫已安裝 1–6 的候選結構；2 的更新已在隔離資料庫驗證，即使舊通知開關關閉也會產生當日預約提示，店員代建的當日預約亦列待處理；測試交易已回滾。7 已在本機隔離資料庫使用受限角色測試，並在 Preview 資料庫安裝至專用 NOLOGIN 測試角色；Preview 平台拒絕 `SET ROLE`，因此該角色的實際查寫仍未驗證，不能以本機結果替代。正式資料庫尚未套用 7。正式 schema、實際連線角色與授權、完整 migration／回滾演練仍待核對。
+隔離資料庫已安裝 1–6 的候選結構；2 的更新已在隔離資料庫驗證，即使舊通知開關關閉也會產生當日預約提示，店員代建的當日預約已依新決策調整為不建立預約通知；隔離資料庫以交易確認顧客當日預約仍列待處理、店員代建沒有通知，交易已回滾；測試交易已回滾。7 已在本機隔離資料庫使用受限角色測試，並在 Preview 資料庫安裝至專用 NOLOGIN 測試角色；Preview 平台拒絕 `SET ROLE`，因此該角色的實際查寫仍未驗證，不能以本機結果替代。正式資料庫尚未套用 7。正式 schema、實際連線角色與授權、完整 migration／回滾演練仍待核對。
 
 審查稿已在本機 PGlite 合成 schema 上完整安裝兩次，確認新 trigger 數量、檔案內容與六份候選一致；移除必要資料表時，確認整批交易回滾。這不是正式資料庫副本或正式 Prisma migration 的完整部署／回滾演練。受限角色本機測試另確認可處理美業通知及啟用紀錄，禁止修改 targetId、寫入不相符事件類型、刪除通知及跨模組寫入。
 
