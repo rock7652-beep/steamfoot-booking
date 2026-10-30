@@ -1,5 +1,5 @@
 // Exercise transport behavior separately from the global incident stop.
-vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import crypto from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -51,6 +51,7 @@ describe("store-aware LINE Messaging config", () => {
     expect(init?.headers).toMatchObject({
       Authorization: `Bearer ${token}`,
     });
+    expect(JSON.parse(String(init?.body))).toMatchObject({to:'U_customer',messages:[{type:'flex',altText:'hello'}]});
   });
 
   it("reports hsinchu LINE_HSINCHU webhook config when enabled", () => {

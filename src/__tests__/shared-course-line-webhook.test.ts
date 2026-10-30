@@ -31,27 +31,11 @@ it("dispatches an authorized phone rebind only after the official account signat
   expect(await handleConfiguredCourseLineWebhook(input)).toBe("invalid_signature");
   expect(m.rebind).not.toHaveBeenCalled();
 });
-it("welcomes a shared-account follower once with explicit store entries and never captures a phone", async () => {
-  m.links.mockResolvedValue([]);
-  const input = { ...request(), events: [{ type: "follow", source: { userId: "new" }, timestamp: Date.now(), replyToken: "reply" }] };
-  await handleConfiguredCourseLineWebhook(input);
-  expect(m.reply).toHaveBeenCalledOnce();
-  const text = m.reply.mock.calls[0][2][0].text;
-  expect(text).toContain("https://liff.line.me/902-first/public-trial?bookingStore=a");
-  expect(text).toContain("https://liff.line.me/902-second/public-trial?bookingStore=b");
-  expect(text).toContain("請選擇本次預約的門市");
-  expect(m.update).not.toHaveBeenCalled();
-});
-it("welcomes a single configured store using only its own contact and map", async () => {
-  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{ ...a, sharedAccountKey: undefined }]));
-  m.links.mockResolvedValue([]);
-  m.store.mockResolvedValue({ id: "a", slug: "a", name: "音樂範例教室", shopConfig: { shopPhone: "02-00000000", address: "範例地址", mapUrl: "https://maps.app.goo.gl/example" } });
-  await handleConfiguredCourseLineWebhook({ ...request(), events: [{ type: "follow", source: { userId: "new" }, timestamp: Date.now(), replyToken: "reply" }] });
-  expect(m.reply.mock.calls[0][2][0].text).toContain("歡迎加入音樂範例教室");
-  expect(m.reply.mock.calls[0][2][0].text).toContain("02-00000000");
-  expect(m.reply.mock.calls[0][2][0].text).toContain("https://maps.app.goo.gl/example");
-  expect(m.reply.mock.calls[0][2][0].text).toContain("手機號碼");
-  expect(m.update).not.toHaveBeenCalled();
+it.each([false,true])("never welcomes a follower, including a shared OA (%s)",async shared=>{
+ vi.stubEnv("STORE_LINE_CONFIG_JSON",JSON.stringify(shared?[a,b]:[{...a,sharedAccountKey:undefined}]));
+ m.links.mockResolvedValue([]);
+ await handleConfiguredCourseLineWebhook({...request(),events:[{type:"follow",source:{userId:"new"},timestamp:Date.now(),replyToken:"reply"}]});
+ expect(m.verify).toHaveBeenCalledOnce();expect(m.reply).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();expect(m.rebind).not.toHaveBeenCalled();
 });
 it("does not welcome an invalid signature, non-follow event or invalid timestamp", async () => {
   m.verify.mockReturnValue(false);

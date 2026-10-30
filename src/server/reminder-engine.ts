@@ -602,12 +602,12 @@ export async function runReminders(): Promise<SendResult> {
         : [{ type: "text" as const, text: renderedBody }];
       let actualRoute = route.channel;
       let sendResult = route.channel === "STORE"
-        ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+        ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages, undefined, triggerAt)
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages, undefined, triggerAt);
       if (canFallbackToTextReminder(sendResult)) {
         sendResult = route.channel === "STORE"
-          ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
-          : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+          ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages, undefined, triggerAt)
+          : await pushSteamButlerMessage(route.recipientLineUserId, textMessages, undefined, triggerAt);
       }
       if (
         route.channel === "STORE" &&
@@ -616,15 +616,9 @@ export async function runReminders(): Promise<SendResult> {
       ) {
         const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
         if (fallbackRoute.status === "READY") {
-          sendResult = await pushSteamButlerMessage(
-            fallbackRoute.recipientLineUserId,
-            flexMessages,
-          );
+          sendResult = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, flexMessages, undefined, triggerAt);
           if (canFallbackToTextReminder(sendResult)) {
-            sendResult = await pushSteamButlerMessage(
-              fallbackRoute.recipientLineUserId,
-              textMessages,
-            );
+            sendResult = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, textMessages, undefined, triggerAt);
           }
           actualRoute = "CENTRAL";
         } else {

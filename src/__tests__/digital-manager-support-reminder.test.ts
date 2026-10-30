@@ -5,7 +5,7 @@ vi.mock('@/server/services/digital-manager-notices',()=>({recordDigitalManagerNo
 vi.mock('@/server/services/store-manager-line-notifications',()=>({notifyStoreManagerOnLine:m.notify}));
 vi.mock('@/lib/line',()=>({getUserProfile:vi.fn()}));
 import {runHumanSupportFinalReminders} from '@/server/services/human-support-handoff';
-beforeEach(()=>{vi.resetAllMocks();m.findMany.mockResolvedValue([{id:'lead',storeId:'a',store:{slug:'a'}}]);m.query.mockResolvedValue([]);m.findFirst.mockResolvedValue({id:'lead'});m.create.mockResolvedValue({id:'claim'});m.remove.mockResolvedValue({});m.notify.mockResolvedValue({status:'skipped',reason:'recipient_not_configured'});});
+beforeEach(()=>{vi.resetAllMocks();m.findMany.mockResolvedValue([{id:'lead',storeId:'a',createdAt:new Date('2026-10-30T03:00:00Z'),store:{slug:'a'}}]);m.query.mockResolvedValue([]);m.findFirst.mockResolvedValue({id:'lead'});m.create.mockResolvedValue({id:'claim'});m.remove.mockResolvedValue({});m.notify.mockResolvedValue({status:'skipped',reason:'recipient_not_configured'});});
 it('records the reminder even when manager LINE delivery is unavailable',async()=>{
  await runHumanSupportFinalReminders(new Date('2026-10-30T04:00:00Z'));
  expect(m.record).toHaveBeenCalledWith(expect.anything(),{storeId:'a',eventKey:'human-support-final-reminder:lead',eventType:'HUMAN_SUPPORT_FINAL_REMINDER',targetId:'lead'});

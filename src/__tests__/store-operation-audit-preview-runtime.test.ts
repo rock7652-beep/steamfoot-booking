@@ -1,5 +1,5 @@
 // Test the existing preview isolation independently of the stronger incident stop.
-vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORE_OPERATION_AUDIT_PREVIEW_BRANCH } from "../../scripts/store-operation-audit-preview-scope.mjs";
 

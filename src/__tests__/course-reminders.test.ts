@@ -53,7 +53,7 @@ it("does not guess a recipient when verified routing is blocked",async()=>{
  m.route.mockResolvedValue({status:"BLOCKED",reason:"mismatch"});await runCourseReminders(now);expect(m.push).not.toHaveBeenCalled();expect(m.central).not.toHaveBeenCalled();
 });
 it("central channel carries the same idempotency key",async()=>{
- m.route.mockResolvedValue({status:"READY",channel:"CENTRAL",recipientLineUserId:"central-b"});await runCourseReminders(now);expect(m.central).toHaveBeenCalledWith("central-b",expect.any(Array),expect.stringMatching(/^[a-f0-9-]{36}$/));expect(m.push).not.toHaveBeenCalled();
+ m.route.mockResolvedValue({status:"READY",channel:"CENTRAL",recipientLineUserId:"central-b"});await runCourseReminders(now);expect(m.central).toHaveBeenCalledWith("central-b",expect.any(Array),expect.stringMatching(/^[a-f0-9-]{36}$/),now);expect(m.push).not.toHaveBeenCalled();
 });
 it("saving content does not opt the store into sending; authorization is checked",async()=>{
  expect(await saveCourseReminderBody({body:"提醒內容"})).toMatchObject({success:true});expect(m.manager).toHaveBeenCalledWith("business_hours.manage");expect(m.requireFeature).toHaveBeenCalled();expect(m.ruleUpsert.mock.calls[0][0]).toMatchObject({create:{storeId:"s",isEnabled:false},update:{}});

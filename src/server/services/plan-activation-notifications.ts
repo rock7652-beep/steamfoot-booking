@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -77,6 +78,7 @@ async function dispatch(db:SourceDb,candidate:Event) {
     await prisma.$transaction(tx=>writeLog(tx,e,uncertain?"PENDING":"SKIPPED",uncertain?`${reason}；先前 LINE 嘗試結果未確認`:reason));
     await db.$executeRaw`UPDATE "PlanActivationNotification" SET status='SKIPPED',"errorMessage"=${reason},"loggedAt"=NOW() WHERE id=${e.id}`;
   };
+  if(!isLineDeliveryEventCurrent(e.createdAt)){await finish("停發期間的舊通知不補發");return;}
   if(e.status==="SKIPPED"){await finish(e.errorMessage??"未發送");return;}
   if(Date.now()-e.createdAt.getTime()>=23*60*60_000||e.attempts>5){await finish("已超過安全重試期限或次數，停止補送；先前結果請查發送紀錄");return;}
   const reason=await eligibility(db,e);
@@ -119,8 +121,8 @@ async function dispatch(db:SourceDb,candidate:Event) {
   // Old in-flight routes retain text; never change the payload behind a LINE retry key.
   const messages=e.route.messageFormat==="flex-v1"?[buildPlanActivationCard(e.snapshot)]:[{type:"text" as const,text:e.body}];
   const result=route.channel==="STORE"
-    ?await pushMessage(e.storeId,route.recipient,messages,e.retryKey)
-    :await pushSteamButlerMessage(route.recipient,messages,e.retryKey);
+    ?await pushMessage(e.storeId, route.recipient, messages, e.retryKey, e.createdAt)
+    :await pushSteamButlerMessage(route.recipient, messages, e.retryKey, e.createdAt);
   const status=result.success?"SENT":"FAILED";
   // Keep an uncertain send's quota reservation; retries use the frozen payload.
   await prisma.$transaction(tx=>writeLog(tx,e,result.success?"SENT":result.httpStatus?"FAILED":"PENDING",result.success?null:result.error??"LINE 未接受或結果不確定"));

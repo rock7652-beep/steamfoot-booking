@@ -1043,8 +1043,8 @@ export async function testSendLineMessage(
 
     const messages = [{ type: "text" as const, text: renderedBody }];
     const result = route.channel === "STORE"
-      ? await pushMessage(customer.storeId, route.recipientLineUserId, messages)
-      : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+      ? await pushMessage(customer.storeId, route.recipientLineUserId, messages, undefined, new Date())
+      : await pushSteamButlerMessage(route.recipientLineUserId, messages, undefined, new Date());
 
     // Log the send
     await prisma.messageLog.create({
@@ -1109,8 +1109,8 @@ export async function sendLineSmokeTest(
     const renderedBody = `這是 ${storeName} LINE 系統通知測試`;
     const messages = [{ type: "text" as const, text: renderedBody }];
     const result = route.channel === "STORE"
-      ? await pushMessage(storeId, route.recipientLineUserId, messages)
-      : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+      ? await pushMessage(storeId, route.recipientLineUserId, messages, undefined, new Date())
+      : await pushSteamButlerMessage(route.recipientLineUserId, messages, undefined, new Date());
 
     const log = await prisma.messageLog.create({
       data: {
@@ -1314,12 +1314,12 @@ ${renderedReminder}`;
     let actualRoute = route.channel;
     let result =
       route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, flexMessages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+        ? await pushMessage(storeId, route.recipientLineUserId, flexMessages, undefined, new Date())
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages, undefined, new Date());
     if (canFallbackToTextReminder(result)) {
       result = route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+        ? await pushMessage(storeId, route.recipientLineUserId, textMessages, undefined, new Date())
+        : await pushSteamButlerMessage(route.recipientLineUserId, textMessages, undefined, new Date());
     }
     if (
       route.channel === "STORE" &&
@@ -1328,15 +1328,9 @@ ${renderedReminder}`;
     ) {
       const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
       if (fallbackRoute.status === "READY") {
-        result = await pushSteamButlerMessage(
-          fallbackRoute.recipientLineUserId,
-          flexMessages,
-        );
+        result = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, flexMessages, undefined, new Date());
         if (canFallbackToTextReminder(result)) {
-          result = await pushSteamButlerMessage(
-            fallbackRoute.recipientLineUserId,
-            textMessages,
-          );
+          result = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, textMessages, undefined, new Date());
         }
         actualRoute = "CENTRAL";
       } else {

@@ -4,5 +4,4 @@
 export const beautyRetiredSettings = Object.freeze({
   cancelDeduct: false,
   noShowDeduct: false,
-  notifications: false,
 });

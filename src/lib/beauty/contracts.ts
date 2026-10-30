@@ -81,7 +81,7 @@ export const planInput = z.object({
   active: z.boolean().default(true),
 });
 export const settingsInput = z.object({
-  notifications: z.literal(false).default(false),
+  notifications: z.boolean().optional(),
   revision: z.number().int().nonnegative(),
   selfBooking: z.boolean(),
   selfCancel: z.boolean(),

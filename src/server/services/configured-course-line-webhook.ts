@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { bindStoreLineNotificationRecipient } from "./store-line-notification-binding";
 import { prisma } from "@/lib/db";
 import { verifyLineSignature, replyMessage } from "@/lib/line";
@@ -6,8 +7,6 @@ import { handleConfiguredCourseLineFollow } from "./course-line-follow";
 import { handleMemberConnectionWebhook } from "./store-member-connection-webhook";
 import { captureStoreMemberConnection, connectionReplyText } from "./store-member-connection";
 import { normalizePhone } from "@/lib/normalize";
-import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
-import { resolveBookingLineEntry } from "./booking-line-entry";
 import { completePhoneLineRebind } from "./phone-line-rebind";
 
 /** OA events describe friendship, not a booking's store. Never choose the
@@ -31,6 +30,7 @@ export async function handleConfiguredCourseLineWebhook(input: {
   })));
   if (stores.some(store => !store)) return "handled";
   for (const event of input.events) {
+    if(event.type==="message"&&!isLineDeliveryEventCurrent(event.timestamp))continue;
     const notificationCode=event.type==="message"&&event.message?.type==="text"?event.message.text?.trim().match(/^綁定通知\s*([A-F0-9]{10})$/i):null;
     if(notificationCode&&event.source?.userId){
       const result=await bindStoreLineNotificationRecipient({storeIds:configs.map(c=>c.storeId),lineUserId:event.source.userId,bindingCode:notificationCode[1]});
@@ -60,17 +60,8 @@ export async function handleConfiguredCourseLineWebhook(input: {
         console.error("[Course LINE] Friendship event failed", { storeId: config.storeId });
       }
     }
-    if (event.type === "follow" && event.replyToken && event.source?.userId &&
-      Number.isFinite(event.timestamp) && Number.isFinite(new Date(event.timestamp!).getTime()) && event.timestamp! <= Date.now() + 60_000) {
-      try {
-        // Reply once per physical account. A shared OA must offer explicit
-        // store entries, never select the first store for a phone claim.
-        const messages = buildStoreLineWelcome(stores.filter((store): store is NonNullable<typeof store> => store !== null).map(store => ({ ...store, bookingHref: resolveBookingLineEntry(store.slug)?.url })));
-        await replyMessage(configs[0].storeId, event.replyToken, messages);
-      } catch {
-        console.error("[Store LINE] Welcome reply failed", { shared: configs.length > 1 });
-      }
-    }
+    // Follow/unfollow state is retained; no welcome reply is sent for single or shared OAs.
+
   }
   return "handled";
 }

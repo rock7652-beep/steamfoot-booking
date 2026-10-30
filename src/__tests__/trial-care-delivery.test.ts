@@ -46,7 +46,7 @@ describe("trial care delivery", () => {
     m.wallets.mockResolvedValue(0);
     const result = await runTrialCare(now);
     expect(result.sent).toBe(1);
-    expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String));
+    expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String),new Date("2026-09-17T02:00:00Z"));
     expect(m.createLog).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ stage: 0 }) }));
   });
   it("does not send trial care when the actual participant used a plan through the trial entry", async () => {
@@ -63,7 +63,7 @@ describe("trial care delivery", () => {
   it("blocks preview before any data access or delivery", async () => { vi.stubEnv("VERCEL_ENV", "preview"); expect((await runTrialCare(now)).blocked).toBe(true); expect(m.settings).not.toHaveBeenCalled(); expect(m.push).not.toHaveBeenCalled(); });
   it("sends through the candidate's own store with a fixed stop action", async () => {
     expect((await runTrialCare(now)).sent).toBe(1);
-    expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String));
+    expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String),new Date("2026-09-17T02:00:00Z"));
     expect(JSON.stringify(m.push.mock.calls[0][2])).toContain(`trial-care:stop:${token}`);
     expect(JSON.stringify(m.push.mock.calls[0][2])).not.toContain("了解方案／優惠");
     expect(m.bookings.mock.calls[0][0].where).toMatchObject({ storeId: "A", bookingType: "FIRST_TRIAL", bookingStatus: "COMPLETED", trialCareCompletedAt: { gte: updatedAt } });

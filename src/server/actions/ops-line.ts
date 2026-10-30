@@ -39,7 +39,7 @@ export async function sendOpsLineMessage(
     // Send via LINE Push API
     const result = await pushMessage(customer.storeId, customer.lineUserId, [
       { type: "text", text: messageText },
-    ]);
+    ], undefined, new Date());
 
     // Log the message
     const log = await prisma.messageLog.create({

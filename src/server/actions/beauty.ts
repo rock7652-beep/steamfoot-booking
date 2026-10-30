@@ -110,8 +110,8 @@ export async function saveBeautySettings(input: unknown) {
         throw new AppError("CONFLICT", "設定已更新");
       await tx.beautySetting.upsert({
         where: { storeId: a.storeId },
-        create: { ...d, storeId: a.storeId, revision: 1 },
-        update: { ...d, revision: { increment: 1 } },
+        create: { ...d, notifications:d.notifications??current.notifications, storeId: a.storeId, revision: 1 },
+        update: { ...d, notifications:d.notifications??current.notifications, revision: { increment: 1 } },
       });
       await audit(tx, a, "SETTINGS", JSON.stringify(d));
       return { saved: true };

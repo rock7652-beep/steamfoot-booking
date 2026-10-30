@@ -1,4 +1,3 @@
-import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -11,7 +10,7 @@ import { deliverManagerNotification, type ManagerDeliveryResult } from "@/server
 
 /** Final authoritative opt-in, also used by the common transport. Never imports recipients. */
 export async function beautyManagerDeliveryAllowed(storeId: string) {
-  if (!beautyRetiredSettings.notifications || beautyNotificationDeliveryBlocked()) return false;
+  if (beautyNotificationDeliveryBlocked()) return false;
   const store = await prisma.store.findFirst({where:{id:storeId,industryModule:"BEAUTY",isDemo:false,operatingStatus:"ACTIVE"},select:{id:true}});
   if (!store || !await hasStoreFeature(storeId,FEATURES.LINE_REMINDER)) return false;
   return !!(await beautyPrisma.beautySetting.findUnique({where:{storeId},select:{notifications:true}}))?.notifications;
@@ -51,7 +50,7 @@ export async function notifyBeautyBookingManagers(storeId:string,groupId:string,
     if (!trial) {
       if (!source.userId || !group.customerId || !await prisma.customer.findFirst({where:{id:group.customerId,storeId,userId:source.userId,mergedIntoCustomerId:null},select:{id:true}})) return;
     }
-    await deliverManagerNotification({storeId,eventKey:`beauty-booking-created:${group.id}`,type:trial?"PUBLIC_TRIAL_BOOKING_CREATED":"SAME_DAY_BOOKING_CREATED",sameDayTrial:trial&&sameDay,
+    await deliverManagerNotification({storeId,eventCreatedAt:group.createdAt,eventKey:`beauty-booking-created:${group.id}`,type:trial?"PUBLIC_TRIAL_BOOKING_CREATED":"SAME_DAY_BOOKING_CREATED",sameDayTrial:trial&&sameDay,
       messages:[{type:"text",text:[trial?"新體驗預約":"今日新增預約",store.name,`預約人：${group.contactName}`,`人數：${group.items.length} 位`,...group.items.map(b=>`${b.personName}｜${b.serviceName}｜${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`),`查看預約：${managerUrl(store.slug,group.startsAt)}`].join("\n")}],
       beforeDeliver:async()=>fresh(group.createdAt,new Date())&&await beautyPrisma.beautyAppointment.count({where:{storeId,groupId,status:"RESERVED",startsAt:{gt:new Date()}}})===group.items.length,
     });
@@ -71,7 +70,7 @@ export async function notifyBeautyPurchaseManagers(storeId:string,purchaseId:str
     const customer=await prisma.customer.findFirst({where:{id:order.customerId,storeId,mergedIntoCustomerId:null},select:{name:true}});
     const plan=order.snapshot as {name?:unknown;price?:unknown};
     if (!customer||typeof plan?.name!=="string"||typeof plan?.price!=="number") return;
-    await deliverManagerNotification({storeId,eventKey:`beauty-purchase-pending:${order.id}`,type:"TRANSFER_PENDING_CONFIRMATION",messages:[{type:"text",text:["美業方案待確認付款",store.name,`顧客：${customer.name}`,`方案：${plan.name}`,`應付金額：NT$${plan.price}`,`後四碼：${order.lastFour}`,`查看待核帳訂單：${managerUrl(store.slug,now,true)}`].join("\n")}],beforeDeliver:async()=>!!await beautyPrisma.beautyPurchase.findFirst({where:{id:purchaseId,storeId,status:"PENDING"},select:{id:true}})});
+    await deliverManagerNotification({storeId,eventCreatedAt:order.createdAt,eventKey:`beauty-purchase-pending:${order.id}`,type:"TRANSFER_PENDING_CONFIRMATION",messages:[{type:"text",text:["美業方案待確認付款",store.name,`顧客：${customer.name}`,`方案：${plan.name}`,`應付金額：NT$${plan.price}`,`後四碼：${order.lastFour}`,`查看待核帳訂單：${managerUrl(store.slug,now,true)}`].join("\n")}],beforeDeliver:async()=>!!await beautyPrisma.beautyPurchase.findFirst({where:{id:purchaseId,storeId,status:"PENDING"},select:{id:true}})});
   } catch { console.error("[Beauty manager notification] purchase observer failed",{storeId}); }
 }
 
@@ -90,7 +89,7 @@ export async function runBeautyManagerReminders(now=new Date()) {
       const activatedAt=beautyNotificationActivationAt();
       const starts=activatedAt&&activatedAt>yesterday.start?activatedAt:yesterday.start;
       const candidates=await beautyPrisma.beautyAppointment.findMany({where:{storeId:store.id,status:"RESERVED",endsAt:{gte:starts,lte:due}},orderBy:{endsAt:"asc"},take:100});
-      for (const b of candidates) count(await deliverManagerNotification({storeId:store.id,type:"INCOMPLETE_SERVICE_REMINDER",eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,messages:[{type:"text",text:["服務尚未完成",store.name,`${b.personName}｜${b.serviceName}`,`${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`,"服務結束一小時後仍未完成，請核對。",`前往後台處理：${managerUrl(store.slug,b.startsAt)}`].join("\n")}],beforeDeliver:async()=>!!await beautyPrisma.beautyAppointment.findFirst({where:{id:b.id,storeId:store.id,status:"RESERVED",endsAt:b.endsAt},select:{id:true}})}));
+      for (const b of candidates) count(await deliverManagerNotification({storeId:store.id,eventCreatedAt:new Date(b.endsAt.getTime()+60*60_000),type:"INCOMPLETE_SERVICE_REMINDER",eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,messages:[{type:"text",text:["服務尚未完成",store.name,`${b.personName}｜${b.serviceName}`,`${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`,"服務結束一小時後仍未完成，請核對。",`前往後台處理：${managerUrl(store.slug,b.startsAt)}`].join("\n")}],beforeDeliver:async()=>!!await beautyPrisma.beautyAppointment.findFirst({where:{id:b.id,storeId:store.id,status:"RESERVED",endsAt:b.endsAt},select:{id:true}})}));
       // Only the 09:00 quarter-hour window, never late catch-up after a disabled period.
       const nine=parseTaipeiDateTime(today,"09:00")!;
       if(now<nine||now.getTime()-nine.getTime()>=15*60_000||activatedAt&&nine<activatedAt)continue;
@@ -100,7 +99,7 @@ export async function runBeautyManagerReminders(now=new Date()) {
       ]);
       const [pending,incomplete]=await counts();
       if(!pending&&!incomplete)continue;
-      count(await deliverManagerNotification({storeId:store.id,type:"DAILY_ACTION_DIGEST",eventKey:`beauty-digest:${store.id}:${today}`,messages:[{type:"text",text:["今日待辦",store.name,`待確認付款：${pending} 筆`,`昨日未完成服務：${incomplete} 筆`,`前往後台：${managerUrl(store.slug,now,true)}`].join("\n")}],beforeDeliver:async()=>{const current=await counts();return current[0]===pending&&current[1]===incomplete;}}));
+      count(await deliverManagerNotification({storeId:store.id,eventCreatedAt:nine,type:"DAILY_ACTION_DIGEST",eventKey:`beauty-digest:${store.id}:${today}`,messages:[{type:"text",text:["今日待辦",store.name,`待確認付款：${pending} 筆`,`昨日未完成服務：${incomplete} 筆`,`前往後台：${managerUrl(store.slug,now,true)}`].join("\n")}],beforeDeliver:async()=>{const current=await counts();return current[0]===pending&&current[1]===incomplete;}}));
     } catch { result.failed++;console.error("[Beauty manager notification] reminder scan failed",{storeId:store.id}); }
   }
   return result;

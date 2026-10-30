@@ -1,4 +1,5 @@
-import { isSystemLineDeliveryPaused } from "@/lib/line-delivery-pause";
+import { isSystemLineDeliveryPaused,isLineDeliveryEventCurrent } from "@/lib/line-delivery-pause";
+import {systemLineFlexMessages} from './line-system-flex';
 import { after } from "next/server";
 import { isLineQuotaExceeded } from "./line-quota-policy";
 import { allowsPreviewLinePush } from "@/lib/preview-line-acceptance";
@@ -122,8 +123,10 @@ export async function pushMessage(
   lineUserId: string,
   messages: LineMessage[],
   retryKey?: string,
+  eventCreatedAt?:Date|number|string,
 ): Promise<LinePushResult> {
   if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", errorType: "delivery_paused" };
+  if(!isLineDeliveryEventCurrent(eventCreatedAt))return {success:false,error:'停發期間的舊通知不補發',errorType:'delivery_paused'};
   if (getConfiguredStoreLine(storeId)) {
     if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) return { success: false, error: "隔離預覽未授權外發", errorType: "preview_blocked" };
     if (!(await configuredStoreBotMatches(storeId))) return { success: false, error: "本店官方 LINE 設定不匹配或無法確認", errorType: "line_api_rejected" };
@@ -141,8 +144,10 @@ export async function pushSteamButlerMessage(
   lineUserId: string,
   messages: LineMessage[],
   retryKey?: string,
+  eventCreatedAt?:Date|number|string,
 ): Promise<LinePushResult> {
   if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", errorType: "delivery_paused" };
+  if(!isLineDeliveryEventCurrent(eventCreatedAt))return {success:false,error:'停發期間的舊通知不補發',errorType:'delivery_paused'};
   return pushMessageWithAccessToken(
     getSteamButlerLineAccessToken(),
     lineUserId,
@@ -179,7 +184,7 @@ async function pushMessageWithAccessToken(
       },
       body: JSON.stringify({
         to: lineUserId,
-        messages,
+        messages:systemLineFlexMessages(messages),
       }),
     });
 
@@ -265,7 +270,7 @@ async function replyMessageWithAccessToken(
       },
       body: JSON.stringify({
         replyToken,
-        messages,
+        messages:systemLineFlexMessages(messages),
       }),
     });
 
@@ -382,6 +387,7 @@ export interface LineFlexMessage {
   type: "flex";
   altText: string;
   contents: Record<string, unknown>;
+  quickReply?:LineTextMessage['quickReply'];
 }
 
 export type LineMessage = LineTextMessage | LineFlexMessage;

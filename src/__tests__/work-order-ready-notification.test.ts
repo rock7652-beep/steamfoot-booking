@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.blocked.mockReturnValue(false); m.quota.mockReturnValue({allowed:true}); m.config.mockReturnValue({destination:"channel"});
   m.transaction.mockImplementation(async (work: (db: typeof tx)=>Promise<unknown>) => work(tx));
-  m.event.findUnique.mockResolvedValue({id:"e",storeId:"a",orderId:"o",customerId:"c",connectionId:"r",status:"PENDING",nextAttemptAt:new Date(0),retryUntil:new Date(Date.now()+3600000),attempts:0,retryKey:"fixed-key",snapshot:{body:"原始通知",recipient:"line",channelKey:"channel",provider:"line-provider:901"}});
+  m.event.findUnique.mockResolvedValue({id:"e",storeId:"a",orderId:"o",customerId:"c",connectionId:"r",createdAt:new Date("2026-10-30T12:00:00Z"),status:"PENDING",nextAttemptAt:new Date(0),retryUntil:new Date(Date.now()+3600000),attempts:0,retryKey:"fixed-key",snapshot:{body:"原始通知",recipient:"line",channelKey:"channel",provider:"line-provider:901"}});
   m.order.mockResolvedValue({id:"o",partyId:"c",workOrderNumber:"261012001",workOrder:details()});
   m.store.mockResolvedValue({id:"a",name:"測試門市",plan:"GROWTH"}); m.setting.mockResolvedValue({workOrderReadyNotificationEnabled:true});
   m.connection.mockResolvedValue({id:"r",centralUserId:"u",lineUserId:"line",channelKey:"channel",identityProvider:"line-provider:901"});
@@ -52,7 +52,7 @@ describe("actual work-order notification dispatcher with isolated transports", (
     if(guard==="channel")m.config.mockReturnValue({destination:"other-channel"});
     await dispatchWorkOrderReadyNotification("e"); expect(m.push).not.toHaveBeenCalled();
   });
-  it("uses the fixed retry key and frozen body; records API acceptance separately",async()=>{ await dispatchWorkOrderReadyNotification("e"); expect(m.push).toHaveBeenCalledWith("a","line",[{type:"text",text:"原始通知"}],"fixed-key"); expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"SENT",sentAt:expect.any(Date)})})); expect(m.order).toHaveBeenCalledOnce(); });
+  it("uses the fixed retry key and frozen body; records API acceptance separately",async()=>{ await dispatchWorkOrderReadyNotification("e"); expect(m.push).toHaveBeenCalledWith("a","line",[{type:"text",text:"原始通知"}],"fixed-key",new Date("2026-10-30T12:00:00Z")); expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"SENT",sentAt:expect.any(Date)})})); expect(m.order).toHaveBeenCalledOnce(); });
   it("API failure keeps READY and records the specific reason for retry",async()=>{m.push.mockResolvedValue({success:false,error:"LINE API 429: quota"});await dispatchWorkOrderReadyNotification("e"); expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"FAILED",errorMessage:"LINE API 429: quota"})})); expect(tx.inventoryOrder).not.toHaveProperty("update");});
   it("terminal acceptance and exhausted safety deadline never call LINE again",async()=>{m.event.findUnique.mockResolvedValue({storeId:"a",status:"SENT",nextAttemptAt:new Date(0)});await dispatchWorkOrderReadyNotification("e");expect(m.push).not.toHaveBeenCalled();});
   it("does not create another event on repeated READY",async()=>{await enqueueWorkOrderReady(tx as unknown as Prisma.TransactionClient,"a",{id:"o",partyId:"c"});expect(m.event.create).not.toHaveBeenCalled();});

@@ -44,8 +44,8 @@ it('does not catch up the 9am digest or old incomplete services on activation',a
  expect(m.send).not.toHaveBeenCalled();
 });
 
-it('blocks manager delivery at the shared transport gate after retirement',async()=>{
- retirement.notifications=false;
+it('respects the store opt-in after restoring the notification capability',async()=>{
+ m.policy.mockResolvedValue({notifications:false});
  try{expect(await beautyManagerDeliveryAllowed('s')).toBe(false);await notifyBeautyBookingManagers('s','g',now);await notifyBeautyPurchaseManagers('s','order',now);await runBeautyManagerReminders(now);expect(m.send).not.toHaveBeenCalled();expect(m.group).not.toHaveBeenCalled();expect(m.order).not.toHaveBeenCalled();}
  finally{retirement.notifications=true;}
 });

@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { deliverManagerNotification } from "./manager-notification-delivery";
 import { createHash } from "node:crypto";
 import { LINE_CARD_COLORS, LINE_CARD_STYLES } from "@/lib/line-card-theme";
@@ -411,6 +412,7 @@ export async function dispatchSessionBalanceNotifications(
     try {
       const delivery = await prisma.sessionBalanceNotification.findUnique({ where: { id } });
       if (!delivery || !["PENDING", "FAILED"].includes(delivery.status)) continue;
+      if(!isLineDeliveryEventCurrent(delivery.createdAt)){await writeDelivery({status:"SKIPPED",errorMessage:"停發期間的舊通知不補發"});continue;}
       if (delivery.deliveryVersion === 1) {
         const now = new Date();
         if (!delivery.retryUntil || delivery.retryUntil <= now || delivery.deliveryAttempts >= 5) continue;
@@ -578,17 +580,8 @@ export async function dispatchSessionBalanceNotifications(
       }
 
       const result = route.channel === "STORE"
-        ? await pushMessage(
-            notification.storeId,
-            route.recipientLineUserId,
-            content.messages,
-            retryKey,
-          )
-        : await pushSteamButlerMessage(
-            route.recipientLineUserId,
-            content.messages,
-            retryKey,
-          );
+        ? await pushMessage(notification.storeId, route.recipientLineUserId, content.messages, retryKey, notification.createdAt)
+        : await pushSteamButlerMessage(route.recipientLineUserId, content.messages, retryKey, notification.createdAt);
       await writeDelivery({
           status: result.success ? "SENT" : "FAILED",
           renderedBody: content.body,

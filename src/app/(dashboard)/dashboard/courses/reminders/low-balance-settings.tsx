@@ -229,7 +229,7 @@ export function CourseLowBalanceSettings({ plans, music = false, beauty = false,
   }
 
   return (
-    <details open className="rounded-xl border border-earth-200 bg-white">
+    <details className="rounded-xl border border-earth-200 bg-white">
       <summary className="flex min-h-12 cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-2">
         <div>
           <h2 className="text-sm font-semibold text-primary-900">方案提醒設定</h2>

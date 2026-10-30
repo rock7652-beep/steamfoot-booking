@@ -40,8 +40,8 @@ it('does not resend a frozen digest after its schedule snapshot changed',async()
  expect(skip).toHaveBeenCalledWith('班表已更新，停止重送舊通知');expect(m.deliver).toHaveBeenCalledTimes(1);
 });
 
-it('retirement prevents technician queue creation and final delivery even with saved opt-ins',async()=>{
- retirement.notifications=false;
+it('the delivery policy still blocks technician queues and sends after restoration',async()=>{
+ m.blocked.mockReturnValue(true);
  try{
   await queueTechnicianDigest('s',now);await queueTechnicianChange(tx as unknown as Tx,{storeId:'s',userId:'operator'},{id:'b',technicianId:'tech',startsAt},'BOOKING');
   expect(await deliverTechnicianEvent(tx as unknown as Prisma.TransactionClient,{id:'s',name:'合成店'},event,now,skip)).toBe('SKIPPED');

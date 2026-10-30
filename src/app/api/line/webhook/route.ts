@@ -1,5 +1,5 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { bindStoreLineNotificationRecipient } from "@/server/services/store-line-notification-binding";
-import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
 import { completePhoneLineRebind } from "@/server/services/phone-line-rebind";
@@ -25,8 +25,6 @@ import {
   isSteamButlerLineDestination,
 } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
-import { buildStoreLineWelcome } from "@/lib/store-line-welcome";
-import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { normalizePhone } from "@/lib/normalize";
 import {
   captureLineRebindCandidate,
@@ -164,6 +162,7 @@ export async function POST(req: Request) {
 }
 
 async function handleSteamButlerEvent(event: LineWebhookEvent) {
+  if(!isLineDeliveryEventCurrent(event.timestamp))return;
   if (event.type !== "message" || event.message?.type !== "text") {
     return;
   }
@@ -242,6 +241,7 @@ async function resolveStoreFromDestination(
 // ============================================================
 
 async function handleLineEvent(event: LineWebhookEvent, storeId: string, destination?: string) {
+  if(event.type==="message"&&!isLineDeliveryEventCurrent(event.timestamp))return;
   if (destination && await handleMemberConnectionWebhook({ destination, storeIds: [storeId], event })) return;
   const lineUserId = event.source?.userId;
   console.log("[LINE] Event:", {
@@ -263,7 +263,7 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string, destina
       break;
     }
     case "follow":
-      await handleFollow(lineUserId, storeId, event.replyToken);
+      await handleFollow(lineUserId, storeId);
       break;
 
     case "unfollow":
@@ -295,7 +295,7 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string, destina
 // follow — 新好友加入 / 封鎖後重新加入
 // ============================================================
 
-async function handleFollow(lineUserId: string, storeId: string, replyToken?: string) {
+async function handleFollow(lineUserId: string, storeId: string) {
   console.log(`[LINE] Follow received`, { userId: maskLineUserId(lineUserId), storeId });
 
   // 若之前被封鎖，自動恢復綁定（限同店）
@@ -324,31 +324,8 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
     }
   }
 
-  // 回覆歡迎訊息
-  if (replyToken) {
-    let messages: Parameters<typeof replyMessage>[2] = [
-      {
-        type: "text",
-        text: [
-          "歡迎加入蒸足官方帳號！",
-          "",
-          "如需開啟預約提醒與方案通知，請直接輸入您的手機號碼完成通知設定。",
-          "",
-          "例如：0912345678",
-          "",
-          "系統會依照店舖與手機號碼對應到店長建立的顧客資料。",
-        ].join("\n"),
-      },
-    ];
-    try {
-      const store = await prisma.store.findUnique({ where: { id: storeId }, select: {
-        name: true, slug: true, shopConfig: { select: { shopPhone: true, address: true, mapUrl: true } },
-      } });
-      if (store && resolvePublicTrialLiffConfig(store.slug)) messages = buildStoreLineWelcome([{...store, bookingHref: resolveBookingLineEntry(store.slug)?.url}]);
-    } catch { /* Metadata failure preserves the existing manual recovery entry. */ }
-    const result = await replyMessage(storeId, replyToken, messages);
-    console.log("[LINE] Follow reply result:", result);
-  }
+  // Friendship state is updated above; adding a friend never sends a system welcome.
+
 }
 
 // ============================================================

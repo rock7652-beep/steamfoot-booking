@@ -61,8 +61,8 @@ export async function notifyCourseWaitlistPromotions(
       }];
       const retryKey = crypto.randomUUID();
       const result = route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, messages, retryKey)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages, retryKey);
+        ? await pushMessage(storeId, route.recipientLineUserId, messages, retryKey, new Date())
+        : await pushSteamButlerMessage(route.recipientLineUserId, messages, retryKey, new Date());
       if (!result.success) {
         console.error("[course-waitlist] promotion LINE failed", {
           storeId,

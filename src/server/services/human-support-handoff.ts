@@ -169,8 +169,8 @@ export interface HumanSupportReminderResult {
 /** Prioritize unrecorded store reminders without changing the existing LINE retry scan. */
 export async function getUnrecordedHumanSupportCandidates(now:Date){
  const threshold=new Date(now.getTime()-30*60*1000);
- return prisma.$queryRaw<Array<{id:string;storeId:string;store:{slug:string}}>>`
- SELECT l.id,l."storeId",jsonb_build_object('slug',s.slug) AS store
+ return prisma.$queryRaw<Array<{id:string;storeId:string;createdAt:Date;store:{slug:string}}>>`
+ SELECT l.id,l."storeId",l."createdAt",jsonb_build_object('slug',s.slug) AS store
  FROM public."DigitalButlerLead" l JOIN public."Store" s ON s.id=l."storeId"
  WHERE l."completionActionKey"=${HUMAN_SUPPORT_COMPLETION_ACTION_KEY} AND l.status::text='NEW' AND l."assignedStaffId" IS NULL AND l."createdAt"<=${threshold}
  AND NOT EXISTS(SELECT 1 FROM public."DigitalManagerNotice" n WHERE n."storeId"=l."storeId" AND n."eventKey"='human-support-final-reminder:'||l.id)
@@ -186,7 +186,7 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
       assignedStaffId: null,
       createdAt: { lte: threshold },
     },
-    select: { id: true, storeId: true, store: { select: { slug: true } } },
+    select: { id: true, storeId: true, createdAt:true, store: { select: { slug: true } } },
     take: 200,
     orderBy: { createdAt: "asc" },
   });
@@ -232,6 +232,7 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
 
       const delivery = await notifyStoreManagerOnLine({
         type: "HUMAN_SUPPORT_FINAL_REMINDER",
+        eventCreatedAt:new Date(candidate.createdAt.getTime()+30*60_000),
         eventKey,
         storeId: candidate.storeId,
         storeSlug: candidate.store.slug,

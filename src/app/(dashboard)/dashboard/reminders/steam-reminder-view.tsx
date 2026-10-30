@@ -1,4 +1,5 @@
 "use client";
+import {LineMessagePolicy,lineMessageListClass} from "@/components/admin/line-message-policy";
 import { ReminderScheduleNote } from '@/components/admin/reminder-schedule-note';
 import { PlanActivationNotificationSetting } from "@/components/admin/plan-activation-notification-setting";
 import type { SteamReminderData } from "@/server/queries/reminder-panel";
@@ -39,13 +40,13 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
   } else {
     const { state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore, workOrderEnabled, activationEnabled } = data.content;
     content = (
-      <ReminderSectionPicker key={storeId} initial={customerSection} sections={[
+      <><LineMessagePolicy preview={previewBlocked} paused={data.deliveryPaused} resumeAt={data.deliveryResumeAt}/><ReminderSectionPicker key={storeId} initial={customerSection} sections={[
         { key: "booking-reminders", label: "預約前提醒", content: (
 
           <section aria-labelledby="booking-reminders-title" className="space-y-3">
             <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
             <CronRunBanner data={cron} />
-            <div className="grid items-start gap-3 md:grid-cols-2">
+            <div className={lineMessageListClass}>
               <PackageLineCardReminderSettingCard key={`${storeId}-package`} initialBody={packageBody} hasMapLink={!!trial.mapUrl} initialEnabled={state.packageBookingEnabled} />
               <TrialLineCardReminderSettingCard key={`${storeId}-trial`} initialBody={trial.body} initialMapUrl={trial.mapUrl} initialEnabled={state.trialBookingEnabled} />
             </div>
@@ -61,14 +62,14 @@ export function SteamReminderView({ data }: { data: SteamReminderData }) {
           <section aria-labelledby="plan-reminders-title" className="space-y-3">
             <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案提醒</h3><p className="mt-1 text-sm text-earth-500">管理方案開通、剩餘堂數與到期通知。</p></div>
             <PlanActivationNotificationSetting key={`${storeId}-activation`} storeId={storeId} initialEnabled={activationEnabled} readOnly={data.readOnly}/>
-            <div className="grid items-start gap-3 lg:grid-cols-3">
+            <div className={lineMessageListClass}>
               <SimpleSessionBalanceReminders key={`${storeId}-balance`} initialSetting={balance} />
               <PlanExpiryReminderSettingCard key={`${storeId}-expiry`} initialEnabled={expiry} />
             </div>
           </section>
         ) },
         ...(workOrdersEnabled ? [{ key: "work-orders", label: "工單取件提醒", content: <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} /> }] : []),
-      ]} />
+      ]} /></>
     );
   }
   const tabIntro =

@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -80,6 +81,7 @@ async function dispatchWithTransport(id: string, transport: DeliveryTransport): 
         // acceptance retains its reservation until the next usage month.
         if (!delivery.attempts) await tx.messageLog.updateMany({ where: { id: `work-order-ready:${id}`, status: "PENDING" }, data: { status: "SKIPPED", errorMessage: reason } });
       };
+      if(!isLineDeliveryEventCurrent(delivery.createdAt)){await finish("停發期間的舊通知不補發");return;}
       if (delivery.retryUntil <= now || delivery.attempts >= 5) { await finish("已超過安全重試期限或次數，停止自動補送"); return; }
       const [order, store, setting, connection, grants] = await Promise.all([
         tx.inventoryOrder.findFirst({ where: { id: delivery.orderId, storeId: delivery.storeId, kind: "SALE" } }),
@@ -124,7 +126,7 @@ async function dispatchWithTransport(id: string, transport: DeliveryTransport): 
       if (delivery.retryUntil <= new Date()) { await finish("已超過安全重試期限，停止自動補送"); return; }
       await tx.workOrderReadyNotification.update({ where: { id }, data: { snapshot: snapshot as Prisma.InputJsonValue, attempts: { increment: 1 }, lastAttemptAt: now } });
       await tx.messageLog.upsert({ where: { id: logId }, create: { id: logId, storeId: delivery.storeId, customerId: delivery.customerId, status: "PENDING", channel: "LINE", lineRoute: "STORE", renderedBody: snapshot.body }, update: { status: "PENDING" } });
-      const result = await transport.push(delivery.storeId, snapshot.recipient, [{ type: "text", text: snapshot.body }], delivery.retryKey);
+      const result = await transport.push(delivery.storeId, snapshot.recipient, [{ type: "text", text: snapshot.body }], delivery.retryKey, delivery.createdAt);
       const status = result.success ? "SENT" : "FAILED";
       const sentAt = result.success ? new Date() : null;
       const errorMessage = result.success ? null : result.error ?? "LINE API 未接受或結果不確定";

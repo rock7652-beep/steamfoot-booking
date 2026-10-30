@@ -178,6 +178,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
 
       const delivery = await notifyStoreManagerOnLine({
         type: "INCOMPLETE_SERVICE_REMINDER",
+        eventCreatedAt:dueAt,
         eventKey,
         storeId: candidate.storeId,
         storeSlug: candidate.store.slug,

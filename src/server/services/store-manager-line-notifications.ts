@@ -112,7 +112,7 @@ function bookingUrl(storeSlug: string, bookingId: string): string {
 }
 
 export function buildStoreManagerNotificationMessage(
-  event: StoreManagerNotificationEvent,
+  event: StoreManagerNotificationEvent & {eventCreatedAt?:Date},
 ): Extract<LineMessage, { type: "text" }>[] {
   switch (event.type) {
     case "DIGITAL_BUTLER_LEAD_CREATED":
@@ -231,12 +231,13 @@ export function buildStoreManagerNotificationMessage(
  * customer-facing lead, booking, payment, or handoff flow.
  */
 export async function notifyStoreManagerOnLine(
-  event: StoreManagerNotificationEvent,
+  event: StoreManagerNotificationEvent & {eventCreatedAt?:Date},
 ): Promise<StoreManagerNotificationResult> {
   return deliverManagerNotification({
     storeId: event.storeId,
     eventKey: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" ? `booking-created:${event.bookingId}` : event.eventKey,
     type: event.type,
+    eventCreatedAt:event.eventCreatedAt,
     sameDayTrial: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" && event.bookingDate === toLocalDateStr(),
     messages: buildStoreManagerNotificationMessage(event),
   });

@@ -1,5 +1,5 @@
 // Exercise transport behavior separately from the global incident stop.
-vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false }));
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/lib/line-config", () => ({ getLineAccessTokenForStore: () => "test-token", getSteamButlerLineAccessToken: () => "central-test-token" }));
 vi.mock("@/lib/runtime-env", () => ({ isPreviewExternalIntegrationBlocked: () => false }));

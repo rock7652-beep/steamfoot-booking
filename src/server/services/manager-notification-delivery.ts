@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import { prisma } from "@/lib/db";
 import { buildManagerNotificationCard } from "./manager-notification-card";
 import { type LineMessage, pushMessage } from "@/lib/line";
@@ -113,6 +114,7 @@ export async function deliverManagerNotification(input: {
   type: string;
   messages: { type: "text"; text: string }[];
   sameDayTrial?: boolean;
+  eventCreatedAt?:Date;
   assignedStaffId?: string | null;
   /** Server-only observer rechecks its own current business subject. */
   beforeDeliver?: () => Promise<boolean>;
@@ -240,14 +242,10 @@ export async function deliverManagerNotification(input: {
           await prisma.managerNotificationLog.update({where:{id:log.id},data:{status:"SKIPPED",errorMessage:"收件人已暫停、解除綁定或變更偏好"}});
           continue;
         }
-        const result = await pushMessage(
-          input.storeId,
-          current.lineUserId,
-          log.renderedMessages
+        if(!isLineDeliveryEventCurrent(input.eventCreatedAt??log.createdAt)){await prisma.managerNotificationLog.update({where:{id:log.id},data:{status:"SKIPPED",errorMessage:"停發期間的舊通知不補發"}});continue;}
+        const result = await pushMessage(input.storeId, current.lineUserId, log.renderedMessages
             ? log.renderedMessages as unknown as LineMessage[]
-            : [{ type: "text", text: log.renderedBody }],
-          log.id,
-        );
+            : [{ type: "text", text: log.renderedBody }], log.id, input.eventCreatedAt??log.createdAt);
         await prisma.managerNotificationLog.update({
           where: { id: log.id },
           data: {
