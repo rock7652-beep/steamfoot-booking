@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../../../scripts/digital-manager-cron-preview-scope.mjs";
 import { NextRequest, NextResponse } from "next/server";
 import { runIncompleteServiceReminders } from "@/server/services/incomplete-service-reminders";
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try { digitalManagerCronPreviewScope(); } catch { return NextResponse.json({error:"Unauthorized"},{status:401}); }
   try {
     const result = await runIncompleteServiceReminders();
     return NextResponse.json(

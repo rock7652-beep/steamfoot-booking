@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../scripts/digital-manager-cron-preview-scope.mjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr, formatTWDateTime, parseTaipeiDateTime,dayRange } from "@/lib/date-utils";
@@ -75,6 +76,8 @@ export async function getUnrecordedCourseIncomplete(now:Date){
 }
 
 export async function runIncompleteServiceReminders(now = new Date()): Promise<IncompleteServiceReminderResult> {
+ const acceptance=digitalManagerCronPreviewScope();
+ now=acceptance?.now??now;
   const todayTW = toLocalDateStr(now);
   const [year, month, day] = todayTW.split("-").map(Number);
   const earliestBookingDate = new Date(Date.UTC(year, month - 1, day - LOOKBACK_DAYS));
@@ -137,6 +140,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
   };
 
   for (const candidate of candidates) {
+    if(acceptance&&!acceptance.storeIds.includes(candidate.storeId))continue;
     const dueAt = candidate.courseEndsAt ? new Date(candidate.courseEndsAt.getTime() + REMINDER_GRACE_MINUTES * 60 * 1000) : reminderDueAt(candidate.bookingDate, candidate.slotTime);
     if (!dueAt || dueAt.getTime() > now.getTime()) {
       result.skipped += 1;

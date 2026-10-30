@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../scripts/digital-manager-cron-preview-scope.mjs";
 import 'server-only';
 import {prisma} from '@/lib/db';
 import {beautyTransaction} from './access';
@@ -19,9 +20,11 @@ export async function recordBeautyIncompleteNotices(tx:Pick<Prisma.TransactionCl
 
 /** Separate from LINE workers: no LINE settings, tokens, or delivery are touched. */
 export async function runBeautyDigitalManagerReminders(now=new Date()) {
+ const acceptance=digitalManagerCronPreviewScope();
+ now=acceptance?.now??now;
  const result={recorded:0,failed:0};
  if(process.env.BEAUTY_MODULE_ENABLED!=='1')return result;
- const stores=await prisma.store.findMany({where:{industryModule:'BEAUTY',operatingStatus:{in:['ACTIVE','TRIAL']},isDemo:false},select:{id:true}});
+ const stores=await prisma.store.findMany({where:{...(acceptance?{id:{in:acceptance.storeIds}}:{}),industryModule:'BEAUTY',operatingStatus:{in:['ACTIVE','TRIAL']},isDemo:false},select:{id:true}});
  for(const store of stores)try{
   if(!await hasStoreFeature(store.id,FEATURES.BASIC_BOOKING))continue;
   const count=await beautyTransaction({storeId:store.id,userId:null},async tx=>{

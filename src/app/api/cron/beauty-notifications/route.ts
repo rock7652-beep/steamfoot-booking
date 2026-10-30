@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../../../scripts/digital-manager-cron-preview-scope.mjs";
 import { runBeautyManagerReminders } from "@/server/beauty/manager-notifications";
 import { NextRequest, NextResponse } from "next/server";
 import {runBeautyCareReminders} from "@/server/beauty/care-reminders";
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try { digitalManagerCronPreviewScope(); } catch { return NextResponse.json({error:"Unauthorized"},{status:401}); }
   let crashed=false;
   async function isolated<T>(name:string,run:()=>Promise<T>,fallback:T):Promise<T>{
     try{return await run();}

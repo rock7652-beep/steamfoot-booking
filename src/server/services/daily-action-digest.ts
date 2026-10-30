@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../scripts/digital-manager-cron-preview-scope.mjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
@@ -39,9 +40,12 @@ export async function countYesterdayIncompleteServices(
 }
 
 export async function runDailyActionDigest(now = new Date()): Promise<DailyActionDigestResult> {
+ const acceptance=digitalManagerCronPreviewScope();
+ now=acceptance?.now??now;
   const todayTW = toLocalDateStr(now);
   const stores = await prisma.store.findMany({
     where: {
+      ...(acceptance?{id:{in:acceptance.storeIds}}:{}),
       industryModule: { not: "BEAUTY" },
       isDemo: false,
       operatingStatus: { in: ["ACTIVE", "TRIAL"] },

@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
 import { legacyOperationsDestination } from "@/lib/operations-navigation";
 import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
@@ -661,6 +662,7 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
   if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
     if (req.nextUrl.pathname !== "/beauty-public-preview" || process.env.VERCEL_ENV !== "preview" ||
