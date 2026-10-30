@@ -12,6 +12,6 @@ export function createCoursePageTiming(now:()=>number=()=>performance.now()) {
  };
 }
 /** Diagnostics only on the approved isolated sports Preview, after the page's normal authorization. */
-export function coursePageTimingVisible(requested:string|undefined,storeId:string,role:string,env:NodeJS.ProcessEnv=process.env) {
+export function coursePageTimingVisible(requested:string|undefined,storeId:string,role:string,env:Record<string,string|undefined>=process.env) {
  return requested==='1'&&storeId==='sports-live-flow-store'&&role==='OWNER'&&env.VERCEL==='1'&&env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='perf/sports-course-loading';
 }
