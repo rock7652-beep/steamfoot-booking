@@ -29,26 +29,38 @@ RWD 使用實際共用名單／餘額元件；音樂使用原名單 CSS 與餘�
 - [桌機合成預覽](applicable-balance-20261029/desktop.png)
 - [iPad 尺寸合成預覽](applicable-balance-20261029/ipad.png)
 
-## 遠端隔離 Preview
+## 遠端隔離 Preview（2026-10-30 更新）
 
-- URL：<https://steamfoot-booking-jbtfcmchx-rock7652-2111s-projects.vercel.app>
-- Vercel 原專案：`prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR`；部署：`dpl_2ktJiuBcrpZnCeuW42Sge6NPXxTc`；狀態：READY。
-- 受測應用程式提交：`92bed2007af5e60ecdb2c89f9aad7d21ad84bf45`（後續提交僅驗收證據、測試及 CI 清單）。
-- 分支自動部署關閉；手動部署只使用 Preview。官方 POST `/v13/deployments` 規格：省略 target 預設 Preview；回傳 target=null。未使用 staging 共用別名或 production。
-- 五個非機密設定只限本分支 Preview：SPORTS_REDESIGN_STAGING=1、SPORTS_REDESIGN_PREVIEW=1、BEAUTY_MODULE_ENABLED=1、BEAUTY_DATABASE_MODE=legacy、BEAUTY_NOTIFICATIONS_ENABLED=0。
-- 建置記錄確認：`[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true`。僅允許既有測試資料庫 `ttworfzgwejdeolegkxl`，未套用遷移或改動正式設定。
+- URL：<https://steamfoot-booking-654m334bt-rock7652-2111s-projects.vercel.app>
+- 部署 `dpl_DUtQQhxoV67VioW6tGnXWjjzsAct`，READY；受測應用程式 SHA `c3b51a7ba0bde06e5a51ae4ab8aa9e4da5f1f3a6`。
+- 僅手動 Preview，省略 API target，回傳 target=null；未合併 main 或部署正式站。
+- 分支限定的五個非機密設定：SPORTS_REDESIGN_STAGING=1、SPORTS_REDESIGN_PREVIEW=1、BEAUTY_MODULE_ENABLED=1、BEAUTY_DATABASE_MODE=legacy、BEAUTY_NOTIFICATIONS_ENABLED=0。
+- 建置確認 `isolated_database=true migrations_skipped=true notifications_blocked=true`。未套用遷移。
+- 修正音樂 Preview capability：僅本分支、指定 repo、VERCEL Preview、隔離雙連線、store-lubymusic 可用。拒絕外庫／混合連線／正式環境／其他店；不授權歷史資料匯入或 release。新增邊界回歸測試通過，tsc 通過。
+- [本次完整 CI](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/40987762470)：Typecheck、ESLint、Targeted tests、Full Vitest baseline 全數通過；音樂補課與運動共用卡 PostgreSQL audit 另行通過。
 
-## 端到端驗收狀態與限制
+## 正常登入的隔離系統驗收
 
-流程：開啟名單 → 原授權 reader → 各模組權益／預約保留 → 共用合計 → 名單剩餘文字／預約詳情。
+使用者明確授權在 steamfoot-preview 三個既有隔離店建立 QA1469 合成帳號、學員、卡及預約；未修改既有業務資料。透過正常 OWNER 登入及原有 API，未偽造 session、關閉保護或使用正式資料。
 
-| 邊界 | 狀態 |
-| --- | --- |
-| 元件與合計呈現 | 合成資料／模擬回應驗證通過 |
-| 遠端建置與隔離前置檢查 | READY，隔離與不遷移檢查通過 |
-| 正常登入存取受保護部署 | 阻擋：Vercel CLI 65.7.0 回報 loggedIn=false；登入頁實測 HTTP 302 導向 vercel.com/sso-api |
-| 登入後名單 API → 真實隔離資料 → UI | 尚未執行，不得宣稱通過 |
-| 遠端登入後桌機／iPad 三模組操作 | 尚未執行，不以合成截圖代替 |
-| 實體 iPad／Safari | 未驗 |
+| 檢查 | 運動／舞蹈 | 音樂 | 美業 |
+| --- | --- | --- | --- |
+| 正常登入 → 名單 API → 隔離資料 → UI | 通過 | 通過 | 通過 |
+| 舊卡 1＋續購卡 20−已預約保留 1 | 剩餘 20 堂 | 剩餘 20 堂 | 剩餘 20 次 |
+| 名單不顯示單卡餘額／保留／方案明細 | 通過 | 通過 | 通過 |
+| 預約詳情展開兩張卡及保留來源 | 通過 | 通過 | 通過 |
+| 點名後重新載入仍為 20 | 通過 | 通過 | 通過 |
+| 恢復待點名／服務後重新載入仍為 20 | 通過 | 通過 | 通過 |
+| 1366×900 桌機、1024×768／768×1024 iPad 尺寸 | 通過 | 通過 | 通過 |
 
-已請使用者完成此工作區正常 Vercel 登入或提供既有驗收入口，不索取 token、密碼或 cookie；未關閉部署保護、建立分享繞過連結、偽造 session 或使用正式資料完成測試。登入恢復後，需在隔離店逐模組核對 1+20−1=20、續購刷新、點名／恢復後不重扣、詳情來源、權限及桌機／iPad，再更新 PR 驗收狀態。本次不改 LINE 或低額度提醒發送政策。
+[機器結果](applicable-balance-20261029/hosted-20261030/results.json)。截圖位於同目錄，含各模組 desktop、iPad 直向與預約詳情。
+
+驗收後三個臨時 User 均 SUSPENDED、passwordHash=NULL，對應 Staff 均 INACTIVE；只處理本次 QA1469 ID。瀏覽器 context 已關閉，本機臨時密碼及含 hash 的 SQL 已移除。保留隔離合成交易供追溯。
+
+## 驗收界線
+
+- 前段合成元件預覽與本段「真實 Preview 系統＋合成資料」明確分列；兩者都不是銀百合正式資料的業務簽核。
+- 本輪固定使用兩張有效方案卡的續購狀態；新增購課後自動刷新、點數與失效／跨店／權限邊界由既有服務／元件／政策回歸測試涵蓋，未將它們冒稱本輪 hosted 操作已實測。
+- 音樂合成預約未建立完整歷史期別，初始畫面會提示「期別待確認」；本輪證明合計、點名、恢復及版面，不能代替真實期別歸屬驗收。原期別規則未修改。
+- 實體 iPad／Safari 與真實店家業務驗收尚待完成。不得據此自動合併或上線。
+- 本次未更改 LINE 或低額度提醒發送政策。
