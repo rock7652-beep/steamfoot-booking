@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => React.createElement("section", { "data-testid": "member-connection" }) }));
+vi.mock("@/components/admin/steam-plan-close", () => ({ SteamPlanClose: () => null }));
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

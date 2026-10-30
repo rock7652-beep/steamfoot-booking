@@ -1,0 +1,127 @@
+{
+  "complete": true,
+  "scope": "isolated full local app: login, expiry, close, retained finance/history, retry; not hosted or physical Safari",
+  "results": [
+    {
+      "store": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "two-authenticated-devices-one-close-one-conflict",
+      "pass": true,
+      "closeEntries": 1,
+      "originalPaymentsUnchanged": true,
+      "usedHistoryUnchanged": true,
+      "serverSuccessObserved": true,
+      "serverConflictObserved": true
+    },
+    {
+      "store": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "two-authenticated-devices-one-close-one-conflict",
+      "pass": true,
+      "closeEntries": 1,
+      "originalPaymentsUnchanged": true,
+      "usedHistoryUnchanged": true,
+      "serverSuccessObserved": true,
+      "serverConflictObserved": true
+    },
+    {
+      "store": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "two-authenticated-devices-one-close-one-conflict",
+      "pass": true,
+      "closeEntries": 1,
+      "originalPaymentsUnchanged": true,
+      "usedHistoryUnchanged": true,
+      "serverSuccessObserved": true,
+      "serverConflictObserved": true
+    },
+    {
+      "store": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "two-authenticated-devices-one-close-one-conflict",
+      "pass": true,
+      "closeEntries": 1,
+      "originalPaymentsUnchanged": true,
+      "usedHistoryUnchanged": true,
+      "serverSuccessObserved": true,
+      "serverConflictObserved": true
+    }
+  ],
+  "errors": []
+}

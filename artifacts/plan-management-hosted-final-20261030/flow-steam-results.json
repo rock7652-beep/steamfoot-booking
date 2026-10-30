@@ -1,0 +1,44 @@
+{
+  "complete": true,
+  "base": "https://steamfoot-booking-ay6udd3kw-rock7652-2111s-projects.vercel.app",
+  "commit": "21f12b8ee007d9cffe08907c340f8ed40d7502d1",
+  "scope": "real hosted Preview, real credentials and server actions, synthetic fixtures; no auth bypass",
+  "results": [
+    {
+      "module": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2468
+    },
+    {
+      "module": "steam",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 12280
+    },
+    {
+      "module": "steam",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "assetsFailed": []
+}

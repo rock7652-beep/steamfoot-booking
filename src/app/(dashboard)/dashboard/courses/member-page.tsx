@@ -132,6 +132,7 @@ export async function CourseMemberPage({
   // Once the actor, selected store and page permissions are verified these
   // independent reads can proceed together. Never use these presentation
   // grants in place of server-side mutation authorization.
+  const canManageCards=!isViewMode&&canReadCards&&canReadPeople&&await checkPermission(user.role,user.staffId,"wallet.adjust");
   const [orders, canExport, labelSnapshot, settlement, canMerge, canAssignManager,
     healthEnabled, canReadTransactions, canSchedule, canReadBookings,
     canAssignWithTransaction, canDiscount, sharedCardState, schedulingModes, sportsData] = await timing.measure("workspace_finish", () => Promise.all([
@@ -182,6 +183,7 @@ export async function CourseMemberPage({
         canCreate={canCreate}
         canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople && canAssignWithTransaction}
+        canManageCards={canManageCards}
         canDiscount={canDiscount}
         sharedCardState={sharedCardState}
         schedulingModes={schedulingModes??undefined}

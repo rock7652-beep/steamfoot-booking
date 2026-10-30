@@ -17,6 +17,7 @@ import { CustomerPanelSummaryView } from "./customer-panel-summary";
 import { CustomerPanelRecordsList } from "./customer-panel-records";
 
 import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
+import {SteamPlanClose} from "@/components/admin/steam-plan-close";
 import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "../[id]/backfill-used-sessions-form";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
@@ -260,6 +261,7 @@ export function CustomerDetailDrawerContent({
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm controlledOpen={activeEditor === `${w.id}:adjust`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:adjust` : null);}} walletId={w.id} currentRemaining={remaining} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm controlledOpen={activeEditor === `${w.id}:backfill`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:backfill` : null);}} walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm controlledOpen={activeEditor === `${w.id}:expiry`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:expiry` : null);}} walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
+                        {!readOnly && customer.canAdjustWallet && <SteamPlanClose wallet={w} onSaved={handleMutated}/> }
                         <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet} onMutated={handleMutated} />
                       </div>
                     </details>

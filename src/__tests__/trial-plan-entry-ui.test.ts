@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/components/admin/steam-plan-close", () => ({ SteamPlanClose: () => null }));
 vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";

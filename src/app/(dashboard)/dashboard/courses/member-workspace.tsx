@@ -89,6 +89,9 @@ const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+import {PlanManagementControls} from '@/components/admin/plan-management-controls';
+import {saveCourseCardManagement} from '@/server/actions/course-card-management';
+
 export function CourseMemberWorkspace({
   source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,
   catalogSource,
@@ -110,7 +113,7 @@ export function CourseMemberWorkspace({
   canEdit,
   canCreate,
   canManageStaff,
-  canAssign,
+  canAssign,canManageCards=false,
   canSchedule=false,
   canReadBookings,
   canReadTransactions,
@@ -151,7 +154,7 @@ export function CourseMemberWorkspace({
   canEdit: boolean;
   canCreate: boolean;
   canManageStaff: boolean;
-  canAssign: boolean;canSchedule?:boolean;
+  canAssign: boolean;canManageCards?:boolean;canSchedule?:boolean;
   canReadBookings: boolean;
   canReadTransactions: boolean;
   healthEnabled: boolean;
@@ -756,7 +759,8 @@ export function CourseMemberWorkspace({
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
-                {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
+                {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onDirtyChange:setDirty,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
+                {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining} storeId={previewStoreId} card={card} save={saveCourseCardManagement} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {(source?.canManageMembers??canAssign) && sharingVisible && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
@@ -828,7 +832,7 @@ export function CourseCardEntries({ card,sessionUnitLabel="堂",entryLabels={} }
     ...entryLabels,
     GRANT: "取得額度",
     REFUND: "退款收回額度",
-    VOID: "誤建作廢收回額度",
+    VOID: "註銷／作廢收回額度",
     RESERVE: "預約保留額度",
     RELEASE: "取消預約返還額度",
     DEBIT: "出席使用",
