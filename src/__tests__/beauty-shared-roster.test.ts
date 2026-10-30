@@ -20,6 +20,7 @@ vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:m.refresh,push:m.push}),useSearchParams:()=>m.params,usePathname:()=>'/dashboard/beauty'}));
 vi.mock('@/lib/beauty/calendar-read',()=>({readBeautyCalendar:vi.fn(),projectBeautyCalendar:vi.fn()}));
 vi.mock('@/app/(dashboard)/dashboard/courses/customer-list',()=>({CourseCustomerList:()=>null}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.collectionRead(ids),readBeautyCollectionStatus:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({changeBeautyStatus:m.status,linkBeautyCustomer:vi.fn(),confirmBeautyPurchase:vi.fn(),collectBeautyPayment:m.collect,readBeautyCollection:m.collectionRead,purchaseBeautyPlan:vi.fn(),refundBeautyPayment:m.refund,confirmBeautySettlement:vi.fn(),saveBeautyCustomer:vi.fn(),moveBeautyAppointment:m.move}));
 vi.mock('@/components/beauty/schedule-workspace',()=>({BeautyScheduleWorkspace:({onOpen}:{onOpen:(id:string)=>void})=>h('button',{onClick:()=>onOpen('a')},'開啟預約')}));
 vi.mock('@/components/beauty/customer-panel',()=>({BeautyCustomerPanel:()=>null}));
@@ -71,4 +72,26 @@ it('shows a rejected payment once inside the active form, preserving entered val
 
 it('keeps refund amount, method and reason when collection uses its own panel',async()=>{
  await open();await act(async()=>button('原名單退款操作').click());const form=document.querySelector<HTMLFormElement>('form:has(#beauty-money-title)')!;expect(form).toBeTruthy();for(const [key,value] of Object.entries({amount:'250',method:'OTHER',note:'合成退款'}))(form.elements.namedItem(key) as HTMLInputElement).value=value;await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(m.refund).toHaveBeenCalledWith(expect.objectContaining({paymentId:'receipt',amount:250,method:'OTHER',reason:'合成退款'}));
+});
+
+import {beautyDashboardScope} from '@/lib/beauty/dashboard-scope';
+it('retains an open collection and its note when an RSC read catches up to the client calendar date',async()=>{
+ const key=(date:string)=>beautyDashboardScope(data.storeId,'班表',{date,month:'2026-10',calendar:'day'});
+ await act(async()=>root.render(h(BeautyDashboard,{key:key('2026-10-26'),data,tab:'班表',slug:'test'})));await act(async()=>button('開啟預約').click());await settleRoster();await act(async()=>button('原名單收款操作').click());
+ await act(async()=>{await import('@/components/beauty/collection-panel');await new Promise(resolve=>setTimeout(resolve,40));});
+ const dialog=document.querySelector('[role=dialog][aria-labelledby=beauty-collection-title]');expect(dialog).not.toBeNull();const note=dialog!.querySelector<HTMLInputElement>('input[name=note]')!;note.value='QA 切換日期後仍保留';
+ // The date was changed with the independent calendar reader; a later Server Action returns fresh RSC props.
+ m.params=new URLSearchParams('tab=班表&date=2026-10-27');window.history.replaceState(null,'','/dashboard/beauty?'+m.params);
+ await act(async()=>root.render(h(BeautyDashboard,{key:key('2026-10-27'),data:{...data,date:'2026-10-27'},tab:'班表',slug:'test'})));
+ expect(document.querySelector('[role=dialog][aria-labelledby=beauty-collection-title]')).toBe(dialog);expect(document.querySelector<HTMLInputElement>('input[name=note]')?.value).toBe('QA 切換日期後仍保留');expect(m.collect).not.toHaveBeenCalled();
+});
+it('closes the old financial target on explicit booking navigation and ignores its late quote',async()=>{
+ let resolve!:(value:unknown)=>void;m.collectionRead.mockImplementation(()=>new Promise(r=>{resolve=r;}));await open();await act(async()=>button('原名單收款操作').click());await act(async()=>{await import('@/components/beauty/collection-panel');await new Promise(r=>setTimeout(r,40));});expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).not.toBeNull();
+ m.params=new URLSearchParams('bookingId=b');await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test'})));expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).toBeNull();
+ await act(async()=>resolve({success:true,data:[]}));expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).toBeNull();expect(m.collect).not.toHaveBeenCalled();expect(m.rosterProps?.bookingId).toBe('b');
+});
+it('retains coordinate changes but still isolates stores, tabs and explicit customer/action navigation',()=>{
+ const base=beautyDashboardScope('a','班表',{date:'2026-10-26',bookingId:'a'});
+ expect(beautyDashboardScope('a','班表',{date:'2026-11-12',month:'2026-11',calendar:'month',bookingId:'b'})).toBe(base);
+ expect(beautyDashboardScope('b','班表',{})).not.toBe(base);expect(beautyDashboardScope('a','顧客管理',{})).not.toBe(base);expect(beautyDashboardScope('a','班表',{customerId:'customer'})).not.toBe(base);expect(beautyDashboardScope('a','班表',{action:'booking'})).not.toBe(base);
 });

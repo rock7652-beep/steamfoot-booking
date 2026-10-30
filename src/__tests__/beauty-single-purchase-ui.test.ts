@@ -7,6 +7,7 @@ import type {BeautyDashboardData} from '@/server/beauty/queries';
 const m=vi.hoisted(()=>({read:vi.fn(),quote:vi.fn(),collect:vi.fn(),submit:vi.fn(),availability:vi.fn()}));
 vi.mock('@/server/actions/course-browse',()=>({searchCourseCustomers:vi.fn(),loadCourseCustomerSearchIndex:vi.fn()}));
 vi.mock('@/lib/beauty/customer-reader',()=>({readBeautySingleServices:m.read}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.quote(ids),readBeautyCollectionStatus:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({readBeautyCollection:m.quote,collectBeautyPayment:m.collect}));
 vi.mock('@/components/beauty/native-schedule-source',()=>({beautyNativeScheduleSource:()=>({source:{reservation:{services:[{id:'s',name:'按摩',duration:60,trialDuration:30,buffer:15,price:1000,trialPrice:500,revision:1}],technicians:[{id:'t',name:'技師',serviceIds:['s']}],locations:[{id:'r',name:'床位'}],customers:[{id:'a',name:'甲',phone:'0900000001'},{id:'b',name:'乙',phone:'0900000002'}],cards:[],policyRevision:1,readAvailability:m.availability,submit:m.submit}}})}));
 import {BeautySinglePurchase} from '@/components/beauty/single-purchase';
