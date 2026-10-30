@@ -19,12 +19,12 @@ function createScope(sql){
  try{const migrations=join(dir,'migrations');mkdirSync(join(migrations,DIGITAL_MANAGER_REVIEW_TARGET),{recursive:true});writeFileSync(join(migrations,DIGITAL_MANAGER_REVIEW_TARGET,'migration.sql'),sql);writeFileSync(join(migrations,'migration_lock.toml'),'provider = "postgresql"\n');const schema=join(dir,'schema.prisma');writeFileSync(schema,'datasource db {\n provider = "postgresql"\n url = env("DIRECT_URL")\n}\n');return {dir,schema,cleanup:()=>rmSync(dir,{recursive:true,force:true})};}catch(e){rmSync(dir,{recursive:true,force:true});throw e;}
 }
 const policyExpected=[
- ['DigitalManagerActivation','beauty_digital_activation_insert','INSERT','3a7ac8a2092fc743e423336f473c7dac','96f0708ae3228bc45a1007132e406640'],
- ['DigitalManagerActivation','beauty_digital_activation_read','SELECT','96f0708ae3228bc45a1007132e406640','3a7ac8a2092fc743e423336f473c7dac'],
- ['DigitalManagerActivation','beauty_digital_activation_update','UPDATE','96f0708ae3228bc45a1007132e406640','96f0708ae3228bc45a1007132e406640'],
- ['DigitalManagerNotice','beauty_digital_manager_insert','INSERT','3a7ac8a2092fc743e423336f473c7dac','7a15a460f6cc98ed34bb61cd0d46408d'],
- ['DigitalManagerNotice','beauty_digital_manager_read','SELECT','7a15a460f6cc98ed34bb61cd0d46408d','3a7ac8a2092fc743e423336f473c7dac'],
- ['DigitalManagerNotice','beauty_digital_manager_update','UPDATE','7a15a460f6cc98ed34bb61cd0d46408d','7a15a460f6cc98ed34bb61cd0d46408d'],
+ ['DigitalManagerActivation','beauty_digital_activation_insert','INSERT','3a7ac8a2092fc743e423336f473c7dac','c65c397998d0ab09cfdd90b12342478e'],
+ ['DigitalManagerActivation','beauty_digital_activation_read','SELECT','c65c397998d0ab09cfdd90b12342478e','3a7ac8a2092fc743e423336f473c7dac'],
+ ['DigitalManagerActivation','beauty_digital_activation_update','UPDATE','c65c397998d0ab09cfdd90b12342478e','c65c397998d0ab09cfdd90b12342478e'],
+ ['DigitalManagerNotice','beauty_digital_manager_insert','INSERT','3a7ac8a2092fc743e423336f473c7dac','fdb85480d0599beeb2f602fa45e019ec'],
+ ['DigitalManagerNotice','beauty_digital_manager_read','SELECT','fdb85480d0599beeb2f602fa45e019ec','3a7ac8a2092fc743e423336f473c7dac'],
+ ['DigitalManagerNotice','beauty_digital_manager_update','UPDATE','fdb85480d0599beeb2f602fa45e019ec','fdb85480d0599beeb2f602fa45e019ec'],
 ];
 const triggerExpected=[
  ['course_incomplete_notice_resolution','CourseBooking','resolve_course_incomplete_notice','59c61b4cbe0d213403170ee262d10bc8'],
@@ -34,6 +34,13 @@ const triggerExpected=[
  ['steamfoot_incomplete_notice_resolution','Booking','resolve_steamfoot_incomplete_notice','98c77e7a8950bba2dbb19697cc8bfd0e'],
  ['steamfoot_plan_payment_notice','Transaction','record_steamfoot_plan_payment_notice','7d29c43af9769d73bd422010db0a4152'],
 ];
+/** Exact enum type and policy definitions; no accepted-hash expansion for text fixtures. */
+export async function verifyDigitalManagerPolicyBoundary(tx){
+ const [industryType]=await tx.$queryRawUnsafe(`SELECT t.typname,n.nspname,t.typtype::text AS kind FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE a.attrelid='public.\"Store\"'::regclass AND a.attname='industryModule' AND NOT a.attisdropped`);
+ if(industryType?.typname!=='IndustryModule'||industryType.nspname!=='public'||industryType.kind!=='e')fail('industry_type_rejected');
+ const policies=await tx.$queryRawUnsafe(`SELECT tablename,policyname,cmd,roles::text[] AS roles,md5(coalesce(qual,'<NULL>')) AS qual,md5(coalesce(with_check,'<NULL>')) AS check FROM pg_policies WHERE schemaname='public' AND tablename IN ('DigitalManagerNotice','DigitalManagerActivation') ORDER BY tablename,policyname`);
+ if(policies.length!==6||policies.some((p,i)=>JSON.stringify(p.roles)!==JSON.stringify(['steamfoot_beauty_prod_20261025'])||JSON.stringify([p.tablename,p.policyname,p.cmd,p.qual,p.check])!==JSON.stringify(policyExpected[i])))fail('policies_rejected');
+}
 export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().sql){
  const tables=await tx.$queryRawUnsafe(`SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced,
   md5((SELECT string_agg(a.attname || ':' || format_type(a.atttypid,a.atttypmod) || ':' || a.attnotnull::text || ':' || coalesce(pg_get_expr(d.adbin,d.adrelid),'<NULL>'),'|' ORDER BY a.attnum) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)) AS columns,
@@ -44,8 +51,7 @@ export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().
   FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('DigitalManagerActivation','DigitalManagerNotice') ORDER BY c.relname`);
  const expected=[['DigitalManagerActivation','16925753649f65b714a73d8922707a12','bcfa9795d00ded5ecd086a9f3160cd20','88bbe74feccb2aa14801f718c9451ff3'],['DigitalManagerNotice','8a49d81a26c84b01cf5745debb9f42ff','0ae80852487b38e60f56a0c8414864d2','12f0ae0ccf8d0cf426d7b0366050131f']];
  if(tables.length!==2||tables.some((r,i)=>!r.rls||r.forced||r.public_access||r.client_access||JSON.stringify([r.name,r.columns,r.constraints,r.indexes])!==JSON.stringify(expected[i])))fail('tables_rejected');
- const policies=await tx.$queryRawUnsafe(`SELECT tablename,policyname,cmd,roles::text[] AS roles,md5(coalesce(qual,'<NULL>')) AS qual,md5(coalesce(with_check,'<NULL>')) AS check FROM pg_policies WHERE schemaname='public' AND tablename IN ('DigitalManagerNotice','DigitalManagerActivation') ORDER BY tablename,policyname`);
- if(policies.length!==6||policies.some((p,i)=>JSON.stringify(p.roles)!==JSON.stringify(['steamfoot_beauty_prod_20261025'])||JSON.stringify([p.tablename,p.policyname,p.cmd,p.qual,p.check])!==JSON.stringify(policyExpected[i])))fail('policies_rejected');
+ await verifyDigitalManagerPolicyBoundary(tx);
  const triggers=await tx.$queryRawUnsafe(`SELECT t.tgname,c.relname,p.proname,t.tgenabled::text AS enabled,md5(pg_get_triggerdef(t.oid)) AS hash FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid WHERE n.nspname='public' AND NOT t.tgisinternal AND t.tgname IN ('course_incomplete_notice_resolution','course_session_incomplete_notice_resolution','digital_manager_lead_notice','digital_manager_vip_notice','steamfoot_incomplete_notice_resolution','steamfoot_plan_payment_notice') ORDER BY t.tgname`);
  if(triggers.length!==6||triggers.some((r,i)=>r.enabled!=='O'||JSON.stringify([r.tgname,r.relname,r.proname,r.hash])!==JSON.stringify(triggerExpected[i])))fail('triggers_rejected');
  const expectedFunctions=Object.fromEntries([...sql.matchAll(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(\) RETURNS trigger[\s\S]*?AS \$notice\$([\s\S]*?)\$notice\$;/g)].map(m=>[m[1],md5(m[2])]));

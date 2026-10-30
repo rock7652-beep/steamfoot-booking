@@ -18,7 +18,7 @@ const root=(name)=>{const dir=join(work,name);mkdirSync(join(dir,'migrations'),{
 const migration=(dir,name,sql)=>{const d=join(dir,'migrations',name);mkdirSync(d,{recursive:true});writeFileSync(join(d,'migration.sql'),sql);};
 const env={PATH:process.env.PATH??'/usr/bin:/bin',DIRECT_URL:url,PRISMA_HIDE_UPDATE_MESSAGE:'1'};
 const run=(args,dir)=>spawnSync(prisma,[...args,'--schema',join(dir,'schema.prisma')],{cwd:dir,env,encoding:'utf8'});
-const initial=`CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" text);
+const initial=`CREATE TYPE "IndustryModule" AS ENUM ('BEAUTY','STEAMFOOT','SPA','COURSE'); CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" "IndustryModule");
  CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text,name text);
  CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"displayName" text);
  CREATE TABLE "ServicePlan"(id text PRIMARY KEY,"storeId" text,name text);

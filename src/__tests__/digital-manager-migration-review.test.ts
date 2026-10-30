@@ -1,11 +1,12 @@
 import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
 import {expect,it} from 'vitest';
+import {verifyDigitalManagerPolicyBoundary} from '../../scripts/digital-manager-migration-review.mjs';
 
 const review=readFileSync('prisma/reconciliation/20261030_digital_manager_migration_review.sql','utf8');
 const sources=['digital-manager-notice-candidate','steamfoot-digital-manager-booking-candidate','steamfoot-digital-manager-payment-candidate','digital-manager-lead-candidate','digital-manager-vip-candidate','digital-manager-incomplete-resolution-candidate'];
 const baseline=`CREATE ROLE anon; CREATE ROLE authenticated;
- CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" text);
+ CREATE TYPE "IndustryModule" AS ENUM ('BEAUTY','STEAMFOOT','SPA','COURSE'); CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" "IndustryModule");
  CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text,name text);
  CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"displayName" text);
  CREATE TABLE "ServicePlan"(id text PRIMARY KEY,"storeId" text,name text);
@@ -60,4 +61,21 @@ it('rolls back the combined review if the dedicated Beauty role is absent',async
   expect((await db.query<{name:string|null}>(`SELECT to_regclass('public."DigitalManagerNotice"')::text AS name`)).rows[0].name).toBeNull();
   expect((await db.query<{definition:string}>(`SELECT pg_get_functiondef('public.record_steamfoot_store_notice()'::regprocedure) AS definition`)).rows[0].definition).toBe(before);
  } finally {await db.close();}
+},30000);
+it.each([true,false])('checks policy boundaries against the actual IndustryModule enum (%s)',async actualEnum=>{
+ const db=new PGlite();
+ try{
+  await db.exec(actualEnum?baseline:baseline.replace('"industryModule" "IndustryModule"','"industryModule" text'));
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  await db.exec(`CREATE ROLE steamfoot_beauty_prod_20261025 LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT;
+   GRANT SELECT (id,"industryModule") ON "Store" TO steamfoot_beauty_prod_20261025;
+   ALTER TABLE "Store" ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY beauty_test_read ON "Store" FOR SELECT TO steamfoot_beauty_prod_20261025 USING (true);`);
+  await db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'));
+  const client={$queryRawUnsafe:async(sql:string,...args:unknown[])=>(await db.query(sql,args)).rows};
+  if(!actualEnum){await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('industry_type_rejected');return;}
+  await expect(verifyDigitalManagerPolicyBoundary(client)).resolves.toBeUndefined();
+  await db.exec('ALTER POLICY beauty_digital_manager_read ON "DigitalManagerNotice" USING (true)');
+  await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('policies_rejected');
+ }finally{await db.close();}
 },30000);
