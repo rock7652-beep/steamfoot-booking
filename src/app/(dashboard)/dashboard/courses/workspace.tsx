@@ -10,7 +10,8 @@ import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
 import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
 
 import {coursePlanModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
-import {useSportsCalendarState,useSportsCalendarScroll,calendarDate,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {useSportsCalendarState,useSportsCalendarDate,useSportsCalendarScroll,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
+import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calendar-month-boundary";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
@@ -349,7 +350,8 @@ export function CourseWorkspace({
   }
   const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
-  const [nativeDate,setNativeDate]=useSportsCalendarState(sportsNative,"date",loadedDate,calendarDate);
+  const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
+  const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
   const [nativeCalendar,setNativeCalendar]=useState<{schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
@@ -371,7 +373,7 @@ export function CourseWorkspace({
     calendarTargetMonth.current=date.slice(0,7);
     const request=++calendarRequest.current;
     calendarReadsInFlight.current++;
-    if(!background)setCalendarReading(true);
+    if(!background){setCalendarReading(true);setError("");}
     try{
       let warning:string|undefined;
       const ensured=ensure&&sportsNative&&canCreate&&!calendarSource;
@@ -384,8 +386,12 @@ export function CourseWorkspace({
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
   },[sportsNative,canCreate,sportsCalendarReader,calendarSource]);
-  useEffect(()=>{if(sportsNative&&nativeDate.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7))&&calendarTargetMonth.current!==nativeDate.slice(0,7))void refreshNativeCalendar(nativeDate,true);},[sportsNative,nativeDate,nativeCalendar?.month,loadedDate,refreshNativeCalendar]);
-  useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,!calendarReading);
+  const calendarDataReady=calendarMonthReady(sportsNative,nativeDate,nativeCalendar?.month??loadedDate.slice(0,7));
+  useEffect(()=>{if(!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
+    if(!calendarSource)setNativeDate(nativeDate);
+    void refreshNativeCalendar(nativeDate,true);
+  }},[calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
+  useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
   const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
@@ -397,8 +403,7 @@ export function CourseWorkspace({
         ? "day"
         : "month",calendarMode,
   );
-  const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
-  useEffect(()=>{if(!sportsNative)return;if(explicitDate&&calendarDate(explicitDate))setNativeDate(explicitDate);if(explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitDate,explicitMode,setNativeDate,setScheduleMode]);
+  useEffect(()=>{if(sportsNative&&explicitMode&&calendarMode(explicitMode))setScheduleMode(explicitMode);},[sportsNative,explicitMode,setScheduleMode]);
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
     if(sportsNative)return;
@@ -1001,7 +1006,7 @@ export function CourseWorkspace({
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
       {sportsNative&&view==="schedule"&&notice&&<p role="status" aria-live="polite" className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900">{notice}</p>}
-      {sportsNative&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
+      {sportsNative&&calendarDataReady&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
@@ -1141,6 +1146,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
+          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading} error={error} onRetry={()=>void refreshNativeCalendar(selectedDate,true)}>
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (
@@ -1252,6 +1258,7 @@ export function CourseWorkspace({
             />
             </>
           )}
+          </CalendarMonthBoundary>
           <p
             role="status"
             aria-live="polite"
@@ -1259,7 +1266,7 @@ export function CourseWorkspace({
           >
             {pending ? "處理中…" : notice}
           </p>
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {error && calendarDataReady && <p role="alert" className="text-sm text-red-700">{error}</p>}
         </div>
       )}
       <datalist id="course-category-options">
