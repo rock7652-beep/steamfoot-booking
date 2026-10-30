@@ -1,0 +1,93 @@
+{
+  "variant": "baseline",
+  "origin": "https://steamfoot-booking-ilpfaqcu6-rock7652-2111s-projects.vercel.app",
+  "fixtureStore": "sports-live-flow-store",
+  "data": "isolated synthetic fixtures",
+  "measurements": [
+    {
+      "view": "catalog",
+      "sample": 0,
+      "warmup": true,
+      "elapsedMs": 3046,
+      "ttfbMs": 688,
+      "transferBytes": 18099,
+      "documentBytes": 101349
+    },
+    {
+      "view": "catalog",
+      "sample": 1,
+      "warmup": false,
+      "elapsedMs": 2953,
+      "ttfbMs": 959,
+      "transferBytes": 18162,
+      "documentBytes": 101349
+    },
+    {
+      "view": "catalog",
+      "sample": 2,
+      "warmup": false,
+      "elapsedMs": 2534,
+      "ttfbMs": 556,
+      "transferBytes": 18116,
+      "documentBytes": 101349
+    },
+    {
+      "view": "catalog",
+      "sample": 3,
+      "warmup": false,
+      "elapsedMs": 2379,
+      "ttfbMs": 597,
+      "transferBytes": 18099,
+      "documentBytes": 101349
+    },
+    {
+      "view": "schedule",
+      "sample": 0,
+      "warmup": true,
+      "elapsedMs": 2714,
+      "ttfbMs": 626,
+      "transferBytes": 30192,
+      "documentBytes": 282813
+    },
+    {
+      "view": "schedule",
+      "sample": 1,
+      "warmup": false,
+      "elapsedMs": 2083,
+      "ttfbMs": 501,
+      "transferBytes": 30078,
+      "documentBytes": 282813
+    },
+    {
+      "view": "schedule",
+      "sample": 2,
+      "warmup": false,
+      "elapsedMs": 3459,
+      "ttfbMs": 565,
+      "transferBytes": 30034,
+      "documentBytes": 282813
+    },
+    {
+      "view": "schedule",
+      "sample": 3,
+      "warmup": false,
+      "elapsedMs": 3809,
+      "ttfbMs": 592,
+      "transferBytes": 30199,
+      "documentBytes": 282813
+    }
+  ],
+  "checks": [
+    {
+      "step": "normal-isolated-owner-login",
+      "pass": true
+    },
+    {
+      "step": "no-eager-schedule-options-request",
+      "pass": true
+    }
+  ],
+  "pageErrors": [],
+  "optionsRequests": [],
+  "success": true
+}

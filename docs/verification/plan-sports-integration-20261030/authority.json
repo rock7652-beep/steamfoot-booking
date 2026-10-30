@@ -1,0 +1,122 @@
+{
+  "scope": "Isolated synthetic QA only; existing records immutable; not production or real-device acceptance",
+  "preview": "https://steamfoot-booking-akchjnk4s-rock7652-2111s-projects.vercel.app",
+  "appCommit": "4e167b02bbddff882e24a10c6f80870baa6f824c",
+  "cutoff": "2026-10-30T03:58:58Z",
+  "history": {
+    "before": [
+      {
+        "dataset": "CoursePurchase",
+        "count": 125,
+        "digest": "8117b47c7720e49df9ea0dbe2f520070"
+      },
+      {
+        "dataset": "CoursePointEntry",
+        "count": 921,
+        "digest": "1ac370190a3cc835f647cea142248fc8"
+      },
+      {
+        "dataset": "BeautyPayment",
+        "count": 90,
+        "digest": "7ea54c2585a5b94ca47baecb02464452"
+      },
+      {
+        "dataset": "BeautyLedger",
+        "count": 121,
+        "digest": "64e8276f8a5a7cd4e1147196765e6dec"
+      }
+    ],
+    "after": [
+      {
+        "dataset": "CoursePurchase",
+        "count": 125,
+        "digest": "8117b47c7720e49df9ea0dbe2f520070"
+      },
+      {
+        "dataset": "CoursePointEntry",
+        "count": 921,
+        "digest": "1ac370190a3cc835f647cea142248fc8"
+      },
+      {
+        "dataset": "BeautyPayment",
+        "count": 90,
+        "digest": "7ea54c2585a5b94ca47baecb02464452"
+      },
+      {
+        "dataset": "BeautyLedger",
+        "count": 121,
+        "digest": "64e8276f8a5a7cd4e1147196765e6dec"
+      }
+    ],
+    "unchanged": true
+  },
+  "authority": {
+    "beauty_card": [
+      {
+        "id": "qa1469-int-beauty-card",
+        "closed": true,
+        "remaining": 0
+      }
+    ],
+    "course_cards": [
+      {
+        "id": "qa1469-int-sports-card",
+        "closed": true,
+        "closures": 1,
+        "remaining": 0,
+        "close_audits": 1
+      },
+      {
+        "id": "qa1469-int-music-card",
+        "closed": true,
+        "closures": 1,
+        "remaining": 0,
+        "close_audits": 1
+      }
+    ],
+    "beauty_ledger": [
+      {
+        "sum": -2,
+        "kind": "ATTEND",
+        "count": 1
+      },
+      {
+        "sum": -8,
+        "kind": "CLOSE",
+        "count": 1
+      },
+      {
+        "sum": 10,
+        "kind": "PURCHASE",
+        "count": 1
+      }
+    ],
+    "beauty_booking": [
+      {
+        "id": "qa1469-20261030-beauty-booking",
+        "status": "RESERVED"
+      }
+    ],
+    "beauty_original": 1,
+    "course_bookings": [
+      {
+        "id": "qa1469-20261030-sports-booking",
+        "status": "RESERVED"
+      },
+      {
+        "id": "qa1469-20261030-music-booking",
+        "status": "RESERVED"
+      }
+    ],
+    "course_originals": [
+      {
+        "id": "qa1469-20261030-sports-old",
+        "remaining": 1
+      },
+      {
+        "id": "qa1469-20261030-music-old",
+        "remaining": 1
+      }
+    ]
+  }
+}

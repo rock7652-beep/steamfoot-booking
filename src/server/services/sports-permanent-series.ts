@@ -127,6 +127,24 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
  await tx.courseBooking.update({where:{id:b.id},data:{cardId:picked.card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:picked.cost}});
 }
 
+/** Batch only the existence check. Cancelled/moved rows still occupy their original index. */
+export async function sportsMonthHasMissingOccurrences(tx:Pick<Tx,"courseSession">,storeId:string,rules:FixedCourseSeries[],first:string,last:string){
+ const expected=rules.map(series=>{
+  const indexes:number[]=[];
+  for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
+  return {requestKey:series.requestKey,indexes};
+ }).filter(row=>row.indexes.length);
+ // Bound SQL parameters for large stores without reverting to one round-trip per series.
+ for(let offset=0;offset<expected.length;offset+=250){
+  const batch=expected.slice(offset,offset+250);
+  const rows=await tx.courseSession.findMany({where:{storeId,OR:batch.map(row=>({requestKey:row.requestKey,requestIndex:{in:row.indexes}}))},select:{requestKey:true,requestIndex:true}});
+  const counts=new Map<string,Map<number,number>>();
+  for(const row of rows){const indexes=counts.get(row.requestKey)??new Map<number,number>();indexes.set(row.requestIndex,(indexes.get(row.requestIndex)??0)+1);counts.set(row.requestKey,indexes);}
+  if(batch.some(row=>row.indexes.reduce((n,index)=>n+(counts.get(row.requestKey)?.get(index)??0),0)!==row.indexes.length))return true;
+ }
+ return false;
+}
+
 /** Existing/cancelled/moved occurrences count as generated; never resurrect an exception. */
 export async function ensureSportsMonth(actor:CourseActor,first:string,last:string){
  if(!(await sportsNativePreview(actor.storeId)))return;
@@ -138,12 +156,7 @@ export async function ensureSportsMonth(actor:CourseActor,first:string,last:stri
  const releasedCandidates=await coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{gte:parseTaipeiDateTime(first,"00:00")!,lt:parseTaipeiDateTime(addTaiwanDuration(last,1,"DAY"),"00:00")!},bookings:{some:{status:"NO_SHOW"},none:{status:{notIn:["CANCELLED","NO_SHOW"]}}}},select:{id:true}});
  if(releasedCandidates.length){const {courseTransaction}=await import("./course-access");const {syncCourseRelease}=await import("./course-booking");await courseTransaction(actor.storeId,async tx=>{for(const s of releasedCandidates)await syncCourseRelease(tx,actor.storeId,s.id);});}
  const rules=await readSportsSeries(coursePrisma,actor.storeId);
- let missing=false;
- for(const series of rules){
-  const indexes:number[]=[];
-  for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
-  if(indexes.length&&await coursePrisma.courseSession.count({where:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:{in:indexes}}})!==indexes.length){missing=true;break;}
- }
+ const missing=await sportsMonthHasMissingOccurrences(coursePrisma,actor.storeId,rules,first,last);
  if(missing){
   const {courseTransaction}=await import("./course-access");
   return courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));

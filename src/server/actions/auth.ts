@@ -16,7 +16,7 @@ import { normalizePhone } from "@/lib/normalize";
 // hqLoginAction — 後台登入（/hq/login）
 // ============================================================
 
-export type LoginState = { error: string | null };
+export type LoginState = { error: string | null; redirectTo?: string };
 
 export async function serviceStaffLoginAction(
   _prev: LoginState,
@@ -118,6 +118,10 @@ export async function hqLoginAction(
       email,
       password,
       redirectTo: decision.redirectTo,
+      // Complete authentication and cookies here, then let the browser navigate.
+      // A streamed Server Action redirect can fetch a protected deployment's
+      // Vercel authentication page and preload its assets on our own origin.
+      redirect: false,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -127,7 +131,7 @@ export async function hqLoginAction(
     throw e;
   }
 
-  return { error: null };
+  return { error: null, redirectTo: decision.redirectTo };
 }
 
 async function findLoginUser(email: string) {

@@ -8,6 +8,27 @@ import { AppError } from "@/lib/errors";
 export function sportsTeachingTemplateId(storeId: string, subjectId: string) {
   return "sports_item_" + createHash("sha256").update(JSON.stringify([storeId, subjectId])).digest("hex");
 }
+/** Three tenant-scoped reads regardless of catalog size; no per-item transaction queue. */
+export async function readSportsTeachingRules(tx: Prisma.TransactionClient, storeId: string, subjectIds: string[]) {
+  const ids = [...new Set(subjectIds)].map(subjectId => sportsTeachingTemplateId(storeId, subjectId));
+  if (!ids.length) return new Map<string, SportsTeachingRule>();
+  const [templates, coaches, fees] = await Promise.all([
+    tx.courseTemplate.findMany({where:{storeId,id:{in:ids}},select:{id:true,pointCost:true}}),
+    tx.$queryRaw<Array<{id:string;courseQualifiedTemplateIds:string[]}>>`SELECT id,"courseQualifiedTemplateIds" FROM "Staff" WHERE "storeId"=${storeId} AND status::text='ACTIVE' AND "courseCoachEnabled"=true AND "courseQualifiedTemplateIds" && ${ids}::text[] ORDER BY id`,
+    tx.courseCompensation.findMany({where:{storeId,templateId:{in:ids},staffId:""},select:{templateId:true,rules:true}}),
+  ]);
+  const templateById = new Map(templates.map(row => [row.id,row]));
+  const feeById = new Map(fees.map(row => [row.templateId,row]));
+  const result = new Map<string, SportsTeachingRule>();
+  for (const subjectId of new Set(subjectIds)) {
+    const templateId = sportsTeachingTemplateId(storeId,subjectId), template = templateById.get(templateId);
+    if (!template) continue;
+    const coachIds = coaches.filter(coach => coach.courseQualifiedTemplateIds.includes(templateId)).map(coach => coach.id);
+    const parsed = sportsCompensation.safeParse((feeById.get(templateId)?.rules as unknown[])?.[0]);
+    result.set(subjectId,{pointCost:template.pointCost,coachIds,expectedCoachIds:coachIds,compensation:parsed.success?parsed.data:{mode:"SHARE",value:60},expectedCompensation:parsed.success?parsed.data:null});
+  }
+  return result;
+}
 export async function readSportsTeachingRule(tx: Prisma.TransactionClient, storeId: string, subjectId: string) {
   const templateId = sportsTeachingTemplateId(storeId, subjectId);
   const template = await tx.courseTemplate.findFirst({ where: { id: templateId, storeId } });

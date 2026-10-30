@@ -1,0 +1,331 @@
+{
+  "complete": false,
+  "base": "https://steamfoot-booking-hvja701pf-rock7652-2111s-projects.vercel.app",
+  "commit": "2f35df20d92c8e61bf08f052f05d8f56343e44da",
+  "scope": "real hosted Preview, real credentials and server actions, synthetic fixtures; no auth bypass",
+  "results": [
+    {
+      "module": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 4265
+    },
+    {
+      "module": "sports",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 2702
+    },
+    {
+      "module": "sports",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2675
+    },
+    {
+      "module": "music",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 4174
+    },
+    {
+      "module": "music",
+      "step": "lost-committed-response-same-request-retry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2179
+    },
+    {
+      "module": "beauty",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 2183
+    },
+    {
+      "module": "beauty",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2267
+    }
+  ],
+  "errors": [],
+  "assetsFailed": [
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0d8yrxyjjrd3z.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/26926dqku0-yw.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/446dsekqkb40x.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/294ivofsn1wvk.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3n9_x9yw9ntow.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ioxix1cg_-bq.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3figeh5tvttx6.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1gx3q_t4t0tqv.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0pk0ww60d9s9n.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1qioj49aw7gdp.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/26926dqku0-yw.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/446dsekqkb40x.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/294ivofsn1wvk.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0d8yrxyjjrd3z.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/14i3syi9o4rao.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0pbke4ox1cv_v.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/446dsekqkb40x.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/26926dqku0-yw.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ioxix1cg_-bq.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1gx3q_t4t0tqv.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3figeh5tvttx6.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3n9_x9yw9ntow.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/2kdoahn1m7rn-.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0gknfzmf-4fk4.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0932z1y7fxgkj.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/07a39a8a4660cc7c.p.1v5bejj26fx9h.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/GeistPixel_Square.p.3ig4wtfmw09gh.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0d8yrxyjjrd3z.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1-9yb6i_h9yg1.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/26926dqku0-yw.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/446dsekqkb40x.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/media/Geist_Variable-s.p.2v-cf9syxr5ni.woff2",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/294ivofsn1wvk.css",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3ioxix1cg_-bq.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/3n9_x9yw9ntow.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/0pk0ww60d9s9n.js",
+      "status": 404
+    },
+    {
+      "path": "/_next/static/immutable/chunks/1gx3q_t4t0tqv.js",
+      "status": 404
+    }
+  ]
+}

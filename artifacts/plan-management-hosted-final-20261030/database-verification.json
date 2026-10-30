@@ -1,0 +1,512 @@
+{
+  "applicationCommit": "21f12b8ee007d9cffe08907c340f8ed40d7502d1",
+  "deployment": "dpl_ADNsEj7kMFa759mZuVW3KoME2nQj",
+  "preview": "https://steamfoot-booking-ay6udd3kw-rock7652-2111s-projects.vercel.app",
+  "finance": {
+    "project": "ttworfzgwejdeolegkxl",
+    "before": {
+      "steamUsage": [
+        {
+          "id": "qa1468-steam-final-primary-lesson-1",
+          "digest": "53701e0a2845b9b3507134aaf683d562"
+        },
+        {
+          "id": "qa1468-steam-final-primary-lesson-2",
+          "digest": "214d2f6a4d29c3970310c95023015a08"
+        },
+        {
+          "id": "qa1468-steam-final-race-lesson-1",
+          "digest": "bc3da30f78f6990ae916293cb34a3dda"
+        },
+        {
+          "id": "qa1468-steam-final-race-lesson-2",
+          "digest": "d7b7dda1bc8889c6f95de44bfd0db57c"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-lesson-1",
+          "digest": "a2b535fa2a571532ea5afa65228983b6"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-lesson-2",
+          "digest": "afcd914337dd54a5f84fd38452f047e8"
+        },
+        {
+          "id": "qa1468-steam-primary-lesson-1",
+          "digest": "6c45513263244191a200fe049f4483a7"
+        },
+        {
+          "id": "qa1468-steam-primary-lesson-2",
+          "digest": "a99d5f594fcdc76649022945849d543b"
+        },
+        {
+          "id": "qa1468-steam-race-lesson-1",
+          "digest": "f7d2bef0a09ff76dd0d5a0f532ea93e4"
+        },
+        {
+          "id": "qa1468-steam-race-lesson-2",
+          "digest": "7eec2a513d1f76de524a8ec0adc41aa3"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-lesson-1",
+          "digest": "702de5d99470e3452fd5f4403a6a616e"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-lesson-2",
+          "digest": "77ff63258584489a3fb7c3acf6c06a5a"
+        }
+      ],
+      "beautyUsage": [
+        {
+          "id": "qa1468-beauty-final-primary-ATTEND",
+          "digest": "84655dd1db0bb9f4647c43fe2cd00d32"
+        },
+        {
+          "id": "qa1468-beauty-final-primary-PURCHASE",
+          "digest": "722015d5252bbbf134d35a39b925f8be"
+        },
+        {
+          "id": "qa1468-beauty-final-race-ATTEND",
+          "digest": "384ff6391717f641987d193903f5bff7"
+        },
+        {
+          "id": "qa1468-beauty-final-race-PURCHASE",
+          "digest": "8a547b8a49ddf15210a26da861ff0fc4"
+        },
+        {
+          "id": "qa1468-beauty-primary-ATTEND",
+          "digest": "fdfcf9ec92be015a8ce4dab9341969ef"
+        },
+        {
+          "id": "qa1468-beauty-primary-PURCHASE",
+          "digest": "356c257f4ca37c7da5418edf7ef20b6c"
+        },
+        {
+          "id": "qa1468-beauty-race-ATTEND",
+          "digest": "8a84108266a6d902d0f1968795ac0c32"
+        },
+        {
+          "id": "qa1468-beauty-race-PURCHASE",
+          "digest": "ae512011e75d777789c6d84ff3606016"
+        }
+      ],
+      "courseUsage": [
+        {
+          "id": "qa1468-music-final-primary-DEBIT",
+          "digest": "e57b03deffecce78e263e32d6e18a3c7"
+        },
+        {
+          "id": "qa1468-music-final-primary-GRANT",
+          "digest": "c84d1b6f76f189bfb3bf14362681ae1f"
+        },
+        {
+          "id": "qa1468-music-final-race-DEBIT",
+          "digest": "287a600aaba9ffcf7eb3aba670f9cd19"
+        },
+        {
+          "id": "qa1468-music-final-race-GRANT",
+          "digest": "29d5e04878f07f1cd904c480ea3ec384"
+        },
+        {
+          "id": "qa1468-music-primary-DEBIT",
+          "digest": "f45fb64eb064a235c36f6d7824b59f90"
+        },
+        {
+          "id": "qa1468-music-primary-GRANT",
+          "digest": "c72355b19f80b2ecac0243417ba9048d"
+        },
+        {
+          "id": "qa1468-music-race-DEBIT",
+          "digest": "218a9f9636605accd73fd3a204807b14"
+        },
+        {
+          "id": "qa1468-music-race-GRANT",
+          "digest": "73bc80e1dfcde6402e672163532fa604"
+        },
+        {
+          "id": "qa1468-sports-final-primary-DEBIT",
+          "digest": "4275af2ddd7c46f76d4c431343c095bc"
+        },
+        {
+          "id": "qa1468-sports-final-primary-GRANT",
+          "digest": "4cc9845690f396f3022322e1384c1009"
+        },
+        {
+          "id": "qa1468-sports-final-race-DEBIT",
+          "digest": "6533552ed6ba4baae37d102aaeadd30a"
+        },
+        {
+          "id": "qa1468-sports-final-race-GRANT",
+          "digest": "7e639b0fca02e3497683caa162bf4caa"
+        },
+        {
+          "id": "qa1468-sports-primary-DEBIT",
+          "digest": "1746d3a56fe87237d46d7df1c868d591"
+        },
+        {
+          "id": "qa1468-sports-primary-GRANT",
+          "digest": "6ac4d980506b21f7c78a4c3b047c310e"
+        },
+        {
+          "id": "qa1468-sports-race-DEBIT",
+          "digest": "8a25b9daacd4d681ba5c6dcd33b3ae9d"
+        },
+        {
+          "id": "qa1468-sports-race-GRANT",
+          "digest": "12efff1e34823629a819f3cf0a1d4ec3"
+        }
+      ],
+      "steamPayments": [
+        {
+          "id": "qa1468-steam-final-primary-receipt",
+          "digest": "24dd4cb3a010b64465c46b5754642929"
+        },
+        {
+          "id": "qa1468-steam-final-race-receipt",
+          "digest": "00f0a6641b8f688e1eeaac73ff931ffd"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-receipt",
+          "digest": "3ddb87221b909fc3f0f22ce0c198649a"
+        },
+        {
+          "id": "qa1468-steam-primary-receipt",
+          "digest": "e5b7d42420b7522ef217b41a8febeb85"
+        },
+        {
+          "id": "qa1468-steam-race-receipt",
+          "digest": "b0463f9211ac9279dd50130075fa6aad"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-receipt",
+          "digest": "caf29819be8977842ce607153e5c468b"
+        }
+      ],
+      "beautyPayments": [
+        {
+          "id": "qa1468-beauty-final-primary-receipt",
+          "digest": "2b6fc7e5a1a3df967078a7424e43ac31"
+        },
+        {
+          "id": "qa1468-beauty-final-race-receipt",
+          "digest": "d1d81e7cc4b816ad2b78cacf4b86c674"
+        },
+        {
+          "id": "qa1468-beauty-primary-receipt",
+          "digest": "1a7a1d1d21a59ff4d616b36ce9bd95c9"
+        },
+        {
+          "id": "qa1468-beauty-race-receipt",
+          "digest": "5c66c8584eb229d1fa7aa64a76ba9730"
+        }
+      ],
+      "coursePayments": [
+        {
+          "id": "qa1468-music-final-primary-receipt",
+          "digest": "3bb7ba9391f914bd0e48d3a87153ca32"
+        },
+        {
+          "id": "qa1468-music-final-race-receipt",
+          "digest": "f34736dc578ce5625494ae5e1cc307bb"
+        },
+        {
+          "id": "qa1468-music-primary-receipt",
+          "digest": "7681a7363969e565d84fae228ee920ba"
+        },
+        {
+          "id": "qa1468-music-race-receipt",
+          "digest": "ac96e947cc90a9e9656c5804f96364f9"
+        },
+        {
+          "id": "qa1468-sports-final-primary-receipt",
+          "digest": "34bcf0b70c9bc3fb9590d0e46fd23e99"
+        },
+        {
+          "id": "qa1468-sports-final-race-receipt",
+          "digest": "8df3635af9152b93fd29109841dc694e"
+        },
+        {
+          "id": "qa1468-sports-primary-receipt",
+          "digest": "c21a77a16439ae327746855f04c7e717"
+        },
+        {
+          "id": "qa1468-sports-race-receipt",
+          "digest": "620af9ac24f5c30959964fe63fd677d5"
+        }
+      ]
+    },
+    "after": {
+      "steamUsage": [
+        {
+          "id": "qa1468-steam-final-primary-lesson-1",
+          "digest": "53701e0a2845b9b3507134aaf683d562"
+        },
+        {
+          "id": "qa1468-steam-final-primary-lesson-2",
+          "digest": "214d2f6a4d29c3970310c95023015a08"
+        },
+        {
+          "id": "qa1468-steam-final-race-lesson-1",
+          "digest": "bc3da30f78f6990ae916293cb34a3dda"
+        },
+        {
+          "id": "qa1468-steam-final-race-lesson-2",
+          "digest": "d7b7dda1bc8889c6f95de44bfd0db57c"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-lesson-1",
+          "digest": "a2b535fa2a571532ea5afa65228983b6"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-lesson-2",
+          "digest": "afcd914337dd54a5f84fd38452f047e8"
+        },
+        {
+          "id": "qa1468-steam-primary-lesson-1",
+          "digest": "6c45513263244191a200fe049f4483a7"
+        },
+        {
+          "id": "qa1468-steam-primary-lesson-2",
+          "digest": "a99d5f594fcdc76649022945849d543b"
+        },
+        {
+          "id": "qa1468-steam-race-lesson-1",
+          "digest": "f7d2bef0a09ff76dd0d5a0f532ea93e4"
+        },
+        {
+          "id": "qa1468-steam-race-lesson-2",
+          "digest": "7eec2a513d1f76de524a8ec0adc41aa3"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-lesson-1",
+          "digest": "702de5d99470e3452fd5f4403a6a616e"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-lesson-2",
+          "digest": "77ff63258584489a3fb7c3acf6c06a5a"
+        }
+      ],
+      "beautyUsage": [
+        {
+          "id": "qa1468-beauty-final-primary-ATTEND",
+          "digest": "84655dd1db0bb9f4647c43fe2cd00d32"
+        },
+        {
+          "id": "qa1468-beauty-final-primary-PURCHASE",
+          "digest": "722015d5252bbbf134d35a39b925f8be"
+        },
+        {
+          "id": "qa1468-beauty-final-race-ATTEND",
+          "digest": "384ff6391717f641987d193903f5bff7"
+        },
+        {
+          "id": "qa1468-beauty-final-race-PURCHASE",
+          "digest": "8a547b8a49ddf15210a26da861ff0fc4"
+        },
+        {
+          "id": "qa1468-beauty-primary-ATTEND",
+          "digest": "fdfcf9ec92be015a8ce4dab9341969ef"
+        },
+        {
+          "id": "qa1468-beauty-primary-PURCHASE",
+          "digest": "356c257f4ca37c7da5418edf7ef20b6c"
+        },
+        {
+          "id": "qa1468-beauty-race-ATTEND",
+          "digest": "8a84108266a6d902d0f1968795ac0c32"
+        },
+        {
+          "id": "qa1468-beauty-race-PURCHASE",
+          "digest": "ae512011e75d777789c6d84ff3606016"
+        }
+      ],
+      "courseUsage": [
+        {
+          "id": "qa1468-music-final-primary-DEBIT",
+          "digest": "e57b03deffecce78e263e32d6e18a3c7"
+        },
+        {
+          "id": "qa1468-music-final-primary-GRANT",
+          "digest": "c84d1b6f76f189bfb3bf14362681ae1f"
+        },
+        {
+          "id": "qa1468-music-final-race-DEBIT",
+          "digest": "287a600aaba9ffcf7eb3aba670f9cd19"
+        },
+        {
+          "id": "qa1468-music-final-race-GRANT",
+          "digest": "29d5e04878f07f1cd904c480ea3ec384"
+        },
+        {
+          "id": "qa1468-music-primary-DEBIT",
+          "digest": "f45fb64eb064a235c36f6d7824b59f90"
+        },
+        {
+          "id": "qa1468-music-primary-GRANT",
+          "digest": "c72355b19f80b2ecac0243417ba9048d"
+        },
+        {
+          "id": "qa1468-music-race-DEBIT",
+          "digest": "218a9f9636605accd73fd3a204807b14"
+        },
+        {
+          "id": "qa1468-music-race-GRANT",
+          "digest": "73bc80e1dfcde6402e672163532fa604"
+        },
+        {
+          "id": "qa1468-sports-final-primary-DEBIT",
+          "digest": "4275af2ddd7c46f76d4c431343c095bc"
+        },
+        {
+          "id": "qa1468-sports-final-primary-GRANT",
+          "digest": "4cc9845690f396f3022322e1384c1009"
+        },
+        {
+          "id": "qa1468-sports-final-race-DEBIT",
+          "digest": "6533552ed6ba4baae37d102aaeadd30a"
+        },
+        {
+          "id": "qa1468-sports-final-race-GRANT",
+          "digest": "7e639b0fca02e3497683caa162bf4caa"
+        },
+        {
+          "id": "qa1468-sports-primary-DEBIT",
+          "digest": "1746d3a56fe87237d46d7df1c868d591"
+        },
+        {
+          "id": "qa1468-sports-primary-GRANT",
+          "digest": "6ac4d980506b21f7c78a4c3b047c310e"
+        },
+        {
+          "id": "qa1468-sports-race-DEBIT",
+          "digest": "8a25b9daacd4d681ba5c6dcd33b3ae9d"
+        },
+        {
+          "id": "qa1468-sports-race-GRANT",
+          "digest": "12efff1e34823629a819f3cf0a1d4ec3"
+        }
+      ],
+      "steamPayments": [
+        {
+          "id": "qa1468-steam-final-primary-receipt",
+          "digest": "24dd4cb3a010b64465c46b5754642929"
+        },
+        {
+          "id": "qa1468-steam-final-race-receipt",
+          "digest": "00f0a6641b8f688e1eeaac73ff931ffd"
+        },
+        {
+          "id": "qa1468-steam-finish-primary-receipt",
+          "digest": "3ddb87221b909fc3f0f22ce0c198649a"
+        },
+        {
+          "id": "qa1468-steam-primary-receipt",
+          "digest": "e5b7d42420b7522ef217b41a8febeb85"
+        },
+        {
+          "id": "qa1468-steam-race-receipt",
+          "digest": "b0463f9211ac9279dd50130075fa6aad"
+        },
+        {
+          "id": "qa1468-steam-readiness-race-receipt",
+          "digest": "caf29819be8977842ce607153e5c468b"
+        }
+      ],
+      "beautyPayments": [
+        {
+          "id": "qa1468-beauty-final-primary-receipt",
+          "digest": "2b6fc7e5a1a3df967078a7424e43ac31"
+        },
+        {
+          "id": "qa1468-beauty-final-race-receipt",
+          "digest": "d1d81e7cc4b816ad2b78cacf4b86c674"
+        },
+        {
+          "id": "qa1468-beauty-primary-receipt",
+          "digest": "1a7a1d1d21a59ff4d616b36ce9bd95c9"
+        },
+        {
+          "id": "qa1468-beauty-race-receipt",
+          "digest": "5c66c8584eb229d1fa7aa64a76ba9730"
+        }
+      ],
+      "coursePayments": [
+        {
+          "id": "qa1468-music-final-primary-receipt",
+          "digest": "3bb7ba9391f914bd0e48d3a87153ca32"
+        },
+        {
+          "id": "qa1468-music-final-race-receipt",
+          "digest": "f34736dc578ce5625494ae5e1cc307bb"
+        },
+        {
+          "id": "qa1468-music-primary-receipt",
+          "digest": "7681a7363969e565d84fae228ee920ba"
+        },
+        {
+          "id": "qa1468-music-race-receipt",
+          "digest": "ac96e947cc90a9e9656c5804f96364f9"
+        },
+        {
+          "id": "qa1468-sports-final-primary-receipt",
+          "digest": "34bcf0b70c9bc3fb9590d0e46fd23e99"
+        },
+        {
+          "id": "qa1468-sports-final-race-receipt",
+          "digest": "8df3635af9152b93fd29109841dc694e"
+        },
+        {
+          "id": "qa1468-sports-primary-receipt",
+          "digest": "c21a77a16439ae327746855f04c7e717"
+        },
+        {
+          "id": "qa1468-sports-race-receipt",
+          "digest": "620af9ac24f5c30959964fe63fd677d5"
+        }
+      ]
+    },
+    "checks": {
+      "steamUsage": true,
+      "beautyUsage": true,
+      "courseUsage": true,
+      "steamPayments": true,
+      "beautyPayments": true,
+      "coursePayments": true
+    }
+  },
+  "concurrency": [
+    {
+      "module": "beauty",
+      "id": "qa1468-beauty-final-race-card",
+      "remaining": 0,
+      "closed": true,
+      "close_entries": 1
+    },
+    {
+      "module": "course",
+      "id": "qa1468-music-final-race-card",
+      "remaining": 0,
+      "closed": true,
+      "close_entries": 1
+    },
+    {
+      "module": "course",
+      "id": "qa1468-sports-final-race-card",
+      "remaining": 0,
+      "closed": true,
+      "close_entries": 1
+    },
+    {
+      "module": "steam",
+      "id": "qa1468-steam-readiness-race-card",
+      "remaining": 0,
+      "closed": true,
+      "close_entries": 1
+    }
+  ],
+  "cleanup": {
+    "disabledUsers": 4,
+    "inactiveStaff": 4,
+    "pausedSyntheticStores": 4
+  },
+  "scope": "Existing isolated Supabase project only. No production data modified. Authenticated screenshots remain local."
+}
