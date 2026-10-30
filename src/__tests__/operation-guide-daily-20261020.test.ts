@@ -42,7 +42,7 @@ describe("2026-10-20 backend incremental inventory", () => {
     expect(text("E08")).toContain("返回清單");
   });
   it("records a complete 10-commit audit while preserving the previous scoped alignment", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(state.auditDateTaipei).toBe("2026-10-25");
     expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
     expect(state.reviewedMainCommitCount).toBe(237);
@@ -57,7 +57,7 @@ describe("2026-10-20 backend incremental inventory", () => {
     expect(state.scopedProductionAlignment.productionCommit).toBe("8d717d5dc45da6fbd4e2984afea48165140281b3");
     expect(state.currentAuditReuse.guideIds).toHaveLength(12);
     expect(state.backendInterfaceFollowups[0].status).toBe("not-connected-to-visible-entry");
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(213);
     expect(guideCategories).toHaveLength(15);
   });
 });

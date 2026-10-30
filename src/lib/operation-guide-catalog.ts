@@ -1192,16 +1192,20 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "顧客與店長是不同收件對象；開啟前先核對。預覽按鈕不跳轉業務操作、不發 LINE，不需為了看樣式建立真實預約或收款。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種",
+    "keywords": "複製綁定訊息 同頁 綁定指令 繼續綁定 LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種 系統暫停 全站停送 推播 回覆 delivery_paused",
     "details": [
-      planActivationGuideDetail,
-      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
-      "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
-      "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
-      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
-      "店長通知上方另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
-      "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。"
-    ],
+  "目前系統已全面暫停 LINE 推播與回覆；店家開關、重新綁定或額度恢復都不能解除。先依 F14 核對，不反覆重送、不解除原綁定；既有成功紀錄不代表停送期間有新訊息送出。",
+  "按新增綁定或原列「繼續綁定」後，畫面會同頁顯示本店官方 LINE 帳號與綁定訊息，可按「複製綁定訊息」；不會把後台直接跳轉至 LINE。請用實際接收通知的本人 LINE 加入本店官方帳號並送出該訊息，收到成功回覆後回此頁重新整理。無法自動複製時手動選取，訊息只供本人使用、不可轉傳；不要重複新增同一收件人。",
+  "店長通知待完成綁定者可在原人員列接續，不新增重複收件人；需由本人 LINE 送出本店驗證指令，既有身分衝突仍先核對。設定成功、連結成功與實際送達分開確認。",
+  "明日提醒統一台灣時間：顧客前一天 18:00，教師／教練／技師前一天 21:00；異動通知另依事件。時間備註不會開啟通知，各模組仍以開關、功能及發送紀錄為準。18:00 後新增或改期不補入當天明日提醒批次；原失敗批次重試與異動通知另外核對。",
+  planActivationGuideDetail,
+  "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
+  "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
+  "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
+  "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
+  "店長通知上方另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
+  "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。"
+],
     "modules": [
       "steamfoot",
       "spa"
@@ -1209,16 +1213,18 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
-      "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
-      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
-      "src/lib/manager-notification-preview.ts",
-      "src/lib/manager-notification-preferences.ts",
-      "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
-      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
-      "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx"
-    ],
+  "src/app/(dashboard)/dashboard/reminders/page.tsx",
+  "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
+  "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+  "src/lib/manager-notification-preview.ts",
+  "src/lib/manager-notification-preferences.ts",
+  "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+  "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx",
+  "src/lib/line-delivery-pause.ts",
+  "src/lib/line.ts"
+],
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "顧客提醒、店長通知與發送紀錄分開；修改其中一邊不代表另一邊已開啟，也不代表訊息已送達。"
@@ -1263,59 +1269,65 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F04",
     "category": "care",
     "title": "LINE 沒收到通知，先檢查什麼？",
-    "summary": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。",
+    "summary": "先核對是否系統暫停 LINE，再分辨沒有發送紀錄、失敗與已成功；不反覆重綁或重送。",
     "path": "提醒管理 → 發送紀錄",
     "steps": [
-      "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
-      "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
-      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
-    ],
+  "先確認是否仍為系統暫停 LINE；停送期間保留原預約與通知設定，不能用開關或重綁恢復。",
+  "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
+  "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
+  "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
+],
     "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。預覽看起來正確或發送紀錄顯示成功，不代表本人已在 LINE 看見或點過連結。",
     "success": "",
-    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆",
+    "keywords": "LINE 健康清單 正式店 未設定 收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆 系統暫停 全站停送 推播 回覆 delivery_paused",
     "details": [
-      "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
-      "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
-      "課程顧客收到的改期、取消、確認會到與續購提醒是另一種用途，請看 C167；不要拿店長示範卡片測試顧客操作。",
-      "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
-      "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
-      "通知設定完成不代表會員已能登入。蒸足顧客登入時若出現確認碼，請在顧客資料的「本店會員與 LINE」核對本人、手機及同一組確認碼，再按「已核對本人與確認碼，允許重新登入」。請顧客重新進入會員專區完成登入；後台顯示已授權時，仍不代表顧客已登入。",
-      "尚未核對的登入申請逾時時，請顧客重新提交，由店家核對新的確認碼。透過會員登入確認完成本人核對後，指定 LINE 身分的授權會持續有效到完成登入，或由有權限人員撤銷；不因等待天數失效。不要反覆設定通知、重新註冊或解除原 LINE 綁定。",
-      "後台的會員資料、登入與通知分列；「已核對本人，確認通知連結」只處理 LINE 通知，「允許重新登入」只授權登入恢復，兩者不能互相代替。工單待取件通知也不能把登入申請當成有效通知收件連結。",
-      "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
-      "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
-      "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
-      "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
-      "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
-      "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。"
-    ],
+  "目前系統已全面暫停 LINE 推播與回覆；店家開關、重新綁定或額度恢復都不能解除。先依 F14 核對，不反覆重送、不解除原綁定；既有成功紀錄不代表停送期間有新訊息送出。",
+  "公開體驗已先驗證 LINE 且身分能安全對應時，可沿用已驗證身分銜接首次會員登入；仍有衝突、不同 Provider 或未完成設定時須門市核對，不能只憑電話接管。入口核對與通知連結排錯見 F12；不要求所有顧客都重輸電話或人工核准。",
+  "LINE 官方帳號健康清單也列出未設定獨立 LINE 的正式音樂、運動與美業店，未設定不等於已完成串接。查看目前店狀態仍受權限、提醒功能及門市範圍限制；檢測不發顧客訊息，正常連線不代表每筆通知已送達。",
+  "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
+  "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
+  "課程顧客收到的改期、取消、確認會到與續購提醒是另一種用途，請看 C167；不要拿店長示範卡片測試顧客操作。",
+  "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
+  "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
+  "通知設定完成不代表會員已能登入。蒸足顧客登入時若出現確認碼，請在顧客資料的「本店會員與 LINE」核對本人、手機及同一組確認碼，再按「已核對本人與確認碼，允許重新登入」。請顧客重新進入會員專區完成登入；後台顯示已授權時，仍不代表顧客已登入。",
+  "尚未核對的登入申請逾時時，請顧客重新提交，由店家核對新的確認碼。透過會員登入確認完成本人核對後，指定 LINE 身分的授權會持續有效到完成登入，或由有權限人員撤銷；不因等待天數失效。不要反覆設定通知、重新註冊或解除原 LINE 綁定。",
+  "後台的會員資料、登入與通知分列；「已核對本人，確認通知連結」只處理 LINE 通知，「允許重新登入」只授權登入恢復，兩者不能互相代替。工單待取件通知也不能把登入申請當成有效通知收件連結。",
+  "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
+  "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
+  "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
+  "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
+  "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
+  "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。"
+],
     "modules": [
-      "steamfoot",
-      "spa",
-      "course"
-    ],
+  "steamfoot",
+  "course",
+  "beauty"
+],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
-      "src/app/api/line/webhook/route.ts",
-      "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
-      "src/server/services/configured-course-line-webhook.ts",
-      "src/server/services/manager-notification-delivery.ts",
-      "src/lib/manager-notification-preferences.ts",
-      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
-      "docs/manager-line-flex-inventory.md",
-      "src/components/admin/store-member-connection-panel.tsx",
-      "src/server/services/liff-login-recovery.ts",
-      "src/server/services/store-member-connection.ts",
-      "src/server/services/work-order-ready-notification.ts",
-      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
-      "src/server/services/line-quota-monitor.ts"
-    ],
+  "src/app/(dashboard)/dashboard/reminders/page.tsx",
+  "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+  "src/app/api/line/webhook/route.ts",
+  "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
+  "src/server/services/configured-course-line-webhook.ts",
+  "src/server/services/manager-notification-delivery.ts",
+  "src/lib/manager-notification-preferences.ts",
+  "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+  "docs/manager-line-flex-inventory.md",
+  "src/components/admin/store-member-connection-panel.tsx",
+  "src/server/services/liff-login-recovery.ts",
+  "src/server/services/store-member-connection.ts",
+  "src/server/services/work-order-ready-notification.ts",
+  "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+  "src/server/services/line-quota-monitor.ts",
+  "src/lib/line-delivery-pause.ts",
+  "src/lib/line.ts"
+],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。"
+    "answer": "系統停送優先於店家開關與 LINE 額度；先查 F14，再按本店發送紀錄與原事件核對。"
   },
   {
     "id": "F06",
@@ -2244,7 +2256,7 @@ export const additionalGuides: OperationGuide[] = [
     "important": "匯出內容不含健康評估、內部備註、LINE／Messenger ID 或憑證。",
     "success": "下載到 Excel 檔，內容符合所選類型與期間。",
     "keywords": "匯出 Excel 報表 下載 交易 預約 方案",
-    "details": [
+    "details": ["下載前先核對門市、期間、類型、狀態及日期口徑摘要；舊資料匯出網址會轉入報表匯出，保留原查詢。唯讀視角不能下載；功能未開通或無權限不代表沒有資料，錯誤就地顯示，勿反覆提交。",
       "若有顧客匯出權限，也可選顧客資料；此時日期指顧客建立期間，不是到店或消費期間。"
     ],
     "modules": [
@@ -2685,21 +2697,20 @@ export const additionalGuides: OperationGuide[] = [
     "title": "體驗預約成功，但 LINE 通知尚未完成怎麼辦？",
     "summary": "先保留已成功的預約，再依完成頁顯示的通知狀態處理；通知未完成不代表時段沒有保留。",
     "answer": "先保留已成功的預約，再依完成頁顯示的通知狀態處理；通知未完成不代表時段沒有保留。",
-    "path": "公開體驗預約完成頁 → LINE 通知狀態",
+    "path": "設定 → 店家資料 → 公開預約 LINE 入口；顧客管理 → 會員與 LINE 資料；發送紀錄",
     "steps": [
-      "先確認完成頁顯示「體驗預約成功」，並記下日期、時間、人數與門市；不要為了補通知重新預約。",
-      "若顯示「LINE 通知已連結」，不必再輸入電話；請顧客保持該門市官方 LINE 為好友且未封鎖。",
-      "若顯示通知尚未完成並提供「開啟 LINE 完成通知設定」，請顧客在 24 小時內用自己的手機開啟，送出自動帶入的驗證訊息；看到「通知設定完成」才算完成。",
-      "若畫面要求聯繫門市，或 LINE 回覆連結失效、身分衝突、暫時無法完成，保留畫面與預約資料，由店家核對；不要解除既有綁定或新建同名顧客。"
+      "先在後台核對原體驗預約的門市、顧客與日期；體驗預約成功但通知尚未完成時，不重複新增預約。",
+      "到設定的公開預約 LINE 入口核對本店連結；使用複製連結分享或放圖文選單。尚未設定時先完成本店 OA 設定，不借其他店連結。",
+      "在顧客資料核對會員登入與本店通知連結，並查發送紀錄；身分衝突交由門市核對本人，不解除既有綁定或新建同名顧客。"
     ],
-    "important": "專屬通知設定連結只能由顧客本人使用，不可轉傳。預約提醒及體驗後關懷仍受店家開關、發送時間、好友與封鎖狀態影響。",
-    "success": "完成頁顯示已連結，或 LINE 回覆「通知設定完成」；預約資料仍維持原日期與時段。",
-    "keywords": "體驗預約成功 通知尚未完成 LINE 通知已連結 通知設定完成 24 小時 專屬連結 不用再輸入電話 身分衝突",
+    "important": "LINE 通知已連結、通知設定完成、會員已登入與訊息已送達是不同結果；店家須分別核對，不以電話或好友狀態當成身分證明。",
+    "success": "本店入口與原預約可對應；失敗只處理原預約的通知連結，沒有重複預約或覆寫其他會員。",
+    "keywords": "體驗預約成功 通知尚未完成 LINE 通知已連結 通知設定完成 公開預約 LINE 入口 複製連結 圖文選單 身分衝突 門市核對",
     "details": [
-      "竹北、新竹與台中的已設定 LINE 體驗入口，會在驗證門市與 LINE 身分後回傳明確通知狀態；電話仍在表單填一次，不需再到官方 LINE 輸入。一般公開表單仍可預約，但只有加入好友或填電話，不足以證明通知綁定完成。",
-      "一次性 24 小時設定連結只在系統判定可安全設定時提供。既有顧客尚未綁定或身分不一致時，系統不會只憑電話產生可覆蓋綁定的連結，而是顯示需要門市協助。",
-      "連結失效、已使用或不適用本店時，若先前已看到通知設定完成，不必重做；否則請店家核對。LINE 已屬於其他顧客時，原綁定不會被改寫。",
-      "通知設定成功不等於訊息已發送。實際提醒與隔日關懷需另外查看店家設定、觸發條件及發送紀錄；不要為測試單一顧客而啟動全店群發。"
+      "共用入口優先驗證 LINE 再預約，既有分享網址沿用本店設定。新客已驗證且能安全對應的通知身分可銜接首次會員登入；跨 Provider 或既有衝突仍保留核對，不會只憑電話產生可覆蓋綁定的連結，不能保證所有人直接登入。",
+      "總部可在門市詳情核對公開預約 LINE 入口。複製受瀏覽器限制時，使用畫面提供的手動複製欄位；不要自行拼接另一家店或中央帳號的連結。",
+      "通知連結暫時失敗會保留已成功預約，只重試原請求；一次性憑證過期時由原流程重新取得，不重建同筆預約。舊連結僅作歷史核對，不提供前台逐步教學。",
+      "通知設定成功不等於訊息已發送。實際提醒與隔日關懷另看店家開關、觸發條件及發送紀錄；不要為測試而群發。"
     ],
     "modules": [
       "steamfoot"
@@ -2711,7 +2722,10 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
       "src/server/actions/public-trial-booking.ts",
       "src/server/services/trial-notification-binding.ts",
-      "src/app/api/line/webhook/route.ts"
+      "src/app/api/line/webhook/route.ts",
+      "src/components/settings/public-booking-link-row.tsx",
+      "src/server/services/public-trial-login-customer.ts",
+      "src/server/services/verified-notification-first-login.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting"
