@@ -6,6 +6,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 開發約定
 
+## 專案 Skills
+
+以下是本 repo 的工作流程；本檔保留永久規則，`docs` 保留各領域規範與歷史證據，不將 Skill 當成另一份業務規則或額外授權。
+
+- 接續既有開發／修復、盤點影響與交接：讀 [.agents/skills/steamfoot-task-handoff/SKILL.md](.agents/skills/steamfoot-task-handoff/SKILL.md)，先核對原作者、PR、最新決策與授權，避免重複工作。
+- 設計、修改或驗收 UI／設定／清單／面板：讀 [.agents/skills/steamfoot-ui-review/SKILL.md](.agents/skills/steamfoot-ui-review/SKILL.md)，並遵循下方 Framework 與 RWD 要求。
+- 準備交付、PR 驗收或發布：讀 [.agents/skills/steamfoot-release-check/SKILL.md](.agents/skills/steamfoot-release-check/SKILL.md)，分清測試、發布與正式驗收證據。
+
+僅載入本次相關 Skill。即使執行器未自動列出 repo Skills，也可由以上路徑讀取；不能據此宣稱使用者桌面已同步或安裝。
+Skill 不增加 push、合併、部署、正式資料寫入或外發權限；既有通知停發不得自行恢復。涉及 Cloudflare 時按本次實際依賴核實必要性，不一律略過或一律阻擋；受阻只暫停依賴部分，且不得換路繞過權限拒絕。
+
 ## 日期與時區
 
 - 全系統統一 UTC+8 (Asia/Taipei)，規則文件：`docs/date-time-rules.md`
