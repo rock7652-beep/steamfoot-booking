@@ -42,3 +42,35 @@
 重現腳本：`scripts/qa/plan-management.mjs`、`plan-management-seed.ts`、`plan-management-browser.mjs`。啟動器只接受既有 `sports-live-flow-qa-scope.mjs` 限制的 localhost:3107、127.0.0.1:55438/sports_live_flow_test；拒絕部署 metadata 或環境檔。先以 Prisma 的空資料庫 DDL 初始化主庫與課程結構，再依序執行 `sportsSeed`、`modulesSeed`、`seed`，開啟 `dev` 後執行 `browser` 與 `browser sports,music,beauty,steam --race`。Chromium 僅載入合成帳號，未讀取使用者登入資料。測試容器及帳號於驗收後移除。
 
 限制：音樂本機「課程與學費」的逐期紀錄仍受既有部署開通條件限制，本次經正常「收費方式 → 顧客持有方案」入口驗收，沒有繞過權限或放寬開關。尚未部署同版本線上測試站，亦非實機 iPad／Safari 驗收。本文件及支線完成不代表已合併或更新正式站。
+
+## 線上隔離 Preview 收尾（2026-10-30）
+
+本節更新上節的「尚未部署線上測試站」狀態。原專案已建立受保護的 Preview，沿用 `steamfoot-preview`（`ttworfzgwejdeolegkxl`），沒有新建資料庫、沒有執行遷移或異動正式顧客。支線只獲得既有隔離環境的精確 allowlist，`ci-migrate.mjs` 仍在建立客戶端／遷移子程序前結束；相關 19 項檢查通過。新增美業設定僅限本支線的 Preview，通知維持關閉。
+
+最終應用版本：`21f12b8ee007d9cffe08907c340f8ed40d7502d1`。部署：`dpl_ADNsEj7kMFa759mZuVW3KoME2nQj`，READY、非 production。
+
+測試後台：<https://steamfoot-booking-ay6udd3kw-rock7652-2111s-projects.vercel.app/hq/login>。
+
+### 登入資源錯誤的原因與修正
+
+在原受保護部署 `2f35df20`，正常登入的 Server Action 303 回應混入 Vercel 驗證頁的 RSC，247,938 bytes、69 個 `/_next/static/immutable/` 引用，並帶有錯誤的字型 Link header。瀏覽器因此向蒸管家 origin 請求並不存在的 Vercel 字型／CSS／JS。直接 GET 登入頁及預讀忘記密碼頁均沒有這些引用；不能將此問題歸因於使用者未清除快取。
+
+HQ 登入改為由原 Auth.js 完成帳密驗證與 cookie 寫入，再將原 resolver 決定的相對路徑回傳瀏覽器正常導航，避免 Server Action 內部串流受保護的轉址目的地。沒有替換驗證、偽造 session 或關閉部署保護，也沒有增加靜態路徑 rewrite。修正後正常登入回應為 200、7,281 bytes，不再帶入 Vercel 驗證頁或 immutable 引用，對照的資源診斷為零 HTTP 失敗。
+
+登入角色、店家路徑、停用帳號與錯誤密碼等回歸 48 項通過；線上也確認錯誤密碼不產生 session，重新填入完整正確帳密後可登入自己的店家。TypeScript、變更檔 ESLint 通過。
+
+### 功能與帳務結果
+
+- 修正登入後，運動、音樂、美業的登入、期限延長／縮短、原地註銷、重整及音樂回覆遺失重試，共 19 個流程檢查完成；該版本為 `48f25f11`。
+- 最後補上蒸足儲存尚在處理時不可再次開啟期限編輯的 disabled 狀態。最終 `21f12b8e` 再驗蒸足完整 6 個流程檢查，零 pageerror、零靜態資源失敗。兩版本之間只有此蒸足按鈕改動，其他三模組的業務及介面檔案相同。
+- 最終版本的運動、音樂、美業三組雙裝置案例，兩端分別完成註銷／顯示版本衝突。蒸足同步刷新後可能直接在兩端顯示已註銷，因此原本等待持續顯示衝突訊息的斷言逾時，原紀錄保留。補驗改以已結束的畫面狀態加上權威資料庫稽核核對，5 個檢查通過；沒有忽略重複異動或修改原始失敗結果。
+- 四組最終並發案例均確認餘額 0、方案關閉、且每張卡**只有一筆**註銷紀錄。18 筆合成原收款及原已使用紀錄的完整列摘要前後一致。
+- 原版本的靜態資源 404、蒸足快速重入及等待衝突訊息的逾時紀錄均保留；不以補驗結果抹除歷史。截圖只留工作區，不上傳。
+
+資料庫核對：[database-verification.json](../../artifacts/plan-management-hosted-final-20261030/database-verification.json)。最終蒸足流程：[flow-steam-results.json](../../artifacts/plan-management-hosted-final-20261030/flow-steam-results.json)。蒸足同步補驗：[race-steam-results.json](../../artifacts/plan-management-hosted-final-20261030/race-steam-results.json)。登入負向驗證：[auth-negative-results.json](../../artifacts/plan-management-hosted-final-20261030/auth-negative-results.json)。
+
+### 收尾及發布狀態
+
+4 個合成 User 已 SUSPENDED 並清除 passwordHash，4 個 Staff 已 INACTIVE，4 個合成 Store 已 PAUSED；保留合成交易、使用及稽核歷史。本機臨時帳密與帶雜湊的 SQL 檔均已刪除。同專案短效 development OIDC 僅送受測 origin，未存入證據，未建立分享／bypass 連結。
+
+應用版本 `21f12b8e` 的 [CI](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/40988722602) 與 [隔離 PostgreSQL 驗收](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/40988722849) 均 SUCCESS。最終變更仍在 PR #1468，尚未合併或更新正式站。實體裝置／Safari／LIFF 與音樂專用逐期入口仍維持前述未驗範圍。

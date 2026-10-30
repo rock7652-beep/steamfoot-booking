@@ -1,0 +1,134 @@
+{
+  "complete": false,
+  "base": "https://steamfoot-booking-grsjtekua-rock7652-2111s-projects.vercel.app",
+  "commit": "48f25f11065e8968d5b6aa869c9509ff0fc32c50",
+  "scope": "real hosted Preview, real credentials and server actions, synthetic fixtures; no auth bypass",
+  "results": [
+    {
+      "module": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 4216
+    },
+    {
+      "module": "sports",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 4708
+    },
+    {
+      "module": "sports",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2686
+    },
+    {
+      "module": "music",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 5710
+    },
+    {
+      "module": "music",
+      "step": "lost-committed-response-same-request-retry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2234
+    },
+    {
+      "module": "beauty",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 3236
+    },
+    {
+      "module": "beauty",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "steam",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 3250
+    }
+  ],
+  "errors": [],
+  "assetsFailed": []
+}
