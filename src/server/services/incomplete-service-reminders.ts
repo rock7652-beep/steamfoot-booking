@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { toLocalDateStr, formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
+import {hasStoreFeature} from "@/lib/feature-gate";
+import {FEATURES} from "@/lib/feature-flags";
 
 const SERVICE_DURATION_MINUTES = 60;
 const REMINDER_GRACE_MINUTES = 60;
@@ -92,8 +94,8 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
     console.error("[IncompleteServiceReminder] course candidates failed", { error: error instanceof Error ? error.message : "Unknown error" });
   }
   const candidates = [
-    ...steamfootCandidates.map(candidate => ({ ...candidate, courseSessionId: null as string | null, courseEndsAt: null as Date | null,lineAllowed:true })),
-    ...courseCandidates.map(candidate => ({ id: candidate.id, storeId: candidate.storeId, bookingDate: new Date(`${toLocalDateStr(candidate.session.startsAt)}T00:00:00Z`), slotTime: formatTWDateTime(candidate.session.startsAt).slice(11), customer: { name: candidate.customerName }, store: { slug: candidate.storeSlug }, courseSessionId: candidate.sessionId, courseEndsAt: candidate.session.endsAt,lineAllowed:candidate.lineAllowed??true })),
+    ...steamfootCandidates.map(candidate => ({ ...candidate, courseSessionId: null as string | null, courseEndsAt: null as Date | null })),
+    ...courseCandidates.map(candidate => ({ id: candidate.id, storeId: candidate.storeId, bookingDate: new Date(`${toLocalDateStr(candidate.session.startsAt)}T00:00:00Z`), slotTime: formatTWDateTime(candidate.session.startsAt).slice(11), customer: { name: candidate.customerName }, store: { slug: candidate.storeSlug }, courseSessionId: candidate.sessionId, courseEndsAt: candidate.session.endsAt })),
   ];
 
   const result: IncompleteServiceReminderResult = {
@@ -130,7 +132,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
         continue;
       }
       await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,eventType:"INCOMPLETE_SERVICE_REMINDER",targetId:candidate.id});
-      if(!candidate.lineAllowed){result.skipped+=1;continue;}
+      if(candidate.courseSessionId&&!await hasStoreFeature(candidate.storeId,FEATURES.LINE_REMINDER)){result.skipped+=1;continue;}
       claimId = await claimNotification(candidate.storeId, eventKey);
       if (!claimId) { result.skipped += 1; continue; }
       // A completion can win between the first check and the outbound claim.

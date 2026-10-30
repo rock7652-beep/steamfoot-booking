@@ -24,7 +24,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
  const [countKnown,setCountKnown]=useState(false);
  const skipTargetCloseRead=useRef(false);
- const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(true);
+ const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),latestSeen=useRef<number|null>(null),soundRef=useRef(true);
  const audio=useRef<AudioContext|null>(null);const soundKey=`${namespace}-notice-sound:${storeId}`;
  // Audio can only be unlocked inside a browser user gesture. Retry on later
  // gestures if autoplay policy or an interrupted device rejected resume().
@@ -45,9 +45,11 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
    setEnabled(r.enabled);if(!r.enabled)setOpen(false);
    setCount(r.count);setCountKnown(true);setError("");
    if(open){setItems(r.items);setCanHandle(r.canHandle);setMore(r.more);}
-   if(seen.current!==null&&r.count>seen.current&&soundRef.current&&audio.current?.state==="running"){
+   const latest=r.latestAt?Date.parse(r.latestAt):null;
+   const hasNewNotice=seen.current!==null&&(r.count>seen.current||(latest!==null&&Number.isFinite(latest)&&latestSeen.current!==null&&latest>latestSeen.current));
+   if(hasNewNotice&&soundRef.current&&audio.current?.state==="running"){
     const oscillator=audio.current.createOscillator(),gain=audio.current.createGain();oscillator.connect(gain);gain.connect(audio.current.destination);gain.gain.value=.06;oscillator.frequency.value=660;oscillator.start();oscillator.stop(audio.current.currentTime+.12);
-   }seen.current=r.count;
+   }seen.current=r.count;latestSeen.current=latest!==null&&Number.isFinite(latest)?latest:null;
   }catch{if(mounted.current&&seq===generation.current)setError("通知更新失敗，請重試");}finally{if(mounted.current&&seq===generation.current)setLoading(false);}
  },[storeId,handled,offset,open,reader]);
  useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;const context=audio.current;audio.current=null;if(context)void context.close().catch(()=>{});};},[]);

@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({findMany:vi.fn(),findFirst:vi.fn(),create:vi.fn(),remove:vi.fn(),update:vi.fn(),record:vi.fn(),notify:vi.fn()}));
+const m=vi.hoisted(()=>({findMany:vi.fn(),findFirst:vi.fn(),create:vi.fn(),remove:vi.fn(),update:vi.fn(),record:vi.fn(),resolve:vi.fn(),notify:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{digitalButlerLead:{findMany:m.findMany,findFirst:m.findFirst},digitalButlerExecutionLog:{create:m.create,delete:m.remove,update:m.update}}}));
-vi.mock('@/server/services/digital-manager-notices',()=>({recordDigitalManagerNotice:m.record}));
+vi.mock('@/server/services/digital-manager-notices',()=>({recordDigitalManagerNotice:m.record,resolveDigitalManagerNotice:m.resolve}));
 vi.mock('@/server/services/store-manager-line-notifications',()=>({notifyStoreManagerOnLine:m.notify}));
 vi.mock('@/lib/line',()=>({getUserProfile:vi.fn()}));
 import {runHumanSupportFinalReminders} from '@/server/services/human-support-handoff';
@@ -14,4 +14,8 @@ it('records the reminder even when manager LINE delivery is unavailable',async()
 it('does not record or send when support was already assigned',async()=>{
  m.findFirst.mockResolvedValue(null);await runHumanSupportFinalReminders();
  expect(m.record).not.toHaveBeenCalled();expect(m.notify).not.toHaveBeenCalled();
+});
+it('records the store reminder even when the LINE delivery claim already exists',async()=>{
+ const {Prisma}=await import('@prisma/client');m.create.mockRejectedValue(new Prisma.PrismaClientKnownRequestError('duplicate',{code:'P2002',clientVersion:'test'}));
+ await runHumanSupportFinalReminders();expect(m.record).toHaveBeenCalledOnce();expect(m.notify).not.toHaveBeenCalled();
 });

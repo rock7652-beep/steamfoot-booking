@@ -3,7 +3,7 @@ import {act,createElement,StrictMode} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {StoreNoticeBell} from "@/components/admin/store-notice-bell";
-let root:Root,host:HTMLDivElement,count:number;
+let root:Root,host:HTMLDivElement,count:number,latestAt:string|null;
 const beep=vi.fn(),resume=vi.fn(),close=vi.fn();
 class TestAudioContext {
  state='suspended';currentTime=0;destination={};
@@ -14,9 +14,9 @@ class TestAudioContext {
  createGain(){return {connect:vi.fn(),gain:{value:0}};}
 }
 let contexts:TestAudioContext[];
-const load=vi.fn(async({storeId}:{storeId:string})=>({success:true as const,storeId,enabled:true,items:[],count,canHandle:false,more:false}));
+const load=vi.fn(async({storeId}:{storeId:string})=>({success:true as const,storeId,enabled:true,items:[],count,latestAt,canHandle:false,more:false}));
 beforeEach(()=>{
- Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();localStorage.clear();count=1;contexts=[];
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();localStorage.clear();count=1;latestAt=null;contexts=[];
  vi.stubGlobal('AudioContext',TestAudioContext);host=document.createElement('div');document.body.append(host);root=createRoot(host);
 });
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
@@ -59,4 +59,9 @@ it('retries an autoplay rejection on the next gesture without unhandled errors',
 it('cleans up audio/listeners and works after StrictMode effect replay',async()=>{
  await mount('steamfoot','s',true);await gesture();await focusWith(2);expect(beep).toHaveBeenCalledTimes(1);
  await act(async()=>root.unmount());expect(close).toHaveBeenCalledTimes(1);await gesture();expect(contexts).toHaveLength(1);root=createRoot(host);
+});
+it('sounds when a new pending notice replaces a handled one without changing the count',async()=>{
+ latestAt='2026-10-30T01:00:00Z';await mount('steamfoot');await gesture();
+ latestAt='2026-10-30T01:01:00Z';await focusWith(1);expect(beep).toHaveBeenCalledTimes(1);
+ await focusWith(1);expect(beep).toHaveBeenCalledTimes(1);
 });

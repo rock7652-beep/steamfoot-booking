@@ -20,9 +20,9 @@ export async function loadCombinedCourseStoreNotices(input:unknown):Promise<Stor
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)return {success:true,storeId,enabled:false,items:[],count:0,canHandle:false,more:false};
-  const counts=await coursePrisma.$queryRaw<Array<{count:number}>>`SELECT ((SELECT count(*) FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL) + (SELECT count(*) FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "eventType" IN ('TRANSFER_PENDING_CONFIRMATION','DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') AND "handledAt" IS NULL))::int AS count`;
-  const count=counts[0]?.count??0;
-  if(d.summaryOnly)return {success:true,storeId,enabled:true,items:[],count,canHandle:false,more:false};
+  const counts=await coursePrisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "eventType" IN ('TRANSFER_PENDING_CONFIRMATION','DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') AND "handledAt" IS NULL) AS pending`;
+  const count=counts[0]?.count??0,latestAt=counts[0]?.latest?.toISOString()??null;
+  if(d.summaryOnly)return {success:true,storeId,enabled:true,items:[],count,latestAt,canHandle:false,more:false};
   const [rows,canHandle,canTransactions,canCustomers]=await Promise.all([
    coursePrisma.$queryRaw<CombinedRow[]>`SELECT * FROM (
     SELECT id,kind,"subjectKey","customerName","courseName","coachName","previousCoachName","startsAt","previousStartsAt","affectedCount",details,"handledAt","handledByName",revision,"createdAt","updatedAt" FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND ("handledAt" IS NOT NULL)=${d.handled}
@@ -33,7 +33,7 @@ export async function loadCombinedCourseStoreNotices(input:unknown):Promise<Stor
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"transaction.read"),
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"customer.read"),
   ]);
-  return {success:true,storeId,enabled:true,count,canHandle,more:rows.length>50,items:rows.slice(0,50).map(r=>({...r,courseName:r.id.startsWith('digital:')?r.courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:r.kind==='PAYMENT'?canTransactions:r.kind==='LEAD'||r.kind==='SUPPORT'?canCustomers:r.kind==='REMINDER'||r.kind==='DIGEST'?!isChildStoreView:!isChildStoreView&&/^(session|booking):.+/.test(r.subjectKey),startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}))};
+  return {success:true,storeId,enabled:true,count,latestAt,canHandle,more:rows.length>50,items:rows.slice(0,50).map(r=>({...r,courseName:r.id.startsWith('digital:')?r.courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:r.kind==='PAYMENT'?canTransactions:r.kind==='LEAD'||r.kind==='SUPPORT'?canCustomers:r.kind==='REMINDER'||r.kind==='DIGEST'?!isChildStoreView:!isChildStoreView&&/^(session|booking):.+/.test(r.subjectKey),startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}))};
  }catch(e){const r=handleActionError(e);return {success:false,error:r.success?"通知讀取失敗":r.error};}
 }
 

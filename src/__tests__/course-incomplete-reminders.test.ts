@@ -1,13 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-const m = vi.hoisted(() => ({ oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(),record:vi.fn(),resolve:vi.fn(), notify: vi.fn() }));
+const m = vi.hoisted(() => ({ oldCandidates: vi.fn(), oldRecheck: vi.fn(), candidates: vi.fn(), recheck: vi.fn(), claim: vi.fn(), update: vi.fn(), remove: vi.fn(),record:vi.fn(),resolve:vi.fn(), notify: vi.fn(),feature:vi.fn() }));
 vi.mock("@/server/queries/course-manager-todos", () => ({ getIncompleteCourseCandidates: m.candidates, isCourseBookingStillIncomplete: m.recheck }));
 vi.mock("@/server/services/store-manager-line-notifications", () => ({ notifyStoreManagerOnLine: m.notify }));
 vi.mock("@/server/services/digital-manager-notices",()=>({recordDigitalManagerNotice:m.record,resolveDigitalManagerNotice:m.resolve}));
+vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature}));
 vi.mock("@/lib/db", () => ({ prisma: { booking: { findMany: m.oldCandidates, findFirst: m.oldRecheck }, digitalButlerExecutionLog: { create: m.claim, update: m.update, delete: m.remove } } }));
 import { runIncompleteServiceReminders } from "@/server/services/incomplete-service-reminders";
 const now = new Date("2026-09-17T04:00:00Z");
-beforeEach(() => { vi.resetAllMocks(); m.remove.mockResolvedValue({}); m.oldCandidates.mockResolvedValue([]); m.candidates.mockResolvedValue([{ id: "booking", storeId: "course", storeSlug: "course-store", sessionId: "session", customerName: "Learner", session: { startsAt: new Date("2026-09-17T00:00:00Z"), endsAt: new Date("2026-09-17T03:00:00Z") } }]); m.recheck.mockResolvedValue({ id: "booking" }); m.claim.mockResolvedValue({ id: "claim" }); m.notify.mockResolvedValue({ status: "skipped", reason: "recipient_not_configured" }); });
+beforeEach(() => { vi.resetAllMocks(); m.feature.mockResolvedValue(true);m.remove.mockResolvedValue({}); m.oldCandidates.mockResolvedValue([]); m.candidates.mockResolvedValue([{ id: "booking", storeId: "course", storeSlug: "course-store", sessionId: "session", customerName: "Learner", session: { startsAt: new Date("2026-09-17T00:00:00Z"), endsAt: new Date("2026-09-17T03:00:00Z") } }]); m.recheck.mockResolvedValue({ id: "booking" }); m.claim.mockResolvedValue({ id: "claim" }); m.notify.mockResolvedValue({ status: "skipped", reason: "recipient_not_configured" }); });
 it("uses actual end for a three-hour class and the existing delivery/claim service", async () => {
   await runIncompleteServiceReminders(now);
   expect(m.oldCandidates).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ store: expect.objectContaining({ industryModule: "STEAMFOOT" }) }) }));
@@ -24,10 +25,14 @@ it("does not notify before grace expires or after concurrent attendance/cancella
   expect(m.notify).not.toHaveBeenCalled(); expect(m.record).not.toHaveBeenCalled();
 });
 it("creates the store notice even when the store has no LINE reminder entitlement",async()=>{
- m.candidates.mockResolvedValue([{id:'booking',storeId:'course',storeSlug:'course-store',sessionId:'session',customerName:'Learner',lineAllowed:false,session:{startsAt:new Date('2026-09-17T00:00:00Z'),endsAt:new Date('2026-09-17T03:00:00Z')}}]);
+ m.feature.mockResolvedValue(false);
  await runIncompleteServiceReminders(now);
  expect(m.record).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'course',eventType:'INCOMPLETE_SERVICE_REMINDER',targetId:'booking'}));
  expect(m.claim).not.toHaveBeenCalled();expect(m.notify).not.toHaveBeenCalled();
+});
+it('records the store notice before a failed LINE feature lookup',async()=>{
+ m.feature.mockRejectedValue(new Error('LINE feature unavailable'));const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+ try{await runIncompleteServiceReminders(now);expect(m.record).toHaveBeenCalledOnce();expect(m.notify).not.toHaveBeenCalled();}finally{log.mockRestore();}
 });
 it("a duplicate claim cannot send a second reminder", async () => {
   m.claim.mockRejectedValue(new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }));

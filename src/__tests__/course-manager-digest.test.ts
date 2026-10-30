@@ -29,3 +29,7 @@ it("non-course stores retain mature payment and service sources", async () => {
   expect(m.todos).not.toHaveBeenCalled(); expect(m.transaction).toHaveBeenCalled(); expect(m.booking).toHaveBeenCalled();
   expect(m.notify).toHaveBeenCalledWith(expect.objectContaining({ course: false, pendingPaymentCount: 1, incompleteServiceCount: 2 }));
 });
+it('records a store digest before a failed LINE feature lookup',async()=>{
+ m.feature.mockRejectedValue(new Error('LINE feature unavailable'));const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+ try{await runDailyActionDigest();expect(m.record).toHaveBeenCalledOnce();expect(m.notify).not.toHaveBeenCalled();}finally{log.mockRestore();}
+});

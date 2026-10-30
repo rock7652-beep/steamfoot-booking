@@ -61,11 +61,6 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
     let claimId: string | null = null;
 
     try {
-      let lineAllowed=true;
-      if (store.industryModule === "COURSE") {
-        const [{ hasStoreFeature }, { FEATURES }] = await Promise.all([import("@/lib/feature-gate"), import("@/lib/feature-flags")]);
-        lineAllowed=await hasStoreFeature(store.id, FEATURES.LINE_REMINDER);
-      }
       const courseTodos = store.industryModule === "COURSE"
         ? await (await import("@/server/queries/course-manager-todos")).getCourseManagerTodoCounts(store.id, now)
         : null;
@@ -103,7 +98,10 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
         continue;
       }
       await recordDigitalManagerNotice(prisma,{storeId:store.id,eventKey,eventType:"DAILY_ACTION_DIGEST",targetId:store.id});
-      if(!lineAllowed){result.storesSkipped+=1;continue;}
+      if (store.industryModule === "COURSE") {
+        const [{ hasStoreFeature }, { FEATURES }] = await Promise.all([import("@/lib/feature-gate"), import("@/lib/feature-flags")]);
+        if(!await hasStoreFeature(store.id,FEATURES.LINE_REMINDER)){result.storesSkipped+=1;continue;}
+      }
 
       try {
         const claim = await prisma.digitalButlerExecutionLog.create({

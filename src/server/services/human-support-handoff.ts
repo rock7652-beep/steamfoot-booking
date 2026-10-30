@@ -4,7 +4,7 @@ import { encryptDigitalButlerValue, hashDigitalButlerSensitiveValue } from "@/li
 import { getUserProfile } from "@/lib/line";
 import type { DigitalButlerInboundTextMessage } from "@/server/services/digital-butler-channel";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
-import {recordDigitalManagerNotice} from "@/server/services/digital-manager-notices";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 
 export const HUMAN_SUPPORT_COMPLETION_ACTION_KEY = "__human_support_handoff__";
 
@@ -186,12 +186,6 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
     const eventKey = `human-support-final-reminder:${candidate.id}`;
     let claimId: string | null = null;
     try {
-      claimId = await claimNotification(candidate.storeId, eventKey, "HUMAN_SUPPORT_FINAL_REMINDER");
-      if (!claimId) {
-        result.skipped += 1;
-        continue;
-      }
-
       const stillWaiting = await prisma.digitalButlerLead.findFirst({
         where: {
           id: candidate.id,
@@ -204,10 +198,13 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
       });
       if (!stillWaiting) {
         result.skipped += 1;
-        await releaseClaim(claimId);
         continue;
       }
       await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,eventType:"HUMAN_SUPPORT_FINAL_REMINDER",targetId:candidate.id});
+      claimId = await claimNotification(candidate.storeId, eventKey, "HUMAN_SUPPORT_FINAL_REMINDER");
+      if (!claimId) { result.skipped += 1; continue; }
+      const latest=await prisma.digitalButlerLead.findFirst({where:{id:candidate.id,storeId:candidate.storeId,completionActionKey:HUMAN_SUPPORT_COMPLETION_ACTION_KEY,status:"NEW",assignedStaffId:null},select:{id:true}});
+      if(!latest){await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,actorUserId:'system',actorName:'系統'});result.skipped+=1;await releaseClaim(claimId);continue;}
 
       const delivery = await notifyStoreManagerOnLine({
         type: "HUMAN_SUPPORT_FINAL_REMINDER",
