@@ -12,7 +12,7 @@ beforeEach(() => { vi.resetAllMocks(); m.feature.mockResolvedValue(true);m.remov
 it("uses actual end for a three-hour class and the existing delivery/claim service", async () => {
   await runIncompleteServiceReminders(now);
   expect(m.oldCandidates).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ store: expect.objectContaining({ industryModule: "STEAMFOOT" }) }) }));
-  expect(m.recheck).toHaveBeenCalledWith("course", "booking", now);
+  expect(m.recheck).toHaveBeenCalledWith("course", "booking", now,{sessionId:"session",endsAt:new Date("2026-09-17T03:00:00Z")});
   expect(m.oldRecheck).not.toHaveBeenCalled();
   expect(m.notify).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "course-incomplete-attendance:booking", courseSessionId: "session", storeSlug: "course-store", customerName: "Learner", bookingDate: "2026-09-17", slotTime: "08:00" }));
   expect(m.remove).toHaveBeenCalledWith({ where: { id: "claim" } });
@@ -33,6 +33,20 @@ it("creates the store notice even when the store has no LINE reminder entitlemen
 it('records the store notice before a failed LINE feature lookup',async()=>{
  m.feature.mockRejectedValue(new Error('LINE feature unavailable'));const log=vi.spyOn(console,'error').mockImplementation(()=>{});
  try{await runIncompleteServiceReminders(now);expect(m.record).toHaveBeenCalledOnce();expect(m.notify).not.toHaveBeenCalled();}finally{log.mockRestore();}
+});
+it('resolves a stale course notice when a lesson changes before notice insertion, even with LINE disabled',async()=>{
+ m.feature.mockResolvedValue(false);m.recheck.mockResolvedValueOnce({id:'booking'}).mockResolvedValueOnce(null);
+ await runIncompleteServiceReminders(now);
+ expect(m.record).toHaveBeenCalledOnce();expect(m.resolve).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'course',eventKey:'course-incomplete-attendance:booking:2026-09-17T03:00:00.000Z'}));
+ expect(m.claim).not.toHaveBeenCalled();expect(m.notify).not.toHaveBeenCalled();
+});
+it('resolves a stale steamfoot reminder when the original date or time no longer matches',async()=>{
+ m.candidates.mockResolvedValue([]);m.oldCandidates.mockResolvedValue([{id:'old',storeId:'steamfoot',store:{slug:'steamfoot'},bookingDate:new Date('2026-09-17T00:00:00Z'),slotTime:'09:00',customer:{name:'Existing'}}]);
+ m.oldRecheck.mockResolvedValueOnce({id:'old'}).mockResolvedValueOnce(null);
+ await runIncompleteServiceReminders(now);
+ expect(m.oldRecheck).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingDate:new Date('2026-09-17T00:00:00Z'),slotTime:'09:00'})}));
+ expect(m.resolve).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'steamfoot',eventKey:'incomplete-service-reminder:old:2026-09-17:09:00'}));
+ expect(m.claim).not.toHaveBeenCalled();expect(m.notify).not.toHaveBeenCalled();
 });
 it("a duplicate claim cannot send a second reminder", async () => {
   m.claim.mockRejectedValue(new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }));

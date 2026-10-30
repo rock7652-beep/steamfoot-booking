@@ -116,27 +116,29 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
 
     const eventKey = `${candidate.courseSessionId ? "course-incomplete-attendance" : "incomplete-service-reminder"}:${candidate.id}`;
     const digitalEventKey=candidate.courseEndsAt?`${eventKey}:${candidate.courseEndsAt.toISOString()}`:`${eventKey}:${candidate.bookingDate.toISOString().slice(0,10)}:${candidate.slotTime}`;
+    const stillMatches=()=>candidate.courseSessionId && candidate.courseEndsAt
+      ? isCourseBookingStillIncomplete(candidate.storeId,candidate.id,now,{sessionId:candidate.courseSessionId,endsAt:candidate.courseEndsAt})
+      : prisma.booking.findFirst({where:{id:candidate.id,storeId:candidate.storeId,bookingStatus:{in:["PENDING","CONFIRMED"]},bookingDate:candidate.bookingDate,slotTime:candidate.slotTime},select:{id:true}});
     let claimId: string | null = null;
     try {
       // Recheck the business event before independently recording the store notice.
-      const stillIncomplete = candidate.courseSessionId ? await isCourseBookingStillIncomplete(candidate.storeId, candidate.id, now) : await prisma.booking.findFirst({
-        where: {
-          id: candidate.id,
-          storeId: candidate.storeId,
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        },
-        select: { id: true },
-      });
+      const stillIncomplete = await stillMatches();
       if (!stillIncomplete) {
         result.skipped += 1;
         continue;
       }
       await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,eventType:"INCOMPLETE_SERVICE_REMINDER",targetId:candidate.id});
+      // A reschedule or completion can happen before the notice is inserted,
+      // after the database trigger has already run. Recheck before every exit.
+      if(!await stillMatches()){
+        await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,actorUserId:'system',actorName:'系統'});
+        result.skipped+=1;continue;
+      }
       if(candidate.courseSessionId&&!await hasStoreFeature(candidate.storeId,FEATURES.LINE_REMINDER)){result.skipped+=1;continue;}
       claimId = await claimNotification(candidate.storeId, eventKey);
       if (!claimId) { result.skipped += 1; continue; }
       // A completion can win between the first check and the outbound claim.
-      const stillDue=candidate.courseSessionId?await isCourseBookingStillIncomplete(candidate.storeId,candidate.id,now):await prisma.booking.findFirst({where:{id:candidate.id,storeId:candidate.storeId,bookingStatus:{in:["PENDING","CONFIRMED"]}},select:{id:true}});
+      const stillDue=await stillMatches();
       if(!stillDue){await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey:digitalEventKey,actorUserId:'system',actorName:'系統'});result.skipped+=1;await releaseClaim(claimId);continue;}
 
       const delivery = await notifyStoreManagerOnLine({

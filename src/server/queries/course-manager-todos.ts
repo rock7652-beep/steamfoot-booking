@@ -35,6 +35,6 @@ export async function getIncompleteCourseCandidates(now: Date, options: {include
   return bookings.map(booking => ({ ...booking, storeSlug: stores.find(store => store.id === booking.storeId)!.slug }));
 }
 
-export async function isCourseBookingStillIncomplete(storeId: string, id: string, now: Date) {
-  return coursePrisma.courseBooking.findFirst({ where: { id, storeId, status: "RESERVED", session: { storeId, cancelledAt: null, endsAt: { lte: new Date(now.getTime() - 60 * 60 * 1000) } } }, select: { id: true } });
+export async function isCourseBookingStillIncomplete(storeId: string, id: string, now: Date, expected?: {sessionId:string;endsAt:Date}) {
+  return coursePrisma.courseBooking.findFirst({ where: { id, storeId, status: "RESERVED", ...(expected?{sessionId:expected.sessionId}:{}), session: { storeId, cancelledAt: null, endsAt: expected?{equals:expected.endsAt,lte:new Date(now.getTime() - 60 * 60 * 1000)}:{lte:new Date(now.getTime() - 60 * 60 * 1000)} } }, select: { id: true } });
 }
