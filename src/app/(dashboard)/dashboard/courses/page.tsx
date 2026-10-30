@@ -265,6 +265,18 @@ export default async function CoursesPage({
   timing.mark("calendar_batch");
   const rosterCustomers = await timing.read("roster_customers",()=>prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId).filter((id): id is string => !!id)))] } }, select: { id: true, assignedStaffId: true } }));
   const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
+  // Sports overlaps independent reads; other modules retain their original read order.
+  const readPresentation = async()=>{
+    const labels=()=>timing.read("labels",async()=>await checkPermission(user.role,user.staffId,"customer.read") ? customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS);
+    const plans=()=>timing.read("plans",()=>coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}));
+    const modes=()=>timing.read("scheduling_modes",()=>coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}));
+    if(sportsNative)return Promise.all([labels(),plans(),modes()]);
+    return [await labels(),await plans(),await modes()] as const;
+  };
+  const presentationPromise = sportsNative ? readPresentation() : null;
+  // Attach a handler now; the original rejection is still propagated by the later await.
+  if(presentationPromise)void presentationPromise.catch(()=>{});
+
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
     .split("-")
@@ -343,9 +355,7 @@ export default async function CoursesPage({
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   timing.mark("post_calendar");
-  const labelSnapshot = await timing.read("labels",()=>checkPermission(user.role,user.staffId,"customer.read")) ? await timing.read("labels",()=>customerLabelSnapshot(rosterCustomers.map(c=>c.id))) : EMPTY_LABELS;
-  const presentationPlans = await timing.read("plans",()=>coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}));
-  const presentationModes = await timing.read("scheduling_modes",()=>coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}));
+  const [labelSnapshot,presentationPlans,presentationModes] = await (presentationPromise??readPresentation());
   timing.mark("presentation");
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
