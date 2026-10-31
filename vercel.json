@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/silverlily-calendar-loading-20261031": false,
       "review/shared-item-login-20261028": false,
       "fix/shared-item-entitlement-core": false,
       "perf/liff-member-entry-20261027": false,
