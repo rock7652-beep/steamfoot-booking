@@ -1,13 +1,16 @@
 import {getCurrentUser} from "@/lib/session";
 import {getActiveStoreForRead} from "@/lib/store";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
+import {readCourseDetailMusicStore} from "@/server/queries/course-detail-music-store";
+import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import {loadCourseSessionDetail} from "@/server/actions/course-members";
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {withMusicReadTiming,measureMusicRead} from "@/lib/music-read-timing";
 const headers={"Cache-Control":"private, no-store"};
 /** Scoped read transport; avoids blocking editor reads behind unrelated Server Actions. */
 export async function POST(request:Request){
- return withReadRequestMemo(()=>read(request));
+ return withReadRequestMemo(()=>withPermissionRequestSession(()=>read(request)));
 }
 async function read(request:Request){
  const started=performance.now();
@@ -16,7 +19,8 @@ async function read(request:Request){
  try{
   return await withMusicReadTiming(timings,async()=>{
   const user=await measureMusicRead("identity",()=>getCurrentUser());if(!user)return Response.json({success:false,error:"請先登入"},{status:401,headers});
-  const storeId=await measureMusicRead("scope",()=>getActiveStoreForRead(user));if(!storeId||!(await sportsNativePreview(storeId)))return Response.json({success:false,error:"此入口僅適用運動模組"},{status:403,headers});
+  const storeId=await measureMusicRead("scope",()=>getActiveStoreForRead(user));
+  if(!storeId||!await sportsNativePreview(storeId)&&(await getStoreIndustryModule(storeId)!=="course"||!await readCourseDetailMusicStore(storeId)))return Response.json({success:false,error:"此入口僅適用已開通的運動或音樂模組"},{status:403,headers});
   const body=await request.text();if(body.length>2000)return Response.json({success:false,error:"請求過長"},{status:400,headers});
   const data=JSON.parse(body);if(typeof data.sessionId!=="string"||data.sessionId.length>100)return Response.json({success:false,error:"課程不正確"},{status:400,headers});
   const result=await loadCourseSessionDetail(data.sessionId,data.rosterOnly===true,data.trialOnly===true);

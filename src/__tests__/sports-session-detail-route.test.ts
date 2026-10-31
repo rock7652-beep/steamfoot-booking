@@ -1,5 +1,8 @@
 import {it,expect,beforeEach,vi} from "vitest";
-const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),scope:vi.fn(),save:vi.fn()}));
+const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),scope:vi.fn(),save:vi.fn(),industry:vi.fn(),music:vi.fn()}));
+vi.mock("@/lib/db",()=>({prisma:{}}));
+vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.industry}));
+vi.mock("@/server/services/course-business-profile",()=>({isMusicCourseStoreFromEntitlements:m.music}));
 vi.mock("@/lib/session",()=>({getCurrentUser:m.user}));
 vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.store}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
@@ -7,10 +10,10 @@ vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.save})
 import {POST} from "@/app/(dashboard)/dashboard/courses/session-detail/route";
 const input={sessionId:"session",rosterOnly:false,trialOnly:true};
 const request=(origin="https://qa.test",body=JSON.stringify(input))=>new Request("https://qa.test/s/sports-live-flow/admin/dashboard/courses/session-detail",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body});
-beforeEach(()=>{vi.clearAllMocks();m.user.mockResolvedValue({id:"owner",role:"OWNER"});m.store.mockResolvedValue("sports-live-flow-store");m.scope.mockReturnValue(true);m.save.mockResolvedValue({success:true});});
+beforeEach(()=>{vi.clearAllMocks();m.user.mockResolvedValue({id:"owner",role:"OWNER"});m.store.mockResolvedValue("sports-live-flow-store");m.scope.mockReturnValue(true);m.industry.mockResolvedValue("course");m.music.mockResolvedValue(false);m.save.mockResolvedValue({success:true});});
 it("拒絕跨站請求，未接觸授權或寫入",async()=>{expect((await POST(request("https://other.test"))).status).toBe(403);expect(m.user).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();});
 it("未登入時不寫入",async()=>{m.user.mockResolvedValue(null);expect((await POST(request())).status).toBe(401);expect(m.save).not.toHaveBeenCalled();});
-it("正式站及非運動測試店不可使用獨立課程讀取入口",async()=>{m.scope.mockReturnValue(false);expect((await POST(request())).status).toBe(403);expect(m.save).not.toHaveBeenCalled();});
+it("未開通運動或音樂的店家不可使用獨立課程讀取入口",async()=>{m.scope.mockReturnValue(false);expect((await POST(request())).status).toBe(403);expect(m.save).not.toHaveBeenCalled();});
 it("沿用有權限及原子版本比較的既有權限讀取，不快取帳戶資料",async()=>{m.save.mockResolvedValue({success:false,error:"已被更新",currentValue:"其他裝置的新備註"});const r=await POST(request());expect(m.save).toHaveBeenCalledWith("session",false,true);expect(await r.json()).toMatchObject({success:false,currentValue:"其他裝置的新備註"});expect(r.headers.get("Cache-Control")).toBe("private, no-store");});
 it("格式錯誤不寫入",async()=>{expect((await POST(request("https://qa.test","not-json"))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});
 it('provides server timing for the live detail reader without caching the roster',async()=>{
@@ -27,4 +30,12 @@ it('reuses identity only inside one read request and authenticates again on the 
  expect(authenticate).toHaveBeenCalledTimes(1);
  expect((await POST(request())).status).toBe(200);
  expect(authenticate).toHaveBeenCalledTimes(2);
+});
+
+it('allows an eligible music store through the same independent reader without a Preview-only transport',async()=>{
+ m.scope.mockReturnValue(false);m.store.mockResolvedValue('another-music-store');m.music.mockResolvedValue(true);
+ expect((await POST(request())).status).toBe(200);expect(m.save).toHaveBeenCalledWith('session',false,true);expect(m.music).toHaveBeenCalledWith(expect.any(Object),'another-music-store');
+});
+it('rejects a different industry even if a mismatched music entitlement exists',async()=>{
+ m.scope.mockReturnValue(false);m.industry.mockResolvedValue('beauty');m.music.mockResolvedValue(true);expect((await POST(request())).status).toBe(403);expect(m.save).not.toHaveBeenCalled();expect(m.music).not.toHaveBeenCalled();
 });

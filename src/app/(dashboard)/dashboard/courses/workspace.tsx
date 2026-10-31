@@ -16,6 +16,8 @@ import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calen
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
+import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
+import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {readSportsCalendar} from "@/lib/sports-calendar-client";
 import {CALENDAR_SYNC_INTERVAL,startSportsBackgroundSync} from "@/lib/sports-background-sync";
@@ -509,6 +511,8 @@ export function CourseWorkspace({
   const scheduleOpenIntent=useRef(false);
   // Only form metadata is warmed; prices and balances keep their own live reads.
   const sportsScheduleScope=JSON.stringify([storeId,pathname]);
+  const sportsRosterReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
+  const musicRosterReader=usePanelReader("music-session-detail",readCourseSessionDetailClient,"",0);
   const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,SPORTS_SCHEDULE_OPTIONS_TTL);
   useEffect(()=>{
     if(!sportsNative||sportsData||calendarSource||!canCreate||view!=="schedule")return;
@@ -1259,6 +1263,10 @@ export function CourseWorkspace({
               onOpenSession={(sessionId, date) => {
                 go(date);
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
+                // Start the fresh read on this click, alongside mounting the dialog.
+                // TTL 0 shares only an in-flight request, never a completed balance.
+                if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
+                else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
                 setCourseDialog({ sessionId, kind: "roster" });
               }}
             />

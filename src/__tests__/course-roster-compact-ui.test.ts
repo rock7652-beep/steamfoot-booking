@@ -1,3 +1,7 @@
+// Native cases keep the real HTTP protocol with their existing fetch fixtures.
+vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
+// UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom

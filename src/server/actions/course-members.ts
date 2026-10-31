@@ -1,4 +1,5 @@
 "use server";
+import {readCourseDetailMusicStore} from "@/server/queries/course-detail-music-store";
 import {readCourseSessionDetail} from "@/server/queries/course-session-detail";
 import {measureMusicRead} from "@/lib/music-read-timing";
 import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
@@ -821,7 +822,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         const [permissions, session, musicStore, waitlistSetting, nativeSports, waitlistRows] = await measureMusicRead("detail.primary",()=>Promise.all([
           Promise.all((["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void","customer.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))),
           readCourseSessionDetail(storeId,sessionId),
-          isMusicCourseStoreFromEntitlements(prisma,storeId),
+          readCourseDetailMusicStore(storeId),
           coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
           sportsNativePreview(storeId),
           coursePrisma.courseWaitlistEntry.findMany({
