@@ -430,6 +430,7 @@ export function CourseWorkspace({
 
     inlineDirty.current=false;setCourseDialog({sessionId,kind});
   }
+  function isRentalSession(session:(typeof sessions)[number]){return session.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===session.templateId)?.category ?? "");}
   const [memberBookingReady, setMemberBookingReady] = useState(false);
   const roomCreate = useCourseRoomCreate(storeId, (room, warning) => {
     confirmedRooms.confirm({ ...room, uses: [] });
@@ -1265,8 +1266,11 @@ export function CourseWorkspace({
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
                 // Start the fresh read on this click, alongside mounting the dialog.
                 // TTL 0 shares only an in-flight request, never a completed balance.
-                if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
-                else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
+                const opening=sessions.find(session=>session.id===sessionId);
+                if(opening&&!isRentalSession(opening)){
+                  if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
+                  else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
+                }
                 setCourseDialog({ sessionId, kind: "roster" });
               }}
             />
@@ -2524,7 +2528,7 @@ export function CourseWorkspace({
           const dialogSession = sessions.find(
             (session) => session.id === courseDialog.sessionId,
           )!;
-          const rentalDialog = dialogSession.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===dialogSession.templateId)?.category ?? "");
+          const rentalDialog = isRentalSession(dialogSession);
           const sportsRosterDialog = !rentalDialog && (courseDialog.kind === "roster"||sportsNative) && businessProfile !== "MUSIC";
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
             && dialogSession.capacity === 1;
