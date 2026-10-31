@@ -1,5 +1,52 @@
 # 課表教學項目、重整與三模組開窗驗收（2026-10-31）
 
+狀態：Draft PR #1478；應用候選 `524d57cb1009322c9defbf30a4b620963b6ccba8`，Preview `dpl_9YCnBnzv8xqHdfjtjiu8iYw3HuJv` READY／hnd1。正式 main 仍為 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`，未合併或正式部署。使用者要求盡力低於一秒；下列是實測，尚不能保證每次完整名單低於一秒。
+
+## 最新完整名單與跳閃驗收
+
+最終候選與前一版 `1dfee74a` 逐次交替，四個場景各 1 次 warmup＋5 次非 warmup，正常 OWNER 登入、無 request mock。完整權威名單搜尋與操作內容就緒才計時，沒有把姓名摘要／視窗外框當完成。
+
+| 場景 | 前版完整就緒中位 ms | 新版完整就緒中位 ms | 新版範圍 ms | 新版 DOM click 中位 ms | 首次開啟 ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 運動單人 | 1039 | 937 | 903–1059 | 917 | 970 |
+| 同堂體驗＋持卡 | 1008 | 945 | 789–1074 | 919 | 1098 |
+| 音樂 | 944 | 924 | 735–1289 | 910 | 1031 |
+| 美業 | 1028 | 876 | 839–1598 | 853 | 1487 |
+
+完整就緒從 Playwright click 前開始；補充 DOM click 指標排除已記錄的 inputWaitMs，兩者並列，未偷偷替換舊指標。首次開啟不是可保證的 serverless cold start。此為雲端 Chromium 經既有代理及合成店（1–2 學員），不是台灣裝置 RUM、p95、大型名單或正式銀百合負載。48 次畫面讀取及 48 次並發 HTTP 讀取成功，4／8 並發只證明原資料完整與授權成功，沒有宣稱並發皆低於一秒。四場景完整 JSON.data 雜湊與全部前輪相同。
+
+新增表單非 warmup 完整選項中位：運動單人 86 ms（DOM click 51 ms）；音樂 415 ms（DOM click 39 ms）；美業 58 ms（DOM click 30 ms）。在頁面 load 後 1200ms 量測，既有 metadata-only 15 秒預讀保留，沒有預讀名單財務或送出表單。三模組完成 1366×900、1024×768、768×1024 的表單邊界、輸入時間後縮放草稿保留及名單邊界；正式控件就緒後再觀察一秒，要求開名單期間完整文件請求數為零。另兩次音樂三尺寸重跑各 7 項也全數通過，開名單完整文件導覽數均為零。實體 iPad／Safari、LIFF、實際觸控與大型正式資料未驗。
+
+### 查詢與讀取路徑修正
+
+沿用正常 OWNER 登入、同四種合成課堂、逐次交替部署、1 次 warmup＋5 次非 warmup；完整名單搜尋欄與操作內容都顯示才算就緒。沒有 hover 預讀名單、沒有跨請求財務快取、沒有減少回傳欄位。雲端 Chromium 經既有代理，不能代替台灣瀏覽器或正式負載的尾端延遲。
+
+三個 Prisma schema 只啟用 client generator 的 relationJoins，離線 migrate diff 均為 empty migration。這會改變 Prisma 預設，故三個真實 client 先套明確策略 extension：九種支援操作預設仍 query，只有逐一審核的讀取指定 join；bulk／aggregate／raw 與 transaction 邊界不變。one-to-one 的即時登入 Staff／Store、課堂模板、顧客指派人員、美業群組，以及普通 client 的運動／音樂卡片成員與 RESERVED pointCost 合併查詢。付款歷史、未排序 GRANT take 1 與期別歷史仍 query，避免 JSON aggregate 順序改變既有金額或期別選擇。transaction reader 保留原策略。
+
+本版只在明確的唯讀 HTTP request scope 內，共用 auth 已從當次資料庫讀取且成功比對 security stamp 後的員工／門市模組 scalar。共用 active Staff 結果必須 user、role、staffId、storeId 四項全部相同；Store enum 仍驗證，SPA／未知值仍拒絕。不同店、不同請求、非 read scope、寫入及 transaction 不共用。各項 permission grant、功能、收款、扣堂、卡片、預留與餘額仍維持獨立權威查核。沒有把 JWT claims 當作即時資料。
+
+先比較 ac0adb93（兩條連線）與 4835545c（明確 join），四場景各 5 次非 warmup 完整畫面中位數：運動 1182→1048 ms、同堂體驗＋持卡 1128→917、音樂 1078→997、美業 989→830。美業候選 796–868 ms；其餘仍有超標，因此繼續做 72ae1056 的驗證資料共用，沒有在此輪宣稱穩定達標。
+
+4835545c 的 CI 中三個舊 constructor fixture 沒有 $extends，另有一個 source guard regex 未列入新增 wrapper，已修正 fixture 及確認原 guard 順序；未降低 runtime 檢查或移除預覽隔離斷言。新增策略測試、當次 auth 成功後才公開 metadata、停用後新請求拒絕、四項 actor scope 不符重查、另一門市重查、模組 enum 拒絕、重疊請求隔離與 scalar copy。局部 83 項與四個隔離／source guard 檔案 722 項通過；型別及 ESLint 通過。
+
+166 項相關回歸通過，包含 auth store scalar 的精確 actor／門市配對、PAUSED／INACTIVE／未知狀態及 SPA 拒絕、偽造 forwarded slug 拒絕、切店重新查詢、新請求重新查詢、讀寫 reader 的同次 membership 共用；grant 與 store policy 仍各自執行。訂閱改為 one-to-one join，未快取狀態；同次 read 兩次查詢仍可看到到期後續約變化，缺少 currentSubscription 時保留原 createdAt desc fallback，原錯誤處理不變。型別檢查成功。
+
+
+後續補齊正式音樂店的名單 HTTP 入口：先前 musicPreview 專用傳輸不會涵蓋其他已開通音樂的店家。現在共用同源、no-store session-detail POST，從實際 pathname 取得 HQ／門市前綴；運動仍經原 adapter。資格、店家、授權、權益與交易檢查保留；不把測試店白名單當成音樂資格。點擊課堂的同一事件立即啟動 reader，子名單只合併同一個 pending request，完成後 TTL=0；租借不啟動課程名單請求，沒有 hover 預讀財務資料。
+
+已在同次唯讀請求共用當下驗證成功的 staff/store 精確 tuple、會員身分及課堂 metadata，省掉深層名單內重複的 session-template 查詢。課程財務 select、GRANT take 1、付款與扣抵歷史仍使用原查詢與排序；以完整 JSON.stringify(data) 雜湊檢查前後欄位與順序相同，沒有正規化或刪欄位來掩蓋差異。普通 action、寫入、transaction 及下一個請求不共用。
+
+舊候選在音樂 1024×768 開名單發生完整文件導覽，activation-forms、shared-roster-forms 的失敗均保留，不能只挑成功輪次。CDP 捕捉 Next.js pushRef.mpaNavigation 的 location.assign／replace；接著用真實 CourseWorkspace 回歸測試重現：切換日表後立即開課，舊 useSearchParams 尚未更新，go(date) 把視角寫回月表，且相同日期／視角仍重複 history.replaceState。新版從瀏覽器當前 search 合併參數，完全相同日期／視角不再重寫；跨月仍保留原資料讀取流程。三個測試舊碼均失敗、新碼成功，加上原生運動相同日期不導覽測試，共 50 項相關測試、型別、ESLint 成功。音樂 wizard 背景 inspect／room 請求並未證實是原因，未據此修改其排課傳輸。
+
+
+最新應用 CI [41233207519](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41233207519) 型別、ESLint、局部及全量成功；全量 1574 檔／15049 項通過，30 檔／257 項 skip。運動共用卡、音樂補課與 work-order 隔離 PostgreSQL workflow 成功。沒有資料庫遷移。離線三份 datamodel diff 都是 empty migration。
+
+本階段所有成功權威名單讀取合計 678 次；失敗 UI 輪次也保留。測試前後限定三個合成店的 CoursePurchase 125、CoursePointEntry 933、CourseBooking 621、BeautyPayment 90、BeautyLedger 126 相同，計數不替代逐列帳務驗收；前輪自動延展的八筆 UNPAID 不刪除。測完三個 QA User SUSPENDED／passwordHash NULL，Staff INACTIVE；臨時憑證檔清除。兩個 Preview 存取連結替換前先撤舊，正常應用登入保留。Preview 分支的 connection limit 2 不套用正式環境。
+
+[完整逐次證據及歷史失敗](silverlily-calendar-loading-20261031/relation-join-results.json)。以下保留先前階段結果，不代表目前候選或目前帳號狀態。
+
+## 前輪路由與連線池狀態（歷史）
+
 狀態：Draft PR #1478，未合併或正式發布。「完整名單穩定低於 1 秒」仍未達成。最新應用版本 `ac0adb93cedbb30e4a7ad624a4400cf422c24801`，最新已通過全量測試的 head `002f581dc23beba5ac2cd995560f157ce99f2b28`（後者僅修測試收尾，應用無差異）。正式基準仍是 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`。
 
 ## 路由分段與連線池第三輪驗收
