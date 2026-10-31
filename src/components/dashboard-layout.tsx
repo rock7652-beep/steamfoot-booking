@@ -1,3 +1,4 @@
+import {readInitialStoreNoticeSummary} from '@/server/services/initial-store-notice-summary';
 import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
 import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
@@ -38,7 +39,6 @@ import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
-import { coursePrisma } from "@/lib/course-db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
@@ -148,11 +148,12 @@ async function readDashboardLayout({
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
-  // Counts and snapshots remain lazy; the store digital manager stays available.
+  // Prefetch only a bounded authorized count; notification details remain lazy.
   const noticeEnabledPromise=(async()=>{
   return !hqPlatform && !!effectiveStoreId && permissions.includes("booking.read") &&
     (industryModule==="course" || industryModule==="steamfoot" || (industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1"));
   })();
+  const initialNoticeSummaryPromise=noticeEnabledPromise.then(enabled=>enabled&&effectiveStoreId?readInitialStoreNoticeSummary(industryModule,effectiveStoreId):null);
   // These reads depend on the already authorized store and module, but not on
   // one another. Keep their existing gates and failure behavior while avoiding
   // three consecutive round trips before the dashboard can render.
@@ -259,6 +260,7 @@ async function readDashboardLayout({
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
       noticeInitiallyEnabled={noticeInitiallyEnabled}
+      initialNoticeSummary={await initialNoticeSummaryPromise}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}

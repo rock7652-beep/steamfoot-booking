@@ -3,7 +3,7 @@ import {useCallback,useEffect,useId,useRef,useState} from "react";
 import {createPortal} from "react-dom";
 import {RightSheet} from "./right-sheet";
 import {rosterStatusButtonClassName} from "./roster-primitives";
-import {STORE_NOTICE_LABELS,type StoreNoticeItem,type StoreNoticeLoadResult,type StoreNoticeMarkResult} from "@/lib/store-notices";
+import {STORE_NOTICE_LABELS,type StoreNoticeItem,type StoreNoticeLoadResult,type StoreNoticeMarkResult,type InitialStoreNoticeSummary} from "@/lib/store-notices";
 import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
@@ -13,22 +13,25 @@ import {markNoticeRead} from '@/lib/notice-read-performance';
 const NOTICE_TITLE="數位管家｜門市提醒";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
-export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
+export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialSummary,loadNotices,markNotice,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
  storeId:string;namespace:"course"|"steamfoot"|"beauty";initialEnabled?:boolean;
+ initialSummary?:InitialStoreNoticeSummary|null;
  loadNotices:(input:{storeId:string;handled:boolean;offset:number;summaryOnly?:boolean})=>Promise<StoreNoticeLoadResult>;
  markNotice:(input:{storeId:string;id:string;handled:boolean;revision:number})=>Promise<StoreNoticeMarkResult>;
  labels?:Partial<Record<StoreNoticeItem["kind"],string>>;
  onViewTarget?:(notice:StoreNoticeItem,canHandle:boolean)=>void;closeOnViewTarget?:boolean|((notice:StoreNoticeItem)=>boolean);targetLabel?:string;refreshKey?:number;
 }) {
+ const initial=initialEnabled&&initialSummary?.storeId===storeId&&Number.isSafeInteger(initialSummary.count)&&initialSummary.count>=0?initialSummary:undefined;
+ const skipInitialSummary=useRef(!!initial);
  const [enabled,setEnabled]=useState(initialEnabled),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
- const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
+ const [items,setItems]=useState<StoreNoticeItem[]>([]),[count,setCount]=useState(initial?.count??0),[canHandle,setCanHandle]=useState(false),[more,setMore]=useState(false);
  const [offset,setOffset]=useState(0),[expanded,setExpanded]=useState<string|null>(null),[error,setError]=useState("");
  const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(true),[loading,setLoading]=useState(true);
  const [undo,setUndo]=useState<StoreNoticeItem|null>(null);const heading=useId();
  const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
- const [countKnown,setCountKnown]=useState(false);
+ const [countKnown,setCountKnown]=useState(!!initial);
  const skipTargetCloseRead=useRef(false);
- const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),latestSeen=useRef<number|null>(null),soundRef=useRef(true);
+ const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(initial?.count??null),latestSeen=useRef<number|null>(initial?.latestAt?Date.parse(initial.latestAt):null),soundRef=useRef(true);
  const audio=useRef<AudioContext|null>(null);const soundKey=`${namespace}-notice-sound:${storeId}`;
  // Audio can only be unlocked inside a browser user gesture. Retry on later
  // gestures if autoplay policy or an interrupted device rejected resume().
@@ -74,10 +77,12 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
   };
  },[enabled,sound,armAudio]);
  useEffect(()=>{
-  const requestGeneration=generation;void load();const refresh=()=>{if(document.visibilityState==="visible")void load();};
+  const requestGeneration=generation;if(!skipInitialSummary.current||open)void load();skipInitialSummary.current=false;const refresh=()=>{if(document.visibilityState==="visible")void load();};
   const timer=setInterval(refresh,60000);document.addEventListener("visibilitychange",refresh);window.addEventListener("focus",refresh);window.addEventListener(`${namespace}-notices-setting`,refresh);
   return()=>{requestGeneration.current++;clearInterval(timer);document.removeEventListener("visibilitychange",refresh);window.removeEventListener("focus",refresh);window.removeEventListener(`${namespace}-notices-setting`,refresh);};
- },[load,namespace,refreshKey]);
+ },[load,namespace,refreshKey,open]);
+ const initialTiming=initial?.readTiming;
+ useEffect(()=>{if(initialTiming)markNoticeRead(namespace,'initial',initialTiming);},[initialTiming,namespace]);
  useEffect(()=>{if(!countKnown)return;let second=0;const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>markNoticeRead(namespace,'paint'));});return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};},[countKnown,count,namespace]);
  async function toggle(n:StoreNoticeItem) {
   if(busy.current||!canHandle)return;busy.current=true;generation.current++;reader.clear();setPending(n.id);setRowError({});setError("");

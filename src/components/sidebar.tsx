@@ -1,4 +1,5 @@
 "use client";
+import type {InitialStoreNoticeSummary} from "@/lib/store-notices";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
@@ -643,6 +644,7 @@ interface DashboardShellProps {
   /** Server-resolved store scope for shared course notifications, including store staff. */
   courseNoticeStoreId?: string | null;
   noticeInitiallyEnabled?: boolean;
+  initialNoticeSummary?:InitialStoreNoticeSummary|null;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   sportsNative?:boolean;
@@ -686,6 +688,7 @@ interface DashboardShellProps {
 export default function DashboardShell({
   courseNoticeStoreId,
   noticeInitiallyEnabled=false,
+  initialNoticeSummary,
   cashDrawerStoreId,
   musicEnabled=false,
   sportsNative=false,
@@ -1316,9 +1319,9 @@ export default function DashboardShell({
 
           {/* Right: store context + user menu */}
           <div className="flex max-w-full flex-wrap items-center gap-2 self-start sm:self-auto sm:gap-3 shrink-0">
-            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
-            {!isHqPlatformView && industryModule==="steamfoot" && courseNoticeStoreId && permissions.includes("booking.read") && <SteamfootStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
-            {!isHqPlatformView && industryModule==="beauty" && noticeInitiallyEnabled && courseNoticeStoreId && permissions.includes("booking.read") && <BeautyStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled}/> }
+            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
+            {!isHqPlatformView && industryModule==="steamfoot" && courseNoticeStoreId && permissions.includes("booking.read") && <SteamfootStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
+            {!isHqPlatformView && industryModule==="beauty" && noticeInitiallyEnabled && courseNoticeStoreId && permissions.includes("booking.read") && <BeautyStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */
