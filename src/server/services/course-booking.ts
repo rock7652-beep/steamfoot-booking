@@ -20,6 +20,7 @@ import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { toLocalDateStr,dayRange } from "@/lib/date-utils";
 import {musicCourseExpiry} from "@/lib/music-course-products";
+import {readEarliestMusicBackfill} from './music-session-adjustment';
 import "server-only";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import {cardCoversTeachingItem} from "./music-teaching-item";
@@ -714,7 +715,8 @@ export async function correctCourseAttendance(
   if(opening.kind === "NATIVE" && b.card.musicValidityDays && wasDebited && !willDebit){
     const leaveIds = await nativeDeductedLeaveIds(tx,actor.storeId);
     const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},OR:[{status:{in:["ATTENDED","NO_SHOW"]}},{absenceKind:"GROUP_LEAVE_FORFEITED"},{id:{in:leaveIds},status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}]},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
-    const firstDate=first?.session.startsAt??null;
+    const manualDate=await readEarliestMusicBackfill(tx,actor.storeId,b.cardId);
+    const firstDate=first?.session.startsAt&&(!manualDate||first.session.startsAt<manualDate)?first.session.startsAt:manualDate;
     if(!firstDate&&await isMusicPilotCard(tx,actor.storeId,b.card)){
       const reserved=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
       const projected=target==="RESERVED"&&(!reserved||b.session.startsAt<reserved.session.startsAt)?b.session.startsAt:reserved?.session.startsAt??b.session.startsAt;
@@ -782,7 +784,8 @@ export async function refundTeacherAbsentSession(tx: Prisma.TransactionClient, a
   for (const [cardId, days] of activationCards) {
     const leaveIds = await nativeDeductedLeaveIds(tx,actor.storeId);
     const first = await tx.courseBooking.findFirst({ where: { storeId: actor.storeId, cardId, OR: [{ status: { in: ["ATTENDED", "NO_SHOW"] } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }, {id:{in:leaveIds},status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}] }, orderBy: { session: { startsAt: "asc" } }, select: { session: { select: { startsAt: true } } } });
-    const date = first?.session.startsAt ?? null;
+    const manualDate=await readEarliestMusicBackfill(tx,actor.storeId,cardId);
+    const date = first?.session.startsAt&&(!manualDate||first.session.startsAt<manualDate)?first.session.startsAt:manualDate;
     const expiresAt=date ? musicCourseExpiry(date,days) : dayRange("2099-12-31").end;
     await tx.coursePointCard.update({ where: { id: cardId }, data: { musicActivatedAt: date, expiresAt } });
     await syncNativeMakeupExpiry(tx,actor.storeId,cardId,expiresAt,date);

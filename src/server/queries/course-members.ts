@@ -14,6 +14,8 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
 import { isMusicPilotCard } from "@/server/services/music-pilot-policy";
 import { musicSourceDisplayNote } from "@/lib/music-source-import";
+import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
+import type {SessionAdjustmentRecord} from '@/lib/plan-session-adjustment';
 
 export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip?: number; take?: number; entries?: boolean }) {
   const cards = await measureMusicRead("cardRows",()=>coursePrisma.coursePointCard.findMany({
@@ -32,7 +34,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     ...(page ? { skip: page.skip, take: page.take } : {}),
     orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
   }));
-  const people = await measureMusicRead("cardMembers",()=>prisma.customer.findMany({
+  const [people,adjustments] = await Promise.all([measureMusicRead("cardMembers",()=>prisma.customer.findMany({
     where: {
       storeId,
       id: {
@@ -42,7 +44,9 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       },
     },
     select: { id: true, name: true, phone: true },
-  }));
+  })),page?.entries===true?courseSessionAdjustmentRecords(coursePrisma,storeId,cards.map(c=>c.id)):Promise.resolve([])]);
+  // Internal reasons/actors belong to an authorized manager's detail panel.
+  // Member portals receive only their separate public lesson projection.
   return (await Promise.all(cards.map(async (c) => {
     const opening = readMusicOpeningCard(c, storeId, customerId);
     const openingIssue = musicOpeningOperationIssue(opening, c);
@@ -52,6 +56,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     return {
       ...({planId:c.planId,sportsMode:c.sportsMode,sportsSubjectId:c.sportsSubjectId,sportsCost:c.sportsCost,templateRestricted:c.requestKey?.startsWith("no-show-makeup:")??false} as Partial<{planId:string;sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null;templateRestricted:boolean}>),
       id: c.id,
+      ...({sessionAdjustments:adjustments.filter(r=>r.cardId===c.id)} as {sessionAdjustments?:SessionAdjustmentRecord[]}),
       ...(c.createdAt ? {createdAt:c.createdAt.toISOString()} : {}),
       name: c.nameSnapshot,
       unit: c.unit,
@@ -77,7 +82,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       })),
       entries: c.entries.map((e) => ({
         id: e.id,
-        kind: e.kind.startsWith("CORRECT:") ? e.kind : e.kind.split(":")[0],
+        kind: adjustments.some(r=>r.id===e.id)?'MANUAL_'+adjustments.find(r=>r.id===e.id)!.operation:e.kind.startsWith("CORRECT:") ? e.kind : e.kind.split(":")[0],
         points: e.points,
         createdAt: e.createdAt.toISOString(),
       })),

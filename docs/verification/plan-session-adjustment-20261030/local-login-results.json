@@ -1,0 +1,79 @@
+{
+  "complete": true,
+  "scope": "actual local credentials and Server Actions; disposable loopback DB; no hosted or physical Safari verification",
+  "results": [
+    {
+      "module": "sports",
+      "step": "actual-owner-login"
+    },
+    {
+      "module": "sports",
+      "step": "existing-plan-panel-entry"
+    },
+    {
+      "module": "sports",
+      "step": "actual-date-optional-reason-debit-once-ipad"
+    },
+    {
+      "module": "sports",
+      "step": "void-unit-without-closing-plan"
+    },
+    {
+      "module": "sports",
+      "step": "corrections-refund-once-retain-originals"
+    },
+    {
+      "module": "sports",
+      "step": "money-schedule-original-history-preserved-same-panel"
+    },
+    {
+      "module": "music",
+      "step": "actual-owner-login"
+    },
+    {
+      "module": "music",
+      "step": "existing-plan-panel-entry"
+    },
+    {
+      "module": "music",
+      "step": "actual-date-optional-reason-debit-once-ipad"
+    },
+    {
+      "module": "music",
+      "step": "void-unit-without-closing-plan"
+    },
+    {
+      "module": "music",
+      "step": "corrections-refund-once-retain-originals"
+    },
+    {
+      "module": "music",
+      "step": "money-schedule-original-history-preserved-same-panel"
+    },
+    {
+      "module": "beauty",
+      "step": "actual-owner-login"
+    },
+    {
+      "module": "beauty",
+      "step": "existing-plan-panel-entry"
+    },
+    {
+      "module": "beauty",
+      "step": "actual-date-optional-reason-debit-once-ipad"
+    },
+    {
+      "module": "beauty",
+      "step": "void-unit-without-closing-plan"
+    },
+    {
+      "module": "beauty",
+      "step": "corrections-refund-once-retain-originals"
+    },
+    {
+      "module": "beauty",
+      "step": "money-schedule-original-history-preserved-same-panel"
+    }
+  ],
+  "errors": []
+}

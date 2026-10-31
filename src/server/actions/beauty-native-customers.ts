@@ -29,6 +29,7 @@ import {saveCourseCustomerNote} from './course-customer-note';
 import {updateBeautyCardMembers} from './beauty';
 import {revalidatePath} from 'next/cache';
 import {settingsSaveUncertain} from '@/server/services/settings-save-error';
+import {beautySessionAdjustmentRecords} from '@/server/beauty/session-adjustment';
 
 const id=z.string().min(1).max(180);
 function failure(error:unknown){const result=handleActionError(error);return {success:false as const,error:result.success?'讀取失敗，請重試':result.error};}
@@ -61,13 +62,14 @@ async function browseBeautyNativeCardsCore(input:unknown){
   const all=[...cards,...balances];
   if(d.customerId){s.people=await prisma.customer.findMany({where:{...s.customerWhere,id:{in:[...new Set(all.flatMap(c=>c.memberIds))]}},select:{id:true,name:true,phone:true}});s.ids=s.people.map(p=>p.id);}
   const cardIds=[...new Set(all.map(c=>c.id))];
-  const [held,entries]=await beautyReadStep('holds_ledger',()=>Promise.all([
+  const [held,entries,adjustments]=await beautyReadStep('holds_ledger',()=>Promise.all([
    beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:s.storeId,cardId:{in:cardIds},status:'RESERVED'},_count:{id:true}}),
    d.cardId?beautyPrisma.beautyLedger.findMany({where:{storeId:s.storeId,cardId:{in:cards.map(c=>c.id)}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:100}):Promise.resolve([]),
+   d.cardId?beautySessionAdjustmentRecords(beautyPrisma,s.storeId,cards.map(c=>c.id)):Promise.resolve([]),
   ]));
   const project=(c:typeof cards[number])=>{
    const reserved=held.find(h=>h.cardId===c.id)?._count.id??0,expired=c.expiresAt.getTime()<Date.now();
-   return {id:c.id,planId:'plan:'+c.planId,name:c.name,unit:'SESSION' as const,musicValidityDays:null,musicActivatedAt:null,templateIds:c.serviceIds,termSessionIds:[],allowShared:c.allowShared,remaining:c.remaining,held:reserved,closed:!!c.closedAt,available:expired||c.closedAt?0:Math.max(0,c.remaining-reserved),expired,expiresAt:c.expiresAt.toISOString(),members:c.memberIds.filter(memberId=>s.ids.includes(memberId)).map(memberId=>({id:memberId,name:s.people.find(p=>p.id===memberId)?.name??'顧客',phone:s.people.find(p=>p.id===memberId)?.phone??''})),entries:entries.filter(e=>e.cardId===c.id).map(e=>({id:e.id,kind:e.kind,points:e.delta,createdAt:e.createdAt.toISOString()}))};
+   return {id:c.id,sessionAdjustments:adjustments.filter(r=>r.cardId===c.id&&s.ids.includes(r.customerId)),planId:'plan:'+c.planId,name:c.name,unit:'SESSION' as const,musicValidityDays:null,musicActivatedAt:null,templateIds:c.serviceIds,termSessionIds:[],allowShared:c.allowShared,remaining:c.remaining,held:reserved,closed:!!c.closedAt,available:expired||c.closedAt?0:Math.max(0,c.remaining-reserved),expired,expiresAt:c.expiresAt.toISOString(),members:c.memberIds.filter(memberId=>s.ids.includes(memberId)).map(memberId=>({id:memberId,name:s.people.find(p=>p.id===memberId)?.name??'顧客',phone:s.people.find(p=>p.id===memberId)?.phone??''})),entries:entries.filter(e=>e.cardId===c.id).map(e=>({id:e.id,kind:e.kind,points:e.delta,createdAt:e.createdAt.toISOString()}))};
   };
   return {success:true as const,rows:cards.slice(0,20).map(project),hasMore:cards.length>20,totals:d.customerId&&!d.cardId?courseBalanceTotals(balances.map(project)):undefined};
  }catch(error){return failure(error);}
