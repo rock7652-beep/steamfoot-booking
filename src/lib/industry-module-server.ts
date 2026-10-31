@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import {memoizeReadRequest} from "@/server/services/read-request-memo";
+import {memoizeReadRequest,verifiedStaffRead} from "@/server/services/read-request-memo";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
@@ -27,7 +27,8 @@ export async function getStoreIndustryModule(
   return memoizeReadRequest(`store.industry-module:${storeId}`,()=>readStoreIndustryModule(storeId));
 }
 async function readStoreIndustryModule(storeId:string):Promise<IndustryModuleId>{
-  const stores = (await sportsNativePreview(storeId))?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  const verified=verifiedStaffRead();
+  const stores = verified?.storeId===storeId?[{industryModule:verified.industryModule}]:(await sportsNativePreview(storeId))?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}

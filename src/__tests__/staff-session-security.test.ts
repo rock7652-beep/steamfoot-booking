@@ -202,3 +202,16 @@ it.each(["OWNER", "MANAGER", "STAFF"])("revokes %s's open session after account 
   mocks.findUnique.mockResolvedValue(state({ role, staff: { id: "test-staff", storeId: "store-a", status: "INACTIVE" } }));
   expect(await config.callbacks.jwt({ token: old })).toBeNull();
 });
+
+import {withReadRequestMemo,verifiedStaffRead} from "@/server/services/read-request-memo";
+it("publishes same-request metadata only after the fresh security stamp succeeds",async()=>{
+ const current=state();mocks.findUnique.mockResolvedValue({...current,staff:{...current.staff!,store:{slug:"s",industryModule:"COURSE"}}});
+ await withReadRequestMemo(async()=>{
+  expect(verifiedStaffRead()).toBeUndefined();
+  expect(await config.callbacks.jwt({token:token(current)})).not.toBeNull();
+  expect(verifiedStaffRead()).toEqual({userId:current.id,role:"OWNER",staffId:"test-staff",storeId:"store-a",industryModule:"COURSE"});
+ });
+ mocks.findUnique.mockResolvedValue({...current,status:"SUSPENDED"});
+ await withReadRequestMemo(async()=>{expect(await config.callbacks.jwt({token:token(current)})).toBeNull();expect(verifiedStaffRead()).toBeUndefined();});
+ expect(verifiedStaffRead()).toBeUndefined();
+});

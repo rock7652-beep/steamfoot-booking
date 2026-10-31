@@ -1,4 +1,5 @@
 import {measureMusicRead} from "@/lib/music-read-timing";
+import {rememberVerifiedStaffRead} from "@/server/services/read-request-memo";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import NextAuth from "next-auth";
 import { recordStaffLogin } from "@/server/services/staff-login-audit";
@@ -1530,6 +1531,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (appToken.customerReviewDigest && (!reviewTarget || current.role !== "OWNER" ||
           current.staff?.id !== reviewTarget.staffId || current.staff.storeId !== reviewTarget.storeId ||
           current.staff.store.slug !== reviewTarget.slug || current.staff.store.industryModule !== reviewTarget.industryModule)) return null;
+        if(current.role!=="ADMIN"&&current.staff?.status==="ACTIVE")rememberVerifiedStaffRead({userId:current.id,role:current.role,staffId:current.staff.id,storeId:current.staff.storeId,industryModule:current.staff.store.industryModule});
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;
