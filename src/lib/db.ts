@@ -1,4 +1,5 @@
 import { withMusicRetirement } from "@/lib/music-retirement";
+import {withExplicitRelationJoins} from "./explicit-relation-joins";
 import { assertMusicOpeningRuntimeIsolation, withMusicOpeningRuntimeSchema } from "@/lib/music-opening-preview-isolation";
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -34,12 +35,12 @@ export const prisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
   () => globalForPrisma.prisma,
-  () => withAuditDatabaseContext(withMusicRetirement(withMusicOpeningRuntimeSchema(new PrismaClient({
+  () => withAuditDatabaseContext(withMusicRetirement(withMusicOpeningRuntimeSchema(withExplicitRelationJoins(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  })), Prisma.dmmf.datamodel.models), true),
+  }))), Prisma.dmmf.datamodel.models), true),
 );
 
 if (!isGuideUiPreview() && (

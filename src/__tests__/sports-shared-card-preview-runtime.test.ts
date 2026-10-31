@@ -1,3 +1,5 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 // Test the existing preview isolation independently of the stronger incident stop.
 vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

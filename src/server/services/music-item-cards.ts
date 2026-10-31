@@ -1,3 +1,4 @@
+import {coursePrisma} from "@/lib/course-db";
 import 'server-only';
 import {purchaseOrder,sumItemBalances,type ItemBalance} from '@/lib/item-entitlement';
 import {courseCardCoversDate} from '@/lib/course-card-expiry';
@@ -7,9 +8,11 @@ import {musicItemTemplateIds} from './music-item-compatibility';
 import {musicCourseExpiry} from '@/lib/music-course-products';
 import type {Prisma} from '../../../generated/course-client';
 
-/** Native paid rights only; source-bound opening/makeup rights keep their dedicated flows. */
-export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date},excludeBookingId?:string){
- const cards=await tx.coursePointCard.findMany({where:{storeId,closedAt:null,unit:'SESSION',expiresAt:{gte:new Date()},members:{some:{customerId:{in:customerIds}}}},include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},bookings:{where:{status:'RESERVED',...(excludeBookingId?{id:{not:excludeBookingId}}:{})},select:{pointCost:true}}}});
+/** Native paid rights only; source-bound opening/makeup rights keep their dedicated flows.
+ * joinRead is used only by the ordinary-client balance projection below.
+ * Attendance binding and transaction callers retain their original strategy. */
+export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date},excludeBookingId?:string,joinRead=false){
+ const cards=await tx.coursePointCard.findMany({...(joinRead?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,unit:'SESSION',expiresAt:{gte:new Date()},members:{some:{customerId:{in:customerIds}}}},include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},bookings:{where:{status:'RESERVED',...(excludeBookingId?{id:{not:excludeBookingId}}:{})},select:{pointCost:true}}}});
  if(!cards.length)return cards;
  const [purchases,aliases,joins]=await Promise.all([
   tx.coursePurchase.findMany({where:{storeId,cardId:{in:cards.map(c=>c.id)},status:'CONFIRMED',voidedAt:null},select:{cardId:true,createdAt:true}}),
@@ -31,7 +34,7 @@ export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,
  return result;
 }
 export async function readMusicItemBalances(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date}){
- const rows=await musicItemCards(tx,storeId,customerIds,session);
+ const rows=await musicItemCards(tx,storeId,customerIds,session,undefined,tx===coursePrisma);
  const result=new Map<string,ItemBalance&{byUnit:ItemBalance[]}>();
  for(const id of new Set(customerIds)){
   const byUnit=sumItemBalances(rows.filter(c=>c.members.some(m=>m.customerId===id)).map(c=>({id:c.id,remaining:c.remaining,available:Math.max(0,c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0)),cost:1,unit:c.unit,planName:c.nameSnapshot})));

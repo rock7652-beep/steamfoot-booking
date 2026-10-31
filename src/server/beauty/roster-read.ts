@@ -38,7 +38,7 @@ export async function beautyRosterWhere(ctx:BeautyRosterContext,input:string):Pr
 }
 export async function loadBeautyRoster(ctx:BeautyRosterContext,where:Awaited<ReturnType<typeof beautyRosterWhere>>,readVersion?:string){
  const {a,u,customerAccess,cardAccess}=ctx;
-  const rows=await beautyReadStep('bookings',()=>beautyPrisma.beautyAppointment.findMany({where:{...where,storeId:a.storeId},orderBy:[{startsAt:'asc'},{createdAt:'asc'},{id:'asc'}],include:{group:{select:{customerId:true,contactName:true}}}}));
+  const rows=await beautyReadStep('bookings',()=>beautyPrisma.beautyAppointment.findMany({relationLoadStrategy:"join",where:{...where,storeId:a.storeId},orderBy:[{startsAt:'asc'},{createdAt:'asc'},{id:'asc'}],include:{group:{select:{customerId:true,contactName:true}}}}));
   const [cards,people,techs,locations]=await beautyReadStep('metadata',()=>Promise.all([
    cardAccess?beautyPrisma.beautyCard.findMany({where:{storeId:a.storeId,OR:[{id:{in:rows.flatMap(b=>b.cardId?[b.cardId]:[])}},{memberIds:{hasSome:rows.flatMap(b=>b.customerId?[b.customerId]:[])}}]}}):Promise.resolve([]),
    customerAccess&&u?prisma.customer.findMany({where:{...getManagerCustomerWhere(u.role,u.staffId,a.storeId),storeId:a.storeId,mergedIntoCustomerId:null,id:{in:rows.flatMap(b=>b.customerId?[b.customerId]:[])}},select:{id:true,name:true,phone:true,serviceNote:true,notes:true,assignedStaff:{select:{id:true,displayName:true,storeId:true}}}}):Promise.resolve([]),

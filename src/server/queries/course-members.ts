@@ -133,6 +133,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
     prisma.customer.findMany({
+    relationLoadStrategy:"join",
     where: { storeId, id: { in: bookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
     select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
   }),

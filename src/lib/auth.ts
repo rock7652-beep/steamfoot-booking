@@ -1517,6 +1517,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const stamp = user ? user.staffSessionStamp : appToken.staffSessionStamp;
         if (!id || !stamp) return null;
         const current = await measureMusicRead("session.staffState",()=>prisma.user.findUnique({
+          relationLoadStrategy:"join",
           where: { id },
           select: {
             id: true, role: true, status: true, passwordHash: true, updatedAt: true,

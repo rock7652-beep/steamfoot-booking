@@ -1,3 +1,5 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 import {afterEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({constructed:vi.fn()}));
 vi.mock('@/lib/generated-prisma-runtime',()=>({loadBeautyPrismaRuntime:()=>({PrismaClient:class {constructor(options:unknown){m.constructed(options);}}})}));

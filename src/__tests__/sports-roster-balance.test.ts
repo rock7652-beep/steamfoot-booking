@@ -28,3 +28,8 @@ it('shares only session metadata and always re-reads current cards and held amou
  });
  expect(m.session).toHaveBeenCalledTimes(1);expect(m.templates).toHaveBeenCalledTimes(1);expect(m.cards).toHaveBeenCalledTimes(2);
 });
+it('uses joined member/hold reads only for the ordinary read client, retaining transaction reads',async()=>{
+ const {coursePrisma}=await import('@/lib/course-db');
+ await readSportsRosterBalances('store','session',['a']);expect(m.cards.mock.calls[0][0].relationLoadStrategy).toBe('join');
+ const tx={...coursePrisma} as unknown as Parameters<typeof readSportsRosterBalances>[3];m.cards.mockClear();await readSportsRosterBalances('store','session',['a'],tx);expect(m.cards.mock.calls[0][0]).not.toHaveProperty('relationLoadStrategy');
+});

@@ -18,7 +18,7 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  if(!session)return balances;
  const [rule,cards,compatibleTemplateIds]=await Promise.all([
   readSportsSessionRule(reader,storeId,sessionId),
-  reader.coursePointCard.findMany({where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
+  reader.coursePointCard.findMany({...(reader===coursePrisma?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
   readSportsTeachingTemplates(reader,storeId,session.template.musicSubjectId),
  ]);
  if(!rule)return balances;
