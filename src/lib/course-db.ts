@@ -1,4 +1,5 @@
 import { loadCoursePrismaRuntime } from "./generated-prisma-runtime";
+import {buildDatabaseUrl} from "./database-url";
 import { assertStoreMemberWorkorderReviewOnly } from "../../scripts/store-member-workorder-review-gate.mjs";
 assertStoreMemberWorkorderReviewOnly();
 import { withMusicRetirement } from "@/lib/music-retirement";
@@ -14,22 +15,12 @@ assertMusicOpeningRuntimeIsolation();
 const globalForCourse = globalThis as unknown as {
   coursePrisma?: PrismaClient;
 };
-function databaseUrl() {
-  const base = process.env.DATABASE_URL;
-  if (!base) return "";
-  const url = new URL(base);
-  if (!url.searchParams.has("connection_limit"))
-    url.searchParams.set("connection_limit", process.env.VERCEL ? "1" : "5");
-  if (!url.searchParams.has("pool_timeout"))
-    url.searchParams.set("pool_timeout", "10");
-  return url.toString();
-}
 export const coursePrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
   () => globalForCourse.coursePrisma,
   () => withAuditDatabaseContext(withMusicRetirement(withMusicOpeningRuntimeSchema(new RuntimePrismaClient({
-    datasources: { db: { url: databaseUrl() } },
+    datasources: { db: { url: buildDatabaseUrl() } },
     log: ["error"],
   })), Prisma.dmmf.datamodel.models)),
 );
