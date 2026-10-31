@@ -1,3 +1,4 @@
+vi.mock('@/server/actions/beauty-session-adjustment',()=>({saveBeautySessionAdjustment:vi.fn()}));
 vi.mock('@/server/actions/beauty-card-management',()=>({saveBeautyCardManagement:vi.fn()}));
 import {createElement as h} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';

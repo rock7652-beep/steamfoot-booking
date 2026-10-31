@@ -31,9 +31,9 @@ describe("2026-10-23 backend guide audit", () => {
     expect(state.currentMainAudit.pullRequests).toEqual([1395, 1396, 1399]);
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toEqual(["B11", "C123", "C130", "C144", "C148", "C149", "C150", "C152", "C154"]);
-    expect(state.backendInteractionPendingCount).toBe(93);
+    expect(state.backendInteractionPendingCount).toBe(94);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(203);
     expect(guideCategories).toHaveLength(15);
   });
 
@@ -47,8 +47,8 @@ describe("2026-10-23 backend guide audit", () => {
   });
 
   it("documents reminder navigation, independent saves and entitlement boundaries", () => {
-    expect(guide("F01").steps.join(" ")).toContain("提醒類型");
-    expect(guide("F01").steps.join(" ")).toContain("通知分類下拉選單");
+    expect(guide("F01").steps.join(" ")).toContain("顧客通知");
+    expect(guide("F01").steps.join(" ")).toContain("通知收件人");
     expect(guide("I21").details.join(" ")).toContain("不同個別開關可獨立儲存");
     expect(guide("C123").details.join(" ")).toContain("不重新整理整個後台版面");
     expect(guide("W06").details.join(" ")).toContain("工單功能未開通時");

@@ -377,7 +377,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertSportsSharedCardPreviewEnvironment(env);
     return "sports-shared-card-preview";
   }
-  if (["fix/customer-line-binding-management-20261029", "fix/plan-card-management-20261029", "feat/store-manager-bell-20261030"].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+  if (["fix/customer-line-binding-management-20261029", "fix/plan-card-management-20261029", "feat/plan-session-adjustment-20261030", "feat/store-manager-bell-20261030"].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     // Same exact repository, isolated connection and notification gates. This
     // customer-only review must never apply unrelated pending migrations.
     assertSportsSharedCardPreviewEnvironment(env);
