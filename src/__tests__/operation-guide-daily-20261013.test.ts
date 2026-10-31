@@ -9,7 +9,7 @@ const course: GuideAccess = { module: "course", permissions: allPermissions, fea
 
 describe("2026-10-13 backend operation guide audit", () => {
   it("adds one source-reviewed work-order notification guide", () => {
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(215);
     const guide = operationGuides.find(item => item.id === "W06");
     expect(guide?.verification).toBe("source-reviewed");
     expect(guide?.modules).toEqual(["steamfoot", "course"]);

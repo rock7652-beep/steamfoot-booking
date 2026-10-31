@@ -23,7 +23,7 @@ const guide = (id: string) => operationGuides.find((item) => item.id === id)!;
 
 describe("2026-10-23 backend guide audit", () => {
   it("records the exact main range and backend-only accounting", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(state.auditDateTaipei).toBe("2026-10-25");
     expect(state.previousSuccessfulAuditCommit).toBe("7cb8c26127f60337c159b05391bc90f3263246ad");
     expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
@@ -33,7 +33,7 @@ describe("2026-10-23 backend guide audit", () => {
     expect(state.updatedGuideIds).toEqual(["B11", "C123", "C130", "C144", "C148", "C149", "C150", "C152", "C154"]);
     expect(state.backendInteractionPendingCount).toBe(93);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(215);
     expect(guideCategories).toHaveLength(15);
   });
 
@@ -47,8 +47,8 @@ describe("2026-10-23 backend guide audit", () => {
   });
 
   it("documents reminder navigation, independent saves and entitlement boundaries", () => {
-    expect(guide("F01").steps.join(" ")).toContain("提醒類型");
-    expect(guide("F01").steps.join(" ")).toContain("通知分類下拉選單");
+    expect(guide("F01").steps.join(" ")).toContain("顧客通知直接列出");
+    expect(guide("F01").steps.join(" ")).toContain("通知收件人");
     expect(guide("I21").details.join(" ")).toContain("不同個別開關可獨立儲存");
     expect(guide("C123").details.join(" ")).toContain("不重新整理整個後台版面");
     expect(guide("W06").details.join(" ")).toContain("工單功能未開通時");
