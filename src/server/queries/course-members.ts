@@ -128,18 +128,13 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
-  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared,fixedAssignments,balanceRead] = await Promise.all([
+  const [termSessionCount, customers, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared,fixedAssignments,balanceRead] = await Promise.all([
     groupSession && groupTermStart !== null && groupTermLessons
     ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
     prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
     select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
-  }),
-  coursePrisma.courseBooking.groupBy({
-    by: ["customerId"],
-    where: {storeId, bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null, customerId:{in:bookings.map(b=>b.customerId).filter((id): id is string => !!id)}, OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
-    _count: {id:true},
   }),
   coursePrisma.courseBooking.findMany({
     where: {storeId,bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,customerId:{in:bookings.map(b=>b.customerId).filter((id): id is string => !!id)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
@@ -166,6 +161,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       return {nativeSports,balances:await balances};
     })(),
   ]);
+  // The history query already returns exactly the rows counted in the badge.
+  // Derive both from the same read instead of repeating its full-store scan.
+  const absenceCounts=new Map<string,number>();
+  for(const row of absenceHistory)if(row.customerId)absenceCounts.set(row.customerId,(absenceCounts.get(row.customerId)??0)+1);
   const {pilotCards}=pilotData;
   const {nativeSports,balances:unlinkedBalances}=balanceRead;
   const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
@@ -286,7 +285,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     expiresAt: card?.expiresAt?.toISOString() ?? null,
     ...(!openingMakeup && opening.kind === "NATIVE" && card?.musicValidityDays && !card.musicActivatedAt ? { activationExpiryLabel: `首次上課起 ${card.musicValidityDays} 天` } : {}),
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
-    absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
+    absenceCount: (b.customerId?absenceCounts.get(b.customerId):0)??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),
     serviceNote: [musicSourceDisplayNote(customers.find((c) => c.id === b.customerId)?.serviceNote), customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
     openingIssue: openingIssue ?? openingOperationWarning,

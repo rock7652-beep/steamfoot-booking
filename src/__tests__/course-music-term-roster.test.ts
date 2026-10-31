@@ -162,3 +162,16 @@ it("reads live item balances while unrelated absence history is still pending",a
  release([]);
  expect(await read).toHaveLength(1);
 });
+it('counts absence badges from the same scoped history used by each learner',async()=>{
+ const first=lesson('first',0),second=lesson('second',0);
+ db.bookings.mockResolvedValue([row('first',first,card('first',[first],4)),row('second',second,card('second',[second],4))]);
+ db.absences.mockResolvedValue([
+  {customerId:'first',absenceKind:'STUDENT_LEAVE',status:'CANCELLED',session:{startsAt:day(1)}},
+  {customerId:'first',absenceKind:null,status:'NO_SHOW',session:{startsAt:day(2)}},
+  {customerId:'second',absenceKind:'GROUP_LEAVE_FORFEITED',status:'CANCELLED',session:{startsAt:day(3)}},
+ ]);
+ const result=await getCourseRoster('music-store','session-0');
+ expect(result.map(r=>[r.customerId,r.absenceCount,r.absenceHistory.length])).toEqual([['first',2,2],['second',1,1]]);
+ expect(db.leaveCounts).not.toHaveBeenCalled();
+ expect(db.absences.mock.calls[0][0].where).toMatchObject({storeId:'music-store',bookingKind:{not:'OPENING_MAKEUP'},musicOpeningMakeupEntitlementId:null,customerId:{in:['first','second']}});
+});

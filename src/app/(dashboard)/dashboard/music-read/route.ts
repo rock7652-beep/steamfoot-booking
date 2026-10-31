@@ -1,4 +1,5 @@
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
+import {withPermissionRequestSession} from "@/lib/permission-request-session";
 import {withMusicReadTiming} from "@/lib/music-read-timing";
 import {getMusicRevenueTransactions} from "@/server/queries/music-revenue-transactions";
 import {z} from "zod";
@@ -13,7 +14,7 @@ import {courseManagerRead} from "@/server/services/course-access";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 export const dynamic="force-dynamic";
 export async function GET(request:Request){
- return withReadRequestMemo(()=>read(request));
+ return withReadRequestMemo(()=>withPermissionRequestSession(()=>read(request)));
 }
 async function read(request:Request){
   const started=performance.now();
