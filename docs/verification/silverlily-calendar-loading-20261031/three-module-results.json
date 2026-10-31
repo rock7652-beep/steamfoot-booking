@@ -1,0 +1,314 @@
+{
+  "commit": "884089c34be399ebf57c85dee6f3a9f5bcc8ab52",
+  "origin": "https://steamfoot-booking-j3936tj7p-rock7652-2111s-projects.vercel.app",
+  "scope": "three isolated synthetic stores, normal owner login, no submitted booking/attendance/payment writes",
+  "samples": [
+    {
+      "module": "sports",
+      "sample": 0,
+      "warmup": true,
+      "kind": "schedule",
+      "shellMs": 139,
+      "firstPaintMs": 143,
+      "authoritativeMs": 1447
+    },
+    {
+      "module": "sports",
+      "sample": 0,
+      "warmup": true,
+      "kind": "roster",
+      "shellMs": 106,
+      "firstPaintMs": 112,
+      "authoritativeMs": 1909
+    },
+    {
+      "module": "sports",
+      "sample": 1,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 62,
+      "firstPaintMs": 66,
+      "authoritativeMs": 863
+    },
+    {
+      "module": "sports",
+      "sample": 1,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 64,
+      "firstPaintMs": 68,
+      "authoritativeMs": 1862
+    },
+    {
+      "module": "sports",
+      "sample": 2,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 51,
+      "firstPaintMs": 54,
+      "authoritativeMs": 1853
+    },
+    {
+      "module": "sports",
+      "sample": 2,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 62,
+      "firstPaintMs": 66,
+      "authoritativeMs": 1856
+    },
+    {
+      "module": "sports",
+      "sample": 3,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 40,
+      "firstPaintMs": 47,
+      "authoritativeMs": 840
+    },
+    {
+      "module": "sports",
+      "sample": 3,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 57,
+      "firstPaintMs": 61,
+      "authoritativeMs": 1855
+    },
+    {
+      "module": "sports",
+      "sample": 4,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 44,
+      "firstPaintMs": 52,
+      "authoritativeMs": 846
+    },
+    {
+      "module": "sports",
+      "sample": 4,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 59,
+      "firstPaintMs": 64,
+      "authoritativeMs": 1856
+    },
+    {
+      "module": "music",
+      "sample": 0,
+      "warmup": true,
+      "kind": "schedule",
+      "shellMs": 393,
+      "firstPaintMs": 396,
+      "authoritativeMs": 396
+    },
+    {
+      "module": "music",
+      "sample": 0,
+      "warmup": true,
+      "kind": "roster",
+      "shellMs": 48,
+      "firstPaintMs": 52,
+      "authoritativeMs": 1848
+    },
+    {
+      "module": "music",
+      "sample": 1,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 257,
+      "firstPaintMs": 261,
+      "authoritativeMs": 261
+    },
+    {
+      "module": "music",
+      "sample": 1,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 52,
+      "firstPaintMs": 57,
+      "authoritativeMs": 2354
+    },
+    {
+      "module": "beauty",
+      "sample": 0,
+      "warmup": true,
+      "kind": "schedule",
+      "shellMs": 79,
+      "firstPaintMs": 82,
+      "authoritativeMs": 82
+    },
+    {
+      "module": "beauty",
+      "sample": 0,
+      "warmup": true,
+      "kind": "roster",
+      "shellMs": 862,
+      "firstPaintMs": 866,
+      "authoritativeMs": 2160
+    },
+    {
+      "module": "beauty",
+      "sample": 1,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 51,
+      "firstPaintMs": 55,
+      "authoritativeMs": 55
+    },
+    {
+      "module": "beauty",
+      "sample": 1,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 106,
+      "firstPaintMs": 114,
+      "authoritativeMs": 1415
+    }
+  ],
+  "checks": [
+    {
+      "module": "sports",
+      "check": "normal-login",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "roster-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "roster-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "form-bounds-and-draft-retention",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "roster-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "normal-login",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "roster-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "roster-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "form-bounds-and-draft-retention",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "roster-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "normal-login",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "roster-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "form-bounds-and-draft-retention",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "roster-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "form-bounds-and-draft-retention",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "roster-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true
+}
