@@ -6,6 +6,9 @@ import { readMusicLessonAssignments } from "@/server/services/music-lesson-perio
 import { musicTuitionPeriods } from "@/lib/music-tuition";
 import { courseBookingWasDebited } from "@/lib/course-debit-policy";
 import { courseDisplayName } from "@/lib/course-template-presentation";
+import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
+import {activeSessionAdjustments} from '@/lib/plan-session-adjustment';
+import {dayRange} from '@/lib/date-utils';
 
 /** Called only with the authenticated portal identity (or authorized read-only preview).
  * Never accepts a browser-supplied member ID and never loads another payer's orders.
@@ -26,6 +29,7 @@ export async function getCourseMemberRecords(storeId: string, customerId: string
     readMusicReceipts(coursePrisma,storeId,orders.map(o=>o.id)),
     readMusicLessonAssignments(coursePrisma,storeId,bookings.map(b=>b.id)),
   ]) : [new Map(),[],[]] as const;
+  const manual=activeSessionAdjustments(await courseSessionAdjustmentRecords(coursePrisma,storeId,cards.map(c=>c.id))).filter(r=>r.customerId===customerId&&r.operation==='BACKFILL');
   return orders.map(order=>{
     const card=cards.find(c=>c.id===order.cardId);
     const agreed=tuition.get(order.id)?.due as number|undefined;
@@ -40,6 +44,8 @@ export async function getCourseMemberRecords(storeId: string, customerId: string
       const assignment=assignments.find(a=>a.bookingId===b.id&&a.customerId===b.customerId);
       return {id:b.id,name:courseDisplayName(b.session.nameSnapshot),date:b.session.startsAt.toISOString(),learner:b.customerName,status:b.session.cancelledAt?"停課":b.absenceKind==="STUDENT_LEAVE"||b.absenceKind==="GROUP_LEAVE_FORFEITED"?"請假":b.absenceKind==="TEACHER_ABSENT"?"教師未授課":({ATTENDED:"已出席",NO_SHOW:"未到",CANCELLED:"已取消",RESERVED:"待上課"}[b.status]??"待確認"),period:assignment?.period??null,ordinal:assignment?.ordinal??null,used:courseBookingWasDebited(b)?b.pointCost:0,unit:order.unit};
     }) : [];
+    if(uniqueCardPurchase)lessons.push(...manual.filter(r=>r.cardId===card!.id).map(r=>({id:r.id,name:'補登已上課',date:dayRange(r.occurredOn!).start.toISOString(),learner:r.customerName,status:'已出席（補登）',period:r.slots?.[0]?.period??null,ordinal:r.slots?.[0]?.ordinal??null,used:r.quantity,unit:order.unit})));
+    lessons.sort((a,b)=>a.date.localeCompare(b.date));
     const range=order.cardId?numbering.get(order.cardId):undefined;
     return {...(range?{purchaseBatch:range.batch,periodStart:range.start}:{}),id:order.id,cardId:order.cardId,name:order.name,termSizes:order.musicTermSizes??[],templateIds:order.templateIds,date:order.createdAt.toISOString(),status:order.status,unit:order.unit,points:order.points,due:agreed??(order.status==="PENDING"?order.price:null),received,periods,lessons,
       lessonsAvailable:uniqueCardPurchase,

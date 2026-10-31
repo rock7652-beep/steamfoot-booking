@@ -17,6 +17,12 @@ it('rejects nonpreview and invisible students without reading cards',async()=>{m
 it('starts independent full totals without waiting for filtered cards',async()=>{let finish!:(v:unknown[])=>void;m.cards.mockImplementation(()=>new Promise(r=>finish=r));const p=readCourseCards({customerId:'learner',search:'A'},true);await vi.waitFor(()=>expect(m.totals).toHaveBeenCalled());finish([]);expect((await p).success).toBe(true);});
 it('does not compute full totals for a single card detail',async()=>{expect((await readCourseCards({cardId:'card'},true)).success).toBe(true);expect(m.totals).not.toHaveBeenCalled();expect(m.cards.mock.calls[0][2]).toMatchObject({skip:0,take:1,entries:true});});
 const card=(id:string,unit='SESSION',remaining=10,held=1)=>({id,unit,remaining,held,available:remaining-held,expired:false,closed:false});
+it('does not expose another shared learner\'s internal adjustment notes to a scoped staff reader',async()=>{
+ m.cards.mockResolvedValue([{...card('shared'),sessionAdjustments:[{id:'mine',customerId:'learner',reason:'可見原因'},{id:'hidden',customerId:'other',reason:'其他學員內部原因'}]}]);
+ const result=await readCourseCards({cardId:'shared'},true);
+ expect(result.success&&result.rows[0].sessionAdjustments).toEqual([{id:'mine',customerId:'learner',reason:'可見原因'}]);
+ expect(JSON.stringify(result)).not.toContain('其他學員內部原因');
+});
 it('uses one authoritative read for all initial customer balances while returning only the first twenty cards',async()=>{
  m.cards.mockResolvedValue(Array.from({length:24},(_,i)=>card('card-'+i)));
  expect(await readCourseCards({customerId:'learner'})).toMatchObject({success:true,hasMore:true,totals:[{unit:'SESSION',count:24,remaining:240,held:24,available:216}]});

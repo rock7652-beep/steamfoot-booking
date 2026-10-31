@@ -90,6 +90,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 import {PlanManagementControls} from '@/components/admin/plan-management-controls';
+import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjustment';
 import {saveCourseCardManagement} from '@/server/actions/course-card-management';
 
 export function CourseMemberWorkspace({
@@ -760,7 +761,7 @@ export function CourseMemberWorkspace({
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
                 {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onDirtyChange:setDirty,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
-                {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining} storeId={previewStoreId} card={card} save={saveCourseCardManagement} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
+                {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining} storeId={previewStoreId} card={card} save={saveCourseCardManagement} sessionAdjustment={{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members,blockedReason:card.openingImported||card.templateRestricted?'來源方案或補課權益須由原專用流程核對。':undefined}} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {(source?.canManageMembers??canAssign) && sharingVisible && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
@@ -836,6 +837,9 @@ export function CourseCardEntries({ card,sessionUnitLabel="堂",entryLabels={} }
     RESERVE: "預約保留額度",
     RELEASE: "取消預約返還額度",
     DEBIT: "出席使用",
+    MANUAL_BACKFILL: "補登已上課扣除",
+    MANUAL_VOID: "註銷堂數",
+    MANUAL_REVERSE: "更正返還",
   };
   return (
     <details className="mt-5">
@@ -845,6 +849,7 @@ export function CourseCardEntries({ card,sessionUnitLabel="堂",entryLabels={} }
           <li key={e.id} className="py-2">
             {formatTWDateTime(new Date(e.createdAt))} ·{" "}
             {e.kind.startsWith("CORRECT:") ? "點名更正" : labels[e.kind.split(":")[0]] ?? "額度異動"} {e.points} {card.unit === "SESSION" ? sessionUnitLabel : "點"}
+            {card.sessionAdjustments?.filter(r=>r.id===e.id).map(r=><div key={r.id} className="mt-1 space-y-1 text-earth-600">{card.sessionAdjustments?.some(c=>c.reversalOf===r.id)&&<p>原調整已更正返還</p>}{r.occurredOn&&<p>實際上課日期：{r.occurredOn}</p>}<p>操作人員：{r.actorName} · 原因：{r.reason||'未填寫'}</p></div>)}
           </li>
         ))}
       </ul>

@@ -62,6 +62,7 @@ async function readCards(input: unknown, previewOnly: boolean, timings?: Record<
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],
       }, skip:data.cardId ? 0 : data.page*20, take:data.cardId ? 1 : wholeActiveCustomer?2_147_483_647:21, entries:!!data.cardId,
     }),data.customerId && !data.cardId&&!wholeActiveCustomer ? measure("balanceSummary",()=>getCourseBalanceSummary(storeId, data.customerId!, musicStore, data.dataScope)) : Promise.resolve(undefined)]));
-    return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20,totals:wholeActiveCustomer?courseBalanceTotals(cards):totals};
+    const rows=cards.slice(0,20).map(card=>card.sessionAdjustments?{...card,sessionAdjustments:card.sessionAdjustments.filter(r=>!visibleIds||visibleIds.includes(r.customerId))}:card);
+    return {success:true as const, rows,hasMore:cards.length>20,totals:wholeActiveCustomer?courseBalanceTotals(cards):totals};
   } catch(error) { return failure(error); }
 }

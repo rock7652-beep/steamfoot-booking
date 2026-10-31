@@ -8,7 +8,7 @@ import type { Prisma } from "../../generated/course-client";
 const m = {
   courseBooking: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), aggregate: vi.fn(), count: vi.fn() },
   coursePointCard: { update: vi.fn() }, coursePointEntry: { create: vi.fn() },
-  courseSession: { findFirst: vi.fn(), update: vi.fn() }, $executeRaw: vi.fn(),
+  courseSession: { findFirst: vi.fn(), update: vi.fn() }, $executeRaw: vi.fn(),$queryRaw:vi.fn(),
 };
 const tx = m as unknown as Prisma.TransactionClient;
 const actor = { storeId: "store", userId: "manager", name: "店長" };
@@ -18,6 +18,7 @@ const row = (id: string, status: string, absenceKind: string | null = null, card
 });
 beforeEach(() => {
   vi.resetAllMocks();
+  m.$queryRaw.mockResolvedValue([]);
   m.courseBooking.findFirst.mockResolvedValue(null);
   m.courseBooking.update.mockImplementation(async input => input.data);
 });
@@ -49,6 +50,12 @@ describe("teacher absence refunds", () => {
     await refundTeacherAbsentSession(tx,actor,"session");
     expect(m.coursePointCard.update).toHaveBeenLastCalledWith({where:{id:"shared"},data:{musicActivatedAt:null,expiresAt:expect.any(Date)}});
     expect(m.courseBooking.findFirst).toHaveBeenCalledOnce();
+  });
+  it('retains an earlier backfilled class as first-use when teacher absence refunds the last scheduled class',async()=>{
+    m.courseBooking.findMany.mockResolvedValue([{...row('first','ATTENDED'),card:{musicValidityDays:35}}]);
+    m.$queryRaw.mockResolvedValue([{afterJson:{record:{id:'manual',operation:'BACKFILL',occurredOn:'2026-09-01',reversalOf:null}}}]);
+    await refundTeacherAbsentSession(tx,actor,'session');
+    expect(m.coursePointCard.update).toHaveBeenLastCalledWith({where:{id:'shared'},data:{musicActivatedAt:new Date('2026-08-31T16:00:00Z'),expiresAt:new Date('2026-10-05T15:59:59.999Z')}});
   });
   it("restoration reserves the returned quota without debiting it", async () => {
     m.courseBooking.findFirst.mockResolvedValueOnce({...row("booking","CANCELLED","TEACHER_ABSENT"),sessionId:"session",customerId:"student",session:{teacherAttendance:"SCHEDULED",cancelledAt:null,capacity:10,startsAt:new Date("2026-10-01")},card:{remaining:8,closedAt:null,expiresAt:new Date("2099-01-01")}});

@@ -1,0 +1,320 @@
+{
+  "scope": "synthetic component Preview; no real login, database, Safari or LIFF verification",
+  "results": [
+    {
+      "module": "運動",
+      "width": 1366,
+      "height": 900,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1366,
+        "scroll": 1366,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "音樂",
+      "width": 1366,
+      "height": 900,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1366,
+        "scroll": 1366,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "美業",
+      "width": 1366,
+      "height": 900,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1366,
+        "scroll": 1366,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "運動",
+      "width": 1920,
+      "height": 1080,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1920,
+        "scroll": 1920,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "音樂",
+      "width": 1920,
+      "height": 1080,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1920,
+        "scroll": 1920,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "美業",
+      "width": 1920,
+      "height": 1080,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1920,
+        "scroll": 1920,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "運動",
+      "width": 1024,
+      "height": 768,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1024,
+        "scroll": 1024,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "音樂",
+      "width": 1024,
+      "height": 768,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1024,
+        "scroll": 1024,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "美業",
+      "width": 1024,
+      "height": 768,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 1024,
+        "scroll": 1024,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "運動",
+      "width": 768,
+      "height": 1024,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 768,
+        "scroll": 768,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "音樂",
+      "width": 768,
+      "height": 1024,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 768,
+        "scroll": 768,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "美業",
+      "width": 768,
+      "height": 1024,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 768,
+        "scroll": 768,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "運動",
+      "width": 360,
+      "height": 780,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 360,
+        "scroll": 360,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "音樂",
+      "width": 360,
+      "height": 780,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 360,
+        "scroll": 360,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    },
+    {
+      "module": "美業",
+      "width": 360,
+      "height": 780,
+      "checks": [
+        "backfill-date-and-debit",
+        "optional-reason",
+        "rotation-preserves-draft",
+        "correction-retains-original",
+        "void-without-class-date",
+        "same-panel",
+        "no-horizontal-overflow",
+        "touch-controls"
+      ],
+      "layout": {
+        "width": 360,
+        "scroll": 360,
+        "minimumControlHeight": 44
+      },
+      "pageErrors": []
+    }
+  ]
+}

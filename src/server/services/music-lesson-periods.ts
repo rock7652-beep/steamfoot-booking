@@ -3,6 +3,7 @@ import { Prisma } from "@/../generated/course-client";
 import { AppError } from "@/lib/errors";
 import { musicLessonPeriodIssue, nextMusicLessonSlot } from "@/lib/music-lesson-periods";
 import { musicNativeWorkflowEnabled } from "./music-native-workflow";
+import {readManualMusicSlots} from './music-session-adjustment';
 type Tx = Prisma.TransactionClient;
 export type MusicLessonAssignment = { bookingId: string; cardId: string; customerId: string; period: number; ordinal: number; kind: string; sourceBookingId: string | null; releasedAt: Date | null };
 export const fixedMusicPeriodsEnabled = (storeId: string) => musicNativeWorkflowEnabled(storeId);
@@ -24,6 +25,7 @@ export async function bindMusicLesson(tx: Tx, storeId: string, booking: { id: st
   const unknown = await tx.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."cardId"=${booking.cardId} AND b."customerId"=${booking.customerId} AND b.id<>${booking.id} AND (b.status<>'CANCELLED' OR b."absenceKind" IN ('STUDENT_LEAVE','GROUP_LEAVE_FORFEITED','TEACHER_ABSENT')) AND NOT EXISTS(SELECT 1 FROM "CourseMusicLessonAssignment" a WHERE a."bookingId"=b.id)`;
   if (!source && Number(unknown[0]?.count)) throw new AppError("VALIDATION", "既有課堂期別待確認，請先在逐期總覽確認，再安排新堂次");
   const occupied = await tx.$queryRaw<Array<{ period: number; ordinal: number; bonus: boolean }>>`SELECT period,ordinal,false AS bonus FROM "CourseMusicLessonAssignment" WHERE "storeId"=${storeId} AND "cardId"=${booking.cardId} AND "customerId"=${booking.customerId} AND kind='REGULAR' AND "releasedAt" IS NULL`;
+  occupied.push(...await readManualMusicSlots(tx,storeId,booking.cardId,booking.customerId));
   const slot = source ?? nextMusicLessonSlot(card.musicTermSizes, card.musicBonusLessons, occupied);
   if (!slot) throw new AppError("VALIDATION", "各期堂次已安排完畢，請核對取消、補課或續購方案");
   await tx.$executeRaw`INSERT INTO "CourseMusicLessonAssignment" ("bookingId","storeId","cardId","customerId",period,ordinal,kind,"sourceBookingId") VALUES (${booking.id},${storeId},${couponSource && source ? source.cardId : booking.cardId},${booking.customerId},${slot.period},${slot.ordinal},${booking.makeupForBookingId || couponSource ? "MAKEUP" : "REGULAR"},${booking.makeupForBookingId ?? couponSource ?? null})`;
@@ -45,6 +47,7 @@ export async function rebindPendingMusicLesson(tx:Tx,storeId:string,booking:{id:
   const unknown=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."cardId"=${card.id} AND b."customerId"=${booking.customerId} AND b.id<>${booking.id} AND (b.status<>'CANCELLED' OR b."absenceKind" IN ('STUDENT_LEAVE','GROUP_LEAVE_FORFEITED','TEACHER_ABSENT')) AND NOT EXISTS(SELECT 1 FROM "CourseMusicLessonAssignment" a WHERE a."bookingId"=b.id)`;
   if(Number(unknown[0]?.count))throw new AppError("VALIDATION","既有課堂期別待確認，尚未改卡或扣堂");
   const occupied=await tx.$queryRaw<Array<{period:number;ordinal:number;bonus:boolean}>>`SELECT period,ordinal,false AS bonus FROM "CourseMusicLessonAssignment" WHERE "storeId"=${storeId} AND "cardId"=${card.id} AND "customerId"=${booking.customerId} AND "bookingId"<>${booking.id} AND kind='REGULAR' AND "releasedAt" IS NULL`;
+  occupied.push(...await readManualMusicSlots(tx,storeId,card.id,booking.customerId??undefined));
   const slot=nextMusicLessonSlot(card.musicTermSizes,card.musicBonusLessons,occupied);
   if(!slot)throw new AppError("VALIDATION","各期堂次已安排完畢，尚未改卡或扣堂");
   const count=await tx.$executeRaw`UPDATE "CourseMusicLessonAssignment" SET "cardId"=${card.id},period=${slot.period},ordinal=${slot.ordinal},"releasedAt"=NULL,"updatedAt"=NOW() WHERE "storeId"=${storeId} AND "bookingId"=${booking.id} AND "cardId"=${current.cardId} AND kind='REGULAR' AND "sourceBookingId" IS NULL`;

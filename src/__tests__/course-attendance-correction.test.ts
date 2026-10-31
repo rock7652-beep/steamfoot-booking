@@ -10,7 +10,7 @@ vi.mock("@/server/services/course-access", () => ({
 import { correctCourseAttendance } from "@/server/services/course-booking";
 import type { Prisma } from "../../generated/course-client";
 const m = {
-  $executeRaw: vi.fn(),
+  $executeRaw: vi.fn(),$queryRaw:vi.fn(),
   courseSession: { findFirst: vi.fn(), update: vi.fn() },
   courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), count: vi.fn(), update: vi.fn() },
   coursePointCard: { update: vi.fn(), findUnique: vi.fn() },
@@ -28,6 +28,7 @@ const booking = (status: string, remaining = 7) => ({
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  m.$queryRaw.mockResolvedValue([]);
   m.$executeRaw.mockResolvedValue(1);
   m.coursePointCard.findUnique.mockResolvedValue(null);
   m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 0 } });
