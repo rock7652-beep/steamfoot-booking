@@ -1,4 +1,5 @@
 import "server-only";
+import {memoizeReadRequest} from "./read-request-memo";
 import { musicCheckoutPermission, musicCheckoutWriteStore, measureMusicCheckout } from "./music-checkout-request";
 import {getHqStoreViewContext} from "@/lib/hq-store-view-context";
 import {kickCoachNotifications} from "./course-coach-notification-kick";
@@ -32,7 +33,7 @@ async function checkCourseManager(permission: PermissionCode) {
     measureMusicCheckout(`${permission}.module`,()=>requireCourseStore(storeId)),
     measureMusicCheckout(`${permission}.membership`,async()=>user.role === "ADMIN"
       ? true
-      : await prisma.staff.findFirst({
+      : await memoizeReadRequest(JSON.stringify(["course.manager.membership",user.id,user.staffId??"",storeId]),()=>prisma.staff.findFirst({
           where: {
             id: user.staffId ?? "",
             storeId,
@@ -41,7 +42,7 @@ async function checkCourseManager(permission: PermissionCode) {
             user: { status: "ACTIVE" },
           },
           select: { id: true },
-        })),
+        }))),
   ]);
   if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   if (permission === "booking.read" || permission === "booking.update") {
