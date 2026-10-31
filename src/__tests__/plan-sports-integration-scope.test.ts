@@ -10,8 +10,9 @@ it.each(['review/plan-management-sports-performance','fix/calendar-restored-mont
  expect(assertReviewedReleaseEnvironment(scoped)).toBe('sports-redesign-preview');
  for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{SPORTS_REDESIGN_PREVIEW:''},{SPORTS_REDESIGN_STAGING:''},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{WORKERS_CI_BRANCH:'main'}])expect(()=>assertSportsRedesignPreviewEnvironment({...scoped,...mutation})).toThrow();
 });
-it('music capability stays confined to the existing isolated store and authorizes neither imports nor releases',()=>{
- expect(musicNativeWorkflowEnabled('store-lubymusic',safe)).toBe(true);expect(musicNativeWorkflowEnabled('another-store',safe)).toBe(false);
- for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{CF_PAGES_BRANCH:'main'}])expect(musicNativeWorkflowEnabled('store-lubymusic',{...safe,...mutation})).toBe(false);
+it.each(['review/plan-management-sports-performance','fix/silverlily-calendar-loading-20261031'])('music capability %s stays confined to the existing isolated store and authorizes neither imports nor releases',(branch)=>{
+ const scoped={...safe,VERCEL_GIT_COMMIT_REF:branch};
+ expect(musicNativeWorkflowEnabled('store-lubymusic',scoped)).toBe(true);expect(musicNativeWorkflowEnabled('another-store',scoped)).toBe(false);
+ for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{CF_PAGES_BRANCH:'main'}])expect(musicNativeWorkflowEnabled('store-lubymusic',{...scoped,...mutation})).toBe(false);
  expect(()=>assertMusicOpeningPreviewEnvironment(safe)).toThrow();expect(()=>assertMusicNativeReleaseEnvironment(safe)).toThrow();
 });

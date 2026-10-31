@@ -1,4 +1,5 @@
 "use client";
+import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {courseWeekStart} from "@/lib/course-calendar";
@@ -1512,7 +1513,7 @@ export function CourseWorkspace({
       {panel === "schedule" && sportsNative && <SportsScheduleDialog fitContent={!!calendarSource} title={calendarSource?"新增預約":copySource?"複製排課":"新增排課"} busy={pending||sportsScheduleBusy} onClose={closePanel} onDraft={()=>setDirty(true)}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice&&<p role="status" className="text-sm text-primary-700">{notice}</p>}
-        <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>
+        <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} preview={!calendarSource&&storeId?sportsSchedulePreview(storeId,selectedDate,allTemplates,allCoaches,allRooms):undefined} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>
       </SportsScheduleDialog>}
       {panel && !(panel === "schedule" && sportsNative) && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
@@ -2182,7 +2183,7 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && !calendarSource && sportsNative && <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>}
+            {panel === "schedule" && !calendarSource && sportsNative && <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} preview={!calendarSource&&storeId?sportsSchedulePreview(storeId,selectedDate,allTemplates,allCoaches,allRooms):undefined} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard
@@ -2530,6 +2531,7 @@ export function CourseWorkspace({
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
+                  previewBookings={kind==="roster"?dialogSession.bookings:undefined}
                   capacity={dialogSession.capacity}
                   canCreate={canCreate&&dialogModeAllowed}
                   canEdit={canEdit}

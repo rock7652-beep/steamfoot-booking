@@ -6,7 +6,7 @@ import type {SportsSnapshot} from '@/lib/sports-staging-types';
 const m=vi.hoisted(()=>({read:vi.fn()}));
 vi.mock('@/lib/sports-schedule-options-client',()=>({readSportsScheduleOptions:m.read,SPORTS_SCHEDULE_OPTIONS_TTL:15000}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),useSearchParams:()=>new URLSearchParams(),usePathname:()=>'/s/sports-live-flow/admin/dashboard/courses'}));
-vi.mock('@/app/(dashboard)/dashboard/courses/sports-schedule-fields',()=>({SportsScheduleFields:({initial}:{initial:SportsSnapshot})=>{const [draft,setDraft]=useState('');return createElement('div',null,initial.storeId,createElement('input',{value:draft,onChange:e=>setDraft(e.target.value)}));}}));
+vi.mock('@/app/(dashboard)/dashboard/courses/sports-schedule-fields',()=>({SportsScheduleFields:({initial,metadataPending}:{initial:SportsSnapshot;metadataPending?:boolean})=>{const [draft,setDraft]=useState('');return createElement('div',null,initial.storeId,createElement('input',{value:draft,onChange:e=>setDraft(e.target.value)}),createElement('button',{disabled:metadataPending},'確認'));}}));
 import {PanelReadProvider,usePanelReader} from '@/components/operations/panel-read-cache';
 import {readSportsScheduleOptions} from '@/lib/sports-schedule-options-client';
 import {SportsScheduleLoader} from '@/app/(dashboard)/dashboard/courses/sports-schedule-loader';
@@ -47,4 +47,12 @@ it('reuses a completed metadata prefetch when the form opens instead of starting
  m.read.mockResolvedValue({success:true,data});await render(false);
  await act(async()=>host.querySelector('button')!.focus());expect(m.read).toHaveBeenCalledOnce();
  await render();expect(host.textContent).toContain('sports-store');expect(m.read).toHaveBeenCalledOnce();
+});
+
+it('paints calendar metadata immediately, blocks submission, and retains edits when authoritative options arrive',async()=>{
+ let resolve!:(value:unknown)=>void;m.read.mockImplementation(()=>new Promise(r=>{resolve=r;}));
+ await act(async()=>root.render(createElement(PanelReadProvider,null,createElement(SportsScheduleLoader,{...props,preview:data}))));
+ expect(host.textContent).toContain('sports-store');expect(Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='確認')!.disabled).toBe(true);
+ const input=host.querySelector('input')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'保留草稿');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>resolve({success:true,data}));expect(host.querySelector('input')!.value).toBe('保留草稿');expect(Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='確認')!.disabled).toBe(false);
 });

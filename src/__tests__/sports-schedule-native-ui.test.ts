@@ -11,7 +11,7 @@ import {sportsStagingCommand} from "@/server/actions/sports-staging";
 import {SportsScheduleFields,type SportsScheduleSource} from "@/app/(dashboard)/dashboard/courses/sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 const data:SportsSnapshot={storeId:"sports-live-flow-store",date:"2026-10-18",subjects:[{id:"subject",templateId:"item-template",name:"瑜伽",category:"運動",active:true,updatedAt:"v1"}],fees:[],lessons:[],students:[],customers:[{id:"student",name:"學員",phone:"0900000000"}],coaches:[{id:"coach",name:"王教練",templates:["item-template"]}],rooms:[{id:"first",name:"第一空間",capacity:10,rental:true},{id:"selected",name:"指定空間",capacity:5,rental:true}]};
-async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={},source?:SportsScheduleSource){
+async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number;metadataPending?:boolean}={},source?:SportsScheduleSource){
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
  return {host,rerenderModes:async(schedulingModes:{selfBookingEnabled:boolean;assignedSchedulingEnabled:boolean})=>{await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,schedulingModes,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));},close:async()=>{await act(async()=>root.unmount());host.remove();}};
@@ -122,4 +122,11 @@ it("關閉開放選課時移除已選模式及容量欄位，保留排課草稿"
   expect(m.host.querySelectorAll('input[name="enrollment"]')).toHaveLength(0);
   expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==="新增")!.disabled).toBe(true);
  }finally{await m.close();}
+});
+
+it.each([false,true])('only enables scheduling after current metadata is confirmed; pending=%s',async metadataPending=>{
+ const m=await mount({coachId:'coach'},{metadataPending});
+ const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==='開放選課') as HTMLInputElement;
+ await act(async()=>radio.click());
+ expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==='新增')!.disabled).toBe(metadataPending);await m.close();
 });

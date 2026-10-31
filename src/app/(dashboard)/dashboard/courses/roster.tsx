@@ -136,6 +136,7 @@ export function CourseRoster({
   coachId = "",
   roomId = "",
   initialAssignedCoach = "all",
+  previewBookings,
 }: {
   source?:CourseRosterSource;
   sessionId: string;
@@ -163,6 +164,7 @@ export function CourseRoster({
   coachId?: string;
   roomId?: string;
   initialAssignedCoach?: string;
+  previewBookings?:readonly {id:string;customerName:string;status:string}[];
 }) {
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
@@ -840,6 +842,12 @@ export function CourseRoster({
       : [];
 
   if (!loaded) {
+    if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
+      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
+      <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
+        {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
+      </ul>
+    </section>;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
         {message || "讀取中…"}
