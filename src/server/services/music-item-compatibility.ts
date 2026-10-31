@@ -1,3 +1,4 @@
+import {memoizeCourseReadRequest} from "./course-read-request-memo";
 import "server-only";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import type { Prisma } from "../../../generated/course-client";
@@ -6,6 +7,7 @@ import type { Prisma } from "../../../generated/course-client";
 export async function musicItemTemplateIds(
   tx: Pick<Prisma.TransactionClient, "courseTemplate">, storeId: string, templateId: string,
 ): Promise<string[]> {
+  return memoizeCourseReadRequest(tx,JSON.stringify(["music-item-templates",storeId,templateId]),async()=>{
   const subjectId=musicTeachingSubjectId(templateId);
   if(subjectId){
     const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:null},select:{id:true}});
@@ -18,6 +20,7 @@ export async function musicItemTemplateIds(
     select: { id: true },
   });
   return versions.map(version => version.id);
+  });
 }
 
 export async function courseCardMatchesItem(

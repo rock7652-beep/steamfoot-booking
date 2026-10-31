@@ -2,6 +2,7 @@ import {sumItemBalances,type ItemBalance} from "@/lib/item-entitlement";
 import 'server-only';
 import {readSportsTeachingTemplates} from './sports-teaching-templates';
 import {coursePrisma} from '@/lib/course-db';
+import {readCourseSessionDetail} from '@/server/queries/course-session-detail';
 import {resolveSportsEntitlement} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
 import type {Prisma} from '../../../generated/course-client';
@@ -13,7 +14,7 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  const balances=new Map<string,ItemBalance & {byUnit:ItemBalance[]}>();
  const entries=new Map<string,Array<ItemBalance & {id:string}>>();
  if(!ids.length)return balances;
- const session=await reader.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
+ const session=reader===coursePrisma?await readCourseSessionDetail(storeId,sessionId):await reader.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
  if(!session)return balances;
  const [rule,cards,compatibleTemplateIds]=await Promise.all([
   readSportsSessionRule(reader,storeId,sessionId),
