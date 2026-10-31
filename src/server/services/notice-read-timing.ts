@@ -14,7 +14,7 @@ export async function traceNoticeRead<T>(work:()=>Promise<T>){
  const value=await scope.run(state,work);
  return {value,timing:{totalMs:round(performance.now()-state.started),spans:state.spans}};
 }
-export function noticeDiagnosticsEnabled(env:NodeJS.ProcessEnv=process.env){
+export function noticeDiagnosticsEnabled(env:Record<string,string|undefined>=process.env){
  return env.NOTICE_READ_PERF_QA==='1'&&env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='perf/digital-manager-initial-count-20261031';
 }
 /** Normal action payloads are unchanged. Diagnostics are limited to the isolated Preview. */
