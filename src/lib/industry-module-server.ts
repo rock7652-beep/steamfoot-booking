@@ -27,8 +27,11 @@ export async function getStoreIndustryModule(
   return memoizeReadRequest(`store.industry-module:${storeId}`,()=>readStoreIndustryModule(storeId));
 }
 async function readStoreIndustryModule(storeId:string):Promise<IndustryModuleId>{
+  // Keep the existing production activation and preview-isolation guards even
+  // when the same request already knows the current store's module.
+  const native=await sportsNativePreview(storeId);
   const verified=verifiedStaffRead();
-  const stores = verified?.storeId===storeId?[{industryModule:verified.industryModule}]:(await sportsNativePreview(storeId))?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  const stores = verified?.storeId===storeId?[{industryModule:verified.industryModule}]:native?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}
