@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { useCoursePersonnelText } from "@/components/course-personnel-label";
 import { useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { useSettingsPanelNavigation } from "@/components/admin/settings-panel-context";
@@ -10,7 +11,7 @@ export function ReminderTabs({
   baseHref = "/dashboard/reminders",
   customerOnly = false,
   coach = false,
-
+  music = false,
   beauty = false,
 }: {
   active: string;
@@ -22,6 +23,7 @@ export function ReminderTabs({
   music?: boolean;
   beauty?: boolean;
 }) {
+  const personnelText = useCoursePersonnelText();
   const router = useRouter();
   const panelNavigate = useSettingsPanelNavigation();
   const storageKey = `reminder-tab:${storeId}:${baseHref}`;
@@ -45,8 +47,8 @@ export function ReminderTabs({
       {[
         { key: "customer", label: "顧客通知" },
         { key: "manager", label: "店長通知" },
-        ...(beauty?[{key:"technician",label:"工作人員通知"}]:[]),
-        ...(coach?[{key:"coach",label:"工作人員通知"}]:[]),
+        ...(beauty?[{key:"technician",label:"技師通知"}]:[]),
+        ...(coach?[{key:"coach",label:personnelText(music ? "老師通知" : "教練通知")}]:[]),
         { key: "logs", label: "發送紀錄" },
       ].filter(t => !customerOnly || ["customer","logs"].includes(t.key)).map((t) => (
         <DashboardLink
