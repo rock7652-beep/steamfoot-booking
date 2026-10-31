@@ -8,6 +8,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 import {DigitalManagerIcon} from "./digital-manager-icon";
+import {playStoreNoticeSound} from "@/lib/store-notice-sound";
 const NOTICE_TITLE="數位管家｜門市提醒";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
@@ -50,7 +51,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
    const latest=r.latestAt?Date.parse(r.latestAt):null;
    const hasNewNotice=seen.current!==null&&(r.count>seen.current||(latest!==null&&Number.isFinite(latest)&&latestSeen.current!==null&&latest>latestSeen.current));
    if(hasNewNotice&&soundRef.current&&audio.current?.state==="running"){
-    const oscillator=audio.current.createOscillator(),gain=audio.current.createGain();oscillator.connect(gain);gain.connect(audio.current.destination);gain.gain.value=.06;oscillator.frequency.value=660;oscillator.start();oscillator.stop(audio.current.currentTime+.12);
+    playStoreNoticeSound(audio.current);
    }seen.current=r.count;latestSeen.current=latest!==null&&Number.isFinite(latest)?latest:null;
   }catch{if(mounted.current&&seq===generation.current)setError("通知更新失敗，請重試");}finally{if(mounted.current&&seq===generation.current)setLoading(false);}
  },[storeId,handled,offset,open,reader]);
