@@ -13,3 +13,8 @@ it("未登入時不寫入",async()=>{m.user.mockResolvedValue(null);expect((awai
 it("正式站及非運動測試店不可使用獨立課程讀取入口",async()=>{m.scope.mockReturnValue(false);expect((await POST(request())).status).toBe(403);expect(m.save).not.toHaveBeenCalled();});
 it("沿用有權限及原子版本比較的既有權限讀取，不快取帳戶資料",async()=>{m.save.mockResolvedValue({success:false,error:"已被更新",currentValue:"其他裝置的新備註"});const r=await POST(request());expect(m.save).toHaveBeenCalledWith("session",false,true);expect(await r.json()).toMatchObject({success:false,currentValue:"其他裝置的新備註"});expect(r.headers.get("Cache-Control")).toBe("private, no-store");});
 it("格式錯誤不寫入",async()=>{expect((await POST(request("https://qa.test","not-json"))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});
+it('provides server timing for the live detail reader without caching the roster',async()=>{
+ m.save.mockResolvedValue({success:true,data:{roster:[]}});const response=await POST(request());
+ expect(response.headers.get('Server-Timing')).toMatch(/^sessiondetail;dur=\d+$/);
+ expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+});

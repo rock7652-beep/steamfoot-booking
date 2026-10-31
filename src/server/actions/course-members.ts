@@ -811,28 +811,29 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       await import("@/server/queries/course-members");
     const { checkPermission } = await import("@/lib/permissions");
     const trialSettingsPromise=import("@/lib/shop-config").then(m=>m.getTrialSettings(storeId));
-    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,canReadCustomers,session,musicStore,waitlistSetting] = await Promise.all([
-      ...(["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void","customer.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)),
-    ]).then(async permissions=>{
-      const [session,music,setting]=await Promise.all([
-       coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { chargeSnapshot:true, startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
-       isMusicCourseStoreFromEntitlements(prisma,storeId),
-       coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
-      ]);
-      return [...permissions,session,music,setting] as [boolean,boolean,boolean,boolean,boolean,boolean,boolean,boolean,typeof session,boolean,typeof setting];
-    });
+    const [permissions, session, musicStore, waitlistSetting, nativeSports] = await Promise.all([
+      Promise.all((["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void","customer.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))),
+      coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { chargeSnapshot:true, startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}} } }),
+      isMusicCourseStoreFromEntitlements(prisma,storeId),
+      coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
+      sportsNativePreview(storeId),
+    ]);
+    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,canReadCustomers] = permissions;
     const canPurchase=canBuy&&canPay;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const {resolveSportsEntitlement}=await import("@/lib/sports-entitlement");
     const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
-    const sportsRule=(await sportsNativePreview(storeId))?await readSportsSessionRule(coursePrisma,storeId,sessionId):null;
+    const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
+    const [sportsRule, waitlistPolicy, compatibleTemplateIds, roster] = await Promise.all([
+      nativeSports ? readSportsSessionRule(coursePrisma,storeId,sessionId) : null,
+      sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template),
+      musicItemTemplateIds(coursePrisma, storeId, session.templateId),
+      getCourseRoster(storeId, sessionId),
+    ]);
     const teachingTemplates=sportsRule?.enrollment==="ASSIGNED"?await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId):[];
     const cardRights=(card:{planId?:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean})=>resolveSportsEntitlement({...card,planId:card.planId??""},{templateId:session.templateId,subjectId:session.template.musicSubjectId??null,pointCost:session.pointCost,enrollment:sportsRule?.enrollment==="ASSIGNED"?"ASSIGNED":sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null,compatibleTemplateIds:teachingTemplates});
-    const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
-    const waitlistPolicy=await sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template);
-    const [roster, cards, pendingMakeups, waitlistRows,compatibleTemplateIds,trialCustomers] = await Promise.all([
-      getCourseRoster(storeId, sessionId),
-      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,(await sportsNativePreview(storeId))?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(teachingTemplates.length?[{sportsMode:"LEGACY" as const,unit:"SESSION",templateIds:{hasSome:teachingTemplates}}]:[]),...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
+    const [cards, pendingMakeups, waitlistRows,trialCustomers] = await Promise.all([
+      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,nativeSports?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(teachingTemplates.length?[{sportsMode:"LEGACY" as const,unit:"SESSION",templateIds:{hasSome:teachingTemplates}}]:[]),...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
       canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
         where:{storeId,status:"CANCELLED",bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,absenceKind:"STUDENT_LEAVE",cardId:{not:null},NOT:[{card:{is:{requestKey:{startsWith:"music-leave-makeup:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-card:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-makeup:"}}}}],session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
@@ -847,7 +848,6 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { id: true, customerId: true, customerName: true, groupKey: true, createdAt: true },
       }),
-      musicItemTemplateIds(coursePrisma, storeId, session.templateId),
       !rosterOnly && canCreate && canReadCustomers ? prisma.customer.findMany({where:{...(await import("@/lib/manager-visibility")).getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
     ]);
     return {

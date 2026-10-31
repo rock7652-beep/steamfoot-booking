@@ -25,7 +25,7 @@ import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleDialog} from "./sports-schedule-dialog";
 import type {SportsScheduleSource} from "./sports-schedule-fields";
 import {SportsScheduleLoader} from "./sports-schedule-loader";
-import {readSportsScheduleOptions} from "@/lib/sports-schedule-options-client";
+import {readSportsScheduleOptions,SPORTS_SCHEDULE_OPTIONS_TTL} from "@/lib/sports-schedule-options-client";
 import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel, courseDisplayName } from "@/lib/course-template-presentation";
@@ -506,9 +506,14 @@ export function CourseWorkspace({
   }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const scheduleOpenIntent=useRef(false);
-  // TTL 0 always re-reads on open; a refreshed page clock is not a metadata revision.
+  // Only form metadata is warmed; prices and balances keep their own live reads.
   const sportsScheduleScope=JSON.stringify([storeId,pathname]);
-  const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,0);
+  const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,SPORTS_SCHEDULE_OPTIONS_TTL);
+  useEffect(()=>{
+    if(!sportsNative||sportsData||calendarSource||!canCreate||view!=="schedule")return;
+    const timer=window.setTimeout(()=>sportsScheduleReader.prefetch(),250);
+    return()=>window.clearTimeout(timer);
+  },[sportsNative,sportsData,calendarSource,canCreate,view,sportsScheduleReader]);
   function prefetchSportsSchedule(){if(sportsNative&&!sportsData&&!calendarSource&&!scheduleOpenIntent.current)sportsScheduleReader.prefetch();}
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
@@ -1006,7 +1011,7 @@ export function CourseWorkspace({
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
       {sportsNative&&view==="schedule"&&notice&&<p role="status" aria-live="polite" className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900">{notice}</p>}
-      {sportsNative&&calendarDataReady&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
+      {sportsNative&&calendarDataReady&&<p role="status" className="h-5 text-sm text-earth-500">{calendarReading ? "課表讀取中…" : ""}</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}

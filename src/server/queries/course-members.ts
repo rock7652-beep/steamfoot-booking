@@ -122,6 +122,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  if (!bookings.length) return [];
+  const hasCards = bookings.some(booking => !!booking.card);
   const nativeCandidates=musicNativeWorkflowEnabled(storeId)?[...new Set(bookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
@@ -144,13 +146,13 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
   }),
-  coursePrisma.coursePurchase.findMany({
+  hasCards ? coursePrisma.coursePurchase.findMany({
     where: { storeId, customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
     select: { customerId: true, cardId: true, points: true, price: true, paymentMethod: true, confirmedAt: true },
-  }),
+  }) : [],
     nativeCandidates.length?coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}}):[],
-    nativeDeductedLeaveIds(coursePrisma,storeId),
-    bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
+    hasCards ? nativeDeductedLeaveIds(coursePrisma,storeId) : [],
+    hasCards && bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
     (async()=>{
   const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
       return {pilotCards};
@@ -163,10 +165,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const nativeDebitedBookings=new Set(nativeLeaveIds);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
-  const renewalCards = await coursePrisma.coursePointCard.findMany({
+  const renewalCards = confirmedPurchases.length ? await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
     select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
-  });
+  }) : [];
   const fixedAssignments = await readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]);
   const fixedById = new Map(fixedAssignments.map(a=>[a.bookingId,a]));
   const nativeSports = await sportsNativePreview(storeId);

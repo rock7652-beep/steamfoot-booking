@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState,type ComponentProps} from "react";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-import {readSportsScheduleOptions} from "@/lib/sports-schedule-options-client";
+import {readSportsScheduleOptions,SPORTS_SCHEDULE_OPTIONS_TTL} from "@/lib/sports-schedule-options-client";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import {SportsScheduleFields} from "./sports-schedule-fields";
 
@@ -12,7 +12,7 @@ type Props = Omit<ComponentProps<typeof SportsScheduleFields>,"initial"> & {
 };
 /** Mounted only inside the open dialog. Once initialized, background refresh cannot replace drafts. */
 export function SportsScheduleLoader({initial,scopeVersion,addedCustomers,...props}:Props) {
-  const reader = usePanelReader("sports-schedule-options",readSportsScheduleOptions,scopeVersion,0);
+  const reader = usePanelReader("sports-schedule-options",readSportsScheduleOptions,scopeVersion,SPORTS_SCHEDULE_OPTIONS_TTL);
   const [data,setData] = useState(initial);
   const [error,setError] = useState("");
   const [attempt,setAttempt] = useState(0);

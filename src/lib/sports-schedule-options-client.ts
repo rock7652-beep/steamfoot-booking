@@ -1,4 +1,6 @@
 import type {loadSportsStaging} from "@/server/actions/sports-staging";
+/** Metadata only: the endpoint excludes purchased cards and balances. */
+export const SPORTS_SCHEDULE_OPTIONS_TTL = 15_000;
 
 /** Independent read; does not queue behind mutations or persist financial metadata. */
 export async function readSportsScheduleOptions(): Promise<Awaited<ReturnType<typeof loadSportsStaging>>> {

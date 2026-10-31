@@ -136,3 +136,15 @@ it("shows bonus lessons separately from paid periods", async()=>{
  const [result]=await getCourseRoster("music-store","session-4");
  expect([result.termIndex,result.termCount,result.bonusPeriod]).toEqual([1,1,true]);
 });
+
+it('does not load purchased cards or purchase history for a trial-only roster',async()=>{
+ const current=lesson('trial',0);
+ db.bookings.mockResolvedValue([{...row('trial',current,card('trial',[current],10)),card:null,cardId:null,bookingKind:'TRIAL',trialPrice:350}]);
+ const result=await getCourseRoster('music-store','session-0');
+ expect(result).toHaveLength(1);expect(result[0]).toMatchObject({bookingKind:'TRIAL',trialPrice:350,planName:'體驗（不使用方案）'});
+ expect(db.purchases).not.toHaveBeenCalled();expect(db.cards).not.toHaveBeenCalled();
+});
+it('returns an empty roster without looking up unrelated customer and purchase history',async()=>{
+ db.bookings.mockResolvedValue([]);expect(await getCourseRoster('music-store','empty')).toEqual([]);
+ expect(db.customers).not.toHaveBeenCalled();expect(db.purchases).not.toHaveBeenCalled();expect(db.cards).not.toHaveBeenCalled();
+});
