@@ -14,3 +14,14 @@ it('keeps direct connections direct and local pool sizing unchanged',()=>{
  expect(url.searchParams.has('pgbouncer')).toBe(false);expect(url.searchParams.get('connection_limit')).toBe('5');
 });
 it('accepts missing URLs without inventing a database',()=>expect(buildDatabaseUrl('')).toBe(''));
+it('allows an explicit two-connection deployment trial without changing other URL settings',()=>{
+ vi.stubEnv('DATABASE_CONNECTION_LIMIT','2');const url=new URL(buildDatabaseUrl('postgresql://reader:secret@host:6543/postgres?connection_limit=1&schema=qa&pool_timeout=7'));
+ expect(Object.fromEntries(url.searchParams)).toMatchObject({connection_limit:'2',schema:'qa',pool_timeout:'7',pgbouncer:'true'});
+});
+it.each(['','0','3','100','two'])('rejects unbounded or malformed pool overrides (%s)',limit=>{
+ vi.stubEnv('DATABASE_CONNECTION_LIMIT',limit);expect(()=>buildDatabaseUrl('postgresql://reader:secret@host:6543/postgres')).toThrow('DATABASE_CONNECTION_LIMIT must be 1 or 2');
+});
+it('reports only numeric original and effective limits',async()=>{
+ const {databaseConnectionPoolInfo}=await import('@/lib/database-url');vi.stubEnv('VERCEL','1');vi.stubEnv('DATABASE_URL','postgresql://reader:secret@host:6543/postgres');vi.stubEnv('DATABASE_CONNECTION_LIMIT','2');
+ expect(databaseConnectionPoolInfo()).toEqual({baseLimit:1,effectiveLimit:2});expect(JSON.stringify(databaseConnectionPoolInfo())).not.toContain('secret');
+});

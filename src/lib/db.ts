@@ -25,7 +25,8 @@ const globalForPrisma = globalThis as unknown as {
  *    - Serverless（VERCEL=1）→ `1`（每個 lambda 一條，避免 pool 耗盡）
  *    - 其他（本機 dev / 長壽 process）→ `5`
  *
- * 3. 絕對不覆寫 URL 已自帶的參數。
+ * 3. 預設不覆寫 URL 已自帶的參數。明確設定 DATABASE_CONNECTION_LIMIT=1/2
+ *    時只覆寫用戶端連線上限，供部署調校；不改資料庫全域上限。
  *
  * 參考：https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
  */
