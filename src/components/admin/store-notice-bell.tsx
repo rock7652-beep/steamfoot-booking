@@ -91,7 +91,6 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
   <button type="button" title={NOTICE_TITLE} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-primary-800 hover:bg-earth-50" aria-label={countKnown?`${NOTICE_TITLE}，${count} 筆待處理`:NOTICE_TITLE} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
    <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true"><DigitalManagerIcon/>
    {count>0&&<span className="absolute -right-1 -top-1 rounded-full bg-amber-600 px-1.5 text-sm text-white">{count>99?"99+":count}</span>}</span>
-   <span className="whitespace-nowrap text-sm font-medium">數位管家</span>
   </button>
   {open&&createPortal(<RightSheet open compact fixedHeight width={560} labelledById={heading} onClose={()=>setOpen(false)}>
    <div className="flex h-full min-h-0 flex-col">
