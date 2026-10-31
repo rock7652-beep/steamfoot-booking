@@ -1,4 +1,4 @@
-import {readInitialStoreNoticeSummary} from '@/server/services/initial-store-notice-summary';
+import {prefetchInitialStoreNoticeSummary} from '@/server/services/initial-store-notice-summary';
 import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
 import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
@@ -153,7 +153,7 @@ async function readDashboardLayout({
   return !hqPlatform && !!effectiveStoreId && permissions.includes("booking.read") &&
     (industryModule==="course" || industryModule==="steamfoot" || (industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1"));
   })();
-  const initialNoticeSummaryPromise=noticeEnabledPromise.then(enabled=>enabled&&effectiveStoreId?readInitialStoreNoticeSummary(industryModule,effectiveStoreId):null);
+  const initialNoticeSummaryReaderPromise=noticeEnabledPromise.then(enabled=>enabled&&effectiveStoreId?prefetchInitialStoreNoticeSummary(industryModule,effectiveStoreId):async()=>null);
   // These reads depend on the already authorized store and module, but not on
   // one another. Keep their existing gates and failure behavior while avoiding
   // three consecutive round trips before the dashboard can render.
@@ -260,7 +260,7 @@ async function readDashboardLayout({
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
       noticeInitiallyEnabled={noticeInitiallyEnabled}
-      initialNoticeSummary={await initialNoticeSummaryPromise}
+      initialNoticeSummary={await (await initialNoticeSummaryReaderPromise)()}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}
