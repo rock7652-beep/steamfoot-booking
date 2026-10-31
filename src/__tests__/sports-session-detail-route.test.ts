@@ -15,6 +15,16 @@ it("沿用有權限及原子版本比較的既有權限讀取，不快取帳戶�
 it("格式錯誤不寫入",async()=>{expect((await POST(request("https://qa.test","not-json"))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});
 it('provides server timing for the live detail reader without caching the roster',async()=>{
  m.save.mockResolvedValue({success:true,data:{roster:[]}});const response=await POST(request());
- expect(response.headers.get('Server-Timing')).toMatch(/^sessiondetail;dur=\d+$/);
+ expect(response.headers.get('Server-Timing')).toMatch(/^sessiondetail;dur=\d+(, [\w.]+;dur=\d+)*$/);
  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+});
+it('reuses identity only inside one read request and authenticates again on the next',async()=>{
+ const {memoizeReadRequest}=await import('@/server/services/read-request-memo');
+ const authenticate=vi.fn(async()=>({id:'owner',role:'OWNER'}));
+ m.user.mockImplementation(()=>memoizeReadRequest('session.current-user',authenticate));
+ m.save.mockImplementation(async()=>{await m.user();return {success:true}});
+ expect((await POST(request())).status).toBe(200);
+ expect(authenticate).toHaveBeenCalledTimes(1);
+ expect((await POST(request())).status).toBe(200);
+ expect(authenticate).toHaveBeenCalledTimes(2);
 });

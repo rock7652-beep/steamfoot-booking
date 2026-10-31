@@ -128,7 +128,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
-  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared] = await Promise.all([
+  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared,fixedAssignments,balanceRead] = await Promise.all([
     groupSession && groupTermStart !== null && groupTermLessons
     ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
@@ -159,8 +159,15 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     })(),
     bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     ? getCourseSharedCardState(storeId).then(state=>state === "ENABLED") : false,
+    readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]),
+    (async()=>{
+      const nativeSports=await sportsNativePreview(storeId);
+      const balances= nativeSports? (await import("@/server/services/sports-roster-balance")).readSportsRosterBalances(storeId,sessionId,bookings.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!)) : (await import("@/server/services/music-item-cards")).readMusicItemBalances(coursePrisma,storeId,bookings.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!),{...bookings[0].session,id:sessionId});
+      return {nativeSports,balances:await balances};
+    })(),
   ]);
   const {pilotCards}=pilotData;
+  const {nativeSports,balances:unlinkedBalances}=balanceRead;
   const nativeLeaveCards=new Set(nativePurchases.filter(p=>p._count.id===1).map(p=>p.cardId));
   const nativeDebitedBookings=new Set(nativeLeaveIds);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
@@ -169,10 +176,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
     select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   }) : [];
-  const fixedAssignments = await readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]);
   const fixedById = new Map(fixedAssignments.map(a=>[a.bookingId,a]));
-  const nativeSports = await sportsNativePreview(storeId);
-  const unlinkedBalances=nativeSports?await (await import("@/server/services/sports-roster-balance")).readSportsRosterBalances(storeId,sessionId,bookings.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!)):bookings[0]?await (await import("@/server/services/music-item-cards")).readMusicItemBalances(coursePrisma,storeId,bookings.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!),{...bookings[0].session,id:sessionId}):new Map<string,never>();
   return bookings.map(({ card, checkedInAt, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey, ...b }) => {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });
     const opening = readMusicOpeningCard(card, storeId, b.customerId);

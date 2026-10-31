@@ -8,6 +8,7 @@ const db = vi.hoisted(() => ({
   purchases: vi.fn(),
   cards: vi.fn(),
   sessionCount: vi.fn(),
+  balances:vi.fn(async()=>new Map()),
 }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
@@ -19,7 +20,7 @@ vi.mock("@/lib/course-db", () => ({
   },
 }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findMany: db.customers } } }));
-vi.mock("@/server/services/music-item-cards",()=>({readMusicItemBalances:async()=>new Map()}));
+vi.mock("@/server/services/music-item-cards",()=>({readMusicItemBalances:db.balances}));
 import { getCourseRoster } from "@/server/queries/course-members";
 
 const day = (n: number) => new Date(`2026-09-${String(n).padStart(2, "0")}T10:00:00.000Z`);
@@ -147,4 +148,17 @@ it('does not load purchased cards or purchase history for a trial-only roster',a
 it('returns an empty roster without looking up unrelated customer and purchase history',async()=>{
  db.bookings.mockResolvedValue([]);expect(await getCourseRoster('music-store','empty')).toEqual([]);
  expect(db.customers).not.toHaveBeenCalled();expect(db.purchases).not.toHaveBeenCalled();expect(db.cards).not.toHaveBeenCalled();
+});
+
+it("reads live item balances while unrelated absence history is still pending",async()=>{
+ const current=lesson("student",0,"RESERVED");
+ db.bookings.mockResolvedValue([row("student",current,card("student",[current],4),"PRIVATE")]);
+ let release!:(value:never[])=>void;
+ db.absences.mockReturnValueOnce(new Promise<never[]>(resolve=>{release=resolve}));
+ let finished=false;
+ const read=getCourseRoster("music-store","session-0").then(result=>{finished=true;return result});
+ await vi.waitFor(()=>expect(db.balances).toHaveBeenCalled());
+ expect(finished).toBe(false);
+ release([]);
+ expect(await read).toHaveLength(1);
 });
