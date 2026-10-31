@@ -1,7 +1,7 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 
-type VerifiedStaffRead = Readonly<{userId:string;role:string;staffId:string;storeId:string;industryModule:string}>;
+type VerifiedStaffRead = Readonly<{userId:string;role:string;staffId:string;storeId:string;industryModule:string;store?:Readonly<{slug:string;name:string;operatingStatus:string}>}>;
 const scope = new AsyncLocalStorage<{entries:Map<string, Promise<unknown>>;staff?:VerifiedStaffRead}>();
 /** Opt-in for a single read-only HTTP request; never wrap writes or persist results. */
 export function withReadRequestMemo<T>(read: () => Promise<T>): Promise<T> {
@@ -22,6 +22,6 @@ export function memoizeReadRequest<T>(key: string, read: () => Promise<T>): Prom
  * No scope exists in actions/transactions; they retain independent checks. */
 export function rememberVerifiedStaffRead(staff:VerifiedStaffRead):void{
   const request=scope.getStore();
-  if(request)request.staff=Object.freeze({...staff});
+  if(request)request.staff=Object.freeze({...staff,...(staff.store?{store:Object.freeze({...staff.store})}:{})});
 }
 export function verifiedStaffRead():VerifiedStaffRead|undefined{return scope.getStore()?.staff;}

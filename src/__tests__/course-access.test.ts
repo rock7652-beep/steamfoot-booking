@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   staff: vi.fn(),
   permission: vi.fn(),
   writeStore: vi.fn(),
+  readStore: vi.fn(),
 }));
 vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: m.writable }));
 vi.mock("server-only", () => ({}));
@@ -25,7 +26,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/session", () => ({ requireSession: m.session }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
-vi.mock("@/lib/store", () => ({ resolveWriteStoreId: m.writeStore }));
+vi.mock("@/lib/store", () => ({ resolveWriteStoreId: m.writeStore,getActiveStoreForRead:m.readStore }));
 vi.mock("@/lib/industry-module-server", () => ({
   requireCourseStore: m.module,
 }));
@@ -35,7 +36,7 @@ vi.mock("@/server/services/member-request-store", () => ({
 vi.mock("@/server/services/central-member-resolver", () => ({
   resolveCentralMemberCustomerForStore: m.resolve,
 }));
-import { courseMember, courseAccount, courseManager } from "@/server/services/course-access";
+import { courseMember, courseAccount, courseManager, courseManagerRead } from "@/server/services/course-access";
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,7 +48,7 @@ beforeEach(() => {
   m.resolve.mockResolvedValue({ customerId: "learner-a" });
   m.customer.mockResolvedValue({ id: "learner-a", name: "A" });
   m.permission.mockResolvedValue({id:"u",staffId:"st",role:"OWNER"});
-  m.writeStore.mockResolvedValue("s");m.staff.mockResolvedValue({id:"st"});m.module.mockResolvedValue(undefined);
+  m.readStore.mockResolvedValue("s");m.writeStore.mockResolvedValue("s");m.staff.mockResolvedValue({id:"st"});m.module.mockResolvedValue(undefined);
 });
 describe("course fixed member access", () => {
   it("uses the resolved fixed account and store, never contact matching", async () => {
@@ -107,4 +108,19 @@ it("retains a membership read denial within a request and rechecks the next one"
  const denied=await withReadRequestMemo(()=>Promise.allSettled([courseManager("booking.read"),courseManager("wallet.read")]));
  expect(denied.every(x=>x.status==="rejected")).toBe(true);expect(m.staff).toHaveBeenCalledOnce();expect(m.permission).toHaveBeenCalledTimes(2);
  await expect(withReadRequestMemo(()=>courseManager("booking.read"))).resolves.toMatchObject({storeId:"s"});expect(m.staff).toHaveBeenCalledTimes(2);
+});
+
+import {rememberVerifiedStaffRead} from '@/server/services/read-request-memo';
+it('uses the current auth membership only for its exact actor/store read and rechecks the next request',async()=>{
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:'u',role:'OWNER',staffId:'st',storeId:'s',industryModule:'COURSE'});await Promise.all([courseManager('booking.read'),courseManager('wallet.read')]);});
+ expect(m.staff).not.toHaveBeenCalled();expect(m.permission).toHaveBeenCalledTimes(2);expect(m.module).toHaveBeenCalledTimes(2);expect(m.writeStore).toHaveBeenCalledTimes(2);
+ m.staff.mockResolvedValueOnce(null);await expect(withReadRequestMemo(()=>courseManager('booking.read'))).rejects.toThrow('工作權限已停用');expect(m.staff).toHaveBeenCalledOnce();
+});
+it.each([{userId:'another'},{role:'STAFF'},{staffId:'another'},{storeId:'another'}])('does not use auth membership from a different actor/store: %j',async mismatch=>{
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:'u',role:'OWNER',staffId:'st',storeId:'s',industryModule:'COURSE',...mismatch});await courseManager('booking.read');});expect(m.staff).toHaveBeenCalledOnce();
+});
+
+it('shares exact fresh auth membership with the read counterpart while retaining independent grants',async()=>{
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:'u',role:'OWNER',staffId:'st',storeId:'s',industryModule:'COURSE'});await courseManagerRead('booking.read');await courseManager('wallet.read');});expect(m.staff).not.toHaveBeenCalled();expect(m.permission).toHaveBeenCalledTimes(2);expect(m.module).toHaveBeenCalledTimes(2);
+ m.staff.mockResolvedValueOnce(null);await expect(withReadRequestMemo(()=>courseManagerRead('booking.read'))).rejects.toThrow('工作權限已停用');expect(m.staff).toHaveBeenCalledOnce();
 });

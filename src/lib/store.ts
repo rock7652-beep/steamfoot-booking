@@ -1,4 +1,4 @@
-import { memoizeReadRequest } from "@/server/services/read-request-memo";
+import { memoizeReadRequest,verifiedStaffRead } from "@/server/services/read-request-memo";
 import { cache } from "react";
 import { RUNTIME_INDUSTRY_MODULES } from "@/lib/industry-modules";
 import { AppError } from "@/lib/errors";
@@ -141,6 +141,13 @@ async function resolveAuthorizedStoreAccess(
   // Own-store access only needs a fresh operating-status check. Enumerating
   // descendants and their feature entitlement cannot grant more access here.
   if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
+    const verified=verifiedStaffRead();
+    // Only the same live, stamped actor in an explicit read-only HTTP request.
+    // Re-evaluate status/module policy here; switches and ordinary writes read DB.
+    if(verified&&mode!=="switch"&&verified.userId===user.id&&verified.role===user.role&&verified.staffId===user.staffId&&verified.storeId===requestedStoreId&&verified.store){
+      if(!RUNTIME_INDUSTRY_MODULES.some(module=>module===verified.industryModule)||!ACCESSIBLE_STORE_OPERATING_STATUSES.some(status=>status===verified.store!.operatingStatus))throw new AppError("FORBIDDEN","店舖不存在、已停用或無權存取");
+      return {id:verified.storeId,slug:verified.store.slug,name:verified.store.name};
+    }
     const { prisma } = await import("@/lib/db");
     const [store] = await prisma.store.findMany({
       where: { id: requestedStoreId, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
@@ -177,9 +184,9 @@ export async function resolveAuthorizedConcreteStore(
   requestedStoreId: string,
   mode: StoreAccessMode,
 ): Promise<AuthorizedConcreteStore> {
-  // Reuse the DTO from this exact authorization operation. No additional
-  // authorization-result cache: status and organization are checked per call;
-  // the existing feature-entitlement cache policy is unchanged.
+  // Re-evaluate access rules per call. An explicit HTTP read may reuse only its
+  // exact stamped actor's current own-store scalars. Ordinary writes, switches,
+  // other stores and organization checks remain live; feature policy is unchanged.
   const store = await resolveAuthorizedStoreAccess(user, requestedStoreId, mode);
   if (!store) {
     throw new AppError("VALIDATION", "請先在上方切換到指定分店");
@@ -214,6 +221,11 @@ async function resolveAuthorizedRouteStore(
   const forwardedSlug = requestHeaders.get("x-store-slug");
   if (!forwardedSlug || forwardedSlug !== routeSlug) {
     throw new AppError("FORBIDDEN", "店舖路由資訊無效");
+  }
+
+  const verified=verifiedStaffRead();
+  if(mode!=="switch"&&verified&&verified.userId===user.id&&verified.role===user.role&&verified.staffId===user.staffId&&verified.storeId===user.storeId&&verified.store?.slug===routeSlug){
+    return resolveAuthorizedConcreteStore(user,verified.storeId,mode);
   }
 
   const { prisma } = await import("@/lib/db");

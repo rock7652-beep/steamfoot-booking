@@ -215,3 +215,9 @@ it("publishes same-request metadata only after the fresh security stamp succeeds
  await withReadRequestMemo(async()=>{expect(await config.callbacks.jwt({token:token(current)})).toBeNull();expect(verifiedStaffRead()).toBeUndefined();});
  expect(verifiedStaffRead()).toBeUndefined();
 });
+
+it('keeps the operating store scalars from the same fresh successful auth read private to that request',async()=>{
+ const current=state();const store={slug:'store-a',industryModule:'COURSE',name:'Store A',operatingStatus:'ACTIVE'};
+ mocks.findUnique.mockResolvedValue({...current,staff:{...current.staff!,store}});
+ await withReadRequestMemo(async()=>{await config.callbacks.jwt({token:token(current)});expect(verifiedStaffRead()?.store).toEqual({slug:'store-a',name:'Store A',operatingStatus:'ACTIVE'});store.name='changed';expect(verifiedStaffRead()?.store?.name).toBe('Store A');});expect(verifiedStaffRead()).toBeUndefined();
+});

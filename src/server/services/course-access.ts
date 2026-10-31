@@ -1,5 +1,5 @@
 import "server-only";
-import {memoizeReadRequest} from "./read-request-memo";
+import {memoizeReadRequest,verifiedStaffRead} from "./read-request-memo";
 import {measureMusicRead} from "@/lib/music-read-timing";
 import { musicCheckoutPermission, musicCheckoutWriteStore, measureMusicCheckout } from "./music-checkout-request";
 import {getHqStoreViewContext} from "@/lib/hq-store-view-context";
@@ -34,16 +34,7 @@ async function checkCourseManager(permission: PermissionCode) {
     measureMusicCheckout(`${permission}.module`,()=>requireCourseStore(storeId)),
     measureMusicCheckout(`${permission}.membership`,async()=>user.role === "ADMIN"
       ? true
-      : await memoizeReadRequest(JSON.stringify(["course.manager.membership",user.id,user.staffId??"",storeId]),()=>measureMusicRead("membership.live",()=>prisma.staff.findFirst({
-          where: {
-            id: user.staffId ?? "",
-            storeId,
-            userId: user.id,
-            status: "ACTIVE",
-            user: { status: "ACTIVE" },
-          },
-          select: { id: true },
-        })))),
+      : await readCourseStaffMembership(user,storeId)),
   ]);
   if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   if (permission === "booking.read" || permission === "booking.update") {
@@ -56,6 +47,16 @@ async function checkCourseManager(permission: PermissionCode) {
     });
   }
   return { user, storeId };
+}
+
+/** Same current stamped DB identity, only in an explicitly scoped HTTP read.
+ * Grants/store policy remain independent. Actions/transactions have no read scope. */
+async function readCourseStaffMembership(user:{id:string;role:string;staffId?:string|null},storeId:string){
+ const verified=verifiedStaffRead();
+ if(verified&&verified.userId===user.id&&verified.role===user.role&&verified.staffId===user.staffId&&verified.storeId===storeId){
+  await measureMusicRead("membership.metadata.hit",async()=>{});return {id:verified.staffId};
+ }
+ return memoizeReadRequest(JSON.stringify(["course.manager.membership",user.id,user.staffId??"",storeId]),()=>measureMusicRead("membership.live",()=>prisma.staff.findFirst({where:{id:user.staffId??"",storeId,userId:user.id,status:"ACTIVE",user:{status:"ACTIVE"}},select:{id:true}})));
 }
 
 /** Read counterpart that permits an OWNER to inspect a direct child store. */
@@ -76,16 +77,7 @@ export async function courseManagerRead(permission: PermissionCode, options: {re
   // run concurrently but neither grants access until both have completed.
   const [, staff] = await Promise.all([
     measure("store.module",()=>requireCourseStore(storeId)),
-    user.role !== "ADMIN" && !isChildStoreView ? measure("store.membership",()=>prisma.staff.findFirst({
-      where: {
-        id: user.staffId ?? "",
-        storeId,
-        userId: user.id,
-        status: "ACTIVE",
-        user: { status: "ACTIVE" },
-      },
-      select: { id: true },
-    })) : Promise.resolve(true),
+    user.role !== "ADMIN" && !isChildStoreView ? measure("store.membership",()=>readCourseStaffMembership(user,storeId)) : Promise.resolve(true),
   ]);
   if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   return { user, storeId, isChildStoreView };

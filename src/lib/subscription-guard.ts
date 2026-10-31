@@ -27,7 +27,7 @@ export async function isStoreSubscriptionWriteBlocked(
 
   let sub: { status: string; expiresAt: Date | null } | null = null;
   try {
-    const store = await prisma.store.findUnique({ where: { id: storeId }, select: { currentSubscription: { select: { status: true, expiresAt: true } } } });
+    const store = await prisma.store.findUnique({ relationLoadStrategy:"join", where: { id: storeId }, select: { currentSubscription: { select: { status: true, expiresAt: true } } } });
     sub = store?.currentSubscription ?? await prisma.storeSubscription.findFirst({
       where: { storeId },
       orderBy: { createdAt: "desc" },

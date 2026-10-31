@@ -1522,7 +1522,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id },
           select: {
             id: true, role: true, status: true, passwordHash: true, updatedAt: true,
-            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, industryModule: true } } } },
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, name:true, operatingStatus:true, industryModule: true } } } },
           },
         }));
         // DB failures propagate through Auth.js; never reuse stale privileges.
@@ -1531,7 +1531,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (appToken.customerReviewDigest && (!reviewTarget || current.role !== "OWNER" ||
           current.staff?.id !== reviewTarget.staffId || current.staff.storeId !== reviewTarget.storeId ||
           current.staff.store.slug !== reviewTarget.slug || current.staff.store.industryModule !== reviewTarget.industryModule)) return null;
-        if(current.role!=="ADMIN"&&current.staff?.status==="ACTIVE")rememberVerifiedStaffRead({userId:current.id,role:current.role,staffId:current.staff.id,storeId:current.staff.storeId,industryModule:current.staff.store.industryModule});
+        if(current.role!=="ADMIN"&&current.staff?.status==="ACTIVE")rememberVerifiedStaffRead({userId:current.id,role:current.role,staffId:current.staff.id,storeId:current.staff.storeId,industryModule:current.staff.store.industryModule,...(typeof current.staff.store.name==="string"&&typeof current.staff.store.operatingStatus==="string"?{store:{slug:current.staff.store.slug,name:current.staff.store.name,operatingStatus:current.staff.store.operatingStatus}}:{})});
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;
