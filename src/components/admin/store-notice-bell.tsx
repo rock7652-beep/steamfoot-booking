@@ -9,6 +9,7 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 import {DigitalManagerIcon} from "./digital-manager-icon";
 import {playStoreNoticeSound} from "@/lib/store-notice-sound";
+import {markNoticeRead} from '@/lib/notice-read-performance';
 const NOTICE_TITLE="數位管家｜門市提醒";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
@@ -43,7 +44,8 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
  const load=useCallback(async()=>{
   if(!open&&skipTargetCloseRead.current){skipTargetCloseRead.current=false;return;}
   if(busy.current)return;const seq=++generation.current;setLoading(true);
-  try{const r=await reader.read({storeId,handled:open?handled:false,offset:open?offset:0,summaryOnly:!open});if(!mounted.current||seq!==generation.current)return;
+  markNoticeRead(namespace,'intent');
+  try{const r=await reader.read({storeId,handled:open?handled:false,offset:open?offset:0,summaryOnly:!open});markNoticeRead(namespace,'received',r.readTiming);if(!mounted.current||seq!==generation.current)return;
    if(!r.success){setError(r.error);return;}if(r.storeId!==storeId)return;
    setEnabled(r.enabled);if(!r.enabled)setOpen(false);
    setCount(r.count);setCountKnown(true);setError("");
@@ -54,7 +56,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
     playStoreNoticeSound(audio.current);
    }seen.current=r.count;latestSeen.current=latest!==null&&Number.isFinite(latest)?latest:null;
   }catch{if(mounted.current&&seq===generation.current)setError("通知更新失敗，請重試");}finally{if(mounted.current&&seq===generation.current)setLoading(false);}
- },[storeId,handled,offset,open,reader]);
+ },[storeId,handled,offset,open,reader,namespace]);
  useEffect(()=>{mounted.current=true;const requestGeneration=generation;return()=>{mounted.current=false;requestGeneration.current++;const context=audio.current;audio.current=null;if(context)void context.close().catch(()=>{});};},[]);
  useEffect(()=>{
   let selected=true;try{selected=localStorage.getItem(soundKey)!=="off";}catch{}
@@ -76,6 +78,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,loadNoti
   const timer=setInterval(refresh,60000);document.addEventListener("visibilitychange",refresh);window.addEventListener("focus",refresh);window.addEventListener(`${namespace}-notices-setting`,refresh);
   return()=>{requestGeneration.current++;clearInterval(timer);document.removeEventListener("visibilitychange",refresh);window.removeEventListener("focus",refresh);window.removeEventListener(`${namespace}-notices-setting`,refresh);};
  },[load,namespace,refreshKey]);
+ useEffect(()=>{if(!countKnown)return;let second=0;const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>markNoticeRead(namespace,'paint'));});return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};},[countKnown,count,namespace]);
  async function toggle(n:StoreNoticeItem) {
   if(busy.current||!canHandle)return;busy.current=true;generation.current++;reader.clear();setPending(n.id);setRowError({});setError("");
   const previous=items,oldCount=count;const target=!n.handledAt;

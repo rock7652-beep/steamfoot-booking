@@ -1,6 +1,7 @@
 import type {CourseNoticeItem} from "./course-store-notices";
+import type {NoticeReadTiming} from './notice-read-performance';
 export const STORE_NOTICE_LABELS={BOOKING:"預約",LEAVE:"請假",CANCEL:"取消",MOVE:"改期",STOP:"停課",RESTORE:"恢復",UPDATE:"修改預約",COMPLETE:"完成服務",NO_SHOW:"未到",PAYMENT:"待核帳",LEAD:"待處理",SUPPORT:"待接手",VIP:"待聯繫",REMINDER:"待處理",DIGEST:"今日待辦"} as const;
 // Keep the course payload compatible while sharing presentation across modules.
 export type StoreNoticeItem=Omit<CourseNoticeItem,"kind">&{kind:keyof typeof STORE_NOTICE_LABELS;targetId?:string};
-export type StoreNoticeLoadResult={success:false;error:string}|{success:true;storeId:string;enabled:boolean;items:StoreNoticeItem[];count:number;canHandle:boolean;more:boolean;latestAt?:string|null};
+export type StoreNoticeLoadResult=({success:false;error:string}|{success:true;storeId:string;enabled:boolean;items:StoreNoticeItem[];count:number;canHandle:boolean;more:boolean;latestAt?:string|null})&{readTiming?:NoticeReadTiming};
 export type StoreNoticeMarkResult={success:false;error:string}|{success:true;storeId:string;data:{id:string;revision:number;handledAt:string|null;handledByName:string|null}};

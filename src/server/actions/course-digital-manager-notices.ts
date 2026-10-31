@@ -8,6 +8,7 @@ import { courseManager, courseManagerRead, courseTransaction } from "@/server/se
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import type {StoreNoticeItem,StoreNoticeLoadResult} from "@/lib/store-notices";
+import {noticeReadStep,withNoticeDiagnostics} from '@/server/services/notice-read-timing';
 
 const id = z.string().min(1).max(100);
 type NoticeRow = { id:string; eventType:string; handledAt:Date|null; handledByName:string|null; revision:number; createdAt:Date };
@@ -15,11 +16,14 @@ type NoticeRow = { id:string; eventType:string; handledAt:Date|null; handledByNa
 type CombinedRow = {id:string;kind:StoreNoticeItem["kind"];subjectKey:string;customerName:string;courseName:string;coachName:string;previousCoachName:string|null;startsAt:Date;previousStartsAt:Date|null;affectedCount:number;details:unknown;handledAt:Date|null;handledByName:string|null;revision:number;createdAt:Date;updatedAt:Date};
 /** One ordered list and one count across both sources; store scope is checked before SQL. */
 export async function loadCombinedCourseStoreNotices(input:unknown):Promise<StoreNoticeLoadResult> {
+ return withNoticeDiagnostics(()=>readCombinedCourseStoreNotices(input));
+}
+async function readCombinedCourseStoreNotices(input:unknown):Promise<StoreNoticeLoadResult> {
  try {
   const d=z.object({storeId:id,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
-  const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
+  const {storeId,user,isChildStoreView}=await noticeReadStep('access',()=>courseManagerRead("booking.read",{timing:{measure:noticeReadStep}}));
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  const counts=await coursePrisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "eventType" IN ('TRANSFER_PENDING_CONFIRMATION','DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') AND "handledAt" IS NULL) AS pending`;
+  const counts=await noticeReadStep('count_query',()=>coursePrisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."CourseStoreNotice" WHERE "storeId"=${storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${storeId} AND "eventType" IN ('TRANSFER_PENDING_CONFIRMATION','DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') AND "handledAt" IS NULL) AS pending`);
   const count=counts[0]?.count??0,latestAt=counts[0]?.latest?.toISOString()??null;
   if(d.summaryOnly)return {success:true,storeId,enabled:true,items:[],count,latestAt,canHandle:false,more:false};
   const [rows,canHandle,canTransactions,canCustomers]=await Promise.all([
