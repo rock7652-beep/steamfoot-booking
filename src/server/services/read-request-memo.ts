@@ -25,3 +25,4 @@ export function rememberVerifiedStaffRead(staff:VerifiedStaffRead):void{
   if(request)request.staff=Object.freeze({...staff,...(staff.store?{store:Object.freeze({...staff.store})}:{})});
 }
 export function verifiedStaffRead():VerifiedStaffRead|undefined{return scope.getStore()?.staff;}
+export function isReadRequestMemoActive():boolean{return !!scope.getStore();}

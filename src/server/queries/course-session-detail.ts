@@ -8,6 +8,6 @@ export function readCourseSessionDetail(storeId:string,sessionId:string){
   return memoizeCourseReadRequest(coursePrisma,JSON.stringify(["session",storeId,sessionId]),()=>coursePrisma.courseSession.findFirst({
     relationLoadStrategy:"join",
     where:{id:sessionId,storeId},
-    select:{id:true,chargeSnapshot:true,startsAt:true,templateId:true,pointCost:true,teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true,template:{select:{musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}},
+    select:{id:true,chargeSnapshot:true,startsAt:true,templateId:true,requestKey:true,requestIndex:true,pointCost:true,teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true,template:{select:{classType:true,musicTermLessons:true,musicSubjectId:true,waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}},
   }));
 }

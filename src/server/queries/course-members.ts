@@ -1,4 +1,7 @@
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import {isReadRequestMemoActive} from "@/server/services/read-request-memo";
+import {readCourseSessionDetail} from "./course-session-detail";
+import {AppError} from "@/lib/errors";
 import { fixedMusicPeriodsEnabled, readMusicLessonAssignments } from "@/server/services/music-lesson-periods";
 import {measureMusicRead} from "@/lib/music-read-timing";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
@@ -90,10 +93,12 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
   }))).sort((a, b) => Number(a.expired || a.closed) - Number(b.expired || b.closed) || (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
 }
 
+const ROSTER_SESSION_SELECT={startsAt:true,templateId:true,requestKey:true,requestIndex:true,template:{select:{classType:true,musicTermLessons:true}}} as const;
+type RosterSession=Prisma.CourseSessionGetPayload<{select:typeof ROSTER_SESSION_SELECT}>;
+
 export async function getCourseRoster(storeId: string, sessionId: string) {
-  const bookings = await coursePrisma.courseBooking.findMany({
-    where: { storeId, sessionId },
-    select: {
+  const scoped=isReadRequestMemoActive();
+  const selectHead={
       id: true,
       customerId: true,
       companionIndex: true,
@@ -113,16 +118,32 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       pointCost: true,
       bookingKind: true,
       requestKey:true,
-      session: { select: { startsAt:true, templateId: true, requestKey: true, requestIndex: true, template: { select: { classType: true, musicTermLessons: true } } } },
+  } as const satisfies Prisma.CourseBookingSelect;
+  const selectTail={
       trialPrice: true,
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
       card: { select: { id:true,requestKey:true,storeId:true,musicActivatedAt:true,musicValidityDays:true,musicOpeningStateRequired:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { bookingKind:true,musicOpeningMakeupEntitlementId:true,companionIndex:true,musicOpeningTermKey:true,musicOpeningLessonOrdinal:true,musicOpeningSourceLessonKey:true,id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
-    },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-  });
-  if (!bookings.length) return [];
+  } as const satisfies Prisma.CourseBookingSelect;
+  const where={storeId,sessionId};
+  const orderBy:Prisma.CourseBookingOrderByWithRelationInput[]=[{createdAt:"asc"},{id:"asc"}];
+  const bookings=await (async()=>{
+    if(!scoped)return coursePrisma.courseBooking.findMany({where,select:{...selectHead,session:{select:ROSTER_SESSION_SELECT},...selectTail},orderBy});
+    const rows=await coursePrisma.courseBooking.findMany({where,select:{...selectHead,...selectTail},orderBy});
+    if(!rows.length)return [];
+    // Share only the detail/policy readers' exact session scalars in this HTTP
+    // scope. Card/GRANT/payment/history strategy and ordering remain unchanged.
+    const shared=await readCourseSessionDetail(storeId,sessionId);
+    if(!shared)throw new AppError("NOT_FOUND","找不到本店課程");
+    const session:RosterSession={startsAt:shared.startsAt,templateId:shared.templateId,requestKey:shared.requestKey,requestIndex:shared.requestIndex,template:{classType:shared.template.classType,musicTermLessons:shared.template.musicTermLessons}};
+    return rows.map(row=>{
+      // Keep the original public DTO projection and field order.
+      const {trialPrice,trialPayments,notes,checkedInAt,card,...head}=row;
+      return {...head,session,trialPrice,trialPayments,notes,checkedInAt,card};
+    });
+  })();
+  if(!bookings.length)return [];
   const hasCards = bookings.some(booking => !!booking.card);
   const nativeCandidates=musicNativeWorkflowEnabled(storeId)?[...new Set(bookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
   const groupSession = bookings[0]?.session;

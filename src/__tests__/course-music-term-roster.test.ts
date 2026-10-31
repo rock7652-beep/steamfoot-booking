@@ -8,12 +8,13 @@ const db = vi.hoisted(() => ({
   purchases: vi.fn(),
   cards: vi.fn(),
   sessionCount: vi.fn(),
+  sessionDetail:vi.fn(),
   balances:vi.fn(async()=>new Map()),
 }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
     courseBooking: { findMany: (query: { where: { sessionId?: string } }) => query.where.sessionId ? db.bookings(query) : db.absences(query), groupBy: db.leaveCounts },
-    courseSession: { count: db.sessionCount },
+    courseSession: { count: db.sessionCount,findFirst:db.sessionDetail },
     courseTemplate: { findFirst: async () => null, findMany: async () => [] },
     coursePurchase: { findMany: db.purchases },
     coursePointCard: { findMany: db.cards },
@@ -174,4 +175,21 @@ it('counts absence badges from the same scoped history used by each learner',asy
  expect(result.map(r=>[r.customerId,r.absenceCount,r.absenceHistory.length])).toEqual([['first',2,2],['second',1,1]]);
  expect(db.leaveCounts).not.toHaveBeenCalled();
  expect(db.absences.mock.calls[0][0].where).toMatchObject({storeId:'music-store',bookingKind:{not:'OPENING_MAKEUP'},musicOpeningMakeupEntitlementId:null,customerId:{in:['first','second']}});
+});
+
+import {withReadRequestMemo} from '@/server/services/read-request-memo';
+import {readCourseSessionDetail} from '@/server/queries/course-session-detail';
+it('reuses the exact same session scalars in scoped HTTP reads without changing financial selections or the DTO',async()=>{
+ const current=lesson('first',0);const booking=row('first',current,card('first',[current],4),'PRIVATE');db.bookings.mockResolvedValue([booking]);db.sessionDetail.mockResolvedValue({id:'session-0',...booking.session});
+ const legacy=await getCourseRoster('music-store','session-0');expect(db.sessionDetail).not.toHaveBeenCalled();
+ const [scoped]=await withReadRequestMemo(()=>Promise.all([getCourseRoster('music-store','session-0'),readCourseSessionDetail('music-store','session-0')]));
+ expect(JSON.stringify(scoped)).toBe(JSON.stringify(legacy));expect(db.sessionDetail).toHaveBeenCalledOnce();
+ expect(db.bookings.mock.calls[0][0].select.session).toEqual(expect.objectContaining({select:expect.any(Object)}));expect(db.bookings.mock.calls[1][0].select.session).toBeUndefined();
+ expect(db.bookings.mock.calls[1][0].select.card).toEqual(db.bookings.mock.calls[0][0].select.card);expect(db.bookings.mock.calls[1][0].select.trialPayments).toEqual(db.bookings.mock.calls[0][0].select.trialPayments);
+ expect(db.sessionDetail).toHaveBeenCalledWith(expect.objectContaining({where:{id:'session-0',storeId:'music-store'},relationLoadStrategy:'join'}));
+});
+it('does not read session metadata for an empty scoped roster and rejects a missing scoped session',async()=>{
+ db.bookings.mockResolvedValue([]);await expect(withReadRequestMemo(()=>getCourseRoster('music-store','empty'))).resolves.toEqual([]);expect(db.sessionDetail).not.toHaveBeenCalled();
+ const current=lesson('first',0);db.bookings.mockResolvedValue([row('first',current,card('first',[current],4))]);db.sessionDetail.mockResolvedValue(null);
+ await expect(withReadRequestMemo(()=>getCourseRoster('music-store','session-0'))).rejects.toMatchObject({code:'NOT_FOUND'});
 });
