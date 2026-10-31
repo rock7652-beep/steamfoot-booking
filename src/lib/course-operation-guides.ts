@@ -134,11 +134,26 @@ export const courseOperationGuides: OperationGuide[] = [
     id: "C106", category: "care", title: "課程提醒會寄給誰？怎麼確認有沒有送達？",
     summary: "上課提醒給實際學員，店長通知另行指定收件人。", answer: "通知需啟用規則、具備店家功能與額度，並有有效 LINE 連結。",
     keywords: "方案開通 購買成功 LINE 提醒 通知 收件人 發送紀錄 改期 取消 確認會到 預約 購買 續購 共用官方帳號 館名", path: "設定 → 提醒管理",
-    steps: ["在顧客通知編輯上課、低額度、到期及體驗後關懷；低額度與用完可顯示預約、購買／續購或諮詢店長。", "前一日提醒可提供改期、取消與確認會到；店長通知另行授權收件人與偏好。", "到發送紀錄核對門市、對象、操作與狀態；跳過或失敗不代表送達。"],
+    steps: [
+  "在顧客通知編輯上課、低額度、到期及體驗後關懷；低額度與用完可顯示預約、購買／續購或諮詢店長。",
+  "前一日提醒可提供改期、取消與確認會到；店長通知另行授權收件人與偏好。",
+  "到發送紀錄核對門市、對象、操作與狀態；跳過或失敗不代表送達。"
+],
     important: "上課提醒給實際上課者，不會因共卡而寄給其他成員；隔離預覽不向外發送。",
     success: "設定成功後重新開啟仍保留；實際送達需以成功紀錄及收件端確認。",
-    details: [planActivationGuideDetail, "顧客上課提醒於前一日台灣時間 18:00 處理；教師／教練明日授課摘要為前一日 21:00，需另開啟通知及完成可用 LINE 綁定。取消預約不發送顧客上課提醒。改期／取消仍由後端重新檢查門市、身分、期限、名額與方案；確認會到不等於出席。", "低額度依可用額度判斷；到期提醒須同時開啟總開關與方案設定。體驗關懷只納入啟用後且課程結束後完成的體驗。", "共用官方 LINE 的諮詢訊息會帶館名，入口與資料仍依門市隔離；一般聊天不猜門市。", "發送紀錄顯示已略過時先看原因；失敗或略過不能當成送達，也不要直接重發全店通知。"],
-    permission: "business_hours.manage", feature: "line_reminder", sources: ["src/server/services/course-reminders.ts", "src/server/services/course-manager-notifications.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    details: [
+  planActivationGuideDetail,
+  "顧客上課提醒於前一日台灣時間 18:00 處理；教師／教練明日授課摘要為前一日 21:00，需另開啟通知及完成可用 LINE 綁定。取消預約不發送顧客上課提醒。改期／取消仍由後端重新檢查門市、身分、期限、名額與方案；確認會到不等於出席。",
+  "低額度依可用額度判斷；到期提醒須同時開啟總開關與方案設定。體驗關懷只納入啟用後且課程結束後完成的體驗。",
+  "共用官方 LINE 的諮詢訊息會帶館名，入口與資料仍依門市隔離；一般聊天不猜門市。",
+  "發送紀錄顯示已略過時先看原因；失敗或略過不能當成送達，也不要直接重發全店通知。"
+],
+    permission: "business_hours.manage", feature: "line_reminder", sources: [
+  "src/server/services/course-reminders.ts",
+  "src/server/services/course-manager-notifications.ts"
+], kind: "howto", modules: [
+  "course"
+], verification: "source-reviewed",
   },
   {
     id: "C107", category: "booking", title: "新課程要先設定哪些資料？",
@@ -249,11 +264,16 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C112", category: "plans", title: "店內購買方案並結帳，怎麼處理？",
     summary: "選顧客、方案、效期與本次開發人，再核對優惠、實收及收款方式。", answer: "「購買方案」確認結帳會同時完成發卡、購買與收款登記；全額折抵保留購買與方案，但不建立收入。",
-    keywords: "指派方案 購買方案 確認結帳 現金抽屜 重新確認 折扣 打折 折抵 轉帳 後四碼 店家成本 開發人 交易更新 背景同步 原交易", path: "顧客管理 → 顧客詳情 → 持有方案 → 購買方案",
+    keywords: "指派方案 購買方案 確認結帳 現金抽屜 重新確認 折扣 打折 折抵 轉帳 後四碼 店家成本 開發人 交易更新 背景同步 原交易 購買中斷 重新核對 原請求 安全取消 不重複收款", path: "顧客管理 → 顧客詳情 → 持有方案 → 購買方案",
     steps: ["從顧客詳情點「購買方案」（原指派方案），核對學員、上架方案、效期與本次開發人。", "選優惠與已收款方式；轉帳填後四碼。現金且實收大於零時，先等畫面確認今日現金抽屜已開啟。", "抽屜未開時可另開新分頁處理，回來按「重新確認」；若已結帳先依權限處理，不改填別種付款方式繞過。", "核對實收後點「確認結帳」一次，看到「結帳完成，方案已加入」，再查持有方案與原交易。"],
     important: "這個按鈕會同時發卡並登記收款，不是單純增加額度。連線中斷先查原交易，不要直接重按。",
     success: "只新增一張卡、一筆購買與一筆對應收款；顧客、效期、實收與本次開發人快照正確。",
-    details: ["從顧客進入時會帶入其所屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。", "結帳成功後，營收、交易與現金頁會重新取得資料；已開著的其他裝置不是即時推播。若清單尚未反映，先重開原交易、核對原卡片與收款，不要重新購買或換付款方式重做。背景資料更新失敗不會把已成功結帳變成失敗。"],
+    details: [
+  "購買、收款或核帳遇連線中斷，先處理原請求接續視窗；查無紀錄不代表失敗，不換付款方式或重建購買。狀態未明先「重新核對」，已完成先確認原結果；安全取消只取消尚未成立的原請求，不是退款。詳見 FIN02。",
+  "從顧客進入時會帶入其所屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。",
+  "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。",
+  "結帳成功後，營收、交易與現金頁會重新取得資料；已開著的其他裝置不是即時推播。若清單尚未反映，先重開原交易、核對原卡片與收款，不要重新購買或換付款方式重做。背景資料更新失敗不會把已成功結帳變成失敗。"
+],
     permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/actions/course-checkout-status.ts", "src/server/actions/course-members.ts", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -423,13 +443,64 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C123", category: "settings", title: "課程店的設定入口怎麼找？未儲存草稿會消失嗎？",
     summary: "設定分為五區；六步引導依模組顯示實際進度，新版運動先建教練、再設教學項目資格與收費，細項沿用既有側邊／滿版面板。", answer: "設定進度只引導店家完成必要資料；稍後提醒或不再顯示會立即移除提示，但不會替你改設定，草稿也仍須明確儲存。",
-    keywords: "課程設定 五分類 側邊面板 手機滿版 草稿 未儲存 已保留草稿 店家資料 營業 收款 通知 提醒管理 排課模式 開放選課 指定學員 目前分頁 獨立載入 讀取回饋 隱藏 鎖定 啟用 系統方案 候補 店長通知 LINE額度 Email 工單待取件 查看訊息預覽 通知分類 下拉選單 設定提醒 收合 精簡列 Flex 示範資料 7種 教師 老師 教學項目 班型與學費 後台異動通知 預設開啟 提示音", path: "設定",
-    steps: ["桌機從左側、手機從設定分類選單切換店家資料、營業與預約、收款與體驗、通知與顧客經營、系統方案與用量。", "直接編輯目前區塊；營業、公休、提醒等細項會在桌機側邊面板或手機滿版面板開啟，候補也在營業與預約區。", "確認未儲存標記後逐區儲存；要離開或關閉時依提示繼續編輯或捨棄。"],
+    keywords: "課程設定 五分類 側邊面板 手機滿版 草稿 未儲存 已保留草稿 店家資料 營業 收款 通知 提醒管理 排課模式 開放選課 指定學員 目前分頁 獨立載入 讀取回饋 隱藏 鎖定 啟用 系統方案 候補 店長通知 LINE額度 Email 工單待取件 查看訊息預覽 通知分類 下拉選單 設定提醒 收合 精簡列 Flex 示範資料 7種 教師 老師 教學項目 班型與學費 後台異動通知 預設開啟 提示音 核准恢復時間 舊事件不補發", path: "設定",
+    steps: [
+  "桌機從左側、手機從設定分類選單切換店家資料、營業與預約、收款與體驗、通知與顧客經營、系統方案與用量。",
+  "直接編輯目前區塊；營業、公休、提醒等細項會在桌機側邊面板或手機滿版面板開啟，候補也在營業與預約區。",
+  "確認未儲存標記後逐區儲存；要離開或關閉時依提示繼續編輯或捨棄。"
+],
     important: "顯示「尚未儲存 · 已保留草稿」不等於已寫入系統；網路失敗後也要確認成功訊息與重新開啟結果。若顯示已儲存但其他頁面同步失敗，原設定已寫入，請保留畫面並重新整理核對，不要重複送出。",
     success: "重新開啟後資料仍正確，未儲存標記消失，關閉視窗回到原設定分類。",
-    details: ["新版運動六步依序為營業時間與公休、空間、教練基本資料、教學項目與授課資格、收費方式、第一堂課。第三步只需啟用教練；第四步須上架教學項目並選至少一位可授課教練；第五步核對指定項目方案或開放選課通用卡。音樂與舊課程維持原順序。", "音樂與舊課程的「開始設定」依設定營業時間與公休、新增空間、建立課程、建立方案、教練與授課課程、排第一堂課六項顯示進度；音樂店改稱教學項目、班型與學費、教師。已有但未啟用的項目提示修正，不必重建資料。", "選稍後提醒或不再顯示會先在畫面立即移除該提示；若儲存失敗會恢復原項目並顯示錯誤。這只改引導顯示，不改業務設定；銀行資料、LINE 與授課費另依需求設定。", "提醒管理只載入目前分頁所需資料，不重新整理整個後台版面；切換時保留讀取回饋，晚到的舊資料不會蓋掉新分頁。仍顯示讀取中或讀取失敗時不要把空白當成沒有設定，可按重新讀取。總部檢視按真實 HIDDEN／LOCKED／ENABLED 資格顯示，不假造可用入口。", "提醒管理以顧客通知、店長通知、工作人員通知分頁，發送紀錄另列。店長通知先選「通知收件人」；每列顯示目前狀態與開關，展開可看預覽。各開關只調整所選人員，小鈴噹不受個人 LINE 偏好影響。顧客文案一次展開一列，切換保留草稿，儲存或取消後收合。", "店長通知的進階區另有 LINE 額度 Email 通知，寄給本店所有啟用中老闆的登入信箱；它與店長 LINE 綁定、七種 LINE 事件分開，操作見 F13。工單功能開通時才顯示工單取件提醒，操作見 W06。", "儲存中的表單不能捨棄；關閉視窗、遮罩、Escape 與視窗內導覽會先處理草稿。沒有草稿或儲存作業時，關閉後直接回原設定位置，不需等伺服器重載；重新開啟仍按目前店別與權限讀取。成功後會收合已確認的編輯區；若寫入成功但其他頁面同步失敗，編輯區會保留並顯示核對提示。四模組共同判讀見 I21。", "部分顧客／方案完整表單會保留未送出的輸入；同帳號、同店、同一瀏覽器分頁最多暫存 8 小時，明確登出會清除，且不會跨裝置同步。", "入口仍受角色、權限、功能開通與總部檢視模式限制；看不到項目不代表設定被刪除。", "要看店長 LINE 卡片，到「通知與顧客經營 → 提醒管理 → 店長通知」先選收件人，再展開各通知列的「預覽」。運動／音樂共有 7 種：當日新預約、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、出席待處理及每日待辦摘要；不含蒸足新體驗預約與 VIP 續購需求。", "畫面使用示範資料，預覽按鈕不跳轉業務操作、不發 LINE；切換或收合不會啟用通知，不需建立真實預約或收款。實際 LINE 排版、收件與按鈕目的地仍要另行核對。", "店長預覽與顧客 LINE 提醒用途不同；顧客提醒按鈕的用途與後台結果核對見 C167。店長發送失敗及舊文字重試的判讀見 F04。", "課程店的後台異動通知與提示音目前預設開啟；可分別在設定及頂欄鈴鐺內關閉。鈴鐺的待處理、已處理、載入與權限規則見 C170。"],
-    references: [{ guideId: "C177", label: "如何設定開放選課與指定學員？" }, { guideId: "C170", label: "課程門市異動通知如何查看、處理或復原？" }, { guideId: "F13", label: "LINE 訊息額度快用完時，如何設定 Email 通知？" }],
-    permission: "booking.read", feature: null, sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/app/(dashboard)/dashboard/courses/settings-panel.tsx", "src/components/admin/settings-panel-context.tsx", "src/components/operations/operation-scope.tsx", "src/lib/operation-state.ts", "src/app/(dashboard)/dashboard/courses/reminders/page.tsx", "src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view.tsx", "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx", "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx", "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx", "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx", "src/lib/manager-notification-preview.ts", "src/lib/course-setup-progress.ts", "src/components/admin/course-setup-guide.tsx", "src/lib/course-display-text.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    details: [
+  "LINE 外發改依核准切換時間控管：時間未設定、格式無效或尚未到時仍停送；已恢復也只送符合時間及偏好的新事件，不補送舊佇列。LINE 入站身分處理另行核對，不能因沒有回覆就重複綁定；見 F14。",
+  "新版運動六步依序為營業時間與公休、空間、教練基本資料、教學項目與授課資格、收費方式、第一堂課。第三步只需啟用教練；第四步須上架教學項目並選至少一位可授課教練；第五步核對指定項目方案或開放選課通用卡。音樂與舊課程維持原順序。",
+  "音樂與舊課程的「開始設定」依設定營業時間與公休、新增空間、建立課程、建立方案、教練與授課課程、排第一堂課六項顯示進度；音樂店改稱教學項目、班型與學費、教師。已有但未啟用的項目提示修正，不必重建資料。",
+  "選稍後提醒或不再顯示會先在畫面立即移除該提示；若儲存失敗會恢復原項目並顯示錯誤。這只改引導顯示，不改業務設定；銀行資料、LINE 與授課費另依需求設定。",
+  "提醒管理只載入目前分頁所需資料，不重新整理整個後台版面；切換時保留讀取回饋，晚到的舊資料不會蓋掉新分頁。仍顯示讀取中或讀取失敗時不要把空白當成沒有設定，可按重新讀取。總部檢視按真實 HIDDEN／LOCKED／ENABLED 資格顯示，不假造可用入口。",
+  "提醒管理以顧客通知、店長通知、工作人員通知分頁，發送紀錄另列。店長通知先選「通知收件人」；每列顯示目前狀態與開關，展開可看預覽。各開關只調整所選人員，小鈴噹不受個人 LINE 偏好影響。顧客文案一次展開一列，切換保留草稿，儲存或取消後收合。",
+  "店長通知的進階區另有 LINE 額度 Email 通知，寄給本店所有啟用中老闆的登入信箱；它與店長 LINE 綁定、七種 LINE 事件分開，操作見 F13。工單功能開通時才顯示工單取件提醒，操作見 W06。",
+  "儲存中的表單不能捨棄；關閉視窗、遮罩、Escape 與視窗內導覽會先處理草稿。沒有草稿或儲存作業時，關閉後直接回原設定位置，不需等伺服器重載；重新開啟仍按目前店別與權限讀取。成功後會收合已確認的編輯區；若寫入成功但其他頁面同步失敗，編輯區會保留並顯示核對提示。四模組共同判讀見 I21。",
+  "部分顧客／方案完整表單會保留未送出的輸入；同帳號、同店、同一瀏覽器分頁最多暫存 8 小時，明確登出會清除，且不會跨裝置同步。",
+  "入口仍受角色、權限、功能開通與總部檢視模式限制；看不到項目不代表設定被刪除。",
+  "要看店長 LINE 卡片，到「通知與顧客經營 → 提醒管理 → 店長通知」先選收件人，再展開各通知列的「預覽」。運動／音樂共有 7 種：當日新預約、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、出席待處理及每日待辦摘要；不含蒸足新體驗預約與 VIP 續購需求。",
+  "畫面使用示範資料，預覽按鈕不跳轉業務操作、不發 LINE；切換或收合不會啟用通知，不需建立真實預約或收款。實際 LINE 排版、收件與按鈕目的地仍要另行核對。",
+  "店長預覽與顧客 LINE 提醒用途不同；顧客提醒按鈕的用途與後台結果核對見 C167。店長發送失敗及舊文字重試的判讀見 F04。",
+  "課程店的小鈴噹持續接收門市通知，不受個人LINE開關影響；提示音可在頂欄鈴鐺內依裝置調整。鈴鐺的待處理、已處理、載入與權限規則見 C170。"
+],
+    references: [
+  {
+    "guideId": "C177",
+    "label": "如何設定開放選課與指定學員？"
+  },
+  {
+    "guideId": "C170",
+    "label": "課程門市異動通知如何查看、處理或復原？"
+  },
+  {
+    "guideId": "F13",
+    "label": "LINE 訊息額度快用完時，如何設定 Email 通知？"
+  }
+],
+    permission: "booking.read", feature: null, sources: [
+  "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+  "src/app/(dashboard)/dashboard/courses/settings-panel.tsx",
+  "src/components/admin/settings-panel-context.tsx",
+  "src/components/operations/operation-scope.tsx",
+  "src/lib/operation-state.ts",
+  "src/app/(dashboard)/dashboard/courses/reminders/page.tsx",
+  "src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view.tsx",
+  "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+  "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+  "src/lib/manager-notification-preview.ts",
+  "src/lib/course-setup-progress.ts",
+  "src/components/admin/course-setup-guide.tsx",
+  "src/lib/course-display-text.ts",
+  "src/lib/line-delivery-pause.ts"
+], kind: "howto", modules: [
+  "course"
+], verification: "source-reviewed",
   },
   {
     id: "C124", category: "booking", title: "怎麼從課表替既有學員或新體驗客預約？",

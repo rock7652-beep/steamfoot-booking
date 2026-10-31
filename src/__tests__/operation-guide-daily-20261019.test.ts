@@ -14,12 +14,12 @@ describe("2026-10-19 backend guide audit", () => {
       expect(availableGuides({...access, permissions: ["booking.read"]}).some(g => g.id === id)).toBe(id === "C171");
       expect(findOperationGuides("新版運動", {...access, module: "steamfoot"}).some(g => g.id === id)).toBe(false);
     }
-    expect(text("C171")).toContain("不代表正式站已上線");
+    expect(text("C171")).toContain("不再逐店加入部署白名單");
     expect(text("C171")).toContain("超過 500 筆會明確拒絕載入");
     expect(text("C172")).toContain("價格與時間不回算歷史課次");
     expect(text("C172")).toContain("既有方案（保留原規則）");
     expect(text("C173")).toContain("開放選課不自動加人");
-    expect(text("C173")).toContain("容量、權益或撞期不符時拒絕本次建立");
+    expect(text("C173")).toContain("容量或撞期不符時拒絕本次建立");
     expect(text("C109")).toContain("舊課表");
     expect(text("C110")).toContain("不能再建立重複固定系列");
   });
@@ -34,7 +34,7 @@ describe("2026-10-19 backend guide audit", () => {
     expect(findOperationGuides("登入前持續有效", {...access, module: "steamfoot"}).map(g => g.id)).toEqual(expect.arrayContaining(["C07", "C08", "F04"]));
   });
   it("persists the exact main and only backend pending topics", () => {
-    const s = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const s = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(s.previousCompleteAudit.dateTaipei).toBe("2026-10-20");
     expect(s.previousCompleteAudit.mainCommit).toBe("8d717d5dc45da6fbd4e2984afea48165140281b3");
     expect(s.previousCompleteAudit.newGuideIds).toEqual(["C174", "C175", "C176"]);
@@ -44,7 +44,7 @@ describe("2026-10-19 backend guide audit", () => {
     expect(s.backendInteractionPendingCount).toBe(93);
     expect(s.frontendInteractionPendingGuideIds).toEqual([]);
     expect(s.authenticatedAcceptance.guideIdsCleared).toEqual([]);
-    expect(operationGuides).toHaveLength(202);
+    expect(operationGuides).toHaveLength(215);
     expect(guideCategories).toHaveLength(15);
   });
 });
