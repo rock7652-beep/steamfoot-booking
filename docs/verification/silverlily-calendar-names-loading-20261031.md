@@ -1,6 +1,29 @@
 # 課表教學項目、重整與三模組開窗驗收（2026-10-31）
 
-狀態：Draft PR #1478，未合併或正式發布。正式基準 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`；驗收應用版本 `884089c34be399ebf57c85dee6f3a9f5bcc8ab52`。後續提交僅補測試 fixture、驗收器及文件，應用差異須保持可核對。
+狀態：Draft PR #1478，未合併或正式發布。正式基準 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`；最新驗收應用版本 `a288e936abd3766a3c9cb45a5476304a14cad232`。第一輪摘要的 1.9 秒完整讀取未獲使用者接受；以下最新量測才是本次完整名單改善的依據。
+
+## 完整名單第二輪驗收
+
+只衡量完整名單搜尋欄與操作內容載入，摘要首次顯示不算完成。使用逐幀 DOM 檢測並記錄 Resource Timing／Server-Timing；舊 locator 輪詢數字不直接作百分比對照。相同 Chromium／環境代理、相同 QA 課堂、正常 OWNER 登入，順序比較 `884089c` 與 `a288e93`；不是台灣使用者端 RUM，也不是 p95。
+
+| 場景 | 舊完整名單中位數 ms | 新完整名單中位數 ms | 新非 warmup 範圍 ms | 舊→新伺服器中位數 ms |
+| --- | ---: | ---: | ---: | ---: |
+| 運動單人名單 | 1542.5 | 1107 | 830–1141 | 813.5→324 |
+| 運動正式課，同堂體驗＋持卡學員 | 1777 | 1163 | 880–1298 | 963→354 |
+| 音樂 | 1738.5 | 1030 | 819–1067 | 992→347 |
+| 美業 | 1069.5 | 841 | 684–973 | 397.6→167.1 |
+
+舊單人／音樂／美業各 4 次非 warmup，混合名單 5 次；新版各 5 次。新版 cold sample 分別 1089／1022／1078／1509 ms，不能宣稱每次或首次都低於一秒。完整傳輸與顯示仍包含代理、路由和跨區等待，未把它們全部歸因於資料庫。45 次讀取、8 組正常登入與 live roster 檢查完成、pageerror 0；四個場景前後完整 `data` 的 SHA-256 各自完全一致，沒有靠刪減權益、收費或候補欄位換取速度。
+
+實作：音樂／運動 HTTP read 明確建立單次請求 scope，共用當次已驗證身分解析；各權限 grant、門市、會員資格、模組檢查仍保留。名單、候補、政策、期別與餘額的獨立讀取並行。共用門市 plan/module 查詢只在 opt-in read request 內合併；不同店、不同請求及傳入的 transaction client 不共用。沒有跨請求快取身份、金額或額度。課程 client 改用既有 `buildDatabaseUrl`，和其他 client 一樣補齊 Supabase pooler 相容參數，保留 URL 原設定與 serverless 一條連線上限；沒有提高資料庫連線上限或修改 schema。
+
+最新 Preview：`dpl_HFz5m9a7hMfFE46zAwTRkXjWJ7TM` READY／hnd1，來源 `a288e936abd3766a3c9cb45a5476304a14cad232`。中間候選 `c9963e1`／`dpl_FHtCVTH9BNYawdYWidpzneKnTu88` 完成三模組比較；`c475792`／`dpl_CUtwSbvGX5aokkcaiEofdu1FqspP` 僅建置，未另宣稱瀏覽器驗收。23 小時存取連結持續最多兩個測試部署：已撤銷最初 `80d9022` 與中間 `c9963e1` 的連結，目前是 `884089c` 比較基準與 `a288e93` 候選。應用登入未略過。
+
+最新應用 CI [41213388349](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41213388349)：Typecheck、Changed-file ESLint、Targeted tests、Full Vitest 全部成功。全量 1567 檔／14949 項通過，30 檔／257 項 skip；運動共用卡與音樂補課隔離 PostgreSQL workflows 成功。局部相關回歸另 12 檔／119 項通過。新增同請求身分合併、跨請求重驗、不同門市隔離、transaction reader 不合併、拒絕結果不跨請求、餘額讀取不等待請假歷史等測試。
+
+驗收沒有點名、收款、扣堂或送出表單。切換到 12 月混合課時，既有 `ensureSportsMonth` 自動展開四堂固定課的八筆 `UNPAID` 合成預約，因此 CourseBooking 是 613→621；這是既有課表的自動延展副作用，不能宣稱完全沒有預約寫入。只有隔離測試店受影響，不刪除或倒回它們；正式資料未寫入。CoursePurchase 125、CoursePointEntry 933、BeautyPayment 90、BeautyLedger 126 計數保持相同；這些計數不取代逐列帳務驗收。三個測試帳號再次停用、密碼雜湊清除、Staff INACTIVE；臨時明文憑證檔清除。
+
+[逐次量測與完整資料一致性](silverlily-calendar-loading-20261031/critical-path-results.json)；驗收器 `scripts/qa/service-calendar-critical-path-browser.mjs` 使用 chmod-600 臨時輸入檔、只輸出耗時與 payload hash，無 route mock。此輪只有後端／連線參數／診斷調整，沿用下方既有三尺寸 UI 邊界與草稿驗收，不冒稱再次跑過實體裝置。正式站未更新，仍需使用者接受速度及明確正式發布授權。
 
 ## 使用者規則及課名問題
 
@@ -8,7 +31,7 @@
 
 正式資料僅唯讀：截圖 2026 年 11 月 10 堂／13 人次均存為體驗；7 堂保存的名稱含方案堂數，這 7 堂建立於台灣時間 10 月 30 日晚間。前次核心修正只對一般課避開方案名稱，指定學員體驗課仍會找同模板方案命名；初次課表與背景讀取也沿用舊快照。現在新運動排課、既有課表初次載入、背景 JSON 都依實際教學項目關聯顯示；無法追溯的歷史資料保留原名，不靠字串猜測分類。本次不重寫歷史快照、課堂分類、預約、購買或扣抵。
 
-## 共用載入改進
+## 第一輪共用載入改進（歷史證據）
 
 - 設定引導不再對音樂／運動課表的 focus 或日期變更重複 router.refresh。課表自己的同步保留，讀取提示固定高度。
 - 原生運動表單先用已授權課表的教學項目、老師與教室顯示，獨立讀最新選項；尚未確認選項時禁用提交及新增租借顧客，回應後保留已輸入時段。選項不再讀整店方案／已購卡片，只有非財務選項在 keyed scope 預讀 15 秒。價格、名額、餘額與交易維持後端權威查核。
@@ -24,7 +47,7 @@
 | --- | --- | --- |
 | 基準（僅加入隔離分支守門） | `80d90224739492694ae7c188b7fe2178b0aca3b1` | `dpl_4YsKBSDWhn7fm3pVPvdFH5d9WQMW` |
 | 第一輪選項／查詢優化 | `84adf3a2153654e8cbe2c1b5ab880122bdc6aee1` | `dpl_HsqR9Mx4D2TXDkCEjXYfj2r9vjpz` |
-| 最終即時表單／三模組名單摘要 | `884089c34be399ebf57c85dee6f3a9f5bcc8ab52` | `dpl_3hLMX1h4g2RcZfLWuT1YPMbPbYYN` |
+| 第一輪即時表單／三模組名單摘要 | `884089c34be399ebf57c85dee6f3a9f5bcc8ab52` | `dpl_3hLMX1h4g2RcZfLWuT1YPMbPbYYN` |
 
 全部為 Preview、READY；分支自動部署停用，人工部署保留 exact branch／repo、兩條既有隔離 DB 連線與通知停發守門。僅使用 `sports-live-flow-store`、`store-lubymusic`、`beauty-hosted-20261021` 的既有合成資料。音樂 capability 僅擴及本分支的同一隔離店，不授權匯入或正式發布。美業分支設定只針對既有 QA 店，legacy 隔離資料庫，通知明示關閉。
 
@@ -56,4 +79,4 @@ Playwright／Chromium，正常 HTTP cache、無 route mock 或認證 mock；同�
 
 Cloudflare Workers Builds 仍 failure，不能說全部外部檢查成功。依 [既有發布路徑調查](plan-session-adjustment-cloudflare-20261031.md)，本次再查 `www.steamfoot.com` 仍是 Vercel 專案已驗證正式網域，main protected=false、required checks 空。未改任何分支規則或 Cloudflare 設定；遠端 Worker 詳細錯誤日誌仍未取得，不猜其第一個失敗原因。它不作這次 Vercel Preview 驗收的通用阻擋，也不代表已修好該平台。
 
-下一步：完成最終 CI 與 PR 審查，取得正式發布授權後才更新正式站。
+下一步：由使用者驗收最新候選的完整名單速度；明確授權正式發布前保持 Draft。

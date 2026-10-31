@@ -1,0 +1,982 @@
+{
+  "appCommit": "a288e936abd3766a3c9cb45a5476304a14cad232",
+  "baselineAppCommit": "884089c34be399ebf57c85dee6f3a9f5bcc8ab52",
+  "candidateDeployment": "dpl_HFz5m9a7hMfFE46zAwTRkXjWJ7TM",
+  "baselineDeployment": "dpl_3hLMX1h4g2RcZfLWuT1YPMbPbYYN",
+  "method": "Cloud Chromium via existing HTTP proxy; requestAnimationFrame detects full roster search field; full no-store JSON response, no route mocks; read-only UI; synthetic tenants; sequential before/after samples; not Taiwan-device RUM or p95",
+  "results": [
+    {
+      "module": "sports",
+      "deployment": "baseline",
+      "nonWarmupSamples": 4,
+      "readyMedianMs": 1542.5,
+      "readyMinMs": 1412,
+      "readyMaxMs": 1839,
+      "serverMedianMs": 813.5,
+      "coldReadyMs": 2102,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "rosterCount": 1
+    },
+    {
+      "module": "sports",
+      "deployment": "candidate",
+      "nonWarmupSamples": 5,
+      "readyMedianMs": 1107,
+      "readyMinMs": 830,
+      "readyMaxMs": 1141,
+      "serverMedianMs": 324.0,
+      "coldReadyMs": 1089,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "rosterCount": 1
+    },
+    {
+      "module": "sports-mixed",
+      "deployment": "baseline",
+      "nonWarmupSamples": 5,
+      "readyMedianMs": 1777,
+      "readyMinMs": 1683,
+      "readyMaxMs": 1979,
+      "serverMedianMs": 963.0,
+      "coldReadyMs": 2222,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "rosterCount": 2
+    },
+    {
+      "module": "sports-mixed",
+      "deployment": "candidate",
+      "nonWarmupSamples": 5,
+      "readyMedianMs": 1163,
+      "readyMinMs": 880,
+      "readyMaxMs": 1298,
+      "serverMedianMs": 354.0,
+      "coldReadyMs": 1022,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "rosterCount": 2
+    },
+    {
+      "module": "music",
+      "deployment": "baseline",
+      "nonWarmupSamples": 4,
+      "readyMedianMs": 1738.5,
+      "readyMinMs": 1530,
+      "readyMaxMs": 1908,
+      "serverMedianMs": 992.0,
+      "coldReadyMs": 1814,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "rosterCount": 1
+    },
+    {
+      "module": "music",
+      "deployment": "candidate",
+      "nonWarmupSamples": 5,
+      "readyMedianMs": 1030,
+      "readyMinMs": 819,
+      "readyMaxMs": 1067,
+      "serverMedianMs": 347.0,
+      "coldReadyMs": 1078,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "rosterCount": 1
+    },
+    {
+      "module": "beauty",
+      "deployment": "baseline",
+      "nonWarmupSamples": 4,
+      "readyMedianMs": 1069.5,
+      "readyMinMs": 953,
+      "readyMaxMs": 1224,
+      "serverMedianMs": 397.5,
+      "coldReadyMs": 2043,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "rosterCount": 1
+    },
+    {
+      "module": "beauty",
+      "deployment": "candidate",
+      "nonWarmupSamples": 5,
+      "readyMedianMs": 841,
+      "readyMinMs": 684,
+      "readyMaxMs": 973,
+      "serverMedianMs": 167.1,
+      "coldReadyMs": 1509,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "rosterCount": 1
+    }
+  ],
+  "checks": [
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "check": "normal-owner-login-and-live-roster",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true,
+  "samples": [
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 2102,
+      "server": "sessiondetail;dur=1410",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 34.80000000074506,
+          "ttfb": 2044.5999999996275,
+          "total": 2046.2999999998137,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1496,
+      "server": "sessiondetail;dur=807",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 35.799999999813735,
+          "ttfb": 1443.5,
+          "total": 1445.2000000001863,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1589,
+      "server": "sessiondetail;dur=820",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 29.899999999441206,
+          "ttfb": 1535.0999999996275,
+          "total": 1536.7000000001863,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1839,
+      "server": "sessiondetail;dur=1042",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 30.799999999813735,
+          "ttfb": 1795.7000000001863,
+          "total": 1797.300000000745,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 1412,
+      "server": "sessiondetail;dur=739",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 39.5,
+          "ttfb": 1354.7000000001863,
+          "total": 1357,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 1814,
+      "server": "musicread;dur=954",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 38.799999999813735,
+          "ttfb": 1755.1000000005588,
+          "total": 1758.4000000003725,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1806,
+      "server": "musicread;dur=997",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 40.59999999962747,
+          "ttfb": 1747.6000000005588,
+          "total": 1749.2999999998137,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1908,
+      "server": "musicread;dur=1086",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 42.09999999962747,
+          "ttfb": 1845,
+          "total": 1846.7999999998137,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1530,
+      "server": "musicread;dur=987",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 40.5,
+          "ttfb": 1468.5,
+          "total": 1470.199999999255,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "music",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 1671,
+      "server": "musicread;dur=974",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 37.5,
+          "ttfb": 1610.3999999994412,
+          "total": 1612.2000000001863,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 2043,
+      "server": "handler;dur=704.3, authorization;dur=307.4, permissions;dur=173.4, version;dur=23.7, bookings;dur=26, metadata;dur=50.7",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 544.2000000001863,
+          "ttfb": 1477.7999999998137,
+          "total": 1479.7000000001863,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1224,
+      "server": "handler;dur=404.9, authorization;dur=190.7, permissions;dur=73.5, version;dur=22.7, bookings;dur=24.4, metadata;dur=53",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 72.3999999994412,
+          "ttfb": 1128.2000000001863,
+          "total": 1133.1000000005588,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1063,
+      "server": "handler;dur=385, authorization;dur=184.8, permissions;dur=71.2, version;dur=19.8, bookings;dur=23.7, metadata;dur=50.8",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 54.60000000055879,
+          "ttfb": 990.7000000001863,
+          "total": 992.8999999994412,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1076,
+      "server": "handler;dur=405.5, authorization;dur=180, permissions;dur=70.7, version;dur=41.6, bookings;dur=24.2, metadata;dur=49.5",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 50.40000000037253,
+          "ttfb": 1003.3000000007451,
+          "total": 1004.5999999996275,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "beauty",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 953,
+      "server": "handler;dur=390.2, authorization;dur=187, permissions;dur=71.4, version;dur=19.9, bookings;dur=24.7, metadata;dur=49.4",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 74.8999999994412,
+          "ttfb": 859,
+          "total": 860.7000000001863,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 2222,
+      "server": "sessiondetail;dur=1283",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 39.5,
+          "ttfb": 2157.4000000003725,
+          "total": 2158.7999999998137,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1979,
+      "server": "sessiondetail;dur=1195",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 32.5,
+          "ttfb": 1927.7000000001863,
+          "total": 1929.5999999996275,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1777,
+      "server": "sessiondetail;dur=963",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 37.19999999925494,
+          "ttfb": 1722.5,
+          "total": 1724.300000000745,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1908,
+      "server": "sessiondetail;dur=1358",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 33.69999999925494,
+          "ttfb": 1849.9000000003725,
+          "total": 1852.6000000005588,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 1683,
+      "server": "sessiondetail;dur=885",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 31,
+          "ttfb": 1631.699999999255,
+          "total": 1633,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "baseline",
+      "module": "sports-mixed",
+      "sample": 5,
+      "warmup": false,
+      "readyMs": 1695,
+      "server": "sessiondetail;dur=860",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 40.09999999962747,
+          "ttfb": 1637.9000000003725,
+          "total": 1639.4000000003725,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 1089,
+      "server": "sessiondetail;dur=378, session.staffState;dur=18, session.auth;dur=32, session.loginAudit;dur=0, identity;dur=32, scope;dur=11, detail.authorize;dur=85, detail.primary;dur=33, detail.policies;dur=155, detail.roster;dur=235",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 39.5,
+          "ttfb": 1030.7000000001863,
+          "total": 1032,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1141,
+      "server": "sessiondetail;dur=320, session.staffState;dur=17, session.auth;dur=21, session.loginAudit;dur=0, identity;dur=21, scope;dur=12, detail.authorize;dur=77, detail.primary;dur=74, detail.roster;dur=185, detail.policies;dur=127",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 40.40000000037253,
+          "ttfb": 1081.0999999996275,
+          "total": 1083.0999999996275,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 830,
+      "server": "sessiondetail;dur=327, session.staffState;dur=32, session.auth;dur=35, session.loginAudit;dur=0, identity;dur=35, scope;dur=11, detail.authorize;dur=81, detail.primary;dur=29, detail.policies;dur=124, detail.roster;dur=192",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 26,
+          "ttfb": 787.2999999998137,
+          "total": 788.5999999996275,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1107,
+      "server": "sessiondetail;dur=313, session.staffState;dur=17, session.auth;dur=20, session.loginAudit;dur=0, identity;dur=20, scope;dur=11, detail.authorize;dur=80, detail.primary;dur=68, detail.roster;dur=177, detail.policies;dur=125",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 37.299999999813735,
+          "ttfb": 1057.699999999255,
+          "total": 1059.2000000001863,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 1011,
+      "server": "sessiondetail;dur=324, session.staffState;dur=19, session.auth;dur=22, session.loginAudit;dur=0, identity;dur=22, scope;dur=12, detail.authorize;dur=84, detail.primary;dur=73, detail.roster;dur=182, detail.policies;dur=124",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 35.799999999813735,
+          "ttfb": 960,
+          "total": 961.4000000003725,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports",
+      "sample": 5,
+      "warmup": false,
+      "readyMs": 1132,
+      "server": "sessiondetail;dur=334, session.staffState;dur=19, session.auth;dur=21, session.loginAudit;dur=0, identity;dur=21, scope;dur=11, detail.authorize;dur=81, detail.primary;dur=77, detail.roster;dur=195, detail.policies;dur=133",
+      "rosterCount": 1,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "transport": [
+        {
+          "start": 36.5,
+          "ttfb": 1075.7999999998137,
+          "total": 1077.4000000003725,
+          "bytes": 1096
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 1022,
+      "server": "sessiondetail;dur=343, session.staffState;dur=20, session.auth;dur=23, session.loginAudit;dur=0, identity;dur=23, scope;dur=12, detail.authorize;dur=83, detail.primary;dur=79, detail.policies;dur=126, detail.roster;dur=225",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 35.60000000055879,
+          "ttfb": 963.2000000001863,
+          "total": 964.5999999996275,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 880,
+      "server": "sessiondetail;dur=334, session.staffState;dur=17, session.auth;dur=21, session.loginAudit;dur=0, identity;dur=21, scope;dur=10, detail.authorize;dur=78, detail.primary;dur=74, detail.policies;dur=129, detail.roster;dur=224",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 31.09999999962747,
+          "ttfb": 834.7999999998137,
+          "total": 836.3000000007451,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1298,
+      "server": "sessiondetail;dur=390, session.staffState;dur=16, session.auth;dur=19, session.loginAudit;dur=0, identity;dur=20, scope;dur=10, detail.authorize;dur=88, detail.primary;dur=113, detail.policies;dur=137, detail.roster;dur=271",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 30.399999999441206,
+          "ttfb": 1248,
+          "total": 1249.7000000001863,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1163,
+      "server": "sessiondetail;dur=357, session.staffState;dur=19, session.auth;dur=21, session.loginAudit;dur=0, identity;dur=21, scope;dur=10, detail.authorize;dur=80, detail.primary;dur=83, detail.policies;dur=141, detail.roster;dur=245",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 27.700000000186265,
+          "ttfb": 1112.8999999994412,
+          "total": 1114.2999999998137,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 1150,
+      "server": "sessiondetail;dur=337, session.staffState;dur=18, session.auth;dur=22, session.loginAudit;dur=0, identity;dur=22, scope;dur=10, detail.authorize;dur=81, detail.primary;dur=71, detail.policies;dur=123, detail.roster;dur=224",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 45.59999999962747,
+          "ttfb": 1087.300000000745,
+          "total": 1089.2000000001863,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "sports-mixed",
+      "sample": 5,
+      "warmup": false,
+      "readyMs": 1167,
+      "server": "sessiondetail;dur=354, session.staffState;dur=18, session.auth;dur=20, session.loginAudit;dur=0, identity;dur=20, scope;dur=11, detail.authorize;dur=82, detail.primary;dur=79, detail.policies;dur=139, detail.roster;dur=240",
+      "rosterCount": 2,
+      "payloadHash": "9275f2f78f129d151f596b29d0d24b2b8c5391687349b04a8917f08e33cd69bb",
+      "transport": [
+        {
+          "start": 36,
+          "ttfb": 1112.2000000001863,
+          "total": 1114,
+          "bytes": 1710
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 1078,
+      "server": "musicread;dur=433",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 42.89999999944121,
+          "ttfb": 1018.5,
+          "total": 1020.2999999998137,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 1030,
+      "server": "musicread;dur=350",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 44.200000000186265,
+          "ttfb": 962.7000000001863,
+          "total": 965.2000000001863,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 1067,
+      "server": "musicread;dur=385",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 45.799999999813735,
+          "ttfb": 1004.0999999996275,
+          "total": 1006.1000000005588,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 1038,
+      "server": "musicread;dur=341",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 31.299999999813735,
+          "ttfb": 987,
+          "total": 988.5,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 958,
+      "server": "musicread;dur=337",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 34.5,
+          "ttfb": 906.2999999998137,
+          "total": 907.5999999996275,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "music",
+      "sample": 5,
+      "warmup": false,
+      "readyMs": 819,
+      "server": "musicread;dur=347",
+      "rosterCount": 1,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c",
+      "transport": [
+        {
+          "start": 29.600000000558794,
+          "ttfb": 770.5999999996275,
+          "total": 772.2000000001863,
+          "bytes": 1190
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 0,
+      "warmup": true,
+      "readyMs": 1509,
+      "server": "handler;dur=370.3, authorization;dur=192.7, permissions;dur=15.7, version;dur=15.8, bookings;dur=15.7, metadata;dur=27",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 641.8000000007451,
+          "ttfb": 847.5,
+          "total": 849.2999999998137,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 1,
+      "warmup": false,
+      "readyMs": 802,
+      "server": "handler;dur=174.9, authorization;dur=87.9, permissions;dur=14.1, version;dur=14, bookings;dur=14.1, metadata;dur=25.6",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 58.30000000074506,
+          "ttfb": 730.1000000005588,
+          "total": 731.2999999998137,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 2,
+      "warmup": false,
+      "readyMs": 953,
+      "server": "handler;dur=167.4, authorization;dur=85.5, permissions;dur=13.6, version;dur=11.8, bookings;dur=13.4, metadata;dur=25.2",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 68.20000000018626,
+          "ttfb": 860,
+          "total": 861.6000000005588,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 3,
+      "warmup": false,
+      "readyMs": 684,
+      "server": "handler;dur=167.1, authorization;dur=81.5, permissions;dur=12.8, version;dur=12.3, bookings;dur=13.3, metadata;dur=27",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 71.8999999994412,
+          "ttfb": 592.2000000001863,
+          "total": 593.7999999998137,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 4,
+      "warmup": false,
+      "readyMs": 841,
+      "server": "handler;dur=159.6, authorization;dur=78.7, permissions;dur=14.6, version;dur=11.4, bookings;dur=12.3, metadata;dur=24.8",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 76.6000000005588,
+          "ttfb": 740,
+          "total": 747.0999999996275,
+          "bytes": 1128
+        }
+      ]
+    },
+    {
+      "deployment": "candidate",
+      "module": "beauty",
+      "sample": 5,
+      "warmup": false,
+      "readyMs": 973,
+      "server": "handler;dur=163.3, authorization;dur=80.1, permissions;dur=13.1, version;dur=13.7, bookings;dur=13.4, metadata;dur=24.9",
+      "rosterCount": 1,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c",
+      "transport": [
+        {
+          "start": 78.79999999981374,
+          "ttfb": 869.2999999998137,
+          "total": 871.6000000005588,
+          "bytes": 1128
+        }
+      ]
+    }
+  ],
+  "automaticCalendarEffects": {
+    "scope": "sports-live-flow-store on isolated preview database only",
+    "behavior": "existing ensureSportsMonth expands four permanent sessions when opening December",
+    "newUnpaidBookings": 8,
+    "financialRecordCountsUnchanged": {
+      "CoursePurchase": 125,
+      "CoursePointEntry": 933,
+      "BeautyPayment": 90,
+      "BeautyLedger": 126
+    },
+    "courseBookingCountBefore": 613,
+    "courseBookingCountAfter": 621
+  }
+}
