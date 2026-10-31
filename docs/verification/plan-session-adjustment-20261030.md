@@ -51,3 +51,9 @@
 - 合成證據：`plan-session-adjustment-20261030/hosted-login-results.json`、`hosted-database-results.json`。所有 PNG 僅留本機 artifacts；臨時密碼、cookie、分享網址參數及金鑰不進版控或 PR。
 
 程式提交維持已通過完整 CI 的 e51ac89e；本節與 JSON 為該版本的驗收證據。正式站未合併、未發布。
+
+## 最新 main 整合（2026-10-31）
+
+整合基準固定為 `9114df63dced135a8c069a7467ef7b09a9de02f0`，共六筆上游提交／18 個檔案。17 個無直接交集的檔案與該 main 的 Git blob SHA 完全一致；唯一直接交集 `operation-guide-catalog.ts` 以共同基準做三方合併，保留「調整堂數」指南與 main 的數位管家／人員稱呼更新。沒有改動扣堂、收款或通知發送規則；Cloudflare 調查見 `plan-session-adjustment-cloudflare-20261031.md`。
+
+合併後本機受影響測試：51 files / 308 tests 通過，另 1 file / 11 PostgreSQL tests 因本機資料庫未啟動而 skipped，不能視為通過；後續由隔離 PG CI 實際執行。變更檔 ESLint 與 diff 格式檢查通過。TypeScript 已通過；完整 CI 與新提交同版本 hosted 驗收結果將以 PR 最新記錄為準；先前 e51ac89e 的 18 項線上結果仍只屬於該版本。
