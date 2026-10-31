@@ -140,7 +140,7 @@ it("guards run before the reviewed migration runner and next build",()=>{
  const startup=readFileSync("src/instrumentation.ts","utf8");expect(startup).toContain("assertMusicOpeningPreviewEnvironment(process.env)");
  expect(startup).not.toContain("await runMusicOpeningSchemaPreflight()");
  const boundary=readFileSync("src/lib/music-opening-preview-isolation.ts","utf8");expect(boundary).toContain("await ensureMusicOpeningRuntimeSchema()");
- for (const file of ["src/lib/db.ts","src/lib/course-db.ts"]) expect(readFileSync(file,"utf8")).toMatch(/withMusicRetirement\(withMusicOpeningRuntimeSchema\(new (?:Runtime)?PrismaClient\(/);
+ for (const file of ["src/lib/db.ts","src/lib/course-db.ts"]) expect(readFileSync(file,"utf8")).toMatch(/withMusicRetirement\(withMusicOpeningRuntimeSchema\(withExplicitRelationJoins\(new (?:Runtime)?PrismaClient\(/);
  for(const file of ["src/lib/db.ts","src/lib/course-db.ts"]) {
   const code=readFileSync(file,"utf8");expect(code.indexOf("assertMusicOpeningRuntimeIsolation();")).toBeLessThan(code.search(/new (?:Runtime)?PrismaClient/));
  }

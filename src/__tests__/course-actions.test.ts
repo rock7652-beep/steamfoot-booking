@@ -259,7 +259,7 @@ describe("course editing", () => {
 });
 describe("course scheduling action", () => {
   it.each(["OPEN","ASSIGNED"] as const)("names %s enrollment after the teaching item instead of a pricing package", async enrollment => {
-    mocks.template.mockResolvedValue({ id:"yoga",name:"重量訓練 · abcdef",pointCost:2,isActive:true,visibility:"PUBLIC" });
+    mocks.template.mockResolvedValue({ id:"yoga",name:"舊重量訓練 · abcdef",musicSubject:{name:"重量訓練"},pointCost:2,isActive:true,visibility:"PUBLIC" });
     mocks.planName.mockResolvedValue({ name:"5次" });
     const result = await createCourseSchedule({ ...input, repeatUntil:undefined, sportsStaging:{frequency:"SINGLE",enrollment,planId:null,students:[],trialPrice:0} });
     expect(result).toMatchObject({success:true});
@@ -451,11 +451,15 @@ describe('sports guest trial transaction',()=>{
  }
  it.each([false,true])('creates a trial booking using the authoritative quote; existing phone reused=%s',async existingCustomer=>{
   setup(existingCustomer);
+  mocks.template.mockResolvedValue({id:'yoga',name:'舊項目 · abcdef',musicSubject:{name:'A課程'},pointCost:2,isActive:true,visibility:'PUBLIC'});
+  mocks.planName.mockResolvedValue({name:'A課程-20堂'});
   expect(await createCourseSchedule(input)).toMatchObject({success:true,data:{count:1}});
   expect(mocks.permission).toHaveBeenCalledWith('customer.create');
   const writes=mocks.execute.mock.calls.filter(c=>c[0].join('').includes('INSERT INTO "Customer"'));
   expect(writes).toHaveLength(existingCustomer?0:1);
   expect(mocks.create.mock.calls[0][0].data[0]).toMatchObject({isTrial:true,enrollmentFingerprint:expect.any(String)});
+  expect(mocks.create.mock.calls[0][0].data[0].nameSnapshot).toBe('A課程');
+  expect(mocks.planName).not.toHaveBeenCalled();
   const session=mocks.create.mock.calls[0][0].data[0];expect((session.endsAt-session.startsAt)/60000).toBe(90);
   expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'store-a'}),expect.objectContaining({sessionId:'created',customerId:existingCustomer?'existing-customer':`trial:${participantKey}`,trialPrice:480,cardId:null}),null);
  });

@@ -1,4 +1,4 @@
-import { memoizeReadRequest } from "@/server/services/read-request-memo";
+import { memoizeReadRequest, verifiedStaffRead } from "@/server/services/read-request-memo";
 import {measureMusicRead} from "@/lib/music-read-timing";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
@@ -277,7 +277,10 @@ export async function requireStaffSession() {
   }
   if (user.role !== "ADMIN" && user.storeId) {
     const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
-    if (await getStoreIndustryModule(user.storeId) === "course" && !await prisma.staff.findFirst({where:{id:user.staffId ?? "",userId:user.id,storeId:user.storeId,status:"ACTIVE"}})) throw new AppError("FORBIDDEN","本店工作權限已停用");
+    const verified=verifiedStaffRead();
+    const activeInThisRead=!!verified&&verified.userId===user.id&&verified.role===user.role&&verified.storeId===user.storeId&&verified.staffId===user.staffId;
+    await measureMusicRead(activeInThisRead?"session.staffMetadata.hit":"session.staffMetadata.miss",async()=>{});
+    if (await getStoreIndustryModule(user.storeId) === "course" && !activeInThisRead && !await prisma.staff.findFirst({where:{id:user.staffId ?? "",userId:user.id,storeId:user.storeId,status:"ACTIVE"}})) throw new AppError("FORBIDDEN","本店工作權限已停用");
   }
   return user;
 }

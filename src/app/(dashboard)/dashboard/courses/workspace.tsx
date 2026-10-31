@@ -1,4 +1,5 @@
 "use client";
+import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {courseWeekStart} from "@/lib/course-calendar";
@@ -15,6 +16,8 @@ import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calen
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
+import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
+import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {readSportsCalendar} from "@/lib/sports-calendar-client";
 import {CALENDAR_SYNC_INTERVAL,startSportsBackgroundSync} from "@/lib/sports-background-sync";
@@ -25,7 +28,7 @@ import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleDialog} from "./sports-schedule-dialog";
 import type {SportsScheduleSource} from "./sports-schedule-fields";
 import {SportsScheduleLoader} from "./sports-schedule-loader";
-import {readSportsScheduleOptions} from "@/lib/sports-schedule-options-client";
+import {readSportsScheduleOptions,SPORTS_SCHEDULE_OPTIONS_TTL} from "@/lib/sports-schedule-options-client";
 import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { courseTemplateLabel, courseDisplayName } from "@/lib/course-template-presentation";
@@ -407,7 +410,10 @@ export function CourseWorkspace({
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
     if(sportsNative)return;
-    const next = new URLSearchParams(params.toString());
+    // Native history changes precede useSearchParams during a transition.
+    // Merge into the current browser URL and do not restore the same state twice.
+    const next = new URLSearchParams(window.location.search);
+    if(next.get("scheduleView")===nextMode&&window.location.pathname===pathname)return;
     next.set("scheduleView", nextMode);
     window.history.replaceState(null, "", `${pathname}?${next}`);
   }
@@ -427,6 +433,7 @@ export function CourseWorkspace({
 
     inlineDirty.current=false;setCourseDialog({sessionId,kind});
   }
+  function isRentalSession(session:(typeof sessions)[number]){return session.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===session.templateId)?.category ?? "");}
   const [memberBookingReady, setMemberBookingReady] = useState(false);
   const roomCreate = useCourseRoomCreate(storeId, (room, warning) => {
     confirmedRooms.confirm({ ...room, uses: [] });
@@ -506,9 +513,16 @@ export function CourseWorkspace({
   }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const scheduleOpenIntent=useRef(false);
-  // TTL 0 always re-reads on open; a refreshed page clock is not a metadata revision.
+  // Only form metadata is warmed; prices and balances keep their own live reads.
   const sportsScheduleScope=JSON.stringify([storeId,pathname]);
-  const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,0);
+  const sportsRosterReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
+  const musicRosterReader=usePanelReader("music-session-detail",readCourseSessionDetailClient,"",0);
+  const sportsScheduleReader=usePanelReader("sports-schedule-options",readSportsScheduleOptions,sportsScheduleScope,SPORTS_SCHEDULE_OPTIONS_TTL);
+  useEffect(()=>{
+    if(!sportsNative||sportsData||calendarSource||!canCreate||view!=="schedule")return;
+    const timer=window.setTimeout(()=>sportsScheduleReader.prefetch(),250);
+    return()=>window.clearTimeout(timer);
+  },[sportsNative,sportsData,calendarSource,canCreate,view,sportsScheduleReader]);
   function prefetchSportsSchedule(){if(sportsNative&&!sportsData&&!calendarSource&&!scheduleOpenIntent.current)sportsScheduleReader.prefetch();}
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const [sportsScheduleBusy,setSportsScheduleBusy]=useState(false);
@@ -678,12 +692,13 @@ export function CourseWorkspace({
   function go(date: string) {
     calendarSource?.onDateChange?.(date);
     if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
-    const next = new URLSearchParams(params.toString());
+    const next = new URLSearchParams(window.location.search);
+    const unchanged=next.get("date")===date&&window.location.pathname===pathname;
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
       // All sessions for this month are already loaded. Keep the open sheet,
       // filters and scroll position instead of remounting through navigation.
-      window.history.replaceState(null, "", `${pathname}?${next}`);
+      if(!unchanged)window.history.replaceState(null, "", `${pathname}?${next}`);
     } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {
@@ -1006,7 +1021,7 @@ export function CourseWorkspace({
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
       {sportsNative&&view==="schedule"&&notice&&<p role="status" aria-live="polite" className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900">{notice}</p>}
-      {sportsNative&&calendarDataReady&&calendarReading&&<p role="status" className="text-sm text-earth-500">課表讀取中…</p>}
+      {sportsNative&&calendarDataReady&&<p role="status" className="h-5 text-sm text-earth-500">{calendarReading ? "課表讀取中…" : ""}</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           {sportsNative&&nativeCalendarWarning&&<p role="status" className="text-sm text-amber-800">{nativeCalendarWarning}</p>}
@@ -1253,6 +1268,13 @@ export function CourseWorkspace({
               onOpenSession={(sessionId, date) => {
                 go(date);
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
+                // Start the fresh read on this click, alongside mounting the dialog.
+                // TTL 0 shares only an in-flight request, never a completed balance.
+                const opening=sessions.find(session=>session.id===sessionId);
+                if(opening&&!isRentalSession(opening)){
+                  if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
+                  else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
+                }
                 setCourseDialog({ sessionId, kind: "roster" });
               }}
             />
@@ -1507,7 +1529,7 @@ export function CourseWorkspace({
       {panel === "schedule" && sportsNative && <SportsScheduleDialog fitContent={!!calendarSource} title={calendarSource?"新增預約":copySource?"複製排課":"新增排課"} busy={pending||sportsScheduleBusy} onClose={closePanel} onDraft={()=>setDirty(true)}>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice&&<p role="status" className="text-sm text-primary-700">{notice}</p>}
-        <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>
+        <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} source={calendarSource?.schedule} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} preview={!calendarSource&&storeId?sportsSchedulePreview(storeId,selectedDate,allTemplates,allCoaches,allRooms):undefined} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>
       </SportsScheduleDialog>}
       {panel && !(panel === "schedule" && sportsNative) && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
@@ -2177,7 +2199,7 @@ export function CourseWorkspace({
 </fieldset>
               </form>
             )}
-            {panel === "schedule" && !calendarSource && sportsNative && <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>}
+            {panel === "schedule" && !calendarSource && sportsNative && <SportsScheduleLoader key={requestKey} scopeVersion={sportsScheduleScope} addedCustomers={Object.values(sportsCreatedCustomers)} schedulingModes={activeSchedulingModes} waitlistEnabled={waitlistEnabled} waitlistDefaultLimit={waitlistDefaultLimit} waitlistDefaultStopMinutes={waitlistDefaultStopMinutes} seed={{...scheduleSeed,customerId:params.get("scheduleCustomer")??undefined,templateId:params.get("scheduleTemplate")??undefined,roomId:scheduleSeed.roomId??allRooms.find(room=>room.isActive)?.id}} initial={sportsData} preview={!calendarSource&&storeId?sportsSchedulePreview(storeId,selectedDate,allTemplates,allCoaches,allRooms):undefined} onCustomerAdded={customer=>setSportsCreatedCustomers(old=>({...old,[customer.id]:customer}))} date={scheduleSeed.date??selectedDate} requestKey={requestKey} onGuard={updateMusicScheduleGuard} onCreated={finishSportsSchedule}/>}
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <div className={`${arrangement==="rental"?"hidden":"flex"} min-h-0 flex-1 flex-col`}>
               <MusicScheduleWizard
@@ -2510,7 +2532,7 @@ export function CourseWorkspace({
           const dialogSession = sessions.find(
             (session) => session.id === courseDialog.sessionId,
           )!;
-          const rentalDialog = dialogSession.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===dialogSession.templateId)?.category ?? "");
+          const rentalDialog = isRentalSession(dialogSession);
           const sportsRosterDialog = !rentalDialog && (courseDialog.kind === "roster"||sportsNative) && businessProfile !== "MUSIC";
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
             && dialogSession.capacity === 1;
@@ -2525,6 +2547,7 @@ export function CourseWorkspace({
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
+                  previewBookings={kind==="roster"?dialogSession.bookings:undefined}
                   capacity={dialogSession.capacity}
                   canCreate={canCreate&&dialogModeAllowed}
                   canEdit={canEdit}

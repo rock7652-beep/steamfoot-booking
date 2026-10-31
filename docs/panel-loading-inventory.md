@@ -6,7 +6,8 @@
 
 | 入口 | 資料來源／共用資源 | 策略 |
 | --- | --- | --- |
-| 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → 原 loadSportsStaging(true) | 課表不預載完整排課資料；開啟即顯示原對話框，共用 panel reader TTL 0，主入口 pointer／focus／touch intent 在途去重；關閉晚到隔離、錯誤原視窗重試；原本外部模組已供應的 props 直接顯示；初始化後背景刷新不覆蓋草稿，仍由原提交核對權限、設定、衝突及額度 |
+| 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → loadSportsStaging(true, true) | 先用已授權課表的教學項目／老師／教室顯示表單，不預載整店卡片或餘額；選項以 keyed panel reader 15 秒短暫預讀／在途去重。最新選項成功前禁止提交及新增顧客，回讀不覆蓋已填時段；錯誤原視窗重試。外部模組已有 props 則直接使用。提交仍核對當下權限、設定、衝突及額度 |
+| 音樂／運動／美業上課或預約名單 | 課表 props 摘要 → 共用 scoped session-detail POST／美業 roster reader | 先顯示已授權課表中的姓名摘要；最新詳細資料仍 TTL 0，摘要不提供點名、收款、餘額或方案操作。原權威回讀成功後才顯示完整操作；HTTP read 的登入身分、門市模組／方案只在單次請求內合併，獨立權益查詢並行，跨請求與 transaction client 不共用，保留原門市及版本防護；課堂／候補規則／項目別名只在單次讀取合併，卡片、預留與餘額每次重新查詢；精確普通 client 的卡片成員／預留量使用明確 join，transaction 保留舊策略。三種 Prisma client 的既有操作預設強制 query，只有審核讀取 opt-in join；本次 auth 成功驗證 DB security stamp 後的員工／門市模組 scalar 僅供同一唯讀 HTTP 請求共用，角色／店別必須完全一致，grant 仍獨立查核。正式音樂店沿實際門市／HQ 路徑讀取，不依測試店白名單；點擊課堂即發送並只合併同一 pending request，租借除外；完成後不重用財務資料。課表切換視角及日期以當下 browser search 合併，完全相同狀態不重寫 history，避免舊 hook 參數覆蓋新視角 |
 | 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
 | 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、TTL 0及關閉／換人晚到隔離，避免 Server Action 排隊；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |

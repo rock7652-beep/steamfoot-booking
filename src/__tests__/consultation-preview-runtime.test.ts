@@ -1,3 +1,5 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CONSULTATION_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 

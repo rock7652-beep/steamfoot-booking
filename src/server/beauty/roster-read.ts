@@ -22,8 +22,11 @@ export async function beautyRosterContext(){
   return {a,u};
  });
  const can=async(p:Parameters<typeof checkPermission>[2])=>!!u&&await checkPermission(u.role,u.staffId,p);
- const [customerAccess,cardAccess]=await beautyReadStep('permissions',()=>Promise.all([can('customer.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT)),can('wallet.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT))]));
- const financeAccess=(await can('transaction.read')||await can('transaction.create'))&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
+ const [customerAccess,cardAccess,financeAccess]=await beautyReadStep('permissions',()=>Promise.all([
+  can('customer.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT)),
+  can('wallet.read').then(async p=>p&&await hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT)),
+  Promise.all([can('transaction.read'),can('transaction.create')]).then(async grants=>(grants[0]||grants[1])&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT)),
+ ]));
  return {a,u,customerAccess,cardAccess,financeAccess};
 }
 export type BeautyRosterContext=Awaited<ReturnType<typeof beautyRosterContext>>;
@@ -35,15 +38,17 @@ export async function beautyRosterWhere(ctx:BeautyRosterContext,input:string):Pr
 }
 export async function loadBeautyRoster(ctx:BeautyRosterContext,where:Awaited<ReturnType<typeof beautyRosterWhere>>,readVersion?:string){
  const {a,u,customerAccess,cardAccess}=ctx;
-  const rows=await beautyReadStep('bookings',()=>beautyPrisma.beautyAppointment.findMany({where:{...where,storeId:a.storeId},orderBy:[{startsAt:'asc'},{createdAt:'asc'},{id:'asc'}],include:{group:{select:{customerId:true,contactName:true}}}}));
+  const rows=await beautyReadStep('bookings',()=>beautyPrisma.beautyAppointment.findMany({relationLoadStrategy:"join",where:{...where,storeId:a.storeId},orderBy:[{startsAt:'asc'},{createdAt:'asc'},{id:'asc'}],include:{group:{select:{customerId:true,contactName:true}}}}));
   const [cards,people,techs,locations]=await beautyReadStep('metadata',()=>Promise.all([
    cardAccess?beautyPrisma.beautyCard.findMany({where:{storeId:a.storeId,OR:[{id:{in:rows.flatMap(b=>b.cardId?[b.cardId]:[])}},{memberIds:{hasSome:rows.flatMap(b=>b.customerId?[b.customerId]:[])}}]}}):Promise.resolve([]),
    customerAccess&&u?prisma.customer.findMany({where:{...getManagerCustomerWhere(u.role,u.staffId,a.storeId),storeId:a.storeId,mergedIntoCustomerId:null,id:{in:rows.flatMap(b=>b.customerId?[b.customerId]:[])}},select:{id:true,name:true,phone:true,serviceNote:true,notes:true,assignedStaff:{select:{id:true,displayName:true,storeId:true}}}}):Promise.resolve([]),
    beautyPrisma.beautyTechnician.findMany({where:{storeId:a.storeId,id:{in:rows.map(b=>b.technicianId)}},select:{id:true,name:true}}),
    beautyPrisma.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "CourseRoom" WHERE "storeId"=${a.storeId} AND id=ANY(${rows.map(b=>b.locationId)}::text[])`,
   ]));
-  const held=cardAccess?await beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}):[];
-  const charges=ctx.financeAccess?await serviceCharges(beautyPrisma as unknown as Parameters<typeof serviceCharges>[0],a.storeId,rows.filter(b=>!b.cardId)):[];
+  const [held,charges]=await Promise.all([
+   cardAccess&&cards.length?beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}):[],
+   ctx.financeAccess?serviceCharges(beautyPrisma as unknown as Parameters<typeof serviceCharges>[0],a.storeId,rows.filter(b=>!b.cardId)):[],
+  ]);
   const roster:NativeRosterBooking[]=rows.map(b=>{
    const c=cards.find(c=>c.id===b.cardId),person=people.find(p=>p.id===b.customerId),expired=c?c.expiresAt.getTime()<Date.now():false;
    const charge=charges.find(c=>c.id===b.id),payment=charge?{reduction:charge.reduction,netPrice:charge.netPrice,collected:charge.collected,due:charge.due,status:servicePaymentLabel(charge)}:undefined;

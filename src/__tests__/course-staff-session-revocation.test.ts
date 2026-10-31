@@ -23,3 +23,18 @@ it.each(["steamfoot","spa"])("preserves %s work-session behavior without the cou
 it("keeps headquarters sessions independent of a store coach record",async()=>{
  m.auth.mockResolvedValue({user:{...user,role:"ADMIN",storeId:null}});await expect(requireStaffSession()).resolves.toMatchObject({role:"ADMIN"});expect(m.module).not.toHaveBeenCalled();
 });
+
+import {withReadRequestMemo,rememberVerifiedStaffRead} from "@/server/services/read-request-memo";
+const verified={userId:"u",role:"OWNER",staffId:"staff",storeId:"s",industryModule:"COURSE"};
+it("uses the current auth database check only inside one explicit read and rechecks the next request",async()=>{
+ m.module.mockResolvedValue("course");
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead(verified);await expect(requireStaffSession()).resolves.toEqual(user);});
+ expect(m.staff).not.toHaveBeenCalled();
+ await expect(withReadRequestMemo(requireStaffSession)).rejects.toThrow("工作權限已停用");
+ expect(m.staff).toHaveBeenCalledOnce();
+});
+it.each([{userId:"another"},{role:"STAFF"},{staffId:"another"},{storeId:"another"}])("requires an exact authenticated actor and store match: %j",async mismatch=>{
+ m.module.mockResolvedValue("course");
+ await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead({...verified,...mismatch});return requireStaffSession();})).rejects.toThrow("工作權限已停用");
+ expect(m.staff).toHaveBeenCalledOnce();
+});

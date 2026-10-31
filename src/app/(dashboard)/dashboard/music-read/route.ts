@@ -1,3 +1,6 @@
+import {withReadRequestMemo} from "@/server/services/read-request-memo";
+import {withPermissionRequestSession} from "@/lib/permission-request-session";
+import {withMusicReadTiming} from "@/lib/music-read-timing";
 import {getMusicRevenueTransactions} from "@/server/queries/music-revenue-transactions";
 import {z} from "zod";
 import {getCourseReceiptTotals} from "@/server/queries/course-home";
@@ -11,11 +14,15 @@ import {courseManagerRead} from "@/server/services/course-access";
 import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 export const dynamic="force-dynamic";
 export async function GET(request:Request){
+ return withReadRequestMemo(()=>withPermissionRequestSession(()=>read(request)));
+}
+async function read(request:Request){
   const started=performance.now();
   const operation=new URL(request.url).searchParams.get("operation");
   const timings:Record<string,number>={};
   const reply=(value:unknown,status=200)=>{console.info("[music-panel-read]",JSON.stringify({operation,status,totalMs:Math.round(performance.now()-started),timings}));return Response.json(value,{status,headers:{"Cache-Control":"private, no-store","Server-Timing":`musicread;dur=${Math.round(performance.now()-started)}`,"X-Music-Read-Timing":JSON.stringify(timings)}});};
   try{
+   return await withMusicReadTiming(timings,async()=>{
     const params=new URL(request.url).searchParams,raw=params.get("args")??"[]";
     if(raw.length>4000)return reply({success:false,error:"參數過長"},400);
     const args=JSON.parse(raw);
@@ -47,5 +54,6 @@ export async function GET(request:Request){
       case "bookings":return reply(await loadCourseCustomerBookings(args[0],args[1],args[2]));
       default:return reply({success:false,error:"不支援的讀取"},400);
     }
+   });
   }catch{return reply({success:false,error:"讀取未完成，請重試"},400);}
 }

@@ -3,6 +3,7 @@ import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "fix/silverlily-calendar-loading-20261031",
   "fix/plan-card-management-20261029",
   "perf/digital-manager-initial-count-20261031", "feat/plan-session-adjustment-20261030",
   "perf/sports-course-loading",

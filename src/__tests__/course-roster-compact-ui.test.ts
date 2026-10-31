@@ -1,3 +1,7 @@
+// Native cases keep the real HTTP protocol with their existing fetch fixtures.
+vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
+// UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom
@@ -713,4 +717,12 @@ it('keeps the roster checkout in place until the completed purchase is acknowled
   await act(async()=>next.click());expect(api.acknowledge).toHaveBeenCalledWith('recovery-student',key);expect(window.location.href).toBe(oldUrl);
   expect(document.querySelector('#course-roster-purchase-form')).not.toBeNull();
  }finally{await act(async()=>root.unmount());host.remove();sessionStorage.clear();vi.unstubAllGlobals();}
+});
+
+it.each([false,true])('shows the calendar names without financial or attendance actions until current data is ready; music=%s',async musicLayout=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockImplementationOnce(()=>new Promise(()=>{}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ await act(async()=>root.render(createElement(CourseRoster,{sessionId:'preview-only',capacity:3,canCreate:true,canEdit:true,musicLayout,previewBookings:[{id:'present',customerName:'A學員',status:'RESERVED'},{id:'cancelled',customerName:'取消學員',status:'CANCELLED'}]})));
+ expect(host.textContent).toContain('A學員');expect(host.textContent).not.toContain('取消學員');expect(host.textContent).toContain('正在核對最新名單');expect(host.querySelectorAll('button')).toHaveLength(0);
+ await act(async()=>root.unmount());host.remove();
 });
