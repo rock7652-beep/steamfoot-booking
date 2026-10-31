@@ -279,6 +279,7 @@ export async function requireStaffSession() {
     const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
     const verified=verifiedStaffRead();
     const activeInThisRead=verified?.userId===user.id&&verified.role===user.role&&verified.storeId===user.storeId&&verified.staffId===user.staffId;
+    await measureMusicRead(activeInThisRead?"session.staffMetadata.hit":"session.staffMetadata.miss",async()=>{});
     if (await getStoreIndustryModule(user.storeId) === "course" && !activeInThisRead && !await prisma.staff.findFirst({where:{id:user.staffId ?? "",userId:user.id,storeId:user.storeId,status:"ACTIVE"}})) throw new AppError("FORBIDDEN","本店工作權限已停用");
   }
   return user;
