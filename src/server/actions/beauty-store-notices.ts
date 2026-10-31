@@ -11,6 +11,7 @@ import {isReadOnlyStoreTarget} from '@/lib/store-read-only';
 import {AppError,handleActionError} from '@/lib/errors';
 import {toLocalDateStr} from '@/lib/date-utils';
 import type {StoreNoticeItem,StoreNoticeLoadResult,StoreNoticeMarkResult} from '@/lib/store-notices';
+import {noticeReadStep,withNoticeDiagnostics} from '@/server/services/notice-read-timing';
 const key=z.string().min(1).max(100);
 const failure=(e:unknown)=>{const r=handleActionError(e);return {success:false as const,error:r.success?'操作失敗':r.error};};
 async function reader(storeId:string){
@@ -21,8 +22,11 @@ async function reader(storeId:string){
  return {a,customer:customer&&customerFeature,staff:staff&&staffFeature,finance:finance&&!view?.isViewMode&&!isReadOnlyStoreTarget(user,a.storeId),canHandle:edit&&!view?.isViewMode&&!isReadOnlyStoreTarget(user,a.storeId)};
 }
 export async function loadBeautyStoreNotices(input:unknown):Promise<StoreNoticeLoadResult>{
- try{const d=z.object({storeId:key,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input),scope=await reader(d.storeId),storeId=scope.a.storeId;
- const countRows=await beautyPrisma.$queryRaw<{count:number;latest:Date|null}[]>`SELECT COUNT(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM "CourseStoreNotice" WHERE "storeId"=${storeId} AND "subjectKey" LIKE 'beauty:%' AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM "DigitalManagerNotice" WHERE "storeId"=${storeId} AND (("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'beauty-purchase-pending:%') OR ("eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'beauty-incomplete:%') OR ("eventType"='DAILY_ACTION_DIGEST' AND "eventKey" LIKE 'beauty-digest:%')) AND "handledAt" IS NULL) AS pending`;
+ return withNoticeDiagnostics(()=>readBeautyStoreNotices(input));
+}
+async function readBeautyStoreNotices(input:unknown):Promise<StoreNoticeLoadResult>{
+ try{const d=z.object({storeId:key,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input),scope=await noticeReadStep('access',()=>reader(d.storeId)),storeId=scope.a.storeId;
+ const countRows=await noticeReadStep('count_query',()=>beautyPrisma.$queryRaw<{count:number;latest:Date|null}[]>`SELECT COUNT(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM "CourseStoreNotice" WHERE "storeId"=${storeId} AND "subjectKey" LIKE 'beauty:%' AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM "DigitalManagerNotice" WHERE "storeId"=${storeId} AND (("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'beauty-purchase-pending:%') OR ("eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'beauty-incomplete:%') OR ("eventType"='DAILY_ACTION_DIGEST' AND "eventKey" LIKE 'beauty-digest:%')) AND "handledAt" IS NULL) AS pending`);
  if(d.summaryOnly)return {success:true,storeId,enabled:true,items:[],count:countRows[0].count,latestAt:countRows[0]?.latest?.toISOString()??null,canHandle:false,more:false};
  type Row=Omit<StoreNoticeItem,'startsAt'|'previousStartsAt'|'handledAt'|'createdAt'|'updatedAt'>&{startsAt:Date;previousStartsAt:Date|null;handledAt:Date|null;createdAt:Date;updatedAt:Date};
  const rows=await beautyPrisma.$queryRaw<Row[]>`SELECT * FROM (

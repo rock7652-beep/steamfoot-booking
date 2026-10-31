@@ -7,6 +7,7 @@ import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import {AppError,handleActionError} from "@/lib/errors";
 import {recordOperationAudit} from "@/server/services/operation-audit";
 import type {StoreNoticeItem,StoreNoticeLoadResult,StoreNoticeMarkResult} from "@/lib/store-notices";
+import {noticeReadStep,withNoticeDiagnostics} from '@/server/services/notice-read-timing';
 const id=z.string().min(1).max(100);
 async function scope(storeId:string,permission:"booking.read"|"booking.update"|"business_hours.manage") {
  const user=permission==="booking.read"?await requirePermission(permission):await requireWritablePermission(permission);
@@ -16,11 +17,14 @@ async function scope(storeId:string,permission:"booking.read"|"booking.update"|"
  return user;
 }
 export async function loadSteamfootStoreNotices(input:unknown):Promise<StoreNoticeLoadResult> {
+ return withNoticeDiagnostics(()=>readSteamfootStoreNotices(input));
+}
+async function readSteamfootStoreNotices(input:unknown):Promise<StoreNoticeLoadResult> {
  try {
   const d=z.object({storeId:id,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
-  const user=await scope(d.storeId,"booking.read");
+  const user=await noticeReadStep('access',()=>scope(d.storeId,"booking.read"));
   if(d.summaryOnly){
-   const totals=await prisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."SteamfootStoreNotice" WHERE "storeId"=${d.storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${d.storeId} AND ("eventType" IN ('DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','VIP_INTEREST','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') OR ("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'pending-payment:%')) AND "handledAt" IS NULL) AS pending`;
+   const totals=await noticeReadStep('count_query',()=>prisma.$queryRaw<Array<{count:number;latest:Date|null}>>`SELECT count(*)::int AS count,max("updatedAt") AS latest FROM (SELECT "updatedAt" FROM public."SteamfootStoreNotice" WHERE "storeId"=${d.storeId} AND "handledAt" IS NULL UNION ALL SELECT "updatedAt" FROM public."DigitalManagerNotice" WHERE "storeId"=${d.storeId} AND ("eventType" IN ('DIGITAL_BUTLER_LEAD_CREATED','HUMAN_SUPPORT_REQUESTED','HUMAN_SUPPORT_FINAL_REMINDER','VIP_INTEREST','INCOMPLETE_SERVICE_REMINDER','DAILY_ACTION_DIGEST') OR ("eventType"='TRANSFER_PENDING_CONFIRMATION' AND "eventKey" LIKE 'pending-payment:%')) AND "handledAt" IS NULL) AS pending`);
    return {success:true,storeId:d.storeId,enabled:true,items:[],count:totals[0]?.count??0,latestAt:totals[0]?.latest?.toISOString()??null,canHandle:false,more:false};
   }
   const child=user.role!=="ADMIN"&&user.storeId!==d.storeId;
