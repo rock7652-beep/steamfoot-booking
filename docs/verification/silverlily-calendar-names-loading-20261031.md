@@ -1,8 +1,47 @@
 # 課表教學項目、重整與三模組開窗驗收（2026-10-31）
 
-狀態：Draft PR #1478，未合併或正式發布。正式基準 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`；最新驗收應用版本 `a288e936abd3766a3c9cb45a5476304a14cad232`。第一輪摘要的 1.9 秒完整讀取未獲使用者接受；以下最新量測才是本次完整名單改善的依據。
+狀態：Draft PR #1478，未合併或正式發布。「完整名單穩定低於 1 秒」仍未達成。最新應用版本 `ac0adb93cedbb30e4a7ad624a4400cf422c24801`，最新已通過全量測試的 head `002f581dc23beba5ac2cd995560f157ce99f2b28`（後者僅修測試收尾，應用無差異）。正式基準仍是 `b1f1a7c9050edf685a1f2e2c367a0a57e5772e36`。
 
-## 完整名單第二輪驗收
+## 路由分段與連線池第三輪驗收
+
+使用者同意繼續執行量測及優化；正式發布未授權。本輪目標衡量完整權威名單與操作內容就緒，不把姓名摘要或視窗先出現計為完成。改為逐次交替兩個部署，降低同時段網路波動的影響；每個場景各 1 次 warmup＋5 次正式樣本。這仍是雲端 Chromium／既有 HTTP 代理、不同部署實例與合成店家，並非台灣裝置 RUM、p95 或正式銀百合負載驗收。
+
+路由新增固定 operation label 與純數字 `X-Calendar-Proxy-Timing`，未跳過身分、停用店家、角色、門市或應用權限檢查。最終非 warmup 路由為 25–65 ms；TTFB 扣掉 handler 與 Proxy 的其餘等待中位數 561.7 ms，包含傳輸、代理及框架開銷，沒有證據把這全部稱為網路時間。獨立 favicon 控制請求只作參考，未拿來扣減名單耗時。
+
+本輪實作：
+
+- 請假次數由相同條件的已查明細計算，省去重複 groupBy，徽章與明細一致。
+- 音樂 read 與運動選項讀取共用本次已驗證 staff session，各項 grant／功能檢查保留。
+- 課堂 metadata、運動規則、教學項目別名與音樂模板相容性，只在顯式 HTTP read scope 內合併。key 包含來源種類、門市及課堂／項目；只有精確的普通 coursePrisma client 可使用，所有 transaction client 及非 read scope 均重新讀取。schema readiness 仍檢查，失敗不跨請求共用。
+- 候補與規則共用相同已持久化規則列；自助預約開關與資料解析保留。卡片、剩餘額度、預留用量、購買與付款仍獨立權威讀取。新增測試證明在同一 read scope 內，第二次餘額讀取可看到卡片從 10／預留 3 改成 8／預留 2，沒有快取財務結果。
+- `DATABASE_CONNECTION_LIMIT` 是明確 opt-in 的每 client 上限，僅接受 1／2。未設定時保留原 URL／default；設定時只覆寫 connection_limit，其餘參數保留。沒有 schema／migration 或 Postgres 全域參數變更。多個 client 共存時總連線可能高於 2，不能稱為全站兩條連線。
+
+中間共享 metadata 版本 `0777b926` 與 `a288e936` 的 48 次交替讀取沒有證明全模組完整畫面加速：運動單人中位數 1266→1267 ms、混合 1249→1230、音樂 1168→1353、美業 1160→979。這一輪結果照實保留，不能只依少查幾次就宣稱目標已完成。
+
+接著在同一隔離分支啟用每 client 兩條連線，對照 `0777b926` 原一條連線。新部署回傳的純數字診斷證實 baseLimit=1、effectiveLimit=2。最後一輪完整畫面如下；不同部署及跨區路徑仍有波動，沒有把每一項差異都歸因於連線設定。
+
+| 場景 | 原 1 條中位數 ms | 試驗 2 條中位數 ms | 試驗 2 條範圍 ms | handler 原→試驗中位數 ms | 試驗 cold ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 運動單人 | 1474 | 1051 | 1048–1163 | 688→392 | 1166 |
+| 運動正式課，同堂體驗＋持卡 | 1492 | 1154 | 1070–1274 | 777→450 | 1362 |
+| 音樂 | 1196 | 1074 | 921–1317 | 405→477 | 1396 |
+| 美業 | 1032 | 1017 | 853–1039 | 301.9→205.5 | 1437 |
+
+運動有改善，音樂／美業的整體等待改善較小，音樂 handler 中位數反而較高；不能宣稱四種情境已全面或穩定低於 1 秒。另做每場景 4 及 8 個並行的正常授權讀取，共 48 次全部成功、未出現連線逾時，各筆完整 data hash 與對照相同。8 個並行時最慢為運動 3333 ms、美業 3298 ms；這是資料一致性及錯誤檢查通過，延遲目標沒有通過。
+
+三個階段（路由診斷／metadata／pool）加並發測試，共 166 次名單讀取，pageerror 0。四種情境的完整資料 hash 與前輪一樣，沒有減少收費、扣堂、期別或候補欄位換取速度。`courseMetadata` 計時為 helper 耗時加總，可能包含巢狀或重疊時間，不是 wall time 或 SQL statement count。
+
+最新應用 Preview `dpl_4D1LvPJMXgDqLfo5Z1pg7xCKu49P` READY／hnd1，來源 `ac0adb93cedbb30e4a7ad624a4400cf422c24801`；對照 `dpl_3FVVLd8B9CwTfk6snREJnFzUWTMN`／`0777b926`。中間路由診斷版本 `dpl_4rRjiMfRx3cxWEKP3Cdih9ZsHoBg`／`05e98804` 已驗完。短期保護連結最多維持兩個；`884089c`、`a288e936`、`05e98804` 的舊連結已撤銷，現有僅 `0777b926` 與 `ac0adb93`。應用仍正常 OWNER 登入。
+
+`DATABASE_CONNECTION_LIMIT=2` 僅存在 Vercel Preview、分支 `fix/silverlily-calendar-loading-20261031`，未設定 production。離散唯讀容量觀察：隔離 DB 上限 60，測前 18、測後 21 條，當下 active 1／lock waiter 0；正式 DB 唯讀觀察 17／60、active 1／lock waiter 0。這不是連續峰值監控，也不能推定 Supavisor 容量或正式負載已通過。正式仍未發布。
+
+最新 [CI 41218898942](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41218898942)：Typecheck、Changed-file ESLint、Targeted tests、Full Vitest 全部成功；1569 檔／14975 項通過，30 檔／257 項 skip。運動共用卡及音樂補課隔離 PostgreSQL workflows 成功。中間 `0777b926` 的全量 14968 項皆過，但背景錯誤日誌在 Vitest teardown 後寫出，造成 RPC 收尾錯誤；已在 beauty-display-order 的 PGlite 測試 mock 外部 error-log delivery，保留實際 SQL、revision、audit failure rollback 及權限拒絕驗證，沒有改正式錯誤日誌或降低財務斷言。後續 `ac0adb93` 與最新 head 全量成功。一次本機隔離子程序測試遇 sandbox spawnSync EPERM，於允許子程序的執行環境重跑後 9 檔／73 項成功，未跳過隔離守門。
+
+本輪前後 CoursePurchase 125、CoursePointEntry 933、CourseBooking 621、BeautyPayment 90、BeautyLedger 126 一致；沒有送出點名、扣堂、收款或其他交易。前輪自動延展的八筆 UNPAID 仍保留；本輪沿用已展開月份，沒有再新增。計數不能替代逐列帳務驗收。三個 QA User 再次 SUSPENDED／passwordHash NULL，三個 Staff INACTIVE；私密輸入檔清除。此輪沒有 UI 結構變更，保留既有三尺寸 UI 證據，不宣稱實體 iPad、Safari 或本機 Chrome 驗收；目前工具沒有連接使用者當地瀏覽器。
+
+[本輪逐次結果、設定、並發與限制](silverlily-calendar-loading-20261031/proxy-pool-results.json)，驗收器 `scripts/qa/service-calendar-proxy-browser.mjs`。目標未達，維持 Draft，不建議直接把此輪數字視為正式發布驗收。
+
+## 完整名單第二輪驗收（歷史證據）
 
 只衡量完整名單搜尋欄與操作內容載入，摘要首次顯示不算完成。使用逐幀 DOM 檢測並記錄 Resource Timing／Server-Timing；舊 locator 輪詢數字不直接作百分比對照。相同 Chromium／環境代理、相同 QA 課堂、正常 OWNER 登入，順序比較 `884089c` 與 `a288e93`；不是台灣使用者端 RUM，也不是 p95。
 
@@ -79,4 +118,4 @@ Playwright／Chromium，正常 HTTP cache、無 route mock 或認證 mock；同�
 
 Cloudflare Workers Builds 仍 failure，不能說全部外部檢查成功。依 [既有發布路徑調查](plan-session-adjustment-cloudflare-20261031.md)，本次再查 `www.steamfoot.com` 仍是 Vercel 專案已驗證正式網域，main protected=false、required checks 空。未改任何分支規則或 Cloudflare 設定；遠端 Worker 詳細錯誤日誌仍未取得，不猜其第一個失敗原因。它不作這次 Vercel Preview 驗收的通用阻擋，也不代表已修好該平台。
 
-下一步：由使用者驗收最新候選的完整名單速度；明確授權正式發布前保持 Draft。
+下一步：由使用者驗收目前候選，確認是否接受目前改善幅度；完整名單穩定低於 1 秒尚未達成，維持 Draft。
