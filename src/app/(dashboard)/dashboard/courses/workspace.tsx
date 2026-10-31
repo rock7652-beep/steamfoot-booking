@@ -410,7 +410,10 @@ export function CourseWorkspace({
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
     if(sportsNative)return;
-    const next = new URLSearchParams(params.toString());
+    // Native history changes precede useSearchParams during a transition.
+    // Merge into the current browser URL and do not restore the same state twice.
+    const next = new URLSearchParams(window.location.search);
+    if(next.get("scheduleView")===nextMode&&window.location.pathname===pathname)return;
     next.set("scheduleView", nextMode);
     window.history.replaceState(null, "", `${pathname}?${next}`);
   }
@@ -689,12 +692,13 @@ export function CourseWorkspace({
   function go(date: string) {
     calendarSource?.onDateChange?.(date);
     if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
-    const next = new URLSearchParams(params.toString());
+    const next = new URLSearchParams(window.location.search);
+    const unchanged=next.get("date")===date&&window.location.pathname===pathname;
     next.set("date", date);
     if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
       // All sessions for this month are already loaded. Keep the open sheet,
       // filters and scroll position instead of remounting through navigation.
-      window.history.replaceState(null, "", `${pathname}?${next}`);
+      if(!unchanged)window.history.replaceState(null, "", `${pathname}?${next}`);
     } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {

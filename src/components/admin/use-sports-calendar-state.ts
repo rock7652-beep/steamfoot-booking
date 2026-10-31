@@ -15,7 +15,7 @@ export function useSportsCalendarDate(enabled:boolean,initial:string,requested:s
  const [retained,setRetained]=useSportsCalendarState(enabled,"date",initial,calendarDate);
  const date=enabled&&syncUrl&&calendarDate(requested)?requested:retained;
  const setDate=useCallback((next:string)=>{
-  if(enabled&&syncUrl){const query=new URLSearchParams(window.location.search);query.set("date",next);window.history.replaceState(null,"",`${pathname}?${query}`);}
+  if(enabled&&syncUrl){const query=new URLSearchParams(window.location.search);if(query.get("date")!==next||window.location.pathname!==pathname){query.set("date",next);window.history.replaceState(null,"",`${pathname}?${query}`);}}
   setRetained(next);
  },[enabled,syncUrl,pathname,setRetained]);
  useEffect(()=>{if(enabled&&calendarDate(requested))setRetained(requested);},[enabled,requested,setRetained]);

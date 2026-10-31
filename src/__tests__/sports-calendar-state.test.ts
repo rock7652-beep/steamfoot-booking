@@ -44,3 +44,7 @@ it('an external calendar source retains ownership of its URL receipt',async()=>{
  window.history.replaceState(null,'','/dashboard/courses?date=2026-10-30');
  await act(async()=>root.render(React.createElement(OperationScope,{scope:'external-date'},React.createElement(DateProbe,{syncUrl:false}))));await act(async()=>host.querySelector('button')!.click());expect(host.textContent).toBe('2026-11-12');expect(new URLSearchParams(window.location.search).get('date')).toBe('2026-10-30');
 });
+it('does not restore router history when a roster reselects the current date',async()=>{
+ const original=window.location.href;window.history.replaceState(null,'','/dashboard/courses?date=2026-11-12&scheduleView=week&coach=qa');
+ try{await act(async()=>root.render(React.createElement(OperationScope,{scope:'same-date'},React.createElement(DateProbe))));const replace=vi.spyOn(window.history,'replaceState');try{await act(async()=>host.querySelector('button')!.click());expect(replace).not.toHaveBeenCalled();expect(host.textContent).toBe('2026-11-12');expect(window.location.search).toContain('scheduleView=week');}finally{replace.mockRestore();}}finally{window.history.replaceState(null,'',original);}
+});
