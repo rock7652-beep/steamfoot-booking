@@ -31,6 +31,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dayClosed, setDayClosed] = useState(true);
+  const [closedDayException, setClosedDayException] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [changes, setChanges] = useState<Map<string, ChangeAction>>(new Map());
   const [capacityChanges, setCapacityChanges] = useState<Map<string, number>>(new Map());
@@ -42,6 +43,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
     setOpen(true);
     setLoading(true);
     setDayClosed(true);
+    setClosedDayException(false);
     setSlots([]);
     setChanges(new Map());
     setCapacityChanges(new Map());
@@ -49,7 +51,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
       const detail = await getDaySlotDetails(date);
       setSlots(detail.slots);
       setDefaultCapacity(Math.max(1, detail.defaultCapacity || 6));
-      setDayClosed(detail.status === "closed" || detail.status === "training");
+      setDayClosed(detail.status === "training" || (detail.status === "closed" && !detail.canAddSlotsOnClosedDay));
+      setClosedDayException(detail.canAddSlotsOnClosedDay);
       setChanges(new Map());
       setCapacityChanges(new Map());
     } catch {
@@ -185,6 +188,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
 
             {loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
               <>
+                {closedDayException && <p className="mt-3 text-sm text-amber-800">此日原為公休，可直接加開當日時段；只開放你新增的時間，其餘仍維持公休。</p>}
                 {dayClosed && <p className="mt-3 text-sm text-amber-800">此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段。</p>}
                 <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-primary-50 p-3">
                   <label className="text-xs font-medium text-earth-700">新增當日時段

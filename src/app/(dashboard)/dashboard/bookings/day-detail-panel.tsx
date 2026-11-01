@@ -682,7 +682,7 @@ function buildEmptyStateProps(input: {
     if (daySchedule.status === "closed") {
       return {
         title: "公休 — 不可預約",
-        hint: "若需臨時開放，請至「預約開放設定」調整",
+        hint: "若需臨時加開，可使用上方「管理時段」新增當日時段",
         cta: undefined,
       };
     }

@@ -489,7 +489,7 @@ export async function addSpecialDay(input: {
       },
     } satisfies Prisma.SpecialBusinessDayUpsertArgs;
 
-    if (input.resetSlotOverrides) {
+    if (input.resetSlotOverrides || input.type === "closed") {
       await prisma.$transaction(async (tx) => {
         await tx.specialBusinessDay.upsert(upsertArgs);
         await tx.slotOverride.deleteMany({ where: { storeId, date: dateObj } });
@@ -625,7 +625,7 @@ export async function copySettingsToFutureWeeks(input: {
 
     await prisma.$transaction([
       ...upserts,
-      ...(input.resetSlotOverrides ? [
+      ...((input.resetSlotOverrides || input.type === "closed") ? [
         prisma.slotOverride.deleteMany({
           where: { storeId, date: { in: dates } },
         }),
@@ -996,7 +996,8 @@ export async function applyDaySlotOverrides(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
-    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
+    const industry = await getStoreIndustryModule(storeId);
+    if (industry === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
       throw new AppError("VALIDATION", "日期格式不正確");
     }
@@ -1005,14 +1006,15 @@ export async function applyDaySlotOverrides(input: {
     }
     const times = new Set<string>();
     for (const change of input.changes) {
-      if (!/^\d{2}:\d{2}$/.test(change.startTime) || times.has(change.startTime)) {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(change.startTime) || times.has(change.startTime)) {
         throw new AppError("VALIDATION", "時段資料不正確或重複");
       }
       times.add(change.startTime);
     }
 
     const context = await loadDayBusinessHoursContext(storeId, input.date);
-    if (context.rule.closed && input.changes.some((change) => change.action !== "disable")) {
+    const baseRule = context.baseRule ?? context.rule;
+    if (baseRule.closed && !(industry === "steamfoot" && baseRule.status === "closed" && baseRule.source !== "none") && input.changes.some((change) => change.action !== "disable")) {
       throw new AppError("VALIDATION", "此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段");
     }
 

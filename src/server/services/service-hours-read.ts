@@ -8,6 +8,6 @@ import {readServiceHoursState,serviceHoursReceipt} from "./service-hours-state";
 export async function loadServiceHoursForSettings(storeId:string,date:string){
  const industry=await getStoreIndustryModule(storeId);if(industry==="course")throw new AppError("FORBIDDEN","請使用課程營業設定");
  if(!["steamfoot","beauty"].includes(industry))throw new AppError("FORBIDDEN","此模組已移除，無法讀取時間設定");
- const read=async(tx:Parameters<typeof readServiceHoursState>[0])=>serviceHoursReceipt(await readServiceHoursState(tx,storeId),date);
+ const read=async(tx:Parameters<typeof readServiceHoursState>[0])=>serviceHoursReceipt(await readServiceHoursState(tx,storeId),date,industry==="steamfoot");
  return prisma.$transaction(read,{isolationLevel:"RepeatableRead"});
 }
