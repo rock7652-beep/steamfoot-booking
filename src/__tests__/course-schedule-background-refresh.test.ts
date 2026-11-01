@@ -142,11 +142,11 @@ it('preserves the latest browser view and other query fields during an immediate
 });
 
 
-it('opens with all prepared data and never starts a detail read on the click',async()=>{
+it.each([false,true])('opens with prepared data and keeps its refresh completion observable: native=%s',async native=>{
  const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
  const data=preparedRoster(),rosterSnapshots={storeId:'store-a',details:{session:data}};
  try{
-  await act(async()=>root.render(createElement(CourseWorkspace,{...props,rosterSnapshots,canCreate:false,canEdit:false,businessProfile:'MUSIC',rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]})));
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,rosterSnapshots,canCreate:false,canEdit:false,sportsNative:native,businessProfile:native?'FITNESS':'MUSIC',rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]})));
   expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
   expect(m.detail).not.toHaveBeenCalled();expect(m.roster.mock.lastCall?.[0].initialSnapshot).toEqual({sessionId:'session',data});
@@ -154,7 +154,11 @@ it('opens with all prepared data and never starts a detail read on the click',as
   await act(async()=>m.roster.mock.lastCall?.[0].onSnapshotInvalidated());expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
   // Snapshot invalidation must not drop the parent owner while its read is pending.
   expect(m.roster.mock.lastCall?.[0].onCommitted).toBe(owner);
-  await act(async()=>m.roster.mock.lastCall?.[0].onCommitted());expect(m.router.refresh).toHaveBeenCalledTimes(1);
+  if(native){
+   let finish!:(value:{success:false;error:string})=>void;const read=new Promise(resolve=>{finish=resolve;});m.nativeRead.mockReturnValue(read);
+   let completion!:Promise<boolean|null>;await act(async()=>{completion=owner();});expect(completion).toBeInstanceOf(Promise);expect(m.nativeRead).toHaveBeenCalledOnce();
+   let outcome:unknown;await act(async()=>{finish({success:false,error:'controlled sync failure'});outcome=await completion;});expect(outcome).toBe(false);expect(host.textContent).toContain('controlled sync failure');
+  }else{await act(async()=>m.roster.mock.lastCall?.[0].onCommitted());expect(m.router.refresh).toHaveBeenCalledTimes(1);}
  }finally{window.history.replaceState(null,'',original);}
 });
 

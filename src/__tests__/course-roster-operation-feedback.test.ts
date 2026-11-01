@@ -283,6 +283,21 @@ it.each([true,false])('invalidates prepared rosters after a confirmed native not
  if(success)expect(host.querySelector('button[title="更新的教師備註"]')).not.toBeNull();else{expect(input.value).toBe('更新的教師備註');expect(document.body.textContent).toContain('版本衝突，保留輸入');}
 });
 
+it.each(['success','failed','superseded','rejected'] as const)('keeps native note controls busy until the parent calendar settles: %s',async outcome=>{
+ const sync=deferred<boolean|null>(),committed=vi.fn(()=>sync.promise),busy=vi.fn();
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:native-note:sync'},createElement(CourseRoster,{sessionId:'session-a',sportsNative:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onCommitted:committed,onBusyChange:busy}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'同步中的已存備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(committed).toHaveBeenCalledOnce();expect(host.querySelector('button[title="同步中的已存備註"]')).not.toBeNull();
+ expect(busy.mock.lastCall?.[0]).toBe(true);
+ expect(host.querySelector<HTMLSelectElement>('select[aria-label$="出勤狀態"]')!.disabled).toBe(true);
+ await act(async()=>{if(outcome==='rejected')sync.reject(Error('read failed'));else sync.resolve(outcome==='success'?true:outcome==='failed'?false:null);});
+ expect(busy.mock.lastCall?.[0]).toBe(false);
+ expect(host.querySelector('button[title="同步中的已存備註"]')).not.toBeNull();
+ if(outcome!=='success')expect(host.textContent).toContain('備註已儲存，課表同步未完成，請重新讀取');
+});
+
 it('retains the roster on read failure, offers a deduplicated retry and clears only the read error on success',async()=>{
  await render(true);const original=row();m.load.mockRejectedValueOnce(Error('offline'));
  await act(async()=>window.dispatchEvent(new Event('focus')));
